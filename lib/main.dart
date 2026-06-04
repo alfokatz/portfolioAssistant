@@ -11,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
 import 'package:portfolio_assistant/infraestructure/data_sources/closed_position_local_data_source_impl.dart';
 import 'package:portfolio_assistant/infraestructure/data_sources/position_local_data_source_impl.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
@@ -26,6 +27,7 @@ const _dotenvBaseFolder = 'assets/env/';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _setupEnviroment();
+  await SupabaseInitializer.initialize();
   await EasyLocalization.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(PositionModelAdapter());

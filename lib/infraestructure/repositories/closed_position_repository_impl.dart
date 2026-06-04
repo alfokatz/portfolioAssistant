@@ -5,10 +5,11 @@ import 'package:portfolio_assistant/domain/data_sources/closed_position_local_da
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/repositories/closed_position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
-import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/infraestructure/data_sources/closed_position_local_data_source_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/position_repository_impl.dart';
 import 'package:uuid/uuid.dart';
+
+const _quantityEpsilon = 1e-6;
 
 class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
   final ClosedPositionLocalDataSource localDataSource;
@@ -35,39 +36,70 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
 
   @override
   Future<Either<HttpError, ClosedPosition>> closePosition({
-    required String ticker,
+    required String positionId,
     required double quantity,
-    required double avgPurchasePrice,
     required double closePrice,
     required DateTime closeDate,
   }) async {
     try {
-      final normalized = PortfolioCalculator.normalizeTicker(ticker);
-      if (normalized.isEmpty) {
-        return Left(
-          HttpError(code: 'invalid_ticker', message: 'Ticker inválido'),
-        );
-      }
-      if (quantity <= 0 || avgPurchasePrice <= 0 || closePrice <= 0) {
+      if (quantity <= 0 || closePrice <= 0) {
         return Left(
           HttpError(
             code: 'invalid_close',
-            message: 'Cantidad y precios deben ser mayores a cero',
+            message: 'Cantidad y precio de cierre deben ser mayores a cero',
           ),
         );
       }
 
-      final deleteResult = await positionRepository.deletePositionsByTicker(
-        normalized,
+      final positionResult =
+          await positionRepository.getPositionById(positionId);
+      final position = positionResult.fold(
+        (error) => null,
+        (value) => value,
       );
-      final deleteError = deleteResult.fold((error) => error, (_) => null);
-      if (deleteError != null) return Left(deleteError);
+      if (positionResult.isLeft() || position == null) {
+        return positionResult.fold(
+          Left.new,
+          (_) => Left(
+            HttpError(
+              code: 'position_not_found',
+              message: 'Posición no encontrada',
+            ),
+          ),
+        );
+      }
+
+      if (quantity > position.quantity + _quantityEpsilon) {
+        return Left(
+          HttpError(
+            code: 'invalid_close_quantity',
+            message: 'No podés vender más acciones de las que tenés',
+          ),
+        );
+      }
+
+      final closesEntireLot =
+          (position.quantity - quantity).abs() <= _quantityEpsilon;
+
+      if (closesEntireLot) {
+        final deleteResult = await positionRepository.deletePosition(positionId);
+        final deleteError = deleteResult.fold((error) => error, (_) => null);
+        if (deleteError != null) return Left(deleteError);
+      } else {
+        final remaining = position.quantity - quantity;
+        final updateResult = await positionRepository.updatePositionQuantity(
+          id: positionId,
+          quantity: remaining,
+        );
+        final updateError = updateResult.fold((error) => error, (_) => null);
+        if (updateError != null) return Left(updateError);
+      }
 
       final closed = ClosedPosition(
         id: _uuid.v4(),
-        ticker: normalized,
+        ticker: position.ticker,
         quantity: quantity,
-        avgPurchasePrice: avgPurchasePrice,
+        avgPurchasePrice: position.purchasePrice,
         closePrice: closePrice,
         closeDate: closeDate,
         closedAt: DateTime.now(),

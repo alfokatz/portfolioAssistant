@@ -15,4 +15,11 @@ abstract class PositionRepository {
   Future<Either<HttpError, void>> deletePosition(String id);
 
   Future<Either<HttpError, void>> deletePositionsByTicker(String ticker);
+
+  Future<Either<HttpError, Position>> getPositionById(String id);
+
+  Future<Either<HttpError, Position>> updatePositionQuantity({
+    required String id,
+    required double quantity,
+  });
 }

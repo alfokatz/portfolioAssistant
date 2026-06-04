@@ -6,9 +6,8 @@ abstract class ClosedPositionRepository {
   Future<Either<HttpError, List<ClosedPosition>>> getClosedPositions();
 
   Future<Either<HttpError, ClosedPosition>> closePosition({
-    required String ticker,
+    required String positionId,
     required double quantity,
-    required double avgPurchasePrice,
     required double closePrice,
     required DateTime closeDate,
   });

@@ -28,11 +28,13 @@ class GotoAddPosition extends NavigationEvent {
 }
 
 class GotoClosePosition extends NavigationEvent {
+  final String positionId;
   final String ticker;
   final double quantity;
   final double avgPurchasePrice;
 
   GotoClosePosition({
+    required this.positionId,
     required this.ticker,
     required this.quantity,
     required this.avgPurchasePrice,
@@ -43,6 +45,7 @@ class GotoClosePosition extends NavigationEvent {
     context.pushNamed(
       PositionRouter.closeRouteName,
       extra: {
+        'positionId': positionId,
         'ticker': ticker,
         'quantity': quantity,
         'avgPurchasePrice': avgPurchasePrice,

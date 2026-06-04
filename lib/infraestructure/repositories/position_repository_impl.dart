@@ -90,6 +90,53 @@ class PositionRepositoryImpl implements PositionRepository {
   }
 
   @override
+  Future<Either<HttpError, Position>> getPositionById(String id) async {
+    try {
+      final position = await localDataSource.getById(id);
+      if (position == null) {
+        return Left(
+          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+        );
+      }
+      return Right(position);
+    } catch (e) {
+      return Left(
+        HttpError(code: 'position_error', message: e.toString()),
+      );
+    }
+  }
+
+  @override
+  Future<Either<HttpError, Position>> updatePositionQuantity({
+    required String id,
+    required double quantity,
+  }) async {
+    try {
+      if (quantity <= 0) {
+        return Left(
+          HttpError(
+            code: 'invalid_position',
+            message: 'La cantidad debe ser mayor a cero',
+          ),
+        );
+      }
+      final existing = await localDataSource.getById(id);
+      if (existing == null) {
+        return Left(
+          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+        );
+      }
+      final updated = existing.copyWith(quantity: quantity);
+      await localDataSource.save(updated);
+      return Right(updated);
+    } catch (e) {
+      return Left(
+        HttpError(code: 'position_error', message: e.toString()),
+      );
+    }
+  }
+
+  @override
   Future<Either<HttpError, List<Position>>> getPositions() async {
     try {
       final positions = await localDataSource.getAll();

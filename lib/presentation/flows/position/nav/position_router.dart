@@ -38,6 +38,7 @@ class PositionRouter {
           return MaterialPage<void>(
             key: state.pageKey,
             child: ClosePositionScreen(
+              positionId: extra?['positionId'] as String? ?? '',
               ticker: extra?['ticker'] as String? ?? '',
               quantity: (extra?['quantity'] as num?)?.toDouble() ?? 0,
               avgPurchasePrice:

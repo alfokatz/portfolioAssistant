@@ -10,13 +10,19 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
+enum _CloseScope { all, partial }
+
+enum _SellInputMode { shares, usd }
+
 class ClosePositionScreen extends StatefulHookConsumerWidget {
+  final String positionId;
   final String ticker;
   final double quantity;
   final double avgPurchasePrice;
 
   const ClosePositionScreen({
     super.key,
+    required this.positionId,
     required this.ticker,
     required this.quantity,
     required this.avgPurchasePrice,
@@ -30,12 +36,19 @@ class ClosePositionScreen extends StatefulHookConsumerWidget {
 class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _priceController;
+  late final TextEditingController _sellAmountController;
   DateTime _closeDate = DateTime.now();
   bool _saving = false;
   bool _loadingPrice = false;
+  _CloseScope _scope = _CloseScope.all;
+  _SellInputMode _sellMode = _SellInputMode.shares;
+
   @override
   void initState() {
     _priceController = TextEditingController();
+    _sellAmountController = TextEditingController(
+      text: widget.quantity.toString(),
+    );
     super.initState();
     runAfterPostFrameCallback(_fetchPriceForDate);
   }
@@ -43,7 +56,24 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
   @override
   void dispose() {
     _priceController.dispose();
+    _sellAmountController.dispose();
     super.dispose();
+  }
+
+  double get _maxShares => widget.quantity;
+
+  double? _closePrice() => double.tryParse(_priceController.text);
+
+  double? _sharesToSell() {
+    if (_scope == _CloseScope.all) return _maxShares;
+
+    final closePrice = _closePrice();
+    if (closePrice == null || closePrice <= 0) return null;
+
+    final raw = double.tryParse(_sellAmountController.text);
+    if (raw == null || raw <= 0) return null;
+
+    return _sellMode == _SellInputMode.shares ? raw : (raw / closePrice);
   }
 
   Future<void> _pickDate() async {
@@ -82,17 +112,48 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     );
   }
 
-  double? _closePrice() => double.tryParse(_priceController.text);
+  void _onScopeChanged(_CloseScope? value) {
+    if (value == null) return;
+    setState(() {
+      _scope = value;
+      if (value == _CloseScope.all) {
+        _sellAmountController.text = _maxShares.toString();
+      }
+    });
+  }
+
+  Widget? _sharesEquivalentHint(BuildContext context) {
+    if (_scope != _CloseScope.partial || _sellMode != _SellInputMode.usd) {
+      return null;
+    }
+
+    final shares = _sharesToSell();
+    if (shares == null) return null;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 4),
+      child: Text(
+        'position_shares_equivalent'.tr(
+          namedArgs: {'shares': shares.toStringAsFixed(4)},
+        ),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: PortfolioColors.accentBlue,
+              fontWeight: FontWeight.w500,
+            ),
+      ),
+    );
+  }
 
   Widget _preview(BuildContext context) {
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final closePrice = _closePrice();
-    if (closePrice == null || closePrice <= 0) {
+    final shares = _sharesToSell();
+    if (closePrice == null || closePrice <= 0 || shares == null) {
       return const SizedBox.shrink();
     }
 
-    final costBasis = widget.quantity * widget.avgPurchasePrice;
-    final proceeds = widget.quantity * closePrice;
+    final costBasis = shares * widget.avgPurchasePrice;
+    final proceeds = shares * closePrice;
     final pnlAbs = proceeds - costBasis;
     final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
     final sign = pnlAbs >= 0 ? '+' : '';
@@ -117,6 +178,10 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
           ),
           const SizedBox(height: 10),
           _PreviewRow(
+            label: 'close_position_preview_shares'.tr(),
+            value: shares.toStringAsFixed(4),
+          ),
+          _PreviewRow(
             label: 'close_position_preview_cost'.tr(),
             value: currency.format(costBasis),
           ),
@@ -137,16 +202,42 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     );
   }
 
+  String? _validateSellAmount(String? value) {
+    if (_scope == _CloseScope.all) return null;
+
+    final closePrice = _closePrice();
+    if (closePrice == null || closePrice <= 0) return 'invalid_number'.tr();
+
+    final raw = double.tryParse(value ?? '');
+    if (raw == null || raw <= 0) return 'invalid_number'.tr();
+
+    final shares =
+        _sellMode == _SellInputMode.shares ? raw : (raw / closePrice);
+    if (shares > _maxShares + 1e-6) {
+      return 'close_position_quantity_exceeds'.tr();
+    }
+    return null;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final shares = _sharesToSell();
+    final closePrice = _closePrice();
+    if (shares == null ||
+        closePrice == null ||
+        shares <= 0 ||
+        closePrice <= 0) {
+      return;
+    }
+
     setState(() => _saving = true);
 
     final result = await ref.read(closePositionUseCaseProvider).call(
           params: ClosePositionParams(
-            ticker: widget.ticker,
-            quantity: widget.quantity,
-            avgPurchasePrice: widget.avgPurchasePrice,
-            closePrice: double.parse(_priceController.text),
+            positionId: widget.positionId,
+            quantity: shares,
+            closePrice: closePrice,
             closeDate: _closeDate,
           ),
         );
@@ -225,6 +316,77 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
               ),
             ),
             const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: PortfolioColors.surfaceCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PortfolioColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'close_position_scope'.tr(),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: PortfolioColors.textPrimary,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DualChoiceRow<_CloseScope>(
+                    value: _scope,
+                    leftValue: _CloseScope.all,
+                    rightValue: _CloseScope.partial,
+                    leftLabel: 'close_position_scope_all'.tr(),
+                    rightLabel: 'close_position_scope_partial'.tr(),
+                    onChanged: _onScopeChanged,
+                  ),
+                  if (_scope == _CloseScope.partial) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'close_position_sell_amount'.tr(),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: PortfolioColors.textPrimary,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    _DualChoiceRow<_SellInputMode>(
+                      value: _sellMode,
+                      leftValue: _SellInputMode.shares,
+                      rightValue: _SellInputMode.usd,
+                      leftLabel: 'position_amount_type_shares'.tr(),
+                      rightLabel: 'position_amount_type_usd'.tr(),
+                      onChanged: (mode) => setState(() => _sellMode = mode),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _sellAmountController,
+                      decoration: InputDecoration(
+                        labelText: _sellMode == _SellInputMode.shares
+                            ? 'position_quantity'.tr()
+                            : 'position_invested_amount'.tr(),
+                        hintText: _sellMode == _SellInputMode.shares
+                            ? _maxShares.toStringAsFixed(4)
+                            : null,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style:
+                          const TextStyle(color: PortfolioColors.textPrimary),
+                      validator: _validateSellAmount,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (_sharesEquivalentHint(context) != null)
+                      _sharesEquivalentHint(context)!,
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
@@ -285,6 +447,95 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                   : Text('close_position_confirm'.tr()),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DualChoiceRow<T> extends StatelessWidget {
+  const _DualChoiceRow({
+    required this.value,
+    required this.leftValue,
+    required this.rightValue,
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.onChanged,
+  });
+
+  final T value;
+  final T leftValue;
+  final T rightValue;
+  final String leftLabel;
+  final String rightLabel;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ChoiceTile(
+            label: leftLabel,
+            selected: value == leftValue,
+            onTap: () => onChanged(leftValue),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _ChoiceTile(
+            label: rightLabel,
+            selected: value == rightValue,
+            onTap: () => onChanged(rightValue),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: selected
+                ? PortfolioColors.accentBlue.withValues(alpha: 0.22)
+                : PortfolioColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? PortfolioColors.accentBlue
+                  : PortfolioColors.border,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected
+                      ? PortfolioColors.textPrimary
+                      : PortfolioColors.textSecondary,
+                ),
+          ),
         ),
       ),
     );

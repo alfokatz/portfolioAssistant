@@ -11,6 +11,16 @@ class EnvironmentManagerImpl extends EnvironmentManager {
   String getApiUrl() {
     return dotenv.env['API_URL'] as String;
   }
+
+  @override
+  String getSupabaseUrl() {
+    return dotenv.env['SUPABASE_URL'] as String;
+  }
+
+  @override
+  String getSupabaseAnonKey() {
+    return dotenv.env['SUPABASE_ANON_KEY'] as String;
+  }
 }
 
 final environmentManager = Provider<EnvironmentManager>(

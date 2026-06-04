@@ -7,16 +7,14 @@ import 'package:portfolio_assistant/domain/repositories/closed_position_reposito
 import 'package:portfolio_assistant/infraestructure/repositories/closed_position_repository_impl.dart';
 
 class ClosePositionParams {
-  final String ticker;
+  final String positionId;
   final double quantity;
-  final double avgPurchasePrice;
   final double closePrice;
   final DateTime closeDate;
 
   ClosePositionParams({
-    required this.ticker,
+    required this.positionId,
     required this.quantity,
-    required this.avgPurchasePrice,
     required this.closePrice,
     required this.closeDate,
   });
@@ -32,9 +30,8 @@ class ClosePositionUseCase extends BaseUseCase<ClosedPosition, ClosePositionPara
     required ClosePositionParams params,
   }) {
     return repository.closePosition(
-      ticker: params.ticker,
+      positionId: params.positionId,
       quantity: params.quantity,
-      avgPurchasePrice: params.avgPurchasePrice,
       closePrice: params.closePrice,
       closeDate: params.closeDate,
     );

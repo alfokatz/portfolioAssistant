@@ -109,7 +109,17 @@ class _ClosedPositionsScreenState
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
+                            Text(
+                              'closed_positions_realized_pnl'.tr(),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: PortfolioColors.textSecondary,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
                             Text(
                               '${position.pnlPercent >= 0 ? '+' : ''}'
                               '${position.pnlPercent.toStringAsFixed(2)}%',
