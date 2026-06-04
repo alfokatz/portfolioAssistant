@@ -1,0 +1,41 @@
+/// Detecta si el mensaje del usuario es una consulta sobre noticias.
+bool isNewsQuery(String text) {
+  final lower = text.toLowerCase();
+  const keywords = [
+    'noticia',
+    'noticias',
+    'news',
+    'novedad',
+    'novedades',
+    'qué pasó',
+    'que pasó',
+    'que paso',
+    'qué paso',
+    'what happened',
+    "what's happening",
+    'whats happening',
+    'recent events',
+    'eventos recientes',
+    'mercado hoy',
+    'market today',
+    'esta semana',
+    'this week',
+    'debería saber',
+    'deberia saber',
+    'should i know',
+    'before investing',
+    'antes de invertir',
+    'headlines',
+    'titulares',
+    'últimas',
+    'ultimas',
+    'latest',
+    'breaking',
+    'actualidad',
+    'qué está pasando',
+    'que esta pasando',
+    'what is happening',
+  ];
+
+  return keywords.any(lower.contains);
+}

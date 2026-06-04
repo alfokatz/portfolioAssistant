@@ -1,0 +1,16 @@
+flutter/ephemeral
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Linux-related
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows-related
+Thumbs.db
+ehthumbs.db

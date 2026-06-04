@@ -1,0 +1,11 @@
+[
+  {
+    "id": "root",
+    "component": "PortfolioSummaryCard",
+    "totalValue": 24350.80,
+    "totalGainLoss": 1240.30,
+    "totalGainLossPercent": 5.37,
+    "trend": "up",
+    "periodLabel": "esta semana"
+  }
+]

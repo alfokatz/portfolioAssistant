@@ -1,0 +1,15 @@
+[
+  {
+    "id": "root",
+    "component": "InvestmentOpportunityCard",
+    "ticker": "QQQ",
+    "companyName": "Invesco QQQ Trust",
+    "currentPrice": 420.50,
+    "sector": "Technology",
+    "riskLevel": "moderate",
+    "fitScore": 82,
+    "pros": ["Diversificación tech", "Liquidez alta"],
+    "cons": ["Concentración en mega caps"],
+    "suggestedAmount": 1200
+  }
+]

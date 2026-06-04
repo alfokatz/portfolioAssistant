@@ -1,0 +1,45 @@
+[
+  {
+    "id": "goal",
+    "component": "GoalCard",
+    "goalLabel": "Jubilación",
+    "targetAmount": 500000,
+    "targetDate": "2046-01-01",
+    "currentProgress": 12,
+    "currentSaved": 60000,
+    "monthsRemaining": 240
+  },
+  {
+    "id": "chart",
+    "component": "ProjectionChart",
+    "currentValue": 60000,
+    "targetValue": 500000,
+    "targetDate": "2046-01-01",
+    "highlightScenario": "Moderado",
+    "scenarios": [
+      {
+        "label": "Conservador",
+        "color": "#8B95A8",
+        "projectedValue": 400000,
+        "monthlyRequired": 800
+      },
+      {
+        "label": "Moderado",
+        "color": "#2979FF",
+        "projectedValue": 500000,
+        "monthlyRequired": 620
+      },
+      {
+        "label": "Optimista",
+        "color": "#00C853",
+        "projectedValue": 580000,
+        "monthlyRequired": 480
+      }
+    ]
+  },
+  {
+    "id": "root",
+    "component": "Column",
+    "children": ["goal", "chart"]
+  }
+]
