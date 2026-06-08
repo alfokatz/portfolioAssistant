@@ -1,23 +1,24 @@
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
-import 'package:portfolio_assistant/domain/data_sources/closed_position_local_data_source.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_error_mapper.dart';
+import 'package:portfolio_assistant/domain/data_sources/closed_position_remote_data_source.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/repositories/closed_position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
-import 'package:portfolio_assistant/infraestructure/data_sources/closed_position_local_data_source_impl.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/supabase/closed_position_supabase_data_source.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/position_repository_impl.dart';
 import 'package:uuid/uuid.dart';
 
 const _quantityEpsilon = 1e-6;
 
 class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
-  final ClosedPositionLocalDataSource localDataSource;
+  final ClosedPositionRemoteDataSource remoteDataSource;
   final PositionRepository positionRepository;
   final Uuid _uuid;
 
   ClosedPositionRepositoryImpl({
-    required this.localDataSource,
+    required this.remoteDataSource,
     required this.positionRepository,
     Uuid? uuid,
   }) : _uuid = uuid ?? const Uuid();
@@ -25,12 +26,10 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
   @override
   Future<Either<HttpError, List<ClosedPosition>>> getClosedPositions() async {
     try {
-      final positions = await localDataSource.getAll();
+      final positions = await remoteDataSource.getAll();
       return Right(positions);
     } catch (e) {
-      return Left(
-        HttpError(code: 'closed_position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
@@ -104,19 +103,20 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
         closeDate: closeDate,
         closedAt: DateTime.now(),
       );
-      await localDataSource.save(closed);
+      await remoteDataSource.save(
+        closed,
+        sourcePositionId: positionId,
+      );
       return Right(closed);
     } catch (e) {
-      return Left(
-        HttpError(code: 'closed_position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 }
 
 final closedPositionRepositoryProvider = Provider<ClosedPositionRepository>(
   (ref) => ClosedPositionRepositoryImpl(
-    localDataSource: ref.watch(closedPositionLocalDataSourceProvider),
+    remoteDataSource: ref.watch(closedPositionRemoteDataSourceProvider),
     positionRepository: ref.watch(positionRepositoryProvider),
   ),
 );

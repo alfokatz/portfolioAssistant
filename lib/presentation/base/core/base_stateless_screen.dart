@@ -11,7 +11,7 @@ abstract class BaseStatelessScreen extends HookConsumerWidget with BaseScreen {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    subscribeAlert(ref: ref);
+    subscribeAlert(ref: ref, context: context);
     subscribeNavigation(
       ref: ref,
       context: context,

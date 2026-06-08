@@ -1,19 +1,20 @@
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
-import 'package:portfolio_assistant/domain/data_sources/position_local_data_source.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_error_mapper.dart';
+import 'package:portfolio_assistant/domain/data_sources/position_remote_data_source.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
-import 'package:portfolio_assistant/infraestructure/data_sources/position_local_data_source_impl.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/supabase/position_supabase_data_source.dart';
 import 'package:uuid/uuid.dart';
 
 class PositionRepositoryImpl implements PositionRepository {
-  final PositionLocalDataSource localDataSource;
+  final PositionRemoteDataSource remoteDataSource;
   final Uuid _uuid;
 
   PositionRepositoryImpl({
-    required this.localDataSource,
+    required this.remoteDataSource,
     Uuid? uuid,
   }) : _uuid = uuid ?? const Uuid();
 
@@ -50,24 +51,20 @@ class PositionRepositoryImpl implements PositionRepository {
         purchasePrice: purchasePrice,
         purchaseDate: purchaseDate,
       );
-      await localDataSource.save(position);
+      await remoteDataSource.save(position);
       return Right(position);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
   @override
   Future<Either<HttpError, void>> deletePosition(String id) async {
     try {
-      await localDataSource.delete(id);
+      await remoteDataSource.delete(id);
       return const Right(null);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
@@ -75,24 +72,17 @@ class PositionRepositoryImpl implements PositionRepository {
   Future<Either<HttpError, void>> deletePositionsByTicker(String ticker) async {
     try {
       final normalized = PortfolioCalculator.normalizeTicker(ticker);
-      final positions = await localDataSource.getAll();
-      for (final position in positions) {
-        if (PortfolioCalculator.normalizeTicker(position.ticker) == normalized) {
-          await localDataSource.delete(position.id);
-        }
-      }
+      await remoteDataSource.deleteByTicker(normalized);
       return const Right(null);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
   @override
   Future<Either<HttpError, Position>> getPositionById(String id) async {
     try {
-      final position = await localDataSource.getById(id);
+      final position = await remoteDataSource.getById(id);
       if (position == null) {
         return Left(
           HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
@@ -100,9 +90,7 @@ class PositionRepositoryImpl implements PositionRepository {
       }
       return Right(position);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
@@ -120,37 +108,33 @@ class PositionRepositoryImpl implements PositionRepository {
           ),
         );
       }
-      final existing = await localDataSource.getById(id);
+      final existing = await remoteDataSource.getById(id);
       if (existing == null) {
         return Left(
           HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
         );
       }
       final updated = existing.copyWith(quantity: quantity);
-      await localDataSource.save(updated);
+      await remoteDataSource.save(updated);
       return Right(updated);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 
   @override
   Future<Either<HttpError, List<Position>>> getPositions() async {
     try {
-      final positions = await localDataSource.getAll();
+      final positions = await remoteDataSource.getAll();
       return Right(positions);
     } catch (e) {
-      return Left(
-        HttpError(code: 'position_error', message: e.toString()),
-      );
+      return Left(SupabaseErrorMapper.fromObject(e));
     }
   }
 }
 
 final positionRepositoryProvider = Provider<PositionRepository>(
   (ref) => PositionRepositoryImpl(
-    localDataSource: ref.watch(positionLocalDataSourceProvider),
+    remoteDataSource: ref.watch(positionRemoteDataSourceProvider),
   ),
 );

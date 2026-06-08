@@ -9,6 +9,7 @@ class AppImages {
   static const String _successIconPath = 'assets/images/success_icon.svg';
   static const String _warningIconPath = 'assets/images/warning.svg';
   static const String _errorIconPath = 'assets/images/error.svg';
+  static const String _googleIconPath = 'assets/images/google_icon.svg';
 
   static Image notPhoto({
     Key? key,
@@ -69,6 +70,19 @@ class AppImages {
     width: width,
     height: height,
     color: color,
+    fit: fit,
+  );
+
+  static SvgPicture googleIcon({
+    Key? key,
+    double? width,
+    double? height,
+    BoxFit fit = BoxFit.contain,
+  }) => SvgPicture.asset(
+    _googleIconPath,
+    key: key,
+    width: width,
+    height: height,
     fit: fit,
   );
 }

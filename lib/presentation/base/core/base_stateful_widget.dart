@@ -8,7 +8,7 @@ abstract class BaseStatefulWidget<T extends ConsumerStatefulWidget>
 
   @override
   Widget build(BuildContext context) {
-    subscribeAlert(ref: ref);
+    subscribeAlert(ref: ref, context: context);
     subscribeNavigation(
       ref: ref,
       context: context,

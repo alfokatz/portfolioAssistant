@@ -8,15 +8,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
         FlutterSecureStorage,
         IOSOptions,
         KeychainAccessibility;
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
-import 'package:portfolio_assistant/infraestructure/data_sources/closed_position_local_data_source_impl.dart';
-import 'package:portfolio_assistant/infraestructure/data_sources/position_local_data_source_impl.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
-import 'package:portfolio_assistant/infraestructure/models/closed_position_model.dart';
-import 'package:portfolio_assistant/infraestructure/models/position_model.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataProvider;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,12 +24,6 @@ void main() async {
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
   await EasyLocalization.ensureInitialized();
-  await Hive.initFlutter();
-  Hive.registerAdapter(PositionModelAdapter());
-  Hive.registerAdapter(ClosedPositionModelAdapter());
-  final positionsBox = await Hive.openBox<PositionModel>('positions');
-  final closedPositionsBox =
-      await Hive.openBox<ClosedPositionModel>('closed_positions');
   final sharedPreferences = await SharedPreferences.getInstance();
 
   runApp(
@@ -45,8 +34,6 @@ void main() async {
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
         iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
       ),
-      positionsBox: positionsBox,
-      closedPositionsBox: closedPositionsBox,
     ),
   );
 }
@@ -64,15 +51,11 @@ Widget _setupRiverpod({
   required Widget easyLocalization,
   required SharedPreferences sharedPreferences,
   required FlutterSecureStorage secureStorage,
-  required Box<PositionModel> positionsBox,
-  required Box<ClosedPositionModel> closedPositionsBox,
 }) {
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       secureStorageProvider.overrideWithValue(secureStorage),
-      positionsBoxProvider.overrideWithValue(positionsBox),
-      closedPositionsBoxProvider.overrideWithValue(closedPositionsBox),
     ],
     child: easyLocalization,
   );
@@ -94,7 +77,7 @@ class MyApp extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeDataProvider);
     return MaterialApp.router(
-      routerConfig: ref.watch(appRouterProvider).getRouter(),
+      routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: !kReleaseMode,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
