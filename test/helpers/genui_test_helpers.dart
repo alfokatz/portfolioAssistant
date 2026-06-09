@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/a2ui_controller_dispatch.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/shared/widgets/genui_error_card.dart';
@@ -32,6 +33,19 @@ const investmentCustomComponentNames = {
   'MarketContextCard',
   'InvestmentConfirmCard',
   'AlertBanner',
+};
+
+/// Nombres de componentes custom del asistente Portfolio Q&A.
+const portfolioQaCustomComponentNames = {
+  'QaAnswerText',
+  'QaMetricStrip',
+  'QaPeriodChange',
+  'QaConcentrationBar',
+  'QaPnLBreakdown',
+  'QaTopMovers',
+  'QaPositionList',
+  'QaTipBanner',
+  'QaComparisonRow',
 };
 
 /// Nombres de componentes custom del flujo de planificación.
@@ -83,12 +97,7 @@ CatalogItemContext catalogContextFor({
 
 /// Aplica líneas JSON A2UI (post-normalizer) al [controller].
 void dispatchNormalizedA2ui(SurfaceController controller, String normalized) {
-  for (final line in normalized.split('\n')) {
-    final trimmed = line.trim();
-    if (trimmed.isEmpty) continue;
-    final map = jsonDecode(trimmed) as JsonMap;
-    controller.handleMessage(A2uiMessage.fromJson(map));
-  }
+  A2uiControllerDispatch.dispatchNormalized(controller, normalized);
 }
 
 String loadGenuiFixture(String fileName) {

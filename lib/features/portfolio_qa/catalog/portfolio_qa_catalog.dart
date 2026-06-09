@@ -96,6 +96,41 @@ final CatalogItem qaMetricStripItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaPeriodChangeItem = CatalogItem(
+  name: 'QaPeriodChange',
+  dataSchema: S.object(
+    description:
+        'Cambio del portfolio en un período temporal (semana, mes, etc.).',
+    properties: {
+      'periodLabel': S.string(
+        description: 'Etiqueta del período, ej. "Últimos 7 días".',
+      ),
+      'changeAbs': S.number(description: 'Cambio absoluto en el período.'),
+      'changePct': S.number(description: 'Cambio porcentual en el período.'),
+      'valueStart': S.number(description: 'Valor del portfolio al inicio.'),
+      'valueEnd': S.number(description: 'Valor del portfolio al cierre.'),
+    },
+    required: ['periodLabel', 'changeAbs', 'changePct'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPeriodChange),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "period",
+    "component": "QaPeriodChange",
+    "periodLabel": "Últimos 7 días",
+    "changeAbs": 320.50,
+    "changePct": 1.33,
+    "valueStart": 24030.30,
+    "valueEnd": 24350.80
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaConcentrationBarItem = CatalogItem(
   name: 'QaConcentrationBar',
   dataSchema: S.object(
@@ -299,14 +334,35 @@ Root must be a Column with children in this order:
 2. At most ONE data widget (pick the best fit, or skip for pure concepts)
 3. QaTipBanner (optional, only when an educational note adds value)
 
+TEMPORAL QUESTIONS (CRITICAL)
+The snapshot has two different P&L concepts — never confuse them:
+- total_pnl_abs / total_pnl_pct = ALL-TIME since purchase (pnl_scope field)
+- period_returns.{day|week|month|quarter|year} = change WITHIN that time window
+
+When the user asks about a time period, use ONLY period_returns:
+- "hoy", "último día" → period_returns.day
+- "esta semana", "últimos 7 días", "semanal" → period_returns.week
+- "este mes", "último mes", "mensual" → period_returns.month
+- "trimestre", "últimos 3 meses" → period_returns.quarter
+- "este año", "anual" → period_returns.year
+
+For temporal questions, use QaPeriodChange with data from the matching
+period_returns entry (periodLabel = label_es, changeAbs = pnl_abs,
+changePct = pnl_pct, valueStart/End from the same entry).
+
+NEVER use total_pnl_abs or QaPnLBreakdown for "esta semana" or similar.
+If has_sufficient_history is false for the requested period, say so in
+QaAnswerText and omit the data widget.
+
 WIDGET SELECTION GUIDE
-- Performance / "how is my portfolio": QaMetricStrip or QaPnLBreakdown
+- Temporal performance ("esta semana", "cómo fue el mes"): QaPeriodChange
+- Current snapshot / no specific period: QaMetricStrip
+- All-time P&L meaning ("qué significa mi P&L total"): QaPnLBreakdown
 - Risk / concentration: QaConcentrationBar
-- P&L meaning: QaPnLBreakdown
-- Best/worst positions: QaTopMovers
+- Best/worst positions (all-time): QaTopMovers
 - List all positions / overview: QaPositionList
 - Compare two tickers: QaComparisonRow
-- Pure conceptual questions (what is diversification): QaAnswerText only, no data widget
+- Pure conceptual questions (what is diversification): QaAnswerText only
 
 SURFACE ID
 Use the exact SURFACE_ID from the user message in createSurface and updateComponents.
@@ -320,6 +376,7 @@ abstract final class PortfolioQaCatalog {
       newItems: [
         qaAnswerTextItem,
         qaMetricStripItem,
+        qaPeriodChangeItem,
         qaConcentrationBarItem,
         qaPnLBreakdownItem,
         qaTopMoversItem,

@@ -2,9 +2,11 @@ import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/a2ui_controller_dispatch.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
 export 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
@@ -166,10 +168,15 @@ class OpenAIGenUiService {
           : normalized;
     }
 
-    transport.addChunk(cleaned);
+    A2uiControllerDispatch.dispatchNormalized(controller, cleaned);
 
-    if (surfaceId != null) {
-      await _waitForSurface(surfaceId);
+    if (surfaceId != null &&
+        !GenUiSurfaceReadiness.hasRootComponent(
+          controller.registry.getSurface(surfaceId),
+        )) {
+      throw StateError(
+        'La IA no generó una interfaz válida. Intentá reformular la consulta.',
+      );
     }
 
     history.add(
@@ -179,17 +186,6 @@ class OpenAIGenUiService {
           OpenAIChatCompletionChoiceMessageContentItemModel.text(raw),
         ],
       ),
-    );
-  }
-
-  Future<void> _waitForSurface(String surfaceId) async {
-    for (var attempt = 0; attempt < 50; attempt++) {
-      if (isDisposed) return;
-      if (controller.registry.getSurface(surfaceId) != null) return;
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
-    throw StateError(
-      'La IA no generó una interfaz válida. Intentá reformular la consulta.',
     );
   }
 

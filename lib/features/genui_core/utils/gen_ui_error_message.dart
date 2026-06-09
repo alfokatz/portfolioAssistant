@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dart_openai/dart_openai.dart';
 import 'package:genui/genui.dart';
 
@@ -21,6 +23,15 @@ String genUiErrorMessage(Object error) {
 
   if (error is StateError && text.contains('búsqueda web')) {
     return text.replaceFirst('Bad state: ', '');
+  }
+
+  if (error is StateError && text.contains('interfaz válida')) {
+    return text.replaceFirst('Bad state: ', '');
+  }
+
+  if (error is TimeoutException) {
+    return error.message ??
+        'La IA no generó una interfaz a tiempo. Revisá tu conexión o intentá de nuevo.';
   }
 
   if (_looksLikeRateLimit(text)) {

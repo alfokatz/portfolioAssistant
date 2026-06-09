@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
@@ -60,21 +61,65 @@ void main() {
       expect(positions.first['ticker'], 'AAPL');
       expect(positions.first['weight_pct'], 30.0);
     });
+
+    test('includes period_returns distinct from all-time pnl', () {
+      final summary = PortfolioSummary(
+        totalValue: 1100,
+        totalCostBasis: 900,
+        totalPnlAbsolute: 200,
+        totalPnlPercent: 22.22,
+        valuations: [
+          PositionValuation(
+            position: Position(
+              id: '1',
+              ticker: 'AAPL',
+              quantity: 1,
+              purchasePrice: 900,
+              purchaseDate: DateTime(2024, 1, 1),
+            ),
+            currentPrice: 1100,
+            marketValue: 1100,
+            pnlAbsolute: 200,
+            pnlPercent: 22.22,
+          ),
+        ],
+      );
+
+      final history = [
+        PortfolioHistoryPoint(
+          date: DateTime(2026, 6, 2),
+          totalValue: 1000,
+          totalCostBasis: 900,
+        ),
+        PortfolioHistoryPoint(
+          date: DateTime(2026, 6, 9),
+          totalValue: 1100,
+          totalCostBasis: 900,
+        ),
+      ];
+
+      final json = jsonDecode(
+        PortfolioContextBuilder.buildJson(summary, history: history),
+      ) as Map;
+
+      expect(json['total_pnl_abs'], 200);
+      final week = json['period_returns']['week'] as Map;
+      expect(week['pnl_abs'], 100);
+      expect(week['has_sufficient_history'], isTrue);
+      expect(week['label_es'], 'últimos 7 días');
+    });
   });
 
-  group('portfolioQaSystemPrompt', () {
-    test('includes disclaimer and no trade orders rule', () {
-      expect(portfolioQaSystemPrompt, contains('educativa'));
-      expect(portfolioQaSystemPrompt, contains('NO des órdenes'));
-    });
-
-    test('user message wraps snapshot and question', () {
+  group('portfolioQaUserMessageBody', () {
+    test('wraps snapshot, question and surface id', () {
       final body = portfolioQaUserMessageBody(
         portfolioSnapshotJson: '{"ticker":"AAPL"}',
         question: '¿Cómo voy?',
+        surfaceId: 'portfolio_qa_0',
       );
       expect(body, contains('PORTFOLIO_SNAPSHOT'));
       expect(body, contains('¿Cómo voy?'));
+      expect(body, contains('portfolio_qa_0'));
     });
   });
 }

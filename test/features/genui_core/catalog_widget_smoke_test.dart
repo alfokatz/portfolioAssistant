@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/analysis/catalog/analysis_catalog.dart';
 import 'package:portfolio_assistant/features/investment/catalog/investment_catalog.dart';
 import 'package:portfolio_assistant/features/planning/catalog/planning_catalog.dart';
+import 'package:portfolio_assistant/features/portfolio_qa/catalog/portfolio_qa_catalog.dart';
 
 import '../../helpers/genui_test_helpers.dart';
 
@@ -42,6 +43,27 @@ void main() {
             item,
             exampleIndex: i,
             surfaceId: 'investment_decision',
+          );
+        }
+      }
+    });
+  });
+
+  group('Portfolio Q&A catalog widget smoke', () {
+    testWidgets('custom components render without GenUiErrorCard', (
+      WidgetTester tester,
+    ) async {
+      final catalog = PortfolioQaCatalog.build();
+      final items = customCatalogItems(catalog, portfolioQaCustomComponentNames);
+
+      for (final item in items) {
+        for (var i = 0; i < item.exampleData.length; i++) {
+          await pumpCatalogItemExample(
+            tester,
+            catalog,
+            item,
+            exampleIndex: i,
+            surfaceId: 'portfolio_qa_0',
           );
         }
       }

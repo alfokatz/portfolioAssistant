@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 
 /// Espera la respuesta GenUI tras enviar un mensaje, con timeout.
 ///
-/// Solo completa cuando la [targetSurfaceId] recibe surface o componentes;
-/// no usa [ConversationContentReceived] genérico (evita falsos positivos y loaders colgados).
+/// Solo completa cuando la [targetSurfaceId] tiene componentes renderizables;
+/// no usa [ConversationSurfaceAdded] vacío ni [ConversationContentReceived].
 abstract final class GenUiRequestTracker {
   static const defaultTimeout = Duration(seconds: 45);
 
@@ -21,9 +22,16 @@ abstract final class GenUiRequestTracker {
     subscription = conversation.events.listen((event) {
       if (completer.isCompleted) return;
       switch (event) {
-        case ConversationSurfaceAdded(:final surfaceId):
-        case ConversationComponentsUpdated(:final surfaceId):
-          if (surfaceId == targetSurfaceId) completer.complete();
+        case ConversationSurfaceAdded(:final surfaceId, :final definition):
+          if (surfaceId == targetSurfaceId &&
+              GenUiSurfaceReadiness.hasRootComponent(definition)) {
+            completer.complete();
+          }
+        case ConversationComponentsUpdated(:final surfaceId, :final definition):
+          if (surfaceId == targetSurfaceId &&
+              GenUiSurfaceReadiness.hasRootComponent(definition)) {
+            completer.complete();
+          }
         case ConversationError(:final error):
           completer.completeError(error);
         default:

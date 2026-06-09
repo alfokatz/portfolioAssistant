@@ -49,6 +49,58 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaPeriodChange(CatalogItemContext ctx) {
+    final data = _PeriodChangeData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final isUp = data.changeAbs >= 0;
+    final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data.periodLabel,
+            style: const TextStyle(
+              color: PortfolioColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${isUp ? '+' : ''}${currency.format(data.changeAbs)} '
+            '(${data.changePct.toStringAsFixed(1)}%)',
+            style: TextStyle(
+              color: pnlColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (data.valueStart > 0 && data.valueEnd > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${currency.format(data.valueStart)} → ${currency.format(data.valueEnd)}',
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   static Widget qaConcentrationBar(CatalogItemContext ctx) {
     final data = _ConcentrationBarData.fromMap(ctx.data as JsonMap);
     final maxWeight = data.items
@@ -514,6 +566,32 @@ abstract final class PortfolioQaCatalogWidgets {
       ],
     );
   }
+}
+
+final class _PeriodChangeData {
+  _PeriodChangeData({
+    required this.periodLabel,
+    required this.changeAbs,
+    required this.changePct,
+    required this.valueStart,
+    required this.valueEnd,
+  });
+
+  factory _PeriodChangeData.fromMap(JsonMap map) {
+    return _PeriodChangeData(
+      periodLabel: GenUiHelpers.safeString(map['periodLabel'], defaultValue: ''),
+      changeAbs: GenUiHelpers.safeDouble(map['changeAbs'], defaultValue: 0),
+      changePct: GenUiHelpers.safeDouble(map['changePct'], defaultValue: 0),
+      valueStart: GenUiHelpers.safeDouble(map['valueStart'], defaultValue: 0),
+      valueEnd: GenUiHelpers.safeDouble(map['valueEnd'], defaultValue: 0),
+    );
+  }
+
+  final String periodLabel;
+  final double changeAbs;
+  final double changePct;
+  final double valueStart;
+  final double valueEnd;
 }
 
 final class _AnswerTextData {

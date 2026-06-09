@@ -1,13 +1,10 @@
 import 'package:portfolio_assistant/domain/entities/benchmark_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 
-class PeriodPnl {
-  final double absolute;
-  final double percent;
-
-  const PeriodPnl({required this.absolute, required this.percent});
-}
+export 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart'
+    show PeriodPnl;
 
 abstract final class HomeChartUtils {
   static List<PortfolioHistoryPoint> filterHistory(
@@ -17,38 +14,12 @@ abstract final class HomeChartUtils {
     if (points.isEmpty) return points;
     final duration = range.duration;
     if (duration == null) return points;
-
-    final end = points.last.date;
-    final start = end.subtract(duration);
-    final filtered =
-        points.where((p) => !p.date.isBefore(start)).toList();
-    return filtered.length >= 2 ? filtered : points;
+    return PortfolioPeriodUtils.filterByDuration(points, duration);
   }
 
   /// Period return from portfolio history, excluding new investments as gains.
-  ///
-  /// Compares unrealized PnL (market value − cost basis) at period start vs end.
   static PeriodPnl periodPnlFromHistory(List<PortfolioHistoryPoint> points) {
-    if (points.isEmpty) {
-      return const PeriodPnl(absolute: 0, percent: 0);
-    }
-
-    if (points.length == 1) {
-      final point = points.first;
-      final absolute = point.unrealizedPnl;
-      final percent = point.totalCostBasis > 0
-          ? (absolute / point.totalCostBasis) * 100
-          : 0.0;
-      return PeriodPnl(absolute: absolute, percent: percent);
-    }
-
-    final start = points.first;
-    final end = points.last;
-    final absolute = end.unrealizedPnl - start.unrealizedPnl;
-    final percent = start.totalCostBasis > 0
-        ? (absolute / start.totalCostBasis) * 100
-        : 0.0;
-    return PeriodPnl(absolute: absolute, percent: percent);
+    return PortfolioPeriodUtils.periodPnlFromHistory(points);
   }
 
   /// Total return vs what was invested ([totalCostBasis]).
