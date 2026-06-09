@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/analysis/view/analysis_screen.dart';
+import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/features/investment/models/investment_flow_args.dart';
 import 'package:portfolio_assistant/features/investment/view/investment_screen.dart';
 import 'package:portfolio_assistant/features/planning/models/planning_flow_args.dart';
 import 'package:portfolio_assistant/features/planning/view/planning_screen.dart';
-import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 
 class GenUiRouter {
   static String routeNameFor(GenUiFlowType type) => 'GenUi_${type.name}';

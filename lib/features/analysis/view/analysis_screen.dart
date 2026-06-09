@@ -20,7 +20,7 @@ import 'package:portfolio_assistant/features/analysis/view/analysis_action_deleg
 import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
-import 'package:portfolio_assistant/presentation/flows/genui/nav/genui_nav.dart';
+import 'package:portfolio_assistant/features/genui_core/nav/genui_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
+import 'package:portfolio_assistant/features/genui_core/nav/genui_router.dart';
 import 'package:portfolio_assistant/features/investment/models/investment_flow_args.dart';
 import 'package:portfolio_assistant/features/planning/models/planning_flow_args.dart';
-import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/navigation/navigation_event.dart';
-import 'package:portfolio_assistant/presentation/flows/genui/nav/genui_router.dart';
 
 class GotoGenUiFlow extends NavigationEvent {
   final GenUiFlowType flowType;
