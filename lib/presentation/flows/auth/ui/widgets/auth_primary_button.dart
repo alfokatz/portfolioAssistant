@@ -14,7 +14,7 @@ class AuthPrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
 
-  static const _radius = 12.0;
+  static const _radius = 16.0;
   static const _height = 52.0;
 
   @override

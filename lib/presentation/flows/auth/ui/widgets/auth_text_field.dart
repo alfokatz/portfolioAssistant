@@ -28,7 +28,7 @@ class AuthTextField extends StatelessWidget {
   final void Function(String)? onFieldSubmitted;
   final bool autocorrect;
 
-  static const _radius = 12.0;
+  static const _radius = 14.0;
 
   @override
   Widget build(BuildContext context) {

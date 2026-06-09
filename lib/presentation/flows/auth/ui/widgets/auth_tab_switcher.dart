@@ -20,7 +20,7 @@ class AuthTabSwitcher extends StatelessWidget {
   final String signUpLabel;
   final bool enabled;
 
-  static const _radius = 12.0;
+  static const _radius = 16.0;
   static const _height = 48.0;
 
   @override
@@ -72,14 +72,14 @@ class _TabSegment extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isActive ? PortfolioColors.accentBlue : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: isActive
                 ? [
                     BoxShadow(

@@ -7,8 +7,11 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_footer_decoration.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_footer_link.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_form_card.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_oauth_divider.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_warm_background.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_welcome_header.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_password_strength_indicator.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_primary_button.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_tab_switcher.dart';
@@ -86,45 +89,32 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
 
     return Scaffold(
       backgroundColor: PortfolioColors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: AppDimens.mediumMargin,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Spacer(flex: 2),
-                      Text(
-                        'auth_title'.tr(),
-                        style: theme.textTheme.displayLarge?.copyWith(
-                          color: PortfolioColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppDimens.xSmallMargin),
-                      Text(
-                        'auth_tagline'.tr(),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: PortfolioColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppDimens.largeMargin),
-                      Form(
-                        key: _formKey,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
+      body: AuthWarmBackground(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: AppDimens.mediumMargin,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(flex: 1),
+                        AuthWelcomeHeader(isSignUpMode: isSignUp),
+                        const SizedBox(height: 32),
+                        Form(
+                          key: _formKey,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          child: AuthFormCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                             AuthTabSwitcher(
                               isSignUpMode: isSignUp,
                               signInLabel: 'auth_sign_in'.tr(),
@@ -304,47 +294,52 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             const SizedBox(height: AppDimens.mediumMargin),
                             AuthOauthDivider(label: 'auth_oauth_divider'.tr()),
                             const SizedBox(height: AppDimens.mediumMargin),
-                            SocialSignInButton(
-                              label: 'auth_google'.tr(),
-                              icon: AppImages.googleIcon(width: 22, height: 22),
-                              onPressed:
-                                  isLoading
-                                      ? null
-                                      : ref
-                                          .read(
-                                            authControllerProvider.notifier,
-                                          )
-                                          .submitGoogleSignIn,
+                                SocialSignInButton(
+                                  label: 'auth_continue_google'.tr(),
+                                  icon: AppImages.googleIcon(
+                                    width: 22,
+                                    height: 22,
+                                  ),
+                                  onPressed:
+                                      isLoading
+                                          ? null
+                                          : ref
+                                              .read(
+                                                authControllerProvider.notifier,
+                                              )
+                                              .submitGoogleSignIn,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                      const Spacer(flex: 3),
-                      const AuthFooterDecoration(),
-                      const SizedBox(height: AppDimens.mediumMargin),
-                      AuthFooterLink(
-                        prefix:
-                            isSignUp
-                                ? 'auth_footer_has_account'.tr()
-                                : 'auth_footer_no_account'.tr(),
-                        actionLabel:
-                            isSignUp
-                                ? 'auth_footer_sign_in'.tr()
-                                : 'auth_footer_register'.tr(),
-                        enabled: !isLoading,
-                        onActionTap:
-                            () =>
-                                ref
-                                    .read(authControllerProvider.notifier)
-                                    .toggleMode(),
-                      ),
-                      const SizedBox(height: AppDimens.smallMargin),
-                    ],
+                        const Spacer(flex: 2),
+                        const AuthFooterDecoration(),
+                        const SizedBox(height: AppDimens.mediumMargin),
+                        AuthFooterLink(
+                          prefix:
+                              isSignUp
+                                  ? 'auth_footer_has_account'.tr()
+                                  : 'auth_footer_no_account'.tr(),
+                          actionLabel:
+                              isSignUp
+                                  ? 'auth_footer_sign_in'.tr()
+                                  : 'auth_footer_register'.tr(),
+                          enabled: !isLoading,
+                          onActionTap:
+                              () =>
+                                  ref
+                                      .read(authControllerProvider.notifier)
+                                      .toggleMode(),
+                        ),
+                        const SizedBox(height: AppDimens.smallMargin),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

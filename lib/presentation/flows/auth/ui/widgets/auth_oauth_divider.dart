@@ -20,10 +20,9 @@ class AuthOauthDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            label.toUpperCase(),
+            label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: PortfolioColors.textSecondary,
-                  letterSpacing: 0.8,
                   fontWeight: FontWeight.w500,
                 ),
           ),

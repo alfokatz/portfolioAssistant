@@ -12,10 +12,11 @@ export 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.
 
 /// Servicio GenUI con streaming OpenAI y transporte A2UI.
 ///
-/// Por defecto usa [defaultModel] (`gpt-4o`) por mejor calidad en JSON A2UI.
+/// Por defecto usa [defaultModel] (`gpt-4.1-mini`) por buen balance
+/// precio/calidad en JSON A2UI.
 /// Override opcional: `OPENAI_MODEL` en `.env`.
 class OpenAIGenUiService {
-  static const defaultModel = 'gpt-4o';
+  static const defaultModel = 'gpt-4.1-mini';
   static const maxRateLimitRetries = 3;
 
   OpenAIGenUiService({

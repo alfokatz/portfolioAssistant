@@ -18,4 +18,21 @@ void main() {
     expect(position.pnlAbsolute, 400);
     expect(position.pnlPercent, 40);
   });
+
+  test('calcula rentabilidad de venta parcial', () {
+    final partial = ClosedPosition(
+      id: '2',
+      ticker: 'AAPL',
+      quantity: 0.5,
+      avgPurchasePrice: 100,
+      closePrice: 150,
+      closeDate: DateTime(2025, 6, 1),
+      closedAt: DateTime(2025, 6, 2),
+    );
+
+    expect(partial.costBasis, 50);
+    expect(partial.proceeds, 75);
+    expect(partial.pnlAbsolute, 25);
+    expect(partial.pnlPercent, 50);
+  });
 }

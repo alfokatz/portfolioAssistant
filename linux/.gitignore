@@ -5,6 +5,9 @@ flutter/ephemeral
 .env.development.local
 .env.test.local
 .env.production.local
+.env.development
+.env.staging
+.env.production
 
 # Linux-related
 .DS_Store
