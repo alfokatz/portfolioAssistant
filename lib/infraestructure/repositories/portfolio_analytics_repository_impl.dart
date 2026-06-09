@@ -210,14 +210,22 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
     final points = <PortfolioHistoryPoint>[];
     for (final date in sortedDates) {
       double total = 0;
+      double costBasis = 0;
       for (final position in positions) {
         if (position.purchaseDate.isAfter(date)) continue;
         final candles = histories[position.ticker] ?? [];
         final price = _closeOnOrBefore(candles, date) ?? position.purchasePrice;
         total += position.quantity * price;
+        costBasis += position.costBasis;
       }
       if (total > 0) {
-        points.add(PortfolioHistoryPoint(date: date, totalValue: total));
+        points.add(
+          PortfolioHistoryPoint(
+            date: date,
+            totalValue: total,
+            totalCostBasis: costBasis,
+          ),
+        );
       }
     }
     return points;

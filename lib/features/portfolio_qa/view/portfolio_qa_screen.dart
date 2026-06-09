@@ -1,11 +1,19 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
+import 'package:portfolio_assistant/features/portfolio_qa/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/models/portfolio_qa_message.dart';
-import 'package:portfolio_assistant/features/portfolio_qa/services/portfolio_qa_service.dart';
+import 'package:portfolio_assistant/features/portfolio_qa/services/portfolio_qa_openai_service.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/utils/portfolio_context_builder.dart';
+import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_chat_bubble.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_disclaimer_banner.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -25,12 +33,18 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   final _sendGuard = GenUiSendGuard();
-  late final PortfolioQaService _service;
+  final _conversationEvents = GenUiConversationSubscription();
+  final _surfaceIds = <String>[];
+
+  late final Catalog _catalog;
+  PortfolioQaOpenAiService? _service;
 
   final List<PortfolioQaMessage> _messages = [];
   String? _error;
   bool _isWaiting = false;
   bool _bootstrapped = false;
+  int _turnCounter = 0;
+  String _lastMessage = '';
 
   static const _chipKeys = [
     'portfolio_qa_chip_today',
@@ -40,8 +54,8 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
 
   @override
   void initState() {
+    _catalog = PortfolioQaCatalog.build();
     super.initState();
-    _service = PortfolioQaService();
     _messages.add(
       PortfolioQaMessage(
         role: PortfolioQaRole.assistant,
@@ -60,9 +74,69 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
       await ref.read(homeProvider.notifier).refresh();
     }
 
+    await _initService();
+
     final question = widget.initialQuestion?.trim();
     if (question != null && question.isNotEmpty) {
       await _sendMessage(question);
+    }
+  }
+
+  Future<void> _initService() async {
+    final prompt =
+        PromptBuilder.custom(
+          catalog: _catalog,
+          allowedOperations: SurfaceOperations.createAndUpdate(
+            dataModel: false,
+          ),
+          systemPromptFragments: _catalog.systemPromptFragments,
+          technicalPossibilities: const TechnicalPossibilities(
+            codeExecution: false,
+            toolCall: false,
+            functionCall: false,
+          ),
+        ).systemPromptJoined();
+
+    _conversationEvents.cancel();
+    _service?.dispose();
+    _service = PortfolioQaOpenAiService(
+      systemPrompt: prompt,
+      catalog: _catalog,
+    );
+
+    _conversationEvents.listen(_service!.conversation, _onConversationEvent);
+
+    if (mounted) setState(() {});
+  }
+
+  void _onConversationEvent(ConversationEvent event) {
+    if (!mounted) return;
+    GenUiFlowScreenHelpers.handleConversationEvent(
+      event: event,
+      surfaceIds: _surfaceIds,
+      setError: (value) => _error = value,
+      setWaiting: (value) => _isWaiting = value,
+      onStateChanged: () {
+        if (event
+            case ConversationSurfaceAdded(:final surfaceId) ||
+                ConversationComponentsUpdated(:final surfaceId)) {
+          _attachSurfaceToLastAssistantTurn(surfaceId);
+        }
+        setState(() {});
+      },
+    );
+  }
+
+  void _attachSurfaceToLastAssistantTurn(String surfaceId) {
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final message = _messages[i];
+      if (message.role == PortfolioQaRole.assistant && message.isStreaming) {
+        _messages[i] = PortfolioQaMessage(
+          role: PortfolioQaRole.assistant,
+          surfaceId: surfaceId,
+        );
+        return;
+      }
     }
   }
 
@@ -70,7 +144,8 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
-    _service.dispose();
+    _conversationEvents.cancel();
+    _service?.dispose();
     super.dispose();
   }
 
@@ -88,7 +163,7 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
 
   Future<void> _sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight) return;
+    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
 
     final summary = ref.read(homeProvider).summary;
     if (summary == null || summary.valuations.isEmpty) {
@@ -99,6 +174,9 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
       }
       return;
     }
+
+    final surfaceId = GenUiSurfaceIds.portfolioQaTurn(_turnCounter++);
+    _lastMessage = trimmed;
 
     await _sendGuard.run(() async {
       if (mounted) {
@@ -111,7 +189,6 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
           _messages.add(
             const PortfolioQaMessage(
               role: PortfolioQaRole.assistant,
-              content: '',
               isStreaming: true,
             ),
           );
@@ -123,48 +200,53 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
       final snapshotJson = PortfolioContextBuilder.buildJson(summary);
 
       try {
-        var assistantIndex = _messages.length - 1;
-        await _service.sendMessage(
-          userQuestion: trimmed,
-          portfolioSnapshotJson: snapshotJson,
-          onChunk: (chunk) {
-            if (!mounted) return;
-            setState(() {
-              final current = _messages[assistantIndex];
-              _messages[assistantIndex] = current.copyWith(
-                content: current.content + chunk,
-              );
-            });
-            _scrollToBottom();
-          },
+        await GenUiRequestTracker.sendAndWait(
+          conversation: _service!.conversation,
+          targetSurfaceId: surfaceId,
+          send:
+              () => _service!.sendWithSnapshot(
+                userQuestion: trimmed,
+                portfolioSnapshotJson: snapshotJson,
+                surfaceId: surfaceId,
+              ),
         );
 
         if (mounted) {
-          setState(() {
-            final current = _messages[assistantIndex];
-            _messages[assistantIndex] = current.copyWith(isStreaming: false);
-            _isWaiting = false;
-          });
+          setState(() => _isWaiting = false);
           _scrollToBottom();
+        }
+      } on TimeoutException catch (e) {
+        if (mounted) {
+          setState(() {
+            _error = e.message ?? 'GPT tardó demasiado en responder.';
+            _isWaiting = false;
+            _removeStreamingPlaceholder();
+          });
         }
       } catch (e) {
         if (mounted) {
           setState(() {
-            _isWaiting = false;
             _error = genUiErrorMessage(e);
-            if (_messages.isNotEmpty &&
-                _messages.last.isStreaming &&
-                _messages.last.content.isEmpty) {
-              _messages.removeLast();
-            }
+            _isWaiting = false;
+            _removeStreamingPlaceholder();
           });
         }
       }
     });
   }
 
+  void _removeStreamingPlaceholder() {
+    if (_messages.isNotEmpty &&
+        _messages.last.isStreaming &&
+        !_messages.last.isGenUiSurface) {
+      _messages.removeLast();
+    }
+  }
+
   @override
   Widget buildView(BuildContext context) {
+    final service = _service;
+
     return Scaffold(
       backgroundColor: PortfolioColors.background,
       appBar: AppBar(
@@ -198,39 +280,48 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
                     ),
                   ),
                   trailing: TextButton(
-                    onPressed: _isWaiting
-                        ? null
-                        : () => setState(() => _error = null),
+                    onPressed:
+                        _isWaiting || _lastMessage.isEmpty
+                            ? null
+                            : () {
+                              setState(() => _error = null);
+                              _sendMessage(_lastMessage);
+                            },
                     child: Text('retry'.tr()),
                   ),
                 ),
               ),
             ),
           Expanded(
-            child: ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              children: [
-                ..._messages.map(
-                  (m) => PortfolioQaChatBubble(message: m),
-                ),
-                if (_messages.length <= 1) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _chipKeys
-                        .map(
-                          (key) => ActionChip(
-                            label: Text(key.tr()),
-                            onPressed: _isWaiting ? null : () => _sendMessage(key.tr()),
+            child:
+                service == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      children: [
+                        ..._messages.map((m) => _buildMessageTile(service, m)),
+                        if (_messages.length <= 1) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                _chipKeys
+                                    .map(
+                                      (key) => ActionChip(
+                                        label: Text(key.tr()),
+                                        onPressed:
+                                            _isWaiting
+                                                ? null
+                                                : () => _sendMessage(key.tr()),
+                                      ),
+                                    )
+                                    .toList(),
                           ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ],
-            ),
+                        ],
+                      ],
+                    ),
           ),
           SafeArea(
             child: Padding(
@@ -240,7 +331,9 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      style: const TextStyle(color: PortfolioColors.textPrimary),
+                      style: const TextStyle(
+                        color: PortfolioColors.textPrimary,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'portfolio_qa_input_hint'.tr(),
                         filled: true,
@@ -251,14 +344,15 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
                         ),
                       ),
                       onSubmitted: _isWaiting ? null : _sendMessage,
-                      enabled: !_isWaiting,
+                      enabled: !_isWaiting && service != null,
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: _isWaiting
-                        ? null
-                        : () => _sendMessage(_textController.text),
+                    onPressed:
+                        _isWaiting || service == null
+                            ? null
+                            : () => _sendMessage(_textController.text),
                     icon: const Icon(Icons.send),
                     color: PortfolioColors.accentBlue,
                   ),
@@ -269,5 +363,19 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildMessageTile(
+    PortfolioQaOpenAiService service,
+    PortfolioQaMessage message,
+  ) {
+    if (message.isGenUiSurface && message.surfaceId != null) {
+      return PortfolioQaAssistantSurface(
+        surfaceId: message.surfaceId!,
+        surfaceContext: service.controller.contextFor(message.surfaceId!),
+      );
+    }
+
+    return PortfolioQaChatBubble(message: message);
   }
 }

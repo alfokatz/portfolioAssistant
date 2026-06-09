@@ -14,17 +14,16 @@ class AnalysisOpenAiService extends OpenAIGenUiService {
     required super.catalog,
     required this.portfolioTickers,
     OpenAIRawChatClient? rawChatClient,
-  })  : _rawChatClient = rawChatClient ??
-            OpenAIRawChatClient(apiKey: apiKey, model: model),
-        super(
-          a2uiSurfaceId: GenUiSurfaceIds.portfolioAnalysis,
-        );
+  }) : _rawChatClient =
+           rawChatClient ?? OpenAIRawChatClient(apiKey: apiKey, model: model),
+       super(a2uiSurfaceId: GenUiSurfaceIds.portfolioAnalysis);
 
   final List<String> Function() portfolioTickers;
   final OpenAIRawChatClient _rawChatClient;
 
   @override
-  Future<void> handleSend(ChatMessage message) async {
+  @override
+  Future<void> handleSend(ChatMessage message, {String? surfaceId}) async {
     final userText = message.text.trim();
     if (userText.isEmpty && message.parts.isEmpty) return;
 
@@ -43,7 +42,11 @@ class AnalysisOpenAiService extends OpenAIGenUiService {
       throw StateError('OPENAI_API_KEY no configurada');
     }
 
-    for (var attempt = 0; attempt <= OpenAIGenUiService.maxRateLimitRetries; attempt++) {
+    for (
+      var attempt = 0;
+      attempt <= OpenAIGenUiService.maxRateLimitRetries;
+      attempt++
+    ) {
       try {
         if (userText.isNotEmpty && isNewsQuery(userText)) {
           await _runNewsTwoPhaseFlow(userText);
@@ -53,7 +56,8 @@ class AnalysisOpenAiService extends OpenAIGenUiService {
         return;
       } on RequestFailedException catch (e) {
         final canRetry =
-            isOpenAiRateLimitError(e) && attempt < OpenAIGenUiService.maxRateLimitRetries;
+            isOpenAiRateLimitError(e) &&
+            attempt < OpenAIGenUiService.maxRateLimitRetries;
         if (!canRetry || isDisposed) rethrow;
         final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
         await Future<void>.delayed(

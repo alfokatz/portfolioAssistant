@@ -6,7 +6,8 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/infraestructure/data_sources/supabase/supabase_portfolio_mapper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ClosedPositionSupabaseDataSource implements ClosedPositionRemoteDataSource {
+class ClosedPositionSupabaseDataSource
+    implements ClosedPositionRemoteDataSource {
   static const _table = 'closed_positions';
 
   final SupabaseClient _client;
@@ -15,8 +16,8 @@ class ClosedPositionSupabaseDataSource implements ClosedPositionRemoteDataSource
   ClosedPositionSupabaseDataSource({
     required SupabaseClient client,
     required SupabaseAuthService authService,
-  })  : _client = client,
-        _authService = authService;
+  }) : _client = client,
+       _authService = authService;
 
   @override
   Future<List<ClosedPosition>> getAll() async {
@@ -26,19 +27,20 @@ class ClosedPositionSupabaseDataSource implements ClosedPositionRemoteDataSource
         .order('closed_at', ascending: false);
 
     return (response as List)
-        .map((row) => SupabasePortfolioMapper.closedPositionFromRow(
-              Map<String, dynamic>.from(row as Map),
-            ))
+        .map(
+          (row) => SupabasePortfolioMapper.closedPositionFromRow(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
         .toList();
   }
 
   @override
-  Future<void> save(
-    ClosedPosition position, {
-    String? sourcePositionId,
-  }) async {
+  Future<void> save(ClosedPosition position, {String? sourcePositionId}) async {
     final userId = _authService.requireUserId();
-    await _client.from(_table).insert(
+    await _client
+        .from(_table)
+        .insert(
           SupabasePortfolioMapper.closedPositionToRow(
             position: position,
             userId: userId,
@@ -50,8 +52,8 @@ class ClosedPositionSupabaseDataSource implements ClosedPositionRemoteDataSource
 
 final closedPositionRemoteDataSourceProvider =
     Provider<ClosedPositionRemoteDataSource>(
-  (ref) => ClosedPositionSupabaseDataSource(
-    client: ref.watch(supabaseClientProvider),
-    authService: ref.watch(supabaseAuthServiceProvider),
-  ),
-);
+      (ref) => ClosedPositionSupabaseDataSource(
+        client: ref.watch(supabaseClientProvider),
+        authService: ref.watch(supabaseAuthServiceProvider),
+      ),
+    );

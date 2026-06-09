@@ -54,44 +54,56 @@ class OpenAIGenUiService {
   late final A2uiTransportAdapter transport;
   late final Conversation conversation;
   final List<OpenAIChatCompletionChoiceMessageModel> history = [];
+  String? _runtimeSurfaceId;
   bool isDisposed = false;
+
+  String? get _effectiveSurfaceId => _runtimeSurfaceId ?? a2uiSurfaceId;
 
   @Deprecated('Use GenUiSurfaceIds.portfolioAnalysis')
   static const analysisSurfaceId = GenUiSurfaceIds.portfolioAnalysis;
 
   static const investmentSurfaceId = GenUiSurfaceIds.investmentDecision;
 
-  Future<void> handleSend(ChatMessage message) async {
-    final userText = message.text.trim();
-    if (userText.isEmpty && message.parts.isEmpty) return;
+  Future<void> handleSend(
+    ChatMessage message, {
+    String? surfaceId,
+  }) async {
+    _runtimeSurfaceId = surfaceId;
+    try {
+      final userText = message.text.trim();
+      if (userText.isEmpty && message.parts.isEmpty) return;
 
-    if (userText.isNotEmpty) {
-      history.add(
-        OpenAIChatCompletionChoiceMessageModel(
-          role: OpenAIChatMessageRole.user,
-          content: [
-            OpenAIChatCompletionChoiceMessageContentItemModel.text(userText),
-          ],
-        ),
-      );
-    }
-
-    if (apiKey.isEmpty) {
-      throw StateError('OPENAI_API_KEY no configurada');
-    }
-
-    for (var attempt = 0; attempt <= maxRateLimitRetries; attempt++) {
-      try {
-        await streamCompletion();
-        return;
-      } on RequestFailedException catch (e) {
-        final canRetry = isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
-        if (!canRetry || isDisposed) rethrow;
-        final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
-        await Future<void>.delayed(
-          Duration(milliseconds: ((seconds + 1) * 1000).clamp(2000, 120000)),
+      if (userText.isNotEmpty) {
+        history.add(
+          OpenAIChatCompletionChoiceMessageModel(
+            role: OpenAIChatMessageRole.user,
+            content: [
+              OpenAIChatCompletionChoiceMessageContentItemModel.text(userText),
+            ],
+          ),
         );
       }
+
+      if (apiKey.isEmpty) {
+        throw StateError('OPENAI_API_KEY no configurada');
+      }
+
+      for (var attempt = 0; attempt <= maxRateLimitRetries; attempt++) {
+        try {
+          await streamCompletion();
+          return;
+        } on RequestFailedException catch (e) {
+          final canRetry =
+              isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
+          if (!canRetry || isDisposed) rethrow;
+          final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
+          await Future<void>.delayed(
+            Duration(milliseconds: ((seconds + 1) * 1000).clamp(2000, 120000)),
+          );
+        }
+      }
+    } finally {
+      _runtimeSurfaceId = null;
     }
   }
 
@@ -118,7 +130,7 @@ class OpenAIGenUiService {
     if (isDisposed) return;
 
     final raw = modelBuffer.toString();
-    final surfaceId = a2uiSurfaceId;
+    final surfaceId = _effectiveSurfaceId;
     final catalogId = a2uiCatalogId ?? A2uiResponseNormalizer.defaultCatalogId;
 
     var cleaned = surfaceId != null

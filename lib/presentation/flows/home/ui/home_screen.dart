@@ -14,6 +14,7 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/time_range_selector.dart';
+import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 
 class HomeScreen extends StatefulHookConsumerWidget {
@@ -47,12 +48,12 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       state.selectedRange,
     );
     final chartValues = filteredHistory.map((p) => p.totalValue).toList();
-    final periodPnl = summary == null
-        ? const PeriodPnl(absolute: 0, percent: 0)
-        : HomeChartUtils.periodPnl(
-            currentValue: summary.totalValue,
-            totalCostBasis: summary.totalCostBasis,
-          );
+    final periodPnl = state.selectedRange == ChartTimeRange.all && summary != null
+        ? PeriodPnl(
+            absolute: summary.totalPnlAbsolute,
+            percent: summary.totalPnlPercent,
+          )
+        : HomeChartUtils.periodPnlFromHistory(filteredHistory);
 
     final valuations = summary?.valuations ?? [];
     final displayValuations = state.showAllPositions

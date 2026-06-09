@@ -25,6 +25,32 @@ abstract final class HomeChartUtils {
     return filtered.length >= 2 ? filtered : points;
   }
 
+  /// Period return from portfolio history, excluding new investments as gains.
+  ///
+  /// Compares unrealized PnL (market value − cost basis) at period start vs end.
+  static PeriodPnl periodPnlFromHistory(List<PortfolioHistoryPoint> points) {
+    if (points.isEmpty) {
+      return const PeriodPnl(absolute: 0, percent: 0);
+    }
+
+    if (points.length == 1) {
+      final point = points.first;
+      final absolute = point.unrealizedPnl;
+      final percent = point.totalCostBasis > 0
+          ? (absolute / point.totalCostBasis) * 100
+          : 0.0;
+      return PeriodPnl(absolute: absolute, percent: percent);
+    }
+
+    final start = points.first;
+    final end = points.last;
+    final absolute = end.unrealizedPnl - start.unrealizedPnl;
+    final percent = start.totalCostBasis > 0
+        ? (absolute / start.totalCostBasis) * 100
+        : 0.0;
+    return PeriodPnl(absolute: absolute, percent: percent);
+  }
+
   /// Total return vs what was invested ([totalCostBasis]).
   static PeriodPnl periodPnl({
     required double currentValue,
