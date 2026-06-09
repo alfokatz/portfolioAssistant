@@ -108,6 +108,54 @@ void main() {
       expect(week['has_sufficient_history'], isTrue);
       expect(week['label_es'], 'últimos 7 días');
     });
+
+    test('includes position_periods when provided', () {
+      final summary = PortfolioSummary(
+        totalValue: 1000,
+        totalCostBasis: 900,
+        totalPnlAbsolute: 100,
+        totalPnlPercent: 11.11,
+        valuations: [
+          PositionValuation(
+            position: Position(
+              id: '1',
+              ticker: 'AAPL',
+              quantity: 1,
+              purchasePrice: 900,
+              purchaseDate: DateTime(2024, 1, 1),
+            ),
+            currentPrice: 1000,
+            marketValue: 1000,
+            pnlAbsolute: 100,
+            pnlPercent: 11.11,
+          ),
+        ],
+      );
+
+      final positionPeriods = {
+        'AAPL': {
+          'week': {
+            'label_es': 'últimos 7 días',
+            'price_start': 198.5,
+            'price_end': 190.16,
+            'change_pct': -4.2,
+            'has_sufficient_history': true,
+          },
+        },
+      };
+
+      final json = jsonDecode(
+        PortfolioContextBuilder.buildJson(
+          summary,
+          positionPeriods: positionPeriods,
+        ),
+      ) as Map;
+
+      final aaplWeek =
+          (json['position_periods'] as Map)['AAPL']['week'] as Map;
+      expect(aaplWeek['change_pct'], -4.2);
+      expect(aaplWeek['has_sufficient_history'], isTrue);
+    });
   });
 
   group('portfolioQaUserMessageBody', () {

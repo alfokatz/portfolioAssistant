@@ -96,6 +96,45 @@ final CatalogItem qaMetricStripItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaTickerMoveItem = CatalogItem(
+  name: 'QaTickerMove',
+  dataSchema: S.object(
+    description:
+        'Movimiento de precio de un ticker en un período (desde position_periods).',
+    properties: {
+      'ticker': S.string(),
+      'periodLabel': S.string(
+        description: 'Etiqueta del período, ej. "Últimos 7 días".',
+      ),
+      'changePct': S.number(description: 'Cambio porcentual del precio.'),
+      'priceStart': S.number(description: 'Precio al inicio del período.'),
+      'priceEnd': S.number(description: 'Precio al cierre del período.'),
+      'weightPct': S.number(
+        description: 'Peso del ticker en el portfolio (opcional).',
+      ),
+    },
+    required: ['ticker', 'periodLabel', 'changePct'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerMove),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "ticker_move",
+    "component": "QaTickerMove",
+    "ticker": "AAPL",
+    "periodLabel": "Últimos 7 días",
+    "changePct": -4.2,
+    "priceStart": 198.50,
+    "priceEnd": 190.16,
+    "weightPct": 22.5
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaPeriodChangeItem = CatalogItem(
   name: 'QaPeriodChange',
   dataSchema: S.object(
@@ -354,8 +393,32 @@ NEVER use total_pnl_abs or QaPnLBreakdown for "esta semana" or similar.
 If has_sufficient_history is false for the requested period, say so in
 QaAnswerText and omit the data widget.
 
+TICKER-SPECIFIC QUESTIONS (CRITICAL)
+The snapshot has position_periods.{TICKER}.{day|week|month|quarter|year}
+with price_start, price_end, change_pct, has_sufficient_history.
+Use ONLY these values for a specific ticker — never invent prices or moves.
+
+When the user asks about ONE ticker in a time window:
+- "¿cómo fue AAPL esta semana?" → position_periods.AAPL.week + QaTickerMove
+- Map period keys the same way as period_returns (day/week/month/quarter/year)
+- QaTickerMove: ticker, periodLabel=label_es, changePct=change_pct,
+  priceStart=price_start, priceEnd=price_end, weightPct from positions[]
+
+WHY / CAUSATION QUESTIONS (CRITICAL — NO HALLUCINATION)
+If the user asks WHY a ticker or the portfolio moved ("¿por qué cayó X?",
+"¿qué pasó con NVDA?", "motivo de la caída"):
+- You have NO verified news or event data in the snapshot.
+- NEVER invent causes, news, earnings, macro events, or "probablemente…".
+- State only the numeric move from position_periods or period_returns.
+- Use QaTickerMove (single ticker) or QaPeriodChange (whole portfolio).
+- QaAnswerText: describe the move factually in 1 sentence, e.g.
+  "AAPL bajó 4,2% en los últimos 7 días según el precio de mercado."
+- Add QaTipBanner (tone=info) explaining that causes require external
+  news sources not available in this chat yet.
+
 WIDGET SELECTION GUIDE
-- Temporal performance ("esta semana", "cómo fue el mes"): QaPeriodChange
+- Single ticker in a period: QaTickerMove (from position_periods)
+- Temporal performance of whole portfolio: QaPeriodChange
 - Current snapshot / no specific period: QaMetricStrip
 - All-time P&L meaning ("qué significa mi P&L total"): QaPnLBreakdown
 - Risk / concentration: QaConcentrationBar
@@ -377,6 +440,7 @@ abstract final class PortfolioQaCatalog {
         qaAnswerTextItem,
         qaMetricStripItem,
         qaPeriodChangeItem,
+        qaTickerMoveItem,
         qaConcentrationBarItem,
         qaPnLBreakdownItem,
         qaTopMoversItem,

@@ -9,6 +9,7 @@ abstract final class PortfolioContextBuilder {
   static String buildJson(
     PortfolioSummary? summary, {
     List<PortfolioHistoryPoint> history = const [],
+    Map<String, Map<String, Object?>> positionPeriods = const {},
     DateTime? asOf,
   }) {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
@@ -22,6 +23,7 @@ abstract final class PortfolioContextBuilder {
         'total_pnl_pct': 0,
         'pnl_scope': 'all_time_unrealized',
         'period_returns': <String, Object?>{},
+        'position_periods': <String, Object?>{},
         'positions': <Map<String, Object?>>[],
       });
     }
@@ -51,6 +53,7 @@ abstract final class PortfolioContextBuilder {
       'pnl_scope':
           'all_time_unrealized — ganancia/pérdida desde la compra, NO es un período',
       'period_returns': _buildPeriodReturns(history),
+      'position_periods': positionPeriods,
       'positions': positions,
     });
   }

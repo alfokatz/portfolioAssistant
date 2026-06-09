@@ -101,6 +101,79 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaTickerMove(CatalogItemContext ctx) {
+    final data = _TickerMoveData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final isUp = data.changePct >= 0;
+    final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                data.ticker,
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              if (data.weightPct > 0)
+                Text(
+                  '${data.weightPct.toStringAsFixed(1)}% del portfolio',
+                  style: const TextStyle(
+                    color: PortfolioColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            data.periodLabel,
+            style: const TextStyle(
+              color: PortfolioColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${isUp ? '+' : ''}${data.changePct.toStringAsFixed(1)}%',
+            style: TextStyle(
+              color: pnlColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (data.priceStart > 0 && data.priceEnd > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${currency.format(data.priceStart)} → ${currency.format(data.priceEnd)}',
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   static Widget qaConcentrationBar(CatalogItemContext ctx) {
     final data = _ConcentrationBarData.fromMap(ctx.data as JsonMap);
     final maxWeight = data.items
@@ -592,6 +665,35 @@ final class _PeriodChangeData {
   final double changePct;
   final double valueStart;
   final double valueEnd;
+}
+
+final class _TickerMoveData {
+  _TickerMoveData({
+    required this.ticker,
+    required this.periodLabel,
+    required this.changePct,
+    required this.priceStart,
+    required this.priceEnd,
+    required this.weightPct,
+  });
+
+  factory _TickerMoveData.fromMap(JsonMap map) {
+    return _TickerMoveData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      periodLabel: GenUiHelpers.safeString(map['periodLabel'], defaultValue: ''),
+      changePct: GenUiHelpers.safeDouble(map['changePct'], defaultValue: 0),
+      priceStart: GenUiHelpers.safeDouble(map['priceStart'], defaultValue: 0),
+      priceEnd: GenUiHelpers.safeDouble(map['priceEnd'], defaultValue: 0),
+      weightPct: GenUiHelpers.safeDouble(map['weightPct'], defaultValue: 0),
+    );
+  }
+
+  final String ticker;
+  final String periodLabel;
+  final double changePct;
+  final double priceStart;
+  final double priceEnd;
+  final double weightPct;
 }
 
 final class _AnswerTextData {

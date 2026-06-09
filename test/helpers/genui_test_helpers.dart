@@ -40,6 +40,7 @@ const portfolioQaCustomComponentNames = {
   'QaAnswerText',
   'QaMetricStrip',
   'QaPeriodChange',
+  'QaTickerMove',
   'QaConcentrationBar',
   'QaPnLBreakdown',
   'QaTopMovers',

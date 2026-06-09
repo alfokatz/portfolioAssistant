@@ -12,7 +12,9 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.
 import 'package:portfolio_assistant/features/portfolio_qa/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/services/portfolio_qa_openai_service.dart';
+import 'package:portfolio_assistant/features/portfolio_qa/utils/position_periods_builder.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/utils/portfolio_context_builder.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_chat_bubble.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/view/widgets/portfolio_qa_disclaimer_banner.dart';
@@ -198,9 +200,15 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
       }
 
       final history = ref.read(homeProvider).history;
+      final quoteRepository = ref.read(quoteRepositoryProvider);
+      final positionPeriods = await PositionPeriodsBuilder.build(
+        summary: summary,
+        quoteRepository: quoteRepository,
+      );
       final snapshotJson = PortfolioContextBuilder.buildJson(
         summary,
         history: history,
+        positionPeriods: positionPeriods,
       );
 
       try {
