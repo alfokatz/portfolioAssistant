@@ -13,6 +13,12 @@ class PnlBarChartItem {
 }
 
 class PnlBarChart extends StatelessWidget {
+  static const int compactItemLimit = 6;
+  static const double minBarSlotWidth = 48;
+  static const double maxBarWidth = 22;
+  static const double minBarWidth = 14;
+  static const double bottomReservedSize = 34;
+
   final List<PnlBarChartItem> items;
   final double height;
 
@@ -34,74 +40,127 @@ class PnlBarChart extends StatelessWidget {
     final maxY = maxAbs * 1.25;
     final chartMinY = -maxY;
     final chartMaxY = maxY;
+    final needsScroll = items.length > compactItemLimit;
 
-    return ChartWithYAxis(
-      height: height,
-      minY: chartMinY,
-      maxY: chartMaxY,
-      formatter: ChartAxisHelper.formatSignedCurrency,
-      chart: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: chartMaxY,
-          minY: chartMinY,
-          gridData: ChartAxisHelper.horizontalGrid(
-            minY: chartMinY,
-            maxY: chartMaxY,
-            divisions: 4,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const axisWidth = 52.0;
+        const axisGap = 4.0;
+        final chartAreaWidth = constraints.maxWidth - axisWidth - axisGap;
+        final contentWidth = needsScroll
+            ? items.length * minBarSlotWidth
+            : chartAreaWidth;
+        final slotWidth = contentWidth / items.length;
+        final barWidth =
+            (slotWidth * 0.55).clamp(minBarWidth, maxBarWidth).toDouble();
+
+        final barChart = BarChart(
+          _barChartData(
+            context: context,
+            colors: colors,
+            chartMinY: chartMinY,
+            chartMaxY: chartMaxY,
+            barWidth: barWidth,
+            labelMaxWidth: slotWidth - 6,
           ),
-          titlesData: FlTitlesData(
-            show: true,
-            leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false, reservedSize: 0),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 28,
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= items.length) {
-                    return const SizedBox.shrink();
-                  }
-                  return SideTitleWidget(
-                    meta: meta,
-                    space: 4,
-                    child: Text(
-                      items[i].label,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: PortfolioColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          barGroups: items.asMap().entries.map((entry) {
-            final v = entry.value.value;
-            return BarChartGroupData(
-              x: entry.key,
-              barRods: [
-                BarChartRodData(
-                  toY: v,
-                  color: colors.pnlColor(v),
-                  width: 20,
-                  borderRadius: BorderRadius.circular(4),
+        );
+
+        final chartBody = needsScroll
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: SizedBox(
+                  width: contentWidth,
+                  height: height,
+                  child: barChart,
                 ),
-              ],
-            );
-          }).toList(),
+              )
+            : SizedBox(height: height, child: barChart);
+
+        return ChartWithYAxis(
+          height: height,
+          minY: chartMinY,
+          maxY: chartMaxY,
+          formatter: ChartAxisHelper.formatSignedCurrency,
+          chart: chartBody,
+        );
+      },
+    );
+  }
+
+  BarChartData _barChartData({
+    required BuildContext context,
+    required CustomColors colors,
+    required double chartMinY,
+    required double chartMaxY,
+    required double barWidth,
+    required double labelMaxWidth,
+  }) {
+    return BarChartData(
+      alignment: BarChartAlignment.spaceAround,
+      maxY: chartMaxY,
+      minY: chartMinY,
+      gridData: ChartAxisHelper.horizontalGrid(
+        minY: chartMinY,
+        maxY: chartMaxY,
+        divisions: 4,
+      ),
+      titlesData: FlTitlesData(
+        show: true,
+        leftTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false, reservedSize: 0),
+        ),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: bottomReservedSize,
+            getTitlesWidget: (value, meta) {
+              final i = value.toInt();
+              if (i < 0 || i >= items.length) {
+                return const SizedBox.shrink();
+              }
+              return SideTitleWidget(
+                meta: meta,
+                space: 4,
+                child: SizedBox(
+                  width: labelMaxWidth,
+                  child: Text(
+                    items[i].label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: PortfolioColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
+      borderData: FlBorderData(show: false),
+      barGroups: items.asMap().entries.map((entry) {
+        final v = entry.value.value;
+        return BarChartGroupData(
+          x: entry.key,
+          barRods: [
+            BarChartRodData(
+              toY: v,
+              color: colors.pnlColor(v),
+              width: barWidth,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ],
+        );
+      }).toList(),
     );
   }
 }

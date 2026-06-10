@@ -102,11 +102,6 @@ final authSessionProvider = StreamProvider<Session?>(
 );
 
 final isAuthenticatedProvider = Provider<bool>((ref) {
-  final sessionAsync = ref.watch(authSessionProvider);
-  final streamedSession = sessionAsync.valueOrNull;
-  if (streamedSession != null) return true;
-  if (sessionAsync.isLoading) {
-    return ref.read(supabaseAuthServiceProvider).currentSession != null;
-  }
-  return false;
+  ref.watch(authSessionProvider);
+  return ref.read(supabaseAuthServiceProvider).currentSession != null;
 });

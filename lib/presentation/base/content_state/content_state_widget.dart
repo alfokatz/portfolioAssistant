@@ -2,7 +2,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_provider.dart';
-import 'package:portfolio_assistant/presentation/base/loading/Loading.dart';
+import 'package:portfolio_assistant/presentation/base/loading/loading.dart';
 
 class ContentStateWidget extends HookConsumerWidget {
   final Widget child;

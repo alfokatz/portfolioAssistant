@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart';
@@ -10,14 +11,21 @@ abstract final class PortfolioContextBuilder {
     PortfolioSummary? summary, {
     List<PortfolioHistoryPoint> history = const [],
     Map<String, Map<String, Object?>> positionPeriods = const {},
+    List<ClosedPosition> closedPositions = const [],
     DateTime? asOf,
   }) {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
+    final hasOpen = summary != null && summary.valuations.isNotEmpty;
+    final hasClosed = closedPositions.isNotEmpty;
+    final closedMaps = _serializeClosedPositions(closedPositions);
+    final closedTotals = _closedTotals(closedPositions);
 
-    if (summary == null || summary.valuations.isEmpty) {
+    if (!hasOpen && !hasClosed) {
       return jsonEncode({
         'as_of': timestamp,
         'has_positions': false,
+        'has_closed_positions': false,
+        'has_portfolio_data': false,
         'total_value': 0,
         'total_pnl_abs': 0,
         'total_pnl_pct': 0,
@@ -25,37 +33,88 @@ abstract final class PortfolioContextBuilder {
         'period_returns': <String, Object?>{},
         'position_periods': <String, Object?>{},
         'positions': <Map<String, Object?>>[],
+        'closed_positions': <Map<String, Object?>>[],
+        'closed_pnl_total_abs': 0,
+        'closed_pnl_total_cost_basis': 0,
       });
     }
 
-    final total = summary.totalValue;
-    final positions = <Map<String, Object?>>[];
-    for (final v in summary.valuations) {
-      final weightPct = total > 0 ? (v.marketValue / total) * 100 : 0.0;
-      positions.add({
-        'ticker': v.position.ticker,
-        'shares': v.position.quantity,
-        'current_price': v.currentPrice,
-        'market_value': v.marketValue,
-        'pnl_abs': v.pnlAbsolute,
-        'pnl_pct': v.pnlPercent,
-        'weight_pct': double.parse(weightPct.toStringAsFixed(2)),
-      });
+    final openSummary = hasOpen ? summary : null;
+    final openPositions = <Map<String, Object?>>[];
+    if (openSummary != null) {
+      final total = openSummary.totalValue;
+      for (final v in openSummary.valuations) {
+        final weightPct = total > 0 ? (v.marketValue / total) * 100 : 0.0;
+        openPositions.add({
+          'ticker': v.position.ticker,
+          'shares': v.position.quantity,
+          'current_price': v.currentPrice,
+          'market_value': v.marketValue,
+          'pnl_abs': v.pnlAbsolute,
+          'pnl_pct': v.pnlPercent,
+          'weight_pct': double.parse(weightPct.toStringAsFixed(2)),
+        });
+      }
     }
 
     return jsonEncode({
       'as_of': timestamp,
-      'has_positions': true,
-      'total_value': summary.totalValue,
-      'total_cost_basis': summary.totalCostBasis,
-      'total_pnl_abs': summary.totalPnlAbsolute,
-      'total_pnl_pct': summary.totalPnlPercent,
-      'pnl_scope':
-          'all_time_unrealized — ganancia/pérdida desde la compra, NO es un período',
-      'period_returns': _buildPeriodReturns(history),
-      'position_periods': positionPeriods,
-      'positions': positions,
+      'has_positions': hasOpen,
+      'has_closed_positions': hasClosed,
+      'has_portfolio_data': hasOpen || hasClosed,
+      'total_value': openSummary?.totalValue ?? 0,
+      'total_cost_basis': openSummary?.totalCostBasis ?? 0,
+      'total_pnl_abs': openSummary?.totalPnlAbsolute ?? 0,
+      'total_pnl_pct': openSummary?.totalPnlPercent ?? 0,
+      'pnl_scope': hasOpen
+          ? 'all_time_unrealized — ganancia/pérdida desde la compra en posiciones ABIERTAS, NO es un período'
+          : 'sin posiciones abiertas — total_pnl_* no aplica',
+      'period_returns': hasOpen ? _buildPeriodReturns(history) : <String, Object?>{},
+      'position_periods': hasOpen ? positionPeriods : <String, Object?>{},
+      'positions': openPositions,
+      'closed_positions': closedMaps,
+      'closed_pnl_total_abs': closedTotals.abs,
+      'closed_pnl_total_cost_basis': closedTotals.costBasis,
+      'closed_pnl_total_pct': closedTotals.percent,
     });
+  }
+
+  static List<Map<String, Object?>> _serializeClosedPositions(
+    List<ClosedPosition> positions,
+  ) {
+    return [
+      for (final p in positions)
+        {
+          'ticker': p.ticker,
+          'quantity': p.quantity,
+          'avg_purchase_price': _round2(p.avgPurchasePrice),
+          'close_price': _round2(p.closePrice),
+          'cost_basis': _round2(p.costBasis),
+          'proceeds': _round2(p.proceeds),
+          'pnl_abs': _round2(p.pnlAbsolute),
+          'pnl_pct': _round2(p.pnlPercent),
+          'close_date': p.closeDate.toUtc().toIso8601String(),
+          'closed_at': p.closedAt.toUtc().toIso8601String(),
+        },
+    ];
+  }
+
+  static ({double abs, double costBasis, double percent}) _closedTotals(
+    List<ClosedPosition> positions,
+  ) {
+    if (positions.isEmpty) {
+      return (abs: 0, costBasis: 0, percent: 0);
+    }
+
+    final costBasis = positions.fold<double>(0, (sum, p) => sum + p.costBasis);
+    final abs = positions.fold<double>(0, (sum, p) => sum + p.pnlAbsolute);
+    final percent = costBasis > 0 ? (abs / costBasis) * 100 : 0.0;
+
+    return (
+      abs: _round2(abs),
+      costBasis: _round2(costBasis),
+      percent: _round2(percent),
+    );
   }
 
   static Map<String, Object?> _buildPeriodReturns(

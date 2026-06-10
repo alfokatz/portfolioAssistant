@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-
-String loadingAnimation = 'assets/animations/loading_animation.json';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class Loading extends StatelessWidget {
   const Loading({
@@ -14,11 +12,9 @@ class Loading extends StatelessWidget {
     return SizedBox(
       width: size.width,
       height: size.height,
-      child: Center(
-        child: Lottie.asset(
-          loadingAnimation,
-          animate: true,
-          repeat: true,
+      child: const Center(
+        child: CircularProgressIndicator(
+          color: PortfolioColors.accentBlue,
         ),
       ),
     );

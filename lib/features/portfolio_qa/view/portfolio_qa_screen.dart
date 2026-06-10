@@ -12,6 +12,8 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.
 import 'package:portfolio_assistant/features/portfolio_qa/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/services/portfolio_qa_openai_service.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/utils/position_periods_builder.dart';
 import 'package:portfolio_assistant/features/portfolio_qa/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -167,7 +169,16 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
     if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
 
     final summary = ref.read(homeProvider).summary;
-    if (summary == null || summary.valuations.isEmpty) {
+    final closedResult =
+        await ref.read(getClosedPositionsUseCaseProvider).call();
+    final closedPositions = closedResult.fold(
+      (_) => <ClosedPosition>[],
+      (list) => list,
+    );
+    final hasOpen = summary != null && summary.valuations.isNotEmpty;
+    final hasClosed = closedPositions.isNotEmpty;
+
+    if (!hasOpen && !hasClosed) {
       if (mounted) {
         setState(() {
           _error = 'portfolio_qa_no_positions'.tr();
@@ -201,14 +212,17 @@ class _PortfolioQaScreenState extends BaseStatefulWidget<PortfolioQaScreen> {
 
       final history = ref.read(homeProvider).history;
       final quoteRepository = ref.read(quoteRepositoryProvider);
-      final positionPeriods = await PositionPeriodsBuilder.build(
-        summary: summary,
-        quoteRepository: quoteRepository,
-      );
+      final positionPeriods = hasOpen
+          ? await PositionPeriodsBuilder.build(
+              summary: summary,
+              quoteRepository: quoteRepository,
+            )
+          : const <String, Map<String, Object?>>{};
       final snapshotJson = PortfolioContextBuilder.buildJson(
         summary,
         history: history,
         positionPeriods: positionPeriods,
+        closedPositions: closedPositions,
       );
 
       try {

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -55,10 +56,13 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
           )
         : HomeChartUtils.periodPnlFromHistory(filteredHistory);
 
-    final valuations = summary?.valuations ?? [];
+    final valuations = List<PositionValuation>.from(
+      summary?.valuations ?? const [],
+    )..sort((a, b) => b.pnlAbsolute.compareTo(a.pnlAbsolute));
+    final hasMorePositions = valuations.length > 5;
     final displayValuations = state.showAllPositions
         ? valuations
-        : valuations.take(5).toList();
+        : valuations.take(5).toList(growable: false);
 
     return Scaffold(
       backgroundColor: PortfolioColors.background,
@@ -142,8 +146,13 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                             notifier.deletePositionsForTicker(
                               valuation.position.ticker,
                             ),
-                        onViewAll: valuations.length > 5
-                            ? notifier.showAllPositions
+                        actionLabel: hasMorePositions
+                            ? (state.showAllPositions
+                                ? 'view_less'.tr()
+                                : 'view_all'.tr())
+                            : null,
+                        onAction: hasMorePositions
+                            ? notifier.togglePositionsExpanded
                             : null,
                       ),
                       ClosedPositionsEntryCard(

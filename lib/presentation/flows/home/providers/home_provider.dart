@@ -140,8 +140,8 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     reducer(action: SelectTimeRangeAction(range));
   }
 
-  void showAllPositions() {
-    reducer(action: ToggleShowAllPositionsAction(true));
+  void togglePositionsExpanded() {
+    reducer(action: ToggleShowAllPositionsAction(!state.showAllPositions));
   }
 
   @override

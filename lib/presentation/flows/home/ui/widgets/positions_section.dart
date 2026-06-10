@@ -9,14 +9,16 @@ class PositionsSection extends StatelessWidget {
   final List<PositionValuation> valuations;
   final void Function(PositionValuation valuation)? onClosePosition;
   final Future<bool> Function(PositionValuation valuation)? onDeletePosition;
-  final VoidCallback? onViewAll;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const PositionsSection({
     super.key,
     required this.valuations,
     this.onClosePosition,
     this.onDeletePosition,
-    this.onViewAll,
+    this.actionLabel,
+    this.onAction,
   });
 
   Future<bool> _confirmDelete(BuildContext context, String ticker) async {
@@ -54,8 +56,8 @@ class PositionsSection extends StatelessWidget {
         children: [
           SectionHeader(
             title: 'positions_my'.tr(),
-            actionLabel: onViewAll != null ? 'view_all'.tr() : null,
-            onAction: onViewAll,
+            actionLabel: actionLabel,
+            onAction: onAction,
           ),
           const SizedBox(height: 12),
           Container(

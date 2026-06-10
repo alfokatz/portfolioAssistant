@@ -11,7 +11,10 @@ class PnlDistributionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = valuations
+    final sorted = [...valuations]
+      ..sort((a, b) => b.pnlAbsolute.compareTo(a.pnlAbsolute));
+
+    final items = sorted
         .map(
           (v) => PnlBarChartItem(
             label: v.position.ticker,

@@ -1,11 +1,13 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateless_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
 
 class SettingsScreen extends BaseStatelessScreen {
@@ -49,6 +51,10 @@ class SettingsScreen extends BaseStatelessScreen {
                 ref.read(alertProvider.notifier).showError(
                       message: error.message,
                     );
+                return;
+              }
+              if (context.mounted) {
+                context.go(AuthRouter.loginPath);
               }
             },
             style: FilledButton.styleFrom(

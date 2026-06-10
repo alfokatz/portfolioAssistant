@@ -47,8 +47,10 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
   }
 
   Future<void> _submitForm() async {
-    FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) {
+    final formState = _formKey.currentState;
+    if (formState == null) return;
+
+    if (!formState.validate()) {
       await _scrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 250),
@@ -57,13 +59,24 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
+
     await ref.read(authControllerProvider.notifier).submitEmail(
-          email: _emailController.text,
+          email: _emailController.text.trim(),
           password: _passwordController.text,
           fullName: ref.read(authControllerProvider).isSignUpMode
-              ? _fullNameController.text
+              ? _fullNameController.text.trim()
               : null,
         );
+  }
+
+  /// Diferir un frame evita que el primer tap solo cierre el teclado/foco
+  /// sin ejecutar el envío cuando un campo sigue activo.
+  void _onPrimaryButtonPressed() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _submitForm();
+    });
   }
 
   Widget _passwordVisibilityToggle({
@@ -289,7 +302,8 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                       ? 'auth_sign_up'.tr()
                                       : 'auth_sign_in'.tr(),
                               isLoading: isLoading,
-                              onPressed: isLoading ? null : _submitForm,
+                              onPressed:
+                                  isLoading ? null : _onPrimaryButtonPressed,
                             ),
                             const SizedBox(height: AppDimens.mediumMargin),
                             AuthOauthDivider(label: 'auth_oauth_divider'.tr()),

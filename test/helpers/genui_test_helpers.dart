@@ -45,6 +45,7 @@ const portfolioQaCustomComponentNames = {
   'QaPnLBreakdown',
   'QaTopMovers',
   'QaPositionList',
+  'QaClosedPositionList',
   'QaTipBanner',
   'QaComparisonRow',
 };

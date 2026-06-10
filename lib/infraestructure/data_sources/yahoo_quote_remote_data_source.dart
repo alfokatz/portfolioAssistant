@@ -30,7 +30,8 @@ class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
                   10,
             );
 
-  String _symbol(String ticker) => PortfolioCalculator.normalizeTicker(ticker);
+  String _symbol(String ticker) =>
+      PortfolioCalculator.toYahooFinanceSymbol(ticker);
 
   bool _isFresh(DateTime fetchedAt) =>
       DateTime.now().difference(fetchedAt) < _cacheTtl;

@@ -34,6 +34,16 @@ final _positionItemSchema = S.object(
   required: ['ticker', 'weightPct', 'pnlPct'],
 );
 
+final _closedPositionItemSchema = S.object(
+  properties: {
+    'ticker': S.string(),
+    'pnlPct': S.number(),
+    'pnlAbs': S.number(),
+    'closeDateLabel': S.string(),
+  },
+  required: ['ticker', 'pnlPct', 'pnlAbs'],
+);
+
 final _moverSchema = S.object(
   properties: {
     'ticker': S.string(),
@@ -256,6 +266,41 @@ final CatalogItem qaTopMoversItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaClosedPositionListItem = CatalogItem(
+  name: 'QaClosedPositionList',
+  dataSchema: S.object(
+    description: 'Lista compacta de posiciones cerradas con P&L realizado.',
+    properties: {
+      'title': S.string(),
+      'items': S.list(
+        items: _closedPositionItemSchema,
+        minItems: 1,
+        maxItems: 6,
+      ),
+    },
+    required: ['items'],
+  ),
+  widgetBuilder: (ctx) => guardedCatalogWidget(
+    ctx,
+    PortfolioQaCatalogWidgets.qaClosedPositionList,
+  ),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "closed_positions",
+    "component": "QaClosedPositionList",
+    "title": "Posiciones cerradas",
+    "items": [
+      {"ticker": "AAPL", "pnlPct": 12.5, "pnlAbs": 240, "closeDateLabel": "3 jun 2026"},
+      {"ticker": "TSLA", "pnlPct": -4.1, "pnlAbs": -85, "closeDateLabel": "15 may 2026"}
+    ]
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaPositionListItem = CatalogItem(
   name: 'QaPositionList',
   dataSchema: S.object(
@@ -416,14 +461,35 @@ If the user asks WHY a ticker or the portfolio moved ("¿por qué cayó X?",
 - Add QaTipBanner (tone=info) explaining that causes require external
   news sources not available in this chat yet.
 
+CLOSED POSITIONS (CRITICAL)
+The snapshot may include closed_positions[] with REALIZED P&L per trade
+(pnl_abs, pnl_pct, cost_basis, proceeds, close_date).
+- closed_pnl_total_abs / closed_pnl_total_pct = aggregate realized P&L
+- has_closed_positions=true when the user has closed trades
+- NEVER mix closed realized P&L with open unrealized total_pnl_*
+- If has_positions is false but has_closed_positions is true, the user has
+  NO open positions — do not use positions[], period_returns, or QaMetricStrip
+  for current portfolio value.
+
+For closed-position questions:
+- "cuánto gané en total cerrado": QaPnLBreakdown with costBasis =
+  closed_pnl_total_cost_basis, currentValue = cost_basis + closed_pnl_total_abs,
+  gainLoss = closed_pnl_total_abs, gainLossPercent = closed_pnl_total_pct
+- "mejor/peor operación cerrada": QaTopMovers from closed_positions by pnl_pct
+- "listar posiciones cerradas": QaClosedPositionList (max 6 items, most recent)
+- Compare two closed tickers: QaComparisonRow using pnl_pct or pnl_abs
+
 WIDGET SELECTION GUIDE
-- Single ticker in a period: QaTickerMove (from position_periods)
-- Temporal performance of whole portfolio: QaPeriodChange
-- Current snapshot / no specific period: QaMetricStrip
-- All-time P&L meaning ("qué significa mi P&L total"): QaPnLBreakdown
-- Risk / concentration: QaConcentrationBar
-- Best/worst positions (all-time): QaTopMovers
-- List all positions / overview: QaPositionList
+- Single ticker in a period (open): QaTickerMove (from position_periods)
+- Temporal performance of whole portfolio (open): QaPeriodChange
+- Current snapshot / open positions: QaMetricStrip
+- All-time open P&L meaning: QaPnLBreakdown from total_cost_basis / total_value
+- Realized P&L from closed trades: QaPnLBreakdown from closed totals
+- Risk / concentration (open): QaConcentrationBar
+- Best/worst open positions: QaTopMovers from positions[]
+- Best/worst closed trades: QaTopMovers from closed_positions[]
+- List open positions: QaPositionList
+- List closed positions: QaClosedPositionList
 - Compare two tickers: QaComparisonRow
 - Pure conceptual questions (what is diversification): QaAnswerText only
 
@@ -445,6 +511,7 @@ abstract final class PortfolioQaCatalog {
         qaPnLBreakdownItem,
         qaTopMoversItem,
         qaPositionListItem,
+        qaClosedPositionListItem,
         qaTipBannerItem,
         qaComparisonRowItem,
       ],

@@ -346,6 +346,42 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaClosedPositionList(CatalogItemContext ctx) {
+    final data = _ClosedPositionListData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (data.title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Text(
+                data.title,
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          for (var i = 0; i < data.items.length; i++)
+            _closedPositionRow(
+              data.items[i],
+              currency: currency,
+              showDivider: i < data.items.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+
   static Widget qaTipBanner(CatalogItemContext ctx) {
     final data = _TipBannerData.fromMap(ctx.data as JsonMap);
     final color = data.tone == 'warning'
@@ -558,6 +594,72 @@ abstract final class PortfolioQaCatalogWidgets {
           ),
         ],
       ),
+    );
+  }
+
+  static Widget _closedPositionRow(
+    _ClosedPositionItem item, {
+    required NumberFormat currency,
+    required bool showDivider,
+  }) {
+    final isUp = item.pnlPct >= 0;
+    final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.ticker,
+                      style: const TextStyle(
+                        color: PortfolioColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (item.closeDateLabel.isNotEmpty)
+                      Text(
+                        item.closeDateLabel,
+                        style: const TextStyle(
+                          color: PortfolioColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${isUp ? '+' : ''}${currency.format(item.pnlAbs)}',
+                    style: TextStyle(
+                      color: pnlColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${isUp ? '+' : ''}${item.pnlPct.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      color: pnlColor,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (showDivider)
+          const Divider(height: 1, color: PortfolioColors.border),
+      ],
     );
   }
 
@@ -859,6 +961,49 @@ final class _PositionItem {
   final String ticker;
   final double weightPct;
   final double pnlPct;
+}
+
+final class _ClosedPositionItem {
+  _ClosedPositionItem({
+    required this.ticker,
+    required this.pnlPct,
+    required this.pnlAbs,
+    required this.closeDateLabel,
+  });
+
+  factory _ClosedPositionItem.fromMap(JsonMap map) {
+    return _ClosedPositionItem(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      pnlPct: GenUiHelpers.safeDouble(map['pnlPct'], defaultValue: 0),
+      pnlAbs: GenUiHelpers.safeDouble(map['pnlAbs'], defaultValue: 0),
+      closeDateLabel:
+          GenUiHelpers.safeString(map['closeDateLabel'], defaultValue: ''),
+    );
+  }
+
+  final String ticker;
+  final double pnlPct;
+  final double pnlAbs;
+  final String closeDateLabel;
+}
+
+final class _ClosedPositionListData {
+  _ClosedPositionListData({required this.title, required this.items});
+
+  factory _ClosedPositionListData.fromMap(JsonMap map) {
+    final items = GenUiHelpers.safeList(
+      map['items'],
+      defaultValue: const <_ClosedPositionItem>[],
+      mapItem: (item) => _ClosedPositionItem.fromMap(item as JsonMap),
+    );
+    return _ClosedPositionListData(
+      title: GenUiHelpers.safeString(map['title'], defaultValue: ''),
+      items: items.take(6).toList(),
+    );
+  }
+
+  final String title;
+  final List<_ClosedPositionItem> items;
 }
 
 final class _PositionListData {

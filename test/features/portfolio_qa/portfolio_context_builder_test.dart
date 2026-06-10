@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
@@ -13,7 +14,44 @@ void main() {
     test('empty summary marks has_positions false', () {
       final json = jsonDecode(PortfolioContextBuilder.buildJson(null)) as Map;
       expect(json['has_positions'], isFalse);
+      expect(json['has_closed_positions'], isFalse);
+      expect(json['has_portfolio_data'], isFalse);
       expect(json['positions'], isEmpty);
+      expect(json['closed_positions'], isEmpty);
+    });
+
+    test('closed-only portfolio includes realized pnl totals', () {
+      final closed = [
+        ClosedPosition(
+          id: '1',
+          ticker: 'AAPL',
+          quantity: 2,
+          avgPurchasePrice: 100,
+          closePrice: 120,
+          closeDate: DateTime(2026, 6, 1),
+          closedAt: DateTime(2026, 6, 1),
+        ),
+        ClosedPosition(
+          id: '2',
+          ticker: 'TSLA',
+          quantity: 1,
+          avgPurchasePrice: 200,
+          closePrice: 180,
+          closeDate: DateTime(2026, 5, 15),
+          closedAt: DateTime(2026, 5, 15),
+        ),
+      ];
+
+      final json = jsonDecode(
+        PortfolioContextBuilder.buildJson(null, closedPositions: closed),
+      ) as Map;
+
+      expect(json['has_positions'], isFalse);
+      expect(json['has_closed_positions'], isTrue);
+      expect(json['has_portfolio_data'], isTrue);
+      expect(json['total_value'], 0);
+      expect(json['closed_pnl_total_abs'], 20);
+      expect((json['closed_positions'] as List).length, 2);
     });
 
     test('includes weighted positions', () {
