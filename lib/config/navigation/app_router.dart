@@ -5,7 +5,7 @@ import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_router.dart';
-import 'package:portfolio_assistant/features/portfolio_qa/nav/portfolio_qa_router.dart';
+import 'package:portfolio_assistant/features/assistant/nav/portfolio_qa_router.dart';
 import 'package:portfolio_assistant/features/genui_core/nav/genui_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';

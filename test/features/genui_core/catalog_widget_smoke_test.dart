@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/analysis/catalog/analysis_catalog.dart';
 import 'package:portfolio_assistant/features/investment/catalog/investment_catalog.dart';
 import 'package:portfolio_assistant/features/planning/catalog/planning_catalog.dart';
-import 'package:portfolio_assistant/features/portfolio_qa/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
 
 import '../../helpers/genui_test_helpers.dart';
 
