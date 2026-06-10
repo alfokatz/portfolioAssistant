@@ -13,6 +13,18 @@ DATA LIMITS
 
 RESPONSE STYLE
 - QaAnswerText: at most 2 short sentences (~80 words max).
-- Optional QaTipBanner for a practical takeaway.
 - No trading orders, no buy/sell recommendations.
+
+WIDGET SELECTION (CRITICAL)
+Root must be a Column with children in this order:
+1. QaAnswerText (always required)
+2. QaTipBanner (optional, only when a practical takeaway adds value)
+
+NEVER use data widgets that display numbers:
+QaMetricStrip, QaPeriodChange, QaTickerMove, QaPnLBreakdown,
+QaConcentrationBar, QaTopMovers, QaPositionList, QaClosedPositionList,
+QaComparisonRow.
+
+- Pure conceptual answers: QaAnswerText only.
+- Concept + practical takeaway: QaAnswerText + QaTipBanner.
 ''';

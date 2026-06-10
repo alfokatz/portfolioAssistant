@@ -17,8 +17,7 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grounding_validator.dart';
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
-import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
-import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -62,11 +61,42 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   ModeSuggestion? _modeSuggestion;
   String? _pendingMessage;
 
-  static const _chipKeys = [
-    'portfolio_qa_chip_today',
-    'portfolio_qa_chip_risk',
-    'portfolio_qa_chip_pnl',
-  ];
+  List<String> get _chipKeys {
+    switch (_currentMode) {
+      case AssistantMode.learn:
+        return const [
+          'assistant_learn_chip_diversify',
+          'assistant_learn_chip_pnl_meaning',
+          'assistant_learn_chip_risk',
+        ];
+      case AssistantMode.portfolio:
+        return const [
+          'portfolio_qa_chip_today',
+          'portfolio_qa_chip_risk',
+          'portfolio_qa_chip_pnl',
+        ];
+      case AssistantMode.explore:
+      case AssistantMode.invest:
+      case AssistantMode.plan:
+        return const [
+          'portfolio_qa_chip_today',
+          'portfolio_qa_chip_risk',
+          'portfolio_qa_chip_pnl',
+        ];
+    }
+  }
+
+  String get _welcomeKey {
+    switch (_currentMode) {
+      case AssistantMode.learn:
+        return 'assistant_learn_welcome';
+      case AssistantMode.portfolio:
+      case AssistantMode.explore:
+      case AssistantMode.invest:
+      case AssistantMode.plan:
+        return 'portfolio_qa_welcome';
+    }
+  }
 
   @override
   void initState() {
@@ -75,7 +105,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     _messages.add(
       PortfolioQaMessage(
         role: PortfolioQaRole.assistant,
-        content: 'portfolio_qa_welcome'.tr(),
+        content: _welcomeKey.tr(),
       ),
     );
     runAfterPostFrameCallback(_bootstrap);
@@ -123,8 +153,20 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       _currentMode = mode;
       _modeSuggestion = null;
       _pendingMessage = null;
+      _updateWelcomeIfOnlyMessage();
     });
     unawaited(_applyModeAndMaybeSend(mode, pending));
+  }
+
+  void _updateWelcomeIfOnlyMessage() {
+    if (_messages.length == 1 &&
+        _messages.first.role == PortfolioQaRole.assistant &&
+        !_messages.first.isStreaming) {
+      _messages[0] = PortfolioQaMessage(
+        role: PortfolioQaRole.assistant,
+        content: _welcomeKey.tr(),
+      );
+    }
   }
 
   Future<void> _applyModeAndMaybeSend(
@@ -217,29 +259,25 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
 
-    final summary = ref.read(homeProvider).summary;
-    final closedResult =
-        await ref.read(getClosedPositionsUseCaseProvider).call();
-    final closedPositions = closedResult.fold(
-      (_) => <ClosedPosition>[],
-      (list) => list,
-    );
-    final hasOpen = summary != null && summary.valuations.isNotEmpty;
-
-    final history = ref.read(homeProvider).history;
-    final quoteRepository = ref.read(quoteRepositoryProvider);
-    final positionPeriods = hasOpen
-        ? await PositionPeriodsBuilder.build(
-            summary: summary,
-            quoteRepository: quoteRepository,
-          )
-        : const <String, Map<String, Object?>>{};
-    final snapshotJson = PortfolioContextBuilder.buildJson(
-      summary,
-      history: history,
-      positionPeriods: positionPeriods,
-      closedPositions: closedPositions,
-    );
+    final String snapshotJson;
+    if (_currentMode == AssistantMode.portfolio) {
+      final summary = ref.read(homeProvider).summary;
+      final closedResult =
+          await ref.read(getClosedPositionsUseCaseProvider).call();
+      final closedPositions = closedResult.fold(
+        (_) => <ClosedPosition>[],
+        (list) => list,
+      );
+      snapshotJson = await buildSnapshotJson(
+        mode: AssistantMode.portfolio,
+        summary: summary,
+        history: ref.read(homeProvider).history,
+        closedPositions: closedPositions,
+        quoteRepository: ref.read(quoteRepositoryProvider),
+      );
+    } else {
+      snapshotJson = await buildSnapshotJson(mode: _currentMode);
+    }
 
     final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
     final validation = SnapshotGroundingValidator.validate(
@@ -247,7 +285,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       snapshot: snapshot,
     );
 
-    if (validation == SnapshotValidation.noPortfolioData) {
+    if (_currentMode == AssistantMode.portfolio &&
+        validation == SnapshotValidation.noPortfolioData) {
       if (mounted) {
         setState(() {
           _error = 'portfolio_qa_no_positions'.tr();
@@ -347,7 +386,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
             selectedMode: _currentMode,
             onModeSelected: (mode) {
               if (mode == _currentMode) return;
-              setState(() => _currentMode = mode);
+              setState(() {
+                _currentMode = mode;
+                _updateWelcomeIfOnlyMessage();
+              });
               unawaited(_rebuildCatalogForMode());
             },
           ),
