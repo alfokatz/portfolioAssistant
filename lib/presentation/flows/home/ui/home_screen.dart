@@ -6,7 +6,7 @@ import 'package:portfolio_assistant/presentation/base/content_state/content_stat
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/ai_insights_section.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_shortcuts_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
@@ -164,9 +164,12 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         const SizedBox(height: 20),
                       ],
                       PortfolioQaEntryCard(
-                        onTap: notifier.openPortfolioQa,
+                        onTap: notifier.openAssistant,
                       ),
-                      AiInsightsSection(onInsightTap: notifier.openGenUiFlow),
+                      AssistantShortcutsSection(
+                        onShortcutTap: (mode) =>
+                            notifier.openAssistant(mode: mode),
+                      ),
                       const SizedBox(height: 88),
                     ] else
                       Padding(

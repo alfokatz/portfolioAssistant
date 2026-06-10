@@ -10,12 +10,10 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
-import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
-import 'package:portfolio_assistant/features/genui_core/nav/genui_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
@@ -119,12 +117,6 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
 
   void openClosedPositions() {
     ref.read(navigationProvider.notifier).navigate(GotoClosedPositions());
-  }
-
-  void openGenUiFlow(GenUiFlowType flowType) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoGenUiFlow(flowType: flowType),
-        );
   }
 
   void openAssistant({

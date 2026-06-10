@@ -57,7 +57,7 @@ class PortfolioQaEntryCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'portfolio_qa_entry_subtitle'.tr(),
+                        'assistant_entry_subtitle'.tr(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: PortfolioColors.textSecondary,
                               height: 1.3,
