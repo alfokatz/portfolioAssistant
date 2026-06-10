@@ -17,6 +17,7 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grounding_validator.dart';
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
+import 'package:portfolio_assistant/features/assistant/modes/plan/plan_goal_saver.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
@@ -90,9 +91,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         ];
       case AssistantMode.plan:
         return const [
-          'portfolio_qa_chip_today',
-          'portfolio_qa_chip_risk',
-          'portfolio_qa_chip_pnl',
+          'assistant_plan_chip_retirement',
+          'assistant_plan_chip_emergency',
+          'assistant_plan_chip_monthly',
         ];
     }
   }
@@ -105,8 +106,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         return 'assistant_explore_welcome';
       case AssistantMode.invest:
         return 'assistant_invest_welcome';
-      case AssistantMode.portfolio:
       case AssistantMode.plan:
+        return 'assistant_plan_welcome';
+      case AssistantMode.portfolio:
         return 'portfolio_qa_welcome';
     }
   }
@@ -307,6 +309,18 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         quoteRepository: ref.read(quoteRepositoryProvider),
         riskProfile: riskProfile,
       );
+    } else if (_currentMode == AssistantMode.plan) {
+      final summary = ref.read(homeProvider).summary;
+      final prefs = ref.read(preferenceManagerProvider);
+      final savedGoal = await prefs.getSavedGoal();
+      final monthlyContribution = await prefs.getMonthlyContribution();
+      snapshotJson = await buildSnapshotJson(
+        mode: AssistantMode.plan,
+        userMessage: trimmed,
+        summary: summary,
+        savedGoal: savedGoal,
+        monthlyContribution: monthlyContribution,
+      );
     } else {
       snapshotJson = await buildSnapshotJson(mode: _currentMode);
     }
@@ -350,6 +364,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         });
       }
       return;
+    }
+
+    if (_currentMode == AssistantMode.plan) {
+      await PlanGoalSaver.persistIfRequested(
+        prefs: ref.read(preferenceManagerProvider),
+        snapshot: snapshot,
+        userMessage: trimmed,
+      );
     }
 
     final surfaceId =

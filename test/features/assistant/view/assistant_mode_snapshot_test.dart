@@ -127,8 +127,47 @@ void main() {
       expect(snapshot['mode'], 'plan');
       expect(snapshot['data_source'], 'computed');
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
+      expect(snapshot['monthly_contribution'], 200);
       expect(snapshot['has_complete_goal'], isTrue);
       expect(snapshot['projection'], isNotNull);
+    });
+
+    test('plan mode merges saved goal when message has no parsed goal', () async {
+      final json = await buildSnapshotJson(
+        mode: AssistantMode.plan,
+        userMessage: '¿Voy bien con mi meta?',
+        savedGoal: (
+          label: 'Retiro',
+          targetAmount: 50000,
+          targetDate: '2030-01-01',
+        ),
+        monthlyContribution: 300,
+        asOf: fixedAsOf,
+      );
+      final snapshot = jsonDecode(json) as Map<String, dynamic>;
+
+      expect(snapshot['mode'], 'plan');
+      expect(snapshot['parsed_goal'], isNull);
+      expect(snapshot['has_complete_goal'], isTrue);
+      expect(snapshot['saved_goal'], isNotNull);
+      expect(
+        (snapshot['active_goal'] as Map)['target_amount'],
+        50000,
+      );
+      expect(snapshot['projection'], isNotNull);
+    });
+
+    test('plan mode returns incomplete snapshot without projection', () async {
+      final json = await buildSnapshotJson(
+        mode: AssistantMode.plan,
+        userMessage: '¿Cuánto debo ahorrar por mes?',
+        asOf: fixedAsOf,
+      );
+      final snapshot = jsonDecode(json) as Map<String, dynamic>;
+
+      expect(snapshot['has_complete_goal'], isFalse);
+      expect(snapshot['projection'], isNull);
+      expect(snapshot['milestones'], isNull);
     });
 
     test('portfolio mode without data returns has_portfolio_data false', () async {

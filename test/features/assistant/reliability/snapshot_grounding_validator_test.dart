@@ -138,6 +138,19 @@ void main() {
           SnapshotValidation.ok,
         );
       });
+
+      test('plan mode returns ok when projection requested but goal incomplete', () {
+        expect(
+          SnapshotGroundingValidator.validate(
+            mode: AssistantMode.plan,
+            snapshot: {
+              'has_complete_goal': false,
+              'projection': null,
+            },
+          ),
+          SnapshotValidation.ok,
+        );
+      });
     });
   });
 }
