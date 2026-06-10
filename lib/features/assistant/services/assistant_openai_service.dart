@@ -1,4 +1,6 @@
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/portfolio_qa_system_prompt.dart';
 
@@ -10,6 +12,34 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     required super.systemPrompt,
     required super.catalog,
   });
+
+  factory AssistantOpenAiService.forMode({
+    required AssistantMode mode,
+    String? apiKey,
+    String? model,
+  }) {
+    final catalog = AssistantCatalog.buildFor(mode);
+    final prompt =
+        PromptBuilder.custom(
+          catalog: catalog,
+          allowedOperations: SurfaceOperations.createAndUpdate(
+            dataModel: false,
+          ),
+          systemPromptFragments: catalog.systemPromptFragments,
+          technicalPossibilities: const TechnicalPossibilities(
+            codeExecution: false,
+            toolCall: false,
+            functionCall: false,
+          ),
+        ).systemPromptJoined();
+
+    return AssistantOpenAiService(
+      apiKey: apiKey,
+      model: model,
+      systemPrompt: prompt,
+      catalog: catalog,
+    );
+  }
 
   static const maxTurnPairs = 5;
 

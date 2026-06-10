@@ -10,7 +10,6 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_messa
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -51,7 +50,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   final _conversationEvents = GenUiConversationSubscription();
   final _surfaceIds = <String>[];
 
-  late final Catalog _catalog;
   AssistantOpenAiService? _service;
 
   final List<PortfolioQaMessage> _messages = [];
@@ -73,7 +71,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   @override
   void initState() {
     _currentMode = widget.initialMode;
-    _catalog = PortfolioQaCatalog.build();
     super.initState();
     _messages.add(
       PortfolioQaMessage(
@@ -127,8 +124,16 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       _modeSuggestion = null;
       _pendingMessage = null;
     });
-    if (pending != null) {
-      unawaited(_sendMessage(pending));
+    unawaited(_applyModeAndMaybeSend(mode, pending));
+  }
+
+  Future<void> _applyModeAndMaybeSend(
+    AssistantMode mode,
+    String? pendingMessage,
+  ) async {
+    await _initService();
+    if (pendingMessage != null) {
+      await _sendMessage(pendingMessage);
     }
   }
 
@@ -143,27 +148,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     }
   }
 
-  Future<void> _initService() async {
-    final prompt =
-        PromptBuilder.custom(
-          catalog: _catalog,
-          allowedOperations: SurfaceOperations.createAndUpdate(
-            dataModel: false,
-          ),
-          systemPromptFragments: _catalog.systemPromptFragments,
-          technicalPossibilities: const TechnicalPossibilities(
-            codeExecution: false,
-            toolCall: false,
-            functionCall: false,
-          ),
-        ).systemPromptJoined();
+  Future<void> _rebuildCatalogForMode() async {
+    await _initService();
+  }
 
+  Future<void> _initService() async {
     _conversationEvents.cancel();
     _service?.dispose();
-    _service = AssistantOpenAiService(
-      systemPrompt: prompt,
-      catalog: _catalog,
-    );
+    _service = AssistantOpenAiService.forMode(mode: _currentMode);
 
     _conversationEvents.listen(_service!.conversation, _onConversationEvent);
 
@@ -353,7 +345,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         children: [
           ModeChipBar(
             selectedMode: _currentMode,
-            onModeSelected: (mode) => setState(() => _currentMode = mode),
+            onModeSelected: (mode) {
+              if (mode == _currentMode) return;
+              setState(() => _currentMode = mode);
+              unawaited(_rebuildCatalogForMode());
+            },
           ),
           const PortfolioQaDisclaimerBanner(),
           if (_modeSuggestion case final suggestion?)
