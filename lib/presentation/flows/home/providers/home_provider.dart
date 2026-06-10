@@ -13,7 +13,8 @@ import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_c
 import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
-import 'package:portfolio_assistant/features/assistant/nav/portfolio_qa_nav.dart';
+import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
+import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/genui_core/nav/genui_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
@@ -126,10 +127,18 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
         );
   }
 
-  void openPortfolioQa({String? initialQuestion}) {
+  void openAssistant({
+    AssistantMode mode = AssistantMode.portfolio,
+    String? initialQuestion,
+  }) {
     ref.read(navigationProvider.notifier).navigate(
-          GotoPortfolioQa(initialQuestion: initialQuestion),
+          GotoAssistant(mode: mode, initialQuestion: initialQuestion),
         );
+  }
+
+  @Deprecated('Use openAssistant instead')
+  void openPortfolioQa({String? initialQuestion}) {
+    openAssistant(initialQuestion: initialQuestion);
   }
 
   void openSettings() {
