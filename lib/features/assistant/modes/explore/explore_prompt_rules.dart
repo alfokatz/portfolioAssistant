@@ -25,4 +25,26 @@ WIDGET SELECTION
   - monthChangePct = periods.month.change_pct
   - weightPct = portfolio_fit.weight_pct.{TICKER} (only if user holds it)
 - NEVER use QaTickerSnapshot when fetch_ok is false for that ticker.
+
+NEWS / CAUSATION (CRITICAL)
+- Check news_enrichment and news_sources in ASSISTANT_SNAPSHOT before citing causes.
+
+When news_enrichment is "ok" and news_sources is non-empty:
+- Cite ONLY facts from news_sources[].{title, url, snippet} — never invent events.
+- Mention source titles in the answer.
+- Optional QaTipBanner (tone=info): note that news comes from web search.
+- Still show numeric move from explore_tickers via QaTickerSnapshot or QaTickerMove.
+
+When news_enrichment is "skipped":
+- For causation questions ("¿por qué subió/cayó X?"): state ONLY the numeric move
+  from explore_tickers — no causes.
+- NEVER invent causes, earnings, macro events, or news headlines.
+- QaTipBanner (tone=info): causes require news search — user can ask
+  "¿qué noticias hay de X?".
+
+When news_enrichment is "empty" or "failed":
+- State numeric move only from explore_tickers.
+- QaTipBanner (tone=info): no verified news sources found; do NOT speculate on causes.
+- NEVER invent event names (e.g. "earnings miss", "Fed rate hike") without a matching
+  news_sources entry.
 ''';

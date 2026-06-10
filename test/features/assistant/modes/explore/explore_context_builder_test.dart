@@ -7,6 +7,27 @@ import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_raw_chat_client.dart';
+
+class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
+  _FakeOpenAIRawChatClient({
+    required this.onSearchNews,
+  }) : super(apiKey: 'test-key', model: 'test-model');
+
+  final Future<String> Function({
+    required String userQuery,
+    required List<String> tickers,
+  }) onSearchNews;
+
+  @override
+  Future<String> searchNews({
+    required String userQuery,
+    required List<String> tickers,
+  }) {
+    return onSearchNews(userQuery: userQuery, tickers: tickers);
+  }
+}
 
 class _FakeQuoteRepository implements QuoteRepository {
   static const aaplPrice = 190.0;
@@ -149,6 +170,37 @@ void main() {
       );
 
       expect(snapshot.containsKey('portfolio_fit'), isFalse);
+    });
+
+    test('includes news_sources when enricher provided for news query', () async {
+      final enricher = ExploreNewsEnricher(
+        client: _FakeOpenAIRawChatClient(
+          onSearchNews: ({required userQuery, required tickers}) async {
+            expect(userQuery, '¿qué noticias hay de AAPL?');
+            expect(tickers, ['AAPL']);
+            return '''
+- headline: Apple unveils new product line
+- url: https://example.com/aapl-news
+- Apple announced a major product refresh today.
+''';
+          },
+        ),
+      );
+
+      final snapshot = await ExploreContextBuilder.build(
+        userMessage: '¿qué noticias hay de AAPL?',
+        quoteRepository: quoteRepository,
+        asOf: fixedAsOf,
+        newsEnricher: enricher,
+      );
+
+      expect(snapshot['news_enrichment'], 'ok');
+      final sources = snapshot['news_sources'] as List<dynamic>;
+      expect(sources, hasLength(1));
+      final source = sources.first as Map<String, dynamic>;
+      expect(source['title'], 'Apple unveils new product line');
+      expect(source['url'], 'https://example.com/aapl-news');
+      expect(source['snippet'], contains('major product refresh'));
     });
   });
 }

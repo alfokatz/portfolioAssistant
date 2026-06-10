@@ -2,6 +2,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
 
 /// Construye el snapshot de contexto para modo explore desde tickers del mensaje.
@@ -17,6 +18,7 @@ abstract final class ExploreContextBuilder {
     required QuoteRepository quoteRepository,
     PortfolioSummary? summary,
     DateTime? asOf,
+    ExploreNewsEnricher? newsEnricher,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final tickers = TickerExtractor.extractTickers(userMessage);
@@ -39,6 +41,10 @@ abstract final class ExploreContextBuilder {
     final portfolioFit = _buildPortfolioFit(summary, tickers);
     if (portfolioFit != null) {
       snapshot['portfolio_fit'] = portfolioFit;
+    }
+
+    if (newsEnricher != null) {
+      return newsEnricher.enrich(snapshot: snapshot, userMessage: userMessage);
     }
 
     return snapshot;

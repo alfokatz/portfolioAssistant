@@ -5,8 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_raw_chat_client.dart';
+
+class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
+  _FakeOpenAIRawChatClient()
+      : super(apiKey: 'test-key', model: 'test-model');
+
+  @override
+  Future<String> searchNews({
+    required String userQuery,
+    required List<String> tickers,
+  }) async {
+    throw StateError('should not be called');
+  }
+}
 
 class _FakeQuoteRepository implements QuoteRepository {
   @override
@@ -70,6 +85,9 @@ void main() {
         userMessage: '¿Cómo está NVDA?',
         quoteRepository: _FakeQuoteRepository(),
         asOf: fixedAsOf,
+        exploreNewsEnricher: ExploreNewsEnricher(
+          client: _FakeOpenAIRawChatClient(),
+        ),
       );
       final snapshot = jsonDecode(json) as Map<String, dynamic>;
 
