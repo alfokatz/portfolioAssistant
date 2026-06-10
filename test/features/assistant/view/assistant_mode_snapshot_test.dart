@@ -1,8 +1,39 @@
 import 'dart:convert';
 
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
+
+class _FakeQuoteRepository implements QuoteRepository {
+  @override
+  Future<Either<HttpError, double>> getCurrentPrice(String ticker) async {
+    if (ticker == 'NVDA') return const Right(120.0);
+    return Left(HttpError(code: 'not_found'));
+  }
+
+  @override
+  Future<Either<HttpError, List<PriceCandle>>> getHistoricalDaily(
+    String ticker,
+  ) async {
+    if (ticker == 'NVDA') {
+      final end = DateTime(2026, 6, 10);
+      return Right(
+        List<PriceCandle>.generate(
+          10,
+          (i) => PriceCandle(
+            date: end.subtract(Duration(days: 9 - i)),
+            close: 110.0 + i,
+          ),
+        ),
+      );
+    }
+    return Left(HttpError(code: 'not_found'));
+  }
+}
 
 void main() {
   group('buildSnapshotJson', () {
@@ -31,6 +62,21 @@ void main() {
       expect(snapshot['data_source'], 'yahoo_finance');
       expect(snapshot['explore_tickers'], isEmpty);
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
+    });
+
+    test('explore mode with userMessage extracts tickers via quote repo', () async {
+      final json = await buildSnapshotJson(
+        mode: AssistantMode.explore,
+        userMessage: '¿Cómo está NVDA?',
+        quoteRepository: _FakeQuoteRepository(),
+        asOf: fixedAsOf,
+      );
+      final snapshot = jsonDecode(json) as Map<String, dynamic>;
+
+      expect(snapshot['mode'], 'explore');
+      final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+      expect(tickers.containsKey('NVDA'), isTrue);
+      expect((tickers['NVDA'] as Map)['fetch_ok'], isTrue);
     });
 
     test('invest mode returns minimal snapshot with mode name', () async {

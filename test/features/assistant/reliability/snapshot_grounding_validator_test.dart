@@ -31,14 +31,30 @@ void main() {
     });
 
     group('explore mode', () {
-      test('returns ok when explore_tickers is non-empty', () {
+      test('returns ok when at least one ticker has fetch_ok true', () {
         final result = SnapshotGroundingValidator.validate(
           mode: AssistantMode.explore,
           snapshot: {
-            'explore_tickers': {'AAPL': {'price': 190.0}},
+            'explore_tickers': {
+              'AAPL': {'fetch_ok': true, 'current_price': 190.0},
+              'FAKE': {'fetch_ok': false},
+            },
           },
         );
         expect(result, SnapshotValidation.ok);
+      });
+
+      test('returns exploreFetchFailed when all tickers have fetch_ok false', () {
+        final result = SnapshotGroundingValidator.validate(
+          mode: AssistantMode.explore,
+          snapshot: {
+            'explore_tickers': {
+              'FAKE1': {'fetch_ok': false},
+              'FAKE2': {'fetch_ok': false},
+            },
+          },
+        );
+        expect(result, SnapshotValidation.exploreFetchFailed);
       });
 
       test('returns exploreFetchFailed when explore_tickers is empty', () {

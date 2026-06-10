@@ -76,6 +76,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
           'portfolio_qa_chip_pnl',
         ];
       case AssistantMode.explore:
+        return const [
+          'assistant_explore_chip_nvda',
+          'assistant_explore_chip_compare',
+          'assistant_explore_chip_week',
+        ];
       case AssistantMode.invest:
       case AssistantMode.plan:
         return const [
@@ -90,8 +95,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     switch (_currentMode) {
       case AssistantMode.learn:
         return 'assistant_learn_welcome';
-      case AssistantMode.portfolio:
       case AssistantMode.explore:
+        return 'assistant_explore_welcome';
+      case AssistantMode.portfolio:
       case AssistantMode.invest:
       case AssistantMode.plan:
         return 'portfolio_qa_welcome';
@@ -275,6 +281,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         closedPositions: closedPositions,
         quoteRepository: ref.read(quoteRepositoryProvider),
       );
+    } else if (_currentMode == AssistantMode.explore) {
+      final summary = ref.read(homeProvider).summary;
+      snapshotJson = await buildSnapshotJson(
+        mode: AssistantMode.explore,
+        userMessage: trimmed,
+        summary: summary,
+        quoteRepository: ref.read(quoteRepositoryProvider),
+      );
     } else {
       snapshotJson = await buildSnapshotJson(mode: _currentMode);
     }
@@ -290,6 +304,21 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       if (mounted) {
         setState(() {
           _error = 'portfolio_qa_no_positions'.tr();
+        });
+      }
+      return;
+    }
+
+    if (_currentMode == AssistantMode.explore &&
+        validation == SnapshotValidation.exploreFetchFailed) {
+      final tickers = snapshot['explore_tickers'] as Map?;
+      final errorKey =
+          tickers == null || tickers.isEmpty
+              ? 'assistant_explore_no_ticker'
+              : 'assistant_explore_fetch_failed';
+      if (mounted) {
+        setState(() {
+          _error = errorKey.tr();
         });
       }
       return;

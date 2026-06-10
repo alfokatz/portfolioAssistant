@@ -18,6 +18,13 @@ abstract final class SnapshotGroundingValidator {
         if (tickers == null || tickers.isEmpty) {
           return SnapshotValidation.exploreFetchFailed;
         }
+        final hasSuccessfulFetch = tickers.values.any((entry) {
+          if (entry is! Map) return false;
+          return entry['fetch_ok'] == true;
+        });
+        if (!hasSuccessfulFetch) {
+          return SnapshotValidation.exploreFetchFailed;
+        }
         return SnapshotValidation.ok;
       case AssistantMode.learn:
       case AssistantMode.invest:
