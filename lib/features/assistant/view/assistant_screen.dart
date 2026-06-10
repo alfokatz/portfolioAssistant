@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/assistant/routing/intent_router.dar
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
@@ -82,6 +83,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
           'assistant_explore_chip_week',
         ];
       case AssistantMode.invest:
+        return const [
+          'assistant_invest_chip_budget',
+          'assistant_invest_chip_diversify',
+          'assistant_invest_chip_concentration',
+        ];
       case AssistantMode.plan:
         return const [
           'portfolio_qa_chip_today',
@@ -97,8 +103,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         return 'assistant_learn_welcome';
       case AssistantMode.explore:
         return 'assistant_explore_welcome';
-      case AssistantMode.portfolio:
       case AssistantMode.invest:
+        return 'assistant_invest_welcome';
+      case AssistantMode.portfolio:
       case AssistantMode.plan:
         return 'portfolio_qa_welcome';
     }
@@ -289,6 +296,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         summary: summary,
         quoteRepository: ref.read(quoteRepositoryProvider),
       );
+    } else if (_currentMode == AssistantMode.invest) {
+      final summary = ref.read(homeProvider).summary;
+      final riskProfile =
+          await ref.read(preferenceManagerProvider).getRiskProfile();
+      snapshotJson = await buildSnapshotJson(
+        mode: AssistantMode.invest,
+        userMessage: trimmed,
+        summary: summary,
+        quoteRepository: ref.read(quoteRepositoryProvider),
+        riskProfile: riskProfile,
+      );
     } else {
       snapshotJson = await buildSnapshotJson(mode: _currentMode);
     }
@@ -319,6 +337,16 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       if (mounted) {
         setState(() {
           _error = errorKey.tr();
+        });
+      }
+      return;
+    }
+
+    if (_currentMode == AssistantMode.invest &&
+        validation == SnapshotValidation.exploreFetchFailed) {
+      if (mounted) {
+        setState(() {
+          _error = 'assistant_invest_fetch_failed'.tr();
         });
       }
       return;

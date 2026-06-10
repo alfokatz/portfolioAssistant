@@ -110,7 +110,9 @@ void main() {
 
       final candidates = snapshot['candidates'] as List<dynamic>;
       expect(candidates, isNotEmpty);
-      expect((candidates.first as Map)['ticker'], 'NVDA');
+      final first = candidates.first as Map<String, dynamic>;
+      expect(first['ticker'], 'NVDA');
+      expect(first['fetch_ok'], isTrue);
     });
 
     test('plan mode returns minimal snapshot with mode name', () async {

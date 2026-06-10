@@ -74,21 +74,55 @@ void main() {
       });
     });
 
-    group('learn, invest, plan modes', () {
+    group('invest mode', () {
+      test('returns ok when at least one candidate has fetch_ok true', () {
+        final result = SnapshotGroundingValidator.validate(
+          mode: AssistantMode.invest,
+          snapshot: {
+            'candidates': [
+              {'ticker': 'NVDA', 'fetch_ok': true},
+              {'ticker': 'FAKE', 'fetch_ok': false},
+            ],
+          },
+        );
+        expect(result, SnapshotValidation.ok);
+      });
+
+      test('returns exploreFetchFailed when all candidates have fetch_ok false', () {
+        final result = SnapshotGroundingValidator.validate(
+          mode: AssistantMode.invest,
+          snapshot: {
+            'candidates': [
+              {'ticker': 'FAKE1', 'fetch_ok': false},
+              {'ticker': 'FAKE2', 'fetch_ok': false},
+            ],
+          },
+        );
+        expect(result, SnapshotValidation.exploreFetchFailed);
+      });
+
+      test('returns exploreFetchFailed when candidates is empty', () {
+        final result = SnapshotGroundingValidator.validate(
+          mode: AssistantMode.invest,
+          snapshot: {'candidates': <Map<String, dynamic>>[]},
+        );
+        expect(result, SnapshotValidation.exploreFetchFailed);
+      });
+
+      test('returns exploreFetchFailed when candidates is null', () {
+        final result = SnapshotGroundingValidator.validate(
+          mode: AssistantMode.invest,
+          snapshot: {},
+        );
+        expect(result, SnapshotValidation.exploreFetchFailed);
+      });
+    });
+
+    group('learn and plan modes', () {
       test('learn mode always returns ok', () {
         expect(
           SnapshotGroundingValidator.validate(
             mode: AssistantMode.learn,
-            snapshot: {},
-          ),
-          SnapshotValidation.ok,
-        );
-      });
-
-      test('invest mode always returns ok', () {
-        expect(
-          SnapshotGroundingValidator.validate(
-            mode: AssistantMode.invest,
             snapshot: {},
           ),
           SnapshotValidation.ok,

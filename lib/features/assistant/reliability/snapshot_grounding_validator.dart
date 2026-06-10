@@ -26,8 +26,15 @@ abstract final class SnapshotGroundingValidator {
           return SnapshotValidation.exploreFetchFailed;
         }
         return SnapshotValidation.ok;
-      case AssistantMode.learn:
       case AssistantMode.invest:
+        final candidates = snapshot['candidates'] as List?;
+        if (candidates == null || candidates.isEmpty) {
+          return SnapshotValidation.exploreFetchFailed;
+        }
+        final hasOk = candidates.any((c) => c is Map && c['fetch_ok'] == true);
+        if (!hasOk) return SnapshotValidation.exploreFetchFailed;
+        return SnapshotValidation.ok;
+      case AssistantMode.learn:
       case AssistantMode.plan:
         return SnapshotValidation.ok;
     }
