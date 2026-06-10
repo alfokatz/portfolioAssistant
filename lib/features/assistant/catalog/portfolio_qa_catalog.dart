@@ -62,6 +62,15 @@ final _budgetSplitItemSchema = S.object(
   required: ['ticker', 'amount', 'pct'],
 );
 
+final _milestoneItemSchema = S.object(
+  properties: {
+    'label': S.string(),
+    'amount': S.number(),
+    'dateLabel': S.string(description: 'Fecha legible, ej. "1 ene 2030".'),
+  },
+  required: ['label', 'amount', 'dateLabel'],
+);
+
 final CatalogItem qaAnswerTextItem = CatalogItem(
   name: 'QaAnswerText',
   dataSchema: S.object(
@@ -520,6 +529,123 @@ final CatalogItem qaInvestConfirmItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaGoalCardItem = CatalogItem(
+  name: 'QaGoalCard',
+  dataSchema: S.object(
+    description: 'Tarjeta de meta financiera con monto objetivo y fecha.',
+    properties: {
+      'label': S.string(description: 'Nombre de la meta (desde active_goal.label).'),
+      'targetAmount': S.number(
+        description: 'Monto objetivo en USD (desde active_goal.target_amount).',
+      ),
+      'targetDateLabel': S.string(
+        description: 'Fecha objetivo legible (desde active_goal.target_date).',
+      ),
+      'currentAmount': S.number(
+        description:
+            'Monto actual en USD (opcional, desde current_portfolio_value).',
+      ),
+    },
+    required: ['label', 'targetAmount', 'targetDateLabel'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoalCard),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "goal",
+    "component": "QaGoalCard",
+    "label": "Fondo de emergencia",
+    "targetAmount": 50000,
+    "targetDateLabel": "1 ene 2030",
+    "currentAmount": 12000
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaProjectionStripItem = CatalogItem(
+  name: 'QaProjectionStrip',
+  dataSchema: S.object(
+    description:
+        'Fila de 2-3 métricas de proyección (desde snapshot.projection).',
+    properties: {
+      'requiredMonthlySavings': S.number(
+        description: 'Ahorro mensual requerido (projection.required_monthly_savings).',
+      ),
+      'monthlyContributionUsed': S.number(
+        description:
+            'Aporte mensual usado (projection.monthly_contribution_used).',
+      ),
+      'monthsRemaining': S.number(
+        description: 'Meses restantes (projection.months_remaining).',
+      ),
+      'projectedAmountAtDate': S.number(
+        description:
+            'Monto proyectado a la fecha (projection.projected_amount_at_date).',
+      ),
+      'onTrack': S.boolean(
+        description: 'Si el aporte actual alcanza la meta (projection.on_track).',
+      ),
+    },
+    required: ['monthsRemaining'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaProjectionStrip),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "projection",
+    "component": "QaProjectionStrip",
+    "requiredMonthlySavings": 883.72,
+    "monthlyContributionUsed": 200,
+    "monthsRemaining": 43,
+    "projectedAmountAtDate": 20600,
+    "onTrack": false
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaMilestoneListItem = CatalogItem(
+  name: 'QaMilestoneList',
+  dataSchema: S.object(
+    description: 'Lista compacta de hitos de la meta (desde snapshot.milestones).',
+    properties: {
+      'title': S.string(),
+      'items': S.list(
+        items: _milestoneItemSchema,
+        minItems: 1,
+        maxItems: 4,
+      ),
+    },
+    required: ['items'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMilestoneList),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "milestones",
+    "component": "QaMilestoneList",
+    "title": "Hitos de la meta",
+    "items": [
+      {"label": "25%", "amount": 12500, "dateLabel": "10 jun 2027"},
+      {"label": "50%", "amount": 25000, "dateLabel": "10 jun 2028"},
+      {"label": "75%", "amount": 37500, "dateLabel": "10 jun 2029"},
+      {"label": "100%", "amount": 50000, "dateLabel": "1 ene 2030"}
+    ]
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaComparisonRowItem = CatalogItem(
   name: 'QaComparisonRow',
   dataSchema: S.object(
@@ -682,6 +808,9 @@ abstract final class PortfolioQaCatalog {
         qaInvestOptionItem,
         qaBudgetSplitItem,
         qaInvestConfirmItem,
+        qaGoalCardItem,
+        qaProjectionStripItem,
+        qaMilestoneListItem,
       ],
       systemPromptFragments: [
         criticalOutputFormatRules,

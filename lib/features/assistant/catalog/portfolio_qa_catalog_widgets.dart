@@ -793,6 +793,205 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaGoalCard(CatalogItemContext ctx) {
+    final data = _GoalCardData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final hasProgress =
+        data.currentAmount != null && data.targetAmount > 0;
+    final progress = hasProgress
+        ? (data.currentAmount! / data.targetAmount).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data.label,
+            style: const TextStyle(
+              color: PortfolioColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            currency.format(data.targetAmount),
+            style: const TextStyle(
+              color: PortfolioColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (data.targetDateLabel.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              data.targetDateLabel,
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (hasProgress) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 6,
+                      backgroundColor: PortfolioColors.border,
+                      color: PortfolioColors.accentBlue,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    color: PortfolioColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${currency.format(data.currentAmount)} de ${currency.format(data.targetAmount)}',
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Widget qaProjectionStrip(CatalogItemContext ctx) {
+    final data = _ProjectionStripData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final metrics = <_ProjectionMetric>[];
+
+    if (data.requiredMonthlySavings != null) {
+      metrics.add(
+        _ProjectionMetric(
+          label: 'Ahorro mensual',
+          value: currency.format(data.requiredMonthlySavings),
+        ),
+      );
+    } else if (data.monthlyContributionUsed != null) {
+      metrics.add(
+        _ProjectionMetric(
+          label: 'Aporte mensual',
+          value: currency.format(data.monthlyContributionUsed),
+        ),
+      );
+    }
+
+    metrics.add(
+      _ProjectionMetric(
+        label: 'Meses restantes',
+        value: '${data.monthsRemaining}',
+      ),
+    );
+
+    if (data.projectedAmountAtDate != null) {
+      metrics.add(
+        _ProjectionMetric(
+          label: 'Proyección',
+          value: currency.format(data.projectedAmountAtDate),
+        ),
+      );
+    } else if (data.onTrack != null) {
+      metrics.add(
+        _ProjectionMetric(
+          label: 'Estado',
+          value: data.onTrack! ? 'En camino' : 'Fuera de ruta',
+          valueColor: data.onTrack! ? PortfolioColors.profit : PortfolioColors.loss,
+        ),
+      );
+    }
+
+    final visibleMetrics = metrics.take(3).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.border.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < visibleMetrics.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 36,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: PortfolioColors.border,
+              ),
+            Expanded(child: _projectionMetricCell(visibleMetrics[i])),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Widget qaMilestoneList(CatalogItemContext ctx) {
+    final data = _MilestoneListData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (data.title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Text(
+                data.title,
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          for (var i = 0; i < data.items.length; i++)
+            _milestoneRow(
+              data.items[i],
+              currency: currency,
+              showDivider: i < data.items.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+
   static Widget qaComparisonRow(CatalogItemContext ctx) {
     final data = _ComparisonRowData.fromMap(ctx.data as JsonMap);
     return Container(
@@ -1136,6 +1335,88 @@ abstract final class PortfolioQaCatalogWidgets {
                 '${isUp ? '+' : ''}${item.pnlPct.toStringAsFixed(1)}%',
                 style: TextStyle(
                   color: pnlColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider)
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: PortfolioColors.border,
+            indent: 12,
+            endIndent: 12,
+          ),
+      ],
+    );
+  }
+
+  static Widget _projectionMetricCell(_ProjectionMetric metric) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          metric.label,
+          style: const TextStyle(
+            color: PortfolioColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          metric.value,
+          style: TextStyle(
+            color: metric.valueColor ?? PortfolioColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  static Widget _milestoneRow(
+    _MilestoneItem item, {
+    required NumberFormat currency,
+    required bool showDivider,
+  }) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: PortfolioColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (item.dateLabel.isNotEmpty)
+                      Text(
+                        item.dateLabel,
+                        style: const TextStyle(
+                          color: PortfolioColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                currency.format(item.amount),
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1621,6 +1902,126 @@ final class _InvestConfirmData {
   final double budgetUsd;
   final String disclaimer;
   final List<String> tickers;
+}
+
+final class _GoalCardData {
+  _GoalCardData({
+    required this.label,
+    required this.targetAmount,
+    required this.targetDateLabel,
+    required this.currentAmount,
+  });
+
+  factory _GoalCardData.fromMap(JsonMap map) {
+    final currentRaw = map['currentAmount'];
+    return _GoalCardData(
+      label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
+      targetAmount:
+          GenUiHelpers.safeDouble(map['targetAmount'], defaultValue: 0),
+      targetDateLabel:
+          GenUiHelpers.safeString(map['targetDateLabel'], defaultValue: ''),
+      currentAmount: currentRaw == null
+          ? null
+          : GenUiHelpers.safeDouble(currentRaw, defaultValue: 0),
+    );
+  }
+
+  final String label;
+  final double targetAmount;
+  final String targetDateLabel;
+  final double? currentAmount;
+}
+
+final class _ProjectionMetric {
+  _ProjectionMetric({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+}
+
+final class _ProjectionStripData {
+  _ProjectionStripData({
+    required this.requiredMonthlySavings,
+    required this.monthlyContributionUsed,
+    required this.monthsRemaining,
+    required this.projectedAmountAtDate,
+    required this.onTrack,
+  });
+
+  factory _ProjectionStripData.fromMap(JsonMap map) {
+    final requiredRaw = map['requiredMonthlySavings'];
+    final contributionRaw = map['monthlyContributionUsed'];
+    final projectedRaw = map['projectedAmountAtDate'];
+    final onTrackRaw = map['onTrack'];
+
+    return _ProjectionStripData(
+      requiredMonthlySavings: requiredRaw == null
+          ? null
+          : GenUiHelpers.safeDouble(requiredRaw, defaultValue: 0),
+      monthlyContributionUsed: contributionRaw == null
+          ? null
+          : GenUiHelpers.safeDouble(contributionRaw, defaultValue: 0),
+      monthsRemaining:
+          GenUiHelpers.safeDouble(map['monthsRemaining'], defaultValue: 0)
+              .round(),
+      projectedAmountAtDate: projectedRaw == null
+          ? null
+          : GenUiHelpers.safeDouble(projectedRaw, defaultValue: 0),
+      onTrack: onTrackRaw == null
+          ? null
+          : GenUiHelpers.safeBool(onTrackRaw, defaultValue: false),
+    );
+  }
+
+  final double? requiredMonthlySavings;
+  final double? monthlyContributionUsed;
+  final int monthsRemaining;
+  final double? projectedAmountAtDate;
+  final bool? onTrack;
+}
+
+final class _MilestoneItem {
+  _MilestoneItem({
+    required this.label,
+    required this.amount,
+    required this.dateLabel,
+  });
+
+  factory _MilestoneItem.fromMap(JsonMap map) {
+    return _MilestoneItem(
+      label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
+      amount: GenUiHelpers.safeDouble(map['amount'], defaultValue: 0),
+      dateLabel: GenUiHelpers.safeString(map['dateLabel'], defaultValue: ''),
+    );
+  }
+
+  final String label;
+  final double amount;
+  final String dateLabel;
+}
+
+final class _MilestoneListData {
+  _MilestoneListData({required this.title, required this.items});
+
+  factory _MilestoneListData.fromMap(JsonMap map) {
+    final items = GenUiHelpers.safeList(
+      map['items'],
+      defaultValue: const <_MilestoneItem>[],
+      mapItem: (item) => _MilestoneItem.fromMap(item as JsonMap),
+    );
+    return _MilestoneListData(
+      title: GenUiHelpers.safeString(map['title'], defaultValue: ''),
+      items: items.take(4).toList(),
+    );
+  }
+
+  final String title;
+  final List<_MilestoneItem> items;
 }
 
 final class _ComparisonRowData {
