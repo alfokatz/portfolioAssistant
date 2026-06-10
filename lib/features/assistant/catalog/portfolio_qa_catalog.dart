@@ -53,6 +53,15 @@ final _moverSchema = S.object(
   required: ['ticker', 'pnlPct'],
 );
 
+final _budgetSplitItemSchema = S.object(
+  properties: {
+    'ticker': S.string(),
+    'amount': S.number(),
+    'pct': S.number(),
+  },
+  required: ['ticker', 'amount', 'pct'],
+);
+
 final CatalogItem qaAnswerTextItem = CatalogItem(
   name: 'QaAnswerText',
   dataSchema: S.object(
@@ -398,6 +407,119 @@ final CatalogItem qaTipBannerItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaInvestOptionItem = CatalogItem(
+  name: 'QaInvestOption',
+  dataSchema: S.object(
+    description:
+        'Tarjeta de opción de inversión educativa con fit score y pros/contras.',
+    properties: {
+      'ticker': S.string(),
+      'thesis': S.string(description: 'Tesis breve en una línea.'),
+      'fitScore': S.number(
+        description: 'Puntuación de encaje 0-100 (desde candidates[].fit_score).',
+      ),
+      'pro': S.string(description: 'Argumento a favor.'),
+      'con': S.string(description: 'Argumento en contra.'),
+      'currentPrice': S.number(
+        description: 'Precio actual (opcional, desde candidates[].current_price).',
+      ),
+    },
+    required: ['ticker', 'thesis', 'fitScore', 'pro', 'con'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestOption),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "invest_option",
+    "component": "QaInvestOption",
+    "ticker": "NVDA",
+    "thesis": "Líder en IA con fuerte momentum semanal",
+    "fitScore": 78,
+    "pro": "Diversifica fuera de tu sector dominante",
+    "con": "Alta volatilidad y valuación elevada",
+    "currentPrice": 120.50
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaBudgetSplitItem = CatalogItem(
+  name: 'QaBudgetSplit',
+  dataSchema: S.object(
+    description:
+        'Distribución educativa del presupuesto entre 2-4 tickers.',
+    properties: {
+      'totalBudget': S.number(
+        description: 'Presupuesto total en USD (desde budget_usd).',
+      ),
+      'items': S.list(
+        items: _budgetSplitItemSchema,
+        minItems: 2,
+        maxItems: 4,
+      ),
+    },
+    required: ['totalBudget', 'items'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaBudgetSplit),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "budget_split",
+    "component": "QaBudgetSplit",
+    "totalBudget": 5000,
+    "items": [
+      {"ticker": "NVDA", "amount": 2500, "pct": 50},
+      {"ticker": "MSFT", "amount": 1500, "pct": 30},
+      {"ticker": "AAPL", "amount": 1000, "pct": 20}
+    ]
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaInvestConfirmItem = CatalogItem(
+  name: 'QaInvestConfirm',
+  dataSchema: S.object(
+    description:
+        'Resumen educativo de confirmación (no ejecuta operaciones reales).',
+    properties: {
+      'summary': S.string(description: 'Resumen breve de la simulación.'),
+      'budgetUsd': S.number(description: 'Presupuesto simulado en USD.'),
+      'disclaimer': S.string(
+        description: 'Aviso legal educativo (tiene valor por defecto).',
+      ),
+      'tickers': S.list(
+        items: S.string(),
+        minItems: 1,
+        maxItems: 4,
+        description: 'Lista de tickers involucrados.',
+      ),
+    },
+    required: ['summary', 'budgetUsd', 'tickers'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestConfirm),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "invest_confirm",
+    "component": "QaInvestConfirm",
+    "summary": "Simulación de asignar \$5.000 entre NVDA, MSFT y AAPL.",
+    "budgetUsd": 5000,
+    "tickers": ["NVDA", "MSFT", "AAPL"]
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaComparisonRowItem = CatalogItem(
   name: 'QaComparisonRow',
   dataSchema: S.object(
@@ -557,6 +679,9 @@ abstract final class PortfolioQaCatalog {
         qaClosedPositionListItem,
         qaTipBannerItem,
         qaComparisonRowItem,
+        qaInvestOptionItem,
+        qaBudgetSplitItem,
+        qaInvestConfirmItem,
       ],
       systemPromptFragments: [
         criticalOutputFormatRules,

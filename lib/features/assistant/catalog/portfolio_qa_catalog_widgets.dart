@@ -480,6 +480,319 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaInvestOption(CatalogItemContext ctx) {
+    final data = _InvestOptionData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final scoreColor = _fitScoreColor(data.fitScore);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                data.ticker,
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: scoreColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  'Fit ${data.fitScore.round()}',
+                  style: TextStyle(
+                    color: scoreColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (data.thesis.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              data.thesis,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (data.currentPrice > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              currency.format(data.currentPrice),
+              style: const TextStyle(
+                color: PortfolioColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (data.pro.isNotEmpty || data.con.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            if (data.pro.isNotEmpty)
+              _investProConRow(
+                icon: Icons.add_circle_outline,
+                label: 'A favor',
+                text: data.pro,
+                color: PortfolioColors.profit,
+              ),
+            if (data.con.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _investProConRow(
+                icon: Icons.remove_circle_outline,
+                label: 'En contra',
+                text: data.con,
+                color: PortfolioColors.loss,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Widget qaBudgetSplit(CatalogItemContext ctx) {
+    final data = _BudgetSplitData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final barColors = [
+      PortfolioColors.accentBlue,
+      PortfolioColors.accentBlueDim,
+      PortfolioColors.profit.withValues(alpha: 0.85),
+      PortfolioColors.textSecondary,
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Distribución del presupuesto',
+                  style: TextStyle(
+                    color: PortfolioColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                currency.format(data.totalBudget),
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          if (data.items.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                height: 8,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < data.items.length; i++)
+                      Expanded(
+                        flex: data.items[i].pct.round().clamp(1, 100),
+                        child: Container(
+                          color: barColors[i % barColors.length],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < data.items.length; i++) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: barColors[i % barColors.length],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            data.items[i].ticker,
+                            style: const TextStyle(
+                              color: PortfolioColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${data.items[i].pct.toStringAsFixed(0)}% · ${currency.format(data.items[i].amount)}',
+                          style: const TextStyle(
+                            color: PortfolioColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (data.items[i].pct / 100).clamp(0.0, 1.0),
+                        minHeight: 5,
+                        backgroundColor: PortfolioColors.border,
+                        color: barColors[i % barColors.length],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Widget qaInvestConfirm(CatalogItemContext ctx) {
+    final data = _InvestConfirmData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final tickersLabel = data.tickers.join(', ');
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.border.withValues(alpha: 0.8),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 18,
+                color: PortfolioColors.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Resumen educativo',
+                      style: TextStyle(
+                        color: PortfolioColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (data.summary.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        data.summary,
+                        style: const TextStyle(
+                          color: PortfolioColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (data.budgetUsd > 0 || tickersLabel.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            if (data.budgetUsd > 0)
+              Text(
+                'Presupuesto simulado: ${currency.format(data.budgetUsd)}',
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            if (tickersLabel.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Tickers: $tickersLabel',
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+          if (data.disclaimer.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              data.disclaimer,
+              style: TextStyle(
+                color: PortfolioColors.textSecondary.withValues(alpha: 0.9),
+                fontSize: 11,
+                height: 1.35,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   static Widget qaComparisonRow(CatalogItemContext ctx) {
     final data = _ComparisonRowData.fromMap(ctx.data as JsonMap);
     return Container(
@@ -531,6 +844,48 @@ abstract final class PortfolioQaCatalogWidgets {
             ),
         ],
       ),
+    );
+  }
+
+  static Color _fitScoreColor(double score) {
+    if (score >= 70) return PortfolioColors.profit;
+    if (score >= 40) return PortfolioColors.accentBlue;
+    return PortfolioColors.loss;
+  }
+
+  static Widget _investProConRow({
+    required IconData icon,
+    required String label,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                color: PortfolioColors.textPrimary,
+                fontSize: 12,
+                height: 1.3,
+              ),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(text: text),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1157,6 +1512,115 @@ final class _TipBannerData {
 
   final String message;
   final String tone;
+}
+
+final class _InvestOptionData {
+  _InvestOptionData({
+    required this.ticker,
+    required this.thesis,
+    required this.fitScore,
+    required this.pro,
+    required this.con,
+    required this.currentPrice,
+  });
+
+  factory _InvestOptionData.fromMap(JsonMap map) {
+    return _InvestOptionData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      thesis: GenUiHelpers.safeString(map['thesis'], defaultValue: ''),
+      fitScore: GenUiHelpers.safeDouble(map['fitScore'], defaultValue: 0)
+          .clamp(0, 100),
+      pro: GenUiHelpers.safeString(map['pro'], defaultValue: ''),
+      con: GenUiHelpers.safeString(map['con'], defaultValue: ''),
+      currentPrice:
+          GenUiHelpers.safeDouble(map['currentPrice'], defaultValue: 0),
+    );
+  }
+
+  final String ticker;
+  final String thesis;
+  final double fitScore;
+  final String pro;
+  final String con;
+  final double currentPrice;
+}
+
+final class _BudgetSplitItem {
+  _BudgetSplitItem({
+    required this.ticker,
+    required this.amount,
+    required this.pct,
+  });
+
+  factory _BudgetSplitItem.fromMap(JsonMap map) {
+    return _BudgetSplitItem(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      amount: GenUiHelpers.safeDouble(map['amount'], defaultValue: 0),
+      pct: GenUiHelpers.safeDouble(map['pct'], defaultValue: 0),
+    );
+  }
+
+  final String ticker;
+  final double amount;
+  final double pct;
+}
+
+final class _BudgetSplitData {
+  _BudgetSplitData({required this.totalBudget, required this.items});
+
+  factory _BudgetSplitData.fromMap(JsonMap map) {
+    final items = GenUiHelpers.safeList(
+      map['items'],
+      defaultValue: const <_BudgetSplitItem>[],
+      mapItem: (item) => _BudgetSplitItem.fromMap(item as JsonMap),
+    );
+    return _BudgetSplitData(
+      totalBudget: GenUiHelpers.safeDouble(map['totalBudget'], defaultValue: 0),
+      items: items.take(4).toList(),
+    );
+  }
+
+  final double totalBudget;
+  final List<_BudgetSplitItem> items;
+}
+
+const _defaultInvestDisclaimer =
+    'Simulación educativa. No constituye asesoramiento financiero ni '
+    'recomendación de inversión.';
+
+final class _InvestConfirmData {
+  _InvestConfirmData({
+    required this.summary,
+    required this.budgetUsd,
+    required this.disclaimer,
+    required this.tickers,
+  });
+
+  factory _InvestConfirmData.fromMap(JsonMap map) {
+    final tickersRaw = map['tickers'];
+    final tickers = tickersRaw is List
+        ? GenUiHelpers.safeStringList(tickersRaw)
+        : GenUiHelpers.safeString(tickersRaw, defaultValue: '')
+            .split(',')
+            .map((t) => t.trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+    return _InvestConfirmData(
+      summary: GenUiHelpers.safeString(map['summary'], defaultValue: ''),
+      budgetUsd: GenUiHelpers.safeDouble(map['budgetUsd'], defaultValue: 0),
+      disclaimer: GenUiHelpers.safeString(
+        map['disclaimer'],
+        defaultValue: _defaultInvestDisclaimer,
+      ),
+      tickers: tickers,
+    );
+  }
+
+  final String summary;
+  final double budgetUsd;
+  final String disclaimer;
+  final List<String> tickers;
 }
 
 final class _ComparisonRowData {
