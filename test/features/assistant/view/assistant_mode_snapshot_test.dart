@@ -20,7 +20,7 @@ void main() {
       expect(snapshot.containsKey('has_portfolio_data'), isFalse);
     });
 
-    test('explore mode returns placeholder explore_tickers', () async {
+    test('explore mode without quote repo returns empty explore_tickers', () async {
       final json = await buildSnapshotJson(
         mode: AssistantMode.explore,
         asOf: fixedAsOf,
@@ -28,6 +28,7 @@ void main() {
       final snapshot = jsonDecode(json) as Map<String, dynamic>;
 
       expect(snapshot['mode'], 'explore');
+      expect(snapshot['data_source'], 'yahoo_finance');
       expect(snapshot['explore_tickers'], isEmpty);
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
     });

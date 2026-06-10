@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
@@ -16,6 +17,7 @@ Future<String> buildSnapshotJson({
   List<ClosedPosition> closedPositions = const [],
   QuoteRepository? quoteRepository,
   DateTime? asOf,
+  String userMessage = '',
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
@@ -39,11 +41,21 @@ Future<String> buildSnapshotJson({
     case AssistantMode.learn:
       return jsonEncode({'mode': 'learn', 'as_of': timestamp});
     case AssistantMode.explore:
-      return jsonEncode({
-        'mode': 'explore',
-        'explore_tickers': <String, dynamic>{},
-        'as_of': timestamp,
-      });
+      if (quoteRepository == null) {
+        return jsonEncode({
+          'mode': 'explore',
+          'data_source': 'yahoo_finance',
+          'explore_tickers': <String, dynamic>{},
+          'as_of': timestamp,
+        });
+      }
+      final exploreSnapshot = await ExploreContextBuilder.build(
+        userMessage: userMessage,
+        quoteRepository: quoteRepository,
+        summary: summary,
+        asOf: asOf,
+      );
+      return jsonEncode(exploreSnapshot);
     case AssistantMode.invest:
     case AssistantMode.plan:
       return jsonEncode({'mode': mode.name, 'as_of': timestamp});
