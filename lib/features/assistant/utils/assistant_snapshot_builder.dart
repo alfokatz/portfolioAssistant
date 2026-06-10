@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/modes/plan/plan_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
@@ -20,6 +21,8 @@ Future<String> buildSnapshotJson({
   DateTime? asOf,
   String userMessage = '',
   double? riskProfile,
+  ({String label, double targetAmount, String targetDate})? savedGoal,
+  double? monthlyContribution,
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
@@ -77,6 +80,13 @@ Future<String> buildSnapshotJson({
       );
       return jsonEncode(investSnapshot);
     case AssistantMode.plan:
-      return jsonEncode({'mode': mode.name, 'as_of': timestamp});
+      final planSnapshot = await PlanContextBuilder.build(
+        userMessage: userMessage,
+        summary: summary,
+        savedGoal: savedGoal,
+        monthlyContribution: monthlyContribution,
+        asOf: asOf,
+      );
+      return jsonEncode(planSnapshot);
   }
 }

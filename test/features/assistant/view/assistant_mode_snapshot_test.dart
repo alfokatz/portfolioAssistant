@@ -115,15 +115,20 @@ void main() {
       expect(first['fetch_ok'], isTrue);
     });
 
-    test('plan mode returns minimal snapshot with mode name', () async {
+    test('plan mode builds computed snapshot via PlanContextBuilder', () async {
       final json = await buildSnapshotJson(
         mode: AssistantMode.plan,
+        userMessage: 'Quiero ahorrar \$50.000 para 2030',
+        monthlyContribution: 200,
         asOf: fixedAsOf,
       );
       final snapshot = jsonDecode(json) as Map<String, dynamic>;
 
       expect(snapshot['mode'], 'plan');
+      expect(snapshot['data_source'], 'computed');
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
+      expect(snapshot['has_complete_goal'], isTrue);
+      expect(snapshot['projection'], isNotNull);
     });
 
     test('portfolio mode without data returns has_portfolio_data false', () async {
