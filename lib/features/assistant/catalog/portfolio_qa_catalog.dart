@@ -107,6 +107,47 @@ final CatalogItem qaMetricStripItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaTickerSnapshotItem = CatalogItem(
+  name: 'QaTickerSnapshot',
+  dataSchema: S.object(
+    description:
+        'Snapshot de precio y cambios día/semana/mes de un ticker (modo explore).',
+    properties: {
+      'ticker': S.string(),
+      'currentPrice': S.number(description: 'Precio actual del ticker.'),
+      'dayChangePct': S.number(description: 'Cambio porcentual del último día.'),
+      'weekChangePct': S.number(
+        description: 'Cambio porcentual de los últimos 7 días.',
+      ),
+      'monthChangePct': S.number(
+        description: 'Cambio porcentual de los últimos 30 días.',
+      ),
+      'weightPct': S.number(
+        description: 'Peso del ticker en el portfolio (opcional).',
+      ),
+    },
+    required: ['ticker', 'currentPrice'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerSnapshot),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "ticker_snapshot",
+    "component": "QaTickerSnapshot",
+    "ticker": "NVDA",
+    "currentPrice": 120.50,
+    "dayChangePct": 1.2,
+    "weekChangePct": -2.1,
+    "monthChangePct": 5.8,
+    "weightPct": 0
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaTickerMoveItem = CatalogItem(
   name: 'QaTickerMove',
   dataSchema: S.object(
@@ -507,6 +548,7 @@ abstract final class PortfolioQaCatalog {
         qaAnswerTextItem,
         qaMetricStripItem,
         qaPeriodChangeItem,
+        qaTickerSnapshotItem,
         qaTickerMoveItem,
         qaConcentrationBarItem,
         qaPnLBreakdownItem,

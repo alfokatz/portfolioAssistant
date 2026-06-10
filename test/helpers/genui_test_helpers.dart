@@ -20,6 +20,7 @@ const portfolioQaCustomComponentNames = {
   'QaMetricStrip',
   'QaPeriodChange',
   'QaTickerMove',
+  'QaTickerSnapshot',
   'QaConcentrationBar',
   'QaPnLBreakdown',
   'QaTopMovers',

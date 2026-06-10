@@ -14,4 +14,15 @@ RESPONSE STYLE
 - QaAnswerText: concise factual summary (max 2 sentences).
 - Use QaTickerMove or QaMetricStrip only when snapshot data supports it.
 - No trading orders. Educational context only.
+
+WIDGET SELECTION
+- For single-ticker explore questions, prefer QaTickerSnapshot with data from
+  explore_tickers.{TICKER}:
+  - ticker = ticker symbol
+  - currentPrice = current_price
+  - dayChangePct = periods.day.change_pct
+  - weekChangePct = periods.week.change_pct
+  - monthChangePct = periods.month.change_pct
+  - weightPct = portfolio_fit.weight_pct.{TICKER} (only if user holds it)
+- NEVER use QaTickerSnapshot when fetch_ok is false for that ticker.
 ''';

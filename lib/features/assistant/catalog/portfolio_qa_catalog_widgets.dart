@@ -101,6 +101,66 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaTickerSnapshot(CatalogItemContext ctx) {
+    final data = _TickerSnapshotData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                data.ticker,
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              if (data.weightPct > 0)
+                Text(
+                  '${data.weightPct.toStringAsFixed(1)}% del portfolio',
+                  style: const TextStyle(
+                    color: PortfolioColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            currency.format(data.currentPrice),
+            style: const TextStyle(
+              color: PortfolioColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _periodChangeCell('Día', data.dayChangePct)),
+              Expanded(child: _periodChangeCell('Semana', data.weekChangePct)),
+              Expanded(child: _periodChangeCell('Mes', data.monthChangePct)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   static Widget qaTickerMove(CatalogItemContext ctx) {
     final data = _TickerMoveData.fromMap(ctx.data as JsonMap);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
@@ -474,6 +534,33 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget _periodChangeCell(String label, double changePct) {
+    final isUp = changePct >= 0;
+    final color = isUp ? PortfolioColors.profit : PortfolioColors.loss;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: PortfolioColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${isUp ? '+' : ''}${changePct.toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   static Widget _metricCell(_MetricItem item) {
     final trendColor = switch (item.trend) {
       'up' => PortfolioColors.profit,
@@ -767,6 +854,35 @@ final class _PeriodChangeData {
   final double changePct;
   final double valueStart;
   final double valueEnd;
+}
+
+final class _TickerSnapshotData {
+  _TickerSnapshotData({
+    required this.ticker,
+    required this.currentPrice,
+    required this.dayChangePct,
+    required this.weekChangePct,
+    required this.monthChangePct,
+    required this.weightPct,
+  });
+
+  factory _TickerSnapshotData.fromMap(JsonMap map) {
+    return _TickerSnapshotData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      currentPrice: GenUiHelpers.safeDouble(map['currentPrice'], defaultValue: 0),
+      dayChangePct: GenUiHelpers.safeDouble(map['dayChangePct'], defaultValue: 0),
+      weekChangePct: GenUiHelpers.safeDouble(map['weekChangePct'], defaultValue: 0),
+      monthChangePct: GenUiHelpers.safeDouble(map['monthChangePct'], defaultValue: 0),
+      weightPct: GenUiHelpers.safeDouble(map['weightPct'], defaultValue: 0),
+    );
+  }
+
+  final String ticker;
+  final double currentPrice;
+  final double dayChangePct;
+  final double weekChangePct;
+  final double monthChangePct;
+  final double weightPct;
 }
 
 final class _TickerMoveData {
