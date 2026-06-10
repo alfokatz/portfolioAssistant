@@ -79,7 +79,7 @@ void main() {
       expect((tickers['NVDA'] as Map)['fetch_ok'], isTrue);
     });
 
-    test('invest mode returns minimal snapshot with mode name', () async {
+    test('invest mode without quote repo returns empty candidates', () async {
       final json = await buildSnapshotJson(
         mode: AssistantMode.invest,
         asOf: fixedAsOf,
@@ -87,7 +87,30 @@ void main() {
       final snapshot = jsonDecode(json) as Map<String, dynamic>;
 
       expect(snapshot['mode'], 'invest');
+      expect(snapshot['data_source'], 'yahoo_finance');
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
+      expect(snapshot['has_budget'], isFalse);
+      expect(snapshot['candidates'], isEmpty);
+    });
+
+    test('invest mode with userMessage builds candidates via quote repo', () async {
+      final json = await buildSnapshotJson(
+        mode: AssistantMode.invest,
+        userMessage: 'Invertir \$500 en NVDA',
+        quoteRepository: _FakeQuoteRepository(),
+        riskProfile: 0.5,
+        asOf: fixedAsOf,
+      );
+      final snapshot = jsonDecode(json) as Map<String, dynamic>;
+
+      expect(snapshot['mode'], 'invest');
+      expect(snapshot['has_budget'], isTrue);
+      expect(snapshot['budget_usd'], 500.0);
+      expect(snapshot['risk_profile'], 0.5);
+
+      final candidates = snapshot['candidates'] as List<dynamic>;
+      expect(candidates, isNotEmpty);
+      expect((candidates.first as Map)['ticker'], 'NVDA');
     });
 
     test('plan mode returns minimal snapshot with mode name', () async {
