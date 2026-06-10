@@ -31,11 +31,15 @@ class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
 
 class _FakeQuoteRepository implements QuoteRepository {
   static const aaplPrice = 190.0;
+  static const spyPrice = 540.0;
 
   @override
   Future<Either<HttpError, double>> getCurrentPrice(String ticker) async {
     if (ticker == 'AAPL') {
       return const Right(aaplPrice);
+    }
+    if (ticker == 'SPY') {
+      return const Right(spyPrice);
     }
     if (ticker == 'BAD') {
       return Left(HttpError(code: 'not_found'));
@@ -47,7 +51,7 @@ class _FakeQuoteRepository implements QuoteRepository {
   Future<Either<HttpError, List<PriceCandle>>> getHistoricalDaily(
     String ticker,
   ) async {
-    if (ticker == 'AAPL') {
+    if (ticker == 'AAPL' || ticker == 'SPY') {
       final end = DateTime(2026, 6, 10);
       final candles = List<PriceCandle>.generate(40, (i) {
         final date = end.subtract(Duration(days: 39 - i));
@@ -170,6 +174,25 @@ void main() {
       );
 
       expect(snapshot.containsKey('portfolio_fit'), isFalse);
+    });
+
+    test('uses SPY proxy for broad market question without ticker', () async {
+      final snapshot = await ExploreContextBuilder.build(
+        userMessage: '¿Cómo está el mercado?',
+        quoteRepository: quoteRepository,
+        asOf: fixedAsOf,
+      );
+
+      expect(snapshot['market_proxy_ticker'], 'SPY');
+      expect(snapshot['market_proxy_label'], isNotEmpty);
+
+      final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+      expect(tickers.containsKey('SPY'), isTrue);
+      expect(tickers.containsKey('C'), isFalse);
+
+      final spy = tickers['SPY'] as Map<String, dynamic>;
+      expect(spy['fetch_ok'], isTrue);
+      expect(spy['current_price'], _FakeQuoteRepository.spyPrice);
     });
 
     test('includes news_sources when enricher provided for news query', () async {

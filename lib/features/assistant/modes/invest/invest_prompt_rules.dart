@@ -22,6 +22,8 @@ DATA SOURCES (CRITICAL — NO HALLUCINATION)
 - concentration_warning=true → you MUST add QaTipBanner with tone=warning
   about sector concentration; mention overweight_sector if present. This is
   mandatory, not optional.
+- sector_concentration keys and overweight_sector are already in Spanish —
+  use them verbatim (never output "Other" or English sector names).
 - Never invent tickers, prices, fit scores, or allocation amounts.
 
 RESPONSE STYLE

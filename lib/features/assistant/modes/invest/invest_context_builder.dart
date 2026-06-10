@@ -6,7 +6,10 @@ import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extr
 import 'package:portfolio_assistant/features/assistant/modes/invest/budget_extractor.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_fit_scorer.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/sector_concentration_checker.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_display_name.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/ticker_sector_map.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/yahoo_sector_client.dart';
 
 /// Construye el snapshot de contexto para modo invest.
 abstract final class InvestContextBuilder {
@@ -34,11 +37,25 @@ abstract final class InvestContextBuilder {
     PortfolioSummary? summary,
     double? riskProfile,
     DateTime? asOf,
+    YahooSectorClient? yahooSectorClient,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final budget = BudgetExtractor.extractBudgetUsd(userMessage);
-    final concentration = SectorConcentrationChecker.fromSummary(summary);
-    final candidates = _resolveCandidates(userMessage);
+    final portfolioTickers =
+        summary?.valuations
+            .map((v) => v.position.ticker.toUpperCase())
+            .toList() ??
+        const <String>[];
+    final candidateTickers = _resolveCandidates(userMessage);
+    final sectorByTicker = await SectorResolver.resolveForTickers(
+      [...portfolioTickers, ...candidateTickers],
+      yahooClient: yahooSectorClient,
+    );
+    final concentration = SectorConcentrationChecker.fromSummary(
+      summary,
+      sectorByTicker: sectorByTicker,
+    );
+    final candidates = candidateTickers;
 
     final candidateEntries = <Map<String, Object?>>[];
     for (final ticker in candidates) {
@@ -48,6 +65,8 @@ abstract final class InvestContextBuilder {
           quoteRepository: quoteRepository,
           hasBudget: budget != null,
           concentration: concentration,
+          sector: sectorByTicker[ticker.toUpperCase()] ??
+              SectorDisplayName.fromRaw(sectorForTicker(ticker)),
         ),
       );
     }
@@ -92,8 +111,8 @@ abstract final class InvestContextBuilder {
     required QuoteRepository quoteRepository,
     required bool hasBudget,
     required SectorConcentration concentration,
+    required String sector,
   }) async {
-    final sector = sectorForTicker(ticker) ?? 'Other';
     final sectorOverlapPct = concentration.sectorWeights[sector];
     final addsDiversification =
         concentration.overweightSector == null ||

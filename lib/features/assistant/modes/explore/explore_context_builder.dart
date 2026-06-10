@@ -2,6 +2,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/broad_market_query.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
 
@@ -21,7 +22,14 @@ abstract final class ExploreContextBuilder {
     ExploreNewsEnricher? newsEnricher,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
-    final tickers = TickerExtractor.extractTickers(userMessage);
+    var tickers = TickerExtractor.extractTickers(userMessage);
+    String? marketProxyTicker;
+
+    if (tickers.isEmpty && isBroadMarketQuery(userMessage)) {
+      tickers = [broadMarketProxyTicker];
+      marketProxyTicker = broadMarketProxyTicker;
+    }
+
     final exploreTickers = <String, Object?>{};
 
     for (final ticker in tickers) {
@@ -37,6 +45,12 @@ abstract final class ExploreContextBuilder {
       'as_of': timestamp,
       'explore_tickers': exploreTickers,
     };
+
+    if (marketProxyTicker != null) {
+      snapshot['market_proxy_ticker'] = marketProxyTicker;
+      snapshot['market_proxy_label'] =
+          'S&P 500 (ETF SPY como referencia del mercado estadounidense)';
+    }
 
     final portfolioFit = _buildPortfolioFit(summary, tickers);
     if (portfolioFit != null) {

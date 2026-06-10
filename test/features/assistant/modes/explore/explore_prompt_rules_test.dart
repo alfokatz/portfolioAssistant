@@ -15,6 +15,15 @@ void main() {
       );
     });
 
+    test('contains broad market proxy rules', () {
+      expect(explorePromptRules, contains('BROAD MARKET QUESTIONS'));
+      expect(explorePromptRules, contains('market_proxy_ticker'));
+      expect(
+        explorePromptRules,
+        contains('Do NOT claim an unrelated ticker represents'),
+      );
+    });
+
     test('requires citing only news_sources when present', () {
       expect(explorePromptRules, contains('news_enrichment is "ok"'));
       expect(

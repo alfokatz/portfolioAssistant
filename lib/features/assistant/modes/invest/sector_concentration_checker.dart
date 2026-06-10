@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_display_name.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/ticker_sector_map.dart';
 
 class SectorConcentration {
@@ -16,7 +17,10 @@ class SectorConcentration {
 abstract final class SectorConcentrationChecker {
   static const _overweightThresholdPct = 40.0;
 
-  static SectorConcentration fromSummary(PortfolioSummary? summary) {
+  static SectorConcentration fromSummary(
+    PortfolioSummary? summary, {
+    Map<String, String> sectorByTicker = const {},
+  }) {
     if (summary == null || summary.valuations.isEmpty) {
       return const SectorConcentration(sectorWeights: {});
     }
@@ -24,7 +28,8 @@ abstract final class SectorConcentrationChecker {
     final sectorValues = <String, double>{};
     for (final valuation in summary.valuations) {
       final ticker = valuation.position.ticker.toUpperCase();
-      final sector = sectorForTicker(ticker) ?? 'Other';
+      final sector = sectorByTicker[ticker] ??
+          SectorDisplayName.fromRaw(sectorForTicker(ticker));
       sectorValues[sector] =
           (sectorValues[sector] ?? 0) + valuation.marketValue;
     }

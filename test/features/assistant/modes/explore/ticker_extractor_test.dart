@@ -46,5 +46,26 @@ void main() {
         ['GOOGL', 'AMZN'],
       );
     });
+
+    test('does not extract C from accented Como at start of question', () {
+      expect(
+        TickerExtractor.extractTickers('¿Cómo está el mercado?'),
+        isEmpty,
+      );
+    });
+
+    test('does not extract false positives from all-caps Spanish sentence', () {
+      expect(
+        TickerExtractor.extractTickers('¿COMO ESTA EL MERCADO?'),
+        isEmpty,
+      );
+    });
+
+    test('still extracts explicit single-letter ticker as whole word', () {
+      expect(
+        TickerExtractor.extractTickers('¿Cómo está C hoy?'),
+        ['C'],
+      );
+    });
   });
 }

@@ -7,6 +7,29 @@ import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
+import 'package:dio/dio.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/yahoo_sector_client.dart';
+
+class _NoNetworkYahooSectorClient extends YahooSectorClient {
+  @override
+  Future<Map<String, String?>> fetchSectors(List<String> tickers) async {
+    return {for (final ticker in tickers) ticker.toUpperCase(): null};
+  }
+}
+
+class _FailingYahooSectorClient extends YahooSectorClient {
+  @override
+  Future<Map<String, String?>> fetchSectors(List<String> tickers) async {
+    throw DioException(
+      requestOptions: RequestOptions(path: '/'),
+      type: DioExceptionType.badResponse,
+      response: Response(
+        requestOptions: RequestOptions(path: '/'),
+        statusCode: 401,
+      ),
+    );
+  }
+}
 
 class _FakeQuoteRepository implements QuoteRepository {
   static const nvdaPrice = 120.0;
@@ -50,6 +73,7 @@ void main() {
   group('InvestContextBuilder', () {
     final fixedAsOf = DateTime.utc(2026, 6, 10, 12, 0);
     final quoteRepository = _FakeQuoteRepository();
+    final yahooSectorClient = _NoNetworkYahooSectorClient();
 
     test('builds snapshot with budget and ticker from message', () async {
       final snapshot = await InvestContextBuilder.build(
@@ -57,6 +81,7 @@ void main() {
         quoteRepository: quoteRepository,
         riskProfile: 0.6,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
 
       expect(snapshot['mode'], 'invest');
@@ -73,7 +98,7 @@ void main() {
       expect(nvda['ticker'], 'NVDA');
       expect(nvda['fetch_ok'], isTrue);
       expect(nvda['current_price'], _FakeQuoteRepository.nvdaPrice);
-      expect(nvda['sector'], 'Technology');
+      expect(nvda['sector'], 'Tecnología');
       expect(nvda.containsKey('week_change_pct'), isTrue);
       expect(nvda['fit_score'], 100);
     });
@@ -83,6 +108,7 @@ void main() {
         userMessage: 'Quiero invertir en energía con \$200',
         quoteRepository: quoteRepository,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
 
       final candidates = snapshot['candidates'] as List<dynamic>;
@@ -134,13 +160,14 @@ void main() {
         quoteRepository: quoteRepository,
         summary: summary,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
 
       final concentration =
           snapshot['sector_concentration'] as Map<String, dynamic>;
-      expect(concentration['Technology'], 100.0);
+      expect(concentration['Tecnología'], 100.0);
       expect(snapshot['concentration_warning'], isTrue);
-      expect(snapshot['overweight_sector'], 'Technology');
+      expect(snapshot['overweight_sector'], 'Tecnología');
 
       final candidates = snapshot['candidates'] as List<dynamic>;
       final nvda = candidates.first as Map<String, dynamic>;
@@ -152,6 +179,7 @@ void main() {
         userMessage: 'Invertir BAD',
         quoteRepository: quoteRepository,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
 
       final candidates = snapshot['candidates'] as List<dynamic>;
@@ -202,12 +230,14 @@ void main() {
         quoteRepository: quoteRepository,
         summary: summary,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
       final energySnapshot = await InvestContextBuilder.build(
         userMessage: 'Invertir \$100 en XOM',
         quoteRepository: quoteRepository,
         summary: summary,
         asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
       );
 
       final techFit =
@@ -220,6 +250,43 @@ void main() {
               as int;
 
       expect(energyFit, greaterThan(techFit));
+    });
+
+    test('builds snapshot when Yahoo sector API fails with 401', () async {
+      final summary = PortfolioSummary(
+        totalValue: 1000,
+        totalCostBasis: 900,
+        totalPnlAbsolute: 100,
+        totalPnlPercent: 11.11,
+        valuations: [
+          PositionValuation(
+            position: Position(
+              id: '1',
+              ticker: 'GGAL',
+              quantity: 10,
+              purchasePrice: 50,
+              purchaseDate: DateTime(2024, 1, 1),
+            ),
+            currentPrice: 100,
+            marketValue: 1000,
+            pnlAbsolute: 500,
+            pnlPercent: 100,
+          ),
+        ],
+      );
+
+      final snapshot = await InvestContextBuilder.build(
+        userMessage: '¿Estoy muy concentrado en tecnología?',
+        quoteRepository: quoteRepository,
+        summary: summary,
+        asOf: fixedAsOf,
+        yahooSectorClient: _FailingYahooSectorClient(),
+      );
+
+      final concentration =
+          snapshot['sector_concentration'] as Map<String, dynamic>;
+      expect(concentration['Sin clasificar'], 100.0);
+      expect(snapshot['candidates'], isNotEmpty);
     });
   });
 }

@@ -65,12 +65,12 @@ void main() {
 
       final result = SectorConcentrationChecker.fromSummary(summary);
 
-      expect(result.sectorWeights['Technology'], 100.0);
-      expect(result.overweightSector, 'Technology');
+      expect(result.sectorWeights['Tecnología'], 100.0);
+      expect(result.overweightSector, 'Tecnología');
       expect(result.overweightPct, 100.0);
     });
 
-    test('buckets unknown tickers as Other', () {
+    test('buckets unknown tickers as Sin clasificar without sector map', () {
       final summary = PortfolioSummary(
         totalValue: 500,
         totalCostBasis: 400,
@@ -95,8 +95,40 @@ void main() {
 
       final result = SectorConcentrationChecker.fromSummary(summary);
 
-      expect(result.sectorWeights['Other'], 100.0);
-      expect(result.overweightSector, 'Other');
+      expect(result.sectorWeights['Sin clasificar'], 100.0);
+      expect(result.overweightSector, 'Sin clasificar');
+    });
+
+    test('uses resolved Yahoo sectors when provided', () {
+      final summary = PortfolioSummary(
+        totalValue: 500,
+        totalCostBasis: 400,
+        totalPnlAbsolute: 100,
+        totalPnlPercent: 25,
+        valuations: [
+          PositionValuation(
+            position: Position(
+              id: '1',
+              ticker: 'GGAL',
+              quantity: 1,
+              purchasePrice: 100,
+              purchaseDate: DateTime(2024, 1, 1),
+            ),
+            currentPrice: 500,
+            marketValue: 500,
+            pnlAbsolute: 100,
+            pnlPercent: 25,
+          ),
+        ],
+      );
+
+      final result = SectorConcentrationChecker.fromSummary(
+        summary,
+        sectorByTicker: const {'GGAL': 'Finanzas'},
+      );
+
+      expect(result.sectorWeights['Finanzas'], 100.0);
+      expect(result.overweightSector, 'Finanzas');
     });
 
     test('does not flag overweight when all sectors below 40%', () {
@@ -150,9 +182,9 @@ void main() {
 
       final result = SectorConcentrationChecker.fromSummary(summary);
 
-      expect(result.sectorWeights['Technology'], 30.0);
-      expect(result.sectorWeights['Financials'], 35.0);
-      expect(result.sectorWeights['Energy'], 35.0);
+      expect(result.sectorWeights['Tecnología'], 30.0);
+      expect(result.sectorWeights['Finanzas'], 35.0);
+      expect(result.sectorWeights['Energía'], 35.0);
       expect(result.overweightSector, isNull);
       expect(result.overweightPct, isNull);
     });
