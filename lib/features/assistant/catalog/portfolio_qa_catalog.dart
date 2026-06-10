@@ -3,6 +3,7 @@ import 'package:json_schema_builder/json_schema_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/reliability/grounding_prompt_rules.dart';
 
 const _trendEnum = ['up', 'down', 'neutral'];
 const _toneEnum = ['info', 'warning'];
@@ -518,6 +519,7 @@ abstract final class PortfolioQaCatalog {
       systemPromptFragments: [
         criticalOutputFormatRules,
         ...base.systemPromptFragments,
+        groundingPromptRules,
         _portfolioQaRules,
       ],
     );

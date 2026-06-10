@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grounding_validator.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -182,9 +184,29 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       (list) => list,
     );
     final hasOpen = summary != null && summary.valuations.isNotEmpty;
-    final hasClosed = closedPositions.isNotEmpty;
 
-    if (!hasOpen && !hasClosed) {
+    final history = ref.read(homeProvider).history;
+    final quoteRepository = ref.read(quoteRepositoryProvider);
+    final positionPeriods = hasOpen
+        ? await PositionPeriodsBuilder.build(
+            summary: summary,
+            quoteRepository: quoteRepository,
+          )
+        : const <String, Map<String, Object?>>{};
+    final snapshotJson = PortfolioContextBuilder.buildJson(
+      summary,
+      history: history,
+      positionPeriods: positionPeriods,
+      closedPositions: closedPositions,
+    );
+
+    final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
+    final validation = SnapshotGroundingValidator.validate(
+      mode: widget.initialMode,
+      snapshot: snapshot,
+    );
+
+    if (validation == SnapshotValidation.noPortfolioData) {
       if (mounted) {
         setState(() {
           _error = 'portfolio_qa_no_positions'.tr();
@@ -193,7 +215,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       return;
     }
 
-    final surfaceId = GenUiSurfaceIds.portfolioQaTurn(_turnCounter++);
+    final surfaceId =
+        GenUiSurfaceIds.assistantTurn(widget.initialMode, _turnCounter++);
     _lastMessage = trimmed;
 
     await _sendGuard.run(() async {
@@ -215,21 +238,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
         _textController.clear();
         _scrollToBottom();
       }
-
-      final history = ref.read(homeProvider).history;
-      final quoteRepository = ref.read(quoteRepositoryProvider);
-      final positionPeriods = hasOpen
-          ? await PositionPeriodsBuilder.build(
-              summary: summary,
-              quoteRepository: quoteRepository,
-            )
-          : const <String, Map<String, Object?>>{};
-      final snapshotJson = PortfolioContextBuilder.buildJson(
-        summary,
-        history: history,
-        positionPeriods: positionPeriods,
-        closedPositions: closedPositions,
-      );
 
       try {
         await GenUiRequestTracker.sendAndWait(
