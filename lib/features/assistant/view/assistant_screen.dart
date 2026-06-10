@@ -17,8 +17,11 @@ import 'package:portfolio_assistant/features/assistant/services/assistant_openai
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grounding_validator.dart';
+import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
@@ -57,6 +60,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   bool _bootstrapped = false;
   int _turnCounter = 0;
   String _lastMessage = '';
+  late AssistantMode _currentMode;
+  ModeSuggestion? _modeSuggestion;
+  String? _pendingMessage;
 
   static const _chipKeys = [
     'portfolio_qa_chip_today',
@@ -66,6 +72,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
 
   @override
   void initState() {
+    _currentMode = widget.initialMode;
     _catalog = PortfolioQaCatalog.build();
     super.initState();
     _messages.add(
@@ -90,7 +97,49 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
 
     final question = widget.initialQuestion?.trim();
     if (question != null && question.isNotEmpty) {
-      await _sendMessage(question);
+      await _submitMessage(question);
+    }
+  }
+
+  Future<void> _submitMessage(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
+
+    final suggestion = IntentRouter.suggest(
+      message: trimmed,
+      currentMode: _currentMode,
+    );
+    if (suggestion != null) {
+      setState(() {
+        _pendingMessage = trimmed;
+        _modeSuggestion = suggestion;
+      });
+      return;
+    }
+
+    await _sendMessage(trimmed);
+  }
+
+  void _switchModeAndSend(AssistantMode mode) {
+    final pending = _pendingMessage;
+    setState(() {
+      _currentMode = mode;
+      _modeSuggestion = null;
+      _pendingMessage = null;
+    });
+    if (pending != null) {
+      unawaited(_sendMessage(pending));
+    }
+  }
+
+  void _dismissSuggestionAndSend() {
+    final pending = _pendingMessage;
+    setState(() {
+      _modeSuggestion = null;
+      _pendingMessage = null;
+    });
+    if (pending != null) {
+      unawaited(_sendMessage(pending));
     }
   }
 
@@ -202,7 +251,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
 
     final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
     final validation = SnapshotGroundingValidator.validate(
-      mode: widget.initialMode,
+      mode: _currentMode,
       snapshot: snapshot,
     );
 
@@ -216,7 +265,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     }
 
     final surfaceId =
-        GenUiSurfaceIds.assistantTurn(widget.initialMode, _turnCounter++);
+        GenUiSurfaceIds.assistantTurn(_currentMode, _turnCounter++);
     _lastMessage = trimmed;
 
     await _sendGuard.run(() async {
@@ -302,7 +351,18 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       ),
       body: Column(
         children: [
+          ModeChipBar(
+            selectedMode: _currentMode,
+            onModeSelected: (mode) => setState(() => _currentMode = mode),
+          ),
           const PortfolioQaDisclaimerBanner(),
+          if (_modeSuggestion case final suggestion?)
+            ModeSwitchSuggestion(
+              reasonKey: suggestion.reasonKey,
+              suggestedMode: suggestion.suggestedMode,
+              onSwitch: _switchModeAndSend,
+              onDismiss: _dismissSuggestionAndSend,
+            ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -359,7 +419,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                                     onPressed:
                                         _isWaiting || service == null
                                             ? null
-                                            : () => _sendMessage(key.tr()),
+                                            : () => _submitMessage(key.tr()),
                                   ),
                                 )
                                 .toList(),
@@ -392,7 +452,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      onSubmitted: _isWaiting ? null : _sendMessage,
+                      onSubmitted: _isWaiting ? null : _submitMessage,
                       enabled: !_isWaiting && service != null,
                     ),
                   ),
@@ -401,7 +461,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                     onPressed:
                         _isWaiting || service == null
                             ? null
-                            : () => _sendMessage(_textController.text),
+                            : () => _submitMessage(_textController.text),
                     icon: const Icon(Icons.send),
                     color: PortfolioColors.accentBlue,
                   ),
