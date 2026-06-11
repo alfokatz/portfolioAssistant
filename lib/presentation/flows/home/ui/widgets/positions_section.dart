@@ -7,7 +7,7 @@ import 'package:portfolio_assistant/presentation/shared/widgets/section_header.d
 
 class PositionsSection extends StatelessWidget {
   final List<PositionValuation> valuations;
-  final void Function(PositionValuation valuation)? onClosePosition;
+  final void Function(PositionValuation valuation)? onPositionTap;
   final Future<bool> Function(PositionValuation valuation)? onDeletePosition;
   final String? actionLabel;
   final VoidCallback? onAction;
@@ -15,7 +15,7 @@ class PositionsSection extends StatelessWidget {
   const PositionsSection({
     super.key,
     required this.valuations,
-    this.onClosePosition,
+    this.onPositionTap,
     this.onDeletePosition,
     this.actionLabel,
     this.onAction,
@@ -86,7 +86,7 @@ class PositionsSection extends StatelessWidget {
                       for (var i = 0; i < valuations.length; i++) ...[
                         _PositionDismissibleRow(
                           valuation: valuations[i],
-                          onClosePosition: onClosePosition,
+                          onPositionTap: onPositionTap,
                           onDeletePosition: onDeletePosition,
                           confirmDelete: (ticker) =>
                               _confirmDelete(context, ticker),
@@ -113,13 +113,13 @@ class PositionsSection extends StatelessWidget {
 
 class _PositionDismissibleRow extends StatelessWidget {
   final PositionValuation valuation;
-  final void Function(PositionValuation valuation)? onClosePosition;
+  final void Function(PositionValuation valuation)? onPositionTap;
   final Future<bool> Function(PositionValuation valuation)? onDeletePosition;
   final Future<bool> Function(String ticker) confirmDelete;
 
   const _PositionDismissibleRow({
     required this.valuation,
-    required this.onClosePosition,
+    required this.onPositionTap,
     required this.onDeletePosition,
     required this.confirmDelete,
   });
@@ -128,18 +128,9 @@ class _PositionDismissibleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = PositionRowWidget(
       valuation: valuation,
-      onClose: onClosePosition == null
+      onDetailTap: onPositionTap == null
           ? null
-          : () => onClosePosition!(valuation),
-      onDelete: onDeletePosition == null
-          ? null
-          : () async {
-              final confirmed =
-                  await confirmDelete(valuation.position.ticker);
-              if (confirmed) {
-                await onDeletePosition!(valuation);
-              }
-            },
+          : () => onPositionTap!(valuation),
     );
 
     if (onDeletePosition == null) return row;

@@ -104,6 +104,12 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoAddPosition());
   }
 
+  void openPositionDetail(PositionValuation valuation) {
+    ref.read(navigationProvider.notifier).navigate(
+          GotoPositionDetail(ticker: valuation.position.ticker),
+        );
+  }
+
   void openClosePosition(PositionValuation valuation) {
     ref.read(navigationProvider.notifier).navigate(
           GotoClosePosition(

@@ -60,3 +60,17 @@ class GotoClosedPositions extends NavigationEvent {
     context.pushNamed(PositionRouter.closedListRouteName);
   }
 }
+
+class GotoPositionDetail extends NavigationEvent {
+  final String ticker;
+
+  GotoPositionDetail({required this.ticker});
+
+  @override
+  void navigate({required BuildContext context}) {
+    context.pushNamed(
+      PositionRouter.detailRouteName,
+      extra: {'ticker': ticker},
+    );
+  }
+}

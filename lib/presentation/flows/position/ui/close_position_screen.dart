@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
-import 'package:portfolio_assistant/domain/use_cases/get_price_on_date_use_case.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-
-enum _CloseScope { all, partial }
-
-enum _SellInputMode { shares, usd }
+import 'package:portfolio_assistant/presentation/flows/position/providers/close_position_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
 
 class ClosePositionScreen extends StatefulHookConsumerWidget {
   final String positionId;
@@ -35,22 +32,26 @@ class ClosePositionScreen extends StatefulHookConsumerWidget {
 
 class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final ClosePositionArgs _args;
   late final TextEditingController _priceController;
   late final TextEditingController _sellAmountController;
-  DateTime _closeDate = DateTime.now();
-  bool _saving = false;
-  bool _loadingPrice = false;
-  _CloseScope _scope = _CloseScope.all;
-  _SellInputMode _sellMode = _SellInputMode.shares;
 
   @override
   void initState() {
+    _args = ClosePositionArgs(
+      positionId: widget.positionId,
+      ticker: widget.ticker,
+      quantity: widget.quantity,
+      avgPurchasePrice: widget.avgPurchasePrice,
+    );
     _priceController = TextEditingController();
     _sellAmountController = TextEditingController(
       text: widget.quantity.toString(),
     );
     super.initState();
-    runAfterPostFrameCallback(_fetchPriceForDate);
+    runAfterPostFrameCallback(
+      () => ref.read(closePositionProvider(_args).notifier).init(),
+    );
   }
 
   @override
@@ -60,74 +61,62 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     super.dispose();
   }
 
-  double get _maxShares => widget.quantity;
-
-  double? _closePrice() => double.tryParse(_priceController.text);
-
-  double? _sharesToSell() {
-    if (_scope == _CloseScope.all) return _maxShares;
-
-    final closePrice = _closePrice();
-    if (closePrice == null || closePrice <= 0) return null;
-
-    final raw = double.tryParse(_sellAmountController.text);
-    if (raw == null || raw <= 0) return null;
-
-    return _sellMode == _SellInputMode.shares ? raw : (raw / closePrice);
+  void _syncControllers(ClosePositionState state) {
+    if (_priceController.text != state.priceText) {
+      _priceController.text = state.priceText;
+    }
+    if (_sellAmountController.text != state.sellAmountText) {
+      _sellAmountController.text = state.sellAmountText;
+    }
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(ClosePositionProvider notifier) async {
+    final current = ref.read(closePositionProvider(_args)).closeDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _closeDate,
+      initialDate: current,
       firstDate: DateTime(1990),
       lastDate: DateTime.now(),
     );
     if (picked == null) return;
-    setState(() => _closeDate = picked);
-    await _fetchPriceForDate();
+    await notifier.setCloseDate(picked);
   }
 
-  Future<void> _fetchPriceForDate() async {
-    setState(() => _loadingPrice = true);
-    final result = await ref.read(getPriceOnDateUseCaseProvider).call(
-          params: GetPriceOnDateParams(
-            ticker: widget.ticker,
-            date: _closeDate,
-          ),
-        );
+  Future<void> _save(ClosePositionProvider notifier) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final result = await notifier.save(
+      closePositionUseCase: ref.read(closePositionUseCaseProvider),
+    );
 
     if (!mounted) return;
-    setState(() => _loadingPrice = false);
 
-    result.fold(
-      (_) {},
-      (price) {
-        if (price > 0) {
-          setState(() {
-            _priceController.text = price.toStringAsFixed(2);
-          });
-        }
-      },
-    );
+    switch (result) {
+      case ClosePositionInvalidInputResult():
+        return;
+      case ClosePositionFailureResult(:final error):
+        ref.read(alertProvider.notifier).showError(
+              title: 'error'.tr(),
+              message: error.message,
+            );
+      case ClosePositionSuccessResult():
+        await ref.read(homeProvider.notifier).refresh(silent: true);
+        if (!mounted) return;
+        context.pop(true);
+    }
   }
 
-  void _onScopeChanged(_CloseScope? value) {
-    if (value == null) return;
-    setState(() {
-      _scope = value;
-      if (value == _CloseScope.all) {
-        _sellAmountController.text = _maxShares.toString();
-      }
-    });
-  }
-
-  Widget? _sharesEquivalentHint(BuildContext context) {
-    if (_scope != _CloseScope.partial || _sellMode != _SellInputMode.usd) {
+  Widget? _sharesEquivalentHint(
+    BuildContext context,
+    ClosePositionProvider notifier,
+  ) {
+    final state = ref.watch(closePositionProvider(_args));
+    if (state.scope != CloseScope.partial ||
+        state.sellMode != SellInputMode.usd) {
       return null;
     }
 
-    final shares = _sharesToSell();
+    final shares = notifier.sharesToSell();
     if (shares == null) return null;
 
     return Padding(
@@ -144,10 +133,13 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     );
   }
 
-  Widget _preview(BuildContext context) {
+  Widget _preview(
+    BuildContext context,
+    ClosePositionProvider notifier,
+  ) {
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final closePrice = _closePrice();
-    final shares = _sharesToSell();
+    final closePrice = notifier.closePrice();
+    final shares = notifier.sharesToSell();
     if (closePrice == null || closePrice <= 0 || shares == null) {
       return const SizedBox.shrink();
     }
@@ -193,75 +185,42 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
             label: 'close_position_preview_pnl'.tr(),
             value:
                 '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueColor: pnlAbs >= 0
-                ? PortfolioColors.profit
-                : PortfolioColors.loss,
+            valueColor:
+                pnlAbs >= 0 ? PortfolioColors.profit : PortfolioColors.loss,
           ),
         ],
       ),
     );
   }
 
-  String? _validateSellAmount(String? value) {
-    if (_scope == _CloseScope.all) return null;
+  String? _validateSellAmount(String? value, ClosePositionProvider notifier) {
+    final state = ref.read(closePositionProvider(_args));
+    if (state.scope == CloseScope.all) return null;
 
-    final closePrice = _closePrice();
+    final closePrice = notifier.closePrice();
     if (closePrice == null || closePrice <= 0) return 'invalid_number'.tr();
 
     final raw = double.tryParse(value ?? '');
     if (raw == null || raw <= 0) return 'invalid_number'.tr();
 
     final shares =
-        _sellMode == _SellInputMode.shares ? raw : (raw / closePrice);
-    if (shares > _maxShares + 1e-6) {
+        state.sellMode == SellInputMode.shares ? raw : (raw / closePrice);
+    if (shares > widget.quantity + 1e-6) {
       return 'close_position_quantity_exceeds'.tr();
     }
     return null;
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final shares = _sharesToSell();
-    final closePrice = _closePrice();
-    if (shares == null ||
-        closePrice == null ||
-        shares <= 0 ||
-        closePrice <= 0) {
-      return;
-    }
-
-    setState(() => _saving = true);
-
-    final result = await ref.read(closePositionUseCaseProvider).call(
-          params: ClosePositionParams(
-            positionId: widget.positionId,
-            quantity: shares,
-            closePrice: closePrice,
-            closeDate: _closeDate,
-          ),
-        );
-
-    if (!mounted) return;
-    setState(() => _saving = false);
-
-    await result.fold(
-      (error) async {
-        ref.read(alertProvider.notifier).showError(
-              title: 'error'.tr(),
-              message: error.message,
-            );
-      },
-      (_) async {
-        await ref.read(homeProvider.notifier).refresh(silent: true);
-        if (!mounted) return;
-        context.pop(true);
-      },
-    );
-  }
-
   @override
   Widget buildView(BuildContext context) {
+    final state = ref.watch(closePositionProvider(_args));
+    final notifier = ref.read(closePositionProvider(_args).notifier);
+
+    ref.listen(closePositionProvider(_args), (previous, next) {
+      _syncControllers(next);
+    });
+    _syncControllers(state);
+
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
     return Scaffold(
@@ -335,15 +294,15 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                         ),
                   ),
                   const SizedBox(height: 12),
-                  _DualChoiceRow<_CloseScope>(
-                    value: _scope,
-                    leftValue: _CloseScope.all,
-                    rightValue: _CloseScope.partial,
+                  _DualChoiceRow<CloseScope>(
+                    value: state.scope,
+                    leftValue: CloseScope.all,
+                    rightValue: CloseScope.partial,
                     leftLabel: 'close_position_scope_all'.tr(),
                     rightLabel: 'close_position_scope_partial'.tr(),
-                    onChanged: _onScopeChanged,
+                    onChanged: notifier.setScope,
                   ),
-                  if (_scope == _CloseScope.partial) ...[
+                  if (state.scope == CloseScope.partial) ...[
                     const SizedBox(height: 20),
                     Text(
                       'close_position_sell_amount'.tr(),
@@ -353,23 +312,23 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                           ),
                     ),
                     const SizedBox(height: 12),
-                    _DualChoiceRow<_SellInputMode>(
-                      value: _sellMode,
-                      leftValue: _SellInputMode.shares,
-                      rightValue: _SellInputMode.usd,
+                    _DualChoiceRow<SellInputMode>(
+                      value: state.sellMode,
+                      leftValue: SellInputMode.shares,
+                      rightValue: SellInputMode.usd,
                       leftLabel: 'position_amount_type_shares'.tr(),
                       rightLabel: 'position_amount_type_usd'.tr(),
-                      onChanged: (mode) => setState(() => _sellMode = mode),
+                      onChanged: notifier.setSellMode,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _sellAmountController,
                       decoration: InputDecoration(
-                        labelText: _sellMode == _SellInputMode.shares
+                        labelText: state.sellMode == SellInputMode.shares
                             ? 'position_quantity'.tr()
                             : 'position_invested_amount'.tr(),
-                        hintText: _sellMode == _SellInputMode.shares
-                            ? _maxShares.toStringAsFixed(4)
+                        hintText: state.sellMode == SellInputMode.shares
+                            ? widget.quantity.toStringAsFixed(4)
                             : null,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
@@ -377,11 +336,11 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                       ),
                       style:
                           const TextStyle(color: PortfolioColors.textPrimary),
-                      validator: _validateSellAmount,
-                      onChanged: (_) => setState(() {}),
+                      validator: (value) => _validateSellAmount(value, notifier),
+                      onChanged: notifier.setSellAmountText,
                     ),
-                    if (_sharesEquivalentHint(context) != null)
-                      _sharesEquivalentHint(context)!,
+                    if (_sharesEquivalentHint(context, notifier) != null)
+                      _sharesEquivalentHint(context, notifier)!,
                   ],
                 ],
               ),
@@ -394,21 +353,21 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                 style: const TextStyle(color: PortfolioColors.textPrimary),
               ),
               subtitle: Text(
-                DateFormat.yMMMd().format(_closeDate),
+                DateFormat.yMMMd().format(state.closeDate),
                 style: const TextStyle(color: PortfolioColors.textSecondary),
               ),
               trailing: const Icon(
                 Icons.calendar_today,
                 color: PortfolioColors.textSecondary,
               ),
-              onTap: _pickDate,
+              onTap: () => _pickDate(notifier),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'close_position_price'.tr(),
-                suffixIcon: _loadingPrice
+                suffixIcon: state.loadingPrice
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
@@ -419,7 +378,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                       )
                     : IconButton(
                         tooltip: 'retry'.tr(),
-                        onPressed: _fetchPriceForDate,
+                        onPressed: notifier.fetchPriceForDate,
                         icon: const Icon(Icons.refresh),
                       ),
               ),
@@ -432,13 +391,13 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                 if (n == null || n <= 0) return 'invalid_number'.tr();
                 return null;
               },
-              onChanged: (_) => setState(() {}),
+              onChanged: notifier.setPriceText,
             ),
-            _preview(context),
+            _preview(context, notifier),
             const SizedBox(height: 32),
             FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
+              onPressed: state.saving ? null : () => _save(notifier),
+              child: state.saving
                   ? const SizedBox(
                       height: 20,
                       width: 20,

@@ -141,7 +141,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       const SizedBox(height: 20),
                       PositionsSection(
                         valuations: displayValuations,
-                        onClosePosition: notifier.openClosePosition,
+                        onPositionTap: notifier.openPositionDetail,
                         onDeletePosition: (valuation) =>
                             notifier.deletePositionsForTicker(
                               valuation.position.ticker,

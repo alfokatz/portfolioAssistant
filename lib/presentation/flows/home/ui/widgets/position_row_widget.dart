@@ -8,16 +8,12 @@ import 'package:portfolio_assistant/presentation/shared/charts/sparkline_chart.d
 
 class PositionRowWidget extends StatelessWidget {
   final PositionValuation valuation;
-  final VoidCallback? onTap;
-  final VoidCallback? onClose;
-  final VoidCallback? onDelete;
+  final VoidCallback? onDetailTap;
 
   const PositionRowWidget({
     super.key,
     required this.valuation,
-    this.onTap,
-    this.onClose,
-    this.onDelete,
+    this.onDetailTap,
   });
 
   @override
@@ -31,11 +27,9 @@ class PositionRowWidget extends StatelessWidget {
       currentPrice: valuation.currentPrice,
     );
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
           children: [
             Expanded(
               flex: 3,
@@ -88,42 +82,21 @@ class PositionRowWidget extends StatelessWidget {
                 ),
               ],
             ),
-            if (onClose != null || onDelete != null) ...[
+            if (onDetailTap != null) ...[
               const SizedBox(width: 4),
-              PopupMenuButton<String>(
+              IconButton(
+                onPressed: onDetailTap,
                 icon: const Icon(
-                  Icons.more_vert,
-                  size: 20,
+                  Icons.chevron_right_rounded,
                   color: PortfolioColors.textSecondary,
                 ),
                 padding: EdgeInsets.zero,
-                onSelected: (value) {
-                  if (value == 'close') {
-                    onClose?.call();
-                  } else if (value == 'delete') {
-                    onDelete?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (onClose != null)
-                    PopupMenuItem(
-                      value: 'close',
-                      child: Text('position_close_action'.tr()),
-                    ),
-                  if (onDelete != null)
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        'delete'.tr(),
-                        style: const TextStyle(color: PortfolioColors.loss),
-                      ),
-                    ),
-                ],
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: 'position_detail_open'.tr(),
               ),
             ],
           ],
         ),
-      ),
     );
   }
 }
