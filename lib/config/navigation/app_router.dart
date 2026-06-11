@@ -7,7 +7,9 @@ import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart
 import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_router.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
 class AppRouter {
   final Ref ref;
@@ -25,14 +27,30 @@ class AppRouter {
       refreshListenable: refresh,
       redirect: (context, state) {
         final isAuthenticated = ref.read(isAuthenticatedProvider);
-        final isLoginRoute = state.matchedLocation == AuthRouter.loginPath;
+        final location = state.matchedLocation;
+        final isLoginRoute = location == AuthRouter.loginPath;
+        final isOnboardingRoute = location == OnboardingRouter.path;
+        final onboardingDone =
+            ref.read(preferenceManagerProvider).hasCompletedOnboarding();
 
-        if (!isAuthenticated && !isLoginRoute) {
-          return AuthRouter.loginPath;
+        if (!isAuthenticated) {
+          if (!isLoginRoute) return AuthRouter.loginPath;
+          return null;
         }
-        if (isAuthenticated && isLoginRoute) {
+
+        if (isLoginRoute) {
+          if (!onboardingDone) return OnboardingRouter.path;
           return state.namedLocation(HomeRouter.homeRouteName);
         }
+
+        if (!onboardingDone && !isOnboardingRoute) {
+          return OnboardingRouter.path;
+        }
+
+        if (onboardingDone && isOnboardingRoute) {
+          return state.namedLocation(HomeRouter.homeRouteName);
+        }
+
         return null;
       },
       routes: [
@@ -41,10 +59,14 @@ class AppRouter {
           redirect: (context, state) {
             final isAuthenticated = ref.read(isAuthenticatedProvider);
             if (!isAuthenticated) return AuthRouter.loginPath;
+            final onboardingDone =
+                ref.read(preferenceManagerProvider).hasCompletedOnboarding();
+            if (!onboardingDone) return OnboardingRouter.path;
             return state.namedLocation(HomeRouter.homeRouteName);
           },
         ),
         AuthRouter.getRoute(),
+        OnboardingRouter.getRoute(),
         HomeRouter.getRoute(),
         ...PositionRouter.getRoutes(),
         AssistantRouter.getRoute(),

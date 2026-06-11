@@ -8,6 +8,8 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/providers/settings_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_danger_zone.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
@@ -117,6 +119,12 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _onReplayOnboarding() async {
+    await ref.read(onboardingProvider).reset();
+    if (!mounted) return;
+    context.goNamed(OnboardingRouter.routeName);
   }
 
   Future<void> _onChangePassword(String email) async {
@@ -286,6 +294,12 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 onChanged: settings.isLoading
                     ? null
                     : settingsNotifier.setPriceAlertsEnabled,
+              ),
+              const SettingsDivider(),
+              SettingsNavRow(
+                icon: Icons.play_lesson_outlined,
+                label: 'settings_replay_onboarding'.tr(),
+                onTap: _onReplayOnboarding,
               ),
             ],
           ),

@@ -9,6 +9,7 @@ const _KEY_GOAL_LABEL = 'goal_label';
 const _KEY_GOAL_TARGET_AMOUNT = 'goal_target_amount';
 const _KEY_GOAL_TARGET_DATE = 'goal_target_date';
 const _KEY_MONTHLY_CONTRIBUTION = 'user_monthly_contribution';
+const _KEY_ONBOARDING_COMPLETED = 'onboarding_completed';
 
 class PreferencesManagerImpl extends PreferencesManager {
   final SharedPreferences sharedPreferences;
@@ -73,6 +74,16 @@ class PreferencesManagerImpl extends PreferencesManager {
   @override
   Future<double?> getMonthlyContribution() async {
     return sharedPreferences.getDouble(_KEY_MONTHLY_CONTRIBUTION);
+  }
+
+  @override
+  bool hasCompletedOnboarding() {
+    return sharedPreferences.getBool(_KEY_ONBOARDING_COMPLETED) ?? false;
+  }
+
+  @override
+  Future<void> setOnboardingCompleted({required bool completed}) async {
+    await sharedPreferences.setBool(_KEY_ONBOARDING_COMPLETED, completed);
   }
 }
 
