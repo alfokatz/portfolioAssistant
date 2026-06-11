@@ -62,11 +62,12 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final benchmarkResult = await getBenchmarkComparisonUseCase();
     final closedResult = await getClosedPositionsUseCase();
 
-    final history = historyResult.fold((_) => <PortfolioHistoryPoint>[], (v) => v);
-    final benchmark =
-        benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
-    final closedCount =
-        closedResult.fold((_) => 0, (list) => list.length);
+    final history = historyResult.fold(
+      (_) => <PortfolioHistoryPoint>[],
+      (v) => v,
+    );
+    final benchmark = benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
+    final closedCount = closedResult.fold((_) => 0, (list) => list.length);
 
     reducer(
       action: LoadPortfolioAction(
@@ -86,10 +87,9 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     return result.fold(
       (error) async {
         showContent();
-        ref.read(alertProvider.notifier).showError(
-              title: 'error'.tr(),
-              message: error.message,
-            );
+        ref
+            .read(alertProvider.notifier)
+            .showError(title: 'error'.tr(), message: error.message);
         return false;
       },
       (_) async {
@@ -105,13 +105,15 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   }
 
   void openPositionDetail(PositionValuation valuation) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoPositionDetail(ticker: valuation.position.ticker),
-        );
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(GotoPositionDetail(ticker: valuation.position.ticker));
   }
 
   void openClosePosition(PositionValuation valuation) {
-    ref.read(navigationProvider.notifier).navigate(
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(
           GotoClosePosition(
             positionId: valuation.position.id,
             ticker: valuation.position.ticker,
@@ -129,9 +131,9 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     AssistantMode mode = AssistantMode.portfolio,
     String? initialQuestion,
   }) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoAssistant(mode: mode, initialQuestion: initialQuestion),
-        );
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(GotoAssistant(mode: mode, initialQuestion: initialQuestion));
   }
 
   @Deprecated('Use openAssistant instead')
@@ -171,16 +173,17 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   }
 }
 
-final homeProvider =
-    StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
+final homeProvider = StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
   (ref) => HomeProvider(
     ref: ref,
     getPortfolioSummaryUseCase: ref.watch(getPortfolioSummaryUseCaseProvider),
     getPortfolioHistoryUseCase: ref.watch(getPortfolioHistoryUseCaseProvider),
-    getBenchmarkComparisonUseCase:
-        ref.watch(getBenchmarkComparisonUseCaseProvider),
-    deletePositionsByTickerUseCase:
-        ref.watch(deletePositionsByTickerUseCaseProvider),
+    getBenchmarkComparisonUseCase: ref.watch(
+      getBenchmarkComparisonUseCaseProvider,
+    ),
+    deletePositionsByTickerUseCase: ref.watch(
+      deletePositionsByTickerUseCaseProvider,
+    ),
     getClosedPositionsUseCase: ref.watch(getClosedPositionsUseCaseProvider),
   ),
 );

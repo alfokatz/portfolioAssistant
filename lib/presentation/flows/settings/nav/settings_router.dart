@@ -11,7 +11,7 @@ class SettingsRouter {
       path: 'Settings',
       pageBuilder: (context, state) => MaterialPage<void>(
         key: state.pageKey,
-        child: SettingsScreen(),
+        child: const SettingsScreen(),
       ),
     );
   }

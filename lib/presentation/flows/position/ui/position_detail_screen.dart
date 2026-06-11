@@ -12,10 +12,7 @@ import 'package:portfolio_assistant/presentation/flows/position/providers/positi
 import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
 
 class PositionDetailScreen extends StatefulHookConsumerWidget {
-  const PositionDetailScreen({
-    super.key,
-    required this.ticker,
-  });
+  const PositionDetailScreen({super.key, required this.ticker});
 
   final String ticker;
 
@@ -78,63 +75,63 @@ class _PositionDetailScreenState
         title: Text(widget.ticker),
         backgroundColor: PortfolioColors.background,
       ),
-      body: state.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: PortfolioColors.accentBlue),
-            )
-          : state.errorMessage != null
-              ? _ErrorBody(
-                  message: state.errorMessage!,
-                  onRetry: notifier.load,
-                )
+      body:
+          state.isLoading
+              ? const Center(
+                child: CircularProgressIndicator(
+                  color: PortfolioColors.accentBlue,
+                ),
+              )
+              : state.errorMessage != null
+              ? _ErrorBody(message: state.errorMessage!, onRetry: notifier.load)
               : RefreshIndicator(
-                  onRefresh: notifier.load,
-                  child: ListView(
-                    padding: const EdgeInsets.all(AppDimens.mediumMargin),
-                    children: [
-                      if (state.summary != null) ...[
-                        _SummaryCard(
-                          summary: state.summary!,
-                          currency: currency,
-                          colors: colors,
-                        ),
-                        const SizedBox(height: AppDimens.mediumMargin),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: notifier.closeAll,
-                            icon: const Icon(Icons.sell_outlined),
-                            label: Text('position_detail_close_all'.tr()),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: PortfolioColors.accentBlue,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
+                onRefresh: notifier.load,
+                child: ListView(
+                  padding: const EdgeInsets.all(AppDimens.mediumMargin),
+                  children: [
+                    if (state.summary != null) ...[
+                      _SummaryCard(
+                        summary: state.summary!,
+                        currency: currency,
+                        colors: colors,
+                      ),
+                      const SizedBox(height: AppDimens.mediumMargin),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: notifier.closeAll,
+                          icon: const Icon(Icons.sell_outlined),
+                          label: Text('position_detail_close_all'.tr()),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: PortfolioColors.accentBlue,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: AppDimens.largeMargin),
-                        Text(
-                          'position_detail_purchases'.tr(),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: PortfolioColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      for (var i = 0; i < state.lots.length; i++) ...[
-                        _PurchaseLotCard(
-                          lot: state.lots[i],
-                          currency: currency,
-                          dateFormat: dateFormat,
-                          colors: colors,
-                          onClose: () => notifier.closeLot(state.lots[i]),
-                        ),
-                        if (i < state.lots.length - 1) const SizedBox(height: 12),
-                      ],
+                      ),
                       const SizedBox(height: AppDimens.largeMargin),
+                      Text(
+                        'position_detail_purchases'.tr(),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: PortfolioColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                     ],
-                  ),
+                    for (var i = 0; i < state.lots.length; i++) ...[
+                      _PurchaseLotCard(
+                        lot: state.lots[i],
+                        currency: currency,
+                        dateFormat: dateFormat,
+                        colors: colors,
+                        onClose: () => notifier.closeLot(state.lots[i]),
+                      ),
+                      if (i < state.lots.length - 1) const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: AppDimens.largeMargin),
+                  ],
                 ),
+              ),
     );
   }
 }
@@ -168,8 +165,8 @@ class _SummaryCard extends StatelessWidget {
           Text(
             'position_detail_summary'.tr(),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: PortfolioColors.textSecondary,
-                ),
+              color: PortfolioColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 12),
           _SummaryRow(
@@ -218,16 +215,16 @@ class _SummaryRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PortfolioColors.textSecondary,
-                ),
+              color: PortfolioColors.textSecondary,
+            ),
           ),
         ),
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: valueColor ?? PortfolioColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+            color: valueColor ?? PortfolioColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -270,17 +267,17 @@ class _PurchaseLotCard extends StatelessWidget {
                 child: Text(
                   dateFormat.format(lot.position.purchaseDate),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: PortfolioColors.textPrimary,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: PortfolioColors.textPrimary,
+                  ),
                 ),
               ),
               Text(
                 '$sign${currency.format(pnl)}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.pnlColor(pnl),
-                    ),
+                  fontWeight: FontWeight.w700,
+                  color: colors.pnlColor(pnl),
+                ),
               ),
             ],
           ),
@@ -319,10 +316,7 @@ class _PurchaseLotCard extends StatelessWidget {
 }
 
 class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorBody({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -345,8 +339,8 @@ class _ErrorBody extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: PortfolioColors.textSecondary,
-                  ),
+                color: PortfolioColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
