@@ -71,12 +71,18 @@ class _ModeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chip = Material(
-      color: selected ? PortfolioColors.accentBlue : PortfolioColors.surfaceCard,
-      borderRadius: BorderRadius.circular(20),
+      color: selected ? PortfolioColors.accentBlue : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: selected
+              ? null
+              : BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: PortfolioColors.border),
+                ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -84,12 +90,12 @@ class _ModeChip extends StatelessWidget {
               if (locked) ...[
                 Icon(
                   Icons.lock_outline,
-                  size: 14,
+                  size: 13,
                   color: selected
                       ? PortfolioColors.textPrimary
                       : PortfolioColors.textSecondary,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
               ],
               Text(
                 label,
@@ -110,7 +116,7 @@ class _ModeChip extends StatelessWidget {
     if (!locked) return chip;
 
     return Opacity(
-      opacity: 0.55,
+      opacity: 0.45,
       child: chip,
     );
   }

@@ -19,87 +19,56 @@ class AiInsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: PortfolioColors.surfaceCard,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: PortfolioColors.accentBlue.withValues(alpha: 0.45),
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: PortfolioColors.border),
           ),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: PortfolioColors.accentBlue.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  color: PortfolioColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: PortfolioColors.accentBlue, size: 22),
+                child: Icon(icon, color: PortfolioColors.textSecondary, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: PortfolioColors.textPrimary,
-                                ),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: PortfolioColors.textPrimary,
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: PortfolioColors.accentBlue
-                                  .withValues(alpha: 0.6),
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'AI-POWERED',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: PortfolioColors.accentBlue,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                          ),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: PortfolioColors.textSecondary,
-                            height: 1.3,
+                            height: 1.35,
                           ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: PortfolioColors.textSecondary,
               ),
             ],
           ),

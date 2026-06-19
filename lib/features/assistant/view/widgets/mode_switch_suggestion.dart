@@ -30,9 +30,7 @@ class ModeSwitchSuggestion extends StatelessWidget {
         decoration: BoxDecoration(
           color: PortfolioColors.surfaceCard,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: PortfolioColors.accentBlue.withValues(alpha: 0.4),
-          ),
+          border: Border.all(color: PortfolioColors.border),
         ),
         child: Row(
           children: [

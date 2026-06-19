@@ -15,13 +15,13 @@ class PortfolioQaChatBubble extends StatelessWidget {
     final isUser = message.role == PortfolioQaRole.user;
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
     final bg = isUser
-        ? PortfolioColors.accentBlue.withValues(alpha: 0.25)
+        ? PortfolioColors.surfaceElevated
         : PortfolioColors.surfaceCard;
     final radius = BorderRadius.only(
-      topLeft: const Radius.circular(14),
-      topRight: const Radius.circular(14),
-      bottomLeft: Radius.circular(isUser ? 14 : 4),
-      bottomRight: Radius.circular(isUser ? 4 : 14),
+      topLeft: const Radius.circular(12),
+      topRight: const Radius.circular(12),
+      bottomLeft: Radius.circular(isUser ? 12 : 3),
+      bottomRight: Radius.circular(isUser ? 3 : 12),
     );
 
     return Align(
@@ -36,11 +36,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: bg,
             borderRadius: radius,
-            border: isUser
-                ? null
-                : Border.all(
-                    color: PortfolioColors.textSecondary.withValues(alpha: 0.2),
-                  ),
+            border: Border.all(color: PortfolioColors.border),
           ),
           child: message.isStreaming && message.content.isEmpty
               ? const SizedBox(

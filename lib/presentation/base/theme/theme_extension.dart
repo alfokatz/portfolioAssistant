@@ -69,12 +69,12 @@ final customColorsProvider = Provider<CustomColors>((ref) {
   return const CustomColors(
     profit: PortfolioColors.profit,
     loss: PortfolioColors.loss,
-    profitContainer: Color(0xFF14532D),
-    lossContainer: Color(0xFF3D1515),
+    profitContainer: Color(0xFF163421),
+    lossContainer: Color(0xFF2A1515),
     chartGrid: PortfolioColors.chartGrid,
     accentBlue: PortfolioColors.accentBlue,
     cardBackground: PortfolioColors.surfaceCard,
-    aiCardBorder: Color(0xFF3B82F6),
+    aiCardBorder: PortfolioColors.border,
   );
 });
 

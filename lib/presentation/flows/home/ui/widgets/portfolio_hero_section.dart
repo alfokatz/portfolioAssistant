@@ -37,8 +37,9 @@ class PortfolioHeroSection extends StatelessWidget {
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: PortfolioColors.textPrimary,
-                  fontSize: 36,
-                  height: 1.1,
+                  fontSize: 38,
+                  height: 1.05,
+                  letterSpacing: -0.8,
                 ),
           ),
           const SizedBox(height: 8),

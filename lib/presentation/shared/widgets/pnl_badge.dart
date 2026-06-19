@@ -26,7 +26,7 @@ class PnlBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Text(
         '$sign${percent.toStringAsFixed(1)}%',

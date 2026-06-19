@@ -17,14 +17,7 @@ class AssistantShortcutsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: 'assistant_shortcuts_title'.tr(),
-            leading: Icon(
-              Icons.auto_awesome,
-              size: 20,
-              color: PortfolioColors.accentBlue.withValues(alpha: 0.9),
-            ),
-          ),
+          SectionHeader(title: 'assistant_shortcuts_title'.tr()),
           const SizedBox(height: 12),
           AiInsightCard(
             icon: Icons.explore,

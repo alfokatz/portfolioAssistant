@@ -62,7 +62,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(
@@ -112,7 +112,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(
@@ -174,7 +174,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(
@@ -492,7 +492,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(
@@ -591,7 +591,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(
@@ -809,7 +809,7 @@ abstract final class PortfolioQaCatalogWidgets {
         color: PortfolioColors.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
+          color: PortfolioColors.border,
         ),
       ),
       child: Column(

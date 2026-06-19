@@ -89,10 +89,10 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     return Scaffold(
       backgroundColor: PortfolioColors.background,
       floatingActionButton: Material(
-        color: PortfolioColors.accentBlue,
+        color: PortfolioColors.textPrimary,
         borderRadius: BorderRadius.circular(14),
-        elevation: 4,
-        shadowColor: PortfolioColors.accentBlue.withValues(alpha: 0.4),
+        elevation: 2,
+        shadowColor: const Color(0x33000000),
         child: InkWell(
           onTap: () => _onAddPosition(context),
           borderRadius: BorderRadius.circular(14),
@@ -101,8 +101,8 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
             height: 52,
             child: Icon(
               Icons.add,
-              color: PortfolioColors.textPrimary,
-              size: 28,
+              color: PortfolioColors.background,
+              size: 26,
             ),
           ),
         ),

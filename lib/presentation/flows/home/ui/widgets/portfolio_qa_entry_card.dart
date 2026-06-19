@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
-/// Entrada principal al asistente de preguntas sobre el portfolio.
 class PortfolioQaEntryCard extends StatelessWidget {
   const PortfolioQaEntryCard({super.key, required this.onTap});
 
@@ -13,34 +12,31 @@ class PortfolioQaEntryCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Material(
-        color: PortfolioColors.accentBlue.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: PortfolioColors.accentBlue.withValues(alpha: 0.55),
-                width: 1.2,
-              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: PortfolioColors.border),
             ),
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: PortfolioColors.accentBlue.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: PortfolioColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.chat_bubble_outline,
-                    color: PortfolioColors.accentBlue,
-                    size: 26,
+                    color: PortfolioColors.textSecondary,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -51,7 +47,7 @@ class PortfolioQaEntryCard extends StatelessWidget {
                       Text(
                         'portfolio_qa_entry_title'.tr(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: PortfolioColors.textPrimary,
                             ),
                       ),
@@ -68,8 +64,8 @@ class PortfolioQaEntryCard extends StatelessWidget {
                 ),
                 const Icon(
                   Icons.arrow_forward_ios,
-                  size: 16,
-                  color: PortfolioColors.accentBlue,
+                  size: 15,
+                  color: PortfolioColors.textSecondary,
                 ),
               ],
             ),
