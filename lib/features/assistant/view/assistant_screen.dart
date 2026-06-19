@@ -68,10 +68,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   }
 
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
+    if (text.trim().isEmpty) return;
     await notifier.submitMessage(text);
     _textController.clear();
     _scrollToBottom();
   }
+
+  bool _isInputBlocked(AssistantProvider notifier, AssistantState state) =>
+      state.isWaiting || notifier.isSendInFlight || notifier.service == null;
 
   @override
   Widget buildView(BuildContext context) {
@@ -137,7 +141,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
               reasonKey: suggestion.reasonKey,
               suggestedMode: suggestion.suggestedMode,
               onSwitch: notifier.switchModeAndSend,
-              onDismiss: notifier.dismissSuggestionAndSend,
+              onDismiss: notifier.dismissModeSuggestion,
             ),
           if (state.error != null)
             Padding(
@@ -187,7 +191,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                             .map(
                               (key) => ActionChip(
                                 label: Text(key.tr()),
-                                onPressed: state.isWaiting || service == null
+                                onPressed: _isInputBlocked(notifier, state)
                                     ? null
                                     : () => _submitMessage(notifier, key.tr()),
                               ),
@@ -210,6 +214,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
+                      maxLines: 1,
+                      textInputAction: TextInputAction.send,
                       style: const TextStyle(
                         color: PortfolioColors.textPrimary,
                       ),
@@ -222,15 +228,21 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      onSubmitted: state.isWaiting
+                      onSubmitted: _isInputBlocked(notifier, state)
                           ? null
                           : (text) => _submitMessage(notifier, text),
-                      enabled: !state.isWaiting && service != null,
+                      onEditingComplete: _isInputBlocked(notifier, state)
+                          ? null
+                          : () => _submitMessage(
+                                notifier,
+                                _textController.text,
+                              ),
+                      enabled: !_isInputBlocked(notifier, state),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: state.isWaiting || service == null
+                    onPressed: _isInputBlocked(notifier, state)
                         ? null
                         : () => _submitMessage(notifier, _textController.text),
                     icon: const Icon(Icons.send),

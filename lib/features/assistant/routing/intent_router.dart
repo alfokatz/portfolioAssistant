@@ -28,10 +28,9 @@ abstract final class IntentRouter {
     }
     if (currentMode != AssistantMode.explore &&
         _matchesAny(lower, [
-          'cómo está',
-          'como esta',
           'precio de',
           'cotización',
+          'cotizacion',
           'ticker',
         ])) {
       return const ModeSuggestion(

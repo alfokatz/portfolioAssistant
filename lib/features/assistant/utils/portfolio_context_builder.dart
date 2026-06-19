@@ -4,6 +4,8 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_concentration_checker.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_display_name.dart';
 
 /// Serializa el portfolio actual para el contexto del asistente.
 abstract final class PortfolioContextBuilder {
@@ -12,6 +14,8 @@ abstract final class PortfolioContextBuilder {
     List<PortfolioHistoryPoint> history = const [],
     Map<String, Map<String, Object?>> positionPeriods = const {},
     List<ClosedPosition> closedPositions = const [],
+    Map<String, String> sectorByTicker = const {},
+    SectorConcentration? sectorConcentration,
     DateTime? asOf,
   }) {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
@@ -21,22 +25,7 @@ abstract final class PortfolioContextBuilder {
     final closedTotals = _closedTotals(closedPositions);
 
     if (!hasOpen && !hasClosed) {
-      return jsonEncode({
-        'as_of': timestamp,
-        'has_positions': false,
-        'has_closed_positions': false,
-        'has_portfolio_data': false,
-        'total_value': 0,
-        'total_pnl_abs': 0,
-        'total_pnl_pct': 0,
-        'pnl_scope': 'all_time_unrealized',
-        'period_returns': <String, Object?>{},
-        'position_periods': <String, Object?>{},
-        'positions': <Map<String, Object?>>[],
-        'closed_positions': <Map<String, Object?>>[],
-        'closed_pnl_total_abs': 0,
-        'closed_pnl_total_cost_basis': 0,
-      });
+      return jsonEncode(_buildEmptyPayload(timestamp));
     }
 
     final openSummary = hasOpen ? summary : null;
@@ -53,11 +42,21 @@ abstract final class PortfolioContextBuilder {
           'pnl_abs': v.pnlAbsolute,
           'pnl_pct': v.pnlPercent,
           'weight_pct': double.parse(weightPct.toStringAsFixed(2)),
+          'sector': sectorByTicker[v.position.ticker.toUpperCase()] ??
+              SectorDisplayName.unclassified,
         });
       }
     }
 
-    return jsonEncode({
+    final concentration = sectorConcentration ??
+        (hasOpen
+            ? SectorConcentrationChecker.fromSummary(
+                openSummary,
+                sectorByTicker: sectorByTicker,
+              )
+            : const SectorConcentration(sectorWeights: {}));
+
+    final payload = <String, Object?>{
       'as_of': timestamp,
       'has_positions': hasOpen,
       'has_closed_positions': hasClosed,
@@ -76,7 +75,36 @@ abstract final class PortfolioContextBuilder {
       'closed_pnl_total_abs': closedTotals.abs,
       'closed_pnl_total_cost_basis': closedTotals.costBasis,
       'closed_pnl_total_pct': closedTotals.percent,
-    });
+      'sector_concentration': concentration.sectorWeights,
+      'concentration_warning': concentration.overweightSector != null,
+    };
+
+    if (concentration.overweightSector != null) {
+      payload['overweight_sector'] = concentration.overweightSector;
+    }
+
+    return jsonEncode(payload);
+  }
+
+  static Map<String, Object?> _buildEmptyPayload(String timestamp) {
+    return {
+      'as_of': timestamp,
+      'has_positions': false,
+      'has_closed_positions': false,
+      'has_portfolio_data': false,
+      'total_value': 0,
+      'total_pnl_abs': 0,
+      'total_pnl_pct': 0,
+      'pnl_scope': 'all_time_unrealized',
+      'period_returns': <String, Object?>{},
+      'position_periods': <String, Object?>{},
+      'positions': <Map<String, Object?>>[],
+      'closed_positions': <Map<String, Object?>>[],
+      'closed_pnl_total_abs': 0,
+      'closed_pnl_total_cost_basis': 0,
+      'sector_concentration': <String, double>{},
+      'concentration_warning': false,
+    };
   }
 
   static List<Map<String, Object?>> _serializeClosedPositions(

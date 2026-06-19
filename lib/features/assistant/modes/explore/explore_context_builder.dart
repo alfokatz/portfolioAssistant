@@ -4,7 +4,8 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/broad_market_query.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
-import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_resolver.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/yahoo_ticker_search_client.dart';
 
 /// Construye el snapshot de contexto para modo explore desde tickers del mensaje.
 abstract final class ExploreContextBuilder {
@@ -20,13 +21,16 @@ abstract final class ExploreContextBuilder {
     PortfolioSummary? summary,
     DateTime? asOf,
     ExploreNewsEnricher? newsEnricher,
+    YahooTickerSearchClient? tickerSearchClient,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
-    var tickers = TickerExtractor.extractTickers(userMessage);
+    var tickers = await TickerResolver.resolveTickers(
+      userMessage,
+      searchClient: tickerSearchClient,
+    );
     String? marketProxyTicker;
 
-    if (tickers.isEmpty && isBroadMarketQuery(userMessage)) {
-      tickers = [broadMarketProxyTicker];
+    if (tickers.length == 1 && tickers.first == broadMarketProxyTicker) {
       marketProxyTicker = broadMarketProxyTicker;
     }
 

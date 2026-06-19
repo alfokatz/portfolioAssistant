@@ -7,6 +7,8 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_concentration_checker.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
@@ -39,11 +41,26 @@ Future<String> buildSnapshotJson({
                 quoteRepository: quoteRepository,
               )
               : const <String, Map<String, Object?>>{};
+      final tickers = summary?.valuations
+              .map((v) => v.position.ticker.toUpperCase())
+              .toList() ??
+          const <String>[];
+      final sectorByTicker = tickers.isEmpty
+          ? const <String, String>{}
+          : await SectorResolver.resolveForTickers(tickers);
+      final sectorConcentration = hasOpen
+          ? SectorConcentrationChecker.fromSummary(
+              summary,
+              sectorByTicker: sectorByTicker,
+            )
+          : const SectorConcentration(sectorWeights: {});
       return PortfolioContextBuilder.buildJson(
         summary,
         history: history,
         positionPeriods: positionPeriods,
         closedPositions: closedPositions,
+        sectorByTicker: sectorByTicker,
+        sectorConcentration: sectorConcentration,
         asOf: asOf,
       );
     case AssistantMode.learn:

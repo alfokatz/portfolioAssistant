@@ -3,6 +3,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/budget_extractor.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_fit_scorer.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/sector_concentration_checker.dart';
@@ -10,6 +11,7 @@ import 'package:portfolio_assistant/features/assistant/modes/invest/sector_displ
 import 'package:portfolio_assistant/features/assistant/modes/invest/sector_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/ticker_sector_map.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/yahoo_sector_client.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/yahoo_ticker_search_client.dart';
 
 /// Construye el snapshot de contexto para modo invest.
 abstract final class InvestContextBuilder {
@@ -38,6 +40,7 @@ abstract final class InvestContextBuilder {
     double? riskProfile,
     DateTime? asOf,
     YahooSectorClient? yahooSectorClient,
+    YahooTickerSearchClient? tickerSearchClient,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final budget = BudgetExtractor.extractBudgetUsd(userMessage);
@@ -46,7 +49,10 @@ abstract final class InvestContextBuilder {
             .map((v) => v.position.ticker.toUpperCase())
             .toList() ??
         const <String>[];
-    final candidateTickers = _resolveCandidates(userMessage);
+    final candidateTickers = await _resolveCandidates(
+      userMessage,
+      searchClient: tickerSearchClient,
+    );
     final sectorByTicker = await SectorResolver.resolveForTickers(
       [...portfolioTickers, ...candidateTickers],
       yahooClient: yahooSectorClient,
@@ -90,10 +96,13 @@ abstract final class InvestContextBuilder {
     return snapshot;
   }
 
-  static List<String> _resolveCandidates(String userMessage) {
-    final extracted = TickerExtractor.extractTickers(userMessage);
-    if (extracted.isNotEmpty) {
-      return extracted.take(_maxCandidates).toList();
+  static Future<List<String>> _resolveCandidates(
+    String userMessage, {
+    YahooTickerSearchClient? searchClient,
+  }) async {
+    final symbols = TickerExtractor.extractSymbolTickers(userMessage);
+    if (symbols.isNotEmpty) {
+      return symbols.take(_maxCandidates).toList();
     }
 
     final lower = userMessage.toLowerCase();
@@ -101,6 +110,15 @@ abstract final class InvestContextBuilder {
       if (lower.contains(entry.key)) {
         return entry.value.take(_maxCandidates).toList();
       }
+    }
+
+    final fromSearch = await TickerResolver.resolveTickers(
+      userMessage,
+      searchClient: searchClient,
+      allowBroadMarketProxy: false,
+    );
+    if (fromSearch.isNotEmpty) {
+      return fromSearch.take(_maxCandidates).toList();
     }
 
     return _defaultCandidates.take(_maxCandidates).toList();

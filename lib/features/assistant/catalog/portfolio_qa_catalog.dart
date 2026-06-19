@@ -769,13 +769,25 @@ For closed-position questions:
 - "listar posiciones cerradas": QaClosedPositionList (max 6 items, most recent)
 - Compare two closed tickers: QaComparisonRow using pnl_pct or pnl_abs
 
+SECTOR CONCENTRATION (CRITICAL — NO HALLUCINATION)
+- positions[].sector and sector_concentration are pre-computed in the snapshot.
+- sector_concentration keys and overweight_sector are already in Spanish —
+  use them verbatim (never output "Other", "No clasificar", or English names).
+- For sector risk / diversification questions: QaConcentrationBar with items
+  from sector_concentration (label=sector name, weightPct=value).
+- For single-ticker concentration: QaConcentrationBar from positions[] by ticker.
+- If concentration_warning=true, add QaTipBanner (tone=warning) mentioning
+  overweight_sector when present.
+- NEVER invent sectors not present in sector_concentration or positions[].sector.
+
 WIDGET SELECTION GUIDE
 - Single ticker in a period (open): QaTickerMove (from position_periods)
 - Temporal performance of whole portfolio (open): QaPeriodChange
 - Current snapshot / open positions: QaMetricStrip
 - All-time open P&L meaning: QaPnLBreakdown from total_cost_basis / total_value
 - Realized P&L from closed trades: QaPnLBreakdown from closed totals
-- Risk / concentration (open): QaConcentrationBar
+- Risk / concentration by ticker (open): QaConcentrationBar from positions[]
+- Risk / concentration by sector (open): QaConcentrationBar from sector_concentration
 - Best/worst open positions: QaTopMovers from positions[]
 - Best/worst closed trades: QaTopMovers from closed_positions[]
 - List open positions: QaPositionList

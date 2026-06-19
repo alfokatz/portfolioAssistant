@@ -111,6 +111,8 @@
   "assistant_mode_suggest_plan": "This looks like a planning question. Switch to Plan mode?",
   "assistant_mode_suggest_portfolio": "This looks like a portfolio question. Switch to Portfolio mode?",
   "assistant_mode_switch_button": "Switch mode",
+  "assistant_mode_dismiss_button": "Dismiss",
+  "assistant_send_in_progress": "Please wait for the previous response to finish.",
   "assistant_shortcuts_title": "Assistant shortcuts",
   "assistant_shortcut_explore_title": "Explore",
   "assistant_shortcut_explore_subtitle": "Look up any ticker",

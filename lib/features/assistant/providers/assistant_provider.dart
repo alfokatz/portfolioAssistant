@@ -14,6 +14,7 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grounding_validator.dart';
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
+import 'package:portfolio_assistant/features/assistant/states/mode_chat_session.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
@@ -21,6 +22,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_messa
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -48,6 +50,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   final _sendGuard = GenUiSendGuard();
   final _conversationEvents = GenUiConversationSubscription();
   final _surfaceIds = <String>[];
+  final _sessionsByMode = <AssistantMode, ModeChatSession>{};
+  final _servicesByMode = <AssistantMode, AssistantOpenAiService>{};
+  final _surfaceIdsByMode = <AssistantMode, List<String>>{};
 
   AssistantOpenAiService? _service;
   String? _initialQuestion;
@@ -66,8 +71,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         return 'portfolio_qa_welcome';
     }
   }
-
-  String get _welcomeKey => _welcomeKeyFor(state.currentMode);
 
   List<String> get chipKeys {
     switch (state.currentMode) {
@@ -106,9 +109,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   AssistantOpenAiService? get service => _service;
 
+  bool get isSendInFlight => _sendGuard.isInFlight;
+
+  bool get isInputBlocked => state.isWaiting || isSendInFlight;
+
   void disposeResources() {
     _conversationEvents.cancel();
-    _service?.dispose();
+    for (final service in _servicesByMode.values) {
+      service.dispose();
+    }
+    _servicesByMode.clear();
     _service = null;
   }
 
@@ -132,7 +142,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> submitMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
+    if (trimmed.isEmpty || _service == null) return;
+
+    if (isInputBlocked) {
+      state = state.copyWith(error: 'assistant_send_in_progress'.tr());
+      return;
+    }
 
     final suggestion = IntentRouter.suggest(
       message: trimmed,
@@ -148,17 +163,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
         return;
       }
-      state = state.copyWith(
-        pendingMessage: trimmed,
-        modeSuggestion: suggestion,
-      );
-      return;
+      state = state.copyWith(modeSuggestion: suggestion);
     }
 
     await sendMessage(trimmed);
   }
 
-  void switchModeAndSend(AssistantMode mode) {
+  Future<void> switchModeAndSend(AssistantMode mode) async {
     if (!ref.read(subscriptionProvider.notifier).canAccessMode(mode)) {
       state = state.copyWith(
         paywallReason: PaywallReason.modeLocked,
@@ -166,25 +177,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
       return;
     }
-    final pending = state.pendingMessage;
-    state = state.copyWith(
-      currentMode: mode,
-      clearModeSuggestion: true,
-      clearPendingMessage: true,
-    );
-    _updateWelcomeIfOnlyMessage();
-    unawaited(_applyModeAndMaybeSend(mode, pending));
+    await _changeMode(mode, clearModeSuggestion: true);
   }
 
-  void dismissSuggestionAndSend() {
-    final pending = state.pendingMessage;
-    state = state.copyWith(
-      clearModeSuggestion: true,
-      clearPendingMessage: true,
-    );
-    if (pending != null) {
-      unawaited(sendMessage(pending));
-    }
+  void dismissModeSuggestion() {
+    state = state.copyWith(clearModeSuggestion: true);
   }
 
   void clearPaywall() {
@@ -200,9 +197,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
       return;
     }
-    state = state.copyWith(currentMode: mode);
-    _updateWelcomeIfOnlyMessage();
-    await _initService();
+    await _changeMode(mode);
   }
 
   void clearErrorAndRetry() {
@@ -213,33 +208,60 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  void _updateWelcomeIfOnlyMessage() {
-    final messages = [...state.messages];
-    if (messages.length == 1 &&
-        messages.first.role == PortfolioQaRole.assistant &&
-        !messages.first.isStreaming) {
-      messages[0] = PortfolioQaMessage(
-        role: PortfolioQaRole.assistant,
-        content: _welcomeKey.tr(),
-      );
-      state = state.copyWith(messages: messages);
-    }
+  Future<void> _changeMode(
+    AssistantMode mode, {
+    bool clearModeSuggestion = false,
+  }) async {
+    _persistCurrentModeSession();
+
+    final restored = _sessionsByMode[mode] ?? _defaultSessionFor(mode);
+
+    _surfaceIds
+      ..clear()
+      ..addAll(_surfaceIdsByMode[mode] ?? const []);
+
+    state = state.copyWith(
+      currentMode: mode,
+      messages: restored.messages,
+      turnCounter: restored.turnCounter,
+      lastMessage: restored.lastMessage,
+      isWaiting: false,
+      clearError: true,
+      clearModeSuggestion: clearModeSuggestion,
+    );
+    await _initService();
   }
 
-  Future<void> _applyModeAndMaybeSend(
-    AssistantMode mode,
-    String? pendingMessage,
-  ) async {
-    await _initService();
-    if (pendingMessage != null) {
-      await sendMessage(pendingMessage);
-    }
+  void _persistCurrentModeSession() {
+    final messages = ModeChatSession.sanitizeMessages(state.messages);
+    _sessionsByMode[state.currentMode] = ModeChatSession(
+      messages: messages,
+      turnCounter: state.turnCounter,
+      lastMessage: state.lastMessage,
+    );
+    _surfaceIdsByMode[state.currentMode] = List<String>.from(_surfaceIds);
+  }
+
+  ModeChatSession _defaultSessionFor(AssistantMode mode) {
+    return ModeChatSession(
+      messages: [_welcomeMessageFor(mode)],
+    );
+  }
+
+  PortfolioQaMessage _welcomeMessageFor(AssistantMode mode) {
+    return PortfolioQaMessage(
+      role: PortfolioQaRole.assistant,
+      content: _welcomeKeyFor(mode).tr(),
+    );
   }
 
   Future<void> _initService() async {
     _conversationEvents.cancel();
-    _service?.dispose();
-    _service = AssistantOpenAiService.forMode(mode: state.currentMode);
+    final mode = state.currentMode;
+    _service = _servicesByMode.putIfAbsent(
+      mode,
+      () => AssistantOpenAiService.forMode(mode: mode),
+    );
     _conversationEvents.listen(
       _service!.conversation,
       _onConversationEvent,
@@ -252,17 +274,26 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     String? error = state.error;
     var isWaiting = state.isWaiting;
 
-    if (event case ConversationComponentsUpdated(:final surfaceId)) {
-      messages = _markTurnReady(messages, surfaceId);
+    if (event case ConversationComponentsUpdated(
+      :final surfaceId,
+      :final definition,
+    )) {
+      if (GenUiSurfaceReadiness.hasRootComponent(definition)) {
+        messages = _markTurnReady(messages, surfaceId);
+      }
     }
 
-    GenUiFlowScreenHelpers.handleConversationEvent(
-      event: event,
-      surfaceIds: _surfaceIds,
-      setError: (value) => error = value,
-      setWaiting: (value) => isWaiting = value,
-      onStateChanged: () {},
-    );
+    if (event is ConversationError) {
+      error = genUiErrorMessage(event.error);
+      isWaiting = false;
+    } else {
+      GenUiFlowScreenHelpers.handleConversationEvent(
+        event: event,
+        surfaceIds: _surfaceIds,
+        setError: (value) => error = value,
+        onStateChanged: () {},
+      );
+    }
 
     state = state.copyWith(
       messages: messages,
@@ -289,7 +320,30 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
+    if (trimmed.isEmpty || _service == null) return;
+
+    if (isInputBlocked) {
+      state = state.copyWith(error: 'assistant_send_in_progress'.tr());
+      return;
+    }
+
+    state = state.copyWith(isWaiting: true, clearError: true);
+
+    final userMessage = PortfolioQaMessage(
+      role: PortfolioQaRole.user,
+      content: trimmed,
+    );
+    state = state.copyWith(
+      messages: [
+        ...state.messages,
+        userMessage,
+        const PortfolioQaMessage(
+          role: PortfolioQaRole.assistant,
+          isStreaming: true,
+        ),
+      ],
+      lastMessage: trimmed,
+    );
 
     final isNews =
         state.currentMode == AssistantMode.explore && isNewsQuery(trimmed);
@@ -299,7 +353,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       isNewsQuery: isNews,
     );
     if (paywall != null) {
-      state = state.copyWith(paywallReason: paywall, clearPaywallReason: false);
+      state = state.copyWith(
+        paywallReason: paywall,
+        clearPaywallReason: false,
+        isWaiting: false,
+        messages: _removeStreamingPlaceholder(state.messages),
+      );
       return;
     }
 
@@ -312,7 +371,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     if (state.currentMode == AssistantMode.portfolio &&
         validation == SnapshotValidation.noPortfolioData) {
-      state = state.copyWith(error: 'portfolio_qa_no_positions'.tr());
+      state = state.copyWith(
+        error: 'portfolio_qa_no_positions'.tr(),
+        isWaiting: false,
+        messages: _removeStreamingPlaceholder(state.messages),
+      );
       return;
     }
 
@@ -322,13 +385,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final errorKey = tickers == null || tickers.isEmpty
           ? 'assistant_explore_no_ticker'
           : 'assistant_explore_fetch_failed';
-      state = state.copyWith(error: errorKey.tr());
+      state = state.copyWith(
+        error: errorKey.tr(),
+        isWaiting: false,
+        messages: _removeStreamingPlaceholder(state.messages),
+      );
       return;
     }
 
     if (state.currentMode == AssistantMode.invest &&
         validation == SnapshotValidation.exploreFetchFailed) {
-      state = state.copyWith(error: 'assistant_invest_fetch_failed'.tr());
+      state = state.copyWith(
+        error: 'assistant_invest_fetch_failed'.tr(),
+        isWaiting: false,
+        messages: _removeStreamingPlaceholder(state.messages),
+      );
       return;
     }
 
@@ -342,21 +413,25 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     final surfaceId =
         GenUiSurfaceIds.assistantTurn(state.currentMode, state.turnCounter);
-    final messages = [
-      ...state.messages,
-      PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
-      PortfolioQaMessage(
+    final messages = [...state.messages];
+    if (messages.isNotEmpty && messages.last.isStreaming) {
+      messages[messages.length - 1] = PortfolioQaMessage(
         role: PortfolioQaRole.assistant,
         surfaceId: surfaceId,
         isStreaming: true,
-      ),
-    ];
+      );
+    } else {
+      messages.add(
+        PortfolioQaMessage(
+          role: PortfolioQaRole.assistant,
+          surfaceId: surfaceId,
+          isStreaming: true,
+        ),
+      );
+    }
 
     state = state.copyWith(
-      clearError: true,
-      isWaiting: true,
       messages: messages,
-      lastMessage: trimmed,
       turnCounter: state.turnCounter + 1,
     );
 

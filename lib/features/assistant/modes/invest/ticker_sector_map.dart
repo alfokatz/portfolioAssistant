@@ -35,6 +35,27 @@ const tickerSectorMap = <String, String>{
   'PG': 'Consumer Staples',
   'KO': 'Consumer Staples',
   'PEP': 'Consumer Staples',
+  // LATAM
+  'GGAL': 'Financials',
+  'BMA': 'Financials',
+  'YPF': 'Energy',
+  'PAM': 'Energy',
+  'MELI': 'Consumer',
+  'NU': 'Financials',
+  'VALE': 'Materials',
+  'PBR': 'Energy',
+  'ITUB': 'Financials',
+  'BBD': 'Financials',
+  // ETFs
+  'SPY': 'Financials',
+  'QQQ': 'Technology',
+  'VTI': 'Financials',
+  'VOO': 'Financials',
+  'IWM': 'Financials',
+  'XLK': 'Technology',
+  'XLF': 'Financials',
+  'XLE': 'Energy',
+  'ARKK': 'Technology',
 };
 
 String? sectorForTicker(String ticker) =>

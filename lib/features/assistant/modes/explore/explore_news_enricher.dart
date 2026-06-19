@@ -26,7 +26,12 @@ class ExploreNewsEnricher {
     }
 
     try {
-      final tickers = TickerExtractor.extractTickers(userMessage);
+      final snapshotTickers =
+          (snapshot['explore_tickers'] as Map?)?.keys.cast<String>().toList() ??
+              const <String>[];
+      final tickers = snapshotTickers.isNotEmpty
+          ? snapshotTickers
+          : TickerExtractor.extractSymbolTickers(userMessage);
       final rawText = await _client.searchNews(
         userQuery: userMessage,
         tickers: tickers,

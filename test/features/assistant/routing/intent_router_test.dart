@@ -71,5 +71,14 @@ void main() {
 
       expect(result, isNull);
     });
+
+    test('does not suggest explore for generic como esta phrasing', () {
+      final result = IntentRouter.suggest(
+        message: '¿Cómo está mi portfolio hoy?',
+        currentMode: AssistantMode.portfolio,
+      );
+
+      expect(result, isNull);
+    });
   });
 }

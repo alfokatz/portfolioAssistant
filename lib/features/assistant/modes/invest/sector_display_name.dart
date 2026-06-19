@@ -16,6 +16,7 @@ abstract final class SectorDisplayName {
     'Utilities': 'Servicios públicos',
     'Communication Services': 'Comunicaciones',
     'Basic Materials': 'Materiales básicos',
+    'Materials': 'Materiales básicos',
     'Other': 'Sin clasificar',
   };
 

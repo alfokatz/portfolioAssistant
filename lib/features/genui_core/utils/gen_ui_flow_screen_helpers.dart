@@ -24,31 +24,26 @@ final class GenUiConversationSubscription {
 
 /// Actualiza estado de pantalla GenUI según eventos de conversación.
 ///
-/// El loading principal lo controla [sendAndWait]; no activar spinner en
-/// [ConversationWaiting] para evitar loaders colgados por eventos tardíos.
+/// [isWaiting] lo controla exclusivamente el provider durante [sendAndWait].
 abstract final class GenUiFlowScreenHelpers {
   static void handleConversationEvent({
     required ConversationEvent event,
     required VoidCallback onStateChanged,
     required List<String> surfaceIds,
     required void Function(String? error) setError,
-    required void Function(bool waiting) setWaiting,
   }) {
     switch (event) {
       case ConversationWaiting():
         break;
       case ConversationError(:final error):
         setError(genUiErrorMessage(error));
-        setWaiting(false);
         onStateChanged();
       case ConversationSurfaceAdded(:final surfaceId):
-        setWaiting(false);
         if (!surfaceIds.contains(surfaceId)) {
           surfaceIds.add(surfaceId);
         }
         onStateChanged();
       case ConversationComponentsUpdated(:final surfaceId):
-        setWaiting(false);
         if (!surfaceIds.contains(surfaceId)) {
           surfaceIds.add(surfaceId);
         }
@@ -57,7 +52,6 @@ abstract final class GenUiFlowScreenHelpers {
         surfaceIds.remove(surfaceId);
         onStateChanged();
       case ConversationContentReceived():
-        setWaiting(false);
         onStateChanged();
     }
   }

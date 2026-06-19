@@ -1,6 +1,6 @@
-/// Extrae símbolos de ticker del mensaje del usuario para modo explore.
+/// Extrae símbolos de ticker explícitos del mensaje del usuario (ej. AAPL, NVDA).
 abstract final class TickerExtractor {
-  static const _maxTickers = 3;
+  static const maxTickers = 3;
 
   static const _stopWords = {
     'I',
@@ -36,7 +36,11 @@ abstract final class TickerExtractor {
 
   static final _pureTickerPattern = RegExp(r'^[A-Z]{1,5}$');
 
-  static List<String> extractTickers(String message) {
+  /// Alias retrocompatible: solo símbolos ASCII en mayúsculas.
+  static List<String> extractTickers(String message) =>
+      extractSymbolTickers(message);
+
+  static List<String> extractSymbolTickers(String message) {
     final seen = <String>{};
     final result = <String>[];
 
@@ -45,7 +49,7 @@ abstract final class TickerExtractor {
       if (token == null || _stopWords.contains(token)) continue;
       if (seen.add(token)) {
         result.add(token);
-        if (result.length >= _maxTickers) break;
+        if (result.length >= maxTickers) break;
       }
     }
 

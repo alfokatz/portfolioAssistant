@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
@@ -8,6 +9,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/yahoo_ticker_search_client.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_raw_chat_client.dart';
 
 class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
@@ -60,6 +62,40 @@ class _FakeQuoteRepository implements QuoteRepository {
       return Right(candles);
     }
     return Left(HttpError(code: 'not_found'));
+  }
+}
+
+class _FakeQuoteRepositoryWithTtwo implements QuoteRepository {
+  @override
+  Future<Either<HttpError, double>> getCurrentPrice(String ticker) async {
+    if (ticker == 'TTWO') return const Right(210.0);
+    return Left(HttpError(code: 'unknown'));
+  }
+
+  @override
+  Future<Either<HttpError, List<PriceCandle>>> getHistoricalDaily(
+    String ticker,
+  ) async {
+    if (ticker != 'TTWO') return Left(HttpError(code: 'not_found'));
+    final end = DateTime(2026, 6, 10);
+    return Right(
+      List<PriceCandle>.generate(40, (i) {
+        final date = end.subtract(Duration(days: 39 - i));
+        return PriceCandle(date: date, close: 200.0 + i);
+      }),
+    );
+  }
+}
+
+class _FakeTickerSearchClient extends YahooTickerSearchClient {
+  _FakeTickerSearchClient(this._resultsByQuery) : super(dio: Dio());
+
+  final Map<String, List<TickerSearchHit>> _resultsByQuery;
+
+  @override
+  Future<List<TickerSearchHit>> search(String query, {int limit = 3}) async {
+    return _resultsByQuery[query.trim().toLowerCase()]?.take(limit).toList() ??
+        const [];
   }
 }
 
@@ -193,6 +229,27 @@ void main() {
       final spy = tickers['SPY'] as Map<String, dynamic>;
       expect(spy['fetch_ok'], isTrue);
       expect(spy['current_price'], _FakeQuoteRepository.spyPrice);
+    });
+
+    test('resolves company name via ticker search client', () async {
+      final snapshot = await ExploreContextBuilder.build(
+        userMessage: 'como le fue a la accion de takes two esta semana',
+        quoteRepository: _FakeQuoteRepositoryWithTtwo(),
+        asOf: fixedAsOf,
+        tickerSearchClient: _FakeTickerSearchClient({
+          'takes two': [
+            const TickerSearchHit(
+              symbol: 'TTWO',
+              quoteType: 'EQUITY',
+              shortName: 'Take-Two Interactive',
+            ),
+          ],
+        }),
+      );
+
+      final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+      expect(tickers.containsKey('TTWO'), isTrue);
+      expect(tickers['TTWO']!['fetch_ok'], isTrue);
     });
 
     test('includes news_sources when enricher provided for news query', () async {

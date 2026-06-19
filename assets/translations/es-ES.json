@@ -111,6 +111,8 @@
   "assistant_mode_suggest_plan": "Parece una pregunta de planificación. ¿Querés cambiar al modo Planificar?",
   "assistant_mode_suggest_portfolio": "Parece una pregunta sobre tu cartera. ¿Querés cambiar al modo Portfolio?",
   "assistant_mode_switch_button": "Cambiar modo",
+  "assistant_mode_dismiss_button": "Ignorar",
+  "assistant_send_in_progress": "Esperá a que termine la respuesta anterior.",
   "assistant_shortcuts_title": "Atajos del asistente",
   "assistant_shortcut_explore_title": "Explorar",
   "assistant_shortcut_explore_subtitle": "Consultá cualquier ticker",

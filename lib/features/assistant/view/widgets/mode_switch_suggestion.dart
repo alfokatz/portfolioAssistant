@@ -19,42 +19,44 @@ class ModeSwitchSuggestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: ValueKey('mode_suggestion_$reasonKey'),
-      direction: DismissDirection.horizontal,
-      onDismissed: (_) => onDismiss(),
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: PortfolioColors.surfaceCard,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: PortfolioColors.accentBlue.withValues(alpha: 0.4),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PortfolioColors.accentBlue.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              reasonKey.tr(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: PortfolioColors.textSecondary,
+                    height: 1.35,
+                  ),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                reasonKey.tr(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PortfolioColors.textSecondary,
-                      height: 1.35,
-                    ),
-              ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onDismiss,
+            child: Text(
+              'assistant_mode_dismiss_button'.tr(),
+              style: const TextStyle(color: PortfolioColors.textSecondary),
             ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () => onSwitch(suggestedMode),
-              child: Text(
-                'assistant_mode_switch_button'.tr(),
-                style: const TextStyle(color: PortfolioColors.accentBlue),
-              ),
+          ),
+          TextButton(
+            onPressed: () => onSwitch(suggestedMode),
+            child: Text(
+              'assistant_mode_switch_button'.tr(),
+              style: const TextStyle(color: PortfolioColors.accentBlue),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -285,7 +285,7 @@ void main() {
 
       final concentration =
           snapshot['sector_concentration'] as Map<String, dynamic>;
-      expect(concentration['Sin clasificar'], 100.0);
+      expect(concentration['Finanzas'], 100.0);
       expect(snapshot['candidates'], isNotEmpty);
     });
   });
