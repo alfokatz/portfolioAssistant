@@ -35,6 +35,12 @@ class _FakePreferencesManager implements PreferencesManager {
 
   @override
   Future<void> saveToken({required String token}) async {}
+
+  @override
+  bool hasCompletedOnboarding() => false;
+
+  @override
+  Future<void> setOnboardingCompleted({required bool completed}) async {}
 }
 
 void main() {

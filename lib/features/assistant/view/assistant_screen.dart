@@ -6,8 +6,11 @@ import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dar
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_disclaimer_banner.dart';
@@ -75,11 +78,27 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     final state = ref.watch(assistantProvider(_args));
     final notifier = ref.read(assistantProvider(_args).notifier);
     final service = notifier.service;
+    final subscription = ref.watch(subscriptionProvider);
 
     ref.listen(assistantProvider(_args), (previous, next) {
       if (previous?.messages.length != next.messages.length ||
           previous?.isWaiting != next.isWaiting) {
         _scrollToBottom();
+      }
+
+      final reason = next.paywallReason;
+      if (reason != null && reason != previous?.paywallReason) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          SubscriptionPaywallSheet.show(
+            context,
+            ref,
+            reason: reason,
+            onUpgraded: () => ref
+                .read(subscriptionProvider.notifier)
+                .refresh(),
+          ).whenComplete(notifier.clearPaywall);
+        });
       }
     });
 
@@ -102,7 +121,16 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
           ModeChipBar(
             selectedMode: state.currentMode,
             onModeSelected: notifier.selectMode,
+            tier: subscription.tier,
+            onLockedModeTap: (_) {
+              SubscriptionPaywallSheet.show(
+                context,
+                ref,
+                reason: PaywallReason.modeLocked,
+              );
+            },
           ),
+          const AiUsageIndicator(),
           const PortfolioQaDisclaimerBanner(),
           if (state.modeSuggestion case final suggestion?)
             ModeSwitchSuggestion(

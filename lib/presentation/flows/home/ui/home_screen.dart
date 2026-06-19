@@ -2,6 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -9,6 +12,7 @@ import 'package:portfolio_assistant/presentation/flows/home/providers/home_provi
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_shortcuts_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
@@ -34,11 +38,29 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     super.initState();
   }
 
+  void _onAddPosition(BuildContext context) {
+    final tier = ref.read(subscriptionProvider).tier;
+    final limit = SubscriptionPolicy.positionLimit(tier);
+    final count = ref.read(homeProvider).summary?.valuations.length ?? 0;
+    if (limit != null && count >= limit) {
+      SubscriptionPaywallSheet.show(
+        context,
+        ref,
+        reason: PaywallReason.modeLocked,
+      );
+      return;
+    }
+    ref.read(homeProvider.notifier).openAddPosition();
+  }
+
   @override
   Widget buildView(BuildContext context) {
     final state = ref.watch(homeProvider);
     final notifier = ref.read(homeProvider.notifier);
+    final subscription = ref.watch(subscriptionProvider);
     final summary = state.summary;
+    final isBenchmarkAllowed =
+        SubscriptionPolicy.isBenchmarkAllowed(subscription.tier);
 
     final filteredHistory = HomeChartUtils.filterHistory(
       state.history,
@@ -72,7 +94,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
         elevation: 4,
         shadowColor: PortfolioColors.accentBlue.withValues(alpha: 0.4),
         child: InkWell(
-          onTap: notifier.openAddPosition,
+          onTap: () => _onAddPosition(context),
           borderRadius: BorderRadius.circular(14),
           child: const SizedBox(
             width: 52,
@@ -136,7 +158,12 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       const SizedBox(height: 20),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: BenchmarkComparisonCard(points: filteredBenchmark),
+                        child: isBenchmarkAllowed
+                            ? BenchmarkComparisonCard(
+                                portfolioPercent: periodPnl.percent,
+                                benchmarkPoints: filteredBenchmark,
+                              )
+                            : const BenchmarkLockedCard(),
                       ),
                       const SizedBox(height: 20),
                       PositionsSection(

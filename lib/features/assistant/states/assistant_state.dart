@@ -1,6 +1,7 @@
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 class AssistantArgs {
   const AssistantArgs({
@@ -23,6 +24,7 @@ class AssistantState {
   final ModeSuggestion? modeSuggestion;
   final String? pendingMessage;
   final bool isServiceReady;
+  final PaywallReason? paywallReason;
 
   const AssistantState({
     this.messages = const [],
@@ -35,6 +37,7 @@ class AssistantState {
     this.modeSuggestion,
     this.pendingMessage,
     this.isServiceReady = false,
+    this.paywallReason,
   });
 
   AssistantState copyWith({
@@ -48,9 +51,11 @@ class AssistantState {
     ModeSuggestion? modeSuggestion,
     String? pendingMessage,
     bool? isServiceReady,
+    PaywallReason? paywallReason,
     bool clearError = false,
     bool clearModeSuggestion = false,
     bool clearPendingMessage = false,
+    bool clearPaywallReason = false,
   }) {
     return AssistantState(
       messages: messages ?? this.messages,
@@ -65,6 +70,8 @@ class AssistantState {
       pendingMessage:
           clearPendingMessage ? null : (pendingMessage ?? this.pendingMessage),
       isServiceReady: isServiceReady ?? this.isServiceReady,
+      paywallReason:
+          clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
     );
   }
 }

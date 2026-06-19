@@ -315,13 +315,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          SettingsSubscriptionCard(
-            onUpgradeTap: () {
-              ref.read(alertProvider.notifier).showSuccess(
-                    message: 'settings_upgrade_coming_soon'.tr(),
-                  );
-            },
-          ),
+          const SettingsSubscriptionCard(),
           const SizedBox(height: 24),
           SettingsSectionCard(
             title: 'settings_section_about'.tr(),

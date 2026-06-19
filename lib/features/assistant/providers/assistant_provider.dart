@@ -6,6 +6,8 @@ import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
+import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/news_query_detector.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_goal_saver.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
@@ -19,6 +21,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_messa
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -136,6 +139,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       currentMode: state.currentMode,
     );
     if (suggestion != null) {
+      if (!ref
+          .read(subscriptionProvider.notifier)
+          .canAccessMode(suggestion.suggestedMode)) {
+        state = state.copyWith(
+          paywallReason: PaywallReason.modeLocked,
+          clearPaywallReason: false,
+        );
+        return;
+      }
       state = state.copyWith(
         pendingMessage: trimmed,
         modeSuggestion: suggestion,
@@ -147,6 +159,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   void switchModeAndSend(AssistantMode mode) {
+    if (!ref.read(subscriptionProvider.notifier).canAccessMode(mode)) {
+      state = state.copyWith(
+        paywallReason: PaywallReason.modeLocked,
+        clearPaywallReason: false,
+      );
+      return;
+    }
     final pending = state.pendingMessage;
     state = state.copyWith(
       currentMode: mode,
@@ -168,8 +187,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  void clearPaywall() {
+    state = state.copyWith(clearPaywallReason: true);
+  }
+
   Future<void> selectMode(AssistantMode mode) async {
     if (mode == state.currentMode) return;
+    if (!ref.read(subscriptionProvider.notifier).canAccessMode(mode)) {
+      state = state.copyWith(
+        paywallReason: PaywallReason.modeLocked,
+        clearPaywallReason: false,
+      );
+      return;
+    }
     state = state.copyWith(currentMode: mode);
     _updateWelcomeIfOnlyMessage();
     await _initService();
@@ -261,6 +291,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
 
+    final isNews =
+        state.currentMode == AssistantMode.explore && isNewsQuery(trimmed);
+    await ref.read(subscriptionProvider.notifier).refresh();
+    final paywall = await ref.read(subscriptionProvider.notifier).checkQueryAllowed(
+      mode: state.currentMode,
+      isNewsQuery: isNews,
+    );
+    if (paywall != null) {
+      state = state.copyWith(paywallReason: paywall, clearPaywallReason: false);
+      return;
+    }
+
     final snapshotJson = await _buildSnapshotJson(trimmed);
     final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
     final validation = SnapshotGroundingValidator.validate(
@@ -335,6 +377,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           messages: readyMessages,
           isWaiting: false,
         );
+
+        final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
+        final consumed =
+            await ref.read(aiUsageTrackerProvider).recordUsage(weight);
+        await ref.read(subscriptionProvider.notifier).refresh();
+        if (!consumed) {
+          state = state.copyWith(
+            paywallReason: PaywallReason.quotaExceeded,
+          );
+        }
       } on TimeoutException catch (e) {
         state = state.copyWith(
           error: e.message ?? 'GPT tardó demasiado en responder.',
@@ -383,6 +435,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         userMessage: trimmed,
         summary: summary,
         quoteRepository: ref.read(quoteRepositoryProvider),
+        enableNewsEnrichment: SubscriptionPolicy.isNewsAllowed(
+          ref.read(subscriptionProvider).tier,
+        ),
       );
     }
 

@@ -25,6 +25,7 @@ Future<String> buildSnapshotJson({
   ({String label, double targetAmount, String targetDate})? savedGoal,
   double? monthlyContribution,
   ExploreNewsEnricher? exploreNewsEnricher,
+  bool enableNewsEnrichment = true,
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
@@ -61,7 +62,9 @@ Future<String> buildSnapshotJson({
         quoteRepository: quoteRepository,
         summary: summary,
         asOf: asOf,
-        newsEnricher: exploreNewsEnricher ?? ExploreNewsEnricher(),
+        newsEnricher: enableNewsEnrichment
+            ? (exploreNewsEnricher ?? ExploreNewsEnricher())
+            : null,
       );
       return jsonEncode(exploreSnapshot);
     case AssistantMode.invest:
