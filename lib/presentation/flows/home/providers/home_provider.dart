@@ -10,11 +10,10 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
-import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
-import 'package:portfolio_assistant/features/portfolio_qa/nav/portfolio_qa_nav.dart';
-import 'package:portfolio_assistant/features/genui_core/nav/genui_nav.dart';
+import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
+import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
@@ -63,11 +62,12 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final benchmarkResult = await getBenchmarkComparisonUseCase();
     final closedResult = await getClosedPositionsUseCase();
 
-    final history = historyResult.fold((_) => <PortfolioHistoryPoint>[], (v) => v);
-    final benchmark =
-        benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
-    final closedCount =
-        closedResult.fold((_) => 0, (list) => list.length);
+    final history = historyResult.fold(
+      (_) => <PortfolioHistoryPoint>[],
+      (v) => v,
+    );
+    final benchmark = benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
+    final closedCount = closedResult.fold((_) => 0, (list) => list.length);
 
     reducer(
       action: LoadPortfolioAction(
@@ -87,10 +87,9 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     return result.fold(
       (error) async {
         showContent();
-        ref.read(alertProvider.notifier).showError(
-              title: 'error'.tr(),
-              message: error.message,
-            );
+        ref
+            .read(alertProvider.notifier)
+            .showError(title: 'error'.tr(), message: error.message);
         return false;
       },
       (_) async {
@@ -105,8 +104,16 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoAddPosition());
   }
 
+  void openPositionDetail(PositionValuation valuation) {
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(GotoPositionDetail(ticker: valuation.position.ticker));
+  }
+
   void openClosePosition(PositionValuation valuation) {
-    ref.read(navigationProvider.notifier).navigate(
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(
           GotoClosePosition(
             positionId: valuation.position.id,
             ticker: valuation.position.ticker,
@@ -120,16 +127,18 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoClosedPositions());
   }
 
-  void openGenUiFlow(GenUiFlowType flowType) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoGenUiFlow(flowType: flowType),
-        );
+  void openAssistant({
+    AssistantMode mode = AssistantMode.portfolio,
+    String? initialQuestion,
+  }) {
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(GotoAssistant(mode: mode, initialQuestion: initialQuestion));
   }
 
+  @Deprecated('Use openAssistant instead')
   void openPortfolioQa({String? initialQuestion}) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoPortfolioQa(initialQuestion: initialQuestion),
-        );
+    openAssistant(initialQuestion: initialQuestion);
   }
 
   void openSettings() {
@@ -140,8 +149,8 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     reducer(action: SelectTimeRangeAction(range));
   }
 
-  void showAllPositions() {
-    reducer(action: ToggleShowAllPositionsAction(true));
+  void togglePositionsExpanded() {
+    reducer(action: ToggleShowAllPositionsAction(!state.showAllPositions));
   }
 
   @override
@@ -164,16 +173,17 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   }
 }
 
-final homeProvider =
-    StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
+final homeProvider = StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
   (ref) => HomeProvider(
     ref: ref,
     getPortfolioSummaryUseCase: ref.watch(getPortfolioSummaryUseCaseProvider),
     getPortfolioHistoryUseCase: ref.watch(getPortfolioHistoryUseCaseProvider),
-    getBenchmarkComparisonUseCase:
-        ref.watch(getBenchmarkComparisonUseCaseProvider),
-    deletePositionsByTickerUseCase:
-        ref.watch(deletePositionsByTickerUseCaseProvider),
+    getBenchmarkComparisonUseCase: ref.watch(
+      getBenchmarkComparisonUseCaseProvider,
+    ),
+    deletePositionsByTickerUseCase: ref.watch(
+      deletePositionsByTickerUseCaseProvider,
+    ),
     getClosedPositionsUseCase: ref.watch(getClosedPositionsUseCaseProvider),
   ),
 );

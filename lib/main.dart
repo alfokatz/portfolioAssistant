@@ -11,6 +11,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
+import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/services/revenue_cat_initializer.dart';
+import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataProvider;
@@ -23,11 +26,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
+  final revenueCatService = await RevenueCatInitializer.initialize();
   await EasyLocalization.ensureInitialized();
   final sharedPreferences = await SharedPreferences.getInstance();
 
   runApp(
     _setupRiverpod(
+      revenueCatService: revenueCatService,
       easyLocalization: _setupEasyLocalization(app: const MyApp()),
       sharedPreferences: sharedPreferences,
       secureStorage: const FlutterSecureStorage(
@@ -48,12 +53,14 @@ Future<void> _setupEnviroment() async {
 }
 
 Widget _setupRiverpod({
+  required RevenueCatService revenueCatService,
   required Widget easyLocalization,
   required SharedPreferences sharedPreferences,
   required FlutterSecureStorage secureStorage,
 }) {
   return ProviderScope(
     overrides: [
+      revenueCatServiceProvider.overrideWithValue(revenueCatService),
       sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       secureStorageProvider.overrideWithValue(secureStorage),
     ],
@@ -75,6 +82,7 @@ class MyApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(revenueCatAuthSyncProvider);
     final theme = ref.watch(themeDataProvider);
     return MaterialApp.router(
       routerConfig: ref.watch(appRouterProvider),

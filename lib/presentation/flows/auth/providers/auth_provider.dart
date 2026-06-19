@@ -9,19 +9,28 @@ import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart'
 class AuthUiState {
   final bool isLoading;
   final bool isSignUpMode;
+  final bool obscurePassword;
+  final bool obscureConfirmPassword;
 
   const AuthUiState({
     this.isLoading = false,
     this.isSignUpMode = false,
+    this.obscurePassword = true,
+    this.obscureConfirmPassword = true,
   });
 
   AuthUiState copyWith({
     bool? isLoading,
     bool? isSignUpMode,
+    bool? obscurePassword,
+    bool? obscureConfirmPassword,
   }) {
     return AuthUiState(
       isLoading: isLoading ?? this.isLoading,
       isSignUpMode: isSignUpMode ?? this.isSignUpMode,
+      obscurePassword: obscurePassword ?? this.obscurePassword,
+      obscureConfirmPassword:
+          obscureConfirmPassword ?? this.obscureConfirmPassword,
     );
   }
 }
@@ -45,6 +54,16 @@ class AuthController extends StateNotifier<AuthUiState> {
   void setSignUpMode() {
     if (state.isLoading || state.isSignUpMode) return;
     state = state.copyWith(isSignUpMode: true);
+  }
+
+  void toggleObscurePassword() {
+    state = state.copyWith(obscurePassword: !state.obscurePassword);
+  }
+
+  void toggleObscureConfirmPassword() {
+    state = state.copyWith(
+      obscureConfirmPassword: !state.obscureConfirmPassword,
+    );
   }
 
   Future<void> submitEmail({

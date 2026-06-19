@@ -7,6 +7,11 @@ class PortfolioCalculator {
     return ticker.trim().toUpperCase();
   }
 
+  /// Yahoo Finance uses dashes for share classes (e.g. BRK.B → BRK-B).
+  static String toYahooFinanceSymbol(String ticker) {
+    return normalizeTicker(ticker).replaceAll('.', '-');
+  }
+
   static PositionValuation valuate({
     required Position position,
     required double currentPrice,

@@ -1,13 +1,18 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/ai_insights_section.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_shortcuts_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
@@ -33,11 +38,29 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     super.initState();
   }
 
+  void _onAddPosition(BuildContext context) {
+    final tier = ref.read(subscriptionProvider).tier;
+    final limit = SubscriptionPolicy.positionLimit(tier);
+    final count = ref.read(homeProvider).summary?.valuations.length ?? 0;
+    if (limit != null && count >= limit) {
+      SubscriptionPaywallSheet.show(
+        context,
+        ref,
+        reason: PaywallReason.modeLocked,
+      );
+      return;
+    }
+    ref.read(homeProvider.notifier).openAddPosition();
+  }
+
   @override
   Widget buildView(BuildContext context) {
     final state = ref.watch(homeProvider);
     final notifier = ref.read(homeProvider.notifier);
+    final subscription = ref.watch(subscriptionProvider);
     final summary = state.summary;
+    final isBenchmarkAllowed =
+        SubscriptionPolicy.isBenchmarkAllowed(subscription.tier);
 
     final filteredHistory = HomeChartUtils.filterHistory(
       state.history,
@@ -55,10 +78,13 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
           )
         : HomeChartUtils.periodPnlFromHistory(filteredHistory);
 
-    final valuations = summary?.valuations ?? [];
+    final valuations = List<PositionValuation>.from(
+      summary?.valuations ?? const [],
+    )..sort((a, b) => b.pnlAbsolute.compareTo(a.pnlAbsolute));
+    final hasMorePositions = valuations.length > 5;
     final displayValuations = state.showAllPositions
         ? valuations
-        : valuations.take(5).toList();
+        : valuations.take(5).toList(growable: false);
 
     return Scaffold(
       backgroundColor: PortfolioColors.background,
@@ -68,7 +94,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
         elevation: 4,
         shadowColor: PortfolioColors.accentBlue.withValues(alpha: 0.4),
         child: InkWell(
-          onTap: notifier.openAddPosition,
+          onTap: () => _onAddPosition(context),
           borderRadius: BorderRadius.circular(14),
           child: const SizedBox(
             width: 52,
@@ -132,18 +158,28 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       const SizedBox(height: 20),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: BenchmarkComparisonCard(points: filteredBenchmark),
+                        child: isBenchmarkAllowed
+                            ? BenchmarkComparisonCard(
+                                portfolioPercent: periodPnl.percent,
+                                benchmarkPoints: filteredBenchmark,
+                              )
+                            : const BenchmarkLockedCard(),
                       ),
                       const SizedBox(height: 20),
                       PositionsSection(
                         valuations: displayValuations,
-                        onClosePosition: notifier.openClosePosition,
+                        onPositionTap: notifier.openPositionDetail,
                         onDeletePosition: (valuation) =>
                             notifier.deletePositionsForTicker(
                               valuation.position.ticker,
                             ),
-                        onViewAll: valuations.length > 5
-                            ? notifier.showAllPositions
+                        actionLabel: hasMorePositions
+                            ? (state.showAllPositions
+                                ? 'view_less'.tr()
+                                : 'view_all'.tr())
+                            : null,
+                        onAction: hasMorePositions
+                            ? notifier.togglePositionsExpanded
                             : null,
                       ),
                       ClosedPositionsEntryCard(
@@ -155,9 +191,12 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         const SizedBox(height: 20),
                       ],
                       PortfolioQaEntryCard(
-                        onTap: notifier.openPortfolioQa,
+                        onTap: notifier.openAssistant,
                       ),
-                      AiInsightsSection(onInsightTap: notifier.openGenUiFlow),
+                      AssistantShortcutsSection(
+                        onShortcutTap: (mode) =>
+                            notifier.openAssistant(mode: mode),
+                      ),
                       const SizedBox(height: 88),
                     ] else
                       Padding(

@@ -1,11 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/domain/entities/closed_position.dart';
-import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/position/providers/closed_positions_provider.dart';
 
 class ClosedPositionsScreen extends StatefulHookConsumerWidget {
   const ClosedPositionsScreen({super.key});
@@ -17,27 +16,18 @@ class ClosedPositionsScreen extends StatefulHookConsumerWidget {
 
 class _ClosedPositionsScreenState
     extends BaseStatefulWidget<ClosedPositionsScreen> {
-  List<ClosedPosition> _positions = [];
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    runAfterPostFrameCallback(_load);
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final result = await ref.read(getClosedPositionsUseCaseProvider).call();
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _positions = result.fold((_) => [], (list) => list);
-    });
+    runAfterPostFrameCallback(
+      () => ref.read(closedPositionsProvider.notifier).load(),
+    );
   }
 
   @override
   Widget buildView(BuildContext context) {
+    final state = ref.watch(closedPositionsProvider);
+    final notifier = ref.read(closedPositionsProvider.notifier);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final colors = context.customColors;
 
@@ -47,9 +37,9 @@ class _ClosedPositionsScreenState
         title: Text('closed_positions_title'.tr()),
         backgroundColor: PortfolioColors.background,
       ),
-      body: _loading
+      body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _positions.isEmpty
+          : state.positions.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
@@ -63,13 +53,13 @@ class _ClosedPositionsScreenState
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: notifier.load,
                   child: ListView.separated(
                     padding: const EdgeInsets.all(20),
-                    itemCount: _positions.length,
+                    itemCount: state.positions.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final position = _positions[index];
+                      final position = state.positions[index];
                       final pnl = position.pnlAbsolute;
                       final sign = pnl >= 0 ? '+' : '';
 

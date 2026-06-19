@@ -6,6 +6,18 @@ import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_ra
 export 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart'
     show PeriodPnl;
 
+class BenchmarkPeriodReturns {
+  const BenchmarkPeriodReturns({
+    required this.portfolioPercent,
+    required this.sp500Percent,
+    required this.differencePercent,
+  });
+
+  final double portfolioPercent;
+  final double sp500Percent;
+  final double differencePercent;
+}
+
 abstract final class HomeChartUtils {
   static List<PortfolioHistoryPoint> filterHistory(
     List<PortfolioHistoryPoint> points,
@@ -39,12 +51,62 @@ abstract final class HomeChartUtils {
   ) {
     if (points.isEmpty) return points;
     final duration = range.duration;
-    if (duration == null) return points;
+    final filtered = duration == null
+        ? points
+        : () {
+            final end = points.last.date;
+            final start = end.subtract(duration);
+            final slice =
+                points.where((p) => !p.date.isBefore(start)).toList();
+            return slice.length >= 2 ? slice : points;
+          }();
+    return renormalizeBenchmarkToPeriodStart(filtered);
+  }
 
-    final end = points.last.date;
-    final start = end.subtract(duration);
-    final filtered = points.where((p) => !p.date.isBefore(start)).toList();
-    return filtered.length >= 2 ? filtered : points;
+  /// Re-indexes both series to 100 at the first point of [points].
+  static List<BenchmarkPoint> renormalizeBenchmarkToPeriodStart(
+    List<BenchmarkPoint> points,
+  ) {
+    if (points.length < 2) return points;
+
+    final basePortfolio = points.first.portfolioNormalized;
+    final baseSp500 = points.first.sp500Normalized;
+    if (basePortfolio <= 0 || baseSp500 <= 0) return points;
+
+    return points
+        .map(
+          (p) => BenchmarkPoint(
+            date: p.date,
+            portfolioNormalized: (p.portfolioNormalized / basePortfolio) * 100,
+            sp500Normalized: (p.sp500Normalized / baseSp500) * 100,
+          ),
+        )
+        .toList();
+  }
+
+  static double? sp500PeriodReturnFromBenchmark(List<BenchmarkPoint> points) {
+    if (points.length < 2) return null;
+
+    final first = points.first;
+    final last = points.last;
+    if (first.sp500Normalized <= 0) return null;
+
+    return (last.sp500Normalized / first.sp500Normalized - 1) * 100;
+  }
+
+  /// Portfolio return should come from [PeriodPnl] (vs cost basis, same as hero).
+  static BenchmarkPeriodReturns? benchmarkComparisonReturns({
+    required double portfolioPercent,
+    required List<BenchmarkPoint> benchmarkPoints,
+  }) {
+    final sp500Percent = sp500PeriodReturnFromBenchmark(benchmarkPoints);
+    if (sp500Percent == null) return null;
+
+    return BenchmarkPeriodReturns(
+      portfolioPercent: portfolioPercent,
+      sp500Percent: sp500Percent,
+      differencePercent: portfolioPercent - sp500Percent,
+    );
   }
 
   /// Lightweight sparkline when per-ticker history is unavailable.

@@ -3,14 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
-import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
-import 'package:portfolio_assistant/domain/use_cases/get_price_on_date_use_case.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-
-enum _BuyInputMode { shares, usd }
+import 'package:portfolio_assistant/presentation/flows/position/providers/add_position_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/add_position_state.dart';
 
 class AddPositionScreen extends StatefulHookConsumerWidget {
   final String? prefilledTicker;
@@ -31,19 +29,18 @@ class AddPositionScreen extends StatefulHookConsumerWidget {
 
 class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final AddPositionArgs _args;
   late final TextEditingController _tickerController;
-  late final TextEditingController _quantityController; // shares or USD amount
+  late final TextEditingController _quantityController;
   late final TextEditingController _priceController;
-  DateTime _purchaseDate = DateTime.now();
-  bool _saving = false;
-  bool _loadingPrice = false;
-  bool _datePicked = false;
-  _BuyInputMode _mode = _BuyInputMode.shares;
-  double? _currentPrice;
-  bool _loadingCurrent = false;
 
   @override
   void initState() {
+    _args = AddPositionArgs(
+      prefilledTicker: widget.prefilledTicker,
+      prefilledQuantity: widget.prefilledQuantity,
+      prefilledPrice: widget.prefilledPrice,
+    );
     _tickerController = TextEditingController(text: widget.prefilledTicker);
     _quantityController = TextEditingController(
       text: widget.prefilledQuantity?.toString() ?? '',
@@ -51,8 +48,12 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     _priceController = TextEditingController(
       text: widget.prefilledPrice?.toString() ?? '',
     );
-    if (widget.prefilledPrice != null) _datePicked = true;
     super.initState();
+    if (widget.prefilledPrice != null) {
+      runAfterPostFrameCallback(
+        () => ref.read(addPositionProvider(_args).notifier).fetchCurrentPrice(),
+      );
+    }
   }
 
   @override
@@ -63,86 +64,50 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(AddPositionProvider notifier) async {
+    final current = ref.read(addPositionProvider(_args)).purchaseDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _purchaseDate,
+      initialDate: current,
       firstDate: DateTime(1990),
       lastDate: DateTime.now(),
     );
     if (picked == null) return;
-    setState(() {
-      _purchaseDate = picked;
-      _datePicked = true;
-    });
-    await _fetchPriceForDate();
+    await notifier.setPurchaseDate(picked);
   }
 
-  Future<void> _fetchPriceForDate() async {
-    final ticker = _tickerController.text.trim();
-    if (ticker.isEmpty || !_datePicked) return;
+  Future<void> _save(AddPositionProvider notifier) async {
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _loadingPrice = true);
-    final result = await ref
-        .read(getPriceOnDateUseCaseProvider)
-        .call(
-          params: GetPriceOnDateParams(ticker: ticker, date: _purchaseDate),
-        );
-
-    if (!mounted) return;
-    setState(() => _loadingPrice = false);
-
-    result.fold(
-      (_) {
-        // Keep user-editable field; just avoid overwriting.
-      },
-      (price) {
-        if (price > 0) {
-          setState(() {
-            _priceController.text = price.toStringAsFixed(2);
-          });
-        }
-      },
+    final result = await notifier.save(
+      addPositionUseCase: ref.read(addPositionUseCaseProvider),
     );
 
-    await _fetchCurrentPrice();
-  }
-
-  Future<void> _fetchCurrentPrice() async {
-    final ticker = _tickerController.text.trim();
-    if (ticker.isEmpty) return;
-
-    setState(() => _loadingCurrent = true);
-    final result = await ref
-        .read(getCurrentPriceUseCaseProvider)
-        .call(params: ticker);
     if (!mounted) return;
-    setState(() => _loadingCurrent = false);
 
-    result.fold(
-      (_) => setState(() => _currentPrice = null),
-      (price) => setState(() => _currentPrice = price),
-    );
+    switch (result) {
+      case AddPositionInvalidInputResult():
+        return;
+      case AddPositionFailureResult(:final error):
+        ref.read(alertProvider.notifier).showError(
+              title: 'error'.tr(),
+              message: error.message,
+            );
+      case AddPositionSuccessResult():
+        await ref.read(homeProvider.notifier).refresh(silent: true);
+        if (!mounted) return;
+        context.pop(true);
+    }
   }
 
-  double? _purchasePrice() => double.tryParse(_priceController.text);
+  Widget? _sharesEquivalentHint(
+    BuildContext context,
+    AddPositionProvider notifier,
+  ) {
+    final state = ref.watch(addPositionProvider(_args));
+    if (state.mode != BuyInputMode.usd) return null;
 
-  double? _shares() {
-    final p = _purchasePrice();
-    if (p == null || p <= 0) return null;
-    final raw = double.tryParse(_quantityController.text);
-    if (raw == null || raw <= 0) return null;
-    return _mode == _BuyInputMode.shares ? raw : (raw / p);
-  }
-
-  void _onFormInputsChanged() {
-    if (mounted) setState(() {});
-  }
-
-  Widget? _sharesEquivalentHint(BuildContext context) {
-    if (_mode != _BuyInputMode.usd) return null;
-
-    final shares = _shares();
+    final shares = notifier.shares();
     if (shares == null) return null;
 
     return Padding(
@@ -159,42 +124,41 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     );
   }
 
-  Widget _preview(BuildContext context) {
+  Widget _preview(BuildContext context, AddPositionProvider notifier) {
+    final state = ref.watch(addPositionProvider(_args));
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final purchase = _purchasePrice();
-    final shares = _shares();
-    final current = _currentPrice;
-    if (purchase == null || shares == null || current == null) {
+    final shares = notifier.shares();
+    final price = notifier.purchasePrice();
+    if (shares == null || price == null || state.currentPrice == null) {
       return const SizedBox.shrink();
     }
 
-    final invested = shares * purchase;
-    final marketValue = shares * current;
-    final pnlAbs = marketValue - invested;
-    final pnlPct = invested > 0 ? (pnlAbs / invested) * 100 : 0.0;
+    final marketValue = shares * state.currentPrice!;
+    final costBasis = shares * price;
+    final pnlAbs = marketValue - costBasis;
+    final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
     final sign = pnlAbs >= 0 ? '+' : '';
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'position_preview_title'.tr(),
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           _PreviewRow(
             label: 'position_preview_current_price'.tr(),
-            value: currency.format(current),
+            value: currency.format(state.currentPrice),
           ),
           _PreviewRow(
             label: 'position_preview_shares'.tr(),
@@ -209,10 +173,9 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
             value:
                 '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
             valueStyle: TextStyle(
-              color:
-                  pnlAbs >= 0
-                      ? Theme.of(context).colorScheme.tertiary
-                      : Theme.of(context).colorScheme.error,
+              color: pnlAbs >= 0
+                  ? Theme.of(context).colorScheme.tertiary
+                  : Theme.of(context).colorScheme.error,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -221,43 +184,22 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     );
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
-
-    final shares = _shares() ?? 0;
-    final purchasePrice = double.parse(_priceController.text);
-
-    final result = await ref
-        .read(addPositionUseCaseProvider)
-        .call(
-          params: AddPositionParams(
-            ticker: _tickerController.text,
-            quantity: shares,
-            purchasePrice: purchasePrice,
-            purchaseDate: _purchaseDate,
-          ),
-        );
-
-    if (!mounted) return;
-    setState(() => _saving = false);
-
-    await result.fold(
-      (error) async {
-        ref
-            .read(alertProvider.notifier)
-            .showError(title: 'error'.tr(), message: error.message);
-      },
-      (_) async {
-        await ref.read(homeProvider.notifier).refresh(silent: true);
-        if (!mounted) return;
-        context.pop(true);
-      },
-    );
+  void _syncPriceController(AddPositionState state) {
+    if (_priceController.text != state.priceText && state.priceText.isNotEmpty) {
+      _priceController.text = state.priceText;
+    }
   }
 
   @override
   Widget buildView(BuildContext context) {
+    final state = ref.watch(addPositionProvider(_args));
+    final notifier = ref.read(addPositionProvider(_args).notifier);
+
+    ref.listen(addPositionProvider(_args), (previous, next) {
+      _syncPriceController(next);
+    });
+    _syncPriceController(state);
+
     return Scaffold(
       appBar: AppBar(title: Text('add_position'.tr())),
       body: Form(
@@ -273,59 +215,53 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               ),
               textCapitalization: TextCapitalization.characters,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-              validator:
-                  (v) =>
-                      v == null || v.trim().isEmpty
-                          ? 'field_required'.tr()
-                          : null,
-              onFieldSubmitted: (_) => _fetchPriceForDate(),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'field_required'.tr() : null,
+              onFieldSubmitted: (_) => notifier.fetchPriceForDate(),
+              onChanged: notifier.setTickerText,
             ),
             const SizedBox(height: 16),
-            SegmentedButton<_BuyInputMode>(
+            SegmentedButton<BuyInputMode>(
               segments: [
                 ButtonSegment(
-                  value: _BuyInputMode.shares,
+                  value: BuyInputMode.shares,
                   label: Text('position_amount_type_shares'.tr()),
                 ),
                 ButtonSegment(
-                  value: _BuyInputMode.usd,
+                  value: BuyInputMode.usd,
                   label: Text('position_amount_type_usd'.tr()),
                 ),
               ],
-              selected: {_mode},
-              onSelectionChanged: (value) {
-                setState(() => _mode = value.first);
-                _onFormInputsChanged();
-              },
+              selected: {state.mode},
+              onSelectionChanged: (value) => notifier.setMode(value.first),
             ),
             const SizedBox(height: 16),
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('position_purchase_date'.tr()),
-              subtitle: Text(DateFormat.yMMMd().format(_purchaseDate)),
+              subtitle: Text(DateFormat.yMMMd().format(state.purchaseDate)),
               trailing: const Icon(Icons.calendar_today),
-              onTap: _pickDate,
+              onTap: () => _pickDate(notifier),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'position_purchase_price'.tr(),
-                suffixIcon:
-                    _loadingPrice
-                        ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                        : IconButton(
-                          tooltip: 'Recalcular',
-                          onPressed: _fetchPriceForDate,
-                          icon: const Icon(Icons.refresh),
+                suffixIcon: state.loadingPrice
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
+                      )
+                    : IconButton(
+                        tooltip: 'Recalcular',
+                        onPressed: notifier.fetchPriceForDate,
+                        icon: const Icon(Icons.refresh),
+                      ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -336,19 +272,18 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
                 if (n == null || n <= 0) return 'invalid_number'.tr();
                 return null;
               },
-              onChanged: (_) {
-                _onFormInputsChanged();
-                _fetchCurrentPrice();
+              onChanged: (value) {
+                notifier.setPriceText(value);
+                notifier.fetchCurrentPrice();
               },
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _quantityController,
               decoration: InputDecoration(
-                labelText:
-                    _mode == _BuyInputMode.shares
-                        ? 'position_quantity'.tr()
-                        : 'position_invested_amount'.tr(),
+                labelText: state.mode == BuyInputMode.shares
+                    ? 'position_quantity'.tr()
+                    : 'position_invested_amount'.tr(),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -359,26 +294,25 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
                 if (n == null || n <= 0) return 'invalid_number'.tr();
                 return null;
               },
-              onChanged: (_) => _onFormInputsChanged(),
+              onChanged: notifier.setQuantityText,
             ),
-            _sharesEquivalentHint(context) ?? const SizedBox.shrink(),
-            if (_loadingCurrent)
+            _sharesEquivalentHint(context, notifier) ?? const SizedBox.shrink(),
+            if (state.loadingCurrent)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: LinearProgressIndicator(minHeight: 2),
               ),
-            _preview(context),
+            _preview(context, notifier),
             const SizedBox(height: 32),
             FilledButton(
-              onPressed: _saving ? null : _save,
-              child:
-                  _saving
-                      ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : Text('save'.tr()),
+              onPressed: state.saving ? null : () => _save(notifier),
+              child: state.saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text('save'.tr()),
             ),
           ],
         ),
@@ -414,11 +348,10 @@ class _PreviewRow extends StatelessWidget {
           ),
           Text(
             value,
-            style:
-                valueStyle ??
-                Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            style: valueStyle ??
+                Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
         ],
       ),

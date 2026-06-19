@@ -1,0 +1,182 @@
+import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_resolver.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/budget_extractor.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/invest_fit_scorer.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_concentration_checker.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_display_name.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/sector_resolver.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/ticker_sector_map.dart';
+import 'package:portfolio_assistant/features/assistant/modes/invest/yahoo_sector_client.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/yahoo_ticker_search_client.dart';
+
+/// Construye el snapshot de contexto para modo invest.
+abstract final class InvestContextBuilder {
+  static const _maxCandidates = 4;
+
+  static const _keywordCandidates = <String, List<String>>{
+    'tech': ['NVDA', 'MSFT', 'AAPL'],
+    'tecnolog': ['NVDA', 'MSFT', 'AAPL'],
+    'energy': ['XOM', 'CVX', 'COP'],
+    'energ': ['XOM', 'CVX', 'COP'],
+    'petrol': ['XOM', 'CVX', 'COP'],
+    'financ': ['JPM', 'BAC', 'GS'],
+    'bank': ['JPM', 'BAC', 'GS'],
+    'consumer': ['AMZN', 'TSLA', 'COST'],
+    'consum': ['AMZN', 'TSLA', 'COST'],
+    'health': ['JNJ', 'UNH', 'PFE'],
+    'salud': ['JNJ', 'UNH', 'PFE'],
+  };
+
+  static const _defaultCandidates = ['NVDA', 'MSFT', 'AAPL', 'JPM'];
+
+  static Future<Map<String, Object?>> build({
+    required String userMessage,
+    required QuoteRepository quoteRepository,
+    PortfolioSummary? summary,
+    double? riskProfile,
+    DateTime? asOf,
+    YahooSectorClient? yahooSectorClient,
+    YahooTickerSearchClient? tickerSearchClient,
+  }) async {
+    final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
+    final budget = BudgetExtractor.extractBudgetUsd(userMessage);
+    final portfolioTickers =
+        summary?.valuations
+            .map((v) => v.position.ticker.toUpperCase())
+            .toList() ??
+        const <String>[];
+    final candidateTickers = await _resolveCandidates(
+      userMessage,
+      searchClient: tickerSearchClient,
+    );
+    final sectorByTicker = await SectorResolver.resolveForTickers(
+      [...portfolioTickers, ...candidateTickers],
+      yahooClient: yahooSectorClient,
+    );
+    final concentration = SectorConcentrationChecker.fromSummary(
+      summary,
+      sectorByTicker: sectorByTicker,
+    );
+    final candidates = candidateTickers;
+
+    final candidateEntries = <Map<String, Object?>>[];
+    for (final ticker in candidates) {
+      candidateEntries.add(
+        await _buildCandidate(
+          ticker: ticker,
+          quoteRepository: quoteRepository,
+          hasBudget: budget != null,
+          concentration: concentration,
+          sector: sectorByTicker[ticker.toUpperCase()] ??
+              SectorDisplayName.fromRaw(sectorForTicker(ticker)),
+        ),
+      );
+    }
+
+    final snapshot = <String, Object?>{
+      'mode': 'invest',
+      'data_source': 'yahoo_finance',
+      'as_of': timestamp,
+      'has_budget': budget != null,
+      'budget_usd': budget,
+      'risk_profile': riskProfile,
+      'sector_concentration': concentration.sectorWeights,
+      'concentration_warning': concentration.overweightSector != null,
+      'candidates': candidateEntries,
+    };
+
+    if (concentration.overweightSector != null) {
+      snapshot['overweight_sector'] = concentration.overweightSector;
+    }
+
+    return snapshot;
+  }
+
+  static Future<List<String>> _resolveCandidates(
+    String userMessage, {
+    YahooTickerSearchClient? searchClient,
+  }) async {
+    final symbols = TickerExtractor.extractSymbolTickers(userMessage);
+    if (symbols.isNotEmpty) {
+      return symbols.take(_maxCandidates).toList();
+    }
+
+    final lower = userMessage.toLowerCase();
+    for (final entry in _keywordCandidates.entries) {
+      if (lower.contains(entry.key)) {
+        return entry.value.take(_maxCandidates).toList();
+      }
+    }
+
+    final fromSearch = await TickerResolver.resolveTickers(
+      userMessage,
+      searchClient: searchClient,
+      allowBroadMarketProxy: false,
+    );
+    if (fromSearch.isNotEmpty) {
+      return fromSearch.take(_maxCandidates).toList();
+    }
+
+    return _defaultCandidates.take(_maxCandidates).toList();
+  }
+
+  static Future<Map<String, Object?>> _buildCandidate({
+    required String ticker,
+    required QuoteRepository quoteRepository,
+    required bool hasBudget,
+    required SectorConcentration concentration,
+    required String sector,
+  }) async {
+    final sectorOverlapPct = concentration.sectorWeights[sector];
+    final addsDiversification =
+        concentration.overweightSector == null ||
+        sector != concentration.overweightSector;
+
+    final priceResult = await quoteRepository.getCurrentPrice(ticker);
+    if (priceResult.isLeft()) {
+      return {
+        'ticker': ticker,
+        'sector': sector,
+        'fetch_ok': false,
+        'fit_score': computeFitScore(
+          fetchOk: false,
+          hasBudget: hasBudget,
+          addsDiversification: addsDiversification,
+          sectorOverlapPct: sectorOverlapPct,
+        ),
+      };
+    }
+
+    final currentPrice = priceResult.getOrElse(() => 0.0);
+    final candlesResult = await quoteRepository.getHistoricalDaily(ticker);
+    final history = candlesResult.fold(
+      (_) => <PriceCandle>[],
+      (list) => list,
+    );
+    final weekMove = TickerPeriodUtils.moveForDuration(
+      history,
+      const Duration(days: 7),
+    );
+
+    return {
+      'ticker': ticker,
+      'current_price': _round2(currentPrice),
+      'week_change_pct': _round2(weekMove.changePct),
+      'sector': sector,
+      'fetch_ok': true,
+      'fit_score': computeFitScore(
+        fetchOk: true,
+        hasBudget: hasBudget,
+        addsDiversification: addsDiversification,
+        sectorOverlapPct: sectorOverlapPct,
+      ),
+    };
+  }
+
+  static double _round2(double value) =>
+      double.parse(value.toStringAsFixed(2));
+}

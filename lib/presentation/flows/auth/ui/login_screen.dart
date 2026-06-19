@@ -33,9 +33,6 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -47,8 +44,10 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
   }
 
   Future<void> _submitForm() async {
-    FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) {
+    final formState = _formKey.currentState;
+    if (formState == null) return;
+
+    if (!formState.validate()) {
       await _scrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 250),
@@ -57,13 +56,24 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
+
     await ref.read(authControllerProvider.notifier).submitEmail(
-          email: _emailController.text,
+          email: _emailController.text.trim(),
           password: _passwordController.text,
           fullName: ref.read(authControllerProvider).isSignUpMode
-              ? _fullNameController.text
+              ? _fullNameController.text.trim()
               : null,
         );
+  }
+
+  /// Diferir un frame evita que el primer tap solo cierre el teclado/foco
+  /// sin ejecutar el envío cuando un campo sigue activo.
+  void _onPrimaryButtonPressed() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _submitForm();
+    });
   }
 
   Widget _passwordVisibilityToggle({
@@ -86,6 +96,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     final theme = Theme.of(context);
     final isLoading = authState.isLoading;
     final isSignUp = authState.isSignUpMode;
+    final authNotifier = ref.read(authControllerProvider.notifier);
 
     return Scaffold(
       backgroundColor: PortfolioColors.background,
@@ -171,7 +182,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             const SizedBox(height: 12),
                             AuthTextField(
                               controller: _passwordController,
-                              obscureText: _obscurePassword,
+                              obscureText: authState.obscurePassword,
                               textInputAction:
                                   isSignUp
                                       ? TextInputAction.next
@@ -184,12 +195,8 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                       : '••••••••',
                               prefixIcon: Icons.lock_outline_rounded,
                               suffixIcon: _passwordVisibilityToggle(
-                                obscure: _obscurePassword,
-                                onToggle:
-                                    () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
+                                obscure: authState.obscurePassword,
+                                onToggle: authNotifier.toggleObscurePassword,
                               ),
                               validator: (value) {
                                 final password = value ?? '';
@@ -215,20 +222,16 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               const SizedBox(height: 12),
                               AuthTextField(
                                 controller: _confirmPasswordController,
-                                obscureText: _obscureConfirmPassword,
+                                obscureText: authState.obscureConfirmPassword,
                                 textInputAction: TextInputAction.done,
                                 onFieldSubmitted: (_) => _submitForm(),
                                 hintText:
                                     'auth_confirm_password_placeholder'.tr(),
                                 prefixIcon: Icons.lock_reset_rounded,
                                 suffixIcon: _passwordVisibilityToggle(
-                                  obscure: _obscureConfirmPassword,
+                                  obscure: authState.obscureConfirmPassword,
                                   onToggle:
-                                      () => setState(
-                                        () =>
-                                            _obscureConfirmPassword =
-                                                !_obscureConfirmPassword,
-                                      ),
+                                      authNotifier.toggleObscureConfirmPassword,
                                 ),
                                 validator: (value) {
                                   final confirm = value ?? '';
@@ -289,7 +292,8 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                       ? 'auth_sign_up'.tr()
                                       : 'auth_sign_in'.tr(),
                               isLoading: isLoading,
-                              onPressed: isLoading ? null : _submitForm,
+                              onPressed:
+                                  isLoading ? null : _onPrimaryButtonPressed,
                             ),
                             const SizedBox(height: AppDimens.mediumMargin),
                             AuthOauthDivider(label: 'auth_oauth_divider'.tr()),

@@ -10,7 +10,6 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
 export 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
-export 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 
 /// Servicio GenUI con streaming OpenAI y transporte A2UI.
 ///

@@ -18,4 +18,8 @@ abstract class PreferencesManager {
   Future<void> saveMonthlyContribution(double amount);
 
   Future<double?> getMonthlyContribution();
+
+  bool hasCompletedOnboarding();
+
+  Future<void> setOnboardingCompleted({required bool completed});
 }

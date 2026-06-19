@@ -14,48 +14,26 @@ typedef JsonMap = Map<String, dynamic>;
 /// Viewport típico de teléfono para smoke tests de catálogo GenUI.
 const genuiTestViewportSize = Size(390, 844);
 
-/// Nombres de componentes custom del flujo de análisis.
-const analysisCustomComponentNames = {
-  'PortfolioSummaryCard',
-  'AssetPerformanceCard',
-  'AlertBanner',
-  'PortfolioInsightCard',
-  'NewsHighlightCard',
-  'NewsFeedCard',
-  'QuickActionRow',
-};
-
-/// Nombres de componentes custom del flujo de inversión.
-const investmentCustomComponentNames = {
-  'InvestmentOpportunityCard',
-  'RiskProfileSlider',
-  'BudgetAllocationCard',
-  'MarketContextCard',
-  'InvestmentConfirmCard',
-  'AlertBanner',
-};
-
 /// Nombres de componentes custom del asistente Portfolio Q&A.
 const portfolioQaCustomComponentNames = {
   'QaAnswerText',
   'QaMetricStrip',
   'QaPeriodChange',
   'QaTickerMove',
+  'QaTickerSnapshot',
   'QaConcentrationBar',
   'QaPnLBreakdown',
   'QaTopMovers',
   'QaPositionList',
+  'QaClosedPositionList',
   'QaTipBanner',
   'QaComparisonRow',
-};
-
-/// Nombres de componentes custom del flujo de planificación.
-const planningCustomComponentNames = {
-  'GoalCard',
-  'ProjectionChart',
-  'MilestoneTimeline',
-  'ActionPriorityCard',
-  'GapAnalysisCard',
+  'QaInvestOption',
+  'QaBudgetSplit',
+  'QaInvestConfirm',
+  'QaGoalCard',
+  'QaProjectionStrip',
+  'QaMilestoneList',
 };
 
 List<JsonMap> parseExampleComponents(String exampleJson) {

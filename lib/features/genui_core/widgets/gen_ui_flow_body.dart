@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/features/analysis/catalog/analysis_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Cuerpo de carga para pantallas GenUI.
 class GenUiFlowLoadingBody extends StatelessWidget {
@@ -17,7 +17,7 @@ class GenUiFlowLoadingBody extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             message,
-            style: const TextStyle(color: AnalysisColors.textSecondary),
+            style: const TextStyle(color: PortfolioColors.textSecondary),
           ),
         ],
       ),
@@ -46,7 +46,7 @@ class GenUiFlowErrorBody extends StatelessWidget {
           children: [
             const Icon(
               Icons.error_outline,
-              color: AnalysisColors.loss,
+              color: PortfolioColors.loss,
               size: 48,
             ),
             const SizedBox(height: 16),
@@ -54,7 +54,7 @@ class GenUiFlowErrorBody extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AnalysisColors.textPrimary,
+                color: PortfolioColors.textPrimary,
                 fontSize: 16,
               ),
             ),
@@ -64,8 +64,8 @@ class GenUiFlowErrorBody extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               label: const Text('Reintentar'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AnalysisColors.textPrimary,
-                side: const BorderSide(color: AnalysisColors.textSecondary),
+                foregroundColor: PortfolioColors.textPrimary,
+                side: const BorderSide(color: PortfolioColors.textSecondary),
               ),
             ),
           ],
