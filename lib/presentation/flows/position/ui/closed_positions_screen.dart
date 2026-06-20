@@ -2,9 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/closed_positions_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
 class ClosedPositionsScreen extends StatefulHookConsumerWidget {
   const ClosedPositionsScreen({super.key});
@@ -36,38 +38,32 @@ class _ClosedPositionsScreenState
         title: Text('closed_positions_title'.tr()),
       ),
       body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(color: colors.accentBlue),
+            )
           : state.positions.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Text(
-                      'closed_positions_empty'.tr(),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: PortfolioColors.textSecondary,
-                          ),
-                    ),
-                  ),
-                )
+              ? _EmptyState()
               : RefreshIndicator(
+                  color: colors.accentBlue,
+                  backgroundColor: colors.surfaceCard,
                   onRefresh: notifier.load,
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(20),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppDimens.pageHorizontal,
+                      AppDimens.sp16,
+                      AppDimens.pageHorizontal,
+                      AppDimens.sp48,
+                    ),
                     itemCount: state.positions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppDimens.sp12),
                     itemBuilder: (context, index) {
                       final position = state.positions[index];
                       final pnl = position.pnlAbsolute;
                       final sign = pnl >= 0 ? '+' : '';
 
-                      return Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: PortfolioColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: PortfolioColors.border),
-                        ),
+                      return SurfaceCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -80,7 +76,8 @@ class _ClosedPositionsScreenState
                                         .textTheme
                                         .titleMedium
                                         ?.copyWith(
-                                          color: PortfolioColors.textPrimary,
+                                          color: colors.textPrimary,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                   ),
                                 ),
@@ -90,52 +87,63 @@ class _ClosedPositionsScreenState
                                       .textTheme
                                       .titleSmall
                                       ?.copyWith(
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.w700,
                                         color: colors.pnlColor(pnl),
-                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
                                       ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: AppDimens.sp4),
                             Text(
                               'closed_positions_realized_pnl'.tr(),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(
-                                    color: PortfolioColors.textSecondary,
-                                  ),
+                                  ?.copyWith(color: colors.textSecondary),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: AppDimens.sp2),
                             Text(
                               '${position.pnlPercent >= 0 ? '+' : ''}'
                               '${position.pnlPercent.toStringAsFixed(2)}%',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(color: colors.pnlColor(pnl)),
+                                  ?.copyWith(
+                                    color: colors.pnlColor(pnl),
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
                             ),
-                            const SizedBox(height: 12),
-                            _DetailRow(
+                            const SizedBox(height: AppDimens.sp12),
+                            LabeledValueRow(
                               label: 'closed_positions_closed_on'.tr(),
                               value: DateFormat.yMMMd().format(position.closeDate),
+                              dense: true,
                             ),
-                            _DetailRow(
+                            LabeledValueRow(
                               label: 'position_quantity'.tr(),
                               value: position.quantity.toStringAsFixed(4),
+                              dense: true,
                             ),
-                            _DetailRow(
+                            LabeledValueRow(
                               label: 'close_position_price'.tr(),
                               value: currency.format(position.closePrice),
+                              dense: true,
                             ),
-                            _DetailRow(
+                            LabeledValueRow(
                               label: 'close_position_preview_cost'.tr(),
                               value: currency.format(position.costBasis),
+                              dense: true,
                             ),
-                            _DetailRow(
+                            LabeledValueRow(
                               label: 'close_position_preview_proceeds'.tr(),
                               value: currency.format(position.proceeds),
+                              dense: true,
                             ),
                           ],
                         ),
@@ -147,47 +155,41 @@ class _ClosedPositionsScreenState
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _DetailRow({required this.label, required this.value});
-
+class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    if (value.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: PortfolioColors.textSecondary,
-              ),
-        ),
-      );
-    }
+    final colors = context.customColors;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PortfolioColors.textSecondary,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.sp48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+              ),
+              child: Icon(
+                Icons.archive_outlined,
+                size: 28,
+                color: colors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            Text(
+              'closed_positions_empty'.tr(),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colors.textSecondary,
+                    height: 1.5,
                   ),
             ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PortfolioColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

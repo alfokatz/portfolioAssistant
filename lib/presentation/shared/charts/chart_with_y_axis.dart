@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_axis_helper.dart';
 
 /// Wraps a chart and renders Y-axis reference labels on the left.
@@ -26,6 +26,7 @@ class ChartWithYAxis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final ticks = ChartAxisHelper.yTicks(minY, maxY, divisions: divisions);
 
     return SizedBox(
@@ -41,12 +42,12 @@ class ChartWithYAxis extends StatelessWidget {
                 for (final tick in ticks.reversed)
                   Text(
                     formatter(tick),
-                    style: const TextStyle(
-                      color: PortfolioColors.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      height: 1.1,
-                    ),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textSecondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          height: 1.1,
+                        ),
                     textAlign: TextAlign.right,
                   ),
               ],

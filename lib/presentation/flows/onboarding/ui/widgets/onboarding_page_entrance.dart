@@ -1,7 +1,6 @@
-import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 
-/// Anima el contenido cuando su página del [PageView] queda activa.
+/// Entrada suave al activar una página; respeta [MediaQuery.disableAnimations].
 class OnboardingPageEntrance extends StatelessWidget {
   const OnboardingPageEntrance({
     super.key,
@@ -16,19 +15,29 @@ class OnboardingPageEntrance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (activePage != pageIndex) return child;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (activePage != pageIndex || reduceMotion) return child;
 
-    return FadeInUp(
+    return TweenAnimationBuilder<double>(
       key: ValueKey('onboarding-page-$pageIndex-$activePage'),
-      duration: const Duration(milliseconds: 480),
-      from: 22,
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: 0.4 + (0.6 * value),
+          child: Transform.translate(
+            offset: Offset(0, 14 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
       child: child,
     );
   }
 }
 
-/// Entrada escalonada para elementos dentro de una página de onboarding.
+/// Entrada escalonada para hijos de una página activa.
 class OnboardingStaggeredEntrance extends StatelessWidget {
   const OnboardingStaggeredEntrance({
     super.key,
@@ -45,14 +54,23 @@ class OnboardingStaggeredEntrance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (activePage != pageIndex) return child;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (activePage != pageIndex || reduceMotion) return child;
 
-    return FadeInUp(
+    return TweenAnimationBuilder<double>(
       key: ValueKey('onboarding-stagger-$pageIndex-$itemIndex-$activePage'),
-      delay: Duration(milliseconds: 70 * itemIndex),
-      duration: const Duration(milliseconds: 420),
-      from: 18,
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 320 + (itemIndex * 60)),
       curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: 0.35 + (0.65 * value),
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
       child: child,
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class OnboardingActionCard extends StatelessWidget {
   const OnboardingActionCard({
@@ -9,6 +10,7 @@ class OnboardingActionCard extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.isPrimary = false,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -16,48 +18,48 @@ class OnboardingActionCard extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final bool isPrimary;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isPrimary
-        ? PortfolioColors.accentBlue.withValues(alpha: 0.55)
-        : PortfolioColors.border;
-    final background = isPrimary
-        ? PortfolioColors.accentBlue.withValues(alpha: 0.08)
-        : PortfolioColors.surfaceCard;
+    final colors = context.customColors;
 
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor),
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: title,
+      hint: subtitle,
+      child: Material(
+        color: isPrimary ? colors.surfaceElevated : colors.surfaceCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          side: BorderSide(
+            color: isPrimary ? colors.textPrimary : colors.border,
+            width: isPrimary ? 1.5 : 1,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isPrimary
-                      ? PortfolioColors.accentBlue.withValues(alpha: 0.2)
-                      : PortfolioColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(12),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimens.sp16),
+            child: Row(
+              children: [
+                Container(
+                  width: AppDimens.touchTarget,
+                  height: AppDimens.touchTarget,
+                  decoration: BoxDecoration(
+                    color:
+                        isPrimary ? colors.surfaceCard : colors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isPrimary ? colors.textPrimary : colors.accentBlue,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: isPrimary
-                      ? PortfolioColors.accentBlue
-                      : PortfolioColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 14),
+              const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,32 +67,31 @@ class OnboardingActionCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: PortfolioColors.textPrimary,
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppDimens.sp4),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: PortfolioColors.textSecondary,
-                            height: 1.3,
+                            color: colors.textSecondary,
+                            height: 1.35,
                           ),
                     ),
                   ],
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: isPrimary
-                    ? PortfolioColors.accentBlue
-                    : PortfolioColors.textSecondary,
+                Icons.chevron_right_rounded,
+                size: AppDimens.iconMd,
+                color: colors.textSecondary,
               ),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 }

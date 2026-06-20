@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
-/// Enlace de pie con texto secundario y acción destacada en azul.
+/// Enlace de pie con texto secundario y acción destacada.
 class AuthFooterLink extends StatelessWidget {
   const AuthFooterLink({
     super.key,
@@ -19,13 +19,14 @@ class AuthFooterLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final baseStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: PortfolioColors.textSecondary,
+          color: colors.textSecondary,
         );
     final actionStyle = baseStyle?.copyWith(
       color: enabled
-          ? PortfolioColors.accentBlue
-          : PortfolioColors.accentBlue.withValues(alpha: 0.5),
+          ? colors.accentBlue
+          : colors.accentBlue.withValues(alpha: 0.5),
       fontWeight: FontWeight.w700,
     );
 

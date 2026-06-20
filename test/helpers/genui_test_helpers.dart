@@ -84,22 +84,11 @@ String loadGenuiFixture(String fileName) {
 }
 
 ThemeData genuiTestTheme() {
-  const customColors = CustomColors(
-    profit: PortfolioColors.profit,
-    loss: PortfolioColors.loss,
-    profitContainer: Color(0xFF14532D),
-    lossContainer: Color(0xFF3D1515),
-    chartGrid: PortfolioColors.chartGrid,
-    accentBlue: PortfolioColors.accentBlue,
-    cardBackground: PortfolioColors.surfaceCard,
-    aiCardBorder: Color(0xFF3B82F6),
-  );
-
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: PortfolioColors.background,
-    extensions: [customColors],
+    scaffoldBackgroundColor: CustomColors.dark.background,
+    extensions: [CustomColors.dark],
   );
 }
 

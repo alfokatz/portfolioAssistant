@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -18,6 +18,8 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Row(
       children: [
         if (leading != null) ...[leading!, const SizedBox(width: 8)],
@@ -25,7 +27,7 @@ class SectionHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: PortfolioColors.textPrimary,
+                  color: colors.textPrimary,
                 ),
           ),
         ),
@@ -39,7 +41,7 @@ class SectionHeader extends StatelessWidget {
                 child: Text(
                   actionLabel!,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: PortfolioColors.accentBlue,
+                        color: colors.accentBlue,
                         fontWeight: FontWeight.w600,
                       ),
                 ),

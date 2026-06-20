@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/benchmark_point.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/home_chart_card.dart';
@@ -19,39 +19,51 @@ class BenchmarkComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final returns = HomeChartUtils.benchmarkComparisonReturns(
       portfolioPercent: portfolioPercent,
       benchmarkPoints: benchmarkPoints,
     );
     if (returns == null) return const SizedBox.shrink();
 
-    return HomeChartCard(
-      title: 'chart_benchmark_title'.tr(),
-      child: Column(
-        children: [
-          _BenchmarkStatRow(
-            label: 'chart_benchmark_portfolio'.tr(),
-            percent: returns.portfolioPercent,
-            accentColor: PortfolioColors.chartLine,
-          ),
-          const SizedBox(height: 10),
-          _BenchmarkStatRow(
-            label: 'chart_benchmark_sp500'.tr(),
-            percent: returns.sp500Percent,
-            accentColor: PortfolioColors.benchmarkSp500,
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: PortfolioColors.border),
-          ),
-          _BenchmarkStatRow(
-            label: 'chart_benchmark_difference'.tr(),
-            percent: returns.differencePercent,
-            accentColor: context.customColors.pnlColor(returns.differencePercent),
-            emphasized: true,
-            trailing: PnlBadge(percent: returns.differencePercent, compact: true),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.sectionGap),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
+        child: HomeChartCard(
+        title: 'chart_benchmark_title'.tr(),
+        child: Column(
+          children: [
+            _BenchmarkStatRow(
+              label: 'chart_benchmark_portfolio'.tr(),
+              percent: returns.portfolioPercent,
+              accentColor: context.customColors.chartLine,
+            ),
+            const SizedBox(height: 10),
+            _BenchmarkStatRow(
+              label: 'chart_benchmark_sp500'.tr(),
+              percent: returns.sp500Percent,
+              accentColor: colors.textSecondary,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Divider(
+                height: 1,
+                color: context.customColors.border,
+              ),
+            ),
+            _BenchmarkStatRow(
+              label: 'chart_benchmark_difference'.tr(),
+              percent: returns.differencePercent,
+              accentColor:
+                  context.customColors.pnlColor(returns.differencePercent),
+              emphasized: true,
+              trailing:
+                  PnlBadge(percent: returns.differencePercent, compact: true),
+            ),
+          ],
+        ),
+        ),
       ),
     );
   }
@@ -94,9 +106,7 @@ class _BenchmarkStatRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: emphasized
-                      ? PortfolioColors.textPrimary
-                      : PortfolioColors.textSecondary,
+                  color: emphasized ? colors.textPrimary : colors.textSecondary,
                   fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
                 ),
           ),

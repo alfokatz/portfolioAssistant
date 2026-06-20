@@ -3,20 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_footer_decoration.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_footer_link.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_form_card.dart';
-import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_oauth_divider.dart';
-import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_warm_background.dart';
-import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_welcome_header.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_password_strength_indicator.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_primary_button.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_tab_switcher.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_terms_disclaimer.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_text_field.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_warm_background.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_welcome_header.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/social_sign_in_button.dart';
 
 class LoginScreen extends StatefulHookConsumerWidget {
@@ -33,6 +32,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -48,11 +48,15 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     if (formState == null) return;
 
     if (!formState.validate()) {
-      await _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+      final reduceMotion = MediaQuery.disableAnimationsOf(context);
+      if (_scrollController.hasClients) {
+        await _scrollController.animateTo(
+          0,
+          duration:
+              reduceMotion ? Duration.zero : const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      }
       return;
     }
 
@@ -80,39 +84,45 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     required bool obscure,
     required VoidCallback onToggle,
   }) {
+    final colors = context.customColors;
+
     return IconButton(
       onPressed: onToggle,
+      tooltip: obscure ? 'auth_show_password'.tr() : 'auth_hide_password'.tr(),
       icon: Icon(
         obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-        color: PortfolioColors.textSecondary,
-        size: 22,
+        color: colors.textSecondary,
+        size: AppDimens.iconMd,
       ),
     );
   }
 
   @override
   Widget buildView(BuildContext context) {
+    final colors = context.customColors;
     final authState = ref.watch(authControllerProvider);
-    final theme = Theme.of(context);
     final isLoading = authState.isLoading;
     final isSignUp = authState.isSignUpMode;
     final authNotifier = ref.read(authControllerProvider.notifier);
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: AuthWarmBackground(
         child: SafeArea(
           child: SingleChildScrollView(
             controller: _scrollController,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: AppDimens.mediumMargin,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.pageHorizontal,
+              AppDimens.sp32,
+              AppDimens.pageHorizontal,
+              AppDimens.sp32,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 32),
                 AuthWelcomeHeader(isSignUpMode: isSignUp),
-                const SizedBox(height: 40),
+                const SizedBox(height: AppDimens.sp32),
                 Form(
                   key: _formKey,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -128,7 +138,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                           onSignInTap: authNotifier.setSignInMode,
                           onSignUpTap: authNotifier.setSignUpMode,
                         ),
-                        const SizedBox(height: AppDimens.mediumMargin),
+                        const SizedBox(height: AppDimens.sp24),
                         if (isSignUp) ...[
                           AuthTextField(
                             controller: _fullNameController,
@@ -144,7 +154,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppDimens.sp12),
                         ],
                         AuthTextField(
                           controller: _emailController,
@@ -166,7 +176,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppDimens.sp12),
                         AuthTextField(
                           controller: _passwordController,
                           obscureText: authState.obscurePassword,
@@ -204,7 +214,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             },
                           ),
                         if (isSignUp) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppDimens.sp12),
                           AuthTextField(
                             controller: _confirmPasswordController,
                             obscureText: authState.obscureConfirmPassword,
@@ -215,7 +225,8 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             prefixIcon: Icons.lock_reset_rounded,
                             suffixIcon: _passwordVisibilityToggle(
                               obscure: authState.obscureConfirmPassword,
-                              onToggle: authNotifier.toggleObscureConfirmPassword,
+                              onToggle:
+                                  authNotifier.toggleObscureConfirmPassword,
                             ),
                             validator: (value) {
                               final confirm = value ?? '';
@@ -228,11 +239,11 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: AppDimens.mediumMargin),
+                          const SizedBox(height: AppDimens.sp20),
                           const AuthTermsDisclaimer(),
                         ],
                         if (!isSignUp) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppDimens.sp8),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -244,6 +255,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                       );
                                     },
                               style: TextButton.styleFrom(
+                                foregroundColor: colors.accentBlue,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppDimens.sp8,
                                   vertical: AppDimens.sp8,
@@ -251,15 +263,18 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               ),
                               child: Text(
                                 'auth_forgot_password'.tr(),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: PortfolioColors.accentBlue,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: colors.accentBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                               ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: AppDimens.mediumMargin),
+                        const SizedBox(height: AppDimens.sp24),
                         AuthPrimaryButton(
                           label: isSignUp
                               ? 'auth_sign_up'.tr()
@@ -268,14 +283,14 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                           onPressed:
                               isLoading ? null : _onPrimaryButtonPressed,
                         ),
-                        const SizedBox(height: AppDimens.mediumMargin),
+                        const SizedBox(height: AppDimens.sp24),
                         AuthOauthDivider(label: 'auth_oauth_divider'.tr()),
-                        const SizedBox(height: AppDimens.mediumMargin),
+                        const SizedBox(height: AppDimens.sp24),
                         SocialSignInButton(
                           label: 'auth_continue_google'.tr(),
                           icon: AppImages.googleIcon(
-                            width: 22,
-                            height: 22,
+                            width: AppDimens.iconMd,
+                            height: AppDimens.iconMd,
                           ),
                           onPressed: isLoading
                               ? null
@@ -285,9 +300,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
-                const AuthFooterDecoration(),
-                const SizedBox(height: AppDimens.mediumMargin),
+                const SizedBox(height: AppDimens.sp24),
                 AuthFooterLink(
                   prefix: isSignUp
                       ? 'auth_footer_has_account'.tr()
@@ -298,7 +311,6 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                   enabled: !isLoading,
                   onActionTap: authNotifier.toggleMode,
                 ),
-                const SizedBox(height: AppDimens.smallMargin),
               ],
             ),
           ),

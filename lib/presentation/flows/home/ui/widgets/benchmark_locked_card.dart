@@ -3,57 +3,61 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/home_chart_card.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class BenchmarkLockedCard extends ConsumerWidget {
   const BenchmarkLockedCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => SubscriptionPaywallSheet.show(
-          context,
-          ref,
-          reason: PaywallReason.modeLocked,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        child: HomeChartCard(
-          title: 'benchmark_locked_title'.tr(),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: PortfolioColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
+    final colors = context.customColors;
+
+    return InkWell(
+      onTap: () => SubscriptionPaywallSheet.show(
+        context,
+        ref,
+        reason: PaywallReason.modeLocked,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'benchmark_locked_title'.tr(),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
                   Icons.lock_outline,
-                  color: PortfolioColors.textSecondary,
-                  size: 22,
+                  color: colors.textSecondary,
+                  size: 18,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'benchmark_locked_subtitle'.tr(),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: PortfolioColors.textSecondary,
-                        height: 1.3,
-                      ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'benchmark_locked_subtitle'.tr(),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                          height: 1.3,
+                        ),
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: PortfolioColors.textSecondary,
-              ),
-            ],
-          ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: colors.textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            Divider(height: 1, color: colors.border),
+          ],
         ),
       ),
     );

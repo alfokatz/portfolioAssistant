@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-20T05:40:00.000Z",
+  "title": "Design System: PortfolioAI",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Warm Canvas",
+        "canonical": "oklch(98.5% 0.002 106)",
+        "tonalRamp": [
+          "oklch(15% 0.005 106)",
+          "oklch(25% 0.004 106)",
+          "oklch(35% 0.003 106)",
+          "oklch(45% 0.003 106)",
+          "oklch(55% 0.002 106)",
+          "oklch(70% 0.002 106)",
+          "oklch(85% 0.002 106)",
+          "oklch(98.5% 0.002 106)"
+        ]
+      },
+      "surface-card": {
+        "role": "neutral",
+        "displayName": "Pure Surface",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": [
+          "oklch(20% 0 0)",
+          "oklch(30% 0 0)",
+          "oklch(40% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "accent-blue": {
+        "role": "primary",
+        "displayName": "Editorial Blue",
+        "canonical": "oklch(48% 0.09 240)",
+        "tonalRamp": [
+          "oklch(22% 0.06 240)",
+          "oklch(30% 0.07 240)",
+          "oklch(38% 0.08 240)",
+          "oklch(48% 0.09 240)",
+          "oklch(58% 0.08 240)",
+          "oklch(68% 0.06 240)",
+          "oklch(82% 0.04 240)",
+          "oklch(94% 0.02 240)"
+        ]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "canonical": "oklch(28% 0.008 200)",
+        "tonalRamp": [
+          "oklch(12% 0.006 200)",
+          "oklch(18% 0.007 200)",
+          "oklch(24% 0.008 200)",
+          "oklch(28% 0.008 200)",
+          "oklch(40% 0.007 200)",
+          "oklch(55% 0.006 200)",
+          "oklch(72% 0.004 200)",
+          "oklch(90% 0.002 200)"
+        ]
+      },
+      "profit": {
+        "role": "tertiary",
+        "displayName": "Deep Profit Green",
+        "canonical": "oklch(42% 0.08 145)",
+        "tonalRamp": [
+          "oklch(18% 0.06 145)",
+          "oklch(25% 0.07 145)",
+          "oklch(32% 0.08 145)",
+          "oklch(42% 0.08 145)",
+          "oklch(52% 0.07 145)",
+          "oklch(65% 0.05 145)",
+          "oklch(82% 0.03 145)",
+          "oklch(94% 0.015 145)"
+        ]
+      },
+      "loss": {
+        "role": "tertiary",
+        "displayName": "Deep Loss Red",
+        "canonical": "oklch(42% 0.12 25)",
+        "tonalRamp": [
+          "oklch(18% 0.08 25)",
+          "oklch(25% 0.10 25)",
+          "oklch(32% 0.11 25)",
+          "oklch(42% 0.12 25)",
+          "oklch(52% 0.10 25)",
+          "oklch(65% 0.07 25)",
+          "oklch(82% 0.04 25)",
+          "oklch(94% 0.02 25)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Portfolio total hero value only. Tabular figures mandatory."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headers and screen titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, active tabs, list row primary text."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose, form input text, card subtitles."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "PnL badges, time range chips, chart axis labels."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-out-cubic",
+        "value": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "purpose": "Default easing for tab underline and text style transitions (220ms)."
+      },
+      {
+        "name": "duration-standard",
+        "value": "220ms",
+        "purpose": "State transitions on tabs and interactive labels."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "390px" },
+      { "name": "tablet", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-width auth CTA. Charcoal on white, no shadow.",
+      "html": "<button class=\"ds-btn-primary\">Iniciar sesión</button>",
+      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: center; width: 100%; height: 52px; background: #2F3437; color: #FFFFFF; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; font-weight: 600; border: none; border-radius: 14px; cursor: pointer; transition: opacity 0.22s cubic-bezier(0.33, 1, 0.68, 1); } .ds-btn-primary:hover { opacity: 0.88; } .ds-btn-primary:focus-visible { outline: 2px solid #1F6C9F; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Auth form field with subtle border and blue focus ring.",
+      "html": "<input class=\"ds-input\" type=\"email\" placeholder=\"Email\" />",
+      "css": ".ds-input { width: 100%; padding: 16px; background: #FFFFFF; color: #2F3437; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 16px; font-weight: 400; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; box-sizing: border-box; transition: border-color 0.22s cubic-bezier(0.33, 1, 0.68, 1); } .ds-input::placeholder { color: #787774; } .ds-input:focus { outline: none; border-color: #1F6C9F; border-width: 1.4px; } .ds-input:focus-visible { outline: 2px solid #1F6C9F; outline-offset: 2px; }"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Standard content card. Flat with hairline border.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-title\">Portfolio QA</p><p class=\"ds-card-sub\">Preguntale a la IA sobre tu portfolio</p></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 18px; box-sizing: border-box; } .ds-card-title { margin: 0 0 2px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; font-weight: 600; color: #2F3437; } .ds-card-sub { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 12px; font-weight: 400; color: #787774; line-height: 1.3; }"
+    },
+    {
+      "name": "PnL Badge Positive",
+      "kind": "chip",
+      "refersTo": "pnl-badge-positive",
+      "description": "Compact percentage badge for positive returns.",
+      "html": "<span class=\"ds-pnl-badge ds-pnl-positive\">+12.4%</span>",
+      "css": ".ds-pnl-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; } .ds-pnl-positive { background: #EDF3EC; color: #346538; }"
+    },
+    {
+      "name": "PnL Badge Negative",
+      "kind": "chip",
+      "refersTo": "pnl-badge-negative",
+      "description": "Compact percentage badge for negative returns.",
+      "html": "<span class=\"ds-pnl-badge ds-pnl-negative\">-3.2%</span>",
+      "css": ".ds-pnl-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; } .ds-pnl-negative { background: #FDEBEC; color: #9F2F2D; }"
+    },
+    {
+      "name": "Time Range Chip",
+      "kind": "chip",
+      "refersTo": "chip-time-range",
+      "description": "Segmented time range label. Active vs inactive by weight and color only.",
+      "html": "<div class=\"ds-time-range\"><button class=\"ds-time-chip ds-time-active\">1M</button><button class=\"ds-time-chip\">3M</button><button class=\"ds-time-chip\">1A</button></div>",
+      "css": ".ds-time-range { display: flex; gap: 0; } .ds-time-chip { flex: 1; height: 44px; background: transparent; border: none; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #787774; cursor: pointer; transition: color 0.22s cubic-bezier(0.33, 1, 0.68, 1); } .ds-time-chip:hover { color: #2F3437; } .ds-time-active { color: #2F3437; font-weight: 700; } .ds-time-chip:focus-visible { outline: 2px solid #1F6C9F; outline-offset: -2px; }"
+    },
+    {
+      "name": "Settings Nav Row",
+      "kind": "nav",
+      "refersTo": "nav-settings-row",
+      "description": "Flat settings list row with icon box and chevron.",
+      "html": "<div class=\"ds-settings-row\"><div class=\"ds-settings-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#787774\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42\"/></svg></div><span class=\"ds-settings-label\">Apariencia</span><span class=\"ds-settings-value\">Claro</span><svg class=\"ds-settings-chevron\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#787774\" stroke-width=\"2\"><path d=\"M9 18l6-6-6-6\"/></svg></div>",
+      "css": ".ds-settings-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; cursor: pointer; transition: background 0.15s ease; } .ds-settings-row:hover { background: rgba(0,0,0,0.03); } .ds-settings-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #F4F4F2; border-radius: 10px; flex-shrink: 0; } .ds-settings-label { flex: 1; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 16px; font-weight: 500; color: #2F3437; } .ds-settings-value { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; color: #787774; margin-right: 4px; } .ds-settings-chevron { flex-shrink: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Ledger",
+    "overview": "PortfolioAI se ve como un cuaderno financiero bien editado: tipografía precisa, mucho aire, cifras que mandan. No compite por atención con neón ni gamificación; la confianza viene de la legibilidad y del silencio visual. La densidad es moderada en mobile con padding generoso y cards solo cuando el affordance lo exige.",
+    "keyCharacteristics": [
+      "Una sola familia tipográfica (Plus Jakarta Sans) en todo el producto",
+      "Superficies planas con borde sutil, sin sombras en reposo",
+      "Acento azul editorial reservado para foco, links e iconografía IA",
+      "Números financieros con tabular figures y contraste AA+",
+      "Touch targets ≥ 44px en tabs, chips de rango y filas navegables"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "El azul editorial aparece en foco, selección e iconografía IA — nunca como fondo de pantalla completa ni gradiente decorativo.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Button Rule",
+        "body": "El CTA primario de auth usa charcoal (#2F3437) sobre blanco, no azul saturado. El acento azul queda para estados de foco, no para competir con el hero numérico.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Toda cifra financiera usa tabular figures. Prohibido mezclar fuentes del sistema solo en números.",
+        "section": "typography"
+      },
+      {
+        "name": "The Single Family Rule",
+        "body": "Plus Jakarta Sans en toda la app. Sin display/body pairing; variación por peso y escala fija en px/rem, no clamp fluido.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Sombras están prohibidas en cards y listas. Si algo necesita jerarquía, sube un nivel de superficie o agrega borde — nunca drop shadow decorativo.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar Plus Jakarta Sans empaquetada localmente con allowRuntimeFetching = false.",
+      "Do mantener contraste AA+ en body text y subir a charcoal para copy crítico.",
+      "Do respetar touch targets de 44px en tabs, time range y filas settings.",
+      "Do preferir filas editoriales planas cuando el contenido es navegación o upsell.",
+      "Do animar transiciones de estado en 150–250ms con respeto a reduced motion."
+    ],
+    "donts": [
+      "Don't usar fintech genérico: navy + verde neón, cards apiladas, hero metrics, gradientes decorativos.",
+      "Don't caer en AI slop: glassmorphism por defecto, bordes laterales de acento, gradient text, card grids idénticos.",
+      "Don't imitar clones gamificados tipo Robinhood/eToro: UI agresiva, colores saturados, sensación de casino/trading.",
+      "Don't usar scaffolding SaaS: eyebrows uppercase en cada sección, numeración 01/02/03 como decoración.",
+      "Don't anidar cards dentro de cards. Un borde, una superficie.",
+      "Don't poner sombras en reposo. Superficies planas siempre.",
+      "Don't usar acento azul como fondo de CTA principal."
+    ]
+  }
+}

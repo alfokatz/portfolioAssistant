@@ -2,100 +2,85 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show Provider;
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/color_schema.dart'
-    show colorSchemeProvider;
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+    show colorSchemeDarkProvider, colorSchemeLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/text_extension.dart'
     show customTextProvider;
 import 'package:portfolio_assistant/presentation/base/theme/text_theme.dart'
     show textThemeProvider;
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart'
-    show customColorsProvider;
+    show CustomColors;
 
-final themeDataProvider = Provider<ThemeData>((ref) {
-  final scheme = ref.watch(colorSchemeProvider);
-  final textTheme = ref.watch(textThemeProvider);
-  final customColors = ref.watch(customColorsProvider);
-  final customTexts = ref.watch(customTextProvider);
-
+ThemeData _buildThemeData({
+  required ColorScheme scheme,
+  required TextTheme textTheme,
+  required CustomColors customColors,
+  required dynamic customTexts,
+}) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     textTheme: textTheme,
-    scaffoldBackgroundColor: PortfolioColors.background,
-
-    // ── App Bar ─────────────────────────────────────────────────────────
+    scaffoldBackgroundColor: customColors.background,
     appBarTheme: AppBarTheme(
-      backgroundColor: PortfolioColors.background,
+      backgroundColor: customColors.background,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: textTheme.titleMedium?.copyWith(
-        color: PortfolioColors.textPrimary,
+        color: customColors.textPrimary,
         fontWeight: FontWeight.w600,
       ),
-      iconTheme: const IconThemeData(
-        color: PortfolioColors.textPrimary,
+      iconTheme: IconThemeData(
+        color: customColors.textPrimary,
         size: AppDimens.iconMd,
       ),
     ),
-
-    // ── Cards ────────────────────────────────────────────────────────────
-    cardTheme: const CardThemeData(
+    cardTheme: CardThemeData(
       elevation: 0,
-      color: PortfolioColors.surfaceCard,
+      color: customColors.surfaceCard,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
-        side: BorderSide(color: PortfolioColors.border),
+        borderRadius: const BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
+        side: BorderSide(color: customColors.border),
       ),
       margin: EdgeInsets.zero,
     ),
-
-    // ── Dividers ─────────────────────────────────────────────────────────
-    dividerTheme: const DividerThemeData(
-      color: PortfolioColors.border,
+    dividerTheme: DividerThemeData(
+      color: customColors.border,
       thickness: 0.5,
       space: 0.5,
     ),
-
-    // ── Chips ────────────────────────────────────────────────────────────
     chipTheme: ChipThemeData(
-      backgroundColor: PortfolioColors.surfaceCard,
-      selectedColor: PortfolioColors.accentBlue,
-      side: const BorderSide(color: PortfolioColors.border),
+      backgroundColor: customColors.surfaceCard,
+      selectedColor: customColors.accentBlue,
+      side: BorderSide(color: customColors.border),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusSm),
       ),
       labelStyle: textTheme.labelLarge?.copyWith(
-        color: PortfolioColors.textSecondary,
+        color: customColors.textSecondary,
       ),
       labelPadding: const EdgeInsets.symmetric(horizontal: 4),
     ),
-
-    // ── Dialogs ──────────────────────────────────────────────────────────
-    dialogTheme: const DialogThemeData(
-      backgroundColor: PortfolioColors.surfaceCard,
+    dialogTheme: DialogThemeData(
+      backgroundColor: customColors.surfaceCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
-        side: BorderSide(color: PortfolioColors.border),
+        borderRadius: const BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
+        side: BorderSide(color: customColors.border),
       ),
     ),
-
-    // ── Bottom Sheet ─────────────────────────────────────────────────────
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: PortfolioColors.surfaceCard,
-      shape: RoundedRectangleBorder(
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: customColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppDimens.radiusXl),
         ),
       ),
       showDragHandle: true,
-      dragHandleColor: PortfolioColors.border,
+      dragHandleColor: customColors.border,
     ),
-
-    // ── Inputs ───────────────────────────────────────────────────────────
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: PortfolioColors.surfaceElevated,
+      fillColor: customColors.surfaceElevated,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppDimens.sp16,
         vertical: 14,
@@ -106,11 +91,11 @@ final themeDataProvider = Provider<ThemeData>((ref) {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        borderSide: const BorderSide(color: PortfolioColors.border),
+        borderSide: BorderSide(color: customColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        borderSide: const BorderSide(color: PortfolioColors.border),
+        borderSide: BorderSide(color: customColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
@@ -125,7 +110,33 @@ final themeDataProvider = Provider<ThemeData>((ref) {
         borderSide: BorderSide(color: scheme.error, width: 1.5),
       ),
     ),
-
     extensions: [customColors, customTexts],
   );
+}
+
+final themeDataLightProvider = Provider<ThemeData>((ref) {
+  final scheme = ref.watch(colorSchemeLightProvider);
+  final textTheme = ref.watch(textThemeProvider);
+  final customTexts = ref.watch(customTextProvider);
+  return _buildThemeData(
+    scheme: scheme,
+    textTheme: textTheme,
+    customColors: CustomColors.light,
+    customTexts: customTexts,
+  );
 });
+
+final themeDataDarkProvider = Provider<ThemeData>((ref) {
+  final scheme = ref.watch(colorSchemeDarkProvider);
+  final textTheme = ref.watch(textThemeProvider);
+  final customTexts = ref.watch(customTextProvider);
+  return _buildThemeData(
+    scheme: scheme,
+    textTheme: textTheme,
+    customColors: CustomColors.dark,
+    customTexts: customTexts,
+  );
+});
+
+/// Backward compatibility alias.
+final themeDataProvider = themeDataLightProvider;

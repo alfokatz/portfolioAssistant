@@ -4,16 +4,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class SettingsSubscriptionCard extends ConsumerWidget {
   const SettingsSubscriptionCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.customColors;
     final subscription = ref.watch(subscriptionProvider);
     final tier = subscription.tier;
     final isGold = tier == SubscriptionTier.gold;
@@ -29,26 +31,15 @@ class SettingsSubscriptionCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppDimens.cardPaddingLg),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isGold
-                  ? [
-                      const Color(0xFF1C1917),
-                      const Color(0xFF292524).withValues(alpha: 0.95),
-                    ]
-                  : [
-                      PortfolioColors.surfaceCard,
-                      PortfolioColors.surfaceElevated.withValues(alpha: 0.9),
-                    ],
-            ),
+            color: isGold ? SubscriptionGoldTheme.surfaceDark : colors.surfaceCard,
+            gradient: isGold ? SubscriptionGoldTheme.cardGradient : null,
             borderRadius: BorderRadius.circular(AppDimens.radiusLg),
             border: Border.all(
               color: isGold
-                  ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
-                  : PortfolioColors.border,
+                  ? SubscriptionGoldTheme.accent.withValues(alpha: 0.5)
+                  : colors.border,
             ),
           ),
           child: Column(
@@ -59,44 +50,44 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                   _PlanBadge(tier: tier),
                   const Spacer(),
                   Icon(
-                    Icons.auto_awesome,
-                    color: isGold
-                        ? const Color(0xFFF59E0B)
-                        : PortfolioColors.accentBlue,
+                    Icons.auto_awesome_rounded,
+                    color: isGold ? SubscriptionGoldTheme.accent : colors.accentBlue,
                     size: 22,
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppDimens.sp12),
               Text(
                 usageText,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PortfolioColors.textSecondary,
+                      color: isGold
+                          ? Colors.white.withValues(alpha: 0.72)
+                          : colors.textSecondary,
                     ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppDimens.sp12),
               Text(
                 _descriptionKey(tier).tr(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: PortfolioColors.textPrimary,
-                      height: 1.4,
+                      color: isGold ? Colors.white : colors.textPrimary,
+                      height: 1.45,
                     ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppDimens.sp16),
               if (isGold)
                 Row(
                   children: [
                     Icon(
                       Icons.check_circle_rounded,
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
+                      color: SubscriptionGoldTheme.accent.withValues(alpha: 0.95),
                       size: 20,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppDimens.sp8),
                     Expanded(
                       child: Text(
                         'settings_plan_active_gold'.tr(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: PortfolioColors.textPrimary,
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -106,38 +97,35 @@ class SettingsSubscriptionCard extends ConsumerWidget {
               else
                 SizedBox(
                   width: double.infinity,
-                  child: Material(
-                    color: PortfolioColors.accentBlue,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                    child: InkWell(
-                      onTap: () => SubscriptionPaywallSheet.show(
-                        context,
-                        ref,
-                        reason: PaywallReason.modeLocked,
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: () => SubscriptionPaywallSheet.show(
+                      context,
+                      ref,
+                      reason: PaywallReason.modeLocked,
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colors.textPrimary,
+                      foregroundColor: colors.surfaceCard,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusLg),
                       ),
-                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Center(
-                          child: Text(
-                            'settings_upgrade_plan'.tr(),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                    ),
+                    child: Text(
+                      'settings_upgrade_plan'.tr(),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: colors.surfaceCard,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimens.sp8),
         Center(
           child: TextButton(
             onPressed: subscription.isPurchasing
@@ -163,6 +151,9 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                             );
                     }
                   },
+            style: TextButton.styleFrom(
+              foregroundColor: colors.accentBlue,
+            ),
             child: Text('settings_restore_purchases'.tr()),
           ),
         ),
@@ -184,6 +175,7 @@ class _PlanBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final isGold = tier == SubscriptionTier.gold;
     final isPremium = tier == SubscriptionTier.premium;
 
@@ -196,33 +188,29 @@ class _PlanBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        gradient: isGold
-            ? const LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
-              )
-            : null,
+        gradient: isGold ? SubscriptionGoldTheme.badgeGradient : null,
         color: isGold
             ? null
             : isPremium
-                ? PortfolioColors.accentBlue.withValues(alpha: 0.15)
-                : PortfolioColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(20),
+                ? colors.accentBlue.withValues(alpha: 0.15)
+                : colors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimens.radiusXl),
         border: Border.all(
           color: isGold
-              ? const Color(0xFFFBBF24)
+              ? SubscriptionGoldTheme.accentLight
               : isPremium
-                  ? PortfolioColors.accentBlue.withValues(alpha: 0.5)
-                  : PortfolioColors.border,
+                  ? colors.accentBlue.withValues(alpha: 0.5)
+                  : colors.border,
         ),
       ),
       child: Text(
         labelKey.tr(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: isGold
-                  ? const Color(0xFF1C1917)
+                  ? SubscriptionGoldTheme.surfaceDark
                   : isPremium
-                      ? PortfolioColors.accentBlue
-                      : PortfolioColors.textSecondary,
+                      ? colors.accentBlue
+                      : colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
       ),

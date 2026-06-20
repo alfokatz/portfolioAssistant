@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class HomeChartCard extends StatelessWidget {
   final String? title;
@@ -18,12 +18,14 @@ class HomeChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
+        color: colors.surfaceCard,
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: PortfolioColors.border),
+        border: Border.all(color: colors.border),
       ),
       child: Padding(
         padding: padding,
@@ -39,7 +41,7 @@ class HomeChartCard extends StatelessWidget {
                       child: Text(
                         title!,
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: PortfolioColors.textSecondary,
+                              color: colors.textSecondary,
                             ),
                       ),
                     ),

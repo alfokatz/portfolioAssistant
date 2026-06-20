@@ -1,25 +1,28 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_axis_helper.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_with_y_axis.dart';
 
 class PortfolioAreaLineChart extends StatelessWidget {
   final List<double> values;
   final double height;
-  final Color lineColor;
+  final Color? lineColor;
   final bool showYAxisLabels;
 
   const PortfolioAreaLineChart({
     super.key,
     required this.values,
     this.height = 160,
-    this.lineColor = PortfolioColors.chartLine,
+    this.lineColor,
     this.showYAxisLabels = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final effectiveLineColor = lineColor ?? colors.chartLine;
+
     if (values.length < 2) {
       return SizedBox(height: height);
     }
@@ -39,6 +42,7 @@ class PortfolioAreaLineChart extends StatelessWidget {
             ? ChartAxisHelper.horizontalGrid(
                 minY: chartMinY,
                 maxY: chartMaxY,
+                gridColor: colors.chartGrid,
               )
             : const FlGridData(show: false),
         titlesData: showYAxisLabels
@@ -53,7 +57,7 @@ class PortfolioAreaLineChart extends StatelessWidget {
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: lineColor,
+            color: effectiveLineColor,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
@@ -62,8 +66,8 @@ class PortfolioAreaLineChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  lineColor.withValues(alpha: 0.08),
-                  lineColor.withValues(alpha: 0.02),
+                  effectiveLineColor.withValues(alpha: 0.08),
+                  effectiveLineColor.withValues(alpha: 0.02),
                 ],
               ),
             ),

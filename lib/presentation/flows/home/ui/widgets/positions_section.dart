@@ -1,7 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/section_header.dart';
 
@@ -49,11 +50,13 @@ class PositionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
           child: SectionHeader(
             title: 'positions_my'.tr(),
             actionLabel: actionLabel,
@@ -63,13 +66,16 @@ class PositionsSection extends StatelessWidget {
         const SizedBox(height: 4),
         if (valuations.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.pageHorizontal,
+              vertical: 24,
+            ),
             child: Center(
               child: Text(
                 'positions_empty'.tr(),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: PortfolioColors.textSecondary,
+                      color: colors.textSecondary,
                     ),
               ),
             ),
@@ -83,9 +89,9 @@ class PositionsSection extends StatelessWidget {
               confirmDelete: (ticker) => _confirmDelete(context, ticker),
             ),
             if (i < valuations.length - 1)
-              const Divider(height: 1, indent: 20, endIndent: 20),
+              Divider(height: 1, indent: 20, endIndent: 20, color: colors.border),
           ],
-        const SizedBox(height: 20),
+        const SizedBox(height: AppDimens.sectionGap),
       ],
     );
   }
@@ -106,6 +112,7 @@ class _PositionDismissibleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final row = PositionRowWidget(
       valuation: valuation,
       onDetailTap: onPositionTap == null ? null : () => onPositionTap!(valuation),
@@ -122,7 +129,7 @@ class _PositionDismissibleRow extends StatelessWidget {
         return onDeletePosition!(valuation);
       },
       background: Container(
-        color: PortfolioColors.loss.withValues(alpha: 0.85),
+        color: colors.loss.withValues(alpha: 0.85),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(

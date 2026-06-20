@@ -6,11 +6,14 @@ import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart'
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/add_position_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/add_position_state.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_date_field.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
 class AddPositionScreen extends StatefulHookConsumerWidget {
   final String? prefilledTicker;
@@ -106,6 +109,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     BuildContext context,
     AddPositionProvider notifier,
   ) {
+    final colors = context.customColors;
     final state = ref.watch(addPositionProvider(_args));
     if (state.mode != BuyInputMode.usd) return null;
 
@@ -113,20 +117,24 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     if (shares == null) return null;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 4),
+      padding: const EdgeInsets.only(
+        top: AppDimens.sp8,
+        left: AppDimens.sp4,
+      ),
       child: Text(
         'position_shares_equivalent'.tr(
           namedArgs: {'shares': shares.toStringAsFixed(4)},
         ),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: PortfolioColors.accentBlue,
-          fontWeight: FontWeight.w500,
-        ),
+              color: colors.accentBlue,
+              fontWeight: FontWeight.w500,
+            ),
       ),
     );
   }
 
   Widget _preview(BuildContext context, AddPositionProvider notifier) {
+    final colors = context.customColors;
     final state = ref.watch(addPositionProvider(_args));
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final shares = notifier.shares();
@@ -141,39 +149,40 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
     final sign = pnlAbs >= 0 ? '+' : '';
 
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: PortfolioColors.border),
-      ),
+    return SurfaceCard(
+      margin: const EdgeInsets.only(top: AppDimens.sp16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'position_preview_title'.tr(),
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-          const SizedBox(height: 10),
-          _PreviewRow(
+          const SizedBox(height: AppDimens.sp12),
+          LabeledValueRow(
             label: 'position_preview_current_price'.tr(),
             value: currency.format(state.currentPrice),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'position_preview_shares'.tr(),
             value: shares.toStringAsFixed(6),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'position_preview_market_value'.tr(),
             value: currency.format(marketValue),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'position_preview_pnl'.tr(),
             value:
                 '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueColor: context.customColors.pnlColor(pnlAbs),
+            valueColor: colors.pnlColor(pnlAbs),
+            dense: true,
           ),
         ],
       ),
@@ -188,6 +197,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
 
   @override
   Widget buildView(BuildContext context) {
+    final colors = context.customColors;
     final state = ref.watch(addPositionProvider(_args));
     final notifier = ref.read(addPositionProvider(_args).notifier);
 
@@ -201,7 +211,12 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(AppDimens.mediumMargin),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.pageHorizontal,
+            AppDimens.sp16,
+            AppDimens.pageHorizontal,
+            AppDimens.sp48,
+          ),
           children: [
             TextFormField(
               controller: _tickerController,
@@ -210,13 +225,12 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
                 hintText: 'AAPL',
               ),
               textCapitalization: TextCapitalization.characters,
-              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'field_required'.tr() : null,
               onFieldSubmitted: (_) => notifier.fetchPriceForDate(),
               onChanged: notifier.setTickerText,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.sp16),
             SegmentedButton<BuyInputMode>(
               segments: [
                 ButtonSegment(
@@ -231,38 +245,38 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               selected: {state.mode},
               onSelectionChanged: (value) => notifier.setMode(value.first),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('position_purchase_date'.tr()),
-              subtitle: Text(DateFormat.yMMMd().format(state.purchaseDate)),
-              trailing: const Icon(Icons.calendar_today),
+            const SizedBox(height: AppDimens.sp16),
+            PositionDateField(
+              label: 'position_purchase_date'.tr(),
+              date: state.purchaseDate,
               onTap: () => _pickDate(notifier),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.sp16),
             TextFormField(
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'position_purchase_price'.tr(),
                 suffixIcon: state.loadingPrice
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.accentBlue,
+                          ),
                         ),
                       )
                     : IconButton(
-                        tooltip: 'Recalcular',
+                        tooltip: 'retry'.tr(),
                         onPressed: notifier.fetchPriceForDate,
-                        icon: const Icon(Icons.refresh),
+                        icon: const Icon(Icons.refresh_rounded),
                       ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'invalid_number'.tr();
@@ -273,7 +287,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
                 notifier.fetchCurrentPrice();
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.sp16),
             TextFormField(
               controller: _quantityController,
               decoration: InputDecoration(
@@ -284,7 +298,6 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'invalid_number'.tr();
@@ -292,65 +305,26 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               },
               onChanged: notifier.setQuantityText,
             ),
-            _sharesEquivalentHint(context, notifier) ?? const SizedBox.shrink(),
+            if (_sharesEquivalentHint(context, notifier) != null)
+              _sharesEquivalentHint(context, notifier)!,
             if (state.loadingCurrent)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: LinearProgressIndicator(minHeight: 2),
+              Padding(
+                padding: const EdgeInsets.only(top: AppDimens.sp12),
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: colors.accentBlue,
+                  backgroundColor: colors.border,
+                ),
               ),
             _preview(context, notifier),
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: state.saving ? null : () => _save(notifier),
-              child: state.saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text('save'.tr()),
+            const SizedBox(height: AppDimens.sp32),
+            PositionPrimaryButton(
+              label: 'save'.tr(),
+              loading: state.saving,
+              onPressed: () => _save(notifier),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PreviewRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _PreviewRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: PortfolioColors.textSecondary,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? PortfolioColors.textPrimary,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
       ),
     );
   }

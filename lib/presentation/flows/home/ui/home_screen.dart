@@ -8,19 +8,20 @@ import 'package:portfolio_assistant/features/subscription/ui/subscription_paywal
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_shortcuts_section.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_mode_chips.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_empty_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/time_range_selector.dart';
-import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 
 class HomeScreen extends StatefulHookConsumerWidget {
@@ -56,6 +57,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
 
   @override
   Widget buildView(BuildContext context) {
+    final colors = context.customColors;
     final state = ref.watch(homeProvider);
     final notifier = ref.read(homeProvider.notifier);
     final subscription = ref.watch(subscriptionProvider);
@@ -89,19 +91,18 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
 
     return Scaffold(
       floatingActionButton: Material(
-        color: PortfolioColors.textPrimary,
-        borderRadius: BorderRadius.circular(14),
-        elevation: 2,
-        shadowColor: const Color(0x33000000),
+        color: colors.textPrimary,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        elevation: 0,
         child: InkWell(
           onTap: () => _onAddPosition(context),
-          borderRadius: BorderRadius.circular(14),
-          child: const SizedBox(
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          child: SizedBox(
             width: 52,
             height: 52,
             child: Icon(
               Icons.add,
-              color: PortfolioColors.background,
+              color: colors.surfaceCard,
               size: 26,
             ),
           ),
@@ -110,8 +111,8 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: ContentStateWidget(
         child: RefreshIndicator(
-          color: PortfolioColors.accentBlue,
-          backgroundColor: PortfolioColors.surfaceCard,
+          color: colors.accentBlue,
+          backgroundColor: colors.surfaceCard,
           onRefresh: notifier.refresh,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -130,7 +131,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                           AppDimens.sp8,
                         ),
                         child: Material(
-                          color: PortfolioColors.surfaceCard,
+                          color: colors.surfaceCard,
                           borderRadius:
                               BorderRadius.circular(AppDimens.radiusLg),
                           child: ListTile(
@@ -141,7 +142,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: PortfolioColors.textSecondary,
+                                    color: colors.textSecondary,
                                   ),
                             ),
                             trailing: TextButton(
@@ -158,22 +159,18 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         periodPnlAbsolute: periodPnl.absolute,
                         periodPnlPercent: periodPnl.percent,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppDimens.sp16),
                       TimeRangeSelector(
                         selected: state.selectedRange,
                         onSelected: notifier.selectTimeRange,
                       ),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: isBenchmarkAllowed
-                            ? BenchmarkComparisonCard(
-                                portfolioPercent: periodPnl.percent,
-                                benchmarkPoints: filteredBenchmark,
-                              )
-                            : const BenchmarkLockedCard(),
+                      const SizedBox(height: AppDimens.sectionGap),
+                      PortfolioQaEntryCard(
+                        onTap: notifier.openAssistant,
                       ),
-                      const SizedBox(height: 20),
+                      AssistantModeChips(
+                        onModeTap: (mode) => notifier.openAssistant(mode: mode),
+                      ),
                       PositionsSection(
                         valuations: displayValuations,
                         onPositionTap: notifier.openPositionDetail,
@@ -190,34 +187,23 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                             ? notifier.togglePositionsExpanded
                             : null,
                       ),
+                      if (isBenchmarkAllowed)
+                        BenchmarkComparisonCard(
+                          portfolioPercent: periodPnl.percent,
+                          benchmarkPoints: filteredBenchmark,
+                        )
+                      else
+                        const BenchmarkLockedCard(),
                       ClosedPositionsEntryCard(
                         count: state.closedPositionsCount,
                         onTap: notifier.openClosedPositions,
                       ),
-                      if (valuations.isNotEmpty) ...[
+                      if (valuations.isNotEmpty)
                         PnlDistributionCard(valuations: valuations),
-                        const SizedBox(height: 20),
-                      ],
-                      PortfolioQaEntryCard(
-                        onTap: notifier.openAssistant,
-                      ),
-                      AssistantShortcutsSection(
-                        onShortcutTap: (mode) =>
-                            notifier.openAssistant(mode: mode),
-                      ),
                       const SizedBox(height: 88),
                     ] else
-                      Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Center(
-                          child: Text(
-                            'positions_empty'.tr(),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: PortfolioColors.textSecondary,
-                                ),
-                          ),
-                        ),
+                      HomeEmptyState(
+                        onAddPosition: () => _onAddPosition(context),
                       ),
                   ],
                 ),

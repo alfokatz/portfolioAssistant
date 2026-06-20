@@ -5,14 +5,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/providers/settings_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_appearance_picker.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_danger_zone.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_subscription_card.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -45,32 +49,20 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final current = context.locale;
     final selected = await showModalBottomSheet<Locale>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Text(
-              'settings_language'.tr(),
-              style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                    color: PortfolioColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            _LanguageOption(
-              label: 'settings_language_spanish'.tr(),
-              locale: const Locale('es', 'ES'),
-              isSelected: current.languageCode == 'es',
-            ),
-            _LanguageOption(
-              label: 'settings_language_english'.tr(),
-              locale: const Locale('en', 'US'),
-              isSelected: current.languageCode == 'en',
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
+      builder: (ctx) => SettingsPickerSheet(
+        title: 'settings_language'.tr(),
+        children: [
+          SettingsPickerOption(
+            label: 'settings_language_spanish'.tr(),
+            isSelected: current.languageCode == 'es',
+            onTap: () => Navigator.of(ctx).pop(const Locale('es', 'ES')),
+          ),
+          SettingsPickerOption(
+            label: 'settings_language_english'.tr(),
+            isSelected: current.languageCode == 'en',
+            onTap: () => Navigator.of(ctx).pop(const Locale('en', 'US')),
+          ),
+        ],
       ),
     );
 
@@ -85,31 +77,40 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   }) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      color: PortfolioColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
-                      color: PortfolioColors.textSecondary,
-                    ),
-              ),
-            ],
+      builder: (ctx) {
+        final colors = ctx.customColors;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.sp24,
+              AppDimens.sp20,
+              AppDimens.sp24,
+              AppDimens.sp28,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: AppDimens.sp12),
+                Text(
+                  value,
+                  style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
+                        color: colors.textSecondary,
+                        height: 1.5,
+                      ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -166,23 +167,24 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   Future<void> _onDeleteAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_delete_account'.tr()),
-        content: Text('settings_delete_account_message'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('cancel'.tr()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFF97316),
+      builder: (ctx) {
+        final colors = ctx.customColors;
+        return AlertDialog(
+          title: Text('settings_delete_account'.tr()),
+          content: Text('settings_delete_account_message'.tr()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text('cancel'.tr()),
             ),
-            child: Text('settings_delete_account'.tr()),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: colors.loss),
+              child: Text('settings_delete_account'.tr()),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -206,6 +208,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final user = ref.watch(supabaseAuthServiceProvider).currentUser;
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
+    final themeMode = ref.watch(themeModeProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -219,7 +222,12 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
         title: Text('settings_title'.tr()),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.pageHorizontal,
+          AppDimens.sp8,
+          AppDimens.pageHorizontal,
+          AppDimens.sp32,
+        ),
         children: [
           SettingsSectionCard(
             title: 'settings_section_profile'.tr(),
@@ -245,7 +253,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.sectionGap),
           SettingsSectionCard(
             title: 'settings_section_preferences'.tr(),
             children: [
@@ -254,6 +262,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 label: 'settings_language'.tr(),
                 value: _languageLabel(context.locale),
                 onTap: _showLanguagePicker,
+              ),
+              const SettingsDivider(),
+              SettingsNavRow(
+                icon: Icons.dark_mode_outlined,
+                label: 'settings_appearance'.tr(),
+                value: settingsAppearanceLabel(themeMode),
+                onTap: () => showSettingsAppearancePicker(context, ref),
               ),
               const SettingsDivider(),
               SettingsNavRow(
@@ -289,7 +304,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.sectionGap),
           SettingsSectionCard(
             title: 'settings_section_security'.tr(),
             children: [
@@ -300,9 +315,9 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.sectionGap),
           const SettingsSubscriptionCard(),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppDimens.sectionGap),
           SettingsSectionCard(
             title: 'settings_section_about'.tr(),
             children: [
@@ -333,42 +348,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppDimens.sectionGap),
           SettingsDangerZone(
             onSignOut: _onSignOut,
             onDeleteAccount: _onDeleteAccount,
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LanguageOption extends StatelessWidget {
-  const _LanguageOption({
-    required this.label,
-    required this.locale,
-    required this.isSelected,
-  });
-
-  final String label;
-  final Locale locale;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: PortfolioColors.textPrimary,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-        ),
-      ),
-      trailing: isSelected
-          ? const Icon(Icons.check_rounded, color: PortfolioColors.accentBlue)
-          : null,
-      onTap: () => Navigator.of(context).pop(locale),
     );
   }
 }

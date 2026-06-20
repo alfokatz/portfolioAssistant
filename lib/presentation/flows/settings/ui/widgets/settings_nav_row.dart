@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class SettingsNavRow extends StatelessWidget {
   const SettingsNavRow({
@@ -19,39 +20,48 @@ class SettingsNavRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.sp16,
+            vertical: 14,
+          ),
           child: Row(
             children: [
               _SettingsIconBox(icon: icon),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: PortfolioColors.textPrimary,
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                 ),
               ),
               if (value != null) ...[
-                Text(
-                  value!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: PortfolioColors.textSecondary,
-                      ),
+                Flexible(
+                  child: Text(
+                    value!,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                  ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppDimens.sp4),
               ],
               if (showChevron && onTap != null)
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: PortfolioColors.textSecondary,
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: colors.textSecondary,
                 ),
             ],
           ),
@@ -77,17 +87,22 @@ class SettingsToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.sp16,
+        vertical: AppDimens.sp6,
+      ),
       child: Row(
         children: [
           _SettingsIconBox(icon: icon),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppDimens.sp12),
           Expanded(
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: PortfolioColors.textPrimary,
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
             ),
@@ -95,8 +110,8 @@ class SettingsToggleRow extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: PortfolioColors.accentBlue,
-            activeThumbColor: PortfolioColors.textPrimary,
+            activeTrackColor: colors.accentBlue,
+            activeThumbColor: colors.surfaceCard,
           ),
         ],
       ),
@@ -111,18 +126,20 @@ class _SettingsIconBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: PortfolioColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: PortfolioColors.border),
+        color: colors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        border: Border.all(color: colors.border),
       ),
       child: Icon(
         icon,
         size: 18,
-        color: PortfolioColors.accentBlue,
+        color: colors.accentBlue,
       ),
     );
   }

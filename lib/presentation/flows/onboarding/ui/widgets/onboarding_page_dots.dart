@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class OnboardingPageDots extends StatelessWidget {
   const OnboardingPageDots({
@@ -13,24 +14,29 @@ class OnboardingPageDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(pageCount, (index) {
-        final isActive = index == currentPage;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: isActive ? 24 : 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: isActive
-                ? PortfolioColors.accentBlue
-                : PortfolioColors.border,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-      }),
+    final colors = context.customColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 250);
+
+    return ExcludeSemantics(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(pageCount, (index) {
+          final isActive = index == currentPage;
+          return AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(horizontal: AppDimens.sp4),
+            width: isActive ? 22 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isActive ? colors.textPrimary : colors.border,
+              borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+            ),
+          );
+        }),
+      ),
     );
   }
 }

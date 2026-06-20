@@ -1,14 +1,18 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class AuthWelcomeHeader extends StatelessWidget {
   const AuthWelcomeHeader({super.key, required this.isSignUpMode});
 
   final bool isSignUpMode;
 
+  static const _wordmarkBadgeSize = 32.0;
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final headline = isSignUpMode
         ? 'auth_headline_signup'.tr()
@@ -17,49 +21,47 @@ class AuthWelcomeHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Wordmark — pequeño, anchored al top
         Row(
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: _wordmarkBadgeSize,
+              height: _wordmarkBadgeSize,
               decoration: BoxDecoration(
-                color: PortfolioColors.textPrimary,
-                borderRadius: BorderRadius.circular(6),
+                color: colors.textPrimary,
+                borderRadius: BorderRadius.circular(AppDimens.sp8),
               ),
-              child: const Icon(
-                Icons.show_chart_rounded,
-                color: PortfolioColors.background,
-                size: 16,
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                color: colors.background,
+                size: AppDimens.iconMd,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppDimens.sp12),
             Text(
               'app_name'.tr(),
-              style: tt.labelLarge?.copyWith(
-                color: PortfolioColors.textPrimary,
+              style: tt.titleLarge?.copyWith(
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
+                letterSpacing: -0.3,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 36),
-        // Headline editorial — el elemento que más pesa visualmente
+        const SizedBox(height: AppDimens.sp32),
         Text(
           headline,
           style: tt.displayMedium?.copyWith(
-            color: PortfolioColors.textPrimary,
+            color: colors.textPrimary,
             fontSize: 40,
             height: 1.05,
             letterSpacing: -1.5,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppDimens.sp8),
         Text(
           'auth_subheadline'.tr(),
           style: tt.bodyLarge?.copyWith(
-            color: PortfolioColors.textSecondary,
+            color: colors.textSecondary,
             height: 1.45,
           ),
         ),

@@ -21,15 +21,19 @@ class SubscriptionState {
   final int queriesUsed;
   final int queriesLimit;
   final bool isLoading;
-  final bool isPurchasing;
+  final SubscriptionTier? purchasingTier;
+  final bool isRestoring;
 
   const SubscriptionState({
     required this.tier,
     required this.queriesUsed,
     required this.queriesLimit,
     this.isLoading = false,
-    this.isPurchasing = false,
+    this.purchasingTier,
+    this.isRestoring = false,
   });
+
+  bool get isPurchasing => purchasingTier != null || isRestoring;
 
   int get queriesRemaining =>
       (queriesLimit - queriesUsed).clamp(0, queriesLimit);
@@ -39,14 +43,18 @@ class SubscriptionState {
     int? queriesUsed,
     int? queriesLimit,
     bool? isLoading,
-    bool? isPurchasing,
+    SubscriptionTier? purchasingTier,
+    bool? isRestoring,
+    bool clearPurchasingTier = false,
   }) {
     return SubscriptionState(
       tier: tier ?? this.tier,
       queriesUsed: queriesUsed ?? this.queriesUsed,
       queriesLimit: queriesLimit ?? this.queriesLimit,
       isLoading: isLoading ?? this.isLoading,
-      isPurchasing: isPurchasing ?? this.isPurchasing,
+      purchasingTier:
+          clearPurchasingTier ? null : (purchasingTier ?? this.purchasingTier),
+      isRestoring: isRestoring ?? this.isRestoring,
     );
   }
 
@@ -96,7 +104,8 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
         queriesUsed: status.queriesUsed,
         queriesLimit: status.queriesLimit,
         isLoading: false,
-        isPurchasing: state.isPurchasing,
+        purchasingTier: state.purchasingTier,
+        isRestoring: state.isRestoring,
       );
     } catch (_) {
       state = state.copyWith(isLoading: false);
@@ -127,7 +136,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
   }
 
   Future<RevenueCatPurchaseResult> purchaseTier(SubscriptionTier tier) async {
-    state = state.copyWith(isPurchasing: true);
+    state = state.copyWith(purchasingTier: tier);
     try {
       final result = await _revenueCat.purchaseTier(tier);
       if (result is RevenueCatPurchaseSuccess) {
@@ -135,12 +144,12 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       }
       return result;
     } finally {
-      state = state.copyWith(isPurchasing: false);
+      state = state.copyWith(clearPurchasingTier: true, isRestoring: false);
     }
   }
 
   Future<RevenueCatPurchaseResult> restorePurchases() async {
-    state = state.copyWith(isPurchasing: true);
+    state = state.copyWith(isRestoring: true);
     try {
       final result = await _revenueCat.restorePurchases();
       if (result is RevenueCatPurchaseSuccess) {
@@ -148,7 +157,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       }
       return result;
     } finally {
-      state = state.copyWith(isPurchasing: false);
+      state = state.copyWith(isRestoring: false);
     }
   }
 
@@ -169,6 +178,11 @@ final aiUsageTrackerProvider = Provider<AiUsageTracker>(
     repository: ref.watch(subscriptionRepositoryProvider),
   ),
 );
+
+final subscriptionTierPricesProvider =
+    FutureProvider<Map<SubscriptionTier, String>>((ref) async {
+  return ref.read(revenueCatServiceProvider).fetchTierPrices();
+});
 
 final subscriptionProvider =
     StateNotifierProvider<SubscriptionNotifier, SubscriptionState>(

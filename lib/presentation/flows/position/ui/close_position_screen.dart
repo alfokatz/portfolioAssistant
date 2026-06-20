@@ -6,10 +6,14 @@ import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dar
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/close_position_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_date_field.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
 class ClosePositionScreen extends StatefulHookConsumerWidget {
   final String positionId;
@@ -110,6 +114,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     BuildContext context,
     ClosePositionProvider notifier,
   ) {
+    final colors = context.customColors;
     final state = ref.watch(closePositionProvider(_args));
     if (state.scope != CloseScope.partial ||
         state.sellMode != SellInputMode.usd) {
@@ -120,13 +125,16 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     if (shares == null) return null;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 4),
+      padding: const EdgeInsets.only(
+        top: AppDimens.sp8,
+        left: AppDimens.sp4,
+      ),
       child: Text(
         'position_shares_equivalent'.tr(
           namedArgs: {'shares': shares.toStringAsFixed(4)},
         ),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: PortfolioColors.accentBlue,
+              color: colors.accentBlue,
               fontWeight: FontWeight.w500,
             ),
       ),
@@ -137,6 +145,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     BuildContext context,
     ClosePositionProvider notifier,
   ) {
+    final colors = context.customColors;
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final closePrice = notifier.closePrice();
     final shares = notifier.sharesToSell();
@@ -150,40 +159,40 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
     final sign = pnlAbs >= 0 ? '+' : '';
 
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: PortfolioColors.border),
-      ),
+    return SurfaceCard(
+      margin: const EdgeInsets.only(top: AppDimens.sp16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'close_position_preview_title'.tr(),
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-          const SizedBox(height: 10),
-          _PreviewRow(
+          const SizedBox(height: AppDimens.sp12),
+          LabeledValueRow(
             label: 'close_position_preview_shares'.tr(),
             value: shares.toStringAsFixed(4),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'close_position_preview_cost'.tr(),
             value: currency.format(costBasis),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'close_position_preview_proceeds'.tr(),
             value: currency.format(proceeds),
+            dense: true,
           ),
-          _PreviewRow(
+          LabeledValueRow(
             label: 'close_position_preview_pnl'.tr(),
             value:
                 '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueColor:
-                pnlAbs >= 0 ? PortfolioColors.profit : PortfolioColors.loss,
+            valueColor: colors.pnlColor(pnlAbs),
+            dense: true,
           ),
         ],
       ),
@@ -210,6 +219,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
 
   @override
   Widget buildView(BuildContext context) {
+    final colors = context.customColors;
     final state = ref.watch(closePositionProvider(_args));
     final notifier = ref.read(closePositionProvider(_args).notifier);
 
@@ -227,15 +237,14 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(AppDimens.mediumMargin),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.pageHorizontal,
+            AppDimens.sp16,
+            AppDimens.pageHorizontal,
+            AppDimens.sp48,
+          ),
           children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: PortfolioColors.border),
-              ),
+            SurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -243,19 +252,19 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                     widget.ticker,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: PortfolioColors.textPrimary,
+                          color: colors.textPrimary,
                         ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppDimens.sp8),
                   Text(
                     'position_shares'.tr(
                       namedArgs: {'count': widget.quantity.toString()},
                     ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PortfolioColors.textSecondary,
+                          color: colors.textSecondary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppDimens.sp4),
                   Text(
                     'close_position_avg_cost'.tr(
                       namedArgs: {
@@ -263,21 +272,14 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                       },
                     ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: PortfolioColors.textSecondary,
+                          color: colors.textSecondary,
                         ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: PortfolioColors.border),
-              ),
+            const SizedBox(height: AppDimens.sp20),
+            SurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -285,10 +287,10 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                     'close_position_scope'.tr(),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: PortfolioColors.textPrimary,
+                          color: colors.textPrimary,
                         ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppDimens.sp12),
                   _DualChoiceRow<CloseScope>(
                     value: state.scope,
                     leftValue: CloseScope.all,
@@ -298,15 +300,15 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                     onChanged: notifier.setScope,
                   ),
                   if (state.scope == CloseScope.partial) ...[
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppDimens.sp20),
                     Text(
                       'close_position_sell_amount'.tr(),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: PortfolioColors.textPrimary,
+                            color: colors.textPrimary,
                           ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppDimens.sp12),
                     _DualChoiceRow<SellInputMode>(
                       value: state.sellMode,
                       leftValue: SellInputMode.shares,
@@ -315,7 +317,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                       rightLabel: 'position_amount_type_usd'.tr(),
                       onChanged: notifier.setSellMode,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppDimens.sp12),
                     TextFormField(
                       controller: _sellAmountController,
                       decoration: InputDecoration(
@@ -329,8 +331,6 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      style:
-                          const TextStyle(color: PortfolioColors.textPrimary),
                       validator: (value) => _validateSellAmount(value, notifier),
                       onChanged: notifier.setSellAmountText,
                     ),
@@ -340,47 +340,38 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                'close_position_date'.tr(),
-                style: const TextStyle(color: PortfolioColors.textPrimary),
-              ),
-              subtitle: Text(
-                DateFormat.yMMMd().format(state.closeDate),
-                style: const TextStyle(color: PortfolioColors.textSecondary),
-              ),
-              trailing: const Icon(
-                Icons.calendar_today,
-                color: PortfolioColors.textSecondary,
-              ),
+            const SizedBox(height: AppDimens.sp20),
+            PositionDateField(
+              label: 'close_position_date'.tr(),
+              date: state.closeDate,
               onTap: () => _pickDate(notifier),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppDimens.sp16),
             TextFormField(
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'close_position_price'.tr(),
                 suffixIcon: state.loadingPrice
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.accentBlue,
+                          ),
                         ),
                       )
                     : IconButton(
                         tooltip: 'retry'.tr(),
                         onPressed: notifier.fetchPriceForDate,
-                        icon: const Icon(Icons.refresh),
+                        icon: const Icon(Icons.refresh_rounded),
                       ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'invalid_number'.tr();
@@ -389,16 +380,11 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
               onChanged: notifier.setPriceText,
             ),
             _preview(context, notifier),
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: state.saving ? null : () => _save(notifier),
-              child: state.saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text('close_position_confirm'.tr()),
+            const SizedBox(height: AppDimens.sp32),
+            PositionPrimaryButton(
+              label: 'close_position_confirm'.tr(),
+              loading: state.saving,
+              onPressed: () => _save(notifier),
             ),
           ],
         ),
@@ -435,7 +421,7 @@ class _DualChoiceRow<T> extends StatelessWidget {
             onTap: () => onChanged(leftValue),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppDimens.sp12),
         Expanded(
           child: _ChoiceTile(
             label: rightLabel,
@@ -461,23 +447,26 @@ class _ChoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.sp12,
+            vertical: 14,
+          ),
           decoration: BoxDecoration(
             color: selected
-                ? PortfolioColors.accentBlue.withValues(alpha: 0.22)
-                : PortfolioColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+                ? colors.accentBlue.withValues(alpha: 0.18)
+                : colors.surfaceElevated,
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
             border: Border.all(
-              color: selected
-                  ? PortfolioColors.accentBlue
-                  : PortfolioColors.border,
-              width: selected ? 2 : 1,
+              color: selected ? colors.accentBlue : colors.border,
+              width: selected ? 1.5 : 1,
             ),
           ),
           child: Text(
@@ -485,51 +474,10 @@ class _ChoiceTile extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected
-                      ? PortfolioColors.textPrimary
-                      : PortfolioColors.textSecondary,
+                  color: selected ? colors.textPrimary : colors.textSecondary,
                 ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PreviewRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _PreviewRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PortfolioColors.textSecondary,
-                  ),
-            ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: valueColor ?? PortfolioColors.textPrimary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-          ),
-        ],
       ),
     );
   }

@@ -1,4 +1,3 @@
-import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_provider.dart';
@@ -37,12 +36,7 @@ class ContentStateWidget extends HookConsumerWidget {
             children: [
               if (state == ContentState.loading)
                 customLoading ?? const Loading(),
-              if (_canShowContent(state: state))
-                FadeIn(
-                  duration: const Duration(milliseconds: 350),
-                  delay: const Duration(milliseconds: 150),
-                  child: child,
-                ),
+              if (_canShowContent(state: state)) child,
               if (state == ContentState.loadingOverlay)
                 SizedBox(width: size.width, height: size.height),
             ],

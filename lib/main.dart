@@ -17,7 +17,8 @@ import 'package:portfolio_assistant/features/subscription/services/revenue_cat_i
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
-    show themeDataProvider;
+    show themeDataDarkProvider, themeDataLightProvider;
+import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _translationsPath = 'assets/translations';
@@ -85,7 +86,9 @@ class MyApp extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(revenueCatAuthSyncProvider);
-    final theme = ref.watch(themeDataProvider);
+    final lightTheme = ref.watch(themeDataLightProvider);
+    final darkTheme = ref.watch(themeDataDarkProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: !kReleaseMode,
@@ -93,9 +96,9 @@ class MyApp extends HookConsumerWidget {
       supportedLocales: context.supportedLocales,
       locale: context.locale,
       title: 'app_name'.tr(),
-      theme: theme,
-      darkTheme: theme,
-      themeMode: ThemeMode.light,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
     );
   }
 }

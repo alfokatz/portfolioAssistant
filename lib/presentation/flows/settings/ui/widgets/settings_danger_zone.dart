@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class SettingsDangerZone extends StatelessWidget {
   const SettingsDangerZone({
@@ -14,29 +15,34 @@ class SettingsDangerZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(
+            left: AppDimens.sp4,
+            bottom: AppDimens.sp8,
+          ),
           child: Text(
             'settings_danger_zone'.tr(),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: PortfolioColors.textSecondary,
+                  color: colors.textSecondary,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
+                  letterSpacing: 0.8,
                 ),
           ),
         ),
         _DangerButton(
           label: 'auth_sign_out'.tr(),
-          color: PortfolioColors.accentBlue,
+          color: colors.accentBlue,
           onTap: onSignOut,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppDimens.sp12),
         _DangerButton(
           label: 'settings_delete_account'.tr(),
-          color: const Color(0xFFF97316),
+          color: colors.loss,
           onTap: onDeleteAccount,
         ),
       ],
@@ -57,19 +63,20 @@ class _DangerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Material(
-      color: PortfolioColors.surfaceCard,
-      borderRadius: BorderRadius.circular(14),
+      color: colors.surfaceCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        side: BorderSide(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
+        child: SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: PortfolioColors.border),
-          ),
+          height: AppDimens.touchTarget + 8,
           child: Center(
             child: Text(
               label,

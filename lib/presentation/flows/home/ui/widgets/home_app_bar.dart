@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class HomeAppBar extends StatelessWidget {
   final VoidCallback? onSettings;
@@ -9,6 +9,8 @@ class HomeAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
@@ -16,16 +18,17 @@ class HomeAppBar extends StatelessWidget {
           Text(
             'app_name'.tr(),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PortfolioColors.textSecondary,
+                  color: colors.textSecondary,
                   letterSpacing: -0.1,
                 ),
           ),
           const Spacer(),
           IconButton(
             onPressed: onSettings,
-            icon: const Icon(
+            tooltip: 'settings_title'.tr(),
+            icon: Icon(
               Icons.person_outline_rounded,
-              color: PortfolioColors.textSecondary,
+              color: colors.textSecondary,
             ),
           ),
         ],

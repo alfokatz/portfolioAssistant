@@ -1,9 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_feature_row.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_entrance.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
 class OnboardingAssistantPage extends StatelessWidget {
   const OnboardingAssistantPage({super.key, required this.activePage});
@@ -13,57 +14,70 @@ class OnboardingAssistantPage extends StatelessWidget {
   final int activePage;
 
   static const _modes = [
-    ('assistant_mode_portfolio', Icons.pie_chart_outline_rounded,
-        'onboarding_assistant_mode_portfolio_desc'),
-    ('assistant_mode_learn', Icons.school_outlined,
-        'onboarding_assistant_mode_learn_desc'),
-    ('assistant_mode_explore', Icons.explore_outlined,
-        'onboarding_assistant_mode_explore_desc'),
-    ('assistant_mode_invest', Icons.bolt_outlined,
-        'onboarding_assistant_mode_invest_desc'),
-    ('assistant_mode_plan', Icons.track_changes_outlined,
-        'onboarding_assistant_mode_plan_desc'),
+    (
+      titleKey: 'assistant_shortcut_explore_title',
+      icon: Icons.explore_outlined,
+      descKey: 'onboarding_assistant_mode_explore_desc',
+    ),
+    (
+      titleKey: 'assistant_shortcut_invest_title',
+      icon: Icons.bolt_outlined,
+      descKey: 'onboarding_assistant_mode_invest_desc',
+    ),
+    (
+      titleKey: 'assistant_shortcut_plan_title',
+      icon: Icons.track_changes_outlined,
+      descKey: 'onboarding_assistant_mode_plan_desc',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return OnboardingPageEntrance(
       pageIndex: pageIndex,
       activePage: activePage,
       child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'onboarding_assistant_title'.tr(),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: PortfolioColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'onboarding_assistant_subtitle'.tr(),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PortfolioColors.textSecondary,
-                  height: 1.4,
-                ),
-          ),
-          const SizedBox(height: 20),
-          const _AssistantChatMockup(),
-          const SizedBox(height: 20),
-          for (var i = 0; i < _modes.length; i++) ...[
-            if (i > 0) const SizedBox(height: 14),
-            OnboardingFeatureRow(
-              icon: _modes[i].$2,
-              title: _modes[i].$1.tr(),
-              subtitle: _modes[i].$3.tr(),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.pageHorizontal,
+          AppDimens.sp8,
+          AppDimens.pageHorizontal,
+          AppDimens.sp16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'onboarding_assistant_title'.tr(),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.02,
+                  ),
             ),
+            const SizedBox(height: AppDimens.sp8),
+            Text(
+              'onboarding_assistant_subtitle'.tr(),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.textSecondary,
+                    height: 1.45,
+                  ),
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            const _AssistantChatMockup(),
+            const SizedBox(height: AppDimens.sectionGap),
+            for (var i = 0; i < _modes.length; i++) ...[
+              if (i > 0) const SizedBox(height: AppDimens.sp16),
+              OnboardingFeatureRow(
+                icon: _modes[i].icon,
+                title: _modes[i].titleKey.tr(),
+                subtitle: _modes[i].descKey.tr(),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -72,147 +86,111 @@ class _AssistantChatMockup extends StatelessWidget {
   const _AssistantChatMockup();
 
   static const _chipKeys = [
-    'assistant_mode_portfolio',
-    'assistant_mode_learn',
-    'assistant_mode_explore',
-    'assistant_mode_invest',
-    'assistant_mode_plan',
+    'assistant_shortcut_explore_title',
+    'assistant_shortcut_invest_title',
+    'assistant_shortcut_plan_title',
   ];
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PortfolioColors.border),
-      ),
-      child: Column(
+    return ExcludeSemantics(
+      child: SurfaceCard(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'portfolio_qa_title'.tr(),
+            'portfolio_qa_entry_title'.tr(),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PortfolioColors.textPrimary,
-                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _chipKeys.map((key) {
-                final selected = key == 'assistant_mode_portfolio';
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+          const SizedBox(height: AppDimens.sp12),
+          Row(
+            children: [
+              for (var i = 0; i < _chipKeys.length; i++) ...[
+                if (i > 0) const SizedBox(width: AppDimens.sp8),
+                Expanded(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    height: 36,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: selected
-                          ? PortfolioColors.accentBlue
-                          : PortfolioColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(20),
+                      color: i == 0
+                          ? colors.surfaceElevated
+                          : colors.surfaceCard,
+                      borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                       border: Border.all(
-                        color: selected
-                            ? PortfolioColors.accentBlue
-                            : PortfolioColors.border,
+                        color: i == 0 ? colors.accentBlue : colors.border,
                       ),
                     ),
                     child: Text(
-                      key.tr(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: selected
-                            ? PortfolioColors.textPrimary
-                            : PortfolioColors.textSecondary,
-                      ),
+                      _chipKeys[i].tr(),
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: i == 0
+                                ? colors.textPrimary
+                                : colors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: PortfolioColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'portfolio_qa_disclaimer'.tr(),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: PortfolioColors.textSecondary,
-                    height: 1.3,
-                  ),
-            ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppDimens.sp12),
           Align(
             alignment: Alignment.centerRight,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.sp12,
+                vertical: AppDimens.sp12,
+              ),
               decoration: BoxDecoration(
-                color: PortfolioColors.accentBlue.withValues(alpha: 0.2),
+                color: colors.surfaceElevated,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(14),
+                  topLeft: Radius.circular(AppDimens.radiusLg),
+                  topRight: Radius.circular(AppDimens.radiusLg),
+                  bottomLeft: Radius.circular(AppDimens.radiusLg),
                 ),
+                border: Border.all(color: colors.border),
               ),
               child: Text(
                 'portfolio_qa_chip_today'.tr(),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PortfolioColors.textPrimary,
+                      color: colors.textPrimary,
                     ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: PortfolioColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: PortfolioColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'onboarding_assistant_mock_response'.tr(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: PortfolioColors.textPrimary,
-                        height: 1.4,
-                      ),
+          const SizedBox(height: AppDimens.sp12),
+          Text(
+            'onboarding_assistant_mock_response'.tr(),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.textPrimary,
+                  height: 1.45,
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _MetricChip(
-                      label: 'P&L',
-                      value: '+2.4%',
-                      color: colors.pnlColor(1),
-                    ),
-                    const SizedBox(width: 8),
-                    _MetricChip(
-                      label: 'NVDA',
-                      value: '+4.5%',
-                      color: colors.pnlColor(1),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          ),
+          const SizedBox(height: AppDimens.sp12),
+          Row(
+            children: [
+              _MetricChip(
+                label: 'P&L',
+                value: '+2.4%',
+                color: colors.pnlColor(1),
+              ),
+              const SizedBox(width: AppDimens.sp8),
+              _MetricChip(
+                label: 'NVDA',
+                value: '+4.5%',
+                color: colors.pnlColor(1),
+              ),
+            ],
           ),
         ],
+        ),
       ),
     );
   }
@@ -231,12 +209,17 @@ class _MetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.sp12,
+        vertical: AppDimens.sp6,
+      ),
       decoration: BoxDecoration(
-        color: PortfolioColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: PortfolioColors.border),
+        color: colors.background,
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -244,15 +227,16 @@ class _MetricChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: PortfolioColors.textSecondary,
+                  color: colors.textSecondary,
                 ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppDimens.sp6),
           Text(
             value,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
           ),
         ],

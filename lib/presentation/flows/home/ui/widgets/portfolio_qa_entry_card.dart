@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class PortfolioQaEntryCard extends StatelessWidget {
   const PortfolioQaEntryCard({super.key, required this.onTap});
@@ -10,37 +10,45 @@ class PortfolioQaEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.pageHorizontal,
+        0,
+        AppDimens.pageHorizontal,
+        AppDimens.sp12,
+      ),
       child: Material(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        color: colors.surfaceCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          side: BorderSide(color: colors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-              border: Border.all(color: PortfolioColors.border),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.cardPadding,
+              vertical: 14,
             ),
-            padding: const EdgeInsets.all(AppDimens.cardPadding),
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: PortfolioColors.surfaceElevated,
+                    color: colors.surfaceElevated,
                     borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline_rounded,
-                    color: PortfolioColors.accentBlue,
+                    color: colors.accentBlue,
                     size: AppDimens.iconMd,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,24 +57,24 @@ class PortfolioQaEntryCard extends StatelessWidget {
                         'portfolio_qa_entry_title'.tr(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: PortfolioColors.textPrimary,
+                              color: colors.textPrimary,
                             ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'assistant_entry_subtitle'.tr(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: PortfolioColors.textSecondary,
+                              color: colors.textSecondary,
                               height: 1.3,
                             ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 15,
-                  color: PortfolioColors.textSecondary,
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: colors.textSecondary,
                 ),
               ],
             ),

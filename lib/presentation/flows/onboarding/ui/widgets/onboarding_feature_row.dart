@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class OnboardingFeatureRow extends StatelessWidget {
   const OnboardingFeatureRow({
@@ -15,19 +16,22 @@ class OnboardingFeatureRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: AppDimens.touchTarget,
+          height: AppDimens.touchTarget,
           decoration: BoxDecoration(
-            color: PortfolioColors.accentBlue.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            color: colors.surfaceElevated,
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+            border: Border.all(color: colors.border),
           ),
-          child: Icon(icon, color: PortfolioColors.accentBlue, size: 20),
+          child: Icon(icon, color: colors.accentBlue, size: AppDimens.iconMd),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: AppDimens.sp12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,16 +39,16 @@ class OnboardingFeatureRow extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PortfolioColors.textPrimary,
+                      color: colors.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: AppDimens.sp2),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PortfolioColors.textSecondary,
-                      height: 1.35,
+                      color: colors.textSecondary,
+                      height: 1.4,
                     ),
               ),
             ],

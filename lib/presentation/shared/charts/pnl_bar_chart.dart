@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_axis_helper.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_with_y_axis.dart';
@@ -103,6 +102,7 @@ class PnlBarChart extends StatelessWidget {
       gridData: ChartAxisHelper.horizontalGrid(
         minY: chartMinY,
         maxY: chartMaxY,
+        gridColor: colors.chartGrid,
         divisions: 4,
       ),
       titlesData: FlTitlesData(
@@ -136,7 +136,7 @@ class PnlBarChart extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: PortfolioColors.textSecondary,
+                          color: colors.textSecondary,
                           fontSize: 11,
                         ),
                   ),

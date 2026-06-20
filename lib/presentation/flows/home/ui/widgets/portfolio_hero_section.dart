@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
@@ -38,7 +37,7 @@ class PortfolioHeroSection extends StatelessWidget {
               Text(
                 'portfolio_total_label'.tr(),
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: PortfolioColors.textSecondary,
+                      color: colors.textSecondary,
                       letterSpacing: 0.3,
                     ),
               ),
@@ -46,7 +45,7 @@ class PortfolioHeroSection extends StatelessWidget {
               Text(
                 currency.format(summary.totalValue),
                 style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: PortfolioColors.textPrimary,
+                      color: colors.textPrimary,
                       fontSize: 44,
                       letterSpacing: -1.5,
                       height: 1.0,

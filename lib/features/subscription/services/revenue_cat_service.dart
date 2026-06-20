@@ -106,6 +106,31 @@ class RevenueCatService {
     }
   }
 
+  /// Precios localizados desde la store (vacío si RevenueCat no está configurado).
+  Future<Map<SubscriptionTier, String>> fetchTierPrices() async {
+    if (!_configured) return {};
+
+    try {
+      final offerings = await Purchases.getOfferings();
+      final current = offerings.current;
+      if (current == null) return {};
+
+      final prices = <SubscriptionTier, String>{};
+      for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+        final packageId = SubscriptionCatalog.packageIdFor(tier);
+        final package =
+            current.getPackage(packageId) ??
+            _findPackageByProductId(current, tier);
+        if (package != null) {
+          prices[tier] = package.storeProduct.priceString;
+        }
+      }
+      return prices;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<RevenueCatPurchaseResult> restorePurchases() async {
     if (!_configured) {
       return const RevenueCatPurchaseNotConfigured();
