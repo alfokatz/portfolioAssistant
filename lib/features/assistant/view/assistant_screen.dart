@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_disclaimer_banner.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class AssistantScreen extends StatefulHookConsumerWidget {
@@ -103,18 +104,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     });
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       appBar: AppBar(
-        backgroundColor: PortfolioColors.background,
-        elevation: 0,
-        title: Text(
-          'portfolio_qa_title'.tr(),
-          style: const TextStyle(
-            color: PortfolioColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: PortfolioColors.textPrimary),
+        title: Text('portfolio_qa_title'.tr()),
       ),
       body: Column(
         children: [
@@ -141,18 +132,20 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
             ),
           if (state.error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.pageHorizontal,
+                vertical: AppDimens.sp4,
+              ),
               child: Material(
                 color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                 child: ListTile(
                   dense: true,
                   title: Text(
                     state.error!,
-                    style: const TextStyle(
-                      color: PortfolioColors.textSecondary,
-                      fontSize: 13,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: PortfolioColors.textSecondary,
+                        ),
                   ),
                   trailing: TextButton(
                     onPressed: state.isWaiting || state.lastMessage.isEmpty
@@ -168,7 +161,12 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
               children: [
                 ListView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppDimens.pageHorizontal,
+                    AppDimens.sp8,
+                    AppDimens.pageHorizontal,
+                    AppDimens.sp8,
+                  ),
                   children: [
                     if (service != null)
                       ...state.messages.map(
@@ -204,37 +202,37 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.pageHorizontal,
+                AppDimens.sp8,
+                AppDimens.pageHorizontal,
+                AppDimens.sp12,
+              ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      style: const TextStyle(
-                        color: PortfolioColors.textPrimary,
-                      ),
                       decoration: InputDecoration(
                         hintText: 'portfolio_qa_input_hint'.tr(),
-                        filled: true,
-                        fillColor: PortfolioColors.surfaceCard,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
                       ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: PortfolioColors.textPrimary,
+                          ),
+                      maxLines: 4,
+                      minLines: 1,
                       onSubmitted: state.isWaiting
                           ? null
                           : (text) => _submitMessage(notifier, text),
                       enabled: !state.isWaiting && service != null,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: state.isWaiting || service == null
+                  const SizedBox(width: AppDimens.sp8),
+                  _SendButton(
+                    onTap: state.isWaiting || service == null
                         ? null
                         : () => _submitMessage(notifier, _textController.text),
-                    icon: const Icon(Icons.send),
-                    color: PortfolioColors.accentBlue,
                   ),
                 ],
               ),
@@ -262,5 +260,35 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     }
 
     return PortfolioQaChatBubble(key: key, message: message);
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Material(
+      color: enabled
+          ? PortfolioColors.accentBlue
+          : PortfolioColors.accentBlue.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        child: const SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(
+            Icons.arrow_upward_rounded,
+            color: PortfolioColors.textPrimary,
+            size: AppDimens.iconMd,
+          ),
+        ),
+      ),
+    );
   }
 }

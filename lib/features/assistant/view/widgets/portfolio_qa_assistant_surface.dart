@@ -32,9 +32,7 @@ class PortfolioQaAssistantSurface extends StatelessWidget {
               bottomLeft: Radius.circular(4),
               bottomRight: Radius.circular(14),
             ),
-            border: Border.all(
-              color: PortfolioColors.textSecondary.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: PortfolioColors.border),
           ),
           child: Surface(
             key: ValueKey(surfaceId),

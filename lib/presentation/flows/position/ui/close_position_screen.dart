@@ -152,10 +152,10 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: PortfolioColors.border),
       ),
       child: Column(
@@ -163,10 +163,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
         children: [
           Text(
             'close_position_preview_title'.tr(),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: PortfolioColors.textPrimary,
-                ),
+            style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 10),
           _PreviewRow(
@@ -224,10 +221,8 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       appBar: AppBar(
         title: Text('close_position_title'.tr()),
-        backgroundColor: PortfolioColors.background,
       ),
       body: Form(
         key: _formKey,
@@ -235,10 +230,10 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
           padding: const EdgeInsets.all(AppDimens.mediumMargin),
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: PortfolioColors.border),
               ),
               child: Column(
@@ -277,10 +272,10 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: PortfolioColors.border),
               ),
               child: Column(
@@ -531,6 +526,7 @@ class _PreviewRow extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: valueColor ?? PortfolioColors.textPrimary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
           ),
         ],

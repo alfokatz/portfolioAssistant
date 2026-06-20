@@ -19,21 +19,25 @@ class PnlBadge extends StatelessWidget {
     final fg = colors.pnlColor(percent);
     final sign = isPositive ? '+' : '';
 
+    final base = compact
+        ? Theme.of(context).textTheme.labelSmall
+        : Theme.of(context).textTheme.labelMedium;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
-        vertical: compact ? 4 : 6,
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 3 : 4,
       ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         '$sign${percent.toStringAsFixed(1)}%',
-        style: TextStyle(
+        style: base?.copyWith(
           color: fg,
-          fontSize: compact ? 12 : 13,
           fontWeight: FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );

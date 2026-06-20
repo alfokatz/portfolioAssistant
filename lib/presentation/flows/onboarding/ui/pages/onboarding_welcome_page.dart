@@ -37,7 +37,6 @@ class OnboardingWelcomePage extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: PortfolioColors.textPrimary,
-                      fontWeight: FontWeight.w700,
                     ),
               ),
             ),

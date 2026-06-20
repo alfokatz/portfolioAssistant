@@ -30,7 +30,7 @@ class SettingsSectionCard extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: PortfolioColors.surfaceCard,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: PortfolioColors.border),
           ),
           clipBehavior: Clip.antiAlias,
@@ -51,7 +51,7 @@ class SettingsDivider extends StatelessWidget {
       thickness: 1,
       indent: 56,
       endIndent: 16,
-      color: PortfolioColors.border.withValues(alpha: 0.6),
+      color: PortfolioColors.border,
     );
   }
 }

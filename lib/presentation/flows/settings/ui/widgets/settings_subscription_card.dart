@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class SettingsSubscriptionCard extends ConsumerWidget {
@@ -43,7 +44,7 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                       PortfolioColors.surfaceElevated.withValues(alpha: 0.9),
                     ],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
             border: Border.all(
               color: isGold
                   ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
@@ -105,38 +106,28 @@ class SettingsSubscriptionCard extends ConsumerWidget {
               else
                 SizedBox(
                   width: double.infinity,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF2563EB),
-                          Color(0xFF06B6D4),
-                        ],
+                  child: Material(
+                    color: PortfolioColors.accentBlue,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                    child: InkWell(
+                      onTap: () => SubscriptionPaywallSheet.show(
+                        context,
+                        ref,
+                        reason: PaywallReason.modeLocked,
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => SubscriptionPaywallSheet.show(
-                          context,
-                          ref,
-                          reason: PaywallReason.modeLocked,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Center(
-                            child: Text(
-                              'settings_upgrade_plan'.tr(),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(
-                                    color: PortfolioColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Center(
+                          child: Text(
+                            'settings_upgrade_plan'.tr(),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  color: PortfolioColors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                       ),

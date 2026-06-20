@@ -81,7 +81,6 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       body: SafeArea(
         child: Column(
           children: [

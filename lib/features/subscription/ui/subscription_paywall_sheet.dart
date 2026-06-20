@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class SubscriptionPaywallSheet extends ConsumerWidget {
@@ -26,10 +27,6 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PortfolioColors.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (_) => SubscriptionPaywallSheet(
         reason: reason,
         onUpgraded: onUpgraded,
@@ -260,15 +257,8 @@ class _PlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            PortfolioColors.surfaceCard,
-            PortfolioColors.surfaceElevated.withValues(alpha: 0.9),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         border: Border.all(
           color: highlighted ? PortfolioColors.accentBlue : PortfolioColors.border,
           width: highlighted ? 1.5 : 1,
@@ -307,26 +297,21 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: highlighted
-                      ? const [Color(0xFF2563EB), Color(0xFF06B6D4)]
-                      : [
-                          PortfolioColors.surfaceElevated,
-                          PortfolioColors.surfaceElevated,
-                        ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: highlighted
-                    ? null
-                    : Border.all(color: PortfolioColors.border),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onUpgrade,
-                  borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: highlighted
+                  ? PortfolioColors.accentBlue
+                  : PortfolioColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+              child: InkWell(
+                onTap: onUpgrade,
+                borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                child: Container(
+                  decoration: highlighted
+                      ? null
+                      : BoxDecoration(
+                          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                          border: Border.all(color: PortfolioColors.border),
+                        ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(

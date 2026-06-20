@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -23,26 +24,25 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: PortfolioColors.textPrimary,
                 ),
           ),
         ),
         if (actionLabel != null && onAction != null)
-          TextButton(
-            onPressed: onAction,
-            style: TextButton.styleFrom(
-              foregroundColor: PortfolioColors.accentBlue,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              actionLabel!,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+          GestureDetector(
+            onTap: onAction,
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              height: AppDimens.touchTarget,
+              child: Align(
+                child: Text(
+                  actionLabel!,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: PortfolioColors.accentBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
               ),
             ),
           ),

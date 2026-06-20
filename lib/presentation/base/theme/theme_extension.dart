@@ -69,8 +69,8 @@ final customColorsProvider = Provider<CustomColors>((ref) {
   return const CustomColors(
     profit: PortfolioColors.profit,
     loss: PortfolioColors.loss,
-    profitContainer: Color(0xFF163421),
-    lossContainer: Color(0xFF2A1515),
+    profitContainer: Color(0x1F30D158), // 12% Apple green — pastel desaturado
+    lossContainer: Color(0x1FFF443A),   // 12% Apple red
     chartGrid: PortfolioColors.chartGrid,
     accentBlue: PortfolioColors.accentBlue,
     cardBackground: PortfolioColors.surfaceCard,

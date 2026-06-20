@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Campo de texto estilizado para formularios de autenticación.
@@ -59,7 +60,7 @@ class AuthTextField extends StatelessWidget {
             ? Icon(
                 prefixIcon,
                 color: PortfolioColors.textSecondary,
-                size: 22,
+                size: AppDimens.iconMd,
               )
             : null,
         suffixIcon: suffixIcon,

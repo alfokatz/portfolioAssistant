@@ -27,76 +27,75 @@ class PositionRowWidget extends StatelessWidget {
       currentPrice: valuation.currentPrice,
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    valuation.position.ticker,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: PortfolioColors.textPrimary,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'position_shares'.tr(
-                      namedArgs: {
-                        'count': valuation.position.quantity.toString(),
-                      },
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: PortfolioColors.textSecondary,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            SparklineChart(
-              values: sparkline,
-              isPositive: pnl >= 0,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  currency.format(valuation.marketValue),
+                  valuation.position.ticker,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
                         color: PortfolioColors.textPrimary,
                       ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$sign${currency.format(pnl)}',
+                  'position_shares'.tr(
+                    namedArgs: {
+                      'count': valuation.position.quantity.toString(),
+                    },
+                  ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.pnlColor(pnl),
-                        fontWeight: FontWeight.w600,
+                        color: PortfolioColors.textSecondary,
                       ),
                 ),
               ],
             ),
-            if (onDetailTap != null) ...[
-              const SizedBox(width: 4),
-              IconButton(
-                onPressed: onDetailTap,
-                icon: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: PortfolioColors.textSecondary,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                tooltip: 'position_detail_open'.tr(),
+          ),
+          SparklineChart(
+            values: sparkline,
+            isPositive: pnl >= 0,
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                currency.format(valuation.marketValue),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: PortfolioColors.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$sign${currency.format(pnl)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.pnlColor(pnl),
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
               ),
             ],
+          ),
+          if (onDetailTap != null) ...[
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 13,
+              color: PortfolioColors.textSecondary,
+            ),
           ],
-        ),
+        ],
+      ),
     );
+
+    if (onDetailTap == null) return content;
+
+    return InkWell(onTap: onDetailTap, child: content);
   }
 }

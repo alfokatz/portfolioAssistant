@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/section_header.dart';
@@ -63,13 +64,13 @@ class PositionsSection extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               color: PortfolioColors.surfaceCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
               border: Border.all(color: PortfolioColors.border),
             ),
             clipBehavior: Clip.antiAlias,
             child: valuations.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AppDimens.sp24),
                     child: Center(
                       child: Text(
                         'positions_empty'.tr(),
@@ -92,14 +93,7 @@ class PositionsSection extends StatelessWidget {
                               _confirmDelete(context, ticker),
                         ),
                         if (i < valuations.length - 1)
-                          Divider(
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
-                            color: PortfolioColors.border.withValues(
-                              alpha: 0.6,
-                            ),
-                          ),
+                          const Divider(height: 1, indent: 16, endIndent: 16),
                       ],
                     ],
                   ),

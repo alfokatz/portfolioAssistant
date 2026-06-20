@@ -70,54 +70,50 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chip = Material(
-      color: selected ? PortfolioColors.accentBlue : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          decoration: selected
-              ? null
-              : BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: PortfolioColors.border),
+    final textColor =
+        selected ? PortfolioColors.textPrimary : PortfolioColors.textSecondary;
+
+    final chip = GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (locked) ...[
+                  Icon(Icons.lock_outline, size: 12, color: textColor),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: textColor,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
                 ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (locked) ...[
-                Icon(
-                  Icons.lock_outline,
-                  size: 13,
-                  color: selected
-                      ? PortfolioColors.textPrimary
-                      : PortfolioColors.textSecondary,
-                ),
-                const SizedBox(width: 5),
               ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected
-                      ? PortfolioColors.textPrimary
-                      : PortfolioColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          // Indicator line — visible only for selected
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 2,
+            width: selected ? 16 : 0,
+            decoration: BoxDecoration(
+              color: PortfolioColors.accentBlue,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ],
       ),
     );
 
     if (!locked) return chip;
 
-    return Opacity(
-      opacity: 0.45,
-      child: chip,
-    );
+    return Opacity(opacity: 0.4, child: chip);
   }
 }

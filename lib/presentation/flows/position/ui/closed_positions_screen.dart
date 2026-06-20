@@ -32,10 +32,8 @@ class _ClosedPositionsScreenState
     final colors = context.customColors;
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       appBar: AppBar(
         title: Text('closed_positions_title'.tr()),
-        backgroundColor: PortfolioColors.background,
       ),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -64,10 +62,10 @@ class _ClosedPositionsScreenState
                       final sign = pnl >= 0 ? '+' : '';
 
                       return Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
                           color: PortfolioColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: PortfolioColors.border),
                         ),
                         child: Column(
@@ -82,7 +80,6 @@ class _ClosedPositionsScreenState
                                         .textTheme
                                         .titleMedium
                                         ?.copyWith(
-                                          fontWeight: FontWeight.w700,
                                           color: PortfolioColors.textPrimary,
                                         ),
                                   ),
@@ -93,8 +90,9 @@ class _ClosedPositionsScreenState
                                       .textTheme
                                       .titleSmall
                                       ?.copyWith(
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                         color: colors.pnlColor(pnl),
+                                        fontFeatures: const [FontFeature.tabularFigures()],
                                       ),
                                 ),
                               ],
@@ -186,6 +184,7 @@ class _DetailRow extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: PortfolioColors.textPrimary,
                   fontWeight: FontWeight.w500,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
           ),
         ],

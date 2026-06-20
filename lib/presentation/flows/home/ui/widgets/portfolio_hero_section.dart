@@ -34,12 +34,10 @@ class PortfolioHeroSection extends StatelessWidget {
         children: [
           Text(
             currency.format(summary.totalValue),
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
                   color: PortfolioColors.textPrimary,
                   fontSize: 38,
-                  height: 1.05,
-                  letterSpacing: -0.8,
+                  height: 1.0,
                 ),
           ),
           const SizedBox(height: 8),
@@ -50,6 +48,7 @@ class PortfolioHeroSection extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: colors.pnlColor(pnl),
                       fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
               ),
               const SizedBox(width: 10),

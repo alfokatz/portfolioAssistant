@@ -48,8 +48,8 @@ class BenchmarkLockedCard extends ConsumerWidget {
                 ),
               ),
               const Icon(
-                Icons.chevron_right,
-                size: 20,
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
                 color: PortfolioColors.textSecondary,
               ),
             ],

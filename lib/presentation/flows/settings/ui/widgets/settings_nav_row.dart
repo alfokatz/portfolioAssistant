@@ -49,8 +49,8 @@ class SettingsNavRow extends StatelessWidget {
               ],
               if (showChevron && onTap != null)
                 const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 22,
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
                   color: PortfolioColors.textSecondary,
                 ),
             ],
@@ -117,9 +117,7 @@ class _SettingsIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceElevated,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: PortfolioColors.border),
       ),
       child: Icon(
         icon,

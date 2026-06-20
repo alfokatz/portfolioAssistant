@@ -6,6 +6,8 @@ import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart'
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/add_position_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/add_position_state.dart';
@@ -117,7 +119,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
           namedArgs: {'shares': shares.toStringAsFixed(4)},
         ),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
+          color: PortfolioColors.accentBlue,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -141,19 +143,18 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: PortfolioColors.surfaceCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: PortfolioColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'position_preview_title'.tr(),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 10),
           _PreviewRow(
@@ -172,12 +173,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
             label: 'position_preview_pnl'.tr(),
             value:
                 '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueStyle: TextStyle(
-              color: pnlAbs >= 0
-                  ? Theme.of(context).colorScheme.tertiary
-                  : Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
+            valueColor: context.customColors.pnlColor(pnlAbs),
           ),
         ],
       ),
@@ -214,7 +210,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
                 hintText: 'AAPL',
               ),
               textCapitalization: TextCapitalization.characters,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'field_required'.tr() : null,
               onFieldSubmitted: (_) => notifier.fetchPriceForDate(),
@@ -266,7 +262,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'invalid_number'.tr();
@@ -288,7 +284,7 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              style: const TextStyle(color: PortfolioColors.textPrimary),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'invalid_number'.tr();
@@ -324,12 +320,12 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
 class _PreviewRow extends StatelessWidget {
   final String label;
   final String value;
-  final TextStyle? valueStyle;
+  final Color? valueColor;
 
   const _PreviewRow({
     required this.label,
     required this.value,
-    this.valueStyle,
+    this.valueColor,
   });
 
   @override
@@ -342,16 +338,17 @@ class _PreviewRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: PortfolioColors.textSecondary,
               ),
             ),
           ),
           Text(
             value,
-            style: valueStyle ??
-                Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? PortfolioColors.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),

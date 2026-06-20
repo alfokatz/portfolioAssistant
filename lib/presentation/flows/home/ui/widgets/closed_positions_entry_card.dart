@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class ClosedPositionsEntryCard extends StatelessWidget {
@@ -32,20 +33,20 @@ class ClosedPositionsEntryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: PortfolioColors.border),
             ),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppDimens.cardPadding),
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: PortfolioColors.textSecondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    color: PortfolioColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                   ),
                   child: const Icon(
                     Icons.archive_outlined,
                     color: PortfolioColors.textSecondary,
-                    size: 26,
+                    size: AppDimens.iconMd,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -56,7 +57,6 @@ class ClosedPositionsEntryCard extends StatelessWidget {
                       Text(
                         'closed_positions_entry_title'.tr(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
                               color: PortfolioColors.textPrimary,
                             ),
                       ),
@@ -65,15 +65,14 @@ class ClosedPositionsEntryCard extends StatelessWidget {
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: PortfolioColors.textSecondary,
-                              height: 1.3,
                             ),
                       ),
                     ],
                   ),
                 ),
                 const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
                   color: PortfolioColors.textSecondary,
                 ),
               ],

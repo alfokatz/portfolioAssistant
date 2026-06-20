@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
 abstract final class PortfolioColors {
-  // Backgrounds — true charcoal, no navy tint
-  static const background = Color(0xFF0D0D10);
-  static const surfaceCard = Color(0xFF141417);
-  static const surfaceElevated = Color(0xFF1D1D22);
+  // ── Fondos ──────────────────────────────────────────────────────────────
+  static const background = Color(0xFF0F0F11);      // charcoal neutro
+  static const surfaceCard = Color(0xFF161618);      // elevación mínima
+  static const surfaceElevated = Color(0xFF1E1E22);  // superficie elevada
 
-  // Borders — neutral alpha-based, no blue tint
-  static const border = Color(0x12FFFFFF); // ~7% white
+  // ── Bordes ──────────────────────────────────────────────────────────────
+  static const border = Color(0x14FFFFFF); // 8% white alpha — sin tint de color
 
-  // Accent — muted indigo instead of electric blue
-  static const accentBlue = Color(0xFF6E6EF7);
-  static const accentBlueDim = Color(0xFF5656D0);
+  // ── Acento único — indigo desaturado (mantiene nombre por compatibilidad) ─
+  static const accentBlue = Color(0xFF5E5CE6);     // Apple-style indigo
+  static const accentBlueDim = Color(0xFF4845C7);
 
-  // Text
-  static const textPrimary = Color(0xFFEEEEF2); // off-white
-  static const textSecondary = Color(0xFF737380); // neutral gray, no blue tint
+  // ── Texto ────────────────────────────────────────────────────────────────
+  static const textPrimary = Color(0xFFEDEDF0);    // off-white editorial
+  static const textSecondary = Color(0xFF6E6E76);  // gris neutro
 
-  // Semantic
-  static const profit = Color(0xFF3ECF7A);
-  static const loss = Color(0xFFEF5757);
+  // ── Semántico ────────────────────────────────────────────────────────────
+  static const profit = Color(0xFF30D158);  // Apple green
+  static const loss = Color(0xFFFF453A);    // Apple red
 
-  // Charts
-  static const chartLine = Color(0xFF6E6EF7);
-  static const chartGrid = Color(0x0AFFFFFF); // ~4% white
-  static const benchmarkSp500 = Color(0xFF4E4E5A);
+  // ── Charts ───────────────────────────────────────────────────────────────
+  static const chartLine = Color(0xFF5E5CE6);
+  static const chartGrid = Color(0x0AFFFFFF);      // 4% white
+  static const benchmarkSp500 = Color(0xFF48484F);
 }

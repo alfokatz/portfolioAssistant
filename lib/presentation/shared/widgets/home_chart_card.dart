@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class HomeChartCard extends StatelessWidget {
@@ -12,7 +13,7 @@ class HomeChartCard extends StatelessWidget {
     this.title,
     required this.child,
     this.trailing,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(AppDimens.cardPadding),
   });
 
   @override
@@ -21,7 +22,7 @@ class HomeChartCard extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         border: Border.all(color: PortfolioColors.border),
       ),
       child: Padding(
@@ -37,16 +38,15 @@ class HomeChartCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title!,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
                               color: PortfolioColors.textSecondary,
-                              fontWeight: FontWeight.w500,
                             ),
                       ),
                     ),
                   if (trailing != null) trailing!,
                 ],
               ),
-            if (title != null || trailing != null) const SizedBox(height: 12),
+            if (title != null || trailing != null) const SizedBox(height: 14),
             child,
           ],
         ),

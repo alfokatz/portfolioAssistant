@@ -70,10 +70,8 @@ class _PositionDetailScreenState
     final colors = context.customColors;
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       appBar: AppBar(
         title: Text(widget.ticker),
-        backgroundColor: PortfolioColors.background,
       ),
       body:
           state.isLoading
@@ -153,10 +151,10 @@ class _SummaryCard extends StatelessWidget {
     final sign = pnl >= 0 ? '+' : '';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: PortfolioColors.border),
       ),
       child: Column(
@@ -224,6 +222,7 @@ class _SummaryRow extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: valueColor ?? PortfolioColors.textPrimary,
             fontWeight: FontWeight.w600,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -252,10 +251,10 @@ class _PurchaseLotCard extends StatelessWidget {
     final sign = pnl >= 0 ? '+' : '';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: PortfolioColors.border),
       ),
       child: Column(

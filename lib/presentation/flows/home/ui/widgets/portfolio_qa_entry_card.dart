@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class PortfolioQaEntryCard extends StatelessWidget {
@@ -13,30 +14,30 @@ class PortfolioQaEntryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Material(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
               border: Border.all(color: PortfolioColors.border),
             ),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppDimens.cardPadding),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: PortfolioColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0x145E5CE6),
+                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                   ),
                   child: const Icon(
-                    Icons.chat_bubble_outline,
-                    color: PortfolioColors.textSecondary,
-                    size: 22,
+                    Icons.chat_bubble_outline_rounded,
+                    color: PortfolioColors.accentBlue,
+                    size: AppDimens.iconMd,
                   ),
                 ),
                 const SizedBox(width: 14),

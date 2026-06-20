@@ -1,13 +1,10 @@
-// lib/src/theme/typography_provider.dart
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show Provider;
 
-/// 1️⃣ Font family providers (swap por tus propias fuentes)
-final titleFontFamilyProvider = Provider<String>((_) => 'FontFamilyTitle');
-final bodyFontFamilyProvider = Provider<String>((_) => 'Figtree');
+// Tabular figures para todos los números financieros
+const _tabular = [FontFeature.tabularFigures()];
 
-/// 2️⃣ Escalas tipográficas
 class FontWeights {
   static const extraBold = FontWeight.w800;
   static const bold = FontWeight.w700;
@@ -16,117 +13,130 @@ class FontWeights {
   static const regular = FontWeight.w400;
 }
 
-class FontSizes {
-  static const xxs = 12.0;
-  static const xs = 14.0;
-  static const sm = 16.0;
-  static const md = 18.0;
-  static const lg = 20.0;
-  static const xl = 22.0;
-  static const x2l = 24.0;
-  static const x3l = 32.0;
-}
-
-class LineHeights {
-  static const xxs = 16.0;
-  static const xs = 18.0;
-  static const sm = 20.0;
-  static const md = 22.0;
-  static const lg = 26.0;
-  static const xl = 30.0;
-  static const x2l = 32.0;
-  static const x3l = 40.0;
-}
-
-/// 3️⃣ TextTheme Provider (Material 3 + tu escala tipográfica)
 final textThemeProvider = Provider<TextTheme>((ref) {
-  final titleFont = ref.watch(titleFontFamilyProvider);
-  final bodyFont = ref.watch(bodyFontFamilyProvider);
-  // Dark-first app: use the white typographic baseline so default text
-  // (including input text) renders correctly on dark surfaces.
+  // Base oscuro — texto blanco por defecto para superficies dark
   final base = Typography.material2021().white;
+  // Aplicar Plus Jakarta Sans a todo el sistema tipográfico
+  final j = GoogleFonts.plusJakartaSansTextTheme(base);
 
-  return base.copyWith(
-    // Display (títulos grandes)
-    displayLarge: base.displayLarge?.copyWith(
-      fontFamily: titleFont,
+  return j.copyWith(
+    // ── Display ─────────────────────────────────────────────────────────
+    // displayLarge: valor del portfolio (44px hero)
+    displayLarge: GoogleFonts.plusJakartaSans(
+      textStyle: j.displayLarge,
+      fontWeight: FontWeights.bold,
+      fontSize: 44,
+      letterSpacing: -1.5,
+      height: 1.0,
+      fontFeatures: _tabular,
+    ),
+    displayMedium: GoogleFonts.plusJakartaSans(
+      textStyle: j.displayMedium,
+      fontWeight: FontWeights.bold,
+      fontSize: 34,
+      letterSpacing: -1.0,
+      height: 1.05,
+      fontFeatures: _tabular,
+    ),
+    displaySmall: GoogleFonts.plusJakartaSans(
+      textStyle: j.displaySmall,
       fontWeight: FontWeights.semiBold,
-      fontSize: FontSizes.x3l,
-      height: LineHeights.x3l / FontSizes.x3l,
+      fontSize: 26,
+      letterSpacing: -0.5,
+      height: 1.1,
+      fontFeatures: _tabular,
     ),
 
-    displayMedium: base.displayMedium?.copyWith(
-      fontFamily: titleFont,
+    // ── Headlines (sección headers) ────────────────────────────────────
+    headlineLarge: GoogleFonts.plusJakartaSans(
+      textStyle: j.headlineLarge,
       fontWeight: FontWeights.semiBold,
-      fontSize: FontSizes.x2l,
-      height: LineHeights.x2l / FontSizes.x2l,
+      fontSize: 20,
+      letterSpacing: -0.3,
+      height: 1.2,
     ),
-
-    displaySmall: base.displaySmall?.copyWith(
-      fontFamily: titleFont,
+    headlineMedium: GoogleFonts.plusJakartaSans(
+      textStyle: j.headlineMedium,
       fontWeight: FontWeights.semiBold,
-      fontSize: FontSizes.xl,
-      height: LineHeights.xl / FontSizes.xl,
+      fontSize: 17,
+      letterSpacing: -0.2,
+      height: 1.25,
+    ),
+    headlineSmall: GoogleFonts.plusJakartaSans(
+      textStyle: j.headlineSmall,
+      fontWeight: FontWeights.semiBold,
+      fontSize: 15,
+      letterSpacing: -0.1,
+      height: 1.3,
     ),
 
-    // Headline (encabezados)
-    headlineLarge: base.headlineLarge?.copyWith(
-      fontFamily: titleFont,
-      fontWeight: FontWeights.medium,
-      fontSize: FontSizes.lg,
-      height: LineHeights.lg / FontSizes.lg,
+    // ── Títulos (app bar, card titles) ────────────────────────────────
+    titleLarge: GoogleFonts.plusJakartaSans(
+      textStyle: j.titleLarge,
+      fontWeight: FontWeights.semiBold,
+      fontSize: 20,
+      letterSpacing: -0.2,
+      height: 1.2,
     ),
-    headlineMedium: base.headlineMedium?.copyWith(
-      fontFamily: titleFont,
+    titleMedium: GoogleFonts.plusJakartaSans(
+      textStyle: j.titleMedium,
       fontWeight: FontWeights.medium,
-      fontSize: FontSizes.md,
-      height: LineHeights.md / FontSizes.md,
+      fontSize: 16,
+      letterSpacing: -0.1,
+      height: 1.3,
     ),
-    headlineSmall: base.headlineSmall?.copyWith(
-      fontFamily: titleFont,
-      fontWeight: FontWeights.medium,
-      fontSize: FontSizes.sm,
-      height: LineHeights.sm / FontSizes.sm,
+    titleSmall: GoogleFonts.plusJakartaSans(
+      textStyle: j.titleSmall,
+      fontWeight: FontWeights.semiBold,
+      fontSize: 14,
+      letterSpacing: 0,
+      height: 1.3,
     ),
 
-    // Body (texto de párrafo)
-    bodyLarge: base.bodyLarge?.copyWith(
-      fontFamily: bodyFont,
+    // ── Body (párrafos, subtítulos) ───────────────────────────────────
+    bodyLarge: GoogleFonts.plusJakartaSans(
+      textStyle: j.bodyLarge,
       fontWeight: FontWeights.regular,
-      fontSize: FontSizes.sm,
-      height: LineHeights.sm / FontSizes.sm,
+      fontSize: 16,
+      letterSpacing: 0,
+      height: 1.55,
     ),
-    bodyMedium: base.bodyMedium?.copyWith(
-      fontFamily: bodyFont,
+    bodyMedium: GoogleFonts.plusJakartaSans(
+      textStyle: j.bodyMedium,
       fontWeight: FontWeights.regular,
-      fontSize: FontSizes.xs,
-      height: LineHeights.xs / FontSizes.xs,
+      fontSize: 14,
+      letterSpacing: 0,
+      height: 1.5,
     ),
-    bodySmall: base.bodySmall?.copyWith(
-      fontFamily: bodyFont,
+    bodySmall: GoogleFonts.plusJakartaSans(
+      textStyle: j.bodySmall,
       fontWeight: FontWeights.regular,
-      fontSize: FontSizes.xxs,
-      height: LineHeights.xxs / FontSizes.xxs,
+      fontSize: 12,
+      letterSpacing: 0,
+      height: 1.45,
     ),
 
-    // Label (botones y anotaciones)
-    labelLarge: base.labelLarge?.copyWith(
-      fontFamily: bodyFont,
+    // ── Labels (badges, anotaciones, botones) ─────────────────────────
+    labelLarge: GoogleFonts.plusJakartaSans(
+      textStyle: j.labelLarge,
       fontWeight: FontWeights.medium,
-      fontSize: FontSizes.xs,
-      height: LineHeights.xs / FontSizes.xs,
+      fontSize: 13,
+      letterSpacing: 0.1,
+      height: 1.3,
     ),
-    labelMedium: base.labelMedium?.copyWith(
-      fontFamily: bodyFont,
+    labelMedium: GoogleFonts.plusJakartaSans(
+      textStyle: j.labelMedium,
       fontWeight: FontWeights.medium,
-      fontSize: FontSizes.xxs,
-      height: LineHeights.xxs / FontSizes.xxs,
+      fontSize: 11,
+      letterSpacing: 0.2,
+      height: 1.3,
     ),
-    labelSmall: base.labelSmall?.copyWith(
-      fontFamily: bodyFont,
+    labelSmall: GoogleFonts.plusJakartaSans(
+      textStyle: j.labelSmall,
       fontWeight: FontWeights.medium,
-      fontSize: FontSizes.xxs,
-      height: LineHeights.xxs / FontSizes.xxs,
+      fontSize: 10,
+      letterSpacing: 0.4,
+      height: 1.3,
     ),
   );
 });

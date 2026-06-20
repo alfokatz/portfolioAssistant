@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class AiUsageIndicator extends ConsumerWidget {
@@ -12,7 +13,12 @@ class AiUsageIndicator extends ConsumerWidget {
     final subscription = ref.watch(subscriptionProvider);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.pageHorizontal,
+        0,
+        AppDimens.pageHorizontal,
+        AppDimens.sp4,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(

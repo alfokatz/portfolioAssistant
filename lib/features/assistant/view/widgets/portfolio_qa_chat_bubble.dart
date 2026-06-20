@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class PortfolioQaChatBubble extends StatelessWidget {
@@ -18,10 +19,10 @@ class PortfolioQaChatBubble extends StatelessWidget {
         ? PortfolioColors.surfaceElevated
         : PortfolioColors.surfaceCard;
     final radius = BorderRadius.only(
-      topLeft: const Radius.circular(12),
-      topRight: const Radius.circular(12),
-      bottomLeft: Radius.circular(isUser ? 12 : 3),
-      bottomRight: Radius.circular(isUser ? 3 : 12),
+      topLeft: const Radius.circular(AppDimens.radiusLg),
+      topRight: const Radius.circular(AppDimens.radiusLg),
+      bottomLeft: Radius.circular(isUser ? AppDimens.radiusLg : 4),
+      bottomRight: Radius.circular(isUser ? 4 : AppDimens.radiusLg),
     );
 
     return Align(
@@ -31,17 +32,22 @@ class PortfolioQaChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.sizeOf(context).width * 0.85,
         ),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          margin: const EdgeInsets.only(bottom: AppDimens.sp12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: AppDimens.sp12,
+          ),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: radius,
-            border: Border.all(color: PortfolioColors.border),
+            // User bubbles: no border — surface lift is sufficient distinction.
+            // AI bubbles: border marks received content.
+            border: isUser ? null : Border.all(color: PortfolioColors.border),
           ),
           child: message.isStreaming && message.content.isEmpty
               ? const SizedBox(
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: PortfolioColors.accentBlue,
@@ -49,11 +55,10 @@ class PortfolioQaChatBubble extends StatelessWidget {
                 )
               : SelectableText(
                   message.content,
-                  style: const TextStyle(
-                    color: PortfolioColors.textPrimary,
-                    fontSize: 15,
-                    height: 1.4,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: PortfolioColors.textPrimary,
+                        height: 1.5,
+                      ),
                 ),
         ),
       ),

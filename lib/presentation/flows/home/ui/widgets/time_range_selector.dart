@@ -20,29 +20,21 @@ class TimeRangeSelector extends StatelessWidget {
         children: ChartTimeRange.values.map((range) {
           final isActive = range == selected;
           return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Material(
-                color: isActive
-                    ? PortfolioColors.accentBlue
-                    : PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => onSelected(range),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    alignment: Alignment.center,
-                    child: Text(
-                      range.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? PortfolioColors.textPrimary
-                            : PortfolioColors.textSecondary,
-                      ),
-                    ),
+            child: GestureDetector(
+              onTap: () => onSelected(range),
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                height: 44,
+                child: Center(
+                  child: Text(
+                    range.label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isActive
+                              ? PortfolioColors.textPrimary
+                              : PortfolioColors.textSecondary,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
+                        ),
                   ),
                 ),
               ),

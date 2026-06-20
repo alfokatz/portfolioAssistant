@@ -99,7 +99,6 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     final authNotifier = ref.read(authControllerProvider.notifier);
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       body: AuthWarmBackground(
         child: SafeArea(
           child: LayoutBuilder(
@@ -268,12 +267,9 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                           },
                                   style: TextButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 4,
+                                      horizontal: AppDimens.sp8,
+                                      vertical: AppDimens.sp8,
                                     ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: Text(
                                     'auth_forgot_password'.tr(),

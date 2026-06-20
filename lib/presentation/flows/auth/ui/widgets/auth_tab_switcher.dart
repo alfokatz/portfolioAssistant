@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Segment control para alternar entre inicio de sesión y registro.
@@ -79,16 +80,7 @@ class _TabSegment extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isActive ? PortfolioColors.accentBlue : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: PortfolioColors.accentBlue.withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
           ),
           child: Text(
             label,

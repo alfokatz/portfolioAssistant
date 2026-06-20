@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show Provider;
 import 'package:portfolio_assistant/presentation/base/theme/color_schema.dart'
     show colorSchemeProvider;
@@ -29,21 +30,20 @@ class CustomTextStyles extends ThemeExtension<CustomTextStyles> {
 }
 
 final customTextProvider = Provider<CustomTextStyles>((ref) {
+  final scheme = ref.watch(colorSchemeProvider);
   return CustomTextStyles(
-    badge: TextStyle(
-      fontFamily: 'Figtree',
+    badge: GoogleFonts.plusJakartaSans(
       fontSize: 10,
       fontWeight: FontWeight.w600,
-      height: 12 / 10,
-      letterSpacing: 1.2,
-      color: ref.watch(colorSchemeProvider).onPrimary,
+      height: 1.2,
+      letterSpacing: 0.6,
+      color: scheme.onPrimary,
     ),
-    link: TextStyle(
-      fontFamily: 'Figtree',
+    link: GoogleFonts.plusJakartaSans(
       fontSize: 14,
       fontWeight: FontWeight.w500,
       decoration: TextDecoration.underline,
-      color: ref.watch(colorSchemeProvider).primary,
+      color: scheme.primary,
     ),
   );
 });

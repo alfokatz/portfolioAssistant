@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_shortcuts_section.dart';
@@ -87,7 +88,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
         : valuations.take(5).toList(growable: false);
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       floatingActionButton: Material(
         color: PortfolioColors.textPrimary,
         borderRadius: BorderRadius.circular(14),
@@ -123,18 +123,26 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     HomeAppBar(onSettings: notifier.openSettings),
                     if (state.quoteError != null)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppDimens.pageHorizontal,
+                          0,
+                          AppDimens.pageHorizontal,
+                          AppDimens.sp8,
+                        ),
                         child: Material(
                           color: PortfolioColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusLg),
                           child: ListTile(
                             dense: true,
                             title: Text(
                               state.quoteError!,
-                              style: const TextStyle(
-                                color: PortfolioColors.textSecondary,
-                                fontSize: 13,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: PortfolioColors.textSecondary,
+                                  ),
                             ),
                             trailing: TextButton(
                               onPressed: notifier.refresh,

@@ -45,10 +45,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final current = context.locale;
     final selected = await showModalBottomSheet<Locale>(
       context: context,
-      backgroundColor: PortfolioColors.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -89,10 +85,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   }) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: PortfolioColors.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
@@ -138,7 +130,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: PortfolioColors.surfaceCard,
         title: Text('settings_change_password'.tr()),
         content: Text('settings_change_password_message'.tr()),
         actions: [
@@ -176,7 +167,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: PortfolioColors.surfaceCard,
         title: Text('settings_delete_account'.tr()),
         content: Text('settings_delete_account_message'.tr()),
         actions: [
@@ -225,12 +215,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
         : 'settings_profile_name_placeholder'.tr();
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
       appBar: AppBar(
         title: Text('settings_title'.tr()),
-        backgroundColor: PortfolioColors.background,
-        foregroundColor: PortfolioColors.textPrimary,
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -374,9 +360,9 @@ class _LanguageOption extends StatelessWidget {
     return ListTile(
       title: Text(
         label,
-        style: TextStyle(
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           color: PortfolioColors.textPrimary,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
       trailing: isSelected
