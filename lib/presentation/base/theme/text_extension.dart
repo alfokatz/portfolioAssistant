@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show Provider;
 import 'package:portfolio_assistant/presentation/base/theme/color_schema.dart'
     show colorSchemeProvider;
@@ -31,14 +32,14 @@ class CustomTextStyles extends ThemeExtension<CustomTextStyles> {
 final customTextProvider = Provider<CustomTextStyles>((ref) {
   final scheme = ref.watch(colorSchemeProvider);
   return CustomTextStyles(
-    badge: TextStyle(
+    badge: GoogleFonts.plusJakartaSans(
       fontSize: 10,
       fontWeight: FontWeight.w600,
       height: 1.2,
       letterSpacing: 0.6,
       color: scheme.onPrimary,
     ),
-    link: TextStyle(
+    link: GoogleFonts.plusJakartaSans(
       fontSize: 14,
       fontWeight: FontWeight.w500,
       decoration: TextDecoration.underline,

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
     show
         AndroidOptions,
@@ -24,6 +25,7 @@ const _dotenvBaseFolder = 'assets/env/';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
   final revenueCatService = await RevenueCatInitializer.initialize();
