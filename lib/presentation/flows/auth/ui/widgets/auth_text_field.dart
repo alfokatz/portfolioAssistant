@@ -51,7 +51,7 @@ class AuthTextField extends StatelessWidget {
               color: PortfolioColors.textSecondary,
             ),
         filled: true,
-        fillColor: PortfolioColors.surfaceElevated,
+        fillColor: PortfolioColors.surfaceCard,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,

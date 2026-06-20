@@ -31,7 +31,7 @@ class PortfolioQaEntryCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0x145E5CE6),
+                    color: PortfolioColors.surfaceElevated,
                     borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                   ),
                   child: const Icon(

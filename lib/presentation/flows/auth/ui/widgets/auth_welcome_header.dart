@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class AuthWelcomeHeader extends StatelessWidget {
@@ -10,62 +9,59 @@ class AuthWelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtitle = isSignUpMode
-        ? 'auth_subtitle_sign_up'.tr()
-        : 'auth_subtitle_sign_in'.tr();
+    final tt = Theme.of(context).textTheme;
+    final headline = isSignUpMode
+        ? 'auth_headline_signup'.tr()
+        : 'auth_headline_signin'.tr();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: PortfolioColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-            border: Border.all(color: PortfolioColors.border),
-          ),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: PortfolioColors.accentBlue,
-            size: AppDimens.iconLg,
-          ),
-        ),
-        const SizedBox(height: AppDimens.sp20),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: 'Portfolio',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  color: PortfolioColors.textPrimary,
-                ),
+        // Wordmark — pequeño, anchored al top
+        Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: PortfolioColors.textPrimary,
+                borderRadius: BorderRadius.circular(6),
               ),
-              TextSpan(
-                text: 'AI',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  color: PortfolioColors.accentBlue,
-                ),
+              child: const Icon(
+                Icons.show_chart_rounded,
+                color: PortfolioColors.background,
+                size: 16,
               ),
-            ],
-          ),
-          textAlign: TextAlign.center,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'app_name'.tr(),
+              style: tt.labelLarge?.copyWith(
+                color: PortfolioColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: AppDimens.sp8),
+        const SizedBox(height: 36),
+        // Headline editorial — el elemento que más pesa visualmente
         Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: PortfolioColors.textPrimary.withValues(alpha: 0.8),
+          headline,
+          style: tt.displayMedium?.copyWith(
+            color: PortfolioColors.textPrimary,
+            fontSize: 40,
+            height: 1.05,
+            letterSpacing: -1.5,
           ),
-          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: AppDimens.sp4),
+        const SizedBox(height: 8),
         Text(
-          'auth_tagline'.tr(),
-          style: theme.textTheme.bodyMedium?.copyWith(
+          'auth_subheadline'.tr(),
+          style: tt.bodyLarge?.copyWith(
             color: PortfolioColors.textSecondary,
+            height: 1.45,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );

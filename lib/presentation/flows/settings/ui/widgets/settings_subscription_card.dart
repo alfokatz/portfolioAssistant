@@ -125,7 +125,7 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                                 .textTheme
                                 .titleSmall
                                 ?.copyWith(
-                                  color: PortfolioColors.textPrimary,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),

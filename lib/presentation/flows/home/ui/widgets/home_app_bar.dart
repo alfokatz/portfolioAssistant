@@ -15,17 +15,16 @@ class HomeAppBar extends StatelessWidget {
         children: [
           Text(
             'app_name'.tr(),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: PortfolioColors.textPrimary,
-                  letterSpacing: -0.3,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: PortfolioColors.textSecondary,
+                  letterSpacing: -0.1,
                 ),
           ),
           const Spacer(),
           IconButton(
             onPressed: onSettings,
             icon: const Icon(
-              Icons.settings_outlined,
+              Icons.person_outline_rounded,
               color: PortfolioColors.textSecondary,
             ),
           ),

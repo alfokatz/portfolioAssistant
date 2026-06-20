@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
-/// Segment control para alternar entre inicio de sesión y registro.
 class AuthTabSwitcher extends StatelessWidget {
   const AuthTabSwitcher({
     super.key,
@@ -21,43 +19,28 @@ class AuthTabSwitcher extends StatelessWidget {
   final String signUpLabel;
   final bool enabled;
 
-  static const _radius = 16.0;
-  static const _height = 48.0;
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: _height,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(color: PortfolioColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _TabSegment(
-              label: signInLabel,
-              isActive: !isSignUpMode,
-              onTap: enabled ? onSignInTap : null,
-            ),
-          ),
-          Expanded(
-            child: _TabSegment(
-              label: signUpLabel,
-              isActive: isSignUpMode,
-              onTap: enabled ? onSignUpTap : null,
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        _FlatTab(
+          label: signInLabel,
+          isActive: !isSignUpMode,
+          onTap: enabled ? onSignInTap : null,
+        ),
+        const SizedBox(width: 24),
+        _FlatTab(
+          label: signUpLabel,
+          isActive: isSignUpMode,
+          onTap: enabled ? onSignUpTap : null,
+        ),
+      ],
     );
   }
 }
 
-class _TabSegment extends StatelessWidget {
-  const _TabSegment({
+class _FlatTab extends StatelessWidget {
+  const _FlatTab({
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -69,29 +52,29 @@ class _TabSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isActive ? PortfolioColors.accentBlue : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+    final style = Theme.of(context).textTheme.titleSmall?.copyWith(
+      color: isActive ? PortfolioColors.textPrimary : PortfolioColors.textSecondary,
+      fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(label, style: style),
+          const SizedBox(height: 5),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            height: 2,
+            color: isActive ? PortfolioColors.textPrimary : Colors.transparent,
           ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: isActive
-                      ? PortfolioColors.textPrimary
-                      : PortfolioColors.textSecondary,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                ),
-          ),
-        ),
+          const SizedBox(height: 4),
+        ],
       ),
     );
   }

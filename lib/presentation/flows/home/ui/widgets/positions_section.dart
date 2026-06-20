@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
-import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/section_header.dart';
@@ -50,57 +49,44 @@ class PositionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SectionHeader(
             title: 'positions_my'.tr(),
             actionLabel: actionLabel,
             onAction: onAction,
           ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: PortfolioColors.surfaceCard,
-              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-              border: Border.all(color: PortfolioColors.border),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: valuations.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(AppDimens.sp24),
-                    child: Center(
-                      child: Text(
-                        'positions_empty'.tr(),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: PortfolioColors.textSecondary),
-                      ),
+        ),
+        const SizedBox(height: 4),
+        if (valuations.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Center(
+              child: Text(
+                'positions_empty'.tr(),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: PortfolioColors.textSecondary,
                     ),
-                  )
-                : Column(
-                    children: [
-                      for (var i = 0; i < valuations.length; i++) ...[
-                        _PositionDismissibleRow(
-                          valuation: valuations[i],
-                          onPositionTap: onPositionTap,
-                          onDeletePosition: onDeletePosition,
-                          confirmDelete: (ticker) =>
-                              _confirmDelete(context, ticker),
-                        ),
-                        if (i < valuations.length - 1)
-                          const Divider(height: 1, indent: 16, endIndent: 16),
-                      ],
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
+              ),
+            ),
+          )
+        else
+          for (var i = 0; i < valuations.length; i++) ...[
+            _PositionDismissibleRow(
+              valuation: valuations[i],
+              onPositionTap: onPositionTap,
+              onDeletePosition: onDeletePosition,
+              confirmDelete: (ticker) => _confirmDelete(context, ticker),
+            ),
+            if (i < valuations.length - 1)
+              const Divider(height: 1, indent: 20, endIndent: 20),
+          ],
+        const SizedBox(height: 20),
+      ],
     );
   }
 }
@@ -122,9 +108,7 @@ class _PositionDismissibleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = PositionRowWidget(
       valuation: valuation,
-      onDetailTap: onPositionTap == null
-          ? null
-          : () => onPositionTap!(valuation),
+      onDetailTap: onPositionTap == null ? null : () => onPositionTap!(valuation),
     );
 
     if (onDeletePosition == null) return row;
@@ -133,8 +117,7 @@ class _PositionDismissibleRow extends StatelessWidget {
       key: ValueKey(valuation.position.ticker),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        final confirmed =
-            await confirmDelete(valuation.position.ticker);
+        final confirmed = await confirmDelete(valuation.position.ticker);
         if (!confirmed) return false;
         return onDeletePosition!(valuation);
       },
@@ -144,7 +127,7 @@ class _PositionDismissibleRow extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(
           Icons.delete_outline,
-          color: PortfolioColors.textPrimary,
+          color: Colors.white,
         ),
       ),
       child: row,

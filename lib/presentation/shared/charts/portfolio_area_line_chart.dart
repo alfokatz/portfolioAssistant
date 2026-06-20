@@ -62,7 +62,7 @@ class PortfolioAreaLineChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  lineColor.withValues(alpha: 0.35),
+                  lineColor.withValues(alpha: 0.08),
                   lineColor.withValues(alpha: 0.02),
                 ],
               ),

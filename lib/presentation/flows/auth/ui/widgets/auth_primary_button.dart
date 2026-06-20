@@ -24,10 +24,10 @@ class AuthPrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: PortfolioColors.accentBlue,
+          backgroundColor: PortfolioColors.textPrimary,
           disabledBackgroundColor:
-              PortfolioColors.accentBlue.withValues(alpha: 0.4),
-          foregroundColor: PortfolioColors.textPrimary,
+              PortfolioColors.textPrimary.withValues(alpha: 0.35),
+          foregroundColor: PortfolioColors.surfaceCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppDimens.radiusLg),
           ),
@@ -39,13 +39,13 @@ class AuthPrimaryButton extends StatelessWidget {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: PortfolioColors.textPrimary,
+                  color: PortfolioColors.surfaceCard,
                 ),
               )
             : Text(
                 label,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PortfolioColors.textPrimary,
+                      color: PortfolioColors.surfaceCard,
                       fontWeight: FontWeight.w600,
                     ),
               ),

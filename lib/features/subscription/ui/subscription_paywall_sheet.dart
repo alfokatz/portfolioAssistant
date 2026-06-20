@@ -327,7 +327,9 @@ class _PlanCard extends StatelessWidget {
                                   .textTheme
                                   .labelLarge
                                   ?.copyWith(
-                                    color: PortfolioColors.textPrimary,
+                                    color: highlighted
+                                        ? Colors.white
+                                        : PortfolioColors.textPrimary,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),

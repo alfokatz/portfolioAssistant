@@ -90,10 +90,10 @@ class MyApp extends HookConsumerWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      title: 'title'.tr(),
+      title: 'app_name'.tr(),
       theme: theme,
       darkTheme: theme,
-      themeMode: ThemeMode.dark,
+      themeMode: ThemeMode.light,
     );
   }
 }

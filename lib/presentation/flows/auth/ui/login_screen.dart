@@ -101,244 +101,206 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     return Scaffold(
       body: AuthWarmBackground(
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: AppDimens.mediumMargin,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: AppDimens.mediumMargin,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 32),
+                AuthWelcomeHeader(isSignUpMode: isSignUp),
+                const SizedBox(height: 40),
+                Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: AuthFormCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Spacer(flex: 1),
-                        AuthWelcomeHeader(isSignUpMode: isSignUp),
-                        const SizedBox(height: 32),
-                        Form(
-                          key: _formKey,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          child: AuthFormCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                            AuthTabSwitcher(
-                              isSignUpMode: isSignUp,
-                              signInLabel: 'auth_sign_in'.tr(),
-                              signUpLabel: 'auth_sign_up_tab'.tr(),
-                              enabled: !isLoading,
-                              onSignInTap:
-                                  ref
-                                      .read(authControllerProvider.notifier)
-                                      .setSignInMode,
-                              onSignUpTap:
-                                  ref
-                                      .read(authControllerProvider.notifier)
-                                      .setSignUpMode,
+                        AuthTabSwitcher(
+                          isSignUpMode: isSignUp,
+                          signInLabel: 'auth_sign_in'.tr(),
+                          signUpLabel: 'auth_sign_up_tab'.tr(),
+                          enabled: !isLoading,
+                          onSignInTap: authNotifier.setSignInMode,
+                          onSignUpTap: authNotifier.setSignUpMode,
+                        ),
+                        const SizedBox(height: AppDimens.mediumMargin),
+                        if (isSignUp) ...[
+                          AuthTextField(
+                            controller: _fullNameController,
+                            keyboardType: TextInputType.name,
+                            textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            hintText: 'auth_full_name_placeholder'.tr(),
+                            prefixIcon: Icons.person_outline_rounded,
+                            validator: (value) {
+                              if ((value?.trim() ?? '').isEmpty) {
+                                return 'auth_full_name_required'.tr();
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        AuthTextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          hintText: isSignUp
+                              ? 'auth_email_placeholder_sign_up'.tr()
+                              : 'auth_email_placeholder'.tr(),
+                          prefixIcon: Icons.mail_outline_rounded,
+                          validator: (value) {
+                            final email = value?.trim() ?? '';
+                            if (email.isEmpty) {
+                              return 'auth_email_required'.tr();
+                            }
+                            if (!email.contains('@')) {
+                              return 'auth_email_invalid'.tr();
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        AuthTextField(
+                          controller: _passwordController,
+                          obscureText: authState.obscurePassword,
+                          textInputAction: isSignUp
+                              ? TextInputAction.next
+                              : TextInputAction.done,
+                          onFieldSubmitted:
+                              isSignUp ? null : (_) => _submitForm(),
+                          hintText: isSignUp
+                              ? 'auth_password_placeholder'.tr()
+                              : '••••••••',
+                          prefixIcon: Icons.lock_outline_rounded,
+                          suffixIcon: _passwordVisibilityToggle(
+                            obscure: authState.obscurePassword,
+                            onToggle: authNotifier.toggleObscurePassword,
+                          ),
+                          validator: (value) {
+                            final password = value ?? '';
+                            if (password.isEmpty) {
+                              return 'auth_password_required'.tr();
+                            }
+                            if (password.length < 6) {
+                              return 'auth_password_min_length'.tr();
+                            }
+                            return null;
+                          },
+                        ),
+                        if (isSignUp)
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _passwordController,
+                            builder: (context, value, _) {
+                              return AuthPasswordStrengthIndicator(
+                                password: value.text,
+                              );
+                            },
+                          ),
+                        if (isSignUp) ...[
+                          const SizedBox(height: 12),
+                          AuthTextField(
+                            controller: _confirmPasswordController,
+                            obscureText: authState.obscureConfirmPassword,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _submitForm(),
+                            hintText:
+                                'auth_confirm_password_placeholder'.tr(),
+                            prefixIcon: Icons.lock_reset_rounded,
+                            suffixIcon: _passwordVisibilityToggle(
+                              obscure: authState.obscureConfirmPassword,
+                              onToggle: authNotifier.toggleObscureConfirmPassword,
                             ),
-                            const SizedBox(height: AppDimens.mediumMargin),
-                            if (isSignUp) ...[
-                              AuthTextField(
-                                controller: _fullNameController,
-                                keyboardType: TextInputType.name,
-                                textInputAction: TextInputAction.next,
-                                autocorrect: false,
-                                hintText: 'auth_full_name_placeholder'.tr(),
-                                prefixIcon: Icons.person_outline_rounded,
-                                validator: (value) {
-                                  if ((value?.trim() ?? '').isEmpty) {
-                                    return 'auth_full_name_required'.tr();
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            AuthTextField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              autocorrect: false,
-                              hintText:
-                                  isSignUp
-                                      ? 'auth_email_placeholder_sign_up'.tr()
-                                      : 'auth_email_placeholder'.tr(),
-                              prefixIcon: Icons.mail_outline_rounded,
-                              validator: (value) {
-                                final email = value?.trim() ?? '';
-                                if (email.isEmpty) {
-                                  return 'auth_email_required'.tr();
-                                }
-                                if (!email.contains('@')) {
-                                  return 'auth_email_invalid'.tr();
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AuthTextField(
-                              controller: _passwordController,
-                              obscureText: authState.obscurePassword,
-                              textInputAction:
-                                  isSignUp
-                                      ? TextInputAction.next
-                                      : TextInputAction.done,
-                              onFieldSubmitted:
-                                  isSignUp ? null : (_) => _submitForm(),
-                              hintText:
-                                  isSignUp
-                                      ? 'auth_password_placeholder'.tr()
-                                      : '••••••••',
-                              prefixIcon: Icons.lock_outline_rounded,
-                              suffixIcon: _passwordVisibilityToggle(
-                                obscure: authState.obscurePassword,
-                                onToggle: authNotifier.toggleObscurePassword,
-                              ),
-                              validator: (value) {
-                                final password = value ?? '';
-                                if (password.isEmpty) {
-                                  return 'auth_password_required'.tr();
-                                }
-                                if (password.length < 6) {
-                                  return 'auth_password_min_length'.tr();
-                                }
-                                return null;
-                              },
-                            ),
-                            if (isSignUp)
-                              ValueListenableBuilder<TextEditingValue>(
-                                valueListenable: _passwordController,
-                                builder: (context, value, _) {
-                                  return AuthPasswordStrengthIndicator(
-                                    password: value.text,
-                                  );
-                                },
-                              ),
-                            if (isSignUp) ...[
-                              const SizedBox(height: 12),
-                              AuthTextField(
-                                controller: _confirmPasswordController,
-                                obscureText: authState.obscureConfirmPassword,
-                                textInputAction: TextInputAction.done,
-                                onFieldSubmitted: (_) => _submitForm(),
-                                hintText:
-                                    'auth_confirm_password_placeholder'.tr(),
-                                prefixIcon: Icons.lock_reset_rounded,
-                                suffixIcon: _passwordVisibilityToggle(
-                                  obscure: authState.obscureConfirmPassword,
-                                  onToggle:
-                                      authNotifier.toggleObscureConfirmPassword,
-                                ),
-                                validator: (value) {
-                                  final confirm = value ?? '';
-                                  if (confirm.isEmpty) {
-                                    return 'auth_confirm_password_required'
-                                        .tr();
-                                  }
-                                  if (confirm != _passwordController.text) {
-                                    return 'auth_password_mismatch'.tr();
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: AppDimens.mediumMargin),
-                              const AuthTermsDisclaimer(),
-                            ],
-                            if (!isSignUp) ...[
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed:
-                                      isLoading
-                                          ? null
-                                          : () async {
-                                            await ref
-                                                .read(
-                                                  authControllerProvider
-                                                      .notifier,
-                                                )
-                                                .requestPasswordReset(
-                                                  email: _emailController.text,
-                                                );
-                                          },
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppDimens.sp8,
-                                      vertical: AppDimens.sp8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'auth_forgot_password'.tr(),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: PortfolioColors.accentBlue,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                            validator: (value) {
+                              final confirm = value ?? '';
+                              if (confirm.isEmpty) {
+                                return 'auth_confirm_password_required'.tr();
+                              }
+                              if (confirm != _passwordController.text) {
+                                return 'auth_password_mismatch'.tr();
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: AppDimens.mediumMargin),
+                          const AuthTermsDisclaimer(),
+                        ],
+                        if (!isSignUp) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : () async {
+                                      await authNotifier.requestPasswordReset(
+                                        email: _emailController.text,
+                                      );
+                                    },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppDimens.sp8,
+                                  vertical: AppDimens.sp8,
                                 ),
                               ),
-                            ],
-                            const SizedBox(height: AppDimens.mediumMargin),
-                            AuthPrimaryButton(
-                              label:
-                                  isSignUp
-                                      ? 'auth_sign_up'.tr()
-                                      : 'auth_sign_in'.tr(),
-                              isLoading: isLoading,
-                              onPressed:
-                                  isLoading ? null : _onPrimaryButtonPressed,
-                            ),
-                            const SizedBox(height: AppDimens.mediumMargin),
-                            AuthOauthDivider(label: 'auth_oauth_divider'.tr()),
-                            const SizedBox(height: AppDimens.mediumMargin),
-                                SocialSignInButton(
-                                  label: 'auth_continue_google'.tr(),
-                                  icon: AppImages.googleIcon(
-                                    width: 22,
-                                    height: 22,
-                                  ),
-                                  onPressed:
-                                      isLoading
-                                          ? null
-                                          : ref
-                                              .read(
-                                                authControllerProvider.notifier,
-                                              )
-                                              .submitGoogleSignIn,
+                              child: Text(
+                                'auth_forgot_password'.tr(),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: PortfolioColors.accentBlue,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                        const Spacer(flex: 2),
-                        const AuthFooterDecoration(),
+                        ],
                         const SizedBox(height: AppDimens.mediumMargin),
-                        AuthFooterLink(
-                          prefix:
-                              isSignUp
-                                  ? 'auth_footer_has_account'.tr()
-                                  : 'auth_footer_no_account'.tr(),
-                          actionLabel:
-                              isSignUp
-                                  ? 'auth_footer_sign_in'.tr()
-                                  : 'auth_footer_register'.tr(),
-                          enabled: !isLoading,
-                          onActionTap:
-                              () =>
-                                  ref
-                                      .read(authControllerProvider.notifier)
-                                      .toggleMode(),
+                        AuthPrimaryButton(
+                          label: isSignUp
+                              ? 'auth_sign_up'.tr()
+                              : 'auth_sign_in'.tr(),
+                          isLoading: isLoading,
+                          onPressed:
+                              isLoading ? null : _onPrimaryButtonPressed,
                         ),
-                        const SizedBox(height: AppDimens.smallMargin),
+                        const SizedBox(height: AppDimens.mediumMargin),
+                        AuthOauthDivider(label: 'auth_oauth_divider'.tr()),
+                        const SizedBox(height: AppDimens.mediumMargin),
+                        SocialSignInButton(
+                          label: 'auth_continue_google'.tr(),
+                          icon: AppImages.googleIcon(
+                            width: 22,
+                            height: 22,
+                          ),
+                          onPressed: isLoading
+                              ? null
+                              : authNotifier.submitGoogleSignIn,
+                        ),
                       ],
                     ),
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 32),
+                const AuthFooterDecoration(),
+                const SizedBox(height: AppDimens.mediumMargin),
+                AuthFooterLink(
+                  prefix: isSignUp
+                      ? 'auth_footer_has_account'.tr()
+                      : 'auth_footer_no_account'.tr(),
+                  actionLabel: isSignUp
+                      ? 'auth_footer_sign_in'.tr()
+                      : 'auth_footer_register'.tr(),
+                  enabled: !isLoading,
+                  onActionTap: authNotifier.toggleMode,
+                ),
+                const SizedBox(height: AppDimens.smallMargin),
+              ],
+            ),
           ),
         ),
       ),
