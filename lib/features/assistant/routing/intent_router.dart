@@ -7,6 +7,24 @@ class ModeSuggestion {
 }
 
 abstract final class IntentRouter {
+  // Invertir y Planificar viven en una sola pestaña (ver AssistantProvider),
+  // así que comparten el mismo set de keywords tanto para sugerir el cambio
+  // desde otra pestaña como para elegir el motor interno (resolveInvestPlanEngine).
+  static const _investKeywords = [
+    'invertir',
+    'invert',
+    'comprar',
+    'presupuesto',
+    'budget',
+  ];
+  static const _planKeywords = [
+    'planificar',
+    'meta',
+    'jubil',
+    'ahorrar para',
+    'proyección',
+  ];
+
   static ModeSuggestion? suggest({
     required String message,
     required AssistantMode currentMode,
@@ -14,13 +32,9 @@ abstract final class IntentRouter {
     final lower = message.toLowerCase();
 
     if (currentMode != AssistantMode.invest &&
-        _matchesAny(lower, [
-          'invertir',
-          'invert',
-          'comprar',
-          'presupuesto',
-          'budget',
-        ])) {
+        currentMode != AssistantMode.plan &&
+        (_matchesAny(lower, _investKeywords) ||
+            _matchesAny(lower, _planKeywords))) {
       return const ModeSuggestion(
         suggestedMode: AssistantMode.invest,
         reasonKey: 'assistant_mode_suggest_invest',
@@ -53,19 +67,6 @@ abstract final class IntentRouter {
         reasonKey: 'assistant_mode_suggest_learn',
       );
     }
-    if (currentMode != AssistantMode.plan &&
-        _matchesAny(lower, [
-          'planificar',
-          'meta',
-          'jubil',
-          'ahorrar para',
-          'proyección',
-        ])) {
-      return const ModeSuggestion(
-        suggestedMode: AssistantMode.plan,
-        reasonKey: 'assistant_mode_suggest_plan',
-      );
-    }
     if (currentMode != AssistantMode.portfolio &&
         _matchesAny(lower, [
           'mi portfolio',
@@ -79,6 +80,20 @@ abstract final class IntentRouter {
       );
     }
     return null;
+  }
+
+  /// Dentro de la pestaña combinada Invertir+Planificar, elige qué motor
+  /// (invest o plan) debe atender el mensaje. Si el mensaje es ambiguo (no
+  /// matchea ninguna keyword de ninguno de los dos), continúa con el motor
+  /// del turno anterior para no cortar el hilo de la conversación.
+  static AssistantMode resolveInvestPlanEngine({
+    required String message,
+    required AssistantMode lastEngine,
+  }) {
+    final lower = message.toLowerCase();
+    if (_matchesAny(lower, _planKeywords)) return AssistantMode.plan;
+    if (_matchesAny(lower, _investKeywords)) return AssistantMode.invest;
+    return lastEngine;
   }
 
   static bool _matchesAny(String text, List<String> keywords) {

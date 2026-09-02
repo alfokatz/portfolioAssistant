@@ -46,5 +46,27 @@ void main() {
     test('returns null for zero amount', () {
       expect(BudgetExtractor.extractBudgetUsd('Invertir \$0'), isNull);
     });
+
+    test('ignores a number that is part of a time expression', () {
+      expect(
+        BudgetExtractor.extractBudgetUsd('quiero invertir en 5 años'),
+        isNull,
+      );
+    });
+
+    test('picks the real amount over a years figure', () {
+      expect(
+        BudgetExtractor.extractBudgetUsd(
+          'en 5 años quiero haber invertido 10000 dólares',
+        ),
+        10000,
+      );
+    });
+
+    test('supports "mil" and "k"/"m" multipliers', () {
+      expect(BudgetExtractor.extractBudgetUsd('Quiero invertir 20 mil'), 20000);
+      expect(BudgetExtractor.extractBudgetUsd('Quiero invertir \$20k'), 20000);
+      expect(BudgetExtractor.extractBudgetUsd('Tengo \$1M para invertir'), 1000000);
+    });
   });
 }

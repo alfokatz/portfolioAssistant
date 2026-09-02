@@ -24,11 +24,6 @@ class OnboardingAssistantPage extends StatelessWidget {
       icon: Icons.bolt_outlined,
       descKey: 'onboarding_assistant_mode_invest_desc',
     ),
-    (
-      titleKey: 'assistant_shortcut_plan_title',
-      icon: Icons.track_changes_outlined,
-      descKey: 'onboarding_assistant_mode_plan_desc',
-    ),
   ];
 
   @override
@@ -88,7 +83,6 @@ class _AssistantChatMockup extends StatelessWidget {
   static const _chipKeys = [
     'assistant_shortcut_explore_title',
     'assistant_shortcut_invest_title',
-    'assistant_shortcut_plan_title',
   ];
 
   @override

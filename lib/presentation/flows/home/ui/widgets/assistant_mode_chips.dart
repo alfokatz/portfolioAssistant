@@ -20,11 +20,6 @@ class AssistantModeChips extends StatelessWidget {
       icon: Icons.bolt_outlined,
       labelKey: 'assistant_shortcut_invest_title',
     ),
-    (
-      mode: AssistantMode.plan,
-      icon: Icons.track_changes_outlined,
-      labelKey: 'assistant_shortcut_plan_title',
-    ),
   ];
 
   @override

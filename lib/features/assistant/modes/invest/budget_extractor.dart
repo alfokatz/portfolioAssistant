@@ -1,8 +1,17 @@
 /// Extrae un monto en USD del mensaje del usuario.
 abstract final class BudgetExtractor {
 
-  static final _budgetPattern = RegExp(r'\$?\s*(\d[\d.,]*)');
+  static final _budgetPattern = RegExp(
+    r'\$?\s*(\d[\d.,]*)'
+    r'(?!\d)'
+    r'(?:\s*(mill[oó]n(?:es)?|mil\b)|(k|m)\b)?'
+    r'(?!\s*(?:años?|anos?|years?|mes(?:es)?|months?))',
+    caseSensitive: false,
+  );
 
+  /// Ignora números que forman parte de una expresión temporal (p. ej. "5
+  /// años") y reconoce multiplicadores en palabras ("mil", "millón/millones")
+  /// o abreviados ("k", "m").
   static double? extractBudgetUsd(String message) {
     final match = _budgetPattern.firstMatch(message);
     if (match == null) return null;
@@ -10,7 +19,19 @@ abstract final class BudgetExtractor {
     final raw = match.group(1);
     if (raw == null || raw.isEmpty) return null;
 
-    return _parseAmount(raw);
+    final amount = _parseAmount(raw);
+    if (amount == null) return null;
+
+    return amount * _multiplierFor(match.group(2) ?? match.group(3));
+  }
+
+  static double _multiplierFor(String? word) {
+    if (word == null) return 1;
+    final normalized = word.toLowerCase();
+    if (normalized.startsWith('mill')) return 1000000;
+    if (normalized == 'mil' || normalized == 'k') return 1000;
+    if (normalized == 'm') return 1000000;
+    return 1;
   }
 
   static double? _parseAmount(String raw) {

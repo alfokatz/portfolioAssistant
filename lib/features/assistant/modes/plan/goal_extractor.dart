@@ -3,7 +3,11 @@ abstract final class GoalExtractor {
   static const _defaultLabel = 'Mi meta';
 
   static final _amountPattern = RegExp(
-    r'\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)',
+    r'\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)'
+    r'(?!\d)'
+    r'(?:\s*(mill[oó]n(?:es)?|mil\b)|(k|m)\b)?'
+    r'(?!\s*(?:años?|anos?|years?|mes(?:es)?|months?))',
+    caseSensitive: false,
   );
 
   static final _yearsPattern = RegExp(
@@ -67,6 +71,10 @@ abstract final class GoalExtractor {
   };
 
   /// Extrae el monto objetivo en USD del mensaje (mismo patrón que [BudgetExtractor]).
+  ///
+  /// Ignora números que forman parte de una expresión temporal (p. ej. "40
+  /// años") y reconoce multiplicadores en palabras ("mil", "millón/millones")
+  /// o abreviados ("k", "m").
   static double? extractTargetAmount(String message) {
     final match = _amountPattern.firstMatch(message);
     if (match == null) return null;
@@ -74,7 +82,10 @@ abstract final class GoalExtractor {
     final raw = match.group(1);
     if (raw == null || raw.isEmpty) return null;
 
-    return _parseAmount(raw);
+    final amount = _parseAmount(raw);
+    if (amount == null) return null;
+
+    return amount * _multiplierFor(match.group(2) ?? match.group(3));
   }
 
   /// Extrae la fecha objetivo del mensaje.
@@ -161,6 +172,15 @@ abstract final class GoalExtractor {
     final year = totalMonths ~/ 12;
     final month = totalMonths % 12 + 1;
     return DateTime(year, month, date.day);
+  }
+
+  static double _multiplierFor(String? word) {
+    if (word == null) return 1;
+    final normalized = word.toLowerCase();
+    if (normalized.startsWith('mill')) return 1000000;
+    if (normalized == 'mil' || normalized == 'k') return 1000;
+    if (normalized == 'm') return 1000000;
+    return 1;
   }
 
   static double? _parseAmount(String raw) {

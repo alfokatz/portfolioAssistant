@@ -19,12 +19,15 @@ class ModeChipBar extends StatelessWidget {
   final SubscriptionTier tier;
   final ValueChanged<AssistantMode>? onLockedModeTap;
 
+  // Invertir y Planificar están tan vinculados (una meta financiera casi
+  // siempre termina en una pregunta de inversión, y viceversa) que se
+  // muestran como una sola pestaña; el motor interno se elige por mensaje
+  // (ver AssistantProvider._resolveEngineMode).
   static const _modes = [
     (AssistantMode.portfolio, 'assistant_mode_portfolio'),
     (AssistantMode.learn, 'assistant_mode_learn'),
     (AssistantMode.explore, 'assistant_mode_explore'),
     (AssistantMode.invest, 'assistant_mode_invest'),
-    (AssistantMode.plan, 'assistant_mode_plan'),
   ];
 
   @override
