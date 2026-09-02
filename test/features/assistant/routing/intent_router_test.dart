@@ -89,6 +89,33 @@ void main() {
 
       expect(result, isNull);
     });
+
+    test(
+      'does not suggest learn when "que es" is a coincidental substring',
+      () {
+        // Regresión: "...considerando que ese ahorro..." contiene "que es"
+        // como substring literal (de "que" + "ese"), sin ser una pregunta
+        // de "¿qué es X?". Antes esto disparaba la sugerencia de Aprender
+        // en medio de una conversación de planificación.
+        final result = IntentRouter.suggest(
+          message: 'ahi estas considerando que ese ahorro mensual lo '
+              'invertiría a una tasa del 10% anual aproximadamente?',
+          currentMode: AssistantMode.invest,
+        );
+
+        expect(result, isNull);
+      },
+    );
+
+    test('still suggests learn for a genuine "qué es" question', () {
+      final result = IntentRouter.suggest(
+        message: '¿Qué es la diversificación?',
+        currentMode: AssistantMode.portfolio,
+      );
+
+      expect(result?.suggestedMode, AssistantMode.learn);
+      expect(result?.reasonKey, 'assistant_mode_suggest_learn');
+    });
   });
 
   group('IntentRouter.resolveInvestPlanEngine', () {

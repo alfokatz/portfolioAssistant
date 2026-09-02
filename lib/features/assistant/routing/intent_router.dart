@@ -25,6 +25,9 @@ abstract final class IntentRouter {
     'proyección',
   ];
 
+
+  static final _whatIsPattern = RegExp(r'(?:qué|que) es\b');
+
   static ModeSuggestion? suggest({
     required String message,
     required AssistantMode currentMode,
@@ -54,14 +57,13 @@ abstract final class IntentRouter {
       );
     }
     if (currentMode != AssistantMode.learn &&
-        _matchesAny(lower, [
-          'qué es',
-          'que es',
-          'explicame',
-          'explicá',
-          'significa',
-          'diversific',
-        ])) {
+        (_whatIsPattern.hasMatch(lower) ||
+            _matchesAny(lower, [
+              'explicame',
+              'explicá',
+              'significa',
+              'diversific',
+            ]))) {
       return const ModeSuggestion(
         suggestedMode: AssistantMode.learn,
         reasonKey: 'assistant_mode_suggest_learn',
