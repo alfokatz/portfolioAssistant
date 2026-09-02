@@ -255,7 +255,20 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       message.surfaceId ?? '${message.role.name}_${message.content.hashCode}',
     );
 
-    if (message.surfaceId != null && !message.isStreaming) {
+    if (message.surfaceId != null && message.isStreaming) {
+      // Sin chrome de burbuja: el orbe flota suelto en el lugar donde va a
+      // aparecer la respuesta, en vez de quedar encerrado en un contenedor.
+      return Padding(
+        key: key,
+        padding: const EdgeInsets.only(bottom: AppDimens.sp12),
+        child: const Align(
+          alignment: Alignment.centerLeft,
+          child: AssistantThinkingOrb(size: 26),
+        ),
+      );
+    }
+
+    if (message.surfaceId != null) {
       return PortfolioQaAssistantSurface(
         key: key,
         surfaceId: message.surfaceId!,

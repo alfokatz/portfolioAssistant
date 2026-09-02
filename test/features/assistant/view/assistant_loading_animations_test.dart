@@ -41,7 +41,11 @@ void main() {
   });
 
   group('PortfolioQaChatBubble', () {
-    testWidgets('shows the thinking orb while streaming with no content yet',
+    // The streaming placeholder no longer routes through this bubble: the
+    // thinking orb now floats directly in the message list (see
+    // AssistantScreen._buildMessageTile), chrome-free, instead of being
+    // boxed inside a bubble container. This bubble only ever renders text.
+    testWidgets('never embeds the thinking orb, even for a streaming message',
         (tester) async {
       await tester.pumpWidget(
         genuiTestApp(
@@ -56,7 +60,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.byType(AssistantThinkingOrb), findsOneWidget);
+      expect(find.byType(AssistantThinkingOrb), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

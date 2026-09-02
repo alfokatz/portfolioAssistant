@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
@@ -45,18 +44,13 @@ class PortfolioQaChatBubble extends StatelessWidget {
             // AI bubbles: border marks received content.
             border: isUser ? null : Border.all(color: PortfolioColors.border),
           ),
-          child: message.isStreaming && message.content.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 2),
-                  child: AssistantThinkingOrb(size: 18),
-                )
-              : SelectableText(
-                  message.content,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: PortfolioColors.textPrimary,
-                        height: 1.5,
-                      ),
+          child: SelectableText(
+            message.content,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: PortfolioColors.textPrimary,
+                  height: 1.5,
                 ),
+          ),
         ),
       ),
     );
