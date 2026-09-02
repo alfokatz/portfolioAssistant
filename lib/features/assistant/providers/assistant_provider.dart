@@ -33,12 +33,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }) : super(
           AssistantState(
             currentMode: args.initialMode,
-            messages: [
-              PortfolioQaMessage(
-                role: PortfolioQaRole.assistant,
-                content: _welcomeKeyFor(args.initialMode).tr(),
-              ),
-            ],
+            messagesByMode: {
+              args.initialMode: [
+                PortfolioQaMessage(
+                  role: PortfolioQaRole.assistant,
+                  content: _welcomeKeyFor(args.initialMode).tr(),
+                ),
+              ],
+            },
           ),
         ) {
     _initialQuestion = args.initialQuestion;
@@ -46,10 +48,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   final Ref ref;
   final _sendGuard = GenUiSendGuard();
-  final _conversationEvents = GenUiConversationSubscription();
   final _surfaceIds = <String>[];
 
-  AssistantOpenAiService? _service;
+  // Una conversación (servicio + suscripción a sus eventos) por pestaña, para
+  // que cambiar de modo no pierda el contexto que la IA ya tiene de esa
+  // pestaña. No se disponen al cambiar de modo, solo en `disposeResources`.
+  final Map<AssistantMode, AssistantOpenAiService> _services = {};
+  final Map<AssistantMode, GenUiConversationSubscription> _subscriptions = {};
+
   String? _initialQuestion;
 
   static String _welcomeKeyFor(AssistantMode mode) {
@@ -66,8 +72,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         return 'portfolio_qa_welcome';
     }
   }
-
-  String get _welcomeKey => _welcomeKeyFor(state.currentMode);
 
   List<String> get chipKeys {
     switch (state.currentMode) {
@@ -104,12 +108,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  AssistantOpenAiService? get service => _service;
+  AssistantOpenAiService? get service => _services[state.currentMode];
 
   void disposeResources() {
-    _conversationEvents.cancel();
-    _service?.dispose();
-    _service = null;
+    for (final subscription in _subscriptions.values) {
+      subscription.cancel();
+    }
+    for (final service in _services.values) {
+      service.dispose();
+    }
+    _subscriptions.clear();
+    _services.clear();
   }
 
   Future<void> bootstrap() async {
@@ -122,7 +131,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       await ref.read(homeProvider.notifier).refresh();
     }
 
-    await _initService();
+    await _ensureServiceForMode(state.currentMode);
+    state = state.copyWith(isServiceReady: true);
 
     final question = _initialQuestion?.trim();
     if (question != null && question.isNotEmpty) {
@@ -132,7 +142,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> submitMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
+    if (trimmed.isEmpty || _sendGuard.isInFlight || service == null) return;
 
     final suggestion = IntentRouter.suggest(
       message: trimmed,
@@ -169,10 +179,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final pending = state.pendingMessage;
     state = state.copyWith(
       currentMode: mode,
+      isServiceReady: _services.containsKey(mode),
       clearModeSuggestion: true,
       clearPendingMessage: true,
     );
-    _updateWelcomeIfOnlyMessage();
+    _ensureWelcomeMessage(mode);
     unawaited(_applyModeAndMaybeSend(mode, pending));
   }
 
@@ -200,56 +211,68 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
       return;
     }
-    state = state.copyWith(currentMode: mode);
-    _updateWelcomeIfOnlyMessage();
-    await _initService();
+    state = state.copyWith(
+      currentMode: mode,
+      isServiceReady: _services.containsKey(mode),
+    );
+    _ensureWelcomeMessage(mode);
+    await _ensureServiceForMode(mode);
+    state = state.copyWith(isServiceReady: true);
   }
 
   void clearErrorAndRetry() {
+    final mode = state.currentMode;
     final last = state.lastMessage;
-    state = state.copyWith(clearError: true);
+    state = state.copyWith(errorByMode: {...state.errorByMode, mode: null});
     if (last.isNotEmpty) {
       unawaited(sendMessage(last));
     }
   }
 
-  void _updateWelcomeIfOnlyMessage() {
-    final messages = [...state.messages];
-    if (messages.length == 1 &&
-        messages.first.role == PortfolioQaRole.assistant &&
-        !messages.first.isStreaming) {
-      messages[0] = PortfolioQaMessage(
-        role: PortfolioQaRole.assistant,
-        content: _welcomeKey.tr(),
-      );
-      state = state.copyWith(messages: messages);
-    }
+  /// Si `mode` nunca se visitó, arranca su conversación con el mensaje de
+  /// bienvenida. Si ya tiene historial (o solo el de bienvenida), lo respeta:
+  /// cambiar de pestaña no debe pisar ni mezclar la conversación de otra.
+  void _ensureWelcomeMessage(AssistantMode mode) {
+    if (state.messagesByMode.containsKey(mode)) return;
+    state = state.copyWith(
+      messagesByMode: {
+        ...state.messagesByMode,
+        mode: [
+          PortfolioQaMessage(
+            role: PortfolioQaRole.assistant,
+            content: _welcomeKeyFor(mode).tr(),
+          ),
+        ],
+      },
+    );
   }
 
   Future<void> _applyModeAndMaybeSend(
     AssistantMode mode,
     String? pendingMessage,
   ) async {
-    await _initService();
+    await _ensureServiceForMode(mode);
+    state = state.copyWith(isServiceReady: true);
     if (pendingMessage != null) {
       await sendMessage(pendingMessage);
     }
   }
 
-  Future<void> _initService() async {
-    _conversationEvents.cancel();
-    _service?.dispose();
-    _service = AssistantOpenAiService.forMode(mode: state.currentMode);
-    _conversationEvents.listen(
-      _service!.conversation,
-      _onConversationEvent,
+  Future<void> _ensureServiceForMode(AssistantMode mode) async {
+    if (_services.containsKey(mode)) return;
+    final service = AssistantOpenAiService.forMode(mode: mode);
+    _services[mode] = service;
+    final subscription = GenUiConversationSubscription();
+    subscription.listen(
+      service.conversation,
+      (event) => _onConversationEvent(mode, event),
     );
-    state = state.copyWith(isServiceReady: true);
+    _subscriptions[mode] = subscription;
   }
 
-  void _onConversationEvent(ConversationEvent event) {
-    var messages = [...state.messages];
-    String? error = state.error;
+  void _onConversationEvent(AssistantMode mode, ConversationEvent event) {
+    var messages = <PortfolioQaMessage>[...?state.messagesByMode[mode]];
+    String? error = state.errorByMode[mode];
     var isWaiting = state.isWaiting;
 
     if (event case ConversationComponentsUpdated(:final surfaceId)) {
@@ -265,10 +288,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     );
 
     state = state.copyWith(
-      messages: messages,
-      error: error,
+      messagesByMode: {...state.messagesByMode, mode: messages},
+      errorByMode: {...state.errorByMode, mode: error},
       isWaiting: isWaiting,
-      clearError: error == null,
     );
   }
 
@@ -289,22 +311,31 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _service == null) return;
+    // El modo objetivo se fija al entrar y se usa durante todo el turno: si
+    // el usuario cambia de pestaña mientras este envío sigue en curso, la
+    // respuesta debe seguir cayendo en la conversación que la originó, no en
+    // la que esté visible cuando el turno finalmente resuelva.
+    final targetMode = state.currentMode;
+    final targetService = _services[targetMode];
+    if (trimmed.isEmpty || targetService == null) return;
     // El lock se toma de forma sincrónica, antes de cualquier `await`, para
     // que no exista una ventana en la que dos envíos concurrentes pasen
     // ambos el chequeo. `isWaiting` se prende en el mismo instante para que
     // la UI (que se deshabilita según `isWaiting`) refleje exactamente la
     // ventana en la que el guard está tomado.
     if (!_sendGuard.tryAcquire()) return;
-    state = state.copyWith(clearError: true, isWaiting: true);
+    state = state.copyWith(
+      errorByMode: {...state.errorByMode, targetMode: null},
+      isWaiting: true,
+    );
 
     try {
       final isNews =
-          state.currentMode == AssistantMode.explore && isNewsQuery(trimmed);
+          targetMode == AssistantMode.explore && isNewsQuery(trimmed);
       await ref.read(subscriptionProvider.notifier).refresh();
       final paywall =
           await ref.read(subscriptionProvider.notifier).checkQueryAllowed(
-        mode: state.currentMode,
+        mode: targetMode,
         isNewsQuery: isNews,
       );
       if (paywall != null) {
@@ -315,36 +346,48 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         return;
       }
 
-      final snapshotJson = await _buildSnapshotJson(trimmed);
+      final snapshotJson = await _buildSnapshotJson(targetMode, trimmed);
       final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
       final validation = SnapshotGroundingValidator.validate(
-        mode: state.currentMode,
+        mode: targetMode,
         snapshot: snapshot,
       );
 
-      if (state.currentMode == AssistantMode.portfolio &&
+      if (targetMode == AssistantMode.portfolio &&
           validation == SnapshotValidation.noPortfolioData) {
-        state = state.copyWith(error: 'portfolio_qa_no_positions'.tr());
+        state = state.copyWith(
+          errorByMode: {
+            ...state.errorByMode,
+            targetMode: 'portfolio_qa_no_positions'.tr(),
+          },
+        );
         return;
       }
 
-      if (state.currentMode == AssistantMode.explore &&
+      if (targetMode == AssistantMode.explore &&
           validation == SnapshotValidation.exploreFetchFailed) {
         final tickers = snapshot['explore_tickers'] as Map?;
         final errorKey = tickers == null || tickers.isEmpty
             ? 'assistant_explore_no_ticker'
             : 'assistant_explore_fetch_failed';
-        state = state.copyWith(error: errorKey.tr());
+        state = state.copyWith(
+          errorByMode: {...state.errorByMode, targetMode: errorKey.tr()},
+        );
         return;
       }
 
-      if (state.currentMode == AssistantMode.invest &&
+      if (targetMode == AssistantMode.invest &&
           validation == SnapshotValidation.exploreFetchFailed) {
-        state = state.copyWith(error: 'assistant_invest_fetch_failed'.tr());
+        state = state.copyWith(
+          errorByMode: {
+            ...state.errorByMode,
+            targetMode: 'assistant_invest_fetch_failed'.tr(),
+          },
+        );
         return;
       }
 
-      if (state.currentMode == AssistantMode.plan) {
+      if (targetMode == AssistantMode.plan) {
         await PlanGoalSaver.persistIfRequested(
           prefs: ref.read(preferenceManagerProvider),
           snapshot: snapshot,
@@ -353,9 +396,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
 
       final surfaceId =
-          GenUiSurfaceIds.assistantTurn(state.currentMode, state.turnCounter);
-      final messages = [
-        ...state.messages,
+          GenUiSurfaceIds.assistantTurn(targetMode, state.turnCounter);
+      final messages = <PortfolioQaMessage>[
+        ...?state.messagesByMode[targetMode],
         PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
         PortfolioQaMessage(
           role: PortfolioQaRole.assistant,
@@ -365,16 +408,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       ];
 
       state = state.copyWith(
-        messages: messages,
-        lastMessage: trimmed,
+        messagesByMode: {...state.messagesByMode, targetMode: messages},
+        lastMessageByMode: {
+          ...state.lastMessageByMode,
+          targetMode: trimmed,
+        },
         turnCounter: state.turnCounter + 1,
       );
 
       try {
         await GenUiRequestTracker.sendAndWait(
-          conversation: _service!.conversation,
+          conversation: targetService.conversation,
           targetSurfaceId: surfaceId,
-          send: () => _service!.sendWithSnapshot(
+          send: () => targetService.sendWithSnapshot(
             userQuestion: trimmed,
             portfolioSnapshotJson: snapshotJson,
             surfaceId: surfaceId,
@@ -382,7 +428,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
 
         state = state.copyWith(
-          messages: _markTurnReady(state.messages, surfaceId),
+          messagesByMode: {
+            ...state.messagesByMode,
+            targetMode: _markTurnReady(
+              state.messagesByMode[targetMode] ?? const <PortfolioQaMessage>[],
+              surfaceId,
+            ),
+          },
         );
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
@@ -396,13 +448,29 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         }
       } on TimeoutException catch (e) {
         state = state.copyWith(
-          error: e.message ?? 'GPT tardó demasiado en responder.',
-          messages: _removeStreamingPlaceholder(state.messages),
+          errorByMode: {
+            ...state.errorByMode,
+            targetMode: e.message ?? 'GPT tardó demasiado en responder.',
+          },
+          messagesByMode: {
+            ...state.messagesByMode,
+            targetMode: _removeStreamingPlaceholder(
+              state.messagesByMode[targetMode] ?? const <PortfolioQaMessage>[],
+            ),
+          },
         );
       } catch (e) {
         state = state.copyWith(
-          error: genUiErrorMessage(e),
-          messages: _removeStreamingPlaceholder(state.messages),
+          errorByMode: {
+            ...state.errorByMode,
+            targetMode: genUiErrorMessage(e),
+          },
+          messagesByMode: {
+            ...state.messagesByMode,
+            targetMode: _removeStreamingPlaceholder(
+              state.messagesByMode[targetMode] ?? const <PortfolioQaMessage>[],
+            ),
+          },
         );
       }
     } finally {
@@ -421,8 +489,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return messages.sublist(0, messages.length - 1);
   }
 
-  Future<String> _buildSnapshotJson(String trimmed) async {
-    if (state.currentMode == AssistantMode.portfolio) {
+  Future<String> _buildSnapshotJson(AssistantMode mode, String trimmed) async {
+    if (mode == AssistantMode.portfolio) {
       final summary = ref.read(homeProvider).summary;
       final closedResult =
           await ref.read(getClosedPositionsUseCaseProvider).call();
@@ -439,7 +507,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     }
 
-    if (state.currentMode == AssistantMode.explore) {
+    if (mode == AssistantMode.explore) {
       final summary = ref.read(homeProvider).summary;
       return buildSnapshotJson(
         mode: AssistantMode.explore,
@@ -452,7 +520,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     }
 
-    if (state.currentMode == AssistantMode.invest) {
+    if (mode == AssistantMode.invest) {
       final summary = ref.read(homeProvider).summary;
       final riskProfile =
           await ref.read(preferenceManagerProvider).getRiskProfile();
@@ -465,7 +533,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     }
 
-    if (state.currentMode == AssistantMode.plan) {
+    if (mode == AssistantMode.plan) {
       final summary = ref.read(homeProvider).summary;
       final prefs = ref.read(preferenceManagerProvider);
       final savedGoal = await prefs.getSavedGoal();
@@ -479,7 +547,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     }
 
-    return buildSnapshotJson(mode: state.currentMode);
+    return buildSnapshotJson(mode: mode);
   }
 }
 

@@ -13,13 +13,16 @@ class AssistantArgs {
   final String? initialQuestion;
 }
 
+/// Estado del asistente. Cada [AssistantMode] (pestaña) mantiene su propia
+/// conversación: mensajes, error y último mensaje enviado quedan aislados
+/// por modo, así cambiar de pestaña no mezcla ni pierde el hilo de otra.
 class AssistantState {
-  final List<PortfolioQaMessage> messages;
-  final String? error;
+  final Map<AssistantMode, List<PortfolioQaMessage>> messagesByMode;
+  final Map<AssistantMode, String?> errorByMode;
+  final Map<AssistantMode, String> lastMessageByMode;
   final bool isWaiting;
   final bool bootstrapped;
   final int turnCounter;
-  final String lastMessage;
   final AssistantMode currentMode;
   final ModeSuggestion? modeSuggestion;
   final String? pendingMessage;
@@ -27,12 +30,12 @@ class AssistantState {
   final PaywallReason? paywallReason;
 
   const AssistantState({
-    this.messages = const [],
-    this.error,
+    this.messagesByMode = const {},
+    this.errorByMode = const {},
+    this.lastMessageByMode = const {},
     this.isWaiting = false,
     this.bootstrapped = false,
     this.turnCounter = 0,
-    this.lastMessage = '',
     this.currentMode = AssistantMode.portfolio,
     this.modeSuggestion,
     this.pendingMessage,
@@ -40,30 +43,36 @@ class AssistantState {
     this.paywallReason,
   });
 
+  List<PortfolioQaMessage> get messages =>
+      messagesByMode[currentMode] ?? const [];
+
+  String? get error => errorByMode[currentMode];
+
+  String get lastMessage => lastMessageByMode[currentMode] ?? '';
+
   AssistantState copyWith({
-    List<PortfolioQaMessage>? messages,
-    String? error,
+    Map<AssistantMode, List<PortfolioQaMessage>>? messagesByMode,
+    Map<AssistantMode, String?>? errorByMode,
+    Map<AssistantMode, String>? lastMessageByMode,
     bool? isWaiting,
     bool? bootstrapped,
     int? turnCounter,
-    String? lastMessage,
     AssistantMode? currentMode,
     ModeSuggestion? modeSuggestion,
     String? pendingMessage,
     bool? isServiceReady,
     PaywallReason? paywallReason,
-    bool clearError = false,
     bool clearModeSuggestion = false,
     bool clearPendingMessage = false,
     bool clearPaywallReason = false,
   }) {
     return AssistantState(
-      messages: messages ?? this.messages,
-      error: clearError ? null : (error ?? this.error),
+      messagesByMode: messagesByMode ?? this.messagesByMode,
+      errorByMode: errorByMode ?? this.errorByMode,
+      lastMessageByMode: lastMessageByMode ?? this.lastMessageByMode,
       isWaiting: isWaiting ?? this.isWaiting,
       bootstrapped: bootstrapped ?? this.bootstrapped,
       turnCounter: turnCounter ?? this.turnCounter,
-      lastMessage: lastMessage ?? this.lastMessage,
       currentMode: currentMode ?? this.currentMode,
       modeSuggestion:
           clearModeSuggestion ? null : (modeSuggestion ?? this.modeSuggestion),
