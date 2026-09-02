@@ -289,78 +289,87 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight || _service == null) return;
+    if (trimmed.isEmpty || _service == null) return;
+    // El lock se toma de forma sincrónica, antes de cualquier `await`, para
+    // que no exista una ventana en la que dos envíos concurrentes pasen
+    // ambos el chequeo. `isWaiting` se prende en el mismo instante para que
+    // la UI (que se deshabilita según `isWaiting`) refleje exactamente la
+    // ventana en la que el guard está tomado.
+    if (!_sendGuard.tryAcquire()) return;
+    state = state.copyWith(clearError: true, isWaiting: true);
 
-    final isNews =
-        state.currentMode == AssistantMode.explore && isNewsQuery(trimmed);
-    await ref.read(subscriptionProvider.notifier).refresh();
-    final paywall = await ref.read(subscriptionProvider.notifier).checkQueryAllowed(
-      mode: state.currentMode,
-      isNewsQuery: isNews,
-    );
-    if (paywall != null) {
-      state = state.copyWith(paywallReason: paywall, clearPaywallReason: false);
-      return;
-    }
-
-    final snapshotJson = await _buildSnapshotJson(trimmed);
-    final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
-    final validation = SnapshotGroundingValidator.validate(
-      mode: state.currentMode,
-      snapshot: snapshot,
-    );
-
-    if (state.currentMode == AssistantMode.portfolio &&
-        validation == SnapshotValidation.noPortfolioData) {
-      state = state.copyWith(error: 'portfolio_qa_no_positions'.tr());
-      return;
-    }
-
-    if (state.currentMode == AssistantMode.explore &&
-        validation == SnapshotValidation.exploreFetchFailed) {
-      final tickers = snapshot['explore_tickers'] as Map?;
-      final errorKey = tickers == null || tickers.isEmpty
-          ? 'assistant_explore_no_ticker'
-          : 'assistant_explore_fetch_failed';
-      state = state.copyWith(error: errorKey.tr());
-      return;
-    }
-
-    if (state.currentMode == AssistantMode.invest &&
-        validation == SnapshotValidation.exploreFetchFailed) {
-      state = state.copyWith(error: 'assistant_invest_fetch_failed'.tr());
-      return;
-    }
-
-    if (state.currentMode == AssistantMode.plan) {
-      await PlanGoalSaver.persistIfRequested(
-        prefs: ref.read(preferenceManagerProvider),
-        snapshot: snapshot,
-        userMessage: trimmed,
+    try {
+      final isNews =
+          state.currentMode == AssistantMode.explore && isNewsQuery(trimmed);
+      await ref.read(subscriptionProvider.notifier).refresh();
+      final paywall =
+          await ref.read(subscriptionProvider.notifier).checkQueryAllowed(
+        mode: state.currentMode,
+        isNewsQuery: isNews,
       );
-    }
+      if (paywall != null) {
+        state = state.copyWith(
+          paywallReason: paywall,
+          clearPaywallReason: false,
+        );
+        return;
+      }
 
-    final surfaceId =
-        GenUiSurfaceIds.assistantTurn(state.currentMode, state.turnCounter);
-    final messages = [
-      ...state.messages,
-      PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
-      PortfolioQaMessage(
-        role: PortfolioQaRole.assistant,
-        surfaceId: surfaceId,
-        isStreaming: true,
-      ),
-    ];
+      final snapshotJson = await _buildSnapshotJson(trimmed);
+      final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
+      final validation = SnapshotGroundingValidator.validate(
+        mode: state.currentMode,
+        snapshot: snapshot,
+      );
 
-    state = state.copyWith(
-      clearError: true,
-      isWaiting: true,
-      messages: messages,
-      lastMessage: trimmed,
-      turnCounter: state.turnCounter + 1,
-    );
+      if (state.currentMode == AssistantMode.portfolio &&
+          validation == SnapshotValidation.noPortfolioData) {
+        state = state.copyWith(error: 'portfolio_qa_no_positions'.tr());
+        return;
+      }
 
-    await _sendGuard.run(() async {
+      if (state.currentMode == AssistantMode.explore &&
+          validation == SnapshotValidation.exploreFetchFailed) {
+        final tickers = snapshot['explore_tickers'] as Map?;
+        final errorKey = tickers == null || tickers.isEmpty
+            ? 'assistant_explore_no_ticker'
+            : 'assistant_explore_fetch_failed';
+        state = state.copyWith(error: errorKey.tr());
+        return;
+      }
+
+      if (state.currentMode == AssistantMode.invest &&
+          validation == SnapshotValidation.exploreFetchFailed) {
+        state = state.copyWith(error: 'assistant_invest_fetch_failed'.tr());
+        return;
+      }
+
+      if (state.currentMode == AssistantMode.plan) {
+        await PlanGoalSaver.persistIfRequested(
+          prefs: ref.read(preferenceManagerProvider),
+          snapshot: snapshot,
+          userMessage: trimmed,
+        );
+      }
+
+      final surfaceId =
+          GenUiSurfaceIds.assistantTurn(state.currentMode, state.turnCounter);
+      final messages = [
+        ...state.messages,
+        PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
+        PortfolioQaMessage(
+          role: PortfolioQaRole.assistant,
+          surfaceId: surfaceId,
+          isStreaming: true,
+        ),
+      ];
+
+      state = state.copyWith(
+        messages: messages,
+        lastMessage: trimmed,
+        turnCounter: state.turnCounter + 1,
+      );
+
       try {
         await GenUiRequestTracker.sendAndWait(
           conversation: _service!.conversation,
@@ -372,10 +381,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           ),
         );
 
-        final readyMessages = _markTurnReady(state.messages, surfaceId);
         state = state.copyWith(
-          messages: readyMessages,
-          isWaiting: false,
+          messages: _markTurnReady(state.messages, surfaceId),
         );
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
@@ -390,17 +397,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       } on TimeoutException catch (e) {
         state = state.copyWith(
           error: e.message ?? 'GPT tardó demasiado en responder.',
-          isWaiting: false,
           messages: _removeStreamingPlaceholder(state.messages),
         );
       } catch (e) {
         state = state.copyWith(
           error: genUiErrorMessage(e),
-          isWaiting: false,
           messages: _removeStreamingPlaceholder(state.messages),
         );
       }
-    });
+    } finally {
+      // Se libera siempre, sin importar por qué rama se salió del bloque
+      // (paywall, validación fallida, éxito o excepción), así el guard y
+      // `isWaiting` nunca quedan trabados en `true`.
+      _sendGuard.release();
+      state = state.copyWith(isWaiting: false);
+    }
   }
 
   List<PortfolioQaMessage> _removeStreamingPlaceholder(

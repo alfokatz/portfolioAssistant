@@ -69,8 +69,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   }
 
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
-    await notifier.submitMessage(text);
+    // Se limpia antes de esperar la respuesta: dejar el texto visible
+    // durante todo el round-trip invitaba a un segundo tap sobre el mismo
+    // mensaje mientras el turno anterior seguía en curso.
     _textController.clear();
+    await notifier.submitMessage(text);
     _scrollToBottom();
   }
 

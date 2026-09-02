@@ -40,8 +40,15 @@ abstract final class GenUiRequestTracker {
     });
 
     try {
-      await send();
-      await completer.future.timeout(
+      // `send()` incluye el consumo del stream de OpenAI, que no tiene
+      // timeout propio (a diferencia de las llamadas no-streaming del SDK).
+      // Por eso el timeout debe cubrir `send()` y no solo la espera del
+      // completer: si el stream se cuelga, `send()` nunca resuelve y el
+      // timeout de abajo nunca se alcanzaría.
+      await Future.wait<void>([
+        send(),
+        completer.future,
+      ]).timeout(
         timeout,
         onTimeout: () => throw TimeoutException(
           'La IA no generó una interfaz a tiempo. Revisá tu conexión o intentá de nuevo.',
