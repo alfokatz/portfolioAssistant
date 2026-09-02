@@ -11,7 +11,13 @@ class YahooSectorClient {
   final Dio _dio;
   final Map<String, String?> _cache = {};
 
-  static const _quoteUrl = 'https://query1.finance.yahoo.com/v7/finance/quote';
+  // `v7/finance/quote` (usado antes acá) trae precios/market cap pero NUNCA
+  // un campo `sector` para acciones — por eso todo ticker resolvía a
+  // "Sin clasificar" incluso en respuestas 200 OK. El sector vive en el
+  // módulo `assetProfile` de `quoteSummary`, que es por-símbolo (no admite
+  // el `symbols=` batch de v7).
+  static const _quoteSummaryBaseUrl =
+      'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
 
   static Dio _createDio() {
     return Dio(
@@ -66,54 +72,45 @@ class YahooSectorClient {
   Future<Map<String, String?>> _fetchBatch(List<String> tickers) async {
     if (tickers.isEmpty) return {};
 
-    try {
-      final symbols = tickers
-          .map(PortfolioCalculator.toYahooFinanceSymbol)
-          .join(',');
-      final response = await _dio.get<Map<String, dynamic>>(
-        _quoteUrl,
-        queryParameters: {'symbols': symbols},
-      );
-
-      if (response.statusCode != 200) {
-        return _nullMap(tickers);
-      }
-
-      final data = response.data;
-      final quoteResponse = data?['quoteResponse'];
-      if (quoteResponse is! Map<String, dynamic>) {
-        return _nullMap(tickers);
-      }
-
-      final results = quoteResponse['result'];
-      if (results is! List) {
-        return _nullMap(tickers);
-      }
-
-      final bySymbol = <String, String?>{};
-      for (final item in results) {
-        if (item is! Map<String, dynamic>) continue;
-        final symbol = item['symbol'] as String?;
-        final sector = item['sector'] as String?;
-        if (symbol != null) {
-          bySymbol[symbol.toUpperCase()] = sector;
-        }
-      }
-
-      final mapped = <String, String?>{};
-      for (final ticker in tickers) {
-        final yahooSymbol =
-            PortfolioCalculator.toYahooFinanceSymbol(ticker).toUpperCase();
-        mapped[ticker] = bySymbol[yahooSymbol] ?? bySymbol[ticker];
-      }
-      return mapped;
-    } on DioException {
-      return _nullMap(tickers);
-    } catch (_) {
-      return _nullMap(tickers);
-    }
+    // `assetProfile` es un módulo por-símbolo: no hay forma de pedir varios
+    // tickers en una sola request como con v7. Se abanica en paralelo
+    // (acotado por el chunk de 20 de `fetchSectors`) y cada uno resuelve su
+    // propio error sin tumbar al resto del batch.
+    final entries = await Future.wait(
+      tickers.map((ticker) async {
+        return MapEntry(ticker, await _fetchOne(ticker));
+      }),
+    );
+    return Map.fromEntries(entries);
   }
 
-  static Map<String, String?> _nullMap(List<String> tickers) =>
-      {for (final ticker in tickers) ticker: null};
+  Future<String?> _fetchOne(String ticker) async {
+    try {
+      final symbol = PortfolioCalculator.toYahooFinanceSymbol(ticker);
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_quoteSummaryBaseUrl/${Uri.encodeComponent(symbol)}',
+        queryParameters: {'modules': 'assetProfile'},
+      );
+
+      if (response.statusCode != 200) return null;
+
+      final quoteSummary = response.data?['quoteSummary'];
+      if (quoteSummary is! Map<String, dynamic>) return null;
+
+      final results = quoteSummary['result'];
+      if (results is! List || results.isEmpty) return null;
+
+      final first = results.first;
+      if (first is! Map<String, dynamic>) return null;
+
+      final assetProfile = first['assetProfile'];
+      if (assetProfile is! Map<String, dynamic>) return null;
+
+      return assetProfile['sector'] as String?;
+    } on DioException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }

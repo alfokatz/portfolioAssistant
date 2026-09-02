@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -199,7 +200,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                   ],
                 ),
                 if (!state.isServiceReady)
-                  const Center(child: CircularProgressIndicator()),
+                  const Center(child: AssistantThinkingOrb(size: 32)),
               ],
             ),
           ),

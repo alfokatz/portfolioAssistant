@@ -1,8 +1,7 @@
 /// Extrae un monto en USD del mensaje del usuario.
 abstract final class BudgetExtractor {
-  static final _budgetPattern = RegExp(
-    r'\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d{2})?)',
-  );
+
+  static final _budgetPattern = RegExp(r'\$?\s*(\d[\d.,]*)');
 
   static double? extractBudgetUsd(String message) {
     final match = _budgetPattern.firstMatch(message);

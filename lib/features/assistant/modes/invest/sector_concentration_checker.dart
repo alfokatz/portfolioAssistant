@@ -44,6 +44,7 @@ abstract final class SectorConcentrationChecker {
     String? overweightSector;
     double? overweightPct;
     for (final entry in sectorWeights.entries) {
+      if (entry.key == SectorDisplayName.unclassified) continue;
       if (entry.value > _overweightThresholdPct) {
         if (overweightPct == null || entry.value > overweightPct) {
           overweightSector = entry.key;

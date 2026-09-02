@@ -70,34 +70,90 @@ void main() {
       expect(result.overweightPct, 100.0);
     });
 
-    test('buckets unknown tickers as Sin clasificar without sector map', () {
-      final summary = PortfolioSummary(
-        totalValue: 500,
-        totalCostBasis: 400,
-        totalPnlAbsolute: 100,
-        totalPnlPercent: 25,
-        valuations: [
-          PositionValuation(
-            position: Position(
-              id: '1',
-              ticker: 'UNKNOWN',
-              quantity: 1,
-              purchasePrice: 100,
-              purchaseDate: DateTime(2024, 1, 1),
+    test(
+      'buckets unknown tickers as Sin clasificar but never flags it as '
+      'overweight',
+      () {
+        // "Sin clasificar" es un cajón de sastre, no un sector real: aunque
+        // concentre el 100% del portfolio, no es una alerta de riesgo con
+        // significado para el usuario.
+        final summary = PortfolioSummary(
+          totalValue: 500,
+          totalCostBasis: 400,
+          totalPnlAbsolute: 100,
+          totalPnlPercent: 25,
+          valuations: [
+            PositionValuation(
+              position: Position(
+                id: '1',
+                ticker: 'UNKNOWN',
+                quantity: 1,
+                purchasePrice: 100,
+                purchaseDate: DateTime(2024, 1, 1),
+              ),
+              currentPrice: 500,
+              marketValue: 500,
+              pnlAbsolute: 100,
+              pnlPercent: 25,
             ),
-            currentPrice: 500,
-            marketValue: 500,
-            pnlAbsolute: 100,
-            pnlPercent: 25,
-          ),
-        ],
-      );
+          ],
+        );
 
-      final result = SectorConcentrationChecker.fromSummary(summary);
+        final result = SectorConcentrationChecker.fromSummary(summary);
 
-      expect(result.sectorWeights['Sin clasificar'], 100.0);
-      expect(result.overweightSector, 'Sin clasificar');
-    });
+        expect(result.sectorWeights['Sin clasificar'], 100.0);
+        expect(result.overweightSector, isNull);
+        expect(result.overweightPct, isNull);
+      },
+    );
+
+    test(
+      'flags a real overweight sector even while Sin clasificar also '
+      'exceeds the threshold',
+      () {
+        final summary = PortfolioSummary(
+          totalValue: 1000,
+          totalCostBasis: 900,
+          totalPnlAbsolute: 100,
+          totalPnlPercent: 11.11,
+          valuations: [
+            PositionValuation(
+              position: Position(
+                id: '1',
+                ticker: 'AAPL',
+                quantity: 1,
+                purchasePrice: 100,
+                purchaseDate: DateTime(2024, 1, 1),
+              ),
+              currentPrice: 500,
+              marketValue: 500,
+              pnlAbsolute: 100,
+              pnlPercent: 50,
+            ),
+            PositionValuation(
+              position: Position(
+                id: '2',
+                ticker: 'UNKNOWN',
+                quantity: 1,
+                purchasePrice: 200,
+                purchaseDate: DateTime(2024, 1, 1),
+              ),
+              currentPrice: 500,
+              marketValue: 500,
+              pnlAbsolute: 100,
+              pnlPercent: 14.29,
+            ),
+          ],
+        );
+
+        final result = SectorConcentrationChecker.fromSummary(summary);
+
+        expect(result.sectorWeights['Tecnología'], 50.0);
+        expect(result.sectorWeights['Sin clasificar'], 50.0);
+        expect(result.overweightSector, 'Tecnología');
+        expect(result.overweightPct, 50.0);
+      },
+    );
 
     test('uses resolved Yahoo sectors when provided', () {
       final summary = PortfolioSummary(
