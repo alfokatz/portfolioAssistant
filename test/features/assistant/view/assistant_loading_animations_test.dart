@@ -96,5 +96,69 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.textContaining('Tu portfolio subió 5,4% hoy.'), findsOneWidget);
     });
+
+    testWidgets(
+      'renders blank when read through the wrong controller, but correctly '
+      'through the one that generated it',
+      (tester) async {
+        // Regresión: en la pestaña combinada Invertir+Planificar, cada motor
+        // (invest/plan) tiene su propio AssistantOpenAiService y por lo tanto
+        // su propio SurfaceController. Antes del fix, AssistantScreen siempre
+        // resolvía el surface a través del controller de la pestaña visible
+        // (invest), así que una respuesta generada por el motor plan
+        // aparecía como una burbuja vacía. `message.engineMode` +
+        // `AssistantProvider.serviceFor` ahora garantizan que se lea del
+        // controller correcto — este test reproduce el bug y prueba el fix
+        // a nivel de SurfaceController, sin pasar por la red.
+        final displayModeController =
+            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+        final engineController =
+            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+        const surfaceId = 'assistant_invest_0';
+        const raw = '''
+[
+  {"id": "root", "component": "QaAnswerText", "text": "Quiero jubilarme con \$500.000 en 20 años."}
+]
+''';
+        final normalized =
+            A2uiResponseNormalizer.normalize(raw, surfaceId: surfaceId);
+        // Solo el controller del motor real (plan) recibe la respuesta.
+        dispatchNormalizedA2ui(engineController, normalized);
+
+        await tester.binding.setSurfaceSize(genuiTestViewportSize);
+
+        // Bug reproducido: leer con el controller de la pestaña visible.
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: displayModeController.contextFor(surfaceId),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          find.textContaining('jubilarme'),
+          findsNothing,
+          reason:
+              'el controller de la pestaña visible nunca vio este surface',
+        );
+
+        // Fix: leer con el controller del motor que efectivamente respondió.
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: engineController.contextFor(surfaceId),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(tester.takeException(), isNull);
+        expect(find.textContaining('jubilarme'), findsOneWidget);
+      },
+    );
   });
 }

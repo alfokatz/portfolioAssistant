@@ -174,7 +174,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                   children: [
                     if (service != null)
                       ...state.messages.map(
-                        (m) => _buildMessageTile(service, m),
+                        (m) => _buildMessageTile(notifier, service, m),
                       )
                     else
                       ...state.messages.map(
@@ -248,7 +248,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   }
 
   Widget _buildMessageTile(
-    AssistantOpenAiService service,
+    AssistantProvider notifier,
+    AssistantOpenAiService fallbackService,
     PortfolioQaMessage message,
   ) {
     final key = ValueKey(
@@ -269,10 +270,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     }
 
     if (message.surfaceId != null) {
+      final surfaceService = message.engineMode == null
+          ? fallbackService
+          : (notifier.serviceFor(message.engineMode!) ?? fallbackService);
       return PortfolioQaAssistantSurface(
         key: key,
         surfaceId: message.surfaceId!,
-        surfaceContext: service.controller.contextFor(message.surfaceId!),
+        surfaceContext:
+            surfaceService.controller.contextFor(message.surfaceId!),
       );
     }
 

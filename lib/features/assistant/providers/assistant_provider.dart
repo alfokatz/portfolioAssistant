@@ -127,6 +127,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   AssistantOpenAiService? get service => _services[state.currentMode];
 
+  AssistantOpenAiService? serviceFor(AssistantMode engineMode) =>
+      _services[engineMode];
+
   void disposeResources() {
     for (final subscription in _subscriptions.values) {
       subscription.cancel();
@@ -437,6 +440,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           role: PortfolioQaRole.assistant,
           surfaceId: surfaceId,
           isStreaming: true,
+          engineMode: engineMode,
         ),
       ];
 
