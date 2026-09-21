@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 class PortfolioQaEntryCard extends StatelessWidget {
@@ -41,6 +42,23 @@ class PortfolioQaEntryCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.surfaceElevated,
                     borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                    // Halo estático y sutil: el mismo glow bitono de Porty,
+                    // en reposo — anticipa la identidad del asistente sin
+                    // competir con el resto de la lista del home.
+                    boxShadow: [
+                      BoxShadow(
+                        color: PortfolioColors.accentBlue.withValues(
+                          alpha: 0.16,
+                        ),
+                        blurRadius: AppDimens.glowBlurSm,
+                      ),
+                      BoxShadow(
+                        color: PortfolioColors.accentWarm.withValues(
+                          alpha: 0.12,
+                        ),
+                        blurRadius: AppDimens.glowBlurSm,
+                      ),
+                    ],
                   ),
                   child: Icon(
                     Icons.chat_bubble_outline_rounded,
@@ -56,17 +74,17 @@ class PortfolioQaEntryCard extends StatelessWidget {
                       Text(
                         'portfolio_qa_entry_title'.tr(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: colors.textPrimary,
-                            ),
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'assistant_entry_subtitle'.tr(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                              height: 1.3,
-                            ),
+                          color: colors.textSecondary,
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),

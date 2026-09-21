@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:intl/intl.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 
@@ -22,16 +23,7 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaMetricStrip(CatalogItemContext ctx) {
     final data = _MetricStripData.fromMap(ctx.data as JsonMap);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border.withValues(alpha: 0.6),
-        ),
-      ),
+    return QaCardShell(
       child: Row(
         children: [
           for (var i = 0; i < data.items.length; i++) ...[
@@ -55,16 +47,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final isUp = data.changeAbs >= 0;
     final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -105,16 +88,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final data = _TickerSnapshotData.fromMap(ctx.data as JsonMap);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -167,16 +141,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final isUp = data.changePct >= 0;
     final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,13 +206,7 @@ abstract final class PortfolioQaCatalogWidgets {
         .fold<double>(0, (a, b) => a > b ? a : b)
         .clamp(1, 100);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -296,9 +255,10 @@ abstract final class PortfolioQaCatalogWidgets {
                       value: item.weightPct / maxWeight,
                       minHeight: 6,
                       backgroundColor: PortfolioColors.border,
-                      color: item.isHighlighted
-                          ? PortfolioColors.accentBlue
-                          : PortfolioColors.accentBlueDim,
+                      color:
+                          item.isHighlighted
+                              ? PortfolioColors.accentBlue
+                              : PortfolioColors.accentBlueDim,
                     ),
                   ),
                 ],
@@ -316,13 +276,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final isUp = data.gainLoss >= 0;
     final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
       child: Row(
         children: [
           Expanded(
@@ -375,12 +329,8 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaPositionList(CatalogItemContext ctx) {
     final data = _PositionListData.fromMap(ctx.data as JsonMap);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -397,10 +347,7 @@ abstract final class PortfolioQaCatalogWidgets {
               ),
             ),
           for (var i = 0; i < data.items.length; i++)
-            _positionRow(
-              data.items[i],
-              showDivider: i < data.items.length - 1,
-            ),
+            _positionRow(data.items[i], showDivider: i < data.items.length - 1),
         ],
       ),
     );
@@ -410,12 +357,8 @@ abstract final class PortfolioQaCatalogWidgets {
     final data = _ClosedPositionListData.fromMap(ctx.data as JsonMap);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -444,39 +387,54 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaTipBanner(CatalogItemContext ctx) {
     final data = _TipBannerData.fromMap(ctx.data as JsonMap);
-    final color = data.tone == 'warning'
-        ? PortfolioColors.loss
-        : PortfolioColors.accentBlue;
+    final isWarning = data.tone == 'warning';
 
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            data.tone == 'warning' ? Icons.info_outline : Icons.lightbulb_outline,
-            size: 16,
-            color: color,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              data.message,
-              style: TextStyle(
-                color: PortfolioColors.textPrimary.withValues(alpha: 0.9),
-                fontSize: 13,
-                height: 1.35,
-              ),
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isWarning ? Icons.info_outline : Icons.lightbulb_outline,
+          size: 16,
+          color: isWarning ? PortfolioColors.loss : PortfolioColors.accentBlue,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            data.message,
+            style: TextStyle(
+              color: PortfolioColors.textPrimary.withValues(alpha: 0.9),
+              fontSize: 13,
+              height: 1.35,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+
+    // Una advertencia mantiene su caja roja plana — no es un insight de
+    // Porty, y no debería llevar su firma de glow.
+    if (isWarning) {
+      return Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: PortfolioColors.loss.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: PortfolioColors.loss.withValues(alpha: 0.35),
+          ),
+        ),
+        child: content,
+      );
+    }
+
+    // Un tip es exactamente el tipo de insight que lleva la firma visual
+    // de Porty: la variante destacada del shell (borde + glow bitono).
+    return QaCardShell(
+      highlighted: true,
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: content,
     );
   }
 
@@ -485,16 +443,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final scoreColor = _fitScoreColor(data.fitScore);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -584,16 +533,7 @@ abstract final class PortfolioQaCatalogWidgets {
       PortfolioColors.textSecondary,
     ];
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -796,22 +736,13 @@ abstract final class PortfolioQaCatalogWidgets {
   static Widget qaGoalCard(CatalogItemContext ctx) {
     final data = _GoalCardData.fromMap(ctx.data as JsonMap);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-    final hasProgress =
-        data.currentAmount != null && data.targetAmount > 0;
-    final progress = hasProgress
-        ? (data.currentAmount! / data.targetAmount).clamp(0.0, 1.0)
-        : 0.0;
+    final hasProgress = data.currentAmount != null && data.targetAmount > 0;
+    final progress =
+        hasProgress
+            ? (data.currentAmount! / data.targetAmount).clamp(0.0, 1.0)
+            : 0.0;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border,
-        ),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -922,23 +853,15 @@ abstract final class PortfolioQaCatalogWidgets {
         _ProjectionMetric(
           label: 'Estado',
           value: data.onTrack! ? 'En camino' : 'Fuera de ruta',
-          valueColor: data.onTrack! ? PortfolioColors.profit : PortfolioColors.loss,
+          valueColor:
+              data.onTrack! ? PortfolioColors.profit : PortfolioColors.loss,
         ),
       );
     }
 
     final visibleMetrics = metrics.take(3).toList();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: PortfolioColors.border.withValues(alpha: 0.6),
-        ),
-      ),
+    return QaCardShell(
       child: Row(
         children: [
           for (var i = 0; i < visibleMetrics.length; i++) ...[
@@ -960,12 +883,8 @@ abstract final class PortfolioQaCatalogWidgets {
     final data = _MilestoneListData.fromMap(ctx.data as JsonMap);
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -994,13 +913,7 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaComparisonRow(CatalogItemContext ctx) {
     final data = _ComparisonRowData.fromMap(ctx.data as JsonMap);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1074,10 +987,7 @@ abstract final class PortfolioQaCatalogWidgets {
               children: [
                 TextSpan(
                   text: '$label: ',
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w600),
                 ),
                 TextSpan(text: text),
               ],
@@ -1288,10 +1198,7 @@ abstract final class PortfolioQaCatalogWidgets {
                   ),
                   Text(
                     '${isUp ? '+' : ''}${item.pnlPct.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      color: pnlColor,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: pnlColor, fontSize: 11),
                   ),
                 ],
               ),
@@ -1442,9 +1349,10 @@ abstract final class PortfolioQaCatalogWidgets {
     TextAlign align = TextAlign.start,
   }) {
     return Column(
-      crossAxisAlignment: align == TextAlign.end
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment:
+          align == TextAlign.end
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
       children: [
         Text(
           ticker,
@@ -1477,7 +1385,10 @@ final class _PeriodChangeData {
 
   factory _PeriodChangeData.fromMap(JsonMap map) {
     return _PeriodChangeData(
-      periodLabel: GenUiHelpers.safeString(map['periodLabel'], defaultValue: ''),
+      periodLabel: GenUiHelpers.safeString(
+        map['periodLabel'],
+        defaultValue: '',
+      ),
       changeAbs: GenUiHelpers.safeDouble(map['changeAbs'], defaultValue: 0),
       changePct: GenUiHelpers.safeDouble(map['changePct'], defaultValue: 0),
       valueStart: GenUiHelpers.safeDouble(map['valueStart'], defaultValue: 0),
@@ -1505,10 +1416,22 @@ final class _TickerSnapshotData {
   factory _TickerSnapshotData.fromMap(JsonMap map) {
     return _TickerSnapshotData(
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
-      currentPrice: GenUiHelpers.safeDouble(map['currentPrice'], defaultValue: 0),
-      dayChangePct: GenUiHelpers.safeDouble(map['dayChangePct'], defaultValue: 0),
-      weekChangePct: GenUiHelpers.safeDouble(map['weekChangePct'], defaultValue: 0),
-      monthChangePct: GenUiHelpers.safeDouble(map['monthChangePct'], defaultValue: 0),
+      currentPrice: GenUiHelpers.safeDouble(
+        map['currentPrice'],
+        defaultValue: 0,
+      ),
+      dayChangePct: GenUiHelpers.safeDouble(
+        map['dayChangePct'],
+        defaultValue: 0,
+      ),
+      weekChangePct: GenUiHelpers.safeDouble(
+        map['weekChangePct'],
+        defaultValue: 0,
+      ),
+      monthChangePct: GenUiHelpers.safeDouble(
+        map['monthChangePct'],
+        defaultValue: 0,
+      ),
       weightPct: GenUiHelpers.safeDouble(map['weightPct'], defaultValue: 0),
     );
   }
@@ -1534,7 +1457,10 @@ final class _TickerMoveData {
   factory _TickerMoveData.fromMap(JsonMap map) {
     return _TickerMoveData(
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
-      periodLabel: GenUiHelpers.safeString(map['periodLabel'], defaultValue: ''),
+      periodLabel: GenUiHelpers.safeString(
+        map['periodLabel'],
+        defaultValue: '',
+      ),
       changePct: GenUiHelpers.safeDouble(map['changePct'], defaultValue: 0),
       priceStart: GenUiHelpers.safeDouble(map['priceStart'], defaultValue: 0),
       priceEnd: GenUiHelpers.safeDouble(map['priceEnd'], defaultValue: 0),
@@ -1563,21 +1489,17 @@ final class _AnswerTextData {
 }
 
 final class _MetricItem {
-  _MetricItem({
-    required this.label,
-    required this.value,
-    required this.trend,
-  });
+  _MetricItem({required this.label, required this.value, required this.trend});
 
   factory _MetricItem.fromMap(JsonMap map) {
     return _MetricItem(
       label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
       value: GenUiHelpers.safeString(map['value'], defaultValue: ''),
-      trend: GenUiHelpers.safeEnum(
-        map['trend'],
-        const ['up', 'down', 'neutral'],
-        defaultValue: 'neutral',
-      ),
+      trend: GenUiHelpers.safeEnum(map['trend'], const [
+        'up',
+        'down',
+        'neutral',
+      ], defaultValue: 'neutral'),
     );
   }
 
@@ -1654,10 +1576,15 @@ final class _PnLBreakdownData {
   factory _PnLBreakdownData.fromMap(JsonMap map) {
     return _PnLBreakdownData(
       costBasis: GenUiHelpers.safeDouble(map['costBasis'], defaultValue: 0),
-      currentValue: GenUiHelpers.safeDouble(map['currentValue'], defaultValue: 0),
+      currentValue: GenUiHelpers.safeDouble(
+        map['currentValue'],
+        defaultValue: 0,
+      ),
       gainLoss: GenUiHelpers.safeDouble(map['gainLoss'], defaultValue: 0),
-      gainLossPercent:
-          GenUiHelpers.safeDouble(map['gainLossPercent'], defaultValue: 0),
+      gainLossPercent: GenUiHelpers.safeDouble(
+        map['gainLossPercent'],
+        defaultValue: 0,
+      ),
     );
   }
 
@@ -1728,8 +1655,10 @@ final class _ClosedPositionItem {
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
       pnlPct: GenUiHelpers.safeDouble(map['pnlPct'], defaultValue: 0),
       pnlAbs: GenUiHelpers.safeDouble(map['pnlAbs'], defaultValue: 0),
-      closeDateLabel:
-          GenUiHelpers.safeString(map['closeDateLabel'], defaultValue: ''),
+      closeDateLabel: GenUiHelpers.safeString(
+        map['closeDateLabel'],
+        defaultValue: '',
+      ),
     );
   }
 
@@ -1783,11 +1712,10 @@ final class _TipBannerData {
   factory _TipBannerData.fromMap(JsonMap map) {
     return _TipBannerData(
       message: GenUiHelpers.safeString(map['message'], defaultValue: ''),
-      tone: GenUiHelpers.safeEnum(
-        map['tone'],
-        const ['info', 'warning'],
-        defaultValue: 'info',
-      ),
+      tone: GenUiHelpers.safeEnum(map['tone'], const [
+        'info',
+        'warning',
+      ], defaultValue: 'info'),
     );
   }
 
@@ -1809,12 +1737,16 @@ final class _InvestOptionData {
     return _InvestOptionData(
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
       thesis: GenUiHelpers.safeString(map['thesis'], defaultValue: ''),
-      fitScore: GenUiHelpers.safeDouble(map['fitScore'], defaultValue: 0)
-          .clamp(0, 100),
+      fitScore: GenUiHelpers.safeDouble(
+        map['fitScore'],
+        defaultValue: 0,
+      ).clamp(0, 100),
       pro: GenUiHelpers.safeString(map['pro'], defaultValue: ''),
       con: GenUiHelpers.safeString(map['con'], defaultValue: ''),
-      currentPrice:
-          GenUiHelpers.safeDouble(map['currentPrice'], defaultValue: 0),
+      currentPrice: GenUiHelpers.safeDouble(
+        map['currentPrice'],
+        defaultValue: 0,
+      ),
     );
   }
 
@@ -1879,13 +1811,14 @@ final class _InvestConfirmData {
 
   factory _InvestConfirmData.fromMap(JsonMap map) {
     final tickersRaw = map['tickers'];
-    final tickers = tickersRaw is List
-        ? GenUiHelpers.safeStringList(tickersRaw)
-        : GenUiHelpers.safeString(tickersRaw, defaultValue: '')
-            .split(',')
-            .map((t) => t.trim())
-            .where((t) => t.isNotEmpty)
-            .toList();
+    final tickers =
+        tickersRaw is List
+            ? GenUiHelpers.safeStringList(tickersRaw)
+            : GenUiHelpers.safeString(tickersRaw, defaultValue: '')
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList();
 
     return _InvestConfirmData(
       summary: GenUiHelpers.safeString(map['summary'], defaultValue: ''),
@@ -1916,13 +1849,18 @@ final class _GoalCardData {
     final currentRaw = map['currentAmount'];
     return _GoalCardData(
       label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
-      targetAmount:
-          GenUiHelpers.safeDouble(map['targetAmount'], defaultValue: 0),
-      targetDateLabel:
-          GenUiHelpers.safeString(map['targetDateLabel'], defaultValue: ''),
-      currentAmount: currentRaw == null
-          ? null
-          : GenUiHelpers.safeDouble(currentRaw, defaultValue: 0),
+      targetAmount: GenUiHelpers.safeDouble(
+        map['targetAmount'],
+        defaultValue: 0,
+      ),
+      targetDateLabel: GenUiHelpers.safeString(
+        map['targetDateLabel'],
+        defaultValue: '',
+      ),
+      currentAmount:
+          currentRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(currentRaw, defaultValue: 0),
     );
   }
 
@@ -1960,21 +1898,27 @@ final class _ProjectionStripData {
     final onTrackRaw = map['onTrack'];
 
     return _ProjectionStripData(
-      requiredMonthlySavings: requiredRaw == null
-          ? null
-          : GenUiHelpers.safeDouble(requiredRaw, defaultValue: 0),
-      monthlyContributionUsed: contributionRaw == null
-          ? null
-          : GenUiHelpers.safeDouble(contributionRaw, defaultValue: 0),
+      requiredMonthlySavings:
+          requiredRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(requiredRaw, defaultValue: 0),
+      monthlyContributionUsed:
+          contributionRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(contributionRaw, defaultValue: 0),
       monthsRemaining:
-          GenUiHelpers.safeDouble(map['monthsRemaining'], defaultValue: 0)
-              .round(),
-      projectedAmountAtDate: projectedRaw == null
-          ? null
-          : GenUiHelpers.safeDouble(projectedRaw, defaultValue: 0),
-      onTrack: onTrackRaw == null
-          ? null
-          : GenUiHelpers.safeBool(onTrackRaw, defaultValue: false),
+          GenUiHelpers.safeDouble(
+            map['monthsRemaining'],
+            defaultValue: 0,
+          ).round(),
+      projectedAmountAtDate:
+          projectedRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(projectedRaw, defaultValue: 0),
+      onTrack:
+          onTrackRaw == null
+              ? null
+              : GenUiHelpers.safeBool(onTrackRaw, defaultValue: false),
     );
   }
 
@@ -2039,11 +1983,15 @@ final class _ComparisonRowData {
       label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
       leftTicker: GenUiHelpers.safeString(map['leftTicker'], defaultValue: ''),
       leftValue: GenUiHelpers.safeString(map['leftValue'], defaultValue: ''),
-      rightTicker:
-          GenUiHelpers.safeString(map['rightTicker'], defaultValue: ''),
+      rightTicker: GenUiHelpers.safeString(
+        map['rightTicker'],
+        defaultValue: '',
+      ),
       rightValue: GenUiHelpers.safeString(map['rightValue'], defaultValue: ''),
-      metricLabel:
-          GenUiHelpers.safeString(map['metricLabel'], defaultValue: ''),
+      metricLabel: GenUiHelpers.safeString(
+        map['metricLabel'],
+        defaultValue: '',
+      ),
     );
   }
 

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
-/// Burbuja del asistente que renderiza una surface GenUI.
+/// Renderiza la surface GenUI que arma Porty como respuesta.
+///
+/// Sin chrome de burbuja propio: la surface ya es una `Column` de widgets
+/// del catálogo (`qaAnswerText` sin card + tarjetas con `QaCardShell`), y
+/// envolverla en una burbuja duplicaba el borde/fondo — quedaba una card
+/// blanca dentro de otra card blanca. El texto plano respira en el fondo de
+/// la pantalla y las cards marcan su propio borde, como una respuesta de
+/// "lenguaje plano" en vez de un bloque de chat encerrado.
 ///
 /// Aparece con un fade + slide-up sutil al montarse: reemplaza al orbe de
 /// espera ([AssistantThinkingOrb]) y ese salto merece una transición, no un
@@ -36,7 +42,10 @@ class _PortfolioQaAssistantSurfaceState
       vsync: this,
       duration: const Duration(milliseconds: 280),
     );
-    _entrance = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _entrance = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -62,41 +71,20 @@ class _PortfolioQaAssistantSurfaceState
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.92,
-        ),
-        child: FadeTransition(
-          opacity: _entrance,
-          child: AnimatedBuilder(
-            animation: _entrance,
-            builder: (context, child) => Transform.translate(
+    return FadeTransition(
+      opacity: _entrance,
+      child: AnimatedBuilder(
+        animation: _entrance,
+        builder:
+            (context, child) => Transform.translate(
               offset: Offset(0, (1 - _entrance.value) * 8),
               child: child,
             ),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              decoration: BoxDecoration(
-                color: PortfolioColors.surfaceCard,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(14),
-                ),
-                border: Border.all(color: PortfolioColors.border),
-              ),
-              child: Surface(
-                key: ValueKey(widget.surfaceId),
-                surfaceContext: widget.surfaceContext,
-              ),
-            ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Surface(
+            key: ValueKey(widget.surfaceId),
+            surfaceContext: widget.surfaceContext,
           ),
         ),
       ),

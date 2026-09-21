@@ -16,16 +16,20 @@ abstract final class AppDimens {
   static const sp64 = 64.0;
 
   // ── Layout ────────────────────────────────────────────────────────────
-  static const pageHorizontal = 20.0;   // padding horizontal de pantallas
-  static const sectionGap = 28.0;       // espacio entre secciones del home
-  static const cardPadding = 18.0;      // padding interno de cards
+  static const pageHorizontal = 20.0; // padding horizontal de pantallas
+  static const sectionGap = 28.0; // espacio entre secciones del home
+  static const cardPadding = 18.0; // padding interno de cards
   static const cardPaddingLg = 20.0;
 
   // ── Border radius ─────────────────────────────────────────────────────
-  static const radiusSm = 6.0;   // badges, chips
-  static const radiusMd = 10.0;  // inputs, chips grandes
-  static const radiusLg = 14.0;  // cards
-  static const radiusXl = 18.0;  // modals, sheets
+  static const radiusSm = 6.0; // badges, chips
+  static const radiusMd = 10.0; // inputs, chips grandes
+  static const radiusLg = 14.0; // cards
+  static const radiusXl = 18.0; // modals, sheets
+
+  // ── Glow (acento del asistente, Porty) ──────────────────────────────────
+  static const glowBlurSm = 10.0;
+  static const glowBlurMd = 18.0;
 
   // ── Touch targets ─────────────────────────────────────────────────────
   static const touchTarget = 44.0;

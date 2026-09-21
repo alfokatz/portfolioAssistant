@@ -18,6 +18,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.chartLine,
     required this.benchmarkSp500,
     required this.accentBlue,
+    required this.accentWarm,
     required this.cardBackground,
     required this.aiCardBorder,
   });
@@ -36,6 +37,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color chartLine;
   final Color benchmarkSp500;
   final Color accentBlue;
+  final Color accentWarm;
   final Color cardBackground;
   final Color aiCardBorder;
 
@@ -56,8 +58,9 @@ class CustomColors extends ThemeExtension<CustomColors> {
     chartLine: PortfolioColors.chartLine,
     benchmarkSp500: PortfolioColors.benchmarkSp500,
     accentBlue: PortfolioColors.accentBlue,
+    accentWarm: PortfolioColors.accentWarm,
     cardBackground: PortfolioColors.surfaceCard,
-    aiCardBorder: PortfolioColors.border,
+    aiCardBorder: PortfolioColors.aiCardBorder,
   );
 
   static const dark = CustomColors(
@@ -75,8 +78,9 @@ class CustomColors extends ThemeExtension<CustomColors> {
     chartLine: Color(0xFFEDEDF0),
     benchmarkSp500: Color(0xFF8A8582),
     accentBlue: Color(0xFF5BA3D0),
+    accentWarm: Color(0xFFE3A472),
     cardBackground: Color(0xFF1A1A1A),
-    aiCardBorder: Color(0x14FFFFFF),
+    aiCardBorder: Color(0x595BA3D0), // accentBlue (dark) @ 35% alpha
   );
 
   @override
@@ -95,6 +99,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? chartLine,
     Color? benchmarkSp500,
     Color? accentBlue,
+    Color? accentWarm,
     Color? cardBackground,
     Color? aiCardBorder,
   }) {
@@ -113,6 +118,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       chartLine: chartLine ?? this.chartLine,
       benchmarkSp500: benchmarkSp500 ?? this.benchmarkSp500,
       accentBlue: accentBlue ?? this.accentBlue,
+      accentWarm: accentWarm ?? this.accentWarm,
       cardBackground: cardBackground ?? this.cardBackground,
       aiCardBorder: aiCardBorder ?? this.aiCardBorder,
     );
@@ -136,6 +142,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       chartLine: Color.lerp(chartLine, other.chartLine, t)!,
       benchmarkSp500: Color.lerp(benchmarkSp500, other.benchmarkSp500, t)!,
       accentBlue: Color.lerp(accentBlue, other.accentBlue, t)!,
+      accentWarm: Color.lerp(accentWarm, other.accentWarm, t)!,
       cardBackground: Color.lerp(cardBackground, other.cardBackground, t)!,
       aiCardBorder: Color.lerp(aiCardBorder, other.aiCardBorder, t)!,
     );

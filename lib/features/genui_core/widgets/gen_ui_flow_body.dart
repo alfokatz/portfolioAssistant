@@ -13,7 +13,7 @@ class GenUiFlowLoadingBody extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: Color(0xFF2979FF)),
+          const CircularProgressIndicator(color: PortfolioColors.accentBlue),
           const SizedBox(height: 16),
           Text(
             message,

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/navigation/app_tab_navigation.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -17,12 +18,13 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_empty_state.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_section_tabs.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/time_range_selector.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulHookConsumerWidget {
   const HomeScreen({super.key});
@@ -32,6 +34,8 @@ class HomeScreen extends StatefulHookConsumerWidget {
 }
 
 class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
+  HomeSection _section = HomeSection.assets;
+
   @override
   void initState() {
     runAfterPostFrameCallback(() {
@@ -62,8 +66,9 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     final notifier = ref.read(homeProvider.notifier);
     final subscription = ref.watch(subscriptionProvider);
     final summary = state.summary;
-    final isBenchmarkAllowed =
-        SubscriptionPolicy.isBenchmarkAllowed(subscription.tier);
+    final isBenchmarkAllowed = SubscriptionPolicy.isBenchmarkAllowed(
+      subscription.tier,
+    );
 
     final filteredHistory = HomeChartUtils.filterHistory(
       state.history,
@@ -74,41 +79,44 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       state.selectedRange,
     );
     final chartValues = filteredHistory.map((p) => p.totalValue).toList();
-    final periodPnl = state.selectedRange == ChartTimeRange.all && summary != null
-        ? PeriodPnl(
-            absolute: summary.totalPnlAbsolute,
-            percent: summary.totalPnlPercent,
-          )
-        : HomeChartUtils.periodPnlFromHistory(filteredHistory);
+    final periodPnl =
+        state.selectedRange == ChartTimeRange.all && summary != null
+            ? PeriodPnl(
+              absolute: summary.totalPnlAbsolute,
+              percent: summary.totalPnlPercent,
+            )
+            : HomeChartUtils.periodPnlFromHistory(filteredHistory);
 
     final valuations = List<PositionValuation>.from(
       summary?.valuations ?? const [],
     )..sort((a, b) => b.pnlAbsolute.compareTo(a.pnlAbsolute));
     final hasMorePositions = valuations.length > 5;
-    final displayValuations = state.showAllPositions
-        ? valuations
-        : valuations.take(5).toList(growable: false);
+    final displayValuations =
+        state.showAllPositions
+            ? valuations
+            : valuations.take(5).toList(growable: false);
 
     return Scaffold(
+      extendBody: true,
       floatingActionButton: Material(
-        color: colors.textPrimary,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        color: colors.accentWarm,
+        borderRadius: BorderRadius.circular(28),
         elevation: 0,
         child: InkWell(
           onTap: () => _onAddPosition(context),
-          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          child: SizedBox(
-            width: 52,
-            height: 52,
-            child: Icon(
-              Icons.add,
-              color: colors.surfaceCard,
-              size: 26,
-            ),
+          borderRadius: BorderRadius.circular(28),
+          child: const SizedBox(
+            width: 56,
+            height: 56,
+            child: Icon(Icons.add, color: Colors.white, size: 26),
           ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: AppBottomNavBar(
+        current: AppNavDestination.home,
+        onSelect: (destination) => goToAppTab(context, destination),
+      ),
       body: ContentStateWidget(
         child: RefreshIndicator(
           color: colors.accentBlue,
@@ -121,7 +129,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    HomeAppBar(onSettings: notifier.openSettings),
+                    const HomeAppBar(),
                     if (state.quoteError != null)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
@@ -132,18 +140,15 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         ),
                         child: Material(
                           color: colors.surfaceCard,
-                          borderRadius:
-                              BorderRadius.circular(AppDimens.radiusLg),
+                          borderRadius: BorderRadius.circular(
+                            AppDimens.radiusLg,
+                          ),
                           child: ListTile(
                             dense: true,
                             title: Text(
                               state.quoteError!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: colors.textSecondary,
-                                  ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.textSecondary),
                             ),
                             trailing: TextButton(
                               onPressed: notifier.refresh,
@@ -158,49 +163,56 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         chartValues: chartValues,
                         periodPnlAbsolute: periodPnl.absolute,
                         periodPnlPercent: periodPnl.percent,
-                      ),
-                      const SizedBox(height: AppDimens.sp16),
-                      TimeRangeSelector(
-                        selected: state.selectedRange,
-                        onSelected: notifier.selectTimeRange,
+                        selectedRange: state.selectedRange,
+                        onRangeSelected: notifier.selectTimeRange,
                       ),
                       const SizedBox(height: AppDimens.sectionGap),
-                      PortfolioQaEntryCard(
-                        onTap: notifier.openAssistant,
+                      HomeSectionTabs(
+                        selected: _section,
+                        onSelected:
+                            (section) => setState(() => _section = section),
                       ),
-                      AssistantModeChips(
-                        onModeTap: (mode) => notifier.openAssistant(mode: mode),
-                      ),
-                      PositionsSection(
-                        valuations: displayValuations,
-                        onPositionTap: notifier.openPositionDetail,
-                        onDeletePosition: (valuation) =>
-                            notifier.deletePositionsForTicker(
-                              valuation.position.ticker,
-                            ),
-                        actionLabel: hasMorePositions
-                            ? (state.showAllPositions
-                                ? 'view_less'.tr()
-                                : 'view_all'.tr())
-                            : null,
-                        onAction: hasMorePositions
-                            ? notifier.togglePositionsExpanded
-                            : null,
-                      ),
-                      if (isBenchmarkAllowed)
-                        BenchmarkComparisonCard(
-                          portfolioPercent: periodPnl.percent,
-                          benchmarkPoints: filteredBenchmark,
+                      const SizedBox(height: AppDimens.sp16),
+                      if (_section == HomeSection.assets)
+                        PositionsSection(
+                          valuations: displayValuations,
+                          onPositionTap: notifier.openPositionDetail,
+                          onDeletePosition:
+                              (valuation) => notifier.deletePositionsForTicker(
+                                valuation.position.ticker,
+                              ),
+                          actionLabel:
+                              hasMorePositions
+                                  ? (state.showAllPositions
+                                      ? 'view_less'.tr()
+                                      : 'view_all'.tr())
+                                  : null,
+                          onAction:
+                              hasMorePositions
+                                  ? notifier.togglePositionsExpanded
+                                  : null,
                         )
-                      else
-                        const BenchmarkLockedCard(),
-                      ClosedPositionsEntryCard(
-                        count: state.closedPositionsCount,
-                        onTap: notifier.openClosedPositions,
-                      ),
-                      if (valuations.isNotEmpty)
-                        PnlDistributionCard(valuations: valuations),
-                      const SizedBox(height: 88),
+                      else ...[
+                        PortfolioQaEntryCard(onTap: notifier.openAssistant),
+                        AssistantModeChips(
+                          onModeTap:
+                              (mode) => notifier.openAssistant(mode: mode),
+                        ),
+                        if (isBenchmarkAllowed)
+                          BenchmarkComparisonCard(
+                            portfolioPercent: periodPnl.percent,
+                            benchmarkPoints: filteredBenchmark,
+                          )
+                        else
+                          const BenchmarkLockedCard(),
+                        ClosedPositionsEntryCard(
+                          count: state.closedPositionsCount,
+                          onTap: notifier.openClosedPositions,
+                        ),
+                        if (valuations.isNotEmpty)
+                          PnlDistributionCard(valuations: valuations),
+                      ],
+                      const SizedBox(height: 100),
                     ] else
                       HomeEmptyState(
                         onAddPosition: () => _onAddPosition(context),

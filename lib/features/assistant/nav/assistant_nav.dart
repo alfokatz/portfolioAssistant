@@ -13,7 +13,7 @@ class GotoAssistant extends NavigationEvent {
 
   @override
   void navigate({required BuildContext context}) {
-    context.pushNamed(
+    context.goNamed(
       AssistantRouter.routeName,
       queryParameters:
           mode == AssistantMode.portfolio ? {} : {'mode': mode.queryValue},

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/navigation/app_tab_navigation.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -19,6 +20,7 @@ import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/setti
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_subscription_card.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _appVersion = '1.0.0';
@@ -49,21 +51,22 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final current = context.locale;
     final selected = await showModalBottomSheet<Locale>(
       context: context,
-      builder: (ctx) => SettingsPickerSheet(
-        title: 'settings_language'.tr(),
-        children: [
-          SettingsPickerOption(
-            label: 'settings_language_spanish'.tr(),
-            isSelected: current.languageCode == 'es',
-            onTap: () => Navigator.of(ctx).pop(const Locale('es', 'ES')),
+      builder:
+          (ctx) => SettingsPickerSheet(
+            title: 'settings_language'.tr(),
+            children: [
+              SettingsPickerOption(
+                label: 'settings_language_spanish'.tr(),
+                isSelected: current.languageCode == 'es',
+                onTap: () => Navigator.of(ctx).pop(const Locale('es', 'ES')),
+              ),
+              SettingsPickerOption(
+                label: 'settings_language_english'.tr(),
+                isSelected: current.languageCode == 'en',
+                onTap: () => Navigator.of(ctx).pop(const Locale('en', 'US')),
+              ),
+            ],
           ),
-          SettingsPickerOption(
-            label: 'settings_language_english'.tr(),
-            isSelected: current.languageCode == 'en',
-            onTap: () => Navigator.of(ctx).pop(const Locale('en', 'US')),
-          ),
-        ],
-      ),
     );
 
     if (selected != null && mounted) {
@@ -94,17 +97,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 Text(
                   title,
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: AppDimens.sp12),
                 Text(
                   value,
                   style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
-                        color: colors.textSecondary,
-                        height: 1.5,
-                      ),
+                    color: colors.textSecondary,
+                    height: 1.5,
+                  ),
                 ),
               ],
             ),
@@ -122,35 +125,36 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
 
   Future<void> _onChangePassword(String email) async {
     if (email.isEmpty || email == 'auth_no_email'.tr()) {
-      ref.read(alertProvider.notifier).showError(
-            message: 'auth_email_required'.tr(),
-          );
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'auth_email_required'.tr());
       return;
     }
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('settings_change_password'.tr()),
-        content: Text('settings_change_password_message'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('cancel'.tr()),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('settings_change_password'.tr()),
+            content: Text('settings_change_password_message'.tr()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text('cancel'.tr()),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text('settings_send_link'.tr()),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('settings_send_link'.tr()),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true || !mounted) return;
 
-    await ref.read(authControllerProvider.notifier).requestPasswordReset(
-          email: email,
-        );
+    await ref
+        .read(authControllerProvider.notifier)
+        .requestPasswordReset(email: email);
   }
 
   Future<void> _onSignOut() async {
@@ -189,17 +193,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
 
     if (confirmed != true) return;
 
-    ref.read(alertProvider.notifier).showWarning(
-          message: 'settings_delete_account_unavailable'.tr(),
-        );
+    ref
+        .read(alertProvider.notifier)
+        .showWarning(message: 'settings_delete_account_unavailable'.tr());
   }
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      ref.read(alertProvider.notifier).showError(
-            message: 'settings_link_error'.tr(),
-          );
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'settings_link_error'.tr());
     }
   }
 
@@ -213,147 +217,163 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
     final fullName = (metadata?['full_name'] as String?)?.trim();
-    final displayName = fullName?.isNotEmpty == true
-        ? fullName!
-        : 'settings_profile_name_placeholder'.tr();
+    final displayName =
+        fullName?.isNotEmpty == true
+            ? fullName!
+            : 'settings_profile_name_placeholder'.tr();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('settings_title'.tr()),
+      bottomNavigationBar: AppBottomNavBar(
+        current: AppNavDestination.settings,
+        onSelect: (destination) => goToAppTab(context, destination),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppDimens.pageHorizontal,
-          AppDimens.sp8,
-          AppDimens.pageHorizontal,
-          AppDimens.sp32,
-        ),
-        children: [
-          SettingsSectionCard(
-            title: 'settings_section_profile'.tr(),
-            children: [
-              SettingsNavRow(
-                icon: Icons.person_outline_rounded,
-                label: 'settings_full_name'.tr(),
-                value: displayName,
-                onTap: () => _showProfileSheet(
-                  title: 'settings_full_name'.tr(),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.pageHorizontal,
+            AppDimens.sp8,
+            AppDimens.pageHorizontal,
+            AppDimens.sp32,
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+              child: Text(
+                'settings_title'.tr(),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            SettingsSectionCard(
+              title: 'settings_section_profile'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.person_outline_rounded,
+                  label: 'settings_full_name'.tr(),
                   value: displayName,
+                  onTap:
+                      () => _showProfileSheet(
+                        title: 'settings_full_name'.tr(),
+                        value: displayName,
+                      ),
                 ),
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.mail_outline_rounded,
-                label: 'auth_email'.tr(),
-                value: email,
-                onTap: () => _showProfileSheet(
-                  title: 'auth_email'.tr(),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.mail_outline_rounded,
+                  label: 'auth_email'.tr(),
                   value: email,
+                  onTap:
+                      () => _showProfileSheet(
+                        title: 'auth_email'.tr(),
+                        value: email,
+                      ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sectionGap),
-          SettingsSectionCard(
-            title: 'settings_section_preferences'.tr(),
-            children: [
-              SettingsNavRow(
-                icon: Icons.language_rounded,
-                label: 'settings_language'.tr(),
-                value: _languageLabel(context.locale),
-                onTap: _showLanguagePicker,
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.dark_mode_outlined,
-                label: 'settings_appearance'.tr(),
-                value: settingsAppearanceLabel(themeMode),
-                onTap: () => showSettingsAppearancePicker(context, ref),
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.payments_outlined,
-                label: 'settings_currency'.tr(),
-                value: 'settings_currency_usd'.tr(),
-                showChevron: false,
-                onTap: null,
-              ),
-              const SettingsDivider(),
-              SettingsToggleRow(
-                icon: Icons.notifications_outlined,
-                label: 'settings_notifications'.tr(),
-                value: settings.notificationsEnabled,
-                onChanged: settings.isLoading
-                    ? null
-                    : settingsNotifier.setNotificationsEnabled,
-              ),
-              const SettingsDivider(),
-              SettingsToggleRow(
-                icon: Icons.campaign_outlined,
-                label: 'settings_price_alerts'.tr(),
-                value: settings.priceAlertsEnabled,
-                onChanged: settings.isLoading
-                    ? null
-                    : settingsNotifier.setPriceAlertsEnabled,
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.play_lesson_outlined,
-                label: 'settings_replay_onboarding'.tr(),
-                onTap: _onReplayOnboarding,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sectionGap),
-          SettingsSectionCard(
-            title: 'settings_section_security'.tr(),
-            children: [
-              SettingsNavRow(
-                icon: Icons.lock_reset_rounded,
-                label: 'settings_change_password'.tr(),
-                onTap: () => _onChangePassword(email),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sectionGap),
-          const SettingsSubscriptionCard(),
-          const SizedBox(height: AppDimens.sectionGap),
-          SettingsSectionCard(
-            title: 'settings_section_about'.tr(),
-            children: [
-              SettingsNavRow(
-                icon: Icons.info_outline_rounded,
-                label: 'settings_version'.tr(),
-                value: _appVersion,
-                showChevron: false,
-                onTap: null,
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.description_outlined,
-                label: 'settings_terms'.tr(),
-                onTap: () => _openUrl('https://portfolioai.app/terms'),
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.shield_outlined,
-                label: 'settings_privacy'.tr(),
-                onTap: () => _openUrl('https://portfolioai.app/privacy'),
-              ),
-              const SettingsDivider(),
-              SettingsNavRow(
-                icon: Icons.star_outline_rounded,
-                label: 'settings_rate_app'.tr(),
-                onTap: () => _openUrl('https://portfolioai.app/rate'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sectionGap),
-          SettingsDangerZone(
-            onSignOut: _onSignOut,
-            onDeleteAccount: _onDeleteAccount,
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_preferences'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.language_rounded,
+                  label: 'settings_language'.tr(),
+                  value: _languageLabel(context.locale),
+                  onTap: _showLanguagePicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.dark_mode_outlined,
+                  label: 'settings_appearance'.tr(),
+                  value: settingsAppearanceLabel(themeMode),
+                  onTap: () => showSettingsAppearancePicker(context, ref),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.payments_outlined,
+                  label: 'settings_currency'.tr(),
+                  value: 'settings_currency_usd'.tr(),
+                  showChevron: false,
+                  onTap: null,
+                ),
+                const SettingsDivider(),
+                SettingsToggleRow(
+                  icon: Icons.notifications_outlined,
+                  label: 'settings_notifications'.tr(),
+                  value: settings.notificationsEnabled,
+                  onChanged:
+                      settings.isLoading
+                          ? null
+                          : settingsNotifier.setNotificationsEnabled,
+                ),
+                const SettingsDivider(),
+                SettingsToggleRow(
+                  icon: Icons.campaign_outlined,
+                  label: 'settings_price_alerts'.tr(),
+                  value: settings.priceAlertsEnabled,
+                  onChanged:
+                      settings.isLoading
+                          ? null
+                          : settingsNotifier.setPriceAlertsEnabled,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.play_lesson_outlined,
+                  label: 'settings_replay_onboarding'.tr(),
+                  onTap: _onReplayOnboarding,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_security'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.lock_reset_rounded,
+                  label: 'settings_change_password'.tr(),
+                  onTap: () => _onChangePassword(email),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            const SettingsSubscriptionCard(),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_about'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.info_outline_rounded,
+                  label: 'settings_version'.tr(),
+                  value: _appVersion,
+                  showChevron: false,
+                  onTap: null,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.description_outlined,
+                  label: 'settings_terms'.tr(),
+                  onTap: () => _openUrl('https://portfolioai.app/terms'),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.shield_outlined,
+                  label: 'settings_privacy'.tr(),
+                  onTap: () => _openUrl('https://portfolioai.app/privacy'),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.star_outline_rounded,
+                  label: 'settings_rate_app'.tr(),
+                  onTap: () => _openUrl('https://portfolioai.app/rate'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsDangerZone(
+              onSignOut: _onSignOut,
+              onDeleteAccount: _onDeleteAccount,
+            ),
+          ],
+        ),
       ),
     );
   }

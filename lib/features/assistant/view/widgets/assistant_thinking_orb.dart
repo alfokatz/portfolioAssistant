@@ -10,11 +10,12 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 /// respuesta) — sin chrome de burbuja alrededor, para que se sienta suelto
 /// en la pantalla en vez de encerrado en un contenedor.
 ///
-/// Un solo tono de [PortfolioColors.accentBlue] con un halo sutil — sin
-/// gradientes ni colores nuevos. Dos ciclos independientes (respiración de
-/// escala/opacidad y deriva vertical) con duraciones distintas para que la
-/// combinación no se sienta mecánica. Respeta `disableAnimations` (reduced
-/// motion).
+/// El núcleo es [PortfolioColors.accentBlue] sólido; el halo alrededor
+/// combina ese mismo azul con [PortfolioColors.accentWarm] — un glow
+/// bitono frío→cálido que es la firma visual de Porty, el asistente.
+/// Dos ciclos independientes (respiración de escala/opacidad y deriva
+/// vertical) con duraciones distintas para que la combinación no se sienta
+/// mecánica. Respeta `disableAnimations` (reduced motion).
 class AssistantThinkingOrb extends StatefulWidget {
   const AssistantThinkingOrb({super.key, this.size = 20});
 
@@ -93,7 +94,11 @@ class _AssistantThinkingOrbState extends State<AssistantThinkingOrb>
     );
   }
 
-  Widget _orb({required double scale, required double opacity, required double dy}) {
+  Widget _orb({
+    required double scale,
+    required double opacity,
+    required double dy,
+  }) {
     const color = PortfolioColors.accentBlue;
     final bounds = widget.size * _maxScale + _driftAmplitude * 2;
     return SizedBox(
@@ -111,10 +116,19 @@ class _AssistantThinkingOrbState extends State<AssistantThinkingOrb>
                 shape: BoxShape.circle,
                 color: color.withValues(alpha: opacity),
                 boxShadow: [
+                  // Halo interno, frío — extensión directa del núcleo.
                   BoxShadow(
                     color: color.withValues(alpha: opacity * 0.45),
-                    blurRadius: widget.size * 0.85,
+                    blurRadius: widget.size * 0.6,
                     spreadRadius: widget.size * 0.05,
+                  ),
+                  // Halo externo, cálido — el acento glow de Porty.
+                  BoxShadow(
+                    color: PortfolioColors.accentWarm.withValues(
+                      alpha: opacity * 0.35,
+                    ),
+                    blurRadius: widget.size * 0.95,
+                    spreadRadius: 0,
                   ),
                 ],
               ),

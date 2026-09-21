@@ -6,6 +6,6 @@ import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_rou
 class GotoSettings extends NavigationEvent {
   @override
   void navigate({required BuildContext context}) {
-    context.pushNamed(SettingsRouter.settingsRouteName);
+    context.goNamed(SettingsRouter.settingsRouteName);
   }
 }

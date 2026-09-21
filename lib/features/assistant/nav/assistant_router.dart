@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/config/navigation/fade_scale_page.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode_codec.dart';
 import 'package:portfolio_assistant/features/assistant/view/assistant_screen.dart';
 
@@ -17,7 +17,7 @@ class AssistantRouter {
           state.uri.queryParameters['mode'],
         );
         final extra = state.extra;
-        return MaterialPage<void>(
+        return fadeScalePage<void>(
           key: state.pageKey,
           name: routeName,
           child: AssistantScreen(
