@@ -93,6 +93,64 @@ void main() {
     );
 
     testWidgets(
+      'does not retype once already revealed and remounted under '
+      'disableAnimations',
+      (tester) async {
+        // Regresión: al igual que PortfolioQaAssistantSurface, la burbuja de
+        // usuario vive como item del ListView de la pantalla de chat, que
+        // desmonta/remonta items al scrollear. AssistantScreen envuelve la
+        // fila entera en `MediaQuery(disableAnimations: true)` (ver
+        // `_settledAware`) una vez que `PortfolioQaMessage.hasRevealed` es
+        // `true` para ese mensaje — acá se simula ese ciclo directamente
+        // sobre TypewriterText/PortfolioQaChatBubble, sin pasar por toda la
+        // pantalla.
+        const message = PortfolioQaMessage(
+          role: PortfolioQaRole.user,
+          content: 'hola porty, como va mi cartera',
+        );
+        var completedCount = 0;
+
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaChatBubble(
+              message: message,
+              onTypingComplete: () => completedCount++,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(completedCount, 1);
+        expect(find.text(message.content), findsOneWidget);
+
+        // Desmonta — simula el mensaje scrolleando fuera del viewport.
+        await tester.pumpWidget(genuiTestApp(child: const SizedBox()));
+        await tester.pump();
+        expect(find.text(message.content), findsNothing);
+
+        // Remonta bajo `disableAnimations: true` — lo que produce
+        // `_settledAware` una vez que el mensaje ya se marcó revelado.
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: genuiTestApp(
+              child: PortfolioQaChatBubble(
+                message: message,
+                onTypingComplete: () => completedCount++,
+              ),
+            ),
+          ),
+        );
+
+        // Un solo pump: si el typewriter se hubiera vuelto a disparar, acá
+        // solo se vería un prefijo del texto, no el texto completo.
+        await tester.pump();
+        expect(find.text(message.content), findsOneWidget);
+        expect(completedCount, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'reduced motion shows the full user message instantly and still calls onTypingComplete',
       (tester) async {
         var completed = false;
@@ -152,6 +210,113 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.textContaining('Tu portfolio subió 5,4% hoy.'), findsOneWidget);
     });
+
+    testWidgets(
+      'onFullyRevealed fires once, only after the typewriter finishes '
+      '— not on every intermediate frame while it is still growing',
+      (tester) async {
+        // Regresión: la pantalla de chat solía perseguir el fondo del
+        // scroll con una heurística de "el alto del contenido dejó de
+        // cambiar por un rato", que daba falso positivo a mitad de una
+        // línea de texto que el typewriter todavía estaba revelando.
+        // `onFullyRevealed` reemplaza esa heurística por una señal exacta
+        // — este test confirma que no dispara antes de tiempo mientras el
+        // texto sigue tipeándose, y que sí dispara una sola vez al final.
+        final controller =
+            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+        const surfaceId = 'portfolio_qa_0';
+        const text = 'Diversificar significa repartir tu inversión entre '
+            'distintos activos para no depender del resultado de uno solo.';
+        final normalized = A2uiResponseNormalizer.normalize(
+          '[{"id": "root", "component": "QaAnswerText", "text": "$text"}]',
+          surfaceId: surfaceId,
+        );
+        dispatchNormalizedA2ui(controller, normalized);
+
+        var revealedCount = 0;
+        await tester.binding.setSurfaceSize(genuiTestViewportSize);
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: controller.contextFor(surfaceId),
+              onFullyRevealed: () => revealedCount++,
+            ),
+          ),
+        );
+
+        // Mid-typewriter: el texto todavía se está revelando de a poco, así
+        // que la señal de "surface completa" no debe haber disparado.
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(revealedCount, 0);
+
+        await tester.pumpAndSettle();
+        expect(revealedCount, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'startFullyRevealed shows the final content instantly on remount, '
+      'without replaying the typewriter/reveal',
+      (tester) async {
+        // Regresión: scrollear el historial de chat lejos de un mensaje y
+        // de vuelta desmonta y vuelve a montar su `PortfolioQaAssistantSurface`
+        // (el `ListView` no mantiene vivos los items fuera de su cache
+        // extent). Sin este flag, cada remount reiniciaba el typewriter
+        // desde cero — este test simula justo ese ciclo: revelar completo →
+        // desmontar (scroll fuera de vista) → remontar (scroll de vuelta)
+        // con `startFullyRevealed: true`, y confirma que el segundo montaje
+        // no anima nada.
+        final controller =
+            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+        const surfaceId = 'portfolio_qa_0';
+        const text = 'Tu portfolio subió 5,4% hoy.';
+        final normalized = A2uiResponseNormalizer.normalize(
+          '[{"id": "root", "component": "QaAnswerText", "text": "$text"}]',
+          surfaceId: surfaceId,
+        );
+        dispatchNormalizedA2ui(controller, normalized);
+
+        await tester.binding.setSurfaceSize(genuiTestViewportSize);
+
+        // 1) Primer montaje: revela completo, como el turno original.
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: controller.contextFor(surfaceId),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining(text), findsOneWidget);
+
+        // 2) Desmonta — simula el mensaje scrolleando fuera del viewport.
+        await tester.pumpWidget(genuiTestApp(child: const SizedBox()));
+        await tester.pump();
+        expect(find.textContaining(text), findsNothing);
+
+        // 3) Remonta con `startFullyRevealed: true` — simula el scroll de
+        // vuelta, ahora que el modelo ya sabe que este mensaje se reveló.
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: controller.contextFor(surfaceId),
+              startFullyRevealed: true,
+            ),
+          ),
+        );
+
+        // Un solo pump (no pumpAndSettle): si el typewriter se hubiera
+        // vuelto a disparar, acá solo se vería un prefijo del texto, no el
+        // texto completo.
+        await tester.pump();
+        expect(find.textContaining(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets(
       'renders blank when read through the wrong controller, but correctly '

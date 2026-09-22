@@ -8,7 +8,11 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 /// Solo completa cuando la [targetSurfaceId] tiene componentes renderizables;
 /// no usa [ConversationSurfaceAdded] vacío ni [ConversationContentReceived].
 abstract final class GenUiRequestTracker {
-  static const defaultTimeout = Duration(seconds: 45);
+  // 60s da margen para hasta 2 intentos de streaming (ver
+  // OpenAIGenUiService: timeout interno de 24s por intento + 1 reintento
+  // corto ante fallas transitorias) sin que este timeout externo corte
+  // antes de que ese reintento interno tenga la chance de resolver.
+  static const defaultTimeout = Duration(seconds: 60);
 
   static Future<void> sendAndWait({
     required Conversation conversation,
@@ -45,10 +49,15 @@ abstract final class GenUiRequestTracker {
       // Por eso el timeout debe cubrir `send()` y no solo la espera del
       // completer: si el stream se cuelga, `send()` nunca resuelve y el
       // timeout de abajo nunca se alcanzaría.
+      // `eagerError: true` es clave: sin esto, si `send()` tira una
+      // excepción real pero `completer` nunca se resuelve por su cuenta
+      // (no llegó ningún ConversationEvent coincidente), `Future.wait`
+      // esperaba igual hasta el timeout de abajo — enmascarando SIEMPRE
+      // la causa real del fallo detrás del mensaje genérico de timeout.
       await Future.wait<void>([
         send(),
         completer.future,
-      ]).timeout(
+      ], eagerError: true).timeout(
         timeout,
         onTimeout: () => throw TimeoutException(
           'La IA no generó una interfaz a tiempo. Revisá tu conexión o intentá de nuevo.',

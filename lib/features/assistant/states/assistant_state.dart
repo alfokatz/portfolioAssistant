@@ -25,6 +25,15 @@ class AssistantState {
   final bool isServiceReady;
   final PaywallReason? paywallReason;
 
+  /// `true` una vez que la cascada de entrada del saludo inicial + chips de
+  /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
+  /// menos una vez. Vive acá (no en el `State` de ningún widget) por la
+  /// misma razón que `PortfolioQaMessage.hasRevealed`: esos widgets son
+  /// items del `ListView` del chat, que los desmonta si scrollean fuera del
+  /// cache extent — sin este flag persistente, volver a scrollear hasta
+  /// arriba del todo reproduce la cascada de nuevo.
+  final bool introRevealed;
+
   const AssistantState({
     this.messages = const [],
     this.error,
@@ -34,6 +43,7 @@ class AssistantState {
     this.turnCounter = 0,
     this.isServiceReady = false,
     this.paywallReason,
+    this.introRevealed = false,
   });
 
   AssistantState copyWith({
@@ -45,6 +55,7 @@ class AssistantState {
     int? turnCounter,
     bool? isServiceReady,
     PaywallReason? paywallReason,
+    bool? introRevealed,
     bool clearError = false,
     bool clearPaywallReason = false,
   }) {
@@ -58,6 +69,7 @@ class AssistantState {
       isServiceReady: isServiceReady ?? this.isServiceReady,
       paywallReason:
           clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
+      introRevealed: introRevealed ?? this.introRevealed,
     );
   }
 }

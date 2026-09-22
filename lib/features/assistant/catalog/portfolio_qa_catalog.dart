@@ -3,6 +3,7 @@ import 'package:json_schema_builder/json_schema_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/grounding_prompt_rules.dart';
 
 const _trendEnum = ['up', 'down', 'neutral'];
@@ -835,37 +836,76 @@ Use the exact SURFACE_ID from the user message in createSurface and updateCompon
 ''';
 
 /// Catálogo del asistente Portfolio Q&A (respuestas concisas + widgets simples).
+///
+/// Cada modo recibe solo los widgets que su propia guía de prompt
+/// referencia — antes los 5 modos compartían el catálogo completo de 19
+/// widgets, lo que inflaba el JSON schema embebido en cada prompt (incluso
+/// para modos que solo pueden usar 2-6 de esos widgets) y le daba al
+/// modelo opciones irrelevantes entre las que confundirse.
 abstract final class PortfolioQaCatalog {
-  static Catalog build() {
+  static Catalog build() => _buildFrom(_itemsFor(AssistantMode.portfolio), _portfolioQaRules);
+
+  /// Catálogo acotado para un modo puntual, con sus propias reglas de
+  /// prompt (ya incluyen las reglas críticas/de grounding compartidas).
+  static Catalog buildFor(AssistantMode mode, String modeRules) =>
+      _buildFrom(_itemsFor(mode), modeRules);
+
+  static Catalog _buildFrom(List<CatalogItem> items, String rules) {
     final base = BasicCatalogItems.asCatalog();
     return base.copyWith(
-      newItems: [
-        qaAnswerTextItem,
-        qaMetricStripItem,
-        qaPeriodChangeItem,
-        qaTickerSnapshotItem,
-        qaTickerMoveItem,
-        qaConcentrationBarItem,
-        qaPnLBreakdownItem,
-        qaTopMoversItem,
-        qaPositionListItem,
-        qaClosedPositionListItem,
-        qaTipBannerItem,
-        qaComparisonRowItem,
-        qaInvestOptionItem,
-        qaBudgetSplitItem,
-        qaInvestConfirmItem,
-        qaGoalCardItem,
-        qaProjectionStripItem,
-        qaProjectionChartItem,
-        qaMilestoneListItem,
-      ],
+      newItems: items,
       systemPromptFragments: [
         criticalOutputFormatRules,
         ...base.systemPromptFragments,
         groundingPromptRules,
-        _portfolioQaRules,
+        rules,
       ],
     );
+  }
+
+  static List<CatalogItem> _itemsFor(AssistantMode mode) {
+    switch (mode) {
+      case AssistantMode.portfolio:
+        return [
+          qaAnswerTextItem,
+          qaMetricStripItem,
+          qaTickerMoveItem,
+          qaPeriodChangeItem,
+          qaConcentrationBarItem,
+          qaPnLBreakdownItem,
+          qaTopMoversItem,
+          qaClosedPositionListItem,
+          qaPositionListItem,
+          qaTipBannerItem,
+          qaComparisonRowItem,
+        ];
+      case AssistantMode.learn:
+        return [qaAnswerTextItem, qaTipBannerItem];
+      case AssistantMode.explore:
+        return [
+          qaAnswerTextItem,
+          qaTickerSnapshotItem,
+          qaTickerMoveItem,
+          qaMetricStripItem,
+          qaTipBannerItem,
+        ];
+      case AssistantMode.invest:
+        return [
+          qaAnswerTextItem,
+          qaBudgetSplitItem,
+          qaInvestOptionItem,
+          qaInvestConfirmItem,
+          qaTipBannerItem,
+        ];
+      case AssistantMode.plan:
+        return [
+          qaAnswerTextItem,
+          qaGoalCardItem,
+          qaProjectionStripItem,
+          qaProjectionChartItem,
+          qaMilestoneListItem,
+          qaTipBannerItem,
+        ];
+    }
   }
 }

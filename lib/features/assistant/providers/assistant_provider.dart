@@ -21,6 +21,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_messa
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -194,6 +195,46 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return messages;
   }
 
+  /// Marca la surface de [surfaceId] como ya revelada — ver
+  /// `PortfolioQaMessage.hasRevealed`. Se llama una sola vez, desde
+  /// `PortfolioQaAssistantSurface.onFullyRevealed`, cuando el reveal
+  /// secuencial de esa surface termina por primera vez.
+  void markRevealed(String surfaceId) {
+    final messages = state.messages;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final message = messages[i];
+      if (message.surfaceId == surfaceId && !message.hasRevealed) {
+        final updated = [...messages];
+        updated[i] = message.copyWith(hasRevealed: true);
+        state = state.copyWith(messages: updated);
+        return;
+      }
+    }
+  }
+
+  /// Igual que [markRevealed], para el typewriter de una burbuja de usuario
+  /// (que no tiene `surfaceId`). Los mensajes son append-only acá (ningún
+  /// código de este provider inserta, borra ni reordena `state.messages`),
+  /// así que el índice sigue identificando al mismo mensaje de forma
+  /// estable durante toda la vida de la conversación — el mismo criterio
+  /// que ya usa la `Key` de la fila en `AssistantScreen`.
+  void markUserMessageRevealed(int index) {
+    final messages = state.messages;
+    if (index < 0 || index >= messages.length) return;
+    final message = messages[index];
+    if (message.hasRevealed) return;
+    final updated = [...messages];
+    updated[index] = message.copyWith(hasRevealed: true);
+    state = state.copyWith(messages: updated);
+  }
+
+  /// Marca la cascada de entrada del saludo + chips de sugerencia como ya
+  /// mostrada — ver `AssistantState.introRevealed`.
+  void markIntroRevealed() {
+    if (state.introRevealed) return;
+    state = state.copyWith(introRevealed: true);
+  }
+
   Future<void> sendMessage(String text, {required AssistantMode engineMode}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -306,16 +347,29 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             paywallReason: PaywallReason.quotaExceeded,
           );
         }
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
+        // Tras agotar el reintento interno de OpenAIGenUiService, un
+        // timeout es una falla de generación (el modelo no llegó a
+        // tiempo), no de conexión — cae a una respuesta de texto simple
+        // en vez del banner de error, que queda reservado para fallas de
+        // conexión reales (ver isConnectionFailure).
         state = state.copyWith(
-          error: e.message ?? 'GPT tardó demasiado en responder.',
-          messages: _removeStreamingPlaceholder(state.messages),
+          messages: _fallbackToText(state.messages, surfaceId, engineMode),
         );
       } catch (e) {
-        state = state.copyWith(
-          error: genUiErrorMessage(e),
-          messages: _removeStreamingPlaceholder(state.messages),
-        );
+        if (isConnectionFailure(e)) {
+          state = state.copyWith(
+            error: genUiErrorMessage(e),
+            messages: _removeStreamingPlaceholder(state.messages),
+          );
+        } else {
+          // JSON inválido, schema mal formado, "interfaz sin componente
+          // raíz" — todas fallas de generación: nunca dejan al usuario
+          // sin respuesta, cae a texto en vez de mostrar el error card.
+          state = state.copyWith(
+            messages: _fallbackToText(state.messages, surfaceId, engineMode),
+          );
+        }
       }
     } finally {
       // Se libera siempre, sin importar por qué rama se salió del bloque
@@ -331,6 +385,31 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   ) {
     if (messages.isEmpty || !messages.last.isStreaming) return messages;
     return messages.sublist(0, messages.length - 1);
+  }
+
+  /// Reemplaza el placeholder de [surfaceId] por un mensaje de texto
+  /// completo — nunca deja al usuario sin respuesta ante una falla de
+  /// generación (timeout tras reintentar, JSON inválido, etc.). Reusa el
+  /// mismo mensaje que ya usa el sanitizador/prompt como fallback, por
+  /// consistencia.
+  List<PortfolioQaMessage> _fallbackToText(
+    List<PortfolioQaMessage> messages,
+    String surfaceId,
+    AssistantMode engineMode,
+  ) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final message = messages[i];
+      if (message.surfaceId == surfaceId && message.isStreaming) {
+        final updated = [...messages];
+        updated[i] = PortfolioQaMessage(
+          role: PortfolioQaRole.assistant,
+          content: LlmJsonSanitizer.defaultFallbackMessage,
+          engineMode: engineMode,
+        );
+        return updated;
+      }
+    }
+    return messages;
   }
 
   /// El motor que atiende un turno cambia con cada mensaje (ver

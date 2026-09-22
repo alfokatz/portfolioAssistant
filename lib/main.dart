@@ -12,6 +12,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_initializer.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
@@ -28,6 +29,7 @@ const _dotenvBaseFolder = 'assets/env/';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  GenUiDebugLog.installLoggerBridge();
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
   final revenueCatService = await RevenueCatInitializer.initialize();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dart_openai/dart_openai.dart';
 import 'package:genui/genui.dart';
@@ -118,6 +119,17 @@ bool isOpenAiRateLimitError(Object error) {
   }
   return _looksLikeRateLimit(error.toString());
 }
+
+/// Distingue una falla de **conexión real** (sin internet, DNS, conexión
+/// rechazada) de una falla de **generación** (el modelo tardó, devolvió
+/// JSON inválido, o el resultado reparado no tenía componente raíz).
+///
+/// Solo `SocketException` cuenta como falla de conexión — todo lo demás
+/// (timeout tras agotar el reintento, `StateError`/`A2uiValidationException`
+/// de esquema inválido, cualquier `RequestFailedException`) es una falla
+/// de generación: no amerita el banner de error, cae a una respuesta de
+/// texto simple en su lugar (ver `AssistantProvider.sendMessage`).
+bool isConnectionFailure(Object error) => error is SocketException;
 
 int? _extractRetrySeconds(String text) {
   final tryAgainSeconds = RegExp(

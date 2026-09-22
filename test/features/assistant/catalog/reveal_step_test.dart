@@ -51,6 +51,66 @@ void main() {
     expect(activeLog, ['a', 'b', 'c']);
   });
 
+  testWidgets(
+    'isFullyRevealed only becomes true once the LAST step finishes its own '
+    'entrance, not just when it becomes active',
+    (tester) async {
+      // Regresión: el seguimiento de scroll en la pantalla de chat solía
+      // inferir "terminó de crecer" viendo si el alto del contenido dejaba
+      // de cambiar por un rato — eso daba falso positivo a mitad de una
+      // línea de texto que el typewriter todavía estaba tipeando (el alto
+      // no cambia hasta que el texto hace wrap). `isFullyRevealed` es la
+      // señal exacta que reemplaza esa heurística: solo se prende cuando el
+      // ÚLTIMO paso llama a su propio `onFinished`.
+      final controller = SurfaceRevealController();
+      late VoidCallback finishA;
+      late VoidCallback finishB;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                RevealStep(
+                  controller: controller,
+                  builder: (context, active, onFinished) {
+                    finishA = onFinished;
+                    return const SizedBox();
+                  },
+                ),
+                RevealStep(
+                  controller: controller,
+                  builder: (context, active, onFinished) {
+                    finishB = onFinished;
+                    return const SizedBox();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Ambos slots ya se reclamaron (mismo frame) pero ninguno terminó su
+      // propia entrada todavía.
+      expect(controller.isFullyRevealed, isFalse);
+
+      finishA();
+      await tester.pump();
+      // El primer paso terminó, pero el segundo (el último) todavía no —
+      // la surface entera sigue sin estar completamente revelada.
+      expect(controller.isFullyRevealed, isFalse);
+
+      finishB();
+      await tester.pump();
+      expect(controller.isFullyRevealed, isTrue);
+    },
+  );
+
+  test('isFullyRevealed is false for a controller with no steps at all', () {
+    expect(SurfaceRevealController().isFullyRevealed, isFalse);
+  });
+
   testWidgets('reduced motion unlocks every step immediately', (
     tester,
   ) async {

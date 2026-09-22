@@ -5,9 +5,7 @@ import 'package:portfolio_assistant/features/assistant/modes/invest/invest_promp
 import 'package:portfolio_assistant/features/assistant/modes/learn/learn_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-import 'package:portfolio_assistant/features/assistant/reliability/grounding_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/portfolio_context_prompt_rules.dart';
-import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 
 abstract final class AssistantCatalog {
   static Catalog buildFor(AssistantMode mode) {
@@ -15,31 +13,26 @@ abstract final class AssistantCatalog {
       case AssistantMode.portfolio:
         return PortfolioQaCatalog.build();
       case AssistantMode.learn:
-        return _buildStub(learnPromptRules);
+        return _buildForMode(mode, learnPromptRules);
       case AssistantMode.explore:
-        return _buildStub(explorePromptRules);
+        return _buildForMode(mode, explorePromptRules);
       case AssistantMode.invest:
-        return _buildStub(investPromptRules);
+        return _buildForMode(mode, investPromptRules);
       case AssistantMode.plan:
-        return _buildStub(planPromptRules);
+        return _buildForMode(mode, planPromptRules);
     }
   }
 
-  static Catalog _buildStub(String modeRules) {
-    final portfolio = PortfolioQaCatalog.build();
-    const excluded = {criticalOutputFormatRules, groundingPromptRules};
-    return portfolio.copyWith(
-      systemPromptFragments: [
-        criticalOutputFormatRules,
-        groundingPromptRules,
-        portfolioContextPromptRules,
-        modeRules,
-        ...portfolio.systemPromptFragments.where(
-          (f) =>
-              !excluded.contains(f) &&
-              !f.contains('PORTFOLIO Q&A RULES'),
-        ),
-      ],
+  /// `PortfolioQaCatalog.buildFor` ya arma un catálogo acotado a los
+  /// widgets que este modo realmente usa (ver ese archivo) — acá solo se
+  /// le agrega `portfolioContextPromptRules`, ya que los modos no-portfolio
+  /// necesitan que se les diga explícitamente que tienen acceso a la
+  /// cartera real del usuario (de cara al usuario Porty es un solo chat,
+  /// sin pestañas).
+  static Catalog _buildForMode(AssistantMode mode, String modeRules) {
+    return PortfolioQaCatalog.buildFor(
+      mode,
+      '$portfolioContextPromptRules\n\n$modeRules',
     );
   }
 }

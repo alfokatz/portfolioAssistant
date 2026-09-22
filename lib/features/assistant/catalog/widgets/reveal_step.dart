@@ -33,6 +33,16 @@ class SurfaceRevealController extends ChangeNotifier {
 
   bool isReady(int slot) => slot <= _readyIndex;
 
+  /// `true` una vez que el ÚLTIMO paso reclamado terminó su propia entrada
+  /// (no solo que le tocó el turno). Como Flutter monta todos los
+  /// `RevealStep` de una surface en el mismo frame (ver arriba), `_nextSlot`
+  /// ya vale su total final desde el primer build — este getter es, por
+  /// eso, una señal exacta de "la surface entera terminó de revelarse",
+  /// a diferencia de inferirlo por heurística (p. ej. polling de altura del
+  /// scroll, que da falsos positivos a mitad de una línea de texto que
+  /// todavía no volvió a crecer).
+  bool get isFullyRevealed => _nextSlot > 0 && _readyIndex >= _nextSlot;
+
   /// El paso [slot] terminó su entrada — si es el que estaba bloqueando el
   /// avance, desbloquea el siguiente.
   void advance(int slot) {

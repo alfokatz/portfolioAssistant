@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/providers/assistant_provi
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
@@ -60,9 +61,21 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   // siguen agregando contenido varios segundos después del único autoscroll
   // que dispara `ref.listen` al resolverse el turno. Sin esto, ese
   // contenido nuevo queda tapado detrás de la barra de input. `_followBottomTimer`
-  // persigue el fondo mientras el contenido sigue creciendo, y se corta solo
-  // apenas deja de crecer (o a los pocos segundos, como tope).
+  // persigue el fondo mientras el contenido sigue creciendo.
+  //
+  // Corte: NO se infiere "terminó de crecer" mirando si `maxScrollExtent`
+  // dejó de cambiar por un ratito — una línea de texto que todavía se está
+  // tipeando puede tardar más que eso en cruzar a la siguiente línea (el
+  // alto del contenido no cambia hasta que hay wrap), así que esa heurística
+  // cortaba el seguimiento a mitad de línea, mucho antes de que el
+  // typewriter realmente terminara. En su lugar, `_markRevealDone` es la
+  // señal explícita (ver `PortfolioQaAssistantSurface.onFullyRevealed`,
+  // respaldada por `SurfaceRevealController.isFullyRevealed`) de que la
+  // surface entera ya reveló todo su contenido. El tope de ticks que queda
+  // es solo una red de seguridad generosa por si esa señal nunca llega
+  // (p. ej. un mensaje de usuario, que no pasa por `PortfolioQaAssistantSurface`).
   Timer? _followBottomTimer;
+  VoidCallback? _markRevealDone;
 
   // El orbe de "pensando" (placeholder del asistente) se agrega al estado
   // en el mismo instante que el mensaje del usuario — pero visualmente debe
@@ -149,13 +162,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   /// Persigue el fondo de la lista mientras el contenido sigue creciendo
   /// (typewriter de la respuesta + widgets en secuencia + dibujo de chart),
   /// que pasa varios segundos después del único autoscroll que dispara
-  /// `ref.listen` al resolverse el turno. Se corta solo apenas el contenido
-  /// deja de crecer, o a los pocos segundos como tope.
+  /// `ref.listen` al resolverse el turno. Se corta apenas llega la señal
+  /// explícita de que terminó (`_markRevealDone`, ver su declaración), o
+  /// como red de seguridad, a los 30s.
   void _followBottomWhileRevealing() {
     _followBottomTimer?.cancel();
-    var ticksLeft = 60; // 60 * 120ms ≈ 7.2s de tope
-    double? lastExtent;
-    var stableTicks = 0;
+    var revealDone = false;
+    _markRevealDone = () => revealDone = true;
+    var ticksLeft = 250; // 250 * 120ms = 30s de tope, solo por si acaso
     _followBottomTimer = Timer.periodic(const Duration(milliseconds: 120), (
       timer,
     ) {
@@ -163,12 +177,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         timer.cancel();
         return;
       }
-      final extent = _scrollController.position.maxScrollExtent;
       _scrollToBottom();
-      stableTicks = extent == lastExtent ? stableTicks + 1 : 0;
-      lastExtent = extent;
       ticksLeft--;
-      if (stableTicks >= 3 || ticksLeft <= 0) {
+      if (revealDone || ticksLeft <= 0) {
         timer.cancel();
       }
     });
@@ -246,11 +257,44 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     setState(() => _orbGateOpen = true);
   }
 
+  // Guard para no re-programar el post-frame callback de abajo en cada
+  // rebuild mientras la intro sigue visible y todavía no se marcó revelada.
+  bool _introRevealScheduled = false;
+
+  /// Envuelve [child] para que, si [alreadyRevealed] es `true`, todo su
+  /// subárbol salte directo a su estado final en vez de animar — mismo
+  /// mecanismo que `PortfolioQaAssistantSurface.startFullyRevealed`
+  /// (reutiliza el `MediaQuery.disableAnimationsOf` que ya respetan
+  /// `MessageAppearFade`, `TypewriterText` y `FadeSlideIn`), pero aplicado
+  /// acá a nivel de fila/bloque para cubrir también la burbuja de usuario y
+  /// la cascada de saludo + chips iniciales — ver `PortfolioQaMessage
+  /// .hasRevealed` y `AssistantState.introRevealed`.
+  Widget _settledAware(bool alreadyRevealed, Widget child) {
+    if (!alreadyRevealed) return child;
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child,
+    );
+  }
+
   @override
   Widget buildView(BuildContext context) {
     final state = ref.watch(assistantProvider(_args));
     final notifier = ref.read(assistantProvider(_args).notifier);
     final service = notifier.serviceFor(AssistantMode.portfolio);
+
+    // La cascada de saludo + chips solo se muestra una vez (mientras no hay
+    // más que el mensaje de bienvenida) — una vez que arrancó, la marcamos
+    // revelada para que un desmontaje/remontaje posterior por scroll (ver
+    // `AssistantState.introRevealed`) no la vuelva a animar.
+    if (state.messages.length <= 1 &&
+        !state.introRevealed &&
+        !_introRevealScheduled) {
+      _introRevealScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) notifier.markIntroRevealed();
+      });
+    }
 
     ref.listen(assistantProvider(_args), (previous, next) {
       if (previous?.messages.length != next.messages.length ||
@@ -351,25 +395,12 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                 horizontal: AppDimens.pageHorizontal,
                 vertical: AppDimens.sp4,
               ),
-              child: Material(
-                color: PortfolioColors.surfaceCard,
-                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                child: ListTile(
-                  dense: true,
-                  title: Text(
-                    state.error!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PortfolioColors.textSecondary,
-                    ),
-                  ),
-                  trailing: TextButton(
-                    onPressed:
-                        state.isWaiting || state.lastMessage.isEmpty
-                            ? null
-                            : notifier.clearErrorAndRetry,
-                    child: Text('retry'.tr()),
-                  ),
-                ),
+              child: AssistantErrorBanner(
+                message: state.error!,
+                onRetry:
+                    state.isWaiting || state.lastMessage.isEmpty
+                        ? null
+                        : notifier.clearErrorAndRetry,
               ),
             ),
           Expanded(
@@ -384,44 +415,57 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     AppDimens.sp8,
                   ),
                   children: [
-                    for (final m in state.messages)
-                      MessageAppearFade(
-                        child:
-                            service != null
-                                ? _buildMessageTile(
-                                  notifier,
-                                  service,
-                                  m,
-                                  orbGateOpen: _orbGateOpen,
-                                  onUserTypingComplete: _openOrbGate,
-                                )
-                                : PortfolioQaChatBubble(
-                                  message: m,
-                                  onTypingComplete: _openOrbGate,
-                                ),
+                    for (final (i, m) in state.messages.indexed)
+                      _settledAware(
+                        m.hasRevealed,
+                        MessageAppearFade(
+                          child:
+                              service != null
+                                  ? _buildMessageTile(
+                                    notifier,
+                                    service,
+                                    m,
+                                    index: i,
+                                    orbGateOpen: _orbGateOpen,
+                                    onUserTypingComplete: () {
+                                      _openOrbGate();
+                                      notifier.markUserMessageRevealed(i);
+                                    },
+                                  )
+                                  : PortfolioQaChatBubble(
+                                    message: m,
+                                    onTypingComplete: _openOrbGate,
+                                  ),
+                        ),
                       ),
                     if (state.messages.length <= 1) ...[
                       const SizedBox(height: 4),
-                      FadeSlideIn(
-                        child: Text(
-                          'portfolio_qa_chip_intro'.tr(),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: PortfolioColors.textSecondary),
+                      _settledAware(
+                        state.introRevealed,
+                        FadeSlideIn(
+                          child: Text(
+                            'portfolio_qa_chip_intro'.tr(),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: PortfolioColors.textSecondary),
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppDimens.sp12),
                       for (final (i, key) in notifier.chipKeys.indexed) ...[
                         if (i > 0) const SizedBox(height: 8),
-                        FadeSlideIn(
-                          delay: Duration(milliseconds: 60 * (i + 1)),
-                          child: AssistantSuggestionChip(
-                            label: key.tr(),
-                            onTap:
-                                state.isWaiting ||
-                                        service == null ||
-                                        _isAutoTyping
-                                    ? null
-                                    : () => _startAutoType(notifier, key.tr()),
+                        _settledAware(
+                          state.introRevealed,
+                          FadeSlideIn(
+                            delay: Duration(milliseconds: 60 * (i + 1)),
+                            child: AssistantSuggestionChip(
+                              label: key.tr(),
+                              onTap:
+                                  state.isWaiting ||
+                                          service == null ||
+                                          _isAutoTyping
+                                      ? null
+                                      : () => _startAutoType(notifier, key.tr()),
+                            ),
                           ),
                         ),
                       ],
@@ -492,14 +536,19 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     AssistantProvider notifier,
     AssistantOpenAiService fallbackService,
     PortfolioQaMessage message, {
+    required int index,
     required bool orbGateOpen,
     required VoidCallback onUserTypingComplete,
   }) {
     // Key estable: identifica la fila para el ListView a través de todo su
     // ciclo de vida (orbe → respuesta), así el AnimatedSwitcher de abajo
-    // conserva su estado entre rebuilds en vez de perder la animación.
+    // conserva su estado entre rebuilds en vez de perder la animación. Para
+    // mensajes de usuario (sin surfaceId) se incluye el índice: dos
+    // mensajes con el mismo texto (p. ej. la misma sugerencia enviada dos
+    // veces) antes colisionaban en la misma key solo con el hash del
+    // contenido.
     final stableKey = ValueKey(
-      message.surfaceId ?? '${message.role.name}_${message.content.hashCode}',
+      message.surfaceId ?? 'user_${index}_${message.content.hashCode}',
     );
 
     late final Key contentKey;
@@ -536,6 +585,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         surfaceContext: surfaceService.controller.contextFor(
           message.surfaceId!,
         ),
+        startFullyRevealed: message.hasRevealed,
+        onFullyRevealed: () {
+          _markRevealDone?.call();
+          notifier.markRevealed(message.surfaceId!);
+        },
       );
     } else {
       contentKey = const ValueKey('bubble');

@@ -46,6 +46,38 @@ void main() {
     );
 
     test(
+      'propagates the real error from send() immediately instead of '
+      'masking it behind the timeout',
+      () async {
+        // Regresión: sin `eagerError: true`, si send() tiraba una
+        // excepción real pero ningún ConversationEvent coincidente llegaba
+        // nunca (el completer no se resolvía por su cuenta), Future.wait
+        // esperaba igual hasta que se cumpliera el timeout configurado —
+        // el error real quedaba siempre enmascarado detrás del mensaje
+        // genérico de timeout.
+        final stopwatch = Stopwatch()..start();
+        Future<void> failingSend() =>
+            Future<void>.error(StateError('boom, falla real'));
+
+        await expectLater(
+          GenUiRequestTracker.sendAndWait(
+            conversation: conversation,
+            targetSurfaceId: 'portfolio_qa_0',
+            send: failingSend,
+            timeout: const Duration(seconds: 5),
+          ),
+          throwsA(isA<StateError>()),
+        );
+        stopwatch.stop();
+
+        // Se propaga apenas send() falla, no cuando se cumplen los 5s
+        // configurados.
+        expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
       'completes once the target surface renders a root component',
       () async {
         const surfaceId = 'portfolio_qa_0';

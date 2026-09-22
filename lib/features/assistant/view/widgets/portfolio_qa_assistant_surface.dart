@@ -19,10 +19,28 @@ class PortfolioQaAssistantSurface extends StatefulWidget {
     super.key,
     required this.surfaceId,
     required this.surfaceContext,
+    this.onFullyRevealed,
+    this.startFullyRevealed = false,
   });
 
   final String surfaceId;
   final SurfaceContext surfaceContext;
+
+  /// Se llama una sola vez, cuando el último widget de la surface (texto +
+  /// cards + chart, lo que haya) termina su propia animación de entrada —
+  /// ver [SurfaceRevealController.isFullyRevealed]. Quien escucha (la
+  /// pantalla de chat) lo usa para saber exactamente cuándo dejar de
+  /// perseguir el fondo del scroll, en vez de adivinarlo.
+  final VoidCallback? onFullyRevealed;
+
+  /// `true` si esta surface ya terminó su reveal completo en un montaje
+  /// anterior (ver `PortfolioQaMessage.hasRevealed`) — típicamente porque el
+  /// mensaje scrolleó fuera del viewport del `ListView` de la pantalla de
+  /// chat y volvió a entrar, remontando este widget desde cero. En ese caso
+  /// no hay que volver a tipear/animar nada: todo el subárbol se renderiza
+  /// en su estado final de una, igual que con `disableAnimations` a nivel
+  /// sistema (mismo mecanismo — ver `build`).
+  final bool startFullyRevealed;
 
   @override
   State<PortfolioQaAssistantSurface> createState() =>
@@ -36,6 +54,7 @@ class _PortfolioQaAssistantSurfaceState
   late final Animation<double> _entrance;
   late final SurfaceRevealController _revealController;
   bool _started = false;
+  bool _reportedFullyRevealed = false;
 
   @override
   void initState() {
@@ -59,8 +78,10 @@ class _PortfolioQaAssistantSurfaceState
     // once.
     if (_started) return;
     _started = true;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion =
+        MediaQuery.disableAnimationsOf(context) || widget.startFullyRevealed;
     _revealController = SurfaceRevealController(reduceMotion: reduceMotion);
+    _revealController.addListener(_handleRevealChanged);
     if (reduceMotion) {
       _controller.value = 1;
     } else {
@@ -68,15 +89,37 @@ class _PortfolioQaAssistantSurfaceState
     }
   }
 
+  void _handleRevealChanged() {
+    if (_reportedFullyRevealed || !_revealController.isFullyRevealed) return;
+    _reportedFullyRevealed = true;
+    widget.onFullyRevealed?.call();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _revealController.removeListener(_handleRevealChanged);
     _revealController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    Widget surface = Surface(
+      key: ValueKey(widget.surfaceId),
+      surfaceContext: widget.surfaceContext,
+    );
+    if (widget.startFullyRevealed) {
+      // Reusa el mismo interruptor que ya respetan `TypewriterText`,
+      // `TwoStageReveal`, `_DefaultFadeStep` y `QaProjectionChart` para
+      // accesibilidad (`MediaQuery.disableAnimationsOf`): con esto en
+      // `true` cada uno de ellos salta directo a su estado final en vez de
+      // animar, sin que este widget tenga que conocer a cada uno.
+      surface = MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: surface,
+      );
+    }
     return FadeTransition(
       opacity: _entrance,
       child: AnimatedBuilder(
@@ -88,13 +131,7 @@ class _PortfolioQaAssistantSurfaceState
             ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: SurfaceRevealScope(
-            controller: _revealController,
-            child: Surface(
-              key: ValueKey(widget.surfaceId),
-              surfaceContext: widget.surfaceContext,
-            ),
-          ),
+          child: SurfaceRevealScope(controller: _revealController, child: surface),
         ),
       ),
     );
