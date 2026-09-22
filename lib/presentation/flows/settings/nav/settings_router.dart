@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:portfolio_assistant/config/navigation/fade_scale_page.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/settings_screen.dart';
 
 class SettingsRouter {
@@ -8,9 +8,9 @@ class SettingsRouter {
   static GoRoute getRoute() {
     return GoRoute(
       name: settingsRouteName,
-      path: 'Settings',
+      path: '/settings',
       pageBuilder:
-          (context, state) => fadeScalePage<void>(
+          (context, state) => MaterialPage<void>(
             key: state.pageKey,
             name: settingsRouteName,
             child: const SettingsScreen(),

@@ -173,7 +173,7 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   }
 }
 
-final homeProvider = StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
+final homeProvider = StateNotifierProvider<HomeProvider, HomeState>(
   (ref) => HomeProvider(
     ref: ref,
     getPortfolioSummaryUseCase: ref.watch(getPortfolioSummaryUseCaseProvider),

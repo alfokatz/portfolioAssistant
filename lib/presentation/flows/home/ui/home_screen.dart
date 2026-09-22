@@ -1,11 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/config/navigation/app_tab_navigation.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
-import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -24,7 +22,6 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulHookConsumerWidget {
   const HomeScreen({super.key});
@@ -42,21 +39,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       ref.read(homeProvider.notifier).init();
     });
     super.initState();
-  }
-
-  void _onAddPosition(BuildContext context) {
-    final tier = ref.read(subscriptionProvider).tier;
-    final limit = SubscriptionPolicy.positionLimit(tier);
-    final count = ref.read(homeProvider).summary?.valuations.length ?? 0;
-    if (limit != null && count >= limit) {
-      SubscriptionPaywallSheet.show(
-        context,
-        ref,
-        reason: PaywallReason.modeLocked,
-      );
-      return;
-    }
-    ref.read(homeProvider.notifier).openAddPosition();
   }
 
   @override
@@ -97,26 +79,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
             : valuations.take(5).toList(growable: false);
 
     return Scaffold(
-      extendBody: true,
-      floatingActionButton: Material(
-        color: colors.accentWarm,
-        borderRadius: BorderRadius.circular(28),
-        elevation: 0,
-        child: InkWell(
-          onTap: () => _onAddPosition(context),
-          borderRadius: BorderRadius.circular(28),
-          child: const SizedBox(
-            width: 56,
-            height: 56,
-            child: Icon(Icons.add, color: Colors.white, size: 26),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: AppBottomNavBar(
-        current: AppNavDestination.home,
-        onSelect: (destination) => goToAppTab(context, destination),
-      ),
       body: ContentStateWidget(
         child: RefreshIndicator(
           color: colors.accentBlue,
@@ -173,50 +135,84 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                             (section) => setState(() => _section = section),
                       ),
                       const SizedBox(height: AppDimens.sp16),
-                      if (_section == HomeSection.assets)
-                        PositionsSection(
-                          valuations: displayValuations,
-                          onPositionTap: notifier.openPositionDetail,
-                          onDeletePosition:
-                              (valuation) => notifier.deletePositionsForTicker(
-                                valuation.position.ticker,
-                              ),
-                          actionLabel:
-                              hasMorePositions
-                                  ? (state.showAllPositions
-                                      ? 'view_less'.tr()
-                                      : 'view_all'.tr())
-                                  : null,
-                          onAction:
-                              hasMorePositions
-                                  ? notifier.togglePositionsExpanded
-                                  : null,
-                        )
-                      else ...[
-                        PortfolioQaEntryCard(onTap: notifier.openAssistant),
-                        AssistantModeChips(
-                          onModeTap:
-                              (mode) => notifier.openAssistant(mode: mode),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final slide = Tween<Offset>(
+                            begin: Offset(
+                              _section == HomeSection.assets ? -0.04 : 0.04,
+                              0,
+                            ),
+                            end: Offset.zero,
+                          ).animate(animation);
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: slide,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(_section),
+                          child:
+                              _section == HomeSection.assets
+                                  ? PositionsSection(
+                                    valuations: displayValuations,
+                                    onPositionTap: notifier.openPositionDetail,
+                                    onDeletePosition:
+                                        (valuation) =>
+                                            notifier.deletePositionsForTicker(
+                                              valuation.position.ticker,
+                                            ),
+                                    actionLabel:
+                                        hasMorePositions
+                                            ? (state.showAllPositions
+                                                ? 'view_less'.tr()
+                                                : 'view_all'.tr())
+                                            : null,
+                                    onAction:
+                                        hasMorePositions
+                                            ? notifier.togglePositionsExpanded
+                                            : null,
+                                  )
+                                  : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      PortfolioQaEntryCard(
+                                        onTap: notifier.openAssistant,
+                                      ),
+                                      AssistantModeChips(
+                                        onModeTap:
+                                            (mode) => notifier.openAssistant(
+                                              mode: mode,
+                                            ),
+                                      ),
+                                      if (isBenchmarkAllowed)
+                                        BenchmarkComparisonCard(
+                                          portfolioPercent: periodPnl.percent,
+                                          benchmarkPoints: filteredBenchmark,
+                                        )
+                                      else
+                                        const BenchmarkLockedCard(),
+                                      ClosedPositionsEntryCard(
+                                        count: state.closedPositionsCount,
+                                        onTap: notifier.openClosedPositions,
+                                      ),
+                                      if (valuations.isNotEmpty)
+                                        PnlDistributionCard(
+                                          valuations: valuations,
+                                        ),
+                                    ],
+                                  ),
                         ),
-                        if (isBenchmarkAllowed)
-                          BenchmarkComparisonCard(
-                            portfolioPercent: periodPnl.percent,
-                            benchmarkPoints: filteredBenchmark,
-                          )
-                        else
-                          const BenchmarkLockedCard(),
-                        ClosedPositionsEntryCard(
-                          count: state.closedPositionsCount,
-                          onTap: notifier.openClosedPositions,
-                        ),
-                        if (valuations.isNotEmpty)
-                          PnlDistributionCard(valuations: valuations),
-                      ],
+                      ),
                       const SizedBox(height: 100),
                     ] else
-                      HomeEmptyState(
-                        onAddPosition: () => _onAddPosition(context),
-                      ),
+                      HomeEmptyState(onAddPosition: notifier.openAddPosition),
                   ],
                 ),
               ),

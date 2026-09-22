@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/navigation/app_shell.dart';
 import 'package:portfolio_assistant/config/navigation/go_router_refresh.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
@@ -9,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
 class AppRouter {
@@ -67,13 +69,21 @@ class AppRouter {
         ),
         AuthRouter.getRoute(),
         OnboardingRouter.getRoute(),
-        HomeRouter.getRoute(),
+        StatefulShellRoute.indexedStack(
+          builder:
+              (context, state, navigationShell) =>
+                  AppShell(navigationShell: navigationShell),
+          branches: [
+            StatefulShellBranch(routes: [HomeRouter.getRoute()]),
+            StatefulShellBranch(routes: [AssistantRouter.getRoute()]),
+            StatefulShellBranch(routes: [SettingsRouter.getRoute()]),
+          ],
+        ),
         ...PositionRouter.getRoutes(),
-        AssistantRouter.getRoute(),
         AssistantRouter.getLegacyRedirect(),
       ],
-      errorPageBuilder: (context, state) =>
-          ErrorNav.getErrorPage(exception: state.error),
+      errorPageBuilder:
+          (context, state) => ErrorNav.getErrorPage(exception: state.error),
     );
   }
 }

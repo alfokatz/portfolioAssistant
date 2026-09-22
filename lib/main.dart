@@ -19,6 +19,7 @@ import 'package:portfolio_assistant/infraestructure/managers/preferences_manager
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataDarkProvider, themeDataLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/app_background_gradient.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _translationsPath = 'assets/translations';
@@ -99,6 +100,14 @@ class MyApp extends HookConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: themeMode,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            const Positioned.fill(child: AppBackgroundGradient()),
+            if (child != null) child,
+          ],
+        );
+      },
     );
   }
 }

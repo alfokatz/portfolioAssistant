@@ -77,10 +77,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
     chartGrid: Color(0x0FFFFFFF),
     chartLine: Color(0xFFEDEDF0),
     benchmarkSp500: Color(0xFF8A8582),
-    accentBlue: Color(0xFF5BA3D0),
+    accentBlue: Color(0xFFE3A472), // mismo acento cálido que accentWarm
     accentWarm: Color(0xFFE3A472),
     cardBackground: Color(0xFF1A1A1A),
-    aiCardBorder: Color(0x595BA3D0), // accentBlue (dark) @ 35% alpha
+    aiCardBorder: Color(0x59E3A472), // accentWarm (dark) @ 35% alpha
   );
 
   @override

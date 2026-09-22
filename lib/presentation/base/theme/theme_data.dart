@@ -20,9 +20,15 @@ ThemeData _buildThemeData({
     useMaterial3: true,
     colorScheme: scheme,
     textTheme: textTheme,
-    scaffoldBackgroundColor: customColors.background,
+    // Transparente a propósito: el degradé cálido ambiental vive en
+    // AppBackgroundGradient, pintado una sola vez detrás del Router (ver
+    // MaterialApp.builder en main.dart) — así todas las pantallas lo
+    // heredan sin repetir el fondo pantalla por pantalla. Un flujo que
+    // quiera optar por fuera (auth, onboarding) fija su propio
+    // Scaffold.backgroundColor opaco, que lo tapa.
+    scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(
-      backgroundColor: customColors.background,
+      backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: textTheme.titleMedium?.copyWith(
@@ -38,7 +44,9 @@ ThemeData _buildThemeData({
       elevation: 0,
       color: customColors.surfaceCard,
       shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(AppDimens.radiusLg),
+        ),
         side: BorderSide(color: customColors.border),
       ),
       margin: EdgeInsets.zero,
@@ -64,7 +72,9 @@ ThemeData _buildThemeData({
       backgroundColor: customColors.surfaceCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(AppDimens.radiusLg)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(AppDimens.radiusLg),
+        ),
         side: BorderSide(color: customColors.border),
       ),
     ),

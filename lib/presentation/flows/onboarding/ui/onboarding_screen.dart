@@ -55,9 +55,8 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
     }
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     _pageController.nextPage(
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 320),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
   }
@@ -76,9 +75,12 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
         if (!mounted) return;
         context.pushNamed(PositionRouter.addRouteName);
       case OnboardingExit.assistant:
-        context.goNamed(HomeRouter.homeRouteName);
-        if (!mounted) return;
-        context.pushNamed(AssistantRouter.routeName);
+        // Assistant vive ahora como una pestaña del shell (junto a Home y
+        // Ajustes): entrar con `goNamed` deja esa pestaña activa
+        // directamente, en vez de empujarla encima de Home con `push`
+        // (que no es la forma soportada de cruzar entre pestañas de un
+        // StatefulShellRoute).
+        context.goNamed(AssistantRouter.routeName);
     }
   }
 
@@ -118,15 +120,16 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                   const Spacer(),
                   if (!_isLastPage)
                     TextButton(
-                      onPressed: _isFinishing
-                          ? null
-                          : () => _finish(OnboardingExit.home),
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.home),
                       child: Text(
                         'onboarding_skip'.tr(),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          color: colors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                 ],
@@ -143,9 +146,10 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                 child: PageView(
                   controller: _pageController,
                   onPageChanged: _onPageChanged,
-                  physics: reduceMotion
-                      ? const ClampingScrollPhysics()
-                      : const BouncingScrollPhysics(),
+                  physics:
+                      reduceMotion
+                          ? const ClampingScrollPhysics()
+                          : const BouncingScrollPhysics(),
                   children: [
                     OnboardingWelcomePage(activePage: _currentPage),
                     OnboardingDashboardPage(activePage: _currentPage),
@@ -174,23 +178,25 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                   ),
                   const SizedBox(height: AppDimens.sp20),
                   PositionPrimaryButton(
-                    label: _isLastPage
-                        ? 'onboarding_start'.tr()
-                        : 'onboarding_next'.tr(),
+                    label:
+                        _isLastPage
+                            ? 'onboarding_start'.tr()
+                            : 'onboarding_next'.tr(),
                     loading: _isFinishing,
                     onPressed: _isFinishing ? null : _goNext,
                   ),
                   if (_isLastPage) ...[
                     const SizedBox(height: AppDimens.sp12),
                     TextButton(
-                      onPressed: _isFinishing
-                          ? null
-                          : () => _finish(OnboardingExit.home),
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.home),
                       child: Text(
                         'onboarding_skip_for_now'.tr(),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colors.textSecondary,
-                            ),
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ),
                   ],

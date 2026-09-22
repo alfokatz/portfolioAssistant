@@ -66,10 +66,12 @@ abstract final class PortfolioContextBuilder {
       'total_cost_basis': openSummary?.totalCostBasis ?? 0,
       'total_pnl_abs': openSummary?.totalPnlAbsolute ?? 0,
       'total_pnl_pct': openSummary?.totalPnlPercent ?? 0,
-      'pnl_scope': hasOpen
-          ? 'all_time_unrealized — ganancia/pérdida desde la compra en posiciones ABIERTAS, NO es un período'
-          : 'sin posiciones abiertas — total_pnl_* no aplica',
-      'period_returns': hasOpen ? _buildPeriodReturns(history) : <String, Object?>{},
+      'pnl_scope':
+          hasOpen
+              ? 'all_time_unrealized — ganancia/pérdida desde la compra en posiciones ABIERTAS, NO es un período'
+              : 'sin posiciones abiertas — total_pnl_* no aplica',
+      'period_returns':
+          hasOpen ? _buildPeriodReturns(history) : <String, Object?>{},
       'position_periods': hasOpen ? positionPeriods : <String, Object?>{},
       'positions': openPositions,
       'closed_positions': closedMaps,
@@ -134,7 +136,7 @@ abstract final class PortfolioContextBuilder {
         history: history,
         duration: entry.value.duration,
       );
-      final filtered = PortfolioPeriodUtils.filterByDuration(
+      final hasSufficientHistory = PortfolioPeriodUtils.hasSufficientHistory(
         history,
         entry.value.duration,
       );
@@ -144,13 +146,12 @@ abstract final class PortfolioContextBuilder {
         'pnl_pct': _round2(pnl.percent),
         'value_start': _round2(pnl.valueStart),
         'value_end': _round2(pnl.valueEnd),
-        'has_sufficient_history': filtered.length >= 2,
+        'has_sufficient_history': hasSufficientHistory,
       };
     }
 
     return result;
   }
 
-  static double _round2(double value) =>
-      double.parse(value.toStringAsFixed(2));
+  static double _round2(double value) => double.parse(value.toStringAsFixed(2));
 }

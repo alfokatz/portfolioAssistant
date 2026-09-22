@@ -73,7 +73,10 @@ class _TabButton extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
-          color: active ? colors.surfaceCard : Colors.transparent,
+          color:
+              active
+                  ? Color.lerp(colors.surfaceCard, colors.accentWarm, 0.30)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(AppDimens.radiusXl - 4),
           boxShadow:
               active

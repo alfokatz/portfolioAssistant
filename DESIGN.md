@@ -6,8 +6,8 @@ colors:
   surface-card: "#FFFFFF"
   surface-elevated: "#F4F4F2"
   border: "#14000000"
-  accent-blue: "#1F6C9F"
-  accent-blue-dim: "#2E5E87"
+  accent-blue: "#D98E5D"
+  accent-blue-dim: "#A86A46"
   text-primary: "#2F3437"
   text-secondary: "#787774"
   profit: "#346538"
@@ -111,17 +111,20 @@ Rechaza explícitamente: fintech genérico navy+neón, AI slop (glassmorphism, g
 **Key Characteristics:**
 - Una sola familia tipográfica (Plus Jakarta Sans) en todo el producto
 - Superficies planas con borde sutil, sin sombras en reposo
-- Acento azul editorial reservado para foco, links e iconografía IA
+- Un único acento secundario cálido (terracota) para foco, links, iconografía IA y marca de Porty
+- Fondo de app con un halo cálido difuminado (ver `AppBackgroundGradient`), pintado una sola vez detrás de todas las pantallas
 - Números financieros con tabular figures y contraste AA+
 - Touch targets ≥ 44px en tabs, chips de rango y filas navegables
 
 ## Colors
 
-Paleta **Restrained**: neutros cálidos tenues + un acento azul editorial + semánticos profit/loss profundos (no neón).
+Paleta **Restrained**: neutros cálidos tenues + un acento secundario terracota (identidad de Porty) + semánticos profit/loss profundos (no neón).
+
+**Nota de migración:** el acento secundario era azul editorial (#1F6C9F); se reemplazó por el mismo terracota cálido que ya se usaba como glow de Porty, para unificar todo el "color secundario" de la app en un solo tono. Los tokens `accent-blue`/`accent-blue-dim` (y `PortfolioColors.accentBlue`/`accentBlueDim` en código) mantienen el nombre histórico pero ya apuntan al terracota — no crear un accent azul nuevo.
 
 ### Primary
-- **Editorial Blue** (#1F6C9F): acciones primarias de foco, cursor de inputs, iconos del asistente IA, chip seleccionado. Raro en superficies grandes.
-- **Editorial Blue Dim** (#2E5E87): estados secundarios sobre primaryContainer, links atenuados.
+- **Warm Accent** (#D98E5D, token `accent-blue`): acciones primarias de foco, cursor de inputs, iconos del asistente IA, chip seleccionado, FAB. Raro en superficies grandes.
+- **Warm Accent Dim** (#A86A46, token `accent-blue-dim`): estados secundarios sobre primaryContainer, links atenuados.
 
 ### Neutral
 - **Warm Canvas** (#FBFBFA): scaffold background, app bar, fondo de scroll.
@@ -139,9 +142,9 @@ Paleta **Restrained**: neutros cálidos tenues + un acento azul editorial + sem�
 - **Benchmark Gray** (#B0ABA8): línea S&P 500 en charts comparativos.
 
 ### Named Rules
-**The One Accent Rule.** El azul editorial aparece en foco, selección e iconografía IA — nunca como fondo de pantalla completa ni gradiente decorativo.
+**The One Accent Rule.** El terracota aparece en foco, selección e iconografía IA — nunca como fondo de pantalla completa saturado (el halo de `AppBackgroundGradient` es la única excepción intencional: un lavado ambiental muy tenue, no un fondo saturado).
 
-**The Ink Button Rule.** El CTA primario de auth usa charcoal (#2F3437) sobre blanco, no azul saturado. El acento azul queda para estados de foco, no para competir con el hero numérico.
+**The Ink Button Rule.** El CTA primario de auth usa charcoal (#2F3437) sobre blanco, no el acento saturado. El acento queda para estados de foco, no para competir con el hero numérico.
 
 ## Typography
 
@@ -197,12 +200,13 @@ Componentes refinados y consistentes; estados hover/focus/disabled/loading en co
 
 ### Inputs / Fields
 - **Style:** fondo Pure Surface, borde Whisper Border, radius 14px, padding 16px
-- **Focus:** borde Editorial Blue 1.4–1.5px, cursor azul
+- **Focus:** borde Warm Accent 1.4–1.5px, cursor terracota
 - **Error:** borde Deep Loss Red, texto error en bodySmall loss color
 - **Hint:** textSecondary al 60% en theme global; auth usa textSecondary pleno
 
 ### Navigation
-- **App bar:** fondo Warm Canvas, título titleMedium w600 charcoal, iconos 20px, elevation 0
+- **App bar:** transparente (revela `AppBackgroundGradient` detrás), título titleMedium w600 charcoal, iconos 20px, elevation 0
+- **Bottom nav bar:** pill flotante translúcida sobre el fondo, ítem activo en Charcoal Ink; FAB en Warm Accent
 - **Settings rows:** icon box 36px en Elevated Mist, label bodyLarge w500, value bodyMedium secondary, chevron 14px
 - **Bottom sheet:** radius xl superior, drag handle border color, fondo surface-card
 
@@ -229,4 +233,4 @@ Componentes refinados y consistentes; estados hover/focus/disabled/loading en co
 - **Don't** usar scaffolding SaaS: eyebrows uppercase en cada sección, numeración 01/02/03 como decoración.
 - **Don't** anidar cards dentro de cards. Un borde, una superficie.
 - **Don't** poner sombras en reposo. Superficies planas siempre.
-- **Don't** usar acento azul como fondo de CTA principal; reservarlo para foco y marca IA.
+- **Don't** usar el acento terracota como fondo de CTA principal saturado; reservarlo para foco, marca IA y el halo ambiental sutil de `AppBackgroundGradient`.

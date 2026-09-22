@@ -9,15 +9,19 @@ abstract final class PortfolioColors {
   // ── Bordes ──────────────────────────────────────────────────────────────
   static const border = Color(0x14000000); // 8% black alpha
 
-  // ── Acento — azul editorial desaturado ───────────────────────────────────
-  static const accentBlue = Color(0xFF1F6C9F);
-  static const accentBlueDim = Color(0xFF2E5E87);
+  // ── Acento secundario único de la app — terracota cálido ────────────────
+  // `accentBlue`/`accentBlueDim` mantienen su nombre histórico (usado en
+  // ~30 archivos) pero ya no son azules: son el mismo acento cálido que
+  // `accentWarm`, para que todo foco, selección e ícono secundario de la
+  // app comparta un solo color, sin tener que tocar cada call site.
+  static const accentBlue = Color(0xFFD98E5D);
+  static const accentBlueDim = Color(0xFFA86A46);
 
-  // ── Acento cálido — glow del asistente (Porty), degradé azul→cálido ─────
+  // ── Acento cálido — glow del asistente (Porty) ───────────────────────────
   static const accentWarm = Color(0xFFD98E5D); // terracota editorial
 
   // ── Borde diferenciado para tarjetas generadas por el asistente ─────────
-  static const aiCardBorder = Color(0x591F6C9F); // accentBlue @ 35% alpha
+  static const aiCardBorder = Color(0x59D98E5D); // accentWarm @ 35% alpha
 
   // ── Texto ────────────────────────────────────────────────────────────────
   static const textPrimary = Color(0xFF2F3437); // off-black charcoal

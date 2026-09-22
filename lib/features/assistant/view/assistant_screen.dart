@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/config/navigation/app_tab_navigation.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
@@ -20,7 +19,6 @@ import 'package:portfolio_assistant/features/subscription/ui/subscription_paywal
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
 class AssistantScreen extends StatefulHookConsumerWidget {
@@ -110,10 +108,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     });
 
     return Scaffold(
-      bottomNavigationBar: AppBottomNavBar(
-        current: AppNavDestination.assistant,
-        onSelect: (destination) => goToAppTab(context, destination),
-      ),
       body: Column(
         children: [
           SafeArea(

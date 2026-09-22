@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/config/navigation/app_tab_navigation.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -20,7 +19,6 @@ import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/setti
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_subscription_card.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _appVersion = '1.0.0';
@@ -223,10 +221,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
             : 'settings_profile_name_placeholder'.tr();
 
     return Scaffold(
-      bottomNavigationBar: AppBottomNavBar(
-        current: AppNavDestination.settings,
-        onSelect: (destination) => goToAppTab(context, destination),
-      ),
       body: SafeArea(
         bottom: false,
         child: ListView(
