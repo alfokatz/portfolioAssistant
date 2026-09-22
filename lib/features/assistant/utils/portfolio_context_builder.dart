@@ -13,6 +13,25 @@ abstract final class PortfolioContextBuilder {
     Map<String, Map<String, Object?>> positionPeriods = const {},
     List<ClosedPosition> closedPositions = const [],
     DateTime? asOf,
+  }) => jsonEncode(
+    buildMap(
+      summary,
+      history: history,
+      positionPeriods: positionPeriods,
+      closedPositions: closedPositions,
+      asOf: asOf,
+    ),
+  );
+
+  /// Igual que [buildJson] pero devuelve el Map sin codificar — así otros
+  /// modos (learn/explore/invest/plan) pueden anidarlo bajo su propia clave
+  /// (`portfolio_context`) sin tener que decodificar el JSON de vuelta.
+  static Map<String, Object?> buildMap(
+    PortfolioSummary? summary, {
+    List<PortfolioHistoryPoint> history = const [],
+    Map<String, Map<String, Object?>> positionPeriods = const {},
+    List<ClosedPosition> closedPositions = const [],
+    DateTime? asOf,
   }) {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final hasOpen = summary != null && summary.valuations.isNotEmpty;
@@ -21,7 +40,7 @@ abstract final class PortfolioContextBuilder {
     final closedTotals = _closedTotals(closedPositions);
 
     if (!hasOpen && !hasClosed) {
-      return jsonEncode({
+      return {
         'as_of': timestamp,
         'has_positions': false,
         'has_closed_positions': false,
@@ -36,7 +55,7 @@ abstract final class PortfolioContextBuilder {
         'closed_positions': <Map<String, Object?>>[],
         'closed_pnl_total_abs': 0,
         'closed_pnl_total_cost_basis': 0,
-      });
+      };
     }
 
     final openSummary = hasOpen ? summary : null;
@@ -57,7 +76,7 @@ abstract final class PortfolioContextBuilder {
       }
     }
 
-    return jsonEncode({
+    return {
       'as_of': timestamp,
       'has_positions': hasOpen,
       'has_closed_positions': hasClosed,
@@ -78,7 +97,7 @@ abstract final class PortfolioContextBuilder {
       'closed_pnl_total_abs': closedTotals.abs,
       'closed_pnl_total_cost_basis': closedTotals.costBasis,
       'closed_pnl_total_pct': closedTotals.percent,
-    });
+    };
   }
 
   static List<Map<String, Object?>> _serializeClosedPositions(

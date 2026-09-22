@@ -63,6 +63,60 @@ void main() {
       expect(find.byType(AssistantThinkingOrb), findsNothing);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'user message types out progressively and calls onTypingComplete once done',
+      (tester) async {
+        var completed = false;
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaChatBubble(
+              message: const PortfolioQaMessage(
+                role: PortfolioQaRole.user,
+                content: 'hola porty, como va mi cartera',
+              ),
+              onTypingComplete: () => completed = true,
+            ),
+          ),
+        );
+
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(completed, isFalse);
+        final partial = tester.widget<Text>(find.byType(Text)).data!;
+        expect(partial.length, lessThan('hola porty, como va mi cartera'.length));
+
+        await tester.pumpAndSettle();
+        expect(completed, isTrue);
+        expect(find.text('hola porty, como va mi cartera'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'reduced motion shows the full user message instantly and still calls onTypingComplete',
+      (tester) async {
+        var completed = false;
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: genuiTestApp(
+              child: PortfolioQaChatBubble(
+                message: const PortfolioQaMessage(
+                  role: PortfolioQaRole.user,
+                  content: 'sin animación',
+                ),
+                onTypingComplete: () => completed = true,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        expect(find.text('sin animación'), findsOneWidget);
+        expect(completed, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 
   group('PortfolioQaAssistantSurface', () {
@@ -89,9 +143,11 @@ void main() {
         ),
       );
 
-      // Mid-entrance frame, then settled.
+      // Mid-entrance frame, then settled. El texto se revela con typewriter
+      // (ver TypewriterText), así que hace falta esperar a que termine, no
+      // solo el fade/slide de entrada de la surface.
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
       expect(find.textContaining('Tu portfolio subió 5,4% hoy.'), findsOneWidget);
@@ -154,7 +210,7 @@ void main() {
             ),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
         expect(find.textContaining('jubilarme'), findsOneWidget);

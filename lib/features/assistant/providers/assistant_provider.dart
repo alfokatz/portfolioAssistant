@@ -30,19 +30,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   AssistantProvider({
     required this.ref,
     required AssistantArgs args,
-  }) : super(
-          AssistantState(
-            currentMode: _displayModeFor(args.initialMode),
-            messagesByMode: {
-              _displayModeFor(args.initialMode): [
-                PortfolioQaMessage(
-                  role: PortfolioQaRole.assistant,
-                  content: _welcomeKeyFor(_displayModeFor(args.initialMode)).tr(),
-                ),
-              ],
-            },
-          ),
-        ) {
+  }) : _lastEngineMode = _collapsePlan(args.initialMode),
+       super(
+         AssistantState(
+           messages: [
+             PortfolioQaMessage(
+               role: PortfolioQaRole.assistant,
+               content: 'assistant_unified_welcome'.tr(),
+             ),
+           ],
+         ),
+       ) {
     _initialQuestion = args.initialQuestion;
   }
 
@@ -50,82 +48,36 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   final _sendGuard = GenUiSendGuard();
   final _surfaceIds = <String>[];
 
-  // Una conversación (servicio + suscripción a sus eventos) por pestaña, para
-  // que cambiar de modo no pierda el contexto que la IA ya tiene de esa
-  // pestaña. No se disponen al cambiar de modo, solo en `disposeResources`.
+  // Una conversación (servicio + suscripción a sus eventos) por motor, para
+  // que cada dominio (portfolio/learn/explore/invest/plan) conserve su propio
+  // contexto de cara a la IA aunque el chat que ve el usuario sea uno solo.
+  // No se disponen durante la vida de la pantalla, solo en `disposeResources`.
   final Map<AssistantMode, AssistantOpenAiService> _services = {};
   final Map<AssistantMode, GenUiConversationSubscription> _subscriptions = {};
 
-  // Invertir y Planificar se muestran como una sola pestaña ("invest"), pero
-  // por debajo siguen siendo dos motores/conversaciones independientes (dos
-  // servicios, dos prompts, dos snapshots). `_investPlanEngine` recuerda cuál
-  // de los dos atendió el último turno para que un mensaje ambiguo (sin
-  // keywords de ninguno de los dos) continúe con el mismo motor en vez de
-  // saltar arbitrariamente.
-  AssistantMode _investPlanEngine = AssistantMode.invest;
+  // Último motor que atendió un turno. Da continuidad cuando un mensaje es
+  // ambiguo (no matchea keywords de ningún dominio): el chat sigue con el
+  // mismo motor en vez de saltar arbitrariamente a otro.
+  AssistantMode _lastEngineMode;
 
   String? _initialQuestion;
 
-  /// Planificar ya no es una pestaña navegable por separado: su motor vive
-  /// adentro de la pestaña Invertir. Cualquier AssistantMode que llegue desde
-  /// afuera (deep link, sugerencia vieja) se resuelve a la pestaña visible.
-  static AssistantMode _displayModeFor(AssistantMode mode) =>
+  static const List<String> _starterChipKeys = [
+    'portfolio_qa_chip_today',
+    'assistant_learn_chip_diversify',
+    'assistant_explore_chip_nvda',
+    'assistant_invest_chip_budget',
+  ];
+
+  /// Sugerencias iniciales, mezclando un poco de cada dominio ya que no hay
+  /// pestañas que las agrupen por tema.
+  List<String> get chipKeys => _starterChipKeys;
+
+  /// Planificar no es un motor navegable por separado a los ojos del
+  /// routing: comparte continuidad con Invertir (ver
+  /// `IntentRouter.resolveInvestPlanEngine`).
+  static AssistantMode _collapsePlan(AssistantMode mode) =>
       mode == AssistantMode.plan ? AssistantMode.invest : mode;
-
-  static String _welcomeKeyFor(AssistantMode mode) {
-    switch (mode) {
-      case AssistantMode.learn:
-        return 'assistant_learn_welcome';
-      case AssistantMode.explore:
-        return 'assistant_explore_welcome';
-      case AssistantMode.invest:
-        return 'assistant_invest_welcome';
-      case AssistantMode.plan:
-        return 'assistant_plan_welcome';
-      case AssistantMode.portfolio:
-        return 'portfolio_qa_welcome';
-    }
-  }
-
-  List<String> get chipKeys {
-    switch (state.currentMode) {
-      case AssistantMode.learn:
-        return const [
-          'assistant_learn_chip_diversify',
-          'assistant_learn_chip_pnl_meaning',
-          'assistant_learn_chip_risk',
-        ];
-      case AssistantMode.portfolio:
-        return const [
-          'portfolio_qa_chip_today',
-          'portfolio_qa_chip_risk',
-          'portfolio_qa_chip_pnl',
-        ];
-      case AssistantMode.explore:
-        return const [
-          'assistant_explore_chip_nvda',
-          'assistant_explore_chip_compare',
-          'assistant_explore_chip_week',
-        ];
-      case AssistantMode.invest:
-        // Invertir y Planificar viven en una sola pestaña: se mezclan
-        // sugerencias de los dos motores.
-        return const [
-          'assistant_invest_chip_budget',
-          'assistant_plan_chip_retirement',
-          'assistant_invest_chip_diversify',
-          'assistant_plan_chip_monthly',
-        ];
-      case AssistantMode.plan:
-        return const [
-          'assistant_plan_chip_retirement',
-          'assistant_plan_chip_emergency',
-          'assistant_plan_chip_monthly',
-        ];
-    }
-  }
-
-  AssistantOpenAiService? get service => _services[state.currentMode];
 
   AssistantOpenAiService? serviceFor(AssistantMode engineMode) =>
       _services[engineMode];
@@ -151,7 +103,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       await ref.read(homeProvider.notifier).refresh();
     }
 
-    await _ensureServiceForMode(state.currentMode);
+    await _ensureServiceForMode(_lastEngineMode);
     state = state.copyWith(isServiceReady: true);
 
     final question = _initialQuestion?.trim();
@@ -162,143 +114,49 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   Future<void> submitMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sendGuard.isInFlight || service == null) return;
+    if (trimmed.isEmpty || _sendGuard.isInFlight) return;
 
-    final suggestion = IntentRouter.suggest(
+    final engineMode = IntentRouter.detectEngine(
       message: trimmed,
-      currentMode: state.currentMode,
+      lastEngine: _lastEngineMode,
     );
-    if (suggestion != null) {
-      if (!ref
-          .read(subscriptionProvider.notifier)
-          .canAccessMode(suggestion.suggestedMode)) {
-        state = state.copyWith(
-          paywallReason: PaywallReason.modeLocked,
-          clearPaywallReason: false,
-        );
-        return;
-      }
-      state = state.copyWith(
-        pendingMessage: trimmed,
-        modeSuggestion: suggestion,
-      );
-      return;
-    }
 
-    await sendMessage(trimmed);
-  }
-
-  void switchModeAndSend(AssistantMode mode) {
-    final resolvedMode = _displayModeFor(mode);
-    if (!ref.read(subscriptionProvider.notifier).canAccessMode(resolvedMode)) {
+    if (!ref.read(subscriptionProvider.notifier).canAccessMode(engineMode)) {
       state = state.copyWith(
         paywallReason: PaywallReason.modeLocked,
         clearPaywallReason: false,
       );
       return;
     }
-    final pending = state.pendingMessage;
-    state = state.copyWith(
-      currentMode: resolvedMode,
-      isServiceReady: _services.containsKey(resolvedMode),
-      clearModeSuggestion: true,
-      clearPendingMessage: true,
-    );
-    _ensureWelcomeMessage(resolvedMode);
-    unawaited(_applyModeAndMaybeSend(resolvedMode, pending));
-  }
 
-  void dismissSuggestionAndSend() {
-    final pending = state.pendingMessage;
-    state = state.copyWith(
-      clearModeSuggestion: true,
-      clearPendingMessage: true,
-    );
-    if (pending != null) {
-      unawaited(sendMessage(pending));
-    }
+    _lastEngineMode = engineMode;
+    await sendMessage(trimmed, engineMode: engineMode);
   }
 
   void clearPaywall() {
     state = state.copyWith(clearPaywallReason: true);
   }
 
-  Future<void> selectMode(AssistantMode mode) async {
-    final resolvedMode = _displayModeFor(mode);
-    if (resolvedMode == state.currentMode) return;
-    if (!ref.read(subscriptionProvider.notifier).canAccessMode(resolvedMode)) {
-      state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
-        clearPaywallReason: false,
-      );
-      return;
-    }
-    state = state.copyWith(
-      currentMode: resolvedMode,
-      isServiceReady: _services.containsKey(resolvedMode),
-    );
-    _ensureWelcomeMessage(resolvedMode);
-    await _ensureServiceForMode(resolvedMode);
-    state = state.copyWith(isServiceReady: true);
-  }
-
   void clearErrorAndRetry() {
-    final mode = state.currentMode;
     final last = state.lastMessage;
-    state = state.copyWith(errorByMode: {...state.errorByMode, mode: null});
+    state = state.copyWith(clearError: true);
     if (last.isNotEmpty) {
-      unawaited(sendMessage(last));
+      unawaited(submitMessage(last));
     }
   }
 
-  /// Si `mode` nunca se visitó, arranca su conversación con el mensaje de
-  /// bienvenida. Si ya tiene historial (o solo el de bienvenida), lo respeta:
-  /// cambiar de pestaña no debe pisar ni mezclar la conversación de otra.
-  void _ensureWelcomeMessage(AssistantMode mode) {
-    if (state.messagesByMode.containsKey(mode)) return;
-    state = state.copyWith(
-      messagesByMode: {
-        ...state.messagesByMode,
-        mode: [
-          PortfolioQaMessage(
-            role: PortfolioQaRole.assistant,
-            content: _welcomeKeyFor(mode).tr(),
-          ),
-        ],
-      },
-    );
-  }
-
-  Future<void> _applyModeAndMaybeSend(
-    AssistantMode mode,
-    String? pendingMessage,
-  ) async {
-    await _ensureServiceForMode(mode);
-    state = state.copyWith(isServiceReady: true);
-    if (pendingMessage != null) {
-      await sendMessage(pendingMessage);
-    }
-  }
-
-  /// [engineMode] es el motor real (invest o plan) que atiende el turno. Sus
-  /// eventos de conversación se vuelcan sobre `_displayModeFor(engineMode)`:
-  /// plan no tiene lista de mensajes propia, comparte la de invest.
   Future<void> _ensureServiceForMode(AssistantMode engineMode) async {
     if (_services.containsKey(engineMode)) return;
     final service = AssistantOpenAiService.forMode(mode: engineMode);
     _services[engineMode] = service;
     final subscription = GenUiConversationSubscription();
-    final displayMode = _displayModeFor(engineMode);
-    subscription.listen(
-      service.conversation,
-      (event) => _onConversationEvent(displayMode, event),
-    );
+    subscription.listen(service.conversation, _onConversationEvent);
     _subscriptions[engineMode] = subscription;
   }
 
-  void _onConversationEvent(AssistantMode mode, ConversationEvent event) {
-    var messages = <PortfolioQaMessage>[...?state.messagesByMode[mode]];
-    String? error = state.errorByMode[mode];
+  void _onConversationEvent(ConversationEvent event) {
+    var messages = <PortfolioQaMessage>[...state.messages];
+    String? error = state.error;
     var isWaiting = state.isWaiting;
 
     if (event case ConversationComponentsUpdated(:final surfaceId)) {
@@ -314,8 +172,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     );
 
     state = state.copyWith(
-      messagesByMode: {...state.messagesByMode, mode: messages},
-      errorByMode: {...state.errorByMode, mode: error},
+      messages: messages,
+      error: error,
+      clearError: error == null,
       isWaiting: isWaiting,
     );
   }
@@ -335,31 +194,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return messages;
   }
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(String text, {required AssistantMode engineMode}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    // `displayMode` es la pestaña visible: los mensajes, errores y el
-    // surfaceId del turno se guardan bajo esta clave. `engineMode` es el
-    // motor que realmente atiende el turno (servicio, snapshot, prompt). Para
-    // la mayoría de las pestañas son lo mismo; en la pestaña Invertir (que
-    // combina Invertir+Planificar) `engineMode` puede resolver a `plan` sin
-    // que la pestaña visible cambie.
-    // El modo se fija al entrar y se usa durante todo el turno: si el
-    // usuario cambia de pestaña mientras este envío sigue en curso, la
-    // respuesta debe seguir cayendo en la conversación que la originó, no en
-    // la que esté visible cuando el turno finalmente resuelva.
-    final displayMode = state.currentMode;
-    final engineMode = _resolveEngineMode(displayMode, trimmed);
     // El lock se toma de forma sincrónica, antes de cualquier `await`, para
     // que no exista una ventana en la que dos envíos concurrentes pasen
     // ambos el chequeo. `isWaiting` se prende en el mismo instante para que
     // la UI (que se deshabilita según `isWaiting`) refleje exactamente la
     // ventana en la que el guard está tomado.
     if (!_sendGuard.tryAcquire()) return;
-    state = state.copyWith(
-      errorByMode: {...state.errorByMode, displayMode: null},
-      isWaiting: true,
-    );
+    state = state.copyWith(clearError: true, isWaiting: true);
 
     try {
       await _ensureServiceForMode(engineMode);
@@ -391,12 +235,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
       if (engineMode == AssistantMode.portfolio &&
           validation == SnapshotValidation.noPortfolioData) {
-        state = state.copyWith(
-          errorByMode: {
-            ...state.errorByMode,
-            displayMode: 'portfolio_qa_no_positions'.tr(),
-          },
-        );
+        state = state.copyWith(error: 'portfolio_qa_no_positions'.tr());
         return;
       }
 
@@ -406,20 +245,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         final errorKey = tickers == null || tickers.isEmpty
             ? 'assistant_explore_no_ticker'
             : 'assistant_explore_fetch_failed';
-        state = state.copyWith(
-          errorByMode: {...state.errorByMode, displayMode: errorKey.tr()},
-        );
+        state = state.copyWith(error: errorKey.tr());
         return;
       }
 
       if (engineMode == AssistantMode.invest &&
           validation == SnapshotValidation.exploreFetchFailed) {
-        state = state.copyWith(
-          errorByMode: {
-            ...state.errorByMode,
-            displayMode: 'assistant_invest_fetch_failed'.tr(),
-          },
-        );
+        state = state.copyWith(error: 'assistant_invest_fetch_failed'.tr());
         return;
       }
 
@@ -432,9 +264,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
 
       final surfaceId =
-          GenUiSurfaceIds.assistantTurn(displayMode, state.turnCounter);
+          GenUiSurfaceIds.assistantTurn(engineMode, state.turnCounter);
       final messages = <PortfolioQaMessage>[
-        ...?state.messagesByMode[displayMode],
+        ...state.messages,
         PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
         PortfolioQaMessage(
           role: PortfolioQaRole.assistant,
@@ -445,11 +277,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       ];
 
       state = state.copyWith(
-        messagesByMode: {...state.messagesByMode, displayMode: messages},
-        lastMessageByMode: {
-          ...state.lastMessageByMode,
-          displayMode: trimmed,
-        },
+        messages: messages,
+        lastMessage: trimmed,
         turnCounter: state.turnCounter + 1,
       );
 
@@ -465,13 +294,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
 
         state = state.copyWith(
-          messagesByMode: {
-            ...state.messagesByMode,
-            displayMode: _markTurnReady(
-              state.messagesByMode[displayMode] ?? const <PortfolioQaMessage>[],
-              surfaceId,
-            ),
-          },
+          messages: _markTurnReady(state.messages, surfaceId),
         );
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
@@ -485,29 +308,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         }
       } on TimeoutException catch (e) {
         state = state.copyWith(
-          errorByMode: {
-            ...state.errorByMode,
-            displayMode: e.message ?? 'GPT tardó demasiado en responder.',
-          },
-          messagesByMode: {
-            ...state.messagesByMode,
-            displayMode: _removeStreamingPlaceholder(
-              state.messagesByMode[displayMode] ?? const <PortfolioQaMessage>[],
-            ),
-          },
+          error: e.message ?? 'GPT tardó demasiado en responder.',
+          messages: _removeStreamingPlaceholder(state.messages),
         );
       } catch (e) {
         state = state.copyWith(
-          errorByMode: {
-            ...state.errorByMode,
-            displayMode: genUiErrorMessage(e),
-          },
-          messagesByMode: {
-            ...state.messagesByMode,
-            displayMode: _removeStreamingPlaceholder(
-              state.messagesByMode[displayMode] ?? const <PortfolioQaMessage>[],
-            ),
-          },
+          error: genUiErrorMessage(e),
+          messages: _removeStreamingPlaceholder(state.messages),
         );
       }
     } finally {
@@ -519,20 +326,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  /// Solo la pestaña combinada (`invest`) necesita elegir motor por mensaje;
-  /// el resto de las pestañas son su propio motor. Recuerda la elección en
-  /// `_investPlanEngine` para que un mensaje ambiguo (sin keywords propias
-  /// de ninguno de los dos) continúe con el motor del turno anterior.
-  AssistantMode _resolveEngineMode(AssistantMode displayMode, String message) {
-    if (displayMode != AssistantMode.invest) return displayMode;
-    final resolved = IntentRouter.resolveInvestPlanEngine(
-      message: message,
-      lastEngine: _investPlanEngine,
-    );
-    _investPlanEngine = resolved;
-    return resolved;
-  }
-
   List<PortfolioQaMessage> _removeStreamingPlaceholder(
     List<PortfolioQaMessage> messages,
   ) {
@@ -540,30 +333,45 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return messages.sublist(0, messages.length - 1);
   }
 
+  /// El motor que atiende un turno cambia con cada mensaje (ver
+  /// `IntentRouter.detectEngine`), pero el usuario ve un solo chat con
+  /// Porty — así que TODOS los motores necesitan poder referirse a la
+  /// cartera real del usuario (holdings, valor, PnL), no solo `portfolio`.
+  Future<List<ClosedPosition>> _fetchClosedPositions() async {
+    final closedResult = await ref.read(getClosedPositionsUseCaseProvider).call();
+    return closedResult.fold((_) => <ClosedPosition>[], (list) => list);
+  }
+
   Future<String> _buildSnapshotJson(AssistantMode mode, String trimmed) async {
+    final summary = ref.read(homeProvider).summary;
+    final history = ref.read(homeProvider).history;
+
     if (mode == AssistantMode.portfolio) {
-      final summary = ref.read(homeProvider).summary;
-      final closedResult =
-          await ref.read(getClosedPositionsUseCaseProvider).call();
-      final closedPositions = closedResult.fold(
-        (_) => <ClosedPosition>[],
-        (list) => list,
-      );
       return buildSnapshotJson(
         mode: AssistantMode.portfolio,
         summary: summary,
-        history: ref.read(homeProvider).history,
-        closedPositions: closedPositions,
+        history: history,
+        closedPositions: await _fetchClosedPositions(),
         quoteRepository: ref.read(quoteRepositoryProvider),
       );
     }
 
+    if (mode == AssistantMode.learn) {
+      return buildSnapshotJson(
+        mode: AssistantMode.learn,
+        summary: summary,
+        history: history,
+        closedPositions: await _fetchClosedPositions(),
+      );
+    }
+
     if (mode == AssistantMode.explore) {
-      final summary = ref.read(homeProvider).summary;
       return buildSnapshotJson(
         mode: AssistantMode.explore,
         userMessage: trimmed,
         summary: summary,
+        history: history,
+        closedPositions: await _fetchClosedPositions(),
         quoteRepository: ref.read(quoteRepositoryProvider),
         enableNewsEnrichment: SubscriptionPolicy.isNewsAllowed(
           ref.read(subscriptionProvider).tier,
@@ -572,20 +380,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
 
     if (mode == AssistantMode.invest) {
-      final summary = ref.read(homeProvider).summary;
       final riskProfile =
           await ref.read(preferenceManagerProvider).getRiskProfile();
       return buildSnapshotJson(
         mode: AssistantMode.invest,
         userMessage: trimmed,
         summary: summary,
+        history: history,
+        closedPositions: await _fetchClosedPositions(),
         quoteRepository: ref.read(quoteRepositoryProvider),
         riskProfile: riskProfile,
       );
     }
 
     if (mode == AssistantMode.plan) {
-      final summary = ref.read(homeProvider).summary;
       final prefs = ref.read(preferenceManagerProvider);
       final savedGoal = await prefs.getSavedGoal();
       final monthlyContribution = await prefs.getMonthlyContribution();
@@ -593,6 +401,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         mode: AssistantMode.plan,
         userMessage: trimmed,
         summary: summary,
+        history: history,
+        closedPositions: await _fetchClosedPositions(),
         savedGoal: savedGoal,
         monthlyContribution: monthlyContribution,
       );

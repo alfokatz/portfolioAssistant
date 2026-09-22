@@ -83,6 +83,7 @@
   "portfolio_qa_disclaimer": "Información educativa. No es asesoramiento financiero ni recomendación de inversión.",
   "assistant_thinking_semantics_label": "Porty está generando una respuesta",
   "portfolio_qa_welcome": "Hola, soy Porty. Puedo ayudarte a entender tu portfolio y darte orientación general. ¿Qué te gustaría saber?",
+  "assistant_unified_welcome": "Hola, soy Porty. Preguntame lo que quieras: tu portfolio, conceptos de inversión, datos de mercado o cómo planificar tus metas — todo en el mismo chat.",
   "portfolio_qa_input_hint": "Escribí tu pregunta...",
   "portfolio_qa_chip_intro": "Podés empezar por acá:",
   "portfolio_qa_no_positions": "Agregá posiciones abiertas o cerradas para poder responder con tus datos.",

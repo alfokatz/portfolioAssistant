@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/assistant/modes/learn/learn_prompt_
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/reliability/grounding_prompt_rules.dart';
+import 'package:portfolio_assistant/features/assistant/reliability/portfolio_context_prompt_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 
 abstract final class AssistantCatalog {
@@ -31,6 +32,7 @@ abstract final class AssistantCatalog {
       systemPromptFragments: [
         criticalOutputFormatRules,
         groundingPromptRules,
+        portfolioContextPromptRules,
         modeRules,
         ...portfolio.systemPromptFragments.where(
           (f) =>

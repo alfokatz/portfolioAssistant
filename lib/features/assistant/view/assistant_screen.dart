@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,8 +11,7 @@ import 'package:portfolio_assistant/features/assistant/states/assistant_state.da
 import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/mode_chip_bar.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/mode_switch_suggestion.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_disclaimer_banner.dart';
@@ -35,10 +36,47 @@ class AssistantScreen extends StatefulHookConsumerWidget {
   ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
 }
 
-class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
+class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
+    with SingleTickerProviderStateMixin {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   late final AssistantArgs _args;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  // Auto-tipeo de una sugerencia tocada (ver _startAutoType). `_autoTypingText`
+  // es lo último que el propio mecanismo escribió — el listener de
+  // _textController lo compara contra el valor actual para detectar que el
+  // usuario empezó a escribir por su cuenta y cancelar. `_autoTypeGeneration`
+  // desambigua entre una corrida cancelada y una nueva que arrancó después.
+  bool _isAutoTyping = false;
+  String? _autoTypingText;
+  int _autoTypeGeneration = 0;
+
+  static const _autoTypeCharDelay = Duration(milliseconds: 22);
+
+  // La respuesta de Porty crece después de que ya llegó al estado (ver
+  // TypewriterText + RevealStep): el typewriter y las cards en secuencia
+  // siguen agregando contenido varios segundos después del único autoscroll
+  // que dispara `ref.listen` al resolverse el turno. Sin esto, ese
+  // contenido nuevo queda tapado detrás de la barra de input. `_followBottomTimer`
+  // persigue el fondo mientras el contenido sigue creciendo, y se corta solo
+  // apenas deja de crecer (o a los pocos segundos, como tope).
+  Timer? _followBottomTimer;
+
+  // El orbe de "pensando" (placeholder del asistente) se agrega al estado
+  // en el mismo instante que el mensaje del usuario — pero visualmente debe
+  // esperar a que la burbuja del usuario termine su propio typewriter antes
+  // de aparecer. `_orbGateOpen` arranca en `false` en cada envío y se abre
+  // desde `PortfolioQaChatBubble.onTypingComplete` de esa burbuja. Como los
+  // envíos están serializados (guard de UI + `_sendGuard` del provider),
+  // nunca hay más de un turno "pendiente de gate" a la vez.
+  bool _orbGateOpen = true;
+
+  // See HomeScreen: this tab stays mounted alongside Home and Settings in
+  // the shell's IndexedStack, so AppShell owns the single subscription.
+  @override
+  bool get subscribesToGlobalEvents => false;
 
   @override
   void initState() {
@@ -46,6 +84,27 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       initialMode: widget.initialMode,
       initialQuestion: widget.initialQuestion,
     );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _pulseAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        weight: 45,
+        tween: Tween(
+          begin: 1.0,
+          end: 1.08,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+      ),
+      TweenSequenceItem(
+        weight: 55,
+        tween: Tween(
+          begin: 1.08,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+      ),
+    ]).animate(_pulseController);
+    _textController.addListener(_handleTextChanged);
     super.initState();
     runAfterPostFrameCallback(
       () => ref.read(assistantProvider(_args).notifier).bootstrap(),
@@ -54,9 +113,25 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
 
   @override
   void dispose() {
+    _followBottomTimer?.cancel();
+    _textController.removeListener(_handleTextChanged);
+    _pulseController.dispose();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleTextChanged() {
+    if (!_isAutoTyping) return;
+    if (_textController.text != _autoTypingText) {
+      // El usuario escribió o borró algo distinto de lo que el auto-tipeo
+      // puso — se cancela ahí mismo, su texto queda como está.
+      _autoTypeGeneration++;
+      setState(() {
+        _isAutoTyping = false;
+        _autoTypingText = null;
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -71,26 +146,134 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     });
   }
 
+  /// Persigue el fondo de la lista mientras el contenido sigue creciendo
+  /// (typewriter de la respuesta + widgets en secuencia + dibujo de chart),
+  /// que pasa varios segundos después del único autoscroll que dispara
+  /// `ref.listen` al resolverse el turno. Se corta solo apenas el contenido
+  /// deja de crecer, o a los pocos segundos como tope.
+  void _followBottomWhileRevealing() {
+    _followBottomTimer?.cancel();
+    var ticksLeft = 60; // 60 * 120ms ≈ 7.2s de tope
+    double? lastExtent;
+    var stableTicks = 0;
+    _followBottomTimer = Timer.periodic(const Duration(milliseconds: 120), (
+      timer,
+    ) {
+      if (!mounted || !_scrollController.hasClients) {
+        timer.cancel();
+        return;
+      }
+      final extent = _scrollController.position.maxScrollExtent;
+      _scrollToBottom();
+      stableTicks = extent == lastExtent ? stableTicks + 1 : 0;
+      lastExtent = extent;
+      ticksLeft--;
+      if (stableTicks >= 3 || ticksLeft <= 0) {
+        timer.cancel();
+      }
+    });
+  }
+
+  /// Swap limpio: se limpia el input y el mensaje pasa a existir en el
+  /// estado — sin desplazamiento espacial, `MessageAppearFade` en la lista
+  /// se encarga del fade corto de entrada. Ambos triggers (sugerencia
+  /// auto-tipeada y envío manual) pasan por acá, así se ven consistentes.
+  /// La burbuja del usuario se revela con su propio typewriter (ver
+  /// `PortfolioQaChatBubble`) — el orbe de "pensando" queda cerrado
+  /// (`_orbGateOpen = false`) hasta que ese typewriter avisa que terminó.
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
-    // Se limpia antes de esperar la respuesta: dejar el texto visible
-    // durante todo el round-trip invitaba a un segundo tap sobre el mismo
-    // mensaje mientras el turno anterior seguía en curso.
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
     _textController.clear();
-    await notifier.submitMessage(text);
+    setState(() => _orbGateOpen = false);
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      _followBottomWhileRevealing();
+    }
+    await notifier.submitMessage(trimmed);
     _scrollToBottom();
+  }
+
+  /// Escribe [suggestion] en el input carácter por carácter, simulando que
+  /// alguien la tipea. Se cancela sola (ver `_handleTextChanged`) si el
+  /// usuario escribe algo distinto mientras tanto. Al completarse, pulsa el
+  /// botón de enviar y dispara el mismo `_submitMessage` que un envío
+  /// manual.
+  Future<void> _startAutoType(
+    AssistantProvider notifier,
+    String suggestion,
+  ) async {
+    if (_isAutoTyping || ref.read(assistantProvider(_args)).isWaiting) return;
+
+    final generation = ++_autoTypeGeneration;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    setState(() => _isAutoTyping = true);
+
+    if (reduceMotion) {
+      _autoTypingText = suggestion;
+      _textController.value = TextEditingValue(
+        text: suggestion,
+        selection: TextSelection.collapsed(offset: suggestion.length),
+      );
+    } else {
+      for (var i = 1; i <= suggestion.length; i++) {
+        await Future.delayed(_autoTypeCharDelay);
+        if (generation != _autoTypeGeneration || !mounted) return;
+        final partial = suggestion.substring(0, i);
+        _autoTypingText = partial;
+        _textController.value = TextEditingValue(
+          text: partial,
+          selection: TextSelection.collapsed(offset: partial.length),
+        );
+      }
+    }
+
+    if (generation != _autoTypeGeneration || !mounted) return;
+    await _pulseSendButton();
+    if (generation != _autoTypeGeneration || !mounted) return;
+
+    _autoTypingText = null;
+    setState(() => _isAutoTyping = false);
+    await _submitMessage(notifier, suggestion);
+  }
+
+  Future<void> _pulseSendButton() async {
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    await _pulseController.forward(from: 0);
+  }
+
+  void _openOrbGate() {
+    if (!mounted || _orbGateOpen) return;
+    setState(() => _orbGateOpen = true);
   }
 
   @override
   Widget buildView(BuildContext context) {
     final state = ref.watch(assistantProvider(_args));
     final notifier = ref.read(assistantProvider(_args).notifier);
-    final service = notifier.service;
-    final subscription = ref.watch(subscriptionProvider);
+    final service = notifier.serviceFor(AssistantMode.portfolio);
 
     ref.listen(assistantProvider(_args), (previous, next) {
       if (previous?.messages.length != next.messages.length ||
           previous?.isWaiting != next.isWaiting) {
         _scrollToBottom();
+      }
+
+      // El último mensaje acaba de dejar de "streamear" (el turno resolvió
+      // y el contenido final ya está disponible): arranca ahí el reveal
+      // visual (typewriter + cards en secuencia + chart), que sigue
+      // creciendo el contenido varios segundos más.
+      final prevLast = previous?.messages.isNotEmpty == true
+          ? previous!.messages.last
+          : null;
+      final nextLast =
+          next.messages.isNotEmpty ? next.messages.last : null;
+      final justStoppedStreaming =
+          nextLast != null &&
+          nextLast.surfaceId != null &&
+          !nextLast.isStreaming &&
+          (prevLast == null || prevLast.isStreaming);
+      if (justStoppedStreaming && !MediaQuery.disableAnimationsOf(context)) {
+        _followBottomWhileRevealing();
       }
 
       final reason = next.paywallReason;
@@ -160,27 +343,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
               ),
             ),
           ),
-          ModeChipBar(
-            selectedMode: state.currentMode,
-            onModeSelected: notifier.selectMode,
-            tier: subscription.tier,
-            onLockedModeTap: (_) {
-              SubscriptionPaywallSheet.show(
-                context,
-                ref,
-                reason: PaywallReason.modeLocked,
-              );
-            },
-          ),
           const AiUsageIndicator(),
           const PortfolioQaDisclaimerBanner(),
-          if (state.modeSuggestion case final suggestion?)
-            ModeSwitchSuggestion(
-              reasonKey: suggestion.reasonKey,
-              suggestedMode: suggestion.suggestedMode,
-              onSwitch: notifier.switchModeAndSend,
-              onDismiss: notifier.dismissSuggestionAndSend,
-            ),
           if (state.error != null)
             Padding(
               padding: const EdgeInsets.symmetric(
@@ -220,13 +384,21 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                     AppDimens.sp8,
                   ),
                   children: [
-                    if (service != null)
-                      ...state.messages.map(
-                        (m) => _buildMessageTile(notifier, service, m),
-                      )
-                    else
-                      ...state.messages.map(
-                        (m) => PortfolioQaChatBubble(message: m),
+                    for (final m in state.messages)
+                      MessageAppearFade(
+                        child:
+                            service != null
+                                ? _buildMessageTile(
+                                  notifier,
+                                  service,
+                                  m,
+                                  orbGateOpen: _orbGateOpen,
+                                  onUserTypingComplete: _openOrbGate,
+                                )
+                                : PortfolioQaChatBubble(
+                                  message: m,
+                                  onTypingComplete: _openOrbGate,
+                                ),
                       ),
                     if (state.messages.length <= 1) ...[
                       const SizedBox(height: 4),
@@ -245,9 +417,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                           child: AssistantSuggestionChip(
                             label: key.tr(),
                             onTap:
-                                state.isWaiting || service == null
+                                state.isWaiting ||
+                                        service == null ||
+                                        _isAutoTyping
                                     ? null
-                                    : () => _submitMessage(notifier, key.tr()),
+                                    : () => _startAutoType(notifier, key.tr()),
                           ),
                         ),
                       ],
@@ -284,19 +458,26 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
                       maxLines: 4,
                       minLines: 1,
                       onSubmitted:
-                          state.isWaiting
+                          state.isWaiting || _isAutoTyping
                               ? null
                               : (text) => _submitMessage(notifier, text),
                       enabled: !state.isWaiting && service != null,
                     ),
                   ),
                   const SizedBox(width: AppDimens.sp8),
-                  _SendButton(
-                    onTap:
-                        state.isWaiting || service == null
-                            ? null
-                            : () =>
-                                _submitMessage(notifier, _textController.text),
+                  ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: _SendButton(
+                      onTap:
+                          state.isWaiting ||
+                                  service == null ||
+                                  _isAutoTyping
+                              ? null
+                              : () => _submitMessage(
+                                notifier,
+                                _textController.text,
+                              ),
+                    ),
                   ),
                 ],
               ),
@@ -310,8 +491,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
   Widget _buildMessageTile(
     AssistantProvider notifier,
     AssistantOpenAiService fallbackService,
-    PortfolioQaMessage message,
-  ) {
+    PortfolioQaMessage message, {
+    required bool orbGateOpen,
+    required VoidCallback onUserTypingComplete,
+  }) {
     // Key estable: identifica la fila para el ListView a través de todo su
     // ciclo de vida (orbe → respuesta), así el AnimatedSwitcher de abajo
     // conserva su estado entre rebuilds en vez de perder la animación.
@@ -322,7 +505,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
     late final Key contentKey;
     late final Widget content;
 
-    if (message.surfaceId != null && message.isStreaming) {
+    if (message.surfaceId != null && message.isStreaming && !orbGateOpen) {
+      // El placeholder ya existe en el estado (se agrega junto con el
+      // mensaje del usuario), pero visualmente espera a que la burbuja del
+      // usuario termine su propio typewriter antes de mostrar el orbe.
+      contentKey = const ValueKey('gated');
+      content = const SizedBox.shrink();
+    } else if (message.surfaceId != null && message.isStreaming) {
       // Sin chrome de burbuja: el orbe flota suelto en el lugar donde va a
       // aparecer la respuesta, en vez de quedar encerrado en un contenedor.
       // Sin deriva vertical: acá el orbe marca un punto exacto — dónde va
@@ -350,7 +539,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen> {
       );
     } else {
       contentKey = const ValueKey('bubble');
-      content = PortfolioQaChatBubble(message: message);
+      content = PortfolioQaChatBubble(
+        message: message,
+        onTypingComplete:
+            message.role == PortfolioQaRole.user
+                ? onUserTypingComplete
+                : null,
+      );
     }
 
     // El orbe no tenía salida propia: al llegar la respuesta, desaparecía de

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 
 /// Renderiza la surface GenUI que arma Porty como respuesta.
 ///
@@ -33,6 +34,7 @@ class _PortfolioQaAssistantSurfaceState
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _entrance;
+  late final SurfaceRevealController _revealController;
   bool _started = false;
 
   @override
@@ -53,10 +55,13 @@ class _PortfolioQaAssistantSurfaceState
     super.didChangeDependencies();
     // `MediaQuery.disableAnimationsOf` depends on an inherited widget, which
     // can't be read from `initState`; `didChangeDependencies` is the earliest
-    // safe place, gated so the entrance only fires once.
+    // safe place, gated so the entrance/reveal controller only get set up
+    // once.
     if (_started) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _revealController = SurfaceRevealController(reduceMotion: reduceMotion);
+    if (reduceMotion) {
       _controller.value = 1;
     } else {
       _controller.forward();
@@ -66,6 +71,7 @@ class _PortfolioQaAssistantSurfaceState
   @override
   void dispose() {
     _controller.dispose();
+    _revealController.dispose();
     super.dispose();
   }
 
@@ -82,9 +88,12 @@ class _PortfolioQaAssistantSurfaceState
             ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: Surface(
-            key: ValueKey(widget.surfaceId),
-            surfaceContext: widget.surfaceContext,
+          child: SurfaceRevealScope(
+            controller: _revealController,
+            child: Surface(
+              key: ValueKey(widget.surfaceId),
+              surfaceContext: widget.surfaceContext,
+            ),
           ),
         ),
       ),

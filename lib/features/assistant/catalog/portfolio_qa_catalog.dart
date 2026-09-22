@@ -71,6 +71,16 @@ final _milestoneItemSchema = S.object(
   required: ['label', 'amount', 'dateLabel'],
 );
 
+final _projectionChartPointSchema = S.object(
+  properties: {
+    'label': S.string(
+      description: 'Etiqueta del punto en el eje X, ej. "Ene 2027".',
+    ),
+    'value': S.number(description: 'Monto proyectado en ese punto.'),
+  },
+  required: ['label', 'value'],
+);
+
 final CatalogItem qaAnswerTextItem = CatalogItem(
   name: 'QaAnswerText',
   dataSchema: S.object(
@@ -611,6 +621,43 @@ final CatalogItem qaProjectionStripItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaProjectionChartItem = CatalogItem(
+  name: 'QaProjectionChart',
+  dataSchema: S.object(
+    description:
+        'Chart de líneas de una proyección en el tiempo (ej. evolución '
+        'proyectada de una meta financiera). Requiere al menos 2 puntos.',
+    properties: {
+      'label': S.string(description: 'Título corto del chart.'),
+      'points': S.list(
+        items: _projectionChartPointSchema,
+        minItems: 2,
+        maxItems: 12,
+      ),
+    },
+    required: ['label', 'points'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaProjectionChart),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "projection_chart",
+    "component": "QaProjectionChart",
+    "label": "Proyección de tu meta",
+    "points": [
+      {"label": "Hoy", "value": 5000},
+      {"label": "Año 1", "value": 9800},
+      {"label": "Año 2", "value": 14900},
+      {"label": "Año 3", "value": 20600}
+    ]
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaMilestoneListItem = CatalogItem(
   name: 'QaMilestoneList',
   dataSchema: S.object(
@@ -810,6 +857,7 @@ abstract final class PortfolioQaCatalog {
         qaInvestConfirmItem,
         qaGoalCardItem,
         qaProjectionStripItem,
+        qaProjectionChartItem,
         qaMilestoneListItem,
       ],
       systemPromptFragments: [

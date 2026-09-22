@@ -31,6 +31,11 @@ class SettingsScreen extends StatefulHookConsumerWidget {
 }
 
 class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
+  // See HomeScreen: this tab stays mounted alongside Home and Assistant in
+  // the shell's IndexedStack, so AppShell owns the single subscription.
+  @override
+  bool get subscribesToGlobalEvents => false;
+
   @override
   void initState() {
     runAfterPostFrameCallback(() {

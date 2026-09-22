@@ -29,6 +29,22 @@ Future<String> buildSnapshotJson({
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
+  // Datos reales del portfolio del usuario (holdings, valor total, PnL,
+  // posiciones cerradas) — se anidan bajo `portfolio_context` en TODOS los
+  // modos, no solo en `portfolio`. Antes solo el modo portfolio los recibía,
+  // así que una pregunta sobre "mi cartera" hecha mientras el turno caía en
+  // otro motor (learn/explore/invest/plan) no tenía forma de responderse:
+  // el modelo literalmente no tenía esos datos. Como de cara al usuario ya
+  // no hay pestañas — todo es un solo chat con Porty — cualquier motor debe
+  // poder referirse al portfolio real cuando corresponda.
+  Map<String, Object?> portfolioContext() =>
+      PortfolioContextBuilder.buildMap(
+        summary,
+        history: history,
+        closedPositions: closedPositions,
+        asOf: asOf,
+      );
+
   switch (mode) {
     case AssistantMode.portfolio:
       final hasOpen = summary != null && summary.valuations.isNotEmpty;
@@ -47,7 +63,11 @@ Future<String> buildSnapshotJson({
         asOf: asOf,
       );
     case AssistantMode.learn:
-      return jsonEncode({'mode': 'learn', 'as_of': timestamp});
+      return jsonEncode({
+        'mode': 'learn',
+        'as_of': timestamp,
+        'portfolio_context': portfolioContext(),
+      });
     case AssistantMode.explore:
       if (quoteRepository == null) {
         return jsonEncode({
@@ -55,6 +75,7 @@ Future<String> buildSnapshotJson({
           'data_source': 'yahoo_finance',
           'explore_tickers': <String, dynamic>{},
           'as_of': timestamp,
+          'portfolio_context': portfolioContext(),
         });
       }
       final exploreSnapshot = await ExploreContextBuilder.build(
@@ -66,7 +87,10 @@ Future<String> buildSnapshotJson({
             ? (exploreNewsEnricher ?? ExploreNewsEnricher())
             : null,
       );
-      return jsonEncode(exploreSnapshot);
+      return jsonEncode({
+        ...exploreSnapshot,
+        'portfolio_context': portfolioContext(),
+      });
     case AssistantMode.invest:
       if (quoteRepository == null) {
         return jsonEncode({
@@ -75,6 +99,7 @@ Future<String> buildSnapshotJson({
           'as_of': timestamp,
           'has_budget': false,
           'candidates': <Map<String, Object?>>[],
+          'portfolio_context': portfolioContext(),
         });
       }
       final investSnapshot = await InvestContextBuilder.build(
@@ -84,7 +109,10 @@ Future<String> buildSnapshotJson({
         riskProfile: riskProfile,
         asOf: asOf,
       );
-      return jsonEncode(investSnapshot);
+      return jsonEncode({
+        ...investSnapshot,
+        'portfolio_context': portfolioContext(),
+      });
     case AssistantMode.plan:
       final planSnapshot = await PlanContextBuilder.build(
         userMessage: userMessage,
@@ -93,6 +121,9 @@ Future<String> buildSnapshotJson({
         monthlyContribution: monthlyContribution,
         asOf: asOf,
       );
-      return jsonEncode(planSnapshot);
+      return jsonEncode({
+        ...planSnapshot,
+        'portfolio_context': portfolioContext(),
+      });
   }
 }

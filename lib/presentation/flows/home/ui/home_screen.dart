@@ -10,11 +10,9 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/assistant_mode_chips.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_empty_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_section_tabs.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
@@ -32,6 +30,12 @@ class HomeScreen extends StatefulHookConsumerWidget {
 
 class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
   HomeSection _section = HomeSection.assets;
+
+  // Home stays mounted alongside Assistant and Settings inside the shell's
+  // IndexedStack — AppShell is the single place that subscribes to
+  // alerts/navigation events for all three tabs (see its docs).
+  @override
+  bool get subscribesToGlobalEvents => false;
 
   @override
   void initState() {
@@ -91,7 +95,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const HomeAppBar(),
+                    //const HomeAppBar(),
                     if (state.quoteError != null)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
@@ -184,12 +188,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                     children: [
                                       PortfolioQaEntryCard(
                                         onTap: notifier.openAssistant,
-                                      ),
-                                      AssistantModeChips(
-                                        onModeTap:
-                                            (mode) => notifier.openAssistant(
-                                              mode: mode,
-                                            ),
                                       ),
                                       if (isBenchmarkAllowed)
                                         BenchmarkComparisonCard(

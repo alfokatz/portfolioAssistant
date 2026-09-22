@@ -2,21 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projection_chart.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 
 abstract final class PortfolioQaCatalogWidgets {
   static Widget qaAnswerText(CatalogItemContext ctx) {
     final data = _AnswerTextData.fromMap(ctx.data as JsonMap);
+    const style = TextStyle(
+      color: PortfolioColors.textPrimary,
+      fontSize: 15,
+      height: 1.45,
+    );
+
+    // El texto de Porty es siempre el primer paso del reveal de la surface
+    // (slot 0, reclamado automáticamente al montar) — recién cuando termina
+    // de tipearse se habilita la próxima card. Fuera de una surface (sin
+    // SurfaceRevealScope ancestro) se muestra directo, sin typewriter.
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        data.text,
-        style: const TextStyle(
-          color: PortfolioColors.textPrimary,
-          fontSize: 15,
-          height: 1.45,
-        ),
+      child: Builder(
+        builder: (context) {
+          final revealController = SurfaceRevealScope.maybeOf(context);
+          if (revealController == null) {
+            return Text(data.text, style: style);
+          }
+          return RevealStep(
+            controller: revealController,
+            builder:
+                (context, active, onFinished) => TypewriterText(
+                  text: data.text,
+                  style: style,
+                  play: active,
+                  onComplete: onFinished,
+                ),
+          );
+        },
       ),
     );
   }
@@ -47,40 +70,54 @@ abstract final class PortfolioQaCatalogWidgets {
     final isUp = data.changeAbs >= 0;
     final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
-    return QaCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final label = Text(
+      data.periodLabel,
+      style: const TextStyle(
+        color: PortfolioColors.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
+    // "Título antes que valores": el label del período aparece primero, el
+    // número (y el rango opcional) recién después — referencia de cómo
+    // anidar un reveal en dos etapas dentro de una sola card (ver
+    // TwoStageReveal / QaCardShell.staged).
+    final value = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          '${isUp ? '+' : ''}${currency.format(data.changeAbs)} '
+          '(${data.changePct.toStringAsFixed(1)}%)',
+          style: TextStyle(
+            color: pnlColor,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (data.valueStart > 0 && data.valueEnd > 0) ...[
+          const SizedBox(height: 6),
           Text(
-            data.periodLabel,
+            '${currency.format(data.valueStart)} → ${currency.format(data.valueEnd)}',
             style: const TextStyle(
               color: PortfolioColors.textSecondary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${isUp ? '+' : ''}${currency.format(data.changeAbs)} '
-            '(${data.changePct.toStringAsFixed(1)}%)',
-            style: TextStyle(
-              color: pnlColor,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (data.valueStart > 0 && data.valueEnd > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              '${currency.format(data.valueStart)} → ${currency.format(data.valueEnd)}',
-              style: const TextStyle(
-                color: PortfolioColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
+    );
+
+    return QaCardShell.staged(
+      staged:
+          (context, active, onFinished) => TwoStageReveal(
+            active: active,
+            first: label,
+            second: value,
+            onFinished: onFinished,
+          ),
     );
   }
 
@@ -876,6 +913,26 @@ abstract final class PortfolioQaCatalogWidgets {
           ],
         ],
       ),
+    );
+  }
+
+  static Widget qaProjectionChart(CatalogItemContext ctx) {
+    final data = _ProjectionChartData.fromMap(ctx.data as JsonMap);
+    final points =
+        data.points
+            .map(
+              (p) => ProjectionChartPoint(label: p.label, value: p.value),
+            )
+            .toList();
+
+    return QaCardShell.staged(
+      staged:
+          (context, active, onFinished) => QaProjectionChart(
+            label: data.label,
+            points: points,
+            active: active,
+            onFinished: onFinished,
+          ),
     );
   }
 
@@ -1927,6 +1984,38 @@ final class _ProjectionStripData {
   final int monthsRemaining;
   final double? projectedAmountAtDate;
   final bool? onTrack;
+}
+
+final class _ProjectionChartPoint {
+  _ProjectionChartPoint({required this.label, required this.value});
+
+  factory _ProjectionChartPoint.fromMap(JsonMap map) {
+    return _ProjectionChartPoint(
+      label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
+      value: GenUiHelpers.safeDouble(map['value'], defaultValue: 0),
+    );
+  }
+
+  final String label;
+  final double value;
+}
+
+final class _ProjectionChartData {
+  _ProjectionChartData({required this.label, required this.points});
+
+  factory _ProjectionChartData.fromMap(JsonMap map) {
+    return _ProjectionChartData(
+      label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
+      points: GenUiHelpers.safeList(
+        map['points'],
+        defaultValue: const <_ProjectionChartPoint>[],
+        mapItem: (item) => _ProjectionChartPoint.fromMap(item as JsonMap),
+      ),
+    );
+  }
+
+  final String label;
+  final List<_ProjectionChartPoint> points;
 }
 
 final class _MilestoneItem {

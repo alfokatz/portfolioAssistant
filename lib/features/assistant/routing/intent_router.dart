@@ -1,11 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 
-class ModeSuggestion {
-  const ModeSuggestion({required this.suggestedMode, required this.reasonKey});
-  final AssistantMode suggestedMode;
-  final String reasonKey;
-}
-
 abstract final class IntentRouter {
   // Invertir y Planificar viven en una sola pestaña (ver AssistantProvider),
   // así que comparten el mismo set de keywords tanto para sugerir el cambio
@@ -28,60 +22,47 @@ abstract final class IntentRouter {
 
   static final _whatIsPattern = RegExp(r'(?:qué|que) es\b');
 
-  static ModeSuggestion? suggest({
+  /// Clasifica el mensaje y decide qué motor debe atenderlo, sin pestañas
+  /// visibles ni confirmación del usuario. Si no matchea ninguna keyword de
+  /// ningún dominio, sigue con `lastEngine` para no cortar el hilo de la
+  /// conversación en curso.
+  static AssistantMode detectEngine({
     required String message,
-    required AssistantMode currentMode,
+    required AssistantMode lastEngine,
   }) {
     final lower = message.toLowerCase();
 
-    if (currentMode != AssistantMode.invest &&
-        currentMode != AssistantMode.plan &&
-        (_matchesAny(lower, _investKeywords) ||
-            _matchesAny(lower, _planKeywords))) {
-      return const ModeSuggestion(
-        suggestedMode: AssistantMode.invest,
-        reasonKey: 'assistant_mode_suggest_invest',
-      );
+    if (_matchesAny(lower, _investKeywords) ||
+        _matchesAny(lower, _planKeywords)) {
+      return resolveInvestPlanEngine(message: message, lastEngine: lastEngine);
     }
-    if (currentMode != AssistantMode.explore &&
-        _matchesAny(lower, [
-          'cómo está',
-          'como esta',
-          'precio de',
-          'cotización',
-          'ticker',
-        ])) {
-      return const ModeSuggestion(
-        suggestedMode: AssistantMode.explore,
-        reasonKey: 'assistant_mode_suggest_explore',
-      );
+    // Las keywords de portfolio son frases específicas y poco ambiguas
+    // ("mi portfolio", "mi cartera"...) — se chequean antes que el patrón
+    // genérico de "aprender" (`_whatIsPattern`), que matchea cualquier
+    // "qué es" dentro de la oración (p. ej. "¿qué es lo que tiene mayor
+    // riesgo en mi portfolio?" no es una pregunta de definición).
+    if (_matchesAny(lower, [
+      'mi portfolio',
+      'mi cartera',
+      'mis posiciones',
+      'cómo voy',
+    ])) {
+      return AssistantMode.portfolio;
     }
-    if (currentMode != AssistantMode.learn &&
-        (_whatIsPattern.hasMatch(lower) ||
-            _matchesAny(lower, [
-              'explicame',
-              'explicá',
-              'significa',
-              'diversific',
-            ]))) {
-      return const ModeSuggestion(
-        suggestedMode: AssistantMode.learn,
-        reasonKey: 'assistant_mode_suggest_learn',
-      );
+    if (_matchesAny(lower, [
+      'cómo está',
+      'como esta',
+      'precio de',
+      'cotización',
+      'ticker',
+    ])) {
+      return AssistantMode.explore;
     }
-    if (currentMode != AssistantMode.portfolio &&
-        _matchesAny(lower, [
-          'mi portfolio',
-          'mi cartera',
-          'mis posiciones',
-          'cómo voy',
-        ])) {
-      return const ModeSuggestion(
-        suggestedMode: AssistantMode.portfolio,
-        reasonKey: 'assistant_mode_suggest_portfolio',
-      );
+    if (_whatIsPattern.hasMatch(lower) ||
+        _matchesAny(lower, ['explicame', 'explicá', 'significa', 'diversific'])) {
+      return AssistantMode.learn;
     }
-    return null;
+    return lastEngine;
   }
 
   /// Dentro de la pestaña combinada Invertir+Planificar, elige qué motor

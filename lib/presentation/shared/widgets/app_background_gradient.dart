@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
-/// Soft warm ambient wash painted once, behind every screen in the app
-/// (see `MaterialApp.builder` in main.dart) — so pages read as part of one
-/// lit surface instead of flat white panels. Screens keep the theme's
-/// transparent scaffold background to let it show through; a screen that
-/// wants to opt out (auth, onboarding) sets its own opaque
-/// `Scaffold.backgroundColor`, which paints over this layer.
+/// Faint warm hint painted once, behind every screen in the app (see
+/// `MaterialApp.builder` in main.dart) — just enough that pages don't read
+/// as flat white, without becoming a colored surface of their own. Screens
+/// keep the theme's transparent scaffold background to let it show
+/// through; a screen that wants to opt out (auth, onboarding) sets its own
+/// opaque `Scaffold.backgroundColor`, which paints over this layer.
+///
+/// Kept deliberately restrained: it fades out within the top ~28% of the
+/// screen, well before body copy, chips or list rows would ever sit on
+/// top of a visibly tinted background — this app is a financial dashboard
+/// (product register), not a marketing surface, so the accent stays a
+/// hint at the very top rather than a wash across the whole page.
 class AppBackgroundGradient extends StatelessWidget {
   const AppBackgroundGradient({super.key});
 
@@ -15,14 +21,14 @@ class AppBackgroundGradient extends StatelessWidget {
     final colors = context.customColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(0.9, -0.9),
-          radius: 1.5,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            Color.lerp(colors.background, colors.accentWarm, 0.18)!,
+            Color.lerp(colors.background, colors.accentWarm, 0.32)!,
             colors.background,
           ],
-          stops: const [0.0, 0.7],
+          stops: const [0.0, 0.28],
         ),
       ),
     );

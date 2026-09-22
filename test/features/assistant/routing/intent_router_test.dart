@@ -3,119 +3,129 @@ import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dar
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
 
 void main() {
-  group('IntentRouter.suggest', () {
-    test('suggests invest when message contains invertir', () {
-      final result = IntentRouter.suggest(
+  group('IntentRouter.detectEngine', () {
+    test('detects invest when message contains invertir', () {
+      final engine = IntentRouter.detectEngine(
         message: 'Quiero invertir en acciones',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result?.suggestedMode, AssistantMode.invest);
-      expect(result?.reasonKey, 'assistant_mode_suggest_invest');
+      expect(engine, AssistantMode.invest);
     });
 
-    test('suggests explore when message contains precio de', () {
-      final result = IntentRouter.suggest(
+    test('detects explore when message contains precio de', () {
+      final engine = IntentRouter.detectEngine(
         message: '¿Cuál es el precio de AAPL?',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result?.suggestedMode, AssistantMode.explore);
-      expect(result?.reasonKey, 'assistant_mode_suggest_explore');
+      expect(engine, AssistantMode.explore);
     });
 
-    test('suggests learn when message contains qué es', () {
-      final result = IntentRouter.suggest(
+    test('detects learn when message contains qué es', () {
+      final engine = IntentRouter.detectEngine(
         message: '¿Qué es diversificación?',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result?.suggestedMode, AssistantMode.learn);
-      expect(result?.reasonKey, 'assistant_mode_suggest_learn');
+      expect(engine, AssistantMode.learn);
     });
 
-    test('suggests invest (combined tab) when message contains jubilación', () {
-      // Invertir y Planificar viven en una sola pestaña ("invest"): una
-      // pregunta de planificación también sugiere cambiar a esa pestaña.
-      final result = IntentRouter.suggest(
+    test('detects plan when message contains jubilación', () {
+      // Invertir y Planificar comparten detección (ver AssistantProvider):
+      // una pregunta de planificación resuelve directamente al motor plan.
+      final engine = IntentRouter.detectEngine(
         message: 'Quiero planificar mi jubilación',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result?.suggestedMode, AssistantMode.invest);
-      expect(result?.reasonKey, 'assistant_mode_suggest_invest');
+      expect(engine, AssistantMode.plan);
     });
 
     test(
-      'does not suggest switching when already in the combined invest/plan tab',
+      'keeps resolving to plan when already answering with that engine',
       () {
-        // Regresión: preguntar algo de planificación ("jubilación") estando
-        // ya en la pestaña combinada no debe mostrar el banner de "cambiar a
-        // Invertir" — antes esto pasaba porque plan e invest eran pestañas
-        // separadas.
-        final result = IntentRouter.suggest(
+        final engine = IntentRouter.detectEngine(
           message: 'para la jubilación en 40 años me podes armar un plan?',
-          currentMode: AssistantMode.invest,
+          lastEngine: AssistantMode.invest,
         );
 
-        expect(result, isNull);
+        expect(engine, AssistantMode.plan);
       },
     );
 
-    test('suggests portfolio when message contains mi cartera', () {
-      final result = IntentRouter.suggest(
+    test('detects portfolio when message contains mi cartera', () {
+      final engine = IntentRouter.detectEngine(
         message: '¿Cómo va mi cartera?',
-        currentMode: AssistantMode.learn,
+        lastEngine: AssistantMode.learn,
       );
 
-      expect(result?.suggestedMode, AssistantMode.portfolio);
-      expect(result?.reasonKey, 'assistant_mode_suggest_portfolio');
+      expect(engine, AssistantMode.portfolio);
     });
 
-    test('returns null when already in matching mode', () {
-      final result = IntentRouter.suggest(
+    test('detects invest when already answering with that engine', () {
+      final engine = IntentRouter.detectEngine(
         message: 'Quiero invertir mil pesos',
-        currentMode: AssistantMode.invest,
+        lastEngine: AssistantMode.invest,
       );
 
-      expect(result, isNull);
+      expect(engine, AssistantMode.invest);
     });
 
-    test('returns null when no keywords match', () {
-      final result = IntentRouter.suggest(
+    test('keeps the last engine when no keywords match', () {
+      final engine = IntentRouter.detectEngine(
         message: 'Hola, buenos días',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result, isNull);
+      expect(engine, AssistantMode.portfolio);
     });
 
     test(
-      'does not suggest learn when "que es" is a coincidental substring',
+      'does not detect learn when "que es" is a coincidental substring',
       () {
         // Regresión: "...considerando que ese ahorro..." contiene "que es"
         // como substring literal (de "que" + "ese"), sin ser una pregunta
-        // de "¿qué es X?". Antes esto disparaba la sugerencia de Aprender
+        // de "¿qué es X?". Antes esto disparaba erróneamente el motor learn
         // en medio de una conversación de planificación.
-        final result = IntentRouter.suggest(
+        final engine = IntentRouter.detectEngine(
           message: 'ahi estas considerando que ese ahorro mensual lo '
               'invertiría a una tasa del 10% anual aproximadamente?',
-          currentMode: AssistantMode.invest,
+          lastEngine: AssistantMode.invest,
         );
 
-        expect(result, isNull);
+        expect(engine, AssistantMode.invest);
       },
     );
 
-    test('still suggests learn for a genuine "qué es" question', () {
-      final result = IntentRouter.suggest(
+    test('still detects learn for a genuine "qué es" question', () {
+      final engine = IntentRouter.detectEngine(
         message: '¿Qué es la diversificación?',
-        currentMode: AssistantMode.portfolio,
+        lastEngine: AssistantMode.portfolio,
       );
 
-      expect(result?.suggestedMode, AssistantMode.learn);
-      expect(result?.reasonKey, 'assistant_mode_suggest_learn');
+      expect(engine, AssistantMode.learn);
     });
+
+    test(
+      'detects portfolio even when the message also matches the "qué es" pattern',
+      () {
+        // Regresión: "¿qué es lo que tiene mayor riesgo en mi portfolio?"
+        // contiene "qué es" (patrón de aprender) Y "mi portfolio" (keyword
+        // explícita de portfolio) — la mención explícita al portfolio debe
+        // ganar, porque antes esto se enrutaba a aprender (que no tiene
+        // datos del portfolio) y Porty respondía que no podía ver las
+        // inversiones del usuario.
+        final engine = IntentRouter.detectEngine(
+          message:
+              'y actualmente en mi Portfolio, que es lo que tiene mayor '
+              'riesgo?',
+          lastEngine: AssistantMode.learn,
+        );
+
+        expect(engine, AssistantMode.portfolio);
+      },
+    );
   });
 
   group('IntentRouter.resolveInvestPlanEngine', () {

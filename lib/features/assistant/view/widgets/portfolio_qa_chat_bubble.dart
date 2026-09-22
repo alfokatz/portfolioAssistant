@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class PortfolioQaChatBubble extends StatelessWidget {
-  const PortfolioQaChatBubble({super.key, required this.message});
+  const PortfolioQaChatBubble({super.key, required this.message, this.onTypingComplete});
 
   final PortfolioQaMessage message;
+
+  /// Mensajes de usuario: se llama una sola vez, cuando el typewriter de
+  /// esta burbuja termina de revelarse (ver TypewriterText). Como mensajes
+  /// ya existentes no vuelven a montarse en rebuilds posteriores, esto solo
+  /// dispara para el mensaje recién agregado, nunca para los previos.
+  final VoidCallback? onTypingComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +47,13 @@ class PortfolioQaChatBubble extends StatelessWidget {
                 bottomRight: const Radius.circular(4),
               ),
             ),
-            child: SelectableText(
-              message.content,
+            child: TypewriterText(
+              text: message.content,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: PortfolioColors.textPrimary,
                 height: 1.5,
               ),
+              onComplete: onTypingComplete,
             ),
           ),
         ),
