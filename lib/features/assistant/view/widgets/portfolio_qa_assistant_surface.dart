@@ -105,21 +105,33 @@ class _PortfolioQaAssistantSurfaceState
 
   @override
   Widget build(BuildContext context) {
-    Widget surface = Surface(
-      key: ValueKey(widget.surfaceId),
-      surfaceContext: widget.surfaceContext,
+    // SIEMPRE envuelve en `MediaQuery` — nunca condicionalmente. `Surface`
+    // (acá abajo) es la raíz del árbol renderizado por GenUI: si esta
+    // posición pasara de "sin envolver" a "envuelta en MediaQuery" (o
+    // viceversa) entre builds, ese cambio de TIPO en el slot hijo de
+    // `SurfaceRevealScope` hace que Flutter DESMONTE y VUELVA A MONTAR todo
+    // `Surface` desde cero — perdiendo el estado de reveal ya calculado y
+    // arriesgando exactamente el peor momento para eso: `startFullyRevealed`
+    // pasa a `true` en el mismo instante en que termina un reveal
+    // (`onFullyRevealed` → `notifier.markRevealed` → rebuild). Manteniendo
+    // el tipo (`MediaQuery`) fijo, Flutter solo actualiza `data` in place.
+    //
+    // Reusa el mismo interruptor que ya respetan `TypewriterText`,
+    // `TwoStageReveal`, `_DefaultFadeStep` y `QaProjectionChart` para
+    // accesibilidad (`MediaQuery.disableAnimationsOf`): con esto en `true`
+    // cada uno de ellos salta directo a su estado final en vez de animar,
+    // sin que este widget tenga que conocer a cada uno.
+    final surface = MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        disableAnimations:
+            widget.startFullyRevealed ||
+            MediaQuery.disableAnimationsOf(context),
+      ),
+      child: Surface(
+        key: ValueKey(widget.surfaceId),
+        surfaceContext: widget.surfaceContext,
+      ),
     );
-    if (widget.startFullyRevealed) {
-      // Reusa el mismo interruptor que ya respetan `TypewriterText`,
-      // `TwoStageReveal`, `_DefaultFadeStep` y `QaProjectionChart` para
-      // accesibilidad (`MediaQuery.disableAnimationsOf`): con esto en
-      // `true` cada uno de ellos salta directo a su estado final en vez de
-      // animar, sin que este widget tenga que conocer a cada uno.
-      surface = MediaQuery(
-        data: MediaQuery.of(context).copyWith(disableAnimations: true),
-        child: surface,
-      );
-    }
     return FadeTransition(
       opacity: _entrance,
       child: AnimatedBuilder(

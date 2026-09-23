@@ -20,6 +20,7 @@ class TypewriterText extends StatefulWidget {
     this.charsPerSecond = 40,
     this.onComplete,
     this.play = true,
+    this.skipAnimation = false,
   });
 
   final String text;
@@ -31,6 +32,18 @@ class TypewriterText extends StatefulWidget {
   /// hasta que pase a `true` — usado por [RevealStep] para esperar su turno
   /// antes de empezar a tipear.
   final bool play;
+
+  /// `true` si este texto ya se tipeó por completo en un montaje anterior
+  /// (ver `PortfolioQaMessage.hasRevealed`) — típicamente porque scrolleó
+  /// fuera del viewport del `ListView` de la pantalla de chat y volvió a
+  /// entrar, remontando este widget desde cero. Muestra el texto completo
+  /// de una, igual que con `disableAnimations` a nivel sistema, en vez de
+  /// re-tipear. Es un parámetro explícito (no una ambient `MediaQuery`
+  /// override) a propósito: envolver cada fila del chat en un `MediaQuery`
+  /// propio recreaba `MediaQueryData` completo en cada build y disparaba
+  /// una re-entrada del framework cuando coincidía con un cambio real de
+  /// `MediaQuery` (ej. el teclado ocultándose al enviar un mensaje).
+  final bool skipAnimation;
 
   @override
   State<TypewriterText> createState() => _TypewriterTextState();
@@ -72,7 +85,7 @@ class _TypewriterTextState extends State<TypewriterText>
   void _maybeStart() {
     if (_started || !widget.play) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
     } else {
       _controller.forward();

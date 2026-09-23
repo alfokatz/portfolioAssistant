@@ -21,6 +21,8 @@ const portfolioQaCustomComponentNames = {
   'QaPeriodChange',
   'QaTickerMove',
   'QaTickerSnapshot',
+  'QaEarningsCalendar',
+  'QaNewsSummary',
   'QaConcentrationBar',
   'QaPnLBreakdown',
   'QaTopMovers',

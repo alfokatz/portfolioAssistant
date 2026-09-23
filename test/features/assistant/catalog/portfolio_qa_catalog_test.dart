@@ -39,6 +39,8 @@ void main() {
         'QaTickerSnapshot',
         'QaTickerMove',
         'QaMetricStrip',
+        'QaEarningsCalendar',
+        'QaNewsSummary',
         'QaTipBanner',
       },
     );
@@ -106,6 +108,8 @@ void main() {
       'QaMetricStrip',
       'QaTickerSnapshot',
       'QaTickerMove',
+      'QaEarningsCalendar',
+      'QaNewsSummary',
       'QaPeriodChange',
       'QaConcentrationBar',
       'QaPnLBreakdown',

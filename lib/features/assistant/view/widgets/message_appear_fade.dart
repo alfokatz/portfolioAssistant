@@ -14,10 +14,18 @@ class MessageAppearFade extends StatefulWidget {
     super.key,
     required this.child,
     this.duration = const Duration(milliseconds: 90),
+    this.skipAnimation = false,
   });
 
   final Widget child;
   final Duration duration;
+
+  /// `true` si este mensaje ya terminó de aparecer en un montaje anterior
+  /// (ver `PortfolioQaMessage.hasRevealed` / `AssistantState.introRevealed`)
+  /// — remontar (p. ej. tras scrollear fuera del viewport y volver) no debe
+  /// repetir el fade. Parámetro explícito, no una `MediaQuery` ambient
+  /// override: ver el comentario en `TypewriterText.skipAnimation`.
+  final bool skipAnimation;
 
   @override
   State<MessageAppearFade> createState() => _MessageAppearFadeState();
@@ -39,7 +47,7 @@ class _MessageAppearFadeState extends State<MessageAppearFade>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
     } else {
       _controller.forward();

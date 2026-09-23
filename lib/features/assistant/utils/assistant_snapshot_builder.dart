@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_context_builder.dart';
@@ -26,6 +27,8 @@ Future<String> buildSnapshotJson({
   double? monthlyContribution,
   ExploreNewsEnricher? exploreNewsEnricher,
   bool enableNewsEnrichment = true,
+  ExploreEarningsEnricher? exploreEarningsEnricher,
+  bool enableEarningsCalendar = true,
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
@@ -85,6 +88,9 @@ Future<String> buildSnapshotJson({
         asOf: asOf,
         newsEnricher: enableNewsEnrichment
             ? (exploreNewsEnricher ?? ExploreNewsEnricher())
+            : null,
+        earningsEnricher: enableEarningsCalendar
+            ? (exploreEarningsEnricher ?? ExploreEarningsEnricher())
             : null,
       );
       return jsonEncode({

@@ -3,15 +3,23 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/broad_market_query.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
 
 /// Construye el snapshot de contexto para modo explore desde tickers del mensaje.
 abstract final class ExploreContextBuilder {
+  // Mismos períodos y labels que `PortfolioContextBuilder._buildPeriodReturns`
+  // (para consistencia entre modos) — el historial que trae
+  // `getHistoricalDaily` ya cubre de sobra estos rangos (Yahoo Finance
+  // devuelve todo el histórico disponible del ticker, no solo 30 días), así
+  // que agregar quarter/year acá es solo computarlos, sin fetch extra.
   static const _periods = <String, ({String labelEs, Duration duration})>{
     'day': (labelEs: 'último día', duration: Duration(days: 1)),
     'week': (labelEs: 'últimos 7 días', duration: Duration(days: 7)),
     'month': (labelEs: 'últimos 30 días', duration: Duration(days: 30)),
+    'quarter': (labelEs: 'últimos 90 días', duration: Duration(days: 90)),
+    'year': (labelEs: 'último año', duration: Duration(days: 365)),
   };
 
   static Future<Map<String, Object?>> build({
@@ -20,6 +28,7 @@ abstract final class ExploreContextBuilder {
     PortfolioSummary? summary,
     DateTime? asOf,
     ExploreNewsEnricher? newsEnricher,
+    ExploreEarningsEnricher? earningsEnricher,
   }) async {
     final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     var tickers = TickerExtractor.extractTickers(userMessage);
@@ -57,11 +66,18 @@ abstract final class ExploreContextBuilder {
       snapshot['portfolio_fit'] = portfolioFit;
     }
 
+    var enriched = snapshot;
+    if (earningsEnricher != null) {
+      enriched = await earningsEnricher.enrich(snapshot: enriched);
+    }
     if (newsEnricher != null) {
-      return newsEnricher.enrich(snapshot: snapshot, userMessage: userMessage);
+      enriched = await newsEnricher.enrich(
+        snapshot: enriched,
+        userMessage: userMessage,
+      );
     }
 
-    return snapshot;
+    return enriched;
   }
 
   static Future<Map<String, Object?>> _buildTickerEntry({

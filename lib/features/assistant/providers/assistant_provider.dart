@@ -452,7 +452,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         history: history,
         closedPositions: await _fetchClosedPositions(),
         quoteRepository: ref.read(quoteRepositoryProvider),
+        // Calendario de resultados y noticias son la misma categoría de
+        // dato externo premium (fuente paga/factual, no solo precios) —
+        // reusan el mismo gate de tier que ya existía para noticias en vez
+        // de introducir una política de suscripción nueva.
         enableNewsEnrichment: SubscriptionPolicy.isNewsAllowed(
+          ref.read(subscriptionProvider).tier,
+        ),
+        enableEarningsCalendar: SubscriptionPolicy.isNewsAllowed(
           ref.read(subscriptionProvider).tier,
         ),
       );

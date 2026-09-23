@@ -53,6 +53,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
                 color: PortfolioColors.textPrimary,
                 height: 1.5,
               ),
+              skipAnimation: message.hasRevealed,
               onComplete: onTypingComplete,
             ),
           ),

@@ -3,27 +3,46 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
+import 'package:portfolio_assistant/domain/entities/earnings_calendar_entry.dart';
+import 'package:portfolio_assistant/domain/entities/earnings_report_result.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/earnings_calendar_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
-import 'package:portfolio_assistant/features/genui_core/services/openai_raw_chat_client.dart';
 
-class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
-  _FakeOpenAIRawChatClient()
-      : super(apiKey: 'test-key', model: 'test-model');
-
+class _FakeCompanyNewsRepository implements CompanyNewsRepository {
   @override
-  Future<String> searchNews({
-    required String userQuery,
-    required List<String> tickers,
+  Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
+    String ticker, {
+    int limit = 3,
   }) async {
     throw StateError('should not be called');
   }
+}
+
+// A diferencia de las noticias, el calendario de resultados se consulta
+// siempre para cada ticker en explore_tickers (no está gateado por
+// detección de keywords) — así que, a diferencia de
+// _FakeCompanyNewsRepository, esta fake SÍ puede ser invocada legítimamente
+// incluso en un test que no pregunta por resultados.
+class _FakeEarningsCalendarRepository implements EarningsCalendarRepository {
+  @override
+  Future<Either<HttpError, EarningsCalendarEntry?>> getNextEarningsDate(
+    String ticker,
+  ) async => const Right(null);
+
+  @override
+  Future<Either<HttpError, EarningsReportResult?>> getLatestEarningsResult(
+    String ticker,
+  ) async => const Right(null);
 }
 
 class _FakeQuoteRepository implements QuoteRepository {
@@ -89,7 +108,10 @@ void main() {
         quoteRepository: _FakeQuoteRepository(),
         asOf: fixedAsOf,
         exploreNewsEnricher: ExploreNewsEnricher(
-          client: _FakeOpenAIRawChatClient(),
+          newsRepository: _FakeCompanyNewsRepository(),
+        ),
+        exploreEarningsEnricher: ExploreEarningsEnricher(
+          earningsRepository: _FakeEarningsCalendarRepository(),
         ),
       );
       final snapshot = jsonDecode(json) as Map<String, dynamic>;

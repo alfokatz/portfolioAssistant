@@ -15,7 +15,6 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_th
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_disclaimer_banner.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -168,7 +167,18 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   void _followBottomWhileRevealing() {
     _followBottomTimer?.cancel();
     var revealDone = false;
-    _markRevealDone = () => revealDone = true;
+    _markRevealDone = () {
+      revealDone = true;
+      // Pasada extra, un toque después de la señal: `onFullyRevealed`
+      // dispara `notifier.markRevealed` (un cambio de estado de Riverpod)
+      // en el mismo instante — ese rebuild puede tardar un frame más en
+      // asentarse, y la ÚLTIMA pasada del timer de abajo corre en el
+      // mismo tick que esta señal, así que puede alcanzar a leer
+      // `maxScrollExtent` todavía a mitad de ese asentamiento.
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) _scrollToBottom();
+      });
+    };
     var ticksLeft = 250; // 250 * 120ms = 30s de tope, solo por si acaso
     _followBottomTimer = Timer.periodic(const Duration(milliseconds: 120), (
       timer,
@@ -261,22 +271,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   // rebuild mientras la intro sigue visible y todavía no se marcó revelada.
   bool _introRevealScheduled = false;
 
-  /// Envuelve [child] para que, si [alreadyRevealed] es `true`, todo su
-  /// subárbol salte directo a su estado final en vez de animar — mismo
-  /// mecanismo que `PortfolioQaAssistantSurface.startFullyRevealed`
-  /// (reutiliza el `MediaQuery.disableAnimationsOf` que ya respetan
-  /// `MessageAppearFade`, `TypewriterText` y `FadeSlideIn`), pero aplicado
-  /// acá a nivel de fila/bloque para cubrir también la burbuja de usuario y
-  /// la cascada de saludo + chips iniciales — ver `PortfolioQaMessage
-  /// .hasRevealed` y `AssistantState.introRevealed`.
-  Widget _settledAware(bool alreadyRevealed, Widget child) {
-    if (!alreadyRevealed) return child;
-    return MediaQuery(
-      data: MediaQuery.of(context).copyWith(disableAnimations: true),
-      child: child,
-    );
-  }
-
   @override
   Widget buildView(BuildContext context) {
     final state = ref.watch(assistantProvider(_args));
@@ -306,11 +300,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       // y el contenido final ya está disponible): arranca ahí el reveal
       // visual (typewriter + cards en secuencia + chart), que sigue
       // creciendo el contenido varios segundos más.
-      final prevLast = previous?.messages.isNotEmpty == true
-          ? previous!.messages.last
-          : null;
-      final nextLast =
-          next.messages.isNotEmpty ? next.messages.last : null;
+      final prevLast =
+          previous?.messages.isNotEmpty == true
+              ? previous!.messages.last
+              : null;
+      final nextLast = next.messages.isNotEmpty ? next.messages.last : null;
       final justStoppedStreaming =
           nextLast != null &&
           nextLast.surfaceId != null &&
@@ -388,7 +382,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             ),
           ),
           const AiUsageIndicator(),
-          const PortfolioQaDisclaimerBanner(),
+          //const PortfolioQaDisclaimerBanner(),
           if (state.error != null)
             Padding(
               padding: const EdgeInsets.symmetric(
@@ -416,56 +410,50 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   ),
                   children: [
                     for (final (i, m) in state.messages.indexed)
-                      _settledAware(
-                        m.hasRevealed,
-                        MessageAppearFade(
-                          child:
-                              service != null
-                                  ? _buildMessageTile(
-                                    notifier,
-                                    service,
-                                    m,
-                                    index: i,
-                                    orbGateOpen: _orbGateOpen,
-                                    onUserTypingComplete: () {
-                                      _openOrbGate();
-                                      notifier.markUserMessageRevealed(i);
-                                    },
-                                  )
-                                  : PortfolioQaChatBubble(
-                                    message: m,
-                                    onTypingComplete: _openOrbGate,
-                                  ),
-                        ),
+                      MessageAppearFade(
+                        skipAnimation: m.hasRevealed,
+                        child:
+                            service != null
+                                ? _buildMessageTile(
+                                  notifier,
+                                  service,
+                                  m,
+                                  index: i,
+                                  orbGateOpen: _orbGateOpen,
+                                  onUserTypingComplete: () {
+                                    _openOrbGate();
+                                    notifier.markUserMessageRevealed(i);
+                                  },
+                                )
+                                : PortfolioQaChatBubble(
+                                  message: m,
+                                  onTypingComplete: _openOrbGate,
+                                ),
                       ),
                     if (state.messages.length <= 1) ...[
                       const SizedBox(height: 4),
-                      _settledAware(
-                        state.introRevealed,
-                        FadeSlideIn(
-                          child: Text(
-                            'portfolio_qa_chip_intro'.tr(),
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: PortfolioColors.textSecondary),
-                          ),
+                      FadeSlideIn(
+                        skipAnimation: state.introRevealed,
+                        child: Text(
+                          'portfolio_qa_chip_intro'.tr(),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: PortfolioColors.textSecondary),
                         ),
                       ),
                       const SizedBox(height: AppDimens.sp12),
                       for (final (i, key) in notifier.chipKeys.indexed) ...[
                         if (i > 0) const SizedBox(height: 8),
-                        _settledAware(
-                          state.introRevealed,
-                          FadeSlideIn(
-                            delay: Duration(milliseconds: 60 * (i + 1)),
-                            child: AssistantSuggestionChip(
-                              label: key.tr(),
-                              onTap:
-                                  state.isWaiting ||
-                                          service == null ||
-                                          _isAutoTyping
-                                      ? null
-                                      : () => _startAutoType(notifier, key.tr()),
-                            ),
+                        FadeSlideIn(
+                          skipAnimation: state.introRevealed,
+                          delay: Duration(milliseconds: 60 * (i + 1)),
+                          child: AssistantSuggestionChip(
+                            label: key.tr(),
+                            onTap:
+                                state.isWaiting ||
+                                        service == null ||
+                                        _isAutoTyping
+                                    ? null
+                                    : () => _startAutoType(notifier, key.tr()),
                           ),
                         ),
                       ],
@@ -513,9 +501,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     scale: _pulseAnimation,
                     child: _SendButton(
                       onTap:
-                          state.isWaiting ||
-                                  service == null ||
-                                  _isAutoTyping
+                          state.isWaiting || service == null || _isAutoTyping
                               ? null
                               : () => _submitMessage(
                                 notifier,
@@ -596,9 +582,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       content = PortfolioQaChatBubble(
         message: message,
         onTypingComplete:
-            message.role == PortfolioQaRole.user
-                ? onUserTypingComplete
-                : null,
+            message.role == PortfolioQaRole.user ? onUserTypingComplete : null,
       );
     }
 

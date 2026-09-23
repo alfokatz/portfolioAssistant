@@ -319,6 +319,73 @@ void main() {
     );
 
     testWidgets(
+      'startFullyRevealed flipping true on an ALREADY-MOUNTED surface (via '
+      'didUpdateWidget, not a remount) does not dispose the underlying '
+      'Surface — regression for the crash this caused in production',
+      (tester) async {
+        // Regresión: `onFullyRevealed` (arriba) dispara `notifier
+        // .markRevealed`, que hace que `AssistantScreen` le pase
+        // `startFullyRevealed: true` a esta MISMA instancia de
+        // `PortfolioQaAssistantSurface` que sigue viva en pantalla — no un
+        // remount, un `didUpdateWidget` normal. La primera versión de este
+        // fix envolvía `Surface` en `MediaQuery` solo CONDICIONALMENTE
+        // (`if (widget.startFullyRevealed) surface = MediaQuery(...)`), lo
+        // que cambiaba el TIPO de widget en el slot hijo de
+        // `SurfaceRevealScope` entre builds — Flutter no reconcilia eso in
+        // place, desmonta y remonta todo `Surface` desde cero. Eso pasaba
+        // justo cuando el reveal terminaba, y en producción disparó
+        // "Failed assertion: '!_dirty' is not true" en el framework. El fix
+        // envuelve siempre en el mismo `MediaQuery`, cambiando solo `data`.
+        final controller =
+            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+        const surfaceId = 'portfolio_qa_0';
+        const text = 'Tu portfolio subió 5,4% hoy.';
+        final normalized = A2uiResponseNormalizer.normalize(
+          '[{"id": "root", "component": "QaAnswerText", "text": "$text"}]',
+          surfaceId: surfaceId,
+        );
+        dispatchNormalizedA2ui(controller, normalized);
+
+        await tester.binding.setSurfaceSize(genuiTestViewportSize);
+
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: controller.contextFor(surfaceId),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final surfaceElementBefore = tester.element(find.byType(Surface));
+
+        // Misma app, mismo widget tree shape, solo cambia el prop — esto es
+        // un `didUpdateWidget`, no un remount (a diferencia del test de
+        // arriba, que sí pasa por un desmontaje explícito).
+        await tester.pumpWidget(
+          genuiTestApp(
+            child: PortfolioQaAssistantSurface(
+              surfaceId: surfaceId,
+              surfaceContext: controller.contextFor(surfaceId),
+              startFullyRevealed: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          tester.element(find.byType(Surface)),
+          same(surfaceElementBefore),
+          reason:
+              'el Element de Surface debe seguir siendo el mismo — si '
+              'cambió, Flutter lo desmontó y remontó en vez de actualizarlo',
+        );
+        expect(find.textContaining(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'renders blank when read through the wrong controller, but correctly '
       'through the one that generated it',
       (tester) async {

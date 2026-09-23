@@ -10,11 +10,18 @@ class FadeSlideIn extends StatefulWidget {
     required this.child,
     this.delay = Duration.zero,
     this.duration = const Duration(milliseconds: 360),
+    this.skipAnimation = false,
   });
 
   final Widget child;
   final Duration delay;
   final Duration duration;
+
+  /// `true` si esta entrada ya se mostró en un montaje anterior (ver
+  /// `AssistantState.introRevealed`) — remontar no debe repetirla.
+  /// Parámetro explícito, no una `MediaQuery` ambient override: ver el
+  /// comentario en `TypewriterText.skipAnimation`.
+  final bool skipAnimation;
 
   @override
   State<FadeSlideIn> createState() => _FadeSlideInState();
@@ -38,7 +45,7 @@ class _FadeSlideInState extends State<FadeSlideIn>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
       return;
     }

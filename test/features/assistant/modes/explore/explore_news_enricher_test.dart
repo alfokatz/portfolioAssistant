@@ -1,23 +1,24 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
+import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
-import 'package:portfolio_assistant/features/genui_core/services/openai_raw_chat_client.dart';
 
-class _FakeOpenAIRawChatClient extends OpenAIRawChatClient {
-  _FakeOpenAIRawChatClient({
-    required this.onSearchNews,
-  }) : super(apiKey: 'test-key', model: 'test-model');
+class _FakeCompanyNewsRepository implements CompanyNewsRepository {
+  _FakeCompanyNewsRepository(this.onGetRecentNews);
 
-  final Future<String> Function({
-    required String userQuery,
-    required List<String> tickers,
-  }) onSearchNews;
+  final Future<Either<HttpError, List<CompanyNewsItem>>> Function(
+    String ticker,
+  )
+  onGetRecentNews;
 
   @override
-  Future<String> searchNews({
-    required String userQuery,
-    required List<String> tickers,
+  Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
+    String ticker, {
+    int limit = 3,
   }) {
-    return onSearchNews(userQuery: userQuery, tickers: tickers);
+    return onGetRecentNews(ticker);
   }
 }
 
@@ -30,9 +31,8 @@ void main() {
 
     test('skips enrichment for non-news queries', () async {
       final enricher = ExploreNewsEnricher(
-        client: _FakeOpenAIRawChatClient(
-          onSearchNews: ({required userQuery, required tickers}) async =>
-              throw StateError('should not be called'),
+        newsRepository: _FakeCompanyNewsRepository(
+          (_) async => throw StateError('should not be called'),
         ),
       );
 
@@ -47,19 +47,21 @@ void main() {
       expect(result['news_enrichment'], 'skipped');
     });
 
-    test('enriches snapshot with parsed sources on success', () async {
+    test('enriches snapshot with structured sources on success', () async {
       final enricher = ExploreNewsEnricher(
-        client: _FakeOpenAIRawChatClient(
-          onSearchNews: ({required userQuery, required tickers}) async {
-            expect(userQuery, '¿qué pasó con AAPL esta semana?');
-            expect(tickers, ['AAPL']);
-            return '''
-- headline: Apple shares rise on earnings
-- url: https://reuters.com/aapl-earnings
-- Apple beat analyst expectations this quarter.
-''';
-          },
-        ),
+        newsRepository: _FakeCompanyNewsRepository((ticker) async {
+          expect(ticker, 'AAPL');
+          return Right([
+            CompanyNewsItem(
+              ticker: 'AAPL',
+              headline: 'Apple shares rise on earnings',
+              summary: 'Apple beat analyst expectations this quarter.',
+              url: 'https://reuters.com/aapl-earnings',
+              source: 'Reuters',
+              publishedAt: DateTime.utc(2026, 9, 20),
+            ),
+          ]);
+        }),
       );
 
       final result = await enricher.enrich(
@@ -71,44 +73,70 @@ void main() {
       final sources = result['news_sources'] as List<dynamic>;
       expect(sources, hasLength(1));
       final source = sources.first as Map<String, dynamic>;
+      expect(source['ticker'], 'AAPL');
       expect(source['title'], 'Apple shares rise on earnings');
       expect(source['url'], 'https://reuters.com/aapl-earnings');
+      expect(source['source'], 'Reuters');
       expect(source['snippet'], contains('Apple beat analyst expectations'));
+      expect(source['published_at'], DateTime.utc(2026, 9, 20).toIso8601String());
     });
 
-    test('marks enrichment empty when search returns no urls', () async {
+    // Fallback honesto: cuando la API respondió bien pero no hay artículos
+    // para el ticker, el snapshot debe decirlo explícitamente ("empty"), no
+    // simular una fuente ni pretender que hubo error.
+    test(
+      'marks enrichment empty when repository returns no articles for the ticker',
+      () async {
+        final enricher = ExploreNewsEnricher(
+          newsRepository: _FakeCompanyNewsRepository(
+            (_) async => const Right(<CompanyNewsItem>[]),
+          ),
+        );
+
+        final result = await enricher.enrich(
+          snapshot: Map<String, Object?>.from(baseSnapshot),
+          userMessage: '¿noticias de NVDA?',
+        );
+
+        expect(result['news_enrichment'], 'empty');
+        expect(result['news_sources'], isEmpty);
+      },
+    );
+
+    test(
+      'marks enrichment failed when repository fails without rethrowing',
+      () async {
+        final enricher = ExploreNewsEnricher(
+          newsRepository: _FakeCompanyNewsRepository(
+            (_) async => Left(HttpError(code: 'network_error')),
+          ),
+        );
+
+        final result = await enricher.enrich(
+          snapshot: Map<String, Object?>.from(baseSnapshot),
+          userMessage: '¿por qué cayó NVDA?',
+        );
+
+        expect(result['news_enrichment'], 'failed');
+        expect(result['news_sources'], isEmpty);
+        expect(result['mode'], 'explore');
+      },
+    );
+
+    test('marks enrichment empty when the message has no ticker', () async {
       final enricher = ExploreNewsEnricher(
-        client: _FakeOpenAIRawChatClient(
-          onSearchNews: ({required userQuery, required tickers}) async =>
-              'No se encontraron noticias recientes.',
+        newsRepository: _FakeCompanyNewsRepository(
+          (_) async => throw StateError('should not be called'),
         ),
       );
 
       final result = await enricher.enrich(
         snapshot: Map<String, Object?>.from(baseSnapshot),
-        userMessage: '¿noticias de NVDA?',
+        userMessage: '¿qué noticias hay del mercado hoy?',
       );
 
       expect(result['news_enrichment'], 'empty');
       expect(result['news_sources'], isEmpty);
-    });
-
-    test('marks enrichment failed on client exception without rethrowing', () async {
-      final enricher = ExploreNewsEnricher(
-        client: _FakeOpenAIRawChatClient(
-          onSearchNews: ({required userQuery, required tickers}) async =>
-              throw StateError('API down'),
-        ),
-      );
-
-      final result = await enricher.enrich(
-        snapshot: Map<String, Object?>.from(baseSnapshot),
-        userMessage: '¿por qué cayó NVDA?',
-      );
-
-      expect(result['news_enrichment'], 'failed');
-      expect(result['news_sources'], isEmpty);
-      expect(result['mode'], 'explore');
     });
   });
 }

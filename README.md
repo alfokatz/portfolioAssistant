@@ -14,6 +14,7 @@ App Flutter para inversores que combina un dashboard de portfolio con flujos con
 ```env
 OPENAI_API_KEY=sk-...   # Opcional: sin key usa UI offline de respaldo
 YAHOO_CACHE_TTL_MINUTES=10
+FINNHUB_API_KEY=...     # Opcional: sin key, calendario de resultados y noticias responden con fallback honesto
 ```
 
 2. Instala dependencias:

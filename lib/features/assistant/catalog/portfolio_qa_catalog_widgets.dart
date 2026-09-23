@@ -422,6 +422,167 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaEarningsCalendar(CatalogItemContext ctx) {
+    final data = _EarningsCalendarData.fromMap(ctx.data as JsonMap);
+    final hasNext = data.nextReportDateLabel.isNotEmpty;
+    final hasResult = data.epsActual != null && data.epsEstimate != null;
+    // Beat/miss reusa el mismo verde/rojo semántico que ya usa el PnL badge
+    // del portfolio — no es una alerta nueva, es el mismo lenguaje de color
+    // que el usuario ya conoce, sin urgencia visual extra.
+    final resultColor = hasResult
+        ? ((data.beat ?? (data.epsActual! >= data.epsEstimate!))
+              ? PortfolioColors.profit
+              : PortfolioColors.loss)
+        : PortfolioColors.textPrimary;
+
+    return QaCardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                data.ticker,
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (data.fiscalPeriodLabel.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  data.fiscalPeriodLabel,
+                  style: const TextStyle(
+                    color: PortfolioColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (hasNext) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Próximo reporte',
+              style: TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              data.nextReportDateLabel,
+              style: const TextStyle(
+                color: PortfolioColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (hasResult) ...[
+            const SizedBox(height: 10),
+            Text(
+              data.latestReportDateLabel.isNotEmpty
+                  ? 'Último reporte · ${data.latestReportDateLabel}'
+                  : 'Último reporte',
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'EPS \$${data.epsActual!.toStringAsFixed(2)} vs. '
+              '\$${data.epsEstimate!.toStringAsFixed(2)} esperado',
+              style: TextStyle(
+                color: resultColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Widget qaNewsSummary(CatalogItemContext ctx) {
+    final data = _NewsSummaryData.fromMap(ctx.data as JsonMap);
+    return QaCardShell(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+            child: Text(
+              'Noticias de ${data.ticker}',
+              style: const TextStyle(
+                color: PortfolioColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          for (var i = 0; i < data.items.length; i++)
+            _newsRow(data.items[i], showDivider: i < data.items.length - 1),
+        ],
+      ),
+    );
+  }
+
+  static Widget _newsRow(_NewsItem item, {required bool showDivider}) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.headline,
+                style: const TextStyle(
+                  color: PortfolioColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                item.summaryLine,
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.source.isNotEmpty
+                    ? '${item.dateLabel} · ${item.source}'
+                    : item.dateLabel,
+                style: TextStyle(
+                  color: PortfolioColors.textSecondary.withValues(alpha: 0.75),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider)
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: PortfolioColors.border,
+            indent: 12,
+            endIndent: 12,
+          ),
+      ],
+    );
+  }
+
   static Widget qaTipBanner(CatalogItemContext ctx) {
     final data = _TipBannerData.fromMap(ctx.data as JsonMap);
     final isWarning = data.tone == 'warning';
@@ -1761,6 +1922,104 @@ final class _PositionListData {
 
   final String title;
   final List<_PositionItem> items;
+}
+
+final class _EarningsCalendarData {
+  _EarningsCalendarData({
+    required this.ticker,
+    required this.nextReportDateLabel,
+    required this.fiscalPeriodLabel,
+    required this.latestReportDateLabel,
+    required this.epsActual,
+    required this.epsEstimate,
+    required this.beat,
+  });
+
+  factory _EarningsCalendarData.fromMap(JsonMap map) {
+    final epsActualRaw = map['epsActual'];
+    final epsEstimateRaw = map['epsEstimate'];
+    final beatRaw = map['beat'];
+    return _EarningsCalendarData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      nextReportDateLabel: GenUiHelpers.safeString(
+        map['nextReportDateLabel'],
+        defaultValue: '',
+      ),
+      fiscalPeriodLabel: GenUiHelpers.safeString(
+        map['fiscalPeriodLabel'],
+        defaultValue: '',
+      ),
+      latestReportDateLabel: GenUiHelpers.safeString(
+        map['latestReportDateLabel'],
+        defaultValue: '',
+      ),
+      epsActual:
+          epsActualRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(epsActualRaw, defaultValue: 0),
+      epsEstimate:
+          epsEstimateRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(epsEstimateRaw, defaultValue: 0),
+      beat:
+          beatRaw == null
+              ? null
+              : GenUiHelpers.safeBool(beatRaw, defaultValue: false),
+    );
+  }
+
+  final String ticker;
+  final String nextReportDateLabel;
+  final String fiscalPeriodLabel;
+  final String latestReportDateLabel;
+  final double? epsActual;
+  final double? epsEstimate;
+  final bool? beat;
+}
+
+final class _NewsItem {
+  _NewsItem({
+    required this.headline,
+    required this.summaryLine,
+    required this.dateLabel,
+    required this.source,
+  });
+
+  factory _NewsItem.fromMap(JsonMap map) {
+    return _NewsItem(
+      headline: GenUiHelpers.safeString(map['headline'], defaultValue: ''),
+      summaryLine: GenUiHelpers.safeString(
+        map['summaryLine'],
+        defaultValue: '',
+      ),
+      dateLabel: GenUiHelpers.safeString(map['dateLabel'], defaultValue: ''),
+      source: GenUiHelpers.safeString(map['source'], defaultValue: ''),
+    );
+  }
+
+  final String headline;
+  final String summaryLine;
+  final String dateLabel;
+  final String source;
+}
+
+final class _NewsSummaryData {
+  _NewsSummaryData({required this.ticker, required this.items});
+
+  factory _NewsSummaryData.fromMap(JsonMap map) {
+    final items = GenUiHelpers.safeList(
+      map['items'],
+      defaultValue: const <_NewsItem>[],
+      mapItem: (item) => _NewsItem.fromMap(item as JsonMap),
+    );
+    return _NewsSummaryData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      items: items.take(3).toList(),
+    );
+  }
+
+  final String ticker;
+  final List<_NewsItem> items;
 }
 
 final class _TipBannerData {

@@ -111,7 +111,10 @@ final CatalogItem qaAnswerTextItem = CatalogItem(
 final CatalogItem qaMetricStripItem = CatalogItem(
   name: 'QaMetricStrip',
   dataSchema: S.object(
-    description: 'Fila de 2-3 métricas clave del portfolio.',
+    description:
+        'Fila de 2-3 métricas clave, lado a lado: portfolio mode para '
+        'valor/P&L/P&L%, explore mode para comparar 2-3 tickers a la vez '
+        '(un item por ticker).',
     properties: {
       'items': S.list(items: _metricItemSchema, minItems: 2, maxItems: 3),
     },
@@ -181,7 +184,11 @@ final CatalogItem qaTickerMoveItem = CatalogItem(
   name: 'QaTickerMove',
   dataSchema: S.object(
     description:
-        'Movimiento de precio de un ticker en un período (desde position_periods).',
+        'Movimiento de precio de un ticker en un período con fecha/hora '
+        'explícita (día/semana/mes/trimestre/año): portfolio mode desde '
+        'position_periods, explore mode desde explore_tickers.{TICKER}'
+        '.periods. Preferilo sobre QaTickerSnapshot cuando el usuario '
+        'nombra un período explícito.',
     properties: {
       'ticker': S.string(),
       'periodLabel': S.string(
@@ -394,6 +401,126 @@ final CatalogItem qaPositionListItem = CatalogItem(
     "items": [
       {"ticker": "AAPL", "weightPct": 23.0, "pnlPct": 8.1},
       {"ticker": "MSFT", "weightPct": 18.5, "pnlPct": 4.2}
+    ]
+  }
+]
+''',
+  ],
+);
+
+final _newsItemSchema = S.object(
+  properties: {
+    'headline': S.string(),
+    'summaryLine': S.string(
+      description: 'Resumen en UNA oración, lenguaje llano (no jerga).',
+    ),
+    'dateLabel': S.string(
+      description:
+          'Fecha legible de la noticia, ej. "hoy", "hace 2 días", '
+          '"18 sep 2026" — debe reflejar la antigüedad real.',
+    ),
+    'source': S.string(description: 'Medio/fuente de la noticia (opcional).'),
+  },
+  required: ['headline', 'summaryLine', 'dateLabel'],
+);
+
+final CatalogItem qaEarningsCalendarItem = CatalogItem(
+  name: 'QaEarningsCalendar',
+  dataSchema: S.object(
+    description:
+        'Próximo reporte de resultados de un ticker y/o cómo le fue en su '
+        'último reporte (real vs. esperado por el mercado). Los dos bloques '
+        'son independientes: usa nextReportDateLabel para "¿cuándo reporta '
+        'X?" y los campos eps* para "¿cómo le fue a X?".',
+    properties: {
+      'ticker': S.string(),
+      'nextReportDateLabel': S.string(
+        description:
+            'Fecha del próximo reporte, legible, ej. "13 nov 2026" '
+            '(omitir si no hay reporte próximo programado).',
+      ),
+      'fiscalPeriodLabel': S.string(
+        description: 'Ej. "T3 FY26" (opcional, junto con nextReportDateLabel).',
+      ),
+      'latestReportDateLabel': S.string(
+        description: 'Fecha del último reporte ya publicado (opcional).',
+      ),
+      'epsActual': S.number(
+        description: 'EPS real del último reporte (opcional).',
+      ),
+      'epsEstimate': S.number(
+        description: 'EPS esperado por el mercado (opcional).',
+      ),
+      'beat': S.boolean(
+        description: 'true si epsActual superó epsEstimate (opcional).',
+      ),
+    },
+    required: ['ticker'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaEarningsCalendar),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "earnings_next",
+    "component": "QaEarningsCalendar",
+    "ticker": "NVDA",
+    "nextReportDateLabel": "13 nov 2026",
+    "fiscalPeriodLabel": "T3 FY26"
+  }
+]
+''',
+    () => '''
+[
+  {
+    "id": "earnings_latest",
+    "component": "QaEarningsCalendar",
+    "ticker": "MSFT",
+    "latestReportDateLabel": "24 jul 2026",
+    "epsActual": 3.30,
+    "epsEstimate": 3.10,
+    "beat": true
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaNewsSummaryItem = CatalogItem(
+  name: 'QaNewsSummary',
+  dataSchema: S.object(
+    description:
+        '2-3 titulares recientes de un ticker, resumidos en una línea cada '
+        'uno en lenguaje llano, con fecha visible.',
+    properties: {
+      'ticker': S.string(),
+      'items': S.list(items: _newsItemSchema, minItems: 1, maxItems: 3),
+    },
+    required: ['ticker', 'items'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaNewsSummary),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "news",
+    "component": "QaNewsSummary",
+    "ticker": "AAPL",
+    "items": [
+      {
+        "headline": "Apple supera expectativas de ingresos en el trimestre",
+        "summaryLine": "Los ingresos por servicios impulsaron el resultado por encima de lo esperado.",
+        "dateLabel": "hace 2 días",
+        "source": "Reuters"
+      },
+      {
+        "headline": "Apple anuncia nueva línea de chips propios",
+        "summaryLine": "La compañía busca reducir su dependencia de proveedores externos.",
+        "dateLabel": "hace 5 días",
+        "source": "Bloomberg"
+      }
     ]
   }
 ]
@@ -887,6 +1014,8 @@ abstract final class PortfolioQaCatalog {
           qaTickerSnapshotItem,
           qaTickerMoveItem,
           qaMetricStripItem,
+          qaEarningsCalendarItem,
+          qaNewsSummaryItem,
           qaTipBannerItem,
         ];
       case AssistantMode.invest:
