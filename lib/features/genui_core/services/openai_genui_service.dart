@@ -105,6 +105,13 @@ class OpenAIGenUiService {
   // llamada vive en una variable LOCAL de `handleSend`, pasada como
   // parámetro a `streamCompletion` — nunca en un campo de instancia.
   String? _lastKnownSurfaceId;
+
+  // Componentes ("id:Tipo") dispatcheados en el último turno con
+  // surfaceId conocido — ver `GenUiDebugLog.extractComponentTypes`. Solo
+  // para tooling de diagnóstico (shadow-mode de Jev/TypeSafe en Explore,
+  // ver `JevShadowRunner`); la UI de producción no lee esto.
+  List<String>? lastComponentChoices;
+
   bool isDisposed = false;
   StreamSubscription<ChatMessage>? _debugResubmitSubscription;
 
@@ -317,6 +324,7 @@ class OpenAIGenUiService {
 
     if (surfaceId != null) {
       GenUiDebugLog.componentChoice(surfaceId: surfaceId, normalized: cleaned);
+      lastComponentChoices = GenUiDebugLog.extractComponentTypes(cleaned);
     }
     A2uiControllerDispatch.dispatchNormalized(controller, cleaned);
 

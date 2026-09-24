@@ -7,7 +7,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/jev_shadow/jev_shadow_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/jev_shadow/jev_shadow_runner.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/jev_shadow/typesafe_client.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/news_query_detector.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_goal_saver.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
@@ -345,6 +349,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
 
       try {
+        final pipelineStopwatch = Stopwatch()..start();
         await GenUiRequestTracker.sendAndWait(
           conversation: targetService.conversation,
           targetSurfaceId: surfaceId,
@@ -354,6 +359,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             surfaceId: surfaceId,
           ),
         );
+        pipelineStopwatch.stop();
 
         state = state.copyWith(
           // `sendAndWait` ya validó hasRootComponent para resolver — ver
@@ -364,6 +370,22 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             hasRootComponent: true,
           ),
         );
+
+        // Shadow-mode de Jev/TypeSafe (dev-only, ver JevShadowConfig): se
+        // dispara DESPUÉS de que el turno real ya se resolvió y se mostró,
+        // fire-and-forget, solo para juntar datos de comparación — nunca
+        // puede demorar ni afectar la respuesta de arriba.
+        if (engineMode == AssistantMode.explore) {
+          JevShadowRunner.runForExploreTurn(
+            userMessage: trimmed,
+            snapshot: snapshot,
+            componentChoices: targetService.lastComponentChoices ?? const [],
+            currentPipelineLatency: pipelineStopwatch.elapsed,
+            client: ref.read(typeSafeClientProvider),
+            repository: ref.read(jevShadowRepositoryProvider),
+            userId: ref.read(supabaseAuthServiceProvider).currentUser?.id,
+          );
+        }
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
         final consumed =

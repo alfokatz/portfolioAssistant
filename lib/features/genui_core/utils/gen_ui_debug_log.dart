@@ -57,9 +57,10 @@ abstract final class GenUiDebugLog {
   /// Parsea las líneas `updateComponents` de [normalized] (una o más
   /// mensajes A2UI separados por salto de línea, como los arma
   /// `A2uiResponseNormalizer`) y devuelve `"id:tipo"` por cada componente.
-  /// Público (no solo interno de [componentChoice]) para poder testear la
-  /// extracción en sí, sin depender de capturar stdout.
-  @visibleForTesting
+  /// Público: lo usa [componentChoice] para el log de debug, tests para
+  /// testear la extracción en sí sin depender de capturar stdout, y
+  /// `OpenAIGenUiService.lastComponentChoices` para tooling de diagnóstico
+  /// (shadow-mode de Jev/TypeSafe en Explore — nunca lo lee la UI real).
   static List<String> extractComponentTypes(String normalized) {
     final types = <String>[];
     for (final line in normalized.split('\n')) {
