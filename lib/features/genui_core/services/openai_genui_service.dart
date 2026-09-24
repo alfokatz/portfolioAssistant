@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_controller_dispatch.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/async_call_queue.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
@@ -82,7 +83,6 @@ class OpenAIGenUiService {
   late final A2uiTransportAdapter transport;
   late final Conversation conversation;
   final List<OpenAIChatCompletionChoiceMessageModel> history = [];
-  String? _runtimeSurfaceId;
   // Igual que `a2uiSurfaceId` pero mutable: se actualiza en cada llamada
   // EXPLÍCITA a `handleSend` (un turno real, con `surfaceId` pasado a
   // mano) y sirve de fallback cuando `handleSend` se dispara solo, sin
@@ -93,88 +93,116 @@ class OpenAIGenUiService {
   // `surfaceId: null` y lo que devolvían nunca se despachaba a ningún
   // surface — se perdía en silencio, indistinguible desde la UI de "el
   // modelo nunca intentó nada".
+  //
+  // A propósito NO existe un campo hermano "surfaceId de este envío en
+  // curso": este servicio se crea una sola vez por modo y se reusa en
+  // todos sus turnos (ver `AssistantProvider._ensureServiceForMode`), así
+  // que si dos `handleSend` llegan a solaparse (un timeout externo no
+  // cancela la generación real de abajo — ver `AssistantProvider.
+  // sendMessage`), un campo mutable ahí sería pisado por la segunda
+  // llamada mientras la primera todavía lo necesita, mezclando a qué
+  // surfaceId despacha cada una. Por eso el surfaceId resuelto de cada
+  // llamada vive en una variable LOCAL de `handleSend`, pasada como
+  // parámetro a `streamCompletion` — nunca en un campo de instancia.
   String? _lastKnownSurfaceId;
   bool isDisposed = false;
   StreamSubscription<ChatMessage>? _debugResubmitSubscription;
 
-  String? get _effectiveSurfaceId => _runtimeSurfaceId ?? a2uiSurfaceId;
+  // Serializa `handleSend`: dos turnos solapados en el mismo servicio
+  // (mandar un segundo mensaje antes de que termine el primero; o la
+  // auto-resubmisión que dispara el paquete `genui` tras una validación
+  // fallida, corriendo en paralelo a un turno nuevo) correrían
+  // `streamCompletion` a la vez sobre el mismo `history` compartido —
+  // mezclando qué mensajes le llegan a OpenAI en qué turno, más allá del
+  // surfaceId (ya resuelto localmente en `handleSend`, ver el comentario
+  // de `_lastKnownSurfaceId`). Serializar acá, en vez de solo confiar en
+  // el guard del lado de `AssistantProvider`, cubre también el caso en que
+  // ESE guard se libera por un timeout externo sin haber podido cancelar
+  // la generación real de este servicio (los `Future` de Dart no son
+  // cancelables). Ver `AsyncCallQueue` para el contrato exacto.
+  final _sendQueue = AsyncCallQueue();
 
   @Deprecated('Use GenUiSurfaceIds.portfolioAnalysis')
   static const analysisSurfaceId = GenUiSurfaceIds.portfolioAnalysis;
 
   static const investmentSurfaceId = GenUiSurfaceIds.investmentDecision;
 
-  Future<void> handleSend(
+  Future<void> handleSend(ChatMessage message, {String? surfaceId}) {
+    return _sendQueue.run(
+      () => _handleSendInternal(message, surfaceId: surfaceId),
+    );
+  }
+
+  Future<void> _handleSendInternal(
     ChatMessage message, {
     String? surfaceId,
   }) async {
     if (surfaceId != null) _lastKnownSurfaceId = surfaceId;
-    _runtimeSurfaceId = surfaceId ?? _lastKnownSurfaceId;
-    try {
-      var userText = message.text.trim();
+    // Local a este call frame — ver el comentario de `_lastKnownSurfaceId`
+    // arriba sobre por qué esto no puede ser un campo de instancia.
+    final resolvedSurfaceId =
+        surfaceId ?? _lastKnownSurfaceId ?? a2uiSurfaceId;
+    var userText = message.text.trim();
 
-      // `SurfaceController.handleUiEvent`/`.reportError` (paquete genui)
-      // reenvían acá vía `onSubmit` con `text` vacío y el contenido real
-      // en `parts` (un `UiInteractionPart` con JSON crudo) — antes eso se
-      // perdía en silencio: ni el modelo se enteraba de qué había que
-      // corregir, ni `history` quedaba con rastro de que algo había
-      // pasado. `_describeInteraction` lo convierte en una instrucción
-      // legible para el modelo.
-      if (userText.isEmpty) {
-        final interactions = message.parts.uiInteractionParts;
-        if (interactions.isNotEmpty) {
-          userText = _describeInteraction(interactions.first.interaction);
-        }
+    // `SurfaceController.handleUiEvent`/`.reportError` (paquete genui)
+    // reenvían acá vía `onSubmit` con `text` vacío y el contenido real
+    // en `parts` (un `UiInteractionPart` con JSON crudo) — antes eso se
+    // perdía en silencio: ni el modelo se enteraba de qué había que
+    // corregir, ni `history` quedaba con rastro de que algo había
+    // pasado. `_describeInteraction` lo convierte en una instrucción
+    // legible para el modelo.
+    if (userText.isEmpty) {
+      final interactions = message.parts.uiInteractionParts;
+      if (interactions.isNotEmpty) {
+        userText = _describeInteraction(interactions.first.interaction);
       }
+    }
 
-      if (userText.isEmpty && message.parts.isEmpty) return;
+    if (userText.isEmpty && message.parts.isEmpty) return;
 
-      if (userText.isNotEmpty) {
-        history.add(
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.user,
-            content: [
-              OpenAIChatCompletionChoiceMessageContentItemModel.text(userText),
-            ],
-          ),
+    if (userText.isNotEmpty) {
+      history.add(
+        OpenAIChatCompletionChoiceMessageModel(
+          role: OpenAIChatMessageRole.user,
+          content: [
+            OpenAIChatCompletionChoiceMessageContentItemModel.text(userText),
+          ],
+        ),
+      );
+    }
+
+    if (apiKey.isEmpty) {
+      throw StateError('OPENAI_API_KEY no configurada');
+    }
+
+    // `transientAttempts` es un budget aparte del de rate-limit: cubre
+    // el timeout interno del stream (streamCompletion colgado) y el
+    // StateError de "interfaz inválida" — ambas son fallas de
+    // generación, no de conexión, y el mensaje del usuario ya se agregó
+    // a `history` una sola vez arriba, así que reintentar acá adentro
+    // no lo duplica en el historial que le mandamos a OpenAI.
+    var transientAttempts = 0;
+    for (var attempt = 0; attempt <= maxRateLimitRetries; attempt++) {
+      try {
+        await streamCompletion(resolvedSurfaceId);
+        return;
+      } on RequestFailedException catch (e) {
+        final canRetry =
+            isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
+        if (!canRetry || isDisposed) rethrow;
+        final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
+        await Future<void>.delayed(
+          Duration(milliseconds: ((seconds + 1) * 1000).clamp(2000, 120000)),
         );
+      } on TimeoutException {
+        if (isDisposed || transientAttempts >= maxTransientRetries) rethrow;
+        transientAttempts++;
+        await Future<void>.delayed(_transientRetryBackoff);
+      } on StateError {
+        if (isDisposed || transientAttempts >= maxTransientRetries) rethrow;
+        transientAttempts++;
+        await Future<void>.delayed(_transientRetryBackoff);
       }
-
-      if (apiKey.isEmpty) {
-        throw StateError('OPENAI_API_KEY no configurada');
-      }
-
-      // `transientAttempts` es un budget aparte del de rate-limit: cubre
-      // el timeout interno del stream (streamCompletion colgado) y el
-      // StateError de "interfaz inválida" — ambas son fallas de
-      // generación, no de conexión, y el mensaje del usuario ya se agregó
-      // a `history` una sola vez arriba, así que reintentar acá adentro
-      // no lo duplica en el historial que le mandamos a OpenAI.
-      var transientAttempts = 0;
-      for (var attempt = 0; attempt <= maxRateLimitRetries; attempt++) {
-        try {
-          await streamCompletion();
-          return;
-        } on RequestFailedException catch (e) {
-          final canRetry =
-              isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
-          if (!canRetry || isDisposed) rethrow;
-          final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
-          await Future<void>.delayed(
-            Duration(milliseconds: ((seconds + 1) * 1000).clamp(2000, 120000)),
-          );
-        } on TimeoutException {
-          if (isDisposed || transientAttempts >= maxTransientRetries) rethrow;
-          transientAttempts++;
-          await Future<void>.delayed(_transientRetryBackoff);
-        } on StateError {
-          if (isDisposed || transientAttempts >= maxTransientRetries) rethrow;
-          transientAttempts++;
-          await Future<void>.delayed(_transientRetryBackoff);
-        }
-      }
-    } finally {
-      _runtimeSurfaceId = null;
     }
   }
 
@@ -218,7 +246,7 @@ class OpenAIGenUiService {
     }
   }
 
-  Future<void> streamCompletion() async {
+  Future<void> streamCompletion(String? surfaceId) async {
     await OpenAiRequestThrottle.waitIfNeeded();
     OpenAiRequestThrottle.markRequestStarted();
 
@@ -251,7 +279,6 @@ class OpenAIGenUiService {
     if (isDisposed) return;
 
     final raw = modelBuffer.toString();
-    final surfaceId = _effectiveSurfaceId;
     final catalogId = a2uiCatalogId ?? A2uiResponseNormalizer.defaultCatalogId;
     GenUiDebugLog.rawResponse(surfaceId: surfaceId, raw: raw);
 

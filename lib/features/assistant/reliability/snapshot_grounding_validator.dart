@@ -14,6 +14,12 @@ abstract final class SnapshotGroundingValidator {
         }
         return SnapshotValidation.ok;
       case AssistantMode.explore:
+        // No hay ticker resuelto, pero sí un nombre de compañía ambiguo
+        // (2+ matches) — dejar pasar para que el modelo pida aclaración en
+        // lenguaje natural, en vez de cortar con el error técnico genérico.
+        if (snapshot['explore_ticker_ambiguous'] != null) {
+          return SnapshotValidation.ok;
+        }
         final tickers = snapshot['explore_tickers'] as Map?;
         if (tickers == null || tickers.isEmpty) {
           return SnapshotValidation.exploreFetchFailed;

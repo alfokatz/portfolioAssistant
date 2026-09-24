@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Revela [text] carácter por carácter, simulando un typewriter, a un ritmo
 /// de lectura natural (`charsPerSecond`). No hay streaming real de tokens
@@ -85,11 +86,12 @@ class _TypewriterTextState extends State<TypewriterText>
   void _maybeStart() {
     if (_started || !widget.play) return;
     _started = true;
-    if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward();
-    }
+    startRevealAnimation(
+      _controller,
+      skip: widget.skipAnimation || MediaQuery.disableAnimationsOf(context),
+      statusListener: _handleStatus,
+      isMounted: () => mounted,
+    );
   }
 
   void _handleStatus(AnimationStatus status) {

@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
@@ -29,6 +30,12 @@ Future<String> buildSnapshotJson({
   bool enableNewsEnrichment = true,
   ExploreEarningsEnricher? exploreEarningsEnricher,
   bool enableEarningsCalendar = true,
+  // Último ticker de un turno explore previo en la sesión — ver
+  // `AssistantProvider._lastExploreTicker`. Solo se usa en modo explore.
+  String? fallbackExploreTicker,
+  // No tier-gated (a diferencia de news/earnings): resolver "Apple" -> AAPL
+  // es la feature base funcionando, no un add-on premium.
+  CompanyTickerResolver? exploreTickerResolver,
 }) async {
   final timestamp = (asOf ?? DateTime.now()).toUtc().toIso8601String();
 
@@ -89,9 +96,13 @@ Future<String> buildSnapshotJson({
         newsEnricher: enableNewsEnrichment
             ? (exploreNewsEnricher ?? ExploreNewsEnricher())
             : null,
+        newsAllowed: enableNewsEnrichment,
         earningsEnricher: enableEarningsCalendar
             ? (exploreEarningsEnricher ?? ExploreEarningsEnricher())
             : null,
+        earningsAllowed: enableEarningsCalendar,
+        fallbackTicker: fallbackExploreTicker,
+        tickerResolver: exploreTickerResolver,
       );
       return jsonEncode({
         ...exploreSnapshot,

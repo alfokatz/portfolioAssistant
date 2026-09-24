@@ -55,6 +55,17 @@ abstract final class IntentRouter {
       'precio de',
       'cotización',
       'ticker',
+      // Calendario de resultados y noticias por ticker (ver
+      // explore_prompt_rules.dart) viven en este motor, pero "¿qué
+      // noticias hay de AAPL?" / "¿cuándo reporta resultados NVDA?" no
+      // contienen ninguna de las keywords de arriba — sin esto, esas
+      // preguntas nunca llegaban a explore y el usuario veía un fallback
+      // de "no tengo datos" aunque Finnhub sí tuviera la información.
+      'noticias',
+      'reporta',
+      'calendario de resultados',
+      'próximo reporte',
+      'último reporte',
     ])) {
       return AssistantMode.explore;
     }

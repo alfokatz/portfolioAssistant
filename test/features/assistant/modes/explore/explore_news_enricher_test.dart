@@ -65,7 +65,12 @@ void main() {
       );
 
       final result = await enricher.enrich(
-        snapshot: Map<String, Object?>.from(baseSnapshot),
+        snapshot: {
+          ...baseSnapshot,
+          'explore_tickers': {
+            'AAPL': {'fetch_ok': true},
+          },
+        },
         userMessage: '¿qué pasó con AAPL esta semana?',
       );
 
@@ -94,7 +99,12 @@ void main() {
         );
 
         final result = await enricher.enrich(
-          snapshot: Map<String, Object?>.from(baseSnapshot),
+          snapshot: {
+            ...baseSnapshot,
+            'explore_tickers': {
+              'NVDA': {'fetch_ok': true},
+            },
+          },
           userMessage: '¿noticias de NVDA?',
         );
 
@@ -113,7 +123,12 @@ void main() {
         );
 
         final result = await enricher.enrich(
-          snapshot: Map<String, Object?>.from(baseSnapshot),
+          snapshot: {
+            ...baseSnapshot,
+            'explore_tickers': {
+              'NVDA': {'fetch_ok': true},
+            },
+          },
           userMessage: '¿por qué cayó NVDA?',
         );
 
@@ -138,5 +153,46 @@ void main() {
       expect(result['news_enrichment'], 'empty');
       expect(result['news_sources'], isEmpty);
     });
+
+    // El fix real: antes esto re-extraía el ticker del texto del mensaje y
+    // lo ignoraba si no estaba escrito literal ahí — ahora lee el ticker ya
+    // resuelto en explore_tickers (por fallback de turno previo, o por
+    // nombre de compañía vía Finnhub /search), sin importar que el mensaje
+    // en sí no lo mencione.
+    test(
+      'fetches news for a ticker resolved upstream (fallback/company name) '
+      'even when it is not textually present in the message',
+      () async {
+        final enricher = ExploreNewsEnricher(
+          newsRepository: _FakeCompanyNewsRepository((ticker) async {
+            expect(ticker, 'AAPL');
+            return Right([
+              CompanyNewsItem(
+                ticker: 'AAPL',
+                headline: 'Apple shares rise on earnings',
+                summary: 'Apple beat analyst expectations this quarter.',
+                url: 'https://reuters.com/aapl-earnings',
+                source: 'Reuters',
+                publishedAt: DateTime.utc(2026, 9, 20),
+              ),
+            ]);
+          }),
+        );
+
+        final result = await enricher.enrich(
+          snapshot: {
+            ...baseSnapshot,
+            'explore_tickers': {
+              'AAPL': {'fetch_ok': true},
+            },
+          },
+          userMessage: '¿qué noticias hay?',
+        );
+
+        expect(result['news_enrichment'], 'ok');
+        final sources = result['news_sources'] as List<dynamic>;
+        expect(sources, hasLength(1));
+      },
+    );
   });
 }

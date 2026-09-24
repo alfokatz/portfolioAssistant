@@ -81,6 +81,31 @@ void main() {
     expect(completeCount, 1);
   });
 
+  testWidgets(
+    'does not crash when mounted already-revealed and onComplete mutates '
+    'ancestor state synchronously (regression: setState during build)',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: _MutatingAncestor(
+              builder: (context, mutate) => TypewriterText(
+                text: 'ya revelado',
+                skipAnimation: true,
+                onComplete: mutate,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('ya revelado'), findsOneWidget);
+    },
+  );
+
   testWidgets('does not start until play becomes true', (tester) async {
     var completed = false;
     await tester.pumpWidget(
@@ -116,4 +141,25 @@ void main() {
     expect(find.text('esperando turno'), findsOneWidget);
     expect(completed, isTrue);
   });
+}
+
+/// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le
+/// pasa el caller — simula el `onComplete`/`onFinished` real de
+/// `AssistantScreen`, que hace `setState()`/`notifier.markUserMessageRevealed`
+/// sincrónicamente cuando un widget de reveal ya montado revelado dispara su
+/// callback durante el build.
+class _MutatingAncestor extends StatefulWidget {
+  const _MutatingAncestor({required this.builder});
+
+  final Widget Function(BuildContext context, VoidCallback mutate) builder;
+
+  @override
+  State<_MutatingAncestor> createState() => _MutatingAncestorState();
+}
+
+class _MutatingAncestorState extends State<_MutatingAncestor> {
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context, () => setState(() {}));
+  }
 }

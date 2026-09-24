@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/news_query_detector.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_goal_saver.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
@@ -15,13 +16,14 @@ import 'package:portfolio_assistant/features/assistant/reliability/snapshot_grou
 import 'package:portfolio_assistant/features/assistant/routing/intent_router.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
-import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -60,6 +62,24 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   // ambiguo (no matchea keywords de ningún dominio): el chat sigue con el
   // mismo motor en vez de saltar arbitrariamente a otro.
   AssistantMode _lastEngineMode;
+
+  // Último ticker resuelto en un turno explore exitoso (mismo criterio de
+  // continuidad que `_lastEngineMode`) — permite que un follow-up sin
+  // ticker explícito ("¿y qué expectativas hay sobre estos resultados?")
+  // siga refiriéndose a la misma compañía. Nunca avanza para el proxy de
+  // mercado (SPY) ni cuando el turno no resolvió ningún ticker.
+  String? _lastExploreTicker;
+
+  // Resolver de nombre de compañía -> ticker (Finnhub /search). No
+  // tier-gated: a diferencia de noticias/calendario, es la feature base de
+  // explore funcionando, no un add-on premium. Lazy: construirlo toca
+  // `dotenv.env` (vía `FinnhubHttpClient`), que en tests que no ejercitan
+  // `sendMessage` (ver assistant_provider_test.dart) nunca se inicializa —
+  // instanciar esto en el constructor de `AssistantProvider` rompería esos
+  // tests aunque nunca lleguen a usarlo.
+  CompanyTickerResolver? _exploreTickerResolverInstance;
+  CompanyTickerResolver get _exploreTickerResolver =>
+      _exploreTickerResolverInstance ??= CompanyTickerResolver();
 
   String? _initialQuestion;
 
@@ -160,8 +180,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     String? error = state.error;
     var isWaiting = state.isWaiting;
 
-    if (event case ConversationComponentsUpdated(:final surfaceId)) {
-      messages = _markTurnReady(messages, surfaceId);
+    if (event case ConversationComponentsUpdated(
+      :final surfaceId,
+      :final definition,
+    )) {
+      messages = AssistantMessageSync.applySurfaceReady(
+        messages,
+        surfaceId,
+        hasRootComponent: GenUiSurfaceReadiness.hasRootComponent(definition),
+      );
     }
 
     GenUiFlowScreenHelpers.handleConversationEvent(
@@ -178,21 +205,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       clearError: error == null,
       isWaiting: isWaiting,
     );
-  }
-
-  List<PortfolioQaMessage> _markTurnReady(
-    List<PortfolioQaMessage> messages,
-    String surfaceId,
-  ) {
-    for (var i = messages.length - 1; i >= 0; i--) {
-      final message = messages[i];
-      if (message.surfaceId == surfaceId && message.isStreaming) {
-        final updated = [...messages];
-        updated[i] = message.copyWith(isStreaming: false);
-        return updated;
-      }
-    }
-    return messages;
   }
 
   /// Marca la surface de [surfaceId] como ya revelada — ver
@@ -269,6 +281,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
       final snapshotJson = await _buildSnapshotJson(engineMode, trimmed);
       final snapshot = jsonDecode(snapshotJson) as Map<String, dynamic>;
+
+      if (engineMode == AssistantMode.explore) {
+        final tickers = snapshot['explore_tickers'];
+        final isMarketProxy = snapshot['market_proxy_ticker'] != null;
+        if (!isMarketProxy && tickers is Map && tickers.isNotEmpty) {
+          _lastExploreTicker = tickers.keys.first as String;
+        }
+      }
+
       final validation = SnapshotGroundingValidator.validate(
         mode: engineMode,
         snapshot: snapshot,
@@ -335,7 +356,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
 
         state = state.copyWith(
-          messages: _markTurnReady(state.messages, surfaceId),
+          // `sendAndWait` ya validó hasRootComponent para resolver — ver
+          // GenUiRequestTracker.
+          messages: AssistantMessageSync.applySurfaceReady(
+            state.messages,
+            surfaceId,
+            hasRootComponent: true,
+          ),
         );
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
@@ -354,7 +381,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // en vez del banner de error, que queda reservado para fallas de
         // conexión reales (ver isConnectionFailure).
         state = state.copyWith(
-          messages: _fallbackToText(state.messages, surfaceId, engineMode),
+          messages: AssistantMessageSync.applyFallback(
+            state.messages,
+            surfaceId,
+            engineMode,
+          ),
         );
       } catch (e) {
         if (isConnectionFailure(e)) {
@@ -367,7 +398,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           // raíz" — todas fallas de generación: nunca dejan al usuario
           // sin respuesta, cae a texto en vez de mostrar el error card.
           state = state.copyWith(
-            messages: _fallbackToText(state.messages, surfaceId, engineMode),
+            messages: AssistantMessageSync.applyFallback(
+              state.messages,
+              surfaceId,
+              engineMode,
+            ),
           );
         }
       }
@@ -385,31 +420,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   ) {
     if (messages.isEmpty || !messages.last.isStreaming) return messages;
     return messages.sublist(0, messages.length - 1);
-  }
-
-  /// Reemplaza el placeholder de [surfaceId] por un mensaje de texto
-  /// completo — nunca deja al usuario sin respuesta ante una falla de
-  /// generación (timeout tras reintentar, JSON inválido, etc.). Reusa el
-  /// mismo mensaje que ya usa el sanitizador/prompt como fallback, por
-  /// consistencia.
-  List<PortfolioQaMessage> _fallbackToText(
-    List<PortfolioQaMessage> messages,
-    String surfaceId,
-    AssistantMode engineMode,
-  ) {
-    for (var i = messages.length - 1; i >= 0; i--) {
-      final message = messages[i];
-      if (message.surfaceId == surfaceId && message.isStreaming) {
-        final updated = [...messages];
-        updated[i] = PortfolioQaMessage(
-          role: PortfolioQaRole.assistant,
-          content: LlmJsonSanitizer.defaultFallbackMessage,
-          engineMode: engineMode,
-        );
-        return updated;
-      }
-    }
-    return messages;
   }
 
   /// El motor que atiende un turno cambia con cada mensaje (ver
@@ -462,6 +472,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         enableEarningsCalendar: SubscriptionPolicy.isNewsAllowed(
           ref.read(subscriptionProvider).tier,
         ),
+        fallbackExploreTicker: _lastExploreTicker,
+        exploreTickerResolver: _exploreTickerResolver,
       );
     }
 

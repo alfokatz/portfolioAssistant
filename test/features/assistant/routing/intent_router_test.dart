@@ -22,6 +22,31 @@ void main() {
       expect(engine, AssistantMode.explore);
     });
 
+    // Regresión: ninguna de estas dos preguntas contenía ninguna keyword de
+    // ningún motor antes de este fix — ambas caían silenciosamente en
+    // `lastEngine`. Si el turno anterior no era explore (p. ej. venía de
+    // invertir), la pregunta nunca llegaba al snapshot que trae
+    // earnings_calendar/news_sources, y el usuario veía el fallback de "no
+    // tengo datos" aunque Finnhub sí tuviera la información — no era un
+    // problema de datos, era que la pregunta nunca llegaba al motor correcto.
+    test('detects explore when message contains noticias', () {
+      final engine = IntentRouter.detectEngine(
+        message: '¿Qué noticias hay de AAPL en el último mes?',
+        lastEngine: AssistantMode.invest,
+      );
+
+      expect(engine, AssistantMode.explore);
+    });
+
+    test('detects explore when message contains reporta (earnings calendar)', () {
+      final engine = IntentRouter.detectEngine(
+        message: '¿Cuándo reporta resultados AAPL?',
+        lastEngine: AssistantMode.invest,
+      );
+
+      expect(engine, AssistantMode.explore);
+    });
+
     test('detects learn when message contains qué es', () {
       final engine = IntentRouter.detectEngine(
         message: '¿Qué es diversificación?',

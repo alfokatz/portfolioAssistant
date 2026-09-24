@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Orquesta el reveal secuencial de los widgets de una surface GenUI:
 /// título/texto primero, después el widget de datos, después el banner de
@@ -213,11 +214,12 @@ class _TwoStageRevealState extends State<TwoStageReveal>
   void _maybeStart() {
     if (_started || !widget.active) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward();
-    }
+    startRevealAnimation(
+      _controller,
+      skip: MediaQuery.disableAnimationsOf(context),
+      statusListener: _handleStatus,
+      isMounted: () => mounted,
+    );
   }
 
   void _handleStatus(AnimationStatus status) {
@@ -295,11 +297,12 @@ class _DefaultFadeStepState extends State<_DefaultFadeStep>
   void _maybeStart() {
     if (_started || !widget.active) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward();
-    }
+    startRevealAnimation(
+      _controller,
+      skip: MediaQuery.disableAnimationsOf(context),
+      statusListener: _handleStatus,
+      isMounted: () => mounted,
+    );
   }
 
   void _handleStatus(AnimationStatus status) {

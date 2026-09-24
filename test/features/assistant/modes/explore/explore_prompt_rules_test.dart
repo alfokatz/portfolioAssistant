@@ -145,6 +145,41 @@ void main() {
       expect(explorePromptRules, isNot(contains('web search')));
       expect(explorePromptRules, contains('Finnhub'));
     });
+
+    // Regresión: un usuario sin acceso por plan (news_enrichment/
+    // earnings_calendar_status = "locked") veía el mismo mensaje que un
+    // usuario para el que Finnhub genuinamente no tiene datos ("empty") —
+    // ambos sonaban a "no tengo información", ocultando que en realidad
+    // era una restricción de plan. Estos tests fijan que el prompt trata
+    // "locked" como una causa distinta, con su propio texto explícito, y
+    // prohíbe expresamente mezclarlo con el lenguaje de "sin datos".
+    test(
+      'EARNINGS CALENDAR treats "locked" as a distinct cause from empty/failed, '
+      'with its own plan-restriction wording',
+      () {
+        expect(explorePromptRules, contains("'ok'|'empty'|'failed'|'locked'"));
+        expect(explorePromptRules, contains('THREE DIFFERENT CAUSES'));
+        expect(explorePromptRules, contains('earnings_calendar_status is "locked"'));
+        expect(explorePromptRules, contains('no está disponible en tu plan'));
+        // La regla prohíbe explícitamente sonar a "no hay datos" para este caso.
+        expect(explorePromptRules, contains('no tengo información'));
+        expect(explorePromptRules, contains('NOT a data gap'));
+      },
+    );
+
+    test(
+      'NEWS treats "locked" as a distinct cause from empty/failed, with its '
+      'own plan-restriction wording — never "no encontré noticias"',
+      () {
+        expect(
+          explorePromptRules,
+          contains("'skipped'|'ok'|'empty'|'failed'|'locked'"),
+        );
+        expect(explorePromptRules, contains('news_enrichment is "locked"'));
+        expect(explorePromptRules, contains('están disponibles en tu plan'));
+        expect(explorePromptRules, contains('no encontré noticias'));
+      },
+    );
   });
 
   group('AssistantCatalog integration', () {

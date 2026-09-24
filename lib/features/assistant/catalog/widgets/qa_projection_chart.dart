@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Un punto de la serie de proyección: `label` es el eje X (ej. "Ene 2027"),
 /// `value` es el monto proyectado en ese punto.
@@ -84,11 +85,12 @@ class _QaProjectionChartState extends State<QaProjectionChart>
   void _maybeStart() {
     if (_started || !widget.active) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward();
-    }
+    startRevealAnimation(
+      _controller,
+      skip: MediaQuery.disableAnimationsOf(context),
+      statusListener: _handleStatus,
+      isMounted: () => mounted,
+    );
   }
 
   void _handleStatus(AnimationStatus status) {

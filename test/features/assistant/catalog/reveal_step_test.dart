@@ -183,4 +183,92 @@ void main() {
     expect(find.byType(Opacity), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'RevealStep.fade does not crash when mounted active under reduced '
+    'motion and the controller notification mutates ancestor state '
+    'synchronously (regression: setState during build — mirrors '
+    'PortfolioQaAssistantSurface listening on SurfaceRevealController)',
+    (tester) async {
+      final controller = SurfaceRevealController();
+      late VoidCallback mutate;
+      controller.addListener(() {
+        if (controller.isFullyRevealed) mutate();
+      });
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: MaterialApp(
+            home: Scaffold(
+              body: _MutatingAncestor(
+                builder: (context, m) {
+                  mutate = m;
+                  return RevealStep.fade(
+                    controller: controller,
+                    child: const Text('card'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('card'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'TwoStageReveal does not crash when mounted active under reduced '
+    'motion and onFinished mutates ancestor state synchronously '
+    '(regression: setState during build)',
+    (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: MaterialApp(
+            home: Scaffold(
+              body: _MutatingAncestor(
+                builder: (context, mutate) => TwoStageReveal(
+                  active: true,
+                  first: const Text('label'),
+                  second: const Text('valor'),
+                  onFinished: mutate,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('label'), findsOneWidget);
+    },
+  );
+}
+
+/// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le
+/// pasa el caller — simula el `onFinished` real de `AssistantScreen`, que
+/// hace `notifier.markRevealed(...)` sincrónicamente cuando un widget de
+/// reveal ya montado revelado dispara su callback durante el build.
+class _MutatingAncestor extends StatefulWidget {
+  const _MutatingAncestor({required this.builder});
+
+  final Widget Function(BuildContext context, VoidCallback mutate) builder;
+
+  @override
+  State<_MutatingAncestor> createState() => _MutatingAncestorState();
+}
+
+class _MutatingAncestorState extends State<_MutatingAncestor> {
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context, () => setState(() {}));
+  }
 }

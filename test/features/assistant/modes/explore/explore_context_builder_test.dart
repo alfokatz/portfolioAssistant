@@ -8,9 +8,12 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
 import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/earnings_calendar_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/symbol_search_repository.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
@@ -80,6 +83,20 @@ class _FakeQuoteRepository implements QuoteRepository {
       return Right(candles);
     }
     return Left(HttpError(code: 'not_found'));
+  }
+}
+
+class _FakeSymbolSearchRepository implements SymbolSearchRepository {
+  _FakeSymbolSearchRepository(this.onSearch);
+
+  final Future<Either<HttpError, List<SymbolSearchResult>>> Function(
+    String query,
+  )
+  onSearch;
+
+  @override
+  Future<Either<HttpError, List<SymbolSearchResult>>> search(String query) {
+    return onSearch(query);
   }
 }
 
@@ -316,6 +333,202 @@ void main() {
 
           expect(snapshot['earnings_calendar_status'], 'empty');
           expect(snapshot['earnings_calendar'], isEmpty);
+        },
+      );
+    });
+
+    // Regresión: un usuario sin acceso por plan (earningsAllowed/newsAllowed
+    // = false, ver SubscriptionPolicy.isNewsAllowed) y un usuario para el
+    // que Finnhub genuinamente no tiene datos ("empty") antes producían el
+    // mismo snapshot silencioso — el modelo no podía distinguir "no tenés
+    // acceso" de "no hay información". `earningsAllowed`/`newsAllowed` en
+    // `false` ahora deja una marca explícita ("locked") sin siquiera
+    // llamar a Finnhub, para que el mensaje al usuario refleje la causa
+    // real (bloqueo de plan) en vez de sonar a falta de datos.
+    group('plan-gated (not allowed) status', () {
+      test(
+        'marks earnings_calendar_status locked when earningsAllowed is '
+        'false and the user has a ticker in question — without calling '
+        'the repository at all',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿cuándo reporta resultados AAPL?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            earningsAllowed: false,
+            // Sin earningsEnricher: si el código llegara a intentar
+            // invocarlo igual, esto fallaría con un null check.
+          );
+
+          expect(snapshot['earnings_calendar_status'], 'locked');
+          expect(snapshot['earnings_calendar'], isEmpty);
+        },
+      );
+
+      test(
+        'does not mark earnings_calendar_status at all when there are no '
+        'tickers to ask about, even if earningsAllowed is false',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿qué es diversificar?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            earningsAllowed: false,
+          );
+
+          expect(snapshot.containsKey('earnings_calendar_status'), isFalse);
+        },
+      );
+
+      test(
+        'marks news_enrichment locked when newsAllowed is false and the '
+        'message is a news query — without calling the repository at all',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿qué noticias hay de AAPL en el último mes?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            newsAllowed: false,
+          );
+
+          expect(snapshot['news_enrichment'], 'locked');
+          expect(snapshot['news_sources'], isEmpty);
+        },
+      );
+
+      test(
+        'does not mark news_enrichment at all when the message is not a '
+        'news query, even if newsAllowed is false',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: 'Cuéntame de AAPL',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            newsAllowed: false,
+          );
+
+          expect(snapshot.containsKey('news_enrichment'), isFalse);
+        },
+      );
+    });
+
+    // Regresión: un follow-up sin repetir el ticker ("y qué expectativas hay
+    // sobre estos resultados?") cortaba con "no encontré un ticker válido"
+    // antes de siquiera llegar al modelo — ver AssistantProvider._lastExploreTicker.
+    group('fallback ticker (continuidad conversacional)', () {
+      test(
+        'a message without any ticker resolves to fallbackTicker',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿y qué expectativas hay sobre estos resultados?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            fallbackTicker: 'AAPL',
+          );
+
+          final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+          expect(tickers.containsKey('AAPL'), isTrue);
+        },
+      );
+
+      test(
+        'an explicit ticker in the message wins over fallbackTicker',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿y NVDA?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            fallbackTicker: 'AAPL',
+          );
+
+          final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+          expect(tickers.containsKey('NVDA'), isTrue);
+          expect(tickers.containsKey('AAPL'), isFalse);
+        },
+      );
+    });
+
+    // "noticias de Apple" (o cualquier nombre de compañía en texto libre)
+    // debe resolver a un ticker vía Finnhub /search antes de pegarle a los
+    // endpoints de datos — ver CompanyTickerResolver.
+    group('company name resolution', () {
+      test(
+        'resolves a single Common Stock match to its ticker',
+        () async {
+          final resolver = CompanyTickerResolver(
+            repository: _FakeSymbolSearchRepository((query) async {
+              expect(query, 'Apple');
+              return const Right([
+                SymbolSearchResult(
+                  symbol: 'AAPL',
+                  description: 'APPLE INC',
+                  type: 'Common Stock',
+                ),
+              ]);
+            }),
+          );
+
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: 'noticias de Apple',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            tickerResolver: resolver,
+          );
+
+          final tickers = snapshot['explore_tickers'] as Map<String, dynamic>;
+          expect(tickers.containsKey('AAPL'), isTrue);
+          expect(snapshot.containsKey('explore_ticker_ambiguous'), isFalse);
+        },
+      );
+
+      test(
+        'ambiguous matches leave explore_tickers empty and populate '
+        'explore_ticker_ambiguous with the candidates',
+        () async {
+          final resolver = CompanyTickerResolver(
+            repository: _FakeSymbolSearchRepository((query) async {
+              return const Right([
+                SymbolSearchResult(
+                  symbol: 'META',
+                  description: 'META PLATFORMS INC',
+                  type: 'Common Stock',
+                ),
+                SymbolSearchResult(
+                  symbol: 'FB',
+                  description: 'FACEBOOK INC (legacy listing)',
+                  type: 'Common Stock',
+                ),
+              ]);
+            }),
+          );
+
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: 'noticias de Facebook',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            tickerResolver: resolver,
+          );
+
+          expect(snapshot['explore_tickers'], isEmpty);
+          final ambiguity =
+              snapshot['explore_ticker_ambiguous'] as Map<String, dynamic>;
+          expect(ambiguity['candidate'], 'Facebook');
+          final matches = ambiguity['matches'] as List<dynamic>;
+          expect(matches, hasLength(2));
+        },
+      );
+
+      test(
+        'is skipped when no tickerResolver is provided (default null)',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: 'noticias de Apple',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+          );
+
+          expect(snapshot['explore_tickers'], isEmpty);
+          expect(snapshot.containsKey('explore_ticker_ambiguous'), isFalse);
         },
       );
     });

@@ -17,6 +17,12 @@ YAHOO_CACHE_TTL_MINUTES=10
 FINNHUB_API_KEY=...     # Opcional: sin key, calendario de resultados y noticias responden con fallback honesto
 ```
 
+> **Para probar calendario de resultados / noticias en local hacen falta DOS cosas, no solo la key:**
+> 1. `FINNHUB_API_KEY` seteada arriba (sin ella, la llamada falla y Porty dice que no pudo consultar ahora mismo).
+> 2. La cuenta con la que probás debe tener tier **Gold** en la tabla `user_subscriptions` de Supabase — no hay ningún override de debug para esto en el código. Una cuenta nueva sin compra es `free` por defecto, y con `free`/`premium` Porty dice explícitamente que la función no está en tu plan (no sugiere que falte información). Para subir a Gold un usuario de prueba sin pasar por una compra real, actualizá esa fila directamente en Supabase (requiere la service-role key).
+>
+> Sin ninguna de las dos cosas, la app no crashea (degrada bien), pero el mensaje que ves depende de cuál falte: revisá `news_enrichment`/`earnings_calendar_status` en el snapshot (`ok`/`empty`/`failed`/`locked`) para saber cuál es.
+
 2. Instala dependencias:
 
 ```bash

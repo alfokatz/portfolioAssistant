@@ -77,6 +77,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'does not crash when mounted active under reduced motion and '
+    'onFinished mutates ancestor state synchronously (regression: '
+    'setState during build)',
+    (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: MaterialApp(
+            home: Scaffold(
+              body: _MutatingAncestor(
+                builder: (context, mutate) => QaProjectionChart(
+                  label: 'Sin animación',
+                  points: points,
+                  onFinished: mutate,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Sin animación'), findsOneWidget);
+    },
+  );
+
   testWidgets('renders nothing and still finishes with fewer than 2 points', (
     tester,
   ) async {
@@ -97,4 +126,24 @@ void main() {
     expect(finished, isTrue);
     expect(tester.takeException(), isNull);
   });
+}
+
+/// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le
+/// pasa el caller — simula el `onFinished` real de `AssistantScreen`, que
+/// hace `notifier.markRevealed(...)` sincrónicamente cuando un widget de
+/// reveal ya montado revelado dispara su callback durante el build.
+class _MutatingAncestor extends StatefulWidget {
+  const _MutatingAncestor({required this.builder});
+
+  final Widget Function(BuildContext context, VoidCallback mutate) builder;
+
+  @override
+  State<_MutatingAncestor> createState() => _MutatingAncestorState();
+}
+
+class _MutatingAncestorState extends State<_MutatingAncestor> {
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context, () => setState(() {}));
+  }
 }

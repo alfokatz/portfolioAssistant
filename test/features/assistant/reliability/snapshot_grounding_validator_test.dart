@@ -72,6 +72,31 @@ void main() {
         );
         expect(result, SnapshotValidation.exploreFetchFailed);
       });
+
+      // Un nombre de compañía ambiguo (2+ matches de Finnhub /search) no
+      // resolvió a ningún ticker, pero SÍ hay algo para que el modelo
+      // trabaje: debe dejar pasar para que pregunte cuál compañía, en vez
+      // de cortar con el error técnico genérico de "no ticker".
+      test(
+        'returns ok when explore_ticker_ambiguous is present, even with '
+        'empty explore_tickers',
+        () {
+          final result = SnapshotGroundingValidator.validate(
+            mode: AssistantMode.explore,
+            snapshot: {
+              'explore_tickers': <String, dynamic>{},
+              'explore_ticker_ambiguous': {
+                'candidate': 'Facebook',
+                'matches': [
+                  {'symbol': 'META', 'description': 'META PLATFORMS INC'},
+                  {'symbol': 'FB', 'description': 'FACEBOOK INC'},
+                ],
+              },
+            },
+          );
+          expect(result, SnapshotValidation.ok);
+        },
+      );
     });
 
     group('invest mode', () {

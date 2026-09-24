@@ -45,6 +45,11 @@ class _FadeSlideInState extends State<FadeSlideIn>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    // Sin status listener/callback hoy, así que el salto sincrónico acá no
+    // puede mutar estado durante el build. Si se le agrega un callback de
+    // finalización en el futuro, usar `startRevealAnimation`
+    // (lib/presentation/shared/animation/reveal_animation.dart) en vez de
+    // este `.value = 1` directo — ver su doc para el porqué.
     if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
       return;

@@ -540,13 +540,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     late final Key contentKey;
     late final Widget content;
 
-    if (message.surfaceId != null && message.isStreaming && !orbGateOpen) {
+    if (message.isGenUiSurface && message.isStreaming && !orbGateOpen) {
       // El placeholder ya existe en el estado (se agrega junto con el
       // mensaje del usuario), pero visualmente espera a que la burbuja del
       // usuario termine su propio typewriter antes de mostrar el orbe.
       contentKey = const ValueKey('gated');
       content = const SizedBox.shrink();
-    } else if (message.surfaceId != null && message.isStreaming) {
+    } else if (message.isGenUiSurface && message.isStreaming) {
       // Sin chrome de burbuja: el orbe flota suelto en el lugar donde va a
       // aparecer la respuesta, en vez de quedar encerrado en un contenedor.
       // Sin deriva vertical: acá el orbe marca un punto exacto — dónde va
@@ -560,7 +560,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           child: AssistantThinkingOrb(size: AppDimens.iconLg),
         ),
       );
-    } else if (message.surfaceId != null) {
+    } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
       final surfaceService =
           message.engineMode == null

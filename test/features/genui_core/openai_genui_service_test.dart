@@ -114,5 +114,40 @@ void main() {
 
       expect(service.history.length, 1); // solo el system prompt
     });
+
+    // Regresión: mandar un segundo mensaje sin esperar respuesta al
+    // primero. `history` es estado compartido entre llamadas — sin la
+    // cola de serialización (`AsyncCallQueue`, ver `handleSend`), dos
+    // `handleSend` sueltos en paralelo podían intercalar sus appends a
+    // `history` en cualquier orden. Acá ambos apuntan a `apiKey: ''`, así
+    // que los dos terminan en el mismo `StateError` — el punto no es el
+    // error en sí, sino que (a) NINGUNO se pierde en silencio (ambos
+    // futures resuelven) y (b) sus mensajes de usuario quedan en `history`
+    // en el orden en que se mandaron, no mezclados.
+    test(
+      'sending a second message before awaiting the first never drops '
+      'either one, and does not interleave their history entries',
+      () async {
+        final service = buildService();
+
+        final first = service.handleSend(
+          ChatMessage.user('primer mensaje'),
+          surfaceId: 'surface_1',
+        );
+        final second = service.handleSend(
+          ChatMessage.user('segundo mensaje'),
+          surfaceId: 'surface_2',
+        );
+
+        await expectLater(first, throwsA(isA<StateError>()));
+        await expectLater(second, throwsA(isA<StateError>()));
+
+        // system + "primer mensaje" + "segundo mensaje" — en ese orden,
+        // sin importar que se dispararon sin esperar entre sí.
+        expect(service.history.length, 3);
+        expect(service.history[1].content!.first.text, 'primer mensaje');
+        expect(service.history[2].content!.first.text, 'segundo mensaje');
+      },
+    );
   });
 }

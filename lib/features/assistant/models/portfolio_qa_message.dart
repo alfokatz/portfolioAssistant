@@ -11,6 +11,7 @@ class PortfolioQaMessage {
     this.isStreaming = false,
     this.engineMode,
     this.hasRevealed = false,
+    this.isFallback = false,
   });
 
   final PortfolioQaRole role;
@@ -19,6 +20,16 @@ class PortfolioQaMessage {
   final bool isStreaming;
 
   final AssistantMode? engineMode;
+
+  /// `true` cuando [content] es un mensaje de fallback en texto plano
+  /// mostrado porque la generación de esta surface falló, pero [surfaceId]
+  /// se conserva a propósito (no se limpia): si un reintento tardío
+  /// termina resolviendo esa misma surface con componentes válidos, ese
+  /// surfaceId es lo único que permite encontrar este mensaje de nuevo y
+  /// reemplazar el error por la respuesta real (ver
+  /// `AssistantMessageSync.applySurfaceReady`). Nunca es `true` junto con
+  /// `isStreaming`.
+  final bool isFallback;
 
   /// `true` una vez que la surface de este mensaje terminó su reveal
   /// secuencial (ver `SurfaceRevealController.isFullyRevealed`) al menos una
@@ -30,7 +41,11 @@ class PortfolioQaMessage {
   /// contenido final de una en vez de animar.
   final bool hasRevealed;
 
-  bool get isGenUiSurface => surfaceId != null;
+  /// Si esto debería renderizarse como una `Surface` de GenUI (vs. una
+  /// burbuja de texto plano). Un mensaje con `surfaceId` pero marcado
+  /// [isFallback] todavía no tiene una surface válida para mostrar — se ve
+  /// como texto hasta que, si acaso, un reintento tardío la resuelve.
+  bool get isGenUiSurface => surfaceId != null && !isFallback;
 
   PortfolioQaMessage copyWith({
     PortfolioQaRole? role,
@@ -39,6 +54,7 @@ class PortfolioQaMessage {
     bool? isStreaming,
     AssistantMode? engineMode,
     bool? hasRevealed,
+    bool? isFallback,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -47,6 +63,7 @@ class PortfolioQaMessage {
       isStreaming: isStreaming ?? this.isStreaming,
       engineMode: engineMode ?? this.engineMode,
       hasRevealed: hasRevealed ?? this.hasRevealed,
+      isFallback: isFallback ?? this.isFallback,
     );
   }
 }

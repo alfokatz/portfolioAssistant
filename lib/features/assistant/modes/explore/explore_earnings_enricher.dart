@@ -20,7 +20,12 @@ class ExploreEarningsEnricher {
 
   final EarningsCalendarRepository _earningsRepository;
 
-  /// [earnings_calendar_status] is one of: `ok`, `empty`, `failed`.
+  /// [earnings_calendar_status] is one of: `ok`, `empty`, `failed`. A
+  /// fourth state, `locked` (user's plan doesn't include this), is NOT set
+  /// here — this enricher only ever runs when the caller already confirmed
+  /// the user is entitled (see `ExploreContextBuilder.build`'s
+  /// `earningsAllowed` param, which sets `locked` directly without calling
+  /// this class at all).
   Future<Map<String, Object?>> enrich({
     required Map<String, Object?> snapshot,
   }) async {

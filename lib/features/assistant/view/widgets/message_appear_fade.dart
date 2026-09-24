@@ -47,6 +47,10 @@ class _MessageAppearFadeState extends State<MessageAppearFade>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    // Sin status listener/callback hoy, así que el salto sincrónico acá no
+    // puede mutar estado durante el build. Si se le agrega un `onComplete`
+    // en el futuro, usar `startRevealAnimation` (reveal_animation.dart) en
+    // vez de este `.value = 1` directo — ver su doc para el porqué.
     if (widget.skipAnimation || MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
     } else {
