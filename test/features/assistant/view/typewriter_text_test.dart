@@ -141,6 +141,49 @@ void main() {
     expect(find.text('esperando turno'), findsOneWidget);
     expect(completed, isTrue);
   });
+
+  testWidgets('onWordRevealed fires once per completed word while animating', (
+    tester,
+  ) async {
+    var words = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TypewriterText(
+            text: 'uno dos  tres cuatro',
+            charsPerSecond: 50,
+            onWordRevealed: () => words++,
+          ),
+        ),
+      ),
+    );
+    // Frames chicos para no saltearse ningún límite entre palabras.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+    // "uno", "dos", "tres" terminan con espacio; "cuatro" cierra el texto.
+    expect(words, 3);
+  });
+
+  testWidgets('onWordRevealed never fires when the animation is skipped', (
+    tester,
+  ) async {
+    var words = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TypewriterText(
+            text: 'ya revelado antes',
+            skipAnimation: true,
+            onWordRevealed: () => words++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(words, 0);
+  });
 }
 
 /// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le

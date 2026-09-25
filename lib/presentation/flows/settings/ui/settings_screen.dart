@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -216,6 +217,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
     final themeMode = ref.watch(themeModeProvider);
+    final hapticsEnabled = ref.watch(hapticsEnabledProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -313,6 +315,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                       settings.isLoading
                           ? null
                           : settingsNotifier.setPriceAlertsEnabled,
+                ),
+                const SettingsDivider(),
+                SettingsToggleRow(
+                  icon: Icons.vibration_rounded,
+                  label: 'settings_haptics'.tr(),
+                  value: hapticsEnabled,
+                  onChanged: ref.read(hapticsEnabledProvider.notifier).setEnabled,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

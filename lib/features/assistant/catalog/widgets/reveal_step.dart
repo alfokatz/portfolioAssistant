@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/genui_core/widgets/catalog_component_scope.dart';
 import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Orquesta el reveal secuencial de los widgets de una surface GenUI:
@@ -92,6 +94,7 @@ class RevealStep extends StatefulWidget {
 
 class _RevealStepState extends State<RevealStep> {
   late final int _slot;
+  bool _hapticFired = false;
 
   @override
   void initState() {
@@ -110,7 +113,23 @@ class _RevealStepState extends State<RevealStep> {
     if (mounted) setState(() {});
   }
 
-  void _handleFinished() => widget.controller.advance(_slot);
+  void _handleFinished() {
+    _maybeFireHaptic();
+    widget.controller.advance(_slot);
+  }
+
+  /// Vibración del componente GenUI que contiene este paso (ver
+  /// `componentHapticPatterns`), una sola vez por montaje. No vibra con
+  /// `reduceMotion`: ahí todo aparece de golpe — sea por accesibilidad o
+  /// porque la surface ya se había revelado en un montaje anterior y el
+  /// usuario solo scrolleó de vuelta — y no hay "llegada" que acompañar.
+  void _maybeFireHaptic() {
+    if (_hapticFired || widget.controller.reduceMotion || !mounted) return;
+    _hapticFired = true;
+    final type = CatalogComponentScope.maybeTypeOf(context);
+    if (type == null) return;
+    PortyHapticsService.maybeOf(context)?.componentRevealed(type);
+  }
 
   @override
   Widget build(BuildContext context) {

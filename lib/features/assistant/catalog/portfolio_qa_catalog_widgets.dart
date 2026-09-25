@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projection_chart.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
@@ -37,6 +38,8 @@ abstract final class PortfolioQaCatalogWidgets {
                   style: style,
                   play: active,
                   onComplete: onFinished,
+                  onWordRevealed:
+                      PortyHapticsService.maybeOf(context)?.streamTick,
                 ),
           );
         },

@@ -220,6 +220,7 @@
   "settings_currency_usd": "USD ($)",
   "settings_notifications": "Notificaciones",
   "settings_price_alerts": "Alertas de precio",
+  "settings_haptics": "Vibraciones al responder",
   "settings_change_password": "Cambiar contraseña",
   "settings_change_password_message": "Te enviaremos un enlace a tu email para restablecer la contraseña.",
   "settings_send_link": "Enviar enlace",

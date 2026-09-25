@@ -22,6 +22,7 @@ class TypewriterText extends StatefulWidget {
     this.onComplete,
     this.play = true,
     this.skipAnimation = false,
+    this.onWordRevealed,
   });
 
   final String text;
@@ -46,6 +47,13 @@ class TypewriterText extends StatefulWidget {
   /// `MediaQuery` (ej. el teclado ocultándose al enviar un mensaje).
   final bool skipAnimation;
 
+  /// Se llama cada vez que se termina de tipear una palabra (aparece un
+  /// espacio después de texto), solo mientras la animación corre de verdad
+  /// — nunca en el salto instantáneo de [skipAnimation]/reduced motion.
+  /// Corre inline en el tick del controller: tiene que ser barato y no
+  /// bloquear (ej. un haptic fire-and-forget con su propio throttle).
+  final VoidCallback? onWordRevealed;
+
   @override
   State<TypewriterText> createState() => _TypewriterTextState();
 }
@@ -55,6 +63,7 @@ class _TypewriterTextState extends State<TypewriterText>
   late final AnimationController _controller;
   bool _started = false;
   bool _completed = false;
+  int _lastVisibleChars = 0;
 
   @override
   void initState() {
@@ -62,7 +71,9 @@ class _TypewriterTextState extends State<TypewriterText>
     _controller = AnimationController(
       vsync: this,
       duration: _durationFor(widget.text, widget.charsPerSecond),
-    )..addStatusListener(_handleStatus);
+    )
+      ..addStatusListener(_handleStatus)
+      ..addListener(_handleTick);
   }
 
   @override
@@ -77,6 +88,7 @@ class _TypewriterTextState extends State<TypewriterText>
     if (oldWidget.text != widget.text) {
       _started = false;
       _completed = false;
+      _lastVisibleChars = 0;
       _controller.duration = _durationFor(widget.text, widget.charsPerSecond);
       _controller.reset();
     }
@@ -101,6 +113,31 @@ class _TypewriterTextState extends State<TypewriterText>
     }
   }
 
+  int get _visibleChars => (widget.text.length * _controller.value)
+      .floor()
+      .clamp(0, widget.text.length);
+
+  void _handleTick() {
+    final onWordRevealed = widget.onWordRevealed;
+    final visible = _visibleChars;
+    final from = _lastVisibleChars;
+    _lastVisibleChars = visible;
+    if (onWordRevealed == null || !_controller.isAnimating || visible <= from) {
+      return;
+    }
+    final text = widget.text;
+    for (var i = from < 1 ? 1 : from; i < visible; i++) {
+      if (_isWhitespace(text.codeUnitAt(i)) &&
+          !_isWhitespace(text.codeUnitAt(i - 1))) {
+        onWordRevealed();
+        return;
+      }
+    }
+  }
+
+  static bool _isWhitespace(int codeUnit) =>
+      codeUnit == 0x20 || codeUnit == 0x0A || codeUnit == 0x09;
+
   static Duration _durationFor(String text, double charsPerSecond) {
     if (text.isEmpty || charsPerSecond <= 0) return Duration.zero;
     final ms = (text.length / charsPerSecond * 1000).round();
@@ -110,6 +147,7 @@ class _TypewriterTextState extends State<TypewriterText>
   @override
   void dispose() {
     _controller.removeStatusListener(_handleStatus);
+    _controller.removeListener(_handleTick);
     _controller.dispose();
     super.dispose();
   }
@@ -121,12 +159,9 @@ class _TypewriterTextState extends State<TypewriterText>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          final visibleChars = (widget.text.length * _controller.value)
-              .floor()
-              .clamp(0, widget.text.length);
           return ExcludeSemantics(
             child: Text(
-              widget.text.substring(0, visibleChars),
+              widget.text.substring(0, _visibleChars),
               style: widget.style,
             ),
           );

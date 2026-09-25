@@ -218,6 +218,7 @@
   "settings_currency_usd": "USD ($)",
   "settings_notifications": "Notifications",
   "settings_price_alerts": "Price alerts",
+  "settings_haptics": "Haptics on replies",
   "settings_change_password": "Change password",
   "settings_change_password_message": "We will send a link to your email to reset your password.",
   "settings_send_link": "Send link",
