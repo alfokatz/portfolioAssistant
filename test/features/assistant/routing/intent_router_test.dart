@@ -38,14 +38,17 @@ void main() {
       expect(engine, AssistantMode.explore);
     });
 
-    test('detects explore when message contains reporta (earnings calendar)', () {
-      final engine = IntentRouter.detectEngine(
-        message: '¿Cuándo reporta resultados AAPL?',
-        lastEngine: AssistantMode.invest,
-      );
+    test(
+      'detects explore when message contains reporta (earnings calendar)',
+      () {
+        final engine = IntentRouter.detectEngine(
+          message: '¿Cuándo reporta resultados AAPL?',
+          lastEngine: AssistantMode.invest,
+        );
 
-      expect(engine, AssistantMode.explore);
-    });
+        expect(engine, AssistantMode.explore);
+      },
+    );
 
     test('detects learn when message contains qué es', () {
       final engine = IntentRouter.detectEngine(
@@ -67,17 +70,14 @@ void main() {
       expect(engine, AssistantMode.plan);
     });
 
-    test(
-      'keeps resolving to plan when already answering with that engine',
-      () {
-        final engine = IntentRouter.detectEngine(
-          message: 'para la jubilación en 40 años me podes armar un plan?',
-          lastEngine: AssistantMode.invest,
-        );
+    test('keeps resolving to plan when already answering with that engine', () {
+      final engine = IntentRouter.detectEngine(
+        message: 'para la jubilación en 40 años me podes armar un plan?',
+        lastEngine: AssistantMode.invest,
+      );
 
-        expect(engine, AssistantMode.plan);
-      },
-    );
+      expect(engine, AssistantMode.plan);
+    });
 
     test('detects portfolio when message contains mi cartera', () {
       final engine = IntentRouter.detectEngine(
@@ -106,22 +106,20 @@ void main() {
       expect(engine, AssistantMode.portfolio);
     });
 
-    test(
-      'does not detect learn when "que es" is a coincidental substring',
-      () {
-        // Regresión: "...considerando que ese ahorro..." contiene "que es"
-        // como substring literal (de "que" + "ese"), sin ser una pregunta
-        // de "¿qué es X?". Antes esto disparaba erróneamente el motor learn
-        // en medio de una conversación de planificación.
-        final engine = IntentRouter.detectEngine(
-          message: 'ahi estas considerando que ese ahorro mensual lo '
-              'invertiría a una tasa del 10% anual aproximadamente?',
-          lastEngine: AssistantMode.invest,
-        );
+    test('does not detect learn when "que es" is a coincidental substring', () {
+      // Regresión: "...considerando que ese ahorro..." contiene "que es"
+      // como substring literal (de "que" + "ese"), sin ser una pregunta
+      // de "¿qué es X?". Antes esto disparaba erróneamente el motor learn
+      // en medio de una conversación de planificación.
+      final engine = IntentRouter.detectEngine(
+        message:
+            'ahi estas considerando que ese ahorro mensual lo '
+            'invertiría a una tasa del 10% anual aproximadamente?',
+        lastEngine: AssistantMode.invest,
+      );
 
-        expect(engine, AssistantMode.invest);
-      },
-    );
+      expect(engine, AssistantMode.invest);
+    });
 
     test('still detects learn for a genuine "qué es" question', () {
       final engine = IntentRouter.detectEngine(
@@ -206,7 +204,11 @@ void main() {
           'me gustaría juntar 200 mil en 15 años',
         ]) {
           for (final last in everyEngine) {
-            expect(route(message, last), AssistantMode.plan, reason: '$message (from $last)');
+            expect(
+              route(message, last),
+              AssistantMode.plan,
+              reason: '$message (from $last)',
+            );
           }
         }
       },
@@ -219,44 +221,184 @@ void main() {
         'cuento con unos 2 mil',
       ]) {
         for (final last in everyEngine) {
-          expect(route(message, last), AssistantMode.invest, reason: '$message (from $last)');
+          expect(
+            route(message, last),
+            AssistantMode.invest,
+            reason: '$message (from $last)',
+          );
         }
       }
     });
 
     test('a message with no signal no longer stays in invest/plan', () {
       for (final last in [AssistantMode.invest, AssistantMode.plan]) {
-        for (final message in const [
-          'Hola, buenos días',
-          'gracias!',
-          '¿A cuánto está AAPL?',
-        ]) {
-          expect(route(message, last), AssistantMode.portfolio, reason: '$message (from $last)');
+        for (final message in const ['Hola, buenos días', 'gracias!']) {
+          expect(
+            route(message, last),
+            AssistantMode.portfolio,
+            reason: '$message (from $last)',
+          );
         }
+        // Era el límite conocido "AAPL después de Invest → Portfolio":
+        // resuelto al decidir Explore por contenido.
+        expect(
+          route('¿A cuánto está AAPL?', last),
+          AssistantMode.explore,
+          reason: 'from $last',
+        );
       }
     });
 
     test('keyword questions still leave invest/plan for their own engine', () {
       expect(route('¿Qué es un ETF?', AssistantMode.plan), AssistantMode.learn);
-      expect(route('¿Cómo va mi cartera?', AssistantMode.invest), AssistantMode.portfolio);
-      expect(route('¿Cuál es el precio de AAPL?', AssistantMode.plan), AssistantMode.explore);
+      expect(
+        route('¿Cómo va mi cartera?', AssistantMode.invest),
+        AssistantMode.portfolio,
+      );
+      expect(
+        route('¿Cuál es el precio de AAPL?', AssistantMode.plan),
+        AssistantMode.explore,
+      );
     });
 
     test('money without a budget verb does not hijack other engines', () {
       // "gané más de $1000" es una pregunta de resultados, no un presupuesto.
-      expect(route('¿gané más de \$1000?', AssistantMode.portfolio), AssistantMode.portfolio);
-      expect(route('¿gané más de \$1000?', AssistantMode.invest), AssistantMode.portfolio);
+      expect(
+        route('¿gané más de \$1000?', AssistantMode.portfolio),
+        AssistantMode.portfolio,
+      );
+      expect(
+        route('¿gané más de \$1000?', AssistantMode.invest),
+        AssistantMode.portfolio,
+      );
     });
 
     test('a plain year is not a goal (no money marker)', () {
-      expect(route('¿cómo le fue a NVDA en 2025?', AssistantMode.plan), AssistantMode.portfolio);
-      expect(route('¿cómo le fue a NVDA en 2025?', AssistantMode.learn), AssistantMode.learn);
+      // Sin monto no hay meta: nunca Plan. (Por el ticker, va a Explore.)
+      for (final last in [AssistantMode.plan, AssistantMode.learn]) {
+        expect(
+          route('¿cómo le fue a NVDA en 2025?', last),
+          AssistantMode.explore,
+        );
+      }
     });
 
-    test('portfolio/learn/explore inheritance is unchanged (out of scope — '
-        'replaced by the unified pipeline)', () {
-      expect(route('Hola, buenos días', AssistantMode.learn), AssistantMode.learn);
-      expect(route('Hola, buenos días', AssistantMode.explore), AssistantMode.explore);
+    test('a message with NO signal still continues portfolio/learn/explore '
+        '(signal-less follow-ups; replaced by the unified pipeline)', () {
+      expect(
+        route('Hola, buenos días', AssistantMode.learn),
+        AssistantMode.learn,
+      );
+      expect(
+        route('Hola, buenos días', AssistantMode.explore),
+        AssistantMode.explore,
+      );
+    });
+  });
+
+  // Regresión (reproducida con logs reales): después de una pregunta de
+  // cartera, una pregunta por un ticker que el usuario no tiene heredaba
+  // `portfolio` — que no tiene datos de ese ticker — y Porty respondía "no
+  // hay datos suficientes". Explore se decide por contenido (ticker
+  // detectable o verbo de precio/movimiento), no por herencia.
+  group('Explore is decided by content, not inherited', () {
+    test(
+      'the real failing sequence: "¿cómo le ha ido a mi Portfolio?" → portfolio, '
+      'then "y a AAPL como le ha ido en el último año?" → explore',
+      () {
+        var last = AssistantMode.portfolio;
+
+        final first = IntentRouter.detectEngine(
+          message: '¿cómo le ha ido a mi Portfolio?',
+          lastEngine: last,
+        );
+        expect(first, AssistantMode.portfolio);
+        last = first; // igual que `AssistantProvider._lastEngineMode`
+
+        final second = IntentRouter.detectEngine(
+          message: 'y a AAPL como le ha ido en el último año?',
+          lastEngine: last,
+        );
+        expect(second, AssistantMode.explore);
+      },
+    );
+
+    test('a detectable ticker reaches explore from ANY engine', () {
+      for (final last in AssistantMode.values) {
+        expect(
+          IntentRouter.detectEngine(
+            message: '¿A cuánto está AAPL?',
+            lastEngine: last,
+          ),
+          AssistantMode.explore,
+          reason: 'from $last',
+        );
+      }
+    });
+
+    test('a price/move verb reaches explore even without a ticker symbol', () {
+      for (final message in const [
+        '¿Cómo viene Apple?',
+        '¿Cuánto vale Nvidia hoy?',
+        'evolución de Microsoft',
+      ]) {
+        expect(
+          IntentRouter.detectEngine(
+            message: message,
+            lastEngine: AssistantMode.portfolio,
+          ),
+          AssistantMode.explore,
+          reason: message,
+        );
+      }
+    });
+
+    test('portfolio and conceptual questions are NOT pulled into explore', () {
+      expect(
+        IntentRouter.detectEngine(
+          message: '¿cómo le ha ido a mi Portfolio?',
+          lastEngine: AssistantMode.explore,
+        ),
+        AssistantMode.portfolio,
+      );
+      expect(
+        IntentRouter.detectEngine(
+          message: '¿Cuál de mis acciones subió más esta semana?',
+          lastEngine: AssistantMode.explore,
+        ),
+        AssistantMode.portfolio,
+      );
+      expect(
+        IntentRouter.detectEngine(
+          message: '¿Qué es un ETF, como SPY?',
+          lastEngine: AssistantMode.portfolio,
+        ),
+        AssistantMode.learn,
+      );
+      expect(
+        IntentRouter.detectEngine(
+          message: '¿Vale la pena diversificar?',
+          lastEngine: AssistantMode.learn,
+        ),
+        AssistantMode.learn,
+      );
+      expect(
+        IntentRouter.detectEngine(
+          message: '¿Qué es un bono de bajo riesgo?',
+          lastEngine: AssistantMode.portfolio,
+        ),
+        AssistantMode.learn,
+      );
+    });
+
+    test('invest/plan keywords still win over a ticker', () {
+      expect(
+        IntentRouter.detectEngine(
+          message: 'Quiero invertir en AAPL',
+          lastEngine: AssistantMode.explore,
+        ),
+        AssistantMode.invest,
+      );
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/goal_extractor.dart';
 
 abstract final class IntentRouter {
@@ -52,6 +53,35 @@ abstract final class IntentRouter {
   static bool _hasBudgetSignal(String message) =>
       _budgetPattern.hasMatch(message);
 
+  /// Verbos de precio/movimiento de un ticker. "cuánto vale" (no "vale"
+  /// suelto: matchearía "¿vale la pena…?") y "bajó" solo con tilde ("bajo"
+  /// es también "bajo riesgo").
+  static const _priceMoveWords = [
+    'a cuánto',
+    'a cuanto',
+    'cuánto vale',
+    'cuanto vale',
+    'subió',
+    'subio',
+    'bajó',
+    'cayó',
+    'cayo',
+    'evolución',
+    'evolucion',
+    'cómo le ha ido',
+    'como le ha ido',
+    'cómo le fue',
+    'como le fue',
+    'cómo viene',
+    'como viene',
+  ];
+
+  /// Señal de Explore: un ticker detectable (el MISMO extractor que usa el
+  /// contexto de Explore) o un verbo de precio/movimiento.
+  static bool _hasTickerSignal(String message, String lower) =>
+      TickerExtractor.extractTickers(message).isNotEmpty ||
+      _matchesAny(lower, _priceMoveWords);
+
   /// Clasifica el mensaje y decide qué motor debe atenderlo, sin pestañas
   /// visibles ni confirmación del usuario.
   ///
@@ -61,9 +91,14 @@ abstract final class IntentRouter {
   /// sin keywords ("hola", "¿a cuánto está AAPL?") se quedaba ahí — el
   /// mismo bug de motor pegajoso que tenía el router principal.
   ///
-  /// Para portfolio/learn/explore, un mensaje sin señales todavía sigue con
-  /// `lastEngine`: ese ruteo lo reemplaza el pipeline unificado (ver la
-  /// decisión de unificar modos), así que no se toca acá.
+  /// Explore también se decide por contenido (ticker detectable o verbo de
+  /// precio/movimiento), nunca por herencia.
+  ///
+  /// Un mensaje SIN ninguna señal todavía sigue con `lastEngine` si venía
+  /// de portfolio/learn/explore: es lo que sostiene los seguimientos sin
+  /// señal propia ("¿y en el último año?" hablando de AAPL, "¿y cómo se
+  /// aplica eso?" en una explicación). Ese caso lo resuelve el pipeline
+  /// unificado con su ticker de seguimiento.
   static AssistantMode detectEngine({
     required String message,
     required AssistantMode lastEngine,
@@ -83,6 +118,10 @@ abstract final class IntentRouter {
       'mi portfolio',
       'mi cartera',
       'mis posiciones',
+      // Sin estas, "¿cuál de mis acciones subió más?" caería en la señal
+      // de ticker de abajo (por "subió") en vez de ir a su propia cartera.
+      'mis acciones',
+      'mis inversiones',
       'cómo voy',
     ])) {
       return AssistantMode.portfolio;
@@ -111,6 +150,13 @@ abstract final class IntentRouter {
         _matchesAny(lower, ['explicame', 'explicá', 'significa', 'diversific'])) {
       return AssistantMode.learn;
     }
+    // Un ticker o un verbo de precio va a Explore sin importar el motor
+    // anterior: antes, "y a AAPL como le ha ido en el último año?" después
+    // de una pregunta de cartera se quedaba en portfolio (que no tiene
+    // datos de tickers que el usuario no tiene) — el motor pegajoso. Va
+    // después de learn para que "¿qué es un ETF, como SPY?" siga siendo
+    // conceptual.
+    if (_hasTickerSignal(message, lower)) return AssistantMode.explore;
     // Señales de contenido, sin keyword: evaluadas recién acá para no
     // cambiar el ruteo de ningún mensaje que ya matcheaba otro dominio.
     if (_hasGoalSignal(message)) return AssistantMode.plan;
