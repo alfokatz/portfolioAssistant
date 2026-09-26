@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const settingsHapticsEnabledKey = 'settings_haptics_enabled';
@@ -20,6 +21,10 @@ const streamTickPattern = PortyHapticPattern.selection;
 /// palabra cada ~100-150ms a 40 chars/s, pero palabras cortas ("a", "el")
 /// pueden caer más juntas; esto evita saturar.
 const streamTickCooldown = Duration(milliseconds: 100);
+
+/// Cooldown del tick de scrub sobre un gráfico: en rangos largos hay más de
+/// un punto por pixel y un drag rápido cruzaría decenas por frame.
+const scrubTickCooldown = Duration(milliseconds: 35);
 
 /// Vibración al terminar de revelarse cada componente GenUI, por nombre de
 /// componente del catálogo (`CatalogItemContext.type`). Los componentes que
@@ -42,6 +47,7 @@ const componentHapticPatterns = <String, PortyHapticPattern>{
   'QaGoalCard': PortyHapticPattern.medium,
   'QaProjectionStrip': PortyHapticPattern.medium,
   'QaProjectionChart': PortyHapticPattern.medium,
+  'QaPriceChart': PortyHapticPattern.medium,
   'QaMilestoneList': PortyHapticPattern.medium,
   'QaComparisonRow': PortyHapticPattern.medium,
   // Texto / noticias.
@@ -71,18 +77,13 @@ class PortyHapticsService {
   final DateTime Function() _clock;
   final Future<void> Function(PortyHapticPattern) _performer;
   DateTime? _lastStreamTick;
+  DateTime? _lastScrubTick;
 
   /// Busca el servicio en el `ProviderScope` ancestro sin crashear si no
   /// hay uno (widgets testeados en aislamiento) — devuelve `null` y el
   /// caller simplemente no vibra.
-  static PortyHapticsService? maybeOf(BuildContext context) {
-    final element =
-        context.getElementForInheritedWidgetOfExactType<
-          UncontrolledProviderScope
-        >();
-    final scope = element?.widget as UncontrolledProviderScope?;
-    return scope?.container.read(portyHapticsServiceProvider);
-  }
+  static PortyHapticsService? maybeOf(BuildContext context) =>
+      readProviderOrNull(context, portyHapticsServiceProvider);
 
   /// Una palabra nueva apareció en el stream del texto de Porty.
   void streamTick() {
@@ -92,6 +93,16 @@ class PortyHapticsService {
     if (last != null && now.difference(last) < streamTickCooldown) return;
     _lastStreamTick = now;
     _performer(streamTickPattern);
+  }
+
+  /// El dedo cruzó de un punto al siguiente scrubeando un gráfico.
+  void scrubTick() {
+    if (!enabled) return;
+    final now = _clock();
+    final last = _lastScrubTick;
+    if (last != null && now.difference(last) < scrubTickCooldown) return;
+    _lastScrubTick = now;
+    _performer(PortyHapticPattern.selection);
   }
 
   /// El componente [componentType] del catálogo terminó de revelarse.

@@ -36,6 +36,7 @@ void main() {
       qaItemNames(AssistantMode.explore),
       {
         'QaAnswerText',
+        'QaPriceChart',
         'QaTickerSnapshot',
         'QaTickerMove',
         'QaMetricStrip',
@@ -106,6 +107,7 @@ void main() {
     const allExpected = {
       'QaAnswerText',
       'QaMetricStrip',
+      'QaPriceChart',
       'QaTickerSnapshot',
       'QaTickerMove',
       'QaEarningsCalendar',

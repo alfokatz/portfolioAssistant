@@ -47,6 +47,10 @@ class _FakeEarningsCalendarRepository implements EarningsCalendarRepository {
 
 class _FakeQuoteRepository implements QuoteRepository {
   @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async =>
+      const [];
+
+  @override
   Future<Either<HttpError, double>> getCurrentPrice(String ticker) async {
     if (ticker == 'NVDA') return const Right(120.0);
     return Left(HttpError(code: 'not_found'));

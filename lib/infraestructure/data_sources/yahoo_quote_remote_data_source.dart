@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/data_sources/quote_remote_data_source.dart';
@@ -14,6 +16,7 @@ class _CachedQuote {
 
 class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
   final YahooFinanceDailyReader _reader;
+  final Dio _dio;
   final Map<String, _CachedQuote> _priceCache = {};
   final Map<String, List<PriceCandle>> _historyCache = {};
   final Duration _cacheTtl;
@@ -21,7 +24,9 @@ class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
   YahooQuoteRemoteDataSource({
     YahooFinanceDailyReader? reader,
     Duration? cacheTtl,
+    Dio? dio,
   })  : _reader = reader ?? YahooFinanceDailyReader(),
+        _dio = dio ?? _createIntradayDio(),
         _cacheTtl = cacheTtl ??
             Duration(
               minutes: int.tryParse(
@@ -83,6 +88,77 @@ class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
       );
     }
     return candles;
+  }
+
+  static const _intradayChartUrl =
+      'https://query1.finance.yahoo.com/v8/finance/chart';
+
+  static Dio _createIntradayDio() {
+    return Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 6),
+        receiveTimeout: const Duration(seconds: 6),
+        // Sin User-Agent de navegador Yahoo responde 429.
+        headers: {'User-Agent': 'Mozilla/5.0'},
+      ),
+    );
+  }
+
+  /// OJO: depende de un endpoint NO oficial ni documentado de Yahoo (el que
+  /// usa su propio sitio para los gráficos) — el paquete
+  /// `yahoo_finance_data_reader` solo trae velas diarias. Por eso tiene su
+  /// propio manejo de errores, separado del resto de este data source:
+  /// cualquier cosa inesperada (error HTTP, timeout, o un JSON con otra
+  /// forma) se trata como "sin datos" y devuelve `[]` en vez de tirar, así
+  /// el gráfico cae al mismo fallback que un ticker sin histórico.
+  @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        '$_intradayChartUrl/${_symbol(ticker)}',
+        queryParameters: {'range': '1d', 'interval': '5m'},
+      );
+      return parseIntradayChart(response.data);
+    } catch (e) {
+      debugPrint('Yahoo intraday failed for $ticker: $e');
+      return const [];
+    }
+  }
+
+  /// Parsea `chart.result[0]` (`timestamp[]` en segundos UTC +
+  /// `indicators.quote[0].close[]`, con `null` en los intervalos sin
+  /// operaciones). Cualquier forma distinta a la esperada devuelve `[]`.
+  @visibleForTesting
+  static List<PriceCandle> parseIntradayChart(Object? body) {
+    try {
+      final result = ((body as Map)['chart'] as Map)['result'] as List;
+      final first = result.first as Map;
+      final timestamps = first['timestamp'] as List;
+      final closes =
+          (((first['indicators'] as Map)['quote'] as List).first
+              as Map)['close'] as List;
+      final count = timestamps.length < closes.length
+          ? timestamps.length
+          : closes.length;
+      final candles = <PriceCandle>[];
+      for (var i = 0; i < count; i++) {
+        final ts = timestamps[i];
+        final close = closes[i];
+        if (ts is! num || close is! num) continue;
+        candles.add(
+          PriceCandle(
+            date: DateTime.fromMillisecondsSinceEpoch(
+              ts.toInt() * 1000,
+              isUtc: true,
+            ).toLocal(),
+            close: close.toDouble(),
+          ),
+        );
+      }
+      return candles;
+    } catch (_) {
+      return const [];
+    }
   }
 }
 

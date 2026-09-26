@@ -42,6 +42,15 @@ class QuoteRepositoryImpl implements QuoteRepository {
       );
     }
   }
+
+  @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async {
+    try {
+      return await remoteDataSource.getIntradayCandles(ticker);
+    } catch (_) {
+      return const [];
+    }
+  }
 }
 
 final quoteRepositoryProvider = Provider<QuoteRepository>(

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projection_chart.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
@@ -125,117 +127,153 @@ abstract final class PortfolioQaCatalogWidgets {
   }
 
   static Widget qaTickerSnapshot(CatalogItemContext ctx) {
-    final data = _TickerSnapshotData.fromMap(ctx.data as JsonMap);
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-
     return QaCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                data.ticker,
-                style: const TextStyle(
-                  color: PortfolioColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              if (data.weightPct > 0)
-                Text(
-                  '${data.weightPct.toStringAsFixed(1)}% del portfolio',
-                  style: const TextStyle(
-                    color: PortfolioColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            currency.format(data.currentPrice),
-            style: const TextStyle(
-              color: PortfolioColors.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _periodChangeCell('Día', data.dayChangePct)),
-              Expanded(child: _periodChangeCell('Semana', data.weekChangePct)),
-              Expanded(child: _periodChangeCell('Mes', data.monthChangePct)),
-            ],
-          ),
-        ],
+      child: _tickerSnapshotContent(
+        _TickerSnapshotData.fromMap(ctx.data as JsonMap),
       ),
     );
   }
 
+  /// Contenido de `QaTickerSnapshot` sin la card — lo reusa `QaPriceChart`
+  /// como fallback dentro de su propia card.
+  static Widget _tickerSnapshotContent(_TickerSnapshotData data) {
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              data.ticker,
+              style: const TextStyle(
+                color: PortfolioColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            if (data.weightPct > 0)
+              Text(
+                '${data.weightPct.toStringAsFixed(1)}% del portfolio',
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          currency.format(data.currentPrice),
+          style: const TextStyle(
+            color: PortfolioColors.textPrimary,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _periodChangeCell('Día', data.dayChangePct)),
+            Expanded(child: _periodChangeCell('Semana', data.weekChangePct)),
+            Expanded(child: _periodChangeCell('Mes', data.monthChangePct)),
+          ],
+        ),
+      ],
+    );
+  }
+
   static Widget qaTickerMove(CatalogItemContext ctx) {
-    final data = _TickerMoveData.fromMap(ctx.data as JsonMap);
+    return QaCardShell(
+      child: _tickerMoveContent(_TickerMoveData.fromMap(ctx.data as JsonMap)),
+    );
+  }
+
+  /// Contenido de `QaTickerMove` sin la card (ver [_tickerSnapshotContent]).
+  static Widget _tickerMoveContent(_TickerMoveData data) {
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final isUp = data.changePct >= 0;
     final pnlColor = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
-    return QaCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              data.ticker,
+              style: const TextStyle(
+                color: PortfolioColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            if (data.weightPct > 0)
               Text(
-                data.ticker,
+                '${data.weightPct.toStringAsFixed(1)}% del portfolio',
                 style: const TextStyle(
-                  color: PortfolioColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 11,
                 ),
               ),
-              const Spacer(),
-              if (data.weightPct > 0)
-                Text(
-                  '${data.weightPct.toStringAsFixed(1)}% del portfolio',
-                  style: const TextStyle(
-                    color: PortfolioColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          data.periodLabel,
+          style: const TextStyle(
+            color: PortfolioColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-          const SizedBox(height: 4),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${isUp ? '+' : ''}${data.changePct.toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: pnlColor,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (data.priceStart > 0 && data.priceEnd > 0) ...[
+          const SizedBox(height: 6),
           Text(
-            data.periodLabel,
+            '${currency.format(data.priceStart)} → ${currency.format(data.priceEnd)}',
             style: const TextStyle(
               color: PortfolioColors.textSecondary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${isUp ? '+' : ''}${data.changePct.toStringAsFixed(1)}%',
-            style: TextStyle(
-              color: pnlColor,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (data.priceStart > 0 && data.priceEnd > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              '${currency.format(data.priceStart)} → ${currency.format(data.priceEnd)}',
-              style: const TextStyle(
-                color: PortfolioColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
+    );
+  }
+
+  /// Gráfico de precio histórico (modo explore). Si el período inicial no
+  /// tiene datos, la misma card muestra el contenido de `QaTickerMove`
+  /// (si el modelo mandó los campos de un período explícito) o de
+  /// `QaTickerSnapshot` — ver `QaPriceChart`.
+  static Widget qaPriceChart(CatalogItemContext ctx) {
+    final map = ctx.data as JsonMap;
+    final data = _PriceChartData.fromMap(map);
+    final fallback =
+        data.hasExplicitPeriod
+            ? _tickerMoveContent(_TickerMoveData.fromMap(map))
+            : _tickerSnapshotContent(_TickerSnapshotData.fromMap(map));
+
+    return QaCardShell.staged(
+      staged:
+          (context, active, onFinished) => QaPriceChart(
+            ticker: data.ticker,
+            initialRange: data.initialRange,
+            weightPct: data.weightPct,
+            fallback: fallback,
+            active: active,
+            onFinished: onFinished,
+          ),
     );
   }
 
@@ -432,11 +470,12 @@ abstract final class PortfolioQaCatalogWidgets {
     // Beat/miss reusa el mismo verde/rojo semántico que ya usa el PnL badge
     // del portfolio — no es una alerta nueva, es el mismo lenguaje de color
     // que el usuario ya conoce, sin urgencia visual extra.
-    final resultColor = hasResult
-        ? ((data.beat ?? (data.epsActual! >= data.epsEstimate!))
-              ? PortfolioColors.profit
-              : PortfolioColors.loss)
-        : PortfolioColors.textPrimary;
+    final resultColor =
+        hasResult
+            ? ((data.beat ?? (data.epsActual! >= data.epsEstimate!))
+                ? PortfolioColors.profit
+                : PortfolioColors.loss)
+            : PortfolioColors.textPrimary;
 
     return QaCardShell(
       child: Column(
@@ -1084,9 +1123,7 @@ abstract final class PortfolioQaCatalogWidgets {
     final data = _ProjectionChartData.fromMap(ctx.data as JsonMap);
     final points =
         data.points
-            .map(
-              (p) => ProjectionChartPoint(label: p.label, value: p.value),
-            )
+            .map((p) => ProjectionChartPoint(label: p.label, value: p.value))
             .toList();
 
     return QaCardShell.staged(
@@ -1663,6 +1700,36 @@ final class _TickerSnapshotData {
   final double weekChangePct;
   final double monthChangePct;
   final double weightPct;
+}
+
+final class _PriceChartData {
+  _PriceChartData({
+    required this.ticker,
+    required this.initialRange,
+    required this.weightPct,
+    required this.hasExplicitPeriod,
+  });
+
+  factory _PriceChartData.fromMap(JsonMap map) {
+    return _PriceChartData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      initialRange: PriceChartRange.fromWire(
+        GenUiHelpers.safeString(map['initialRange'], defaultValue: ''),
+      ),
+      weightPct: GenUiHelpers.safeDouble(map['weightPct'], defaultValue: 0),
+      hasExplicitPeriod:
+          GenUiHelpers.safeString(
+            map['periodLabel'],
+            defaultValue: '',
+          ).isNotEmpty &&
+          map['changePct'] != null,
+    );
+  }
+
+  final String ticker;
+  final PriceChartRange initialRange;
+  final double weightPct;
+  final bool hasExplicitPeriod;
 }
 
 final class _TickerMoveData {

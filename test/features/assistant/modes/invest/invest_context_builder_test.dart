@@ -32,6 +32,10 @@ class _FailingYahooSectorClient extends YahooSectorClient {
 }
 
 class _FakeQuoteRepository implements QuoteRepository {
+  @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async =>
+      const [];
+
   static const nvdaPrice = 120.0;
   static const xomPrice = 110.0;
 

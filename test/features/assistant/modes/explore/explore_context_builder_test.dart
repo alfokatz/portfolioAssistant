@@ -53,6 +53,10 @@ class _FakeEarningsCalendarRepository implements EarningsCalendarRepository {
 }
 
 class _FakeQuoteRepository implements QuoteRepository {
+  @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async =>
+      const [];
+
   static const aaplPrice = 190.0;
   static const spyPrice = 540.0;
 
@@ -66,6 +70,11 @@ class _FakeQuoteRepository implements QuoteRepository {
     }
     if (ticker == 'BAD') {
       return Left(HttpError(code: 'not_found'));
+    }
+    // Cotiza, pero Yahoo no tiene histórico (ticker poco común / recién
+    // listado) — ver `price_chart_available`.
+    if (ticker == 'NOHST') {
+      return const Right(12.5);
     }
     return Left(HttpError(code: 'unknown'));
   }
@@ -146,6 +155,31 @@ void main() {
       final year = periods['year'] as Map<String, dynamic>;
       expect(year['label_es'], 'último año');
     });
+
+    test('marks price_chart_available true when daily history exists', () async {
+      final snapshot = await ExploreContextBuilder.build(
+        userMessage: 'Cuéntame de AAPL',
+        quoteRepository: quoteRepository,
+        asOf: fixedAsOf,
+      );
+      final aapl = (snapshot['explore_tickers'] as Map)['AAPL'] as Map;
+      expect(aapl['price_chart_available'], isTrue);
+    });
+
+    test(
+      'marks price_chart_available false when the ticker quotes but has no '
+      'history, so the rules fall back to QaTickerSnapshot/QaTickerMove',
+      () async {
+        final snapshot = await ExploreContextBuilder.build(
+          userMessage: '¿a cuánto está NOHST?',
+          quoteRepository: quoteRepository,
+          asOf: fixedAsOf,
+        );
+        final entry = (snapshot['explore_tickers'] as Map)['NOHST'] as Map;
+        expect(entry['fetch_ok'], isTrue);
+        expect(entry['price_chart_available'], isFalse);
+      },
+    );
 
     test('marks fetch_ok false when price fetch fails', () async {
       final snapshot = await ExploreContextBuilder.build(

@@ -223,6 +223,73 @@ final CatalogItem qaTickerMoveItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaPriceChartItem = CatalogItem(
+  name: 'QaPriceChart',
+  dataSchema: S.object(
+    description:
+        'Gráfico de precio histórico de UN ticker (modo explore), con '
+        'selector de período 1D/1W/1M/3M/1Y/Todo que el usuario cambia sin '
+        'volver a preguntar. DEFAULT para cualquier pregunta de precio o '
+        'evolución de un ticker cuando explore_tickers.{TICKER}'
+        '.price_chart_available es true. La app trae la serie de precios '
+        'sola; los campos de snapshot/período son el fallback que se '
+        'muestra si no hay histórico.',
+    properties: {
+      'ticker': S.string(),
+      'initialRange': S.string(
+        description:
+            'Período inicial del gráfico según la pregunta: "1D" (hoy), '
+            '"1W" (semana), "1M" (mes — default si no nombró ninguno), '
+            '"3M" (trimestre), "1Y" (año), "ALL" (todo el histórico).',
+        enumValues: ['1D', '1W', '1M', '3M', '1Y', 'ALL'],
+      ),
+      'currentPrice': S.number(description: 'explore_tickers.{T}.current_price.'),
+      'dayChangePct': S.number(description: 'periods.day.change_pct.'),
+      'weekChangePct': S.number(description: 'periods.week.change_pct.'),
+      'monthChangePct': S.number(description: 'periods.month.change_pct.'),
+      'periodLabel': S.string(
+        description:
+            'Solo si el usuario nombró un período: periods.{period}.label_es.',
+      ),
+      'changePct': S.number(
+        description: 'Solo si nombró un período: periods.{period}.change_pct.',
+      ),
+      'priceStart': S.number(
+        description: 'Solo si nombró un período: periods.{period}.price_start.',
+      ),
+      'priceEnd': S.number(
+        description: 'Solo si nombró un período: periods.{period}.price_end.',
+      ),
+      'weightPct': S.number(
+        description: 'Peso del ticker en el portfolio (opcional).',
+      ),
+    },
+    required: ['ticker', 'initialRange', 'currentPrice'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPriceChart),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "price_chart",
+    "component": "QaPriceChart",
+    "ticker": "NVDA",
+    "initialRange": "1W",
+    "currentPrice": 120.50,
+    "dayChangePct": 1.2,
+    "weekChangePct": -2.1,
+    "monthChangePct": 5.8,
+    "periodLabel": "últimos 7 días",
+    "changePct": -2.1,
+    "priceStart": 123.09,
+    "priceEnd": 120.50
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaPeriodChangeItem = CatalogItem(
   name: 'QaPeriodChange',
   dataSchema: S.object(
@@ -1011,6 +1078,7 @@ abstract final class PortfolioQaCatalog {
       case AssistantMode.explore:
         return [
           qaAnswerTextItem,
+          qaPriceChartItem,
           qaTickerSnapshotItem,
           qaTickerMoveItem,
           qaMetricStripItem,

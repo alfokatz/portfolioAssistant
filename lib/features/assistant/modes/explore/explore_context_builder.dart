@@ -185,6 +185,12 @@ abstract final class ExploreContextBuilder {
     return {
       'current_price': _round2(currentPrice),
       'fetch_ok': true,
+      // Si hay histórico diario suficiente para trazar una línea —
+      // `QaPriceChart` es el default solo cuando esto es true; si no, las
+      // reglas de explore caen a QaTickerSnapshot/QaTickerMove. (El
+      // gráfico igual tiene su propio fallback en runtime para el caso
+      // que esto no puede anticipar: que falle el fetch intradía de 1D.)
+      'price_chart_available': history.length >= 2,
       'periods': periodsMap,
     };
   }
