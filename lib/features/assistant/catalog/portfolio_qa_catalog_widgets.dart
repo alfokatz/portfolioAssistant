@@ -398,10 +398,73 @@ abstract final class PortfolioQaCatalogWidgets {
     final data = _TopMoversData.fromMap(ctx.data as JsonMap);
     return Row(
       children: [
-        Expanded(child: _moverCard(label: 'Mejor', mover: data.best)),
+        Expanded(
+          child: _moverCard(
+            label: 'Mejor',
+            mover: data.best,
+            periodLabel: data.periodLabel,
+          ),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _moverCard(label: 'Peor', mover: data.worst)),
+        Expanded(
+          child: _moverCard(
+            label: 'Peor',
+            mover: data.worst,
+            periodLabel: data.periodLabel,
+          ),
+        ),
       ],
+    );
+  }
+
+  /// Foto actual de las posiciones abiertas del usuario (valor, P&L y P&L%
+  /// desde la compra). Campos numéricos tipados — a diferencia de
+  /// `QaMetricStrip`, que queda reservado para comparar 2-3 tickers.
+  static Widget qaPositionsSnapshot(CatalogItemContext ctx) {
+    final data = _PositionsSnapshotData.fromMap(ctx.data as JsonMap);
+    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final trend =
+        data.pnlAbs > 0
+            ? 'up'
+            : data.pnlAbs < 0
+            ? 'down'
+            : 'neutral';
+    final sign = data.pnlAbs > 0 ? '+' : '';
+    final cells = [
+      _MetricItem(
+        label:
+            data.positionsCount > 0
+                ? 'Valor (${data.positionsCount} posiciones)'
+                : 'Valor',
+        value: currency.format(data.totalValue),
+        trend: 'neutral',
+      ),
+      _MetricItem(
+        label: 'Ganancia/pérdida',
+        value: '$sign${currency.format(data.pnlAbs)}',
+        trend: trend,
+      ),
+      _MetricItem(
+        label: 'Rendimiento',
+        value: '$sign${data.pnlPct.toStringAsFixed(1)}%',
+        trend: trend,
+      ),
+    ];
+    return QaCardShell(
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 36,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: PortfolioColors.border,
+              ),
+            Expanded(child: _metricCell(cells[i])),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1363,8 +1426,16 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
-  static Widget _moverCard({required String label, required _Mover mover}) {
-    final isUp = mover.pnlPct >= 0;
+  /// [periodLabel] rotula la ventana cuando el mover trae `changePct`
+  /// (variación del período); con `pnlPct` es el rendimiento total desde
+  /// la compra — son métricas distintas y se rotulan distinto.
+  static Widget _moverCard({
+    required String label,
+    required _Mover mover,
+    required String periodLabel,
+  }) {
+    final value = mover.value;
+    final isUp = value >= 0;
     final color = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
     return Container(
@@ -1394,11 +1465,23 @@ abstract final class PortfolioQaCatalogWidgets {
             ),
           ),
           Text(
-            '${isUp ? '+' : ''}${mover.pnlPct.toStringAsFixed(1)}%',
+            '${isUp ? '+' : ''}${value.toStringAsFixed(1)}%',
             style: TextStyle(
               color: color,
               fontSize: 13,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            mover.isPeriodChange
+                ? (periodLabel.isEmpty
+                    ? 'Variación del período'
+                    : 'Variación · $periodLabel')
+                : 'Rendimiento total',
+            style: const TextStyle(
+              color: PortfolioColors.textSecondary,
+              fontSize: 10,
             ),
           ),
         ],
@@ -1883,31 +1966,82 @@ final class _PnLBreakdownData {
 }
 
 final class _Mover {
-  _Mover({required this.ticker, required this.pnlPct});
+  _Mover({required this.ticker, required this.pnlPct, required this.changePct});
 
   factory _Mover.fromMap(JsonMap map) {
     return _Mover(
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
-      pnlPct: GenUiHelpers.safeDouble(map['pnlPct'], defaultValue: 0),
+      pnlPct:
+          map['pnlPct'] == null
+              ? null
+              : GenUiHelpers.safeDouble(map['pnlPct'], defaultValue: 0),
+      changePct:
+          map['changePct'] == null
+              ? null
+              : GenUiHelpers.safeDouble(map['changePct'], defaultValue: 0),
     );
   }
 
   final String ticker;
-  final double pnlPct;
+
+  /// Rendimiento total desde la compra (P&L %).
+  final double? pnlPct;
+
+  /// Variación de precio dentro de una ventana (ver `periodLabel`).
+  final double? changePct;
+
+  bool get isPeriodChange => changePct != null;
+  double get value => changePct ?? pnlPct ?? 0;
 }
 
 final class _TopMoversData {
-  _TopMoversData({required this.best, required this.worst});
+  _TopMoversData({
+    required this.best,
+    required this.worst,
+    required this.periodLabel,
+  });
 
   factory _TopMoversData.fromMap(JsonMap map) {
     return _TopMoversData(
       best: _Mover.fromMap(map['best'] as JsonMap? ?? {}),
       worst: _Mover.fromMap(map['worst'] as JsonMap? ?? {}),
+      periodLabel: GenUiHelpers.safeString(
+        map['periodLabel'],
+        defaultValue: '',
+      ),
     );
   }
 
   final _Mover best;
   final _Mover worst;
+  final String periodLabel;
+}
+
+final class _PositionsSnapshotData {
+  _PositionsSnapshotData({
+    required this.totalValue,
+    required this.pnlAbs,
+    required this.pnlPct,
+    required this.positionsCount,
+  });
+
+  factory _PositionsSnapshotData.fromMap(JsonMap map) {
+    return _PositionsSnapshotData(
+      totalValue: GenUiHelpers.safeDouble(map['totalValue'], defaultValue: 0),
+      pnlAbs: GenUiHelpers.safeDouble(map['pnlAbs'], defaultValue: 0),
+      pnlPct: GenUiHelpers.safeDouble(map['pnlPct'], defaultValue: 0),
+      positionsCount:
+          GenUiHelpers.safeDouble(
+            map['positionsCount'],
+            defaultValue: 0,
+          ).toInt(),
+    );
+  }
+
+  final double totalValue;
+  final double pnlAbs;
+  final double pnlPct;
+  final int positionsCount;
 }
 
 final class _PositionItem {

@@ -11,4 +11,10 @@ abstract final class GenUiSurfaceIds {
 
   static String assistantTurn(AssistantMode mode, int turn) =>
       'assistant_${mode.name}_$turn';
+
+  static const assistantUnifiedPrefix = 'assistant_unified_';
+
+  /// Turno del pipeline unificado (sin modo en el id).
+  static String assistantUnifiedTurn(int turn) =>
+      '$assistantUnifiedPrefix$turn';
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
@@ -88,7 +89,7 @@ abstract final class ExploreContextBuilder {
     final exploreTickers = <String, Object?>{};
 
     for (final ticker in tickers) {
-      exploreTickers[ticker] = await _buildTickerEntry(
+      exploreTickers[ticker] = await buildTickerEntry(
         ticker: ticker,
         quoteRepository: quoteRepository,
       );
@@ -148,10 +149,33 @@ abstract final class ExploreContextBuilder {
       };
     }
 
+    // TEMP(debug precio sin datos): qué llega de cada ticker justo antes de
+    // mandarlo a GPT. Borrar una vez diagnosticado.
+    if (kDebugMode) {
+      final t = enriched['explore_tickers'] as Map<String, Object?>;
+      debugPrint(
+        '[Explore/context] tickers=${t.keys.toList()} '
+        'ambiguous=${enriched.containsKey('explore_ticker_ambiguous')} '
+        'earnings=${enriched['earnings_calendar_status']} '
+        'news=${enriched['news_enrichment']}',
+      );
+      for (final entry in t.entries) {
+        final v = entry.value as Map<String, Object?>;
+        final month = (v['periods'] as Map?)?['month'];
+        debugPrint(
+          '[Explore/context] ${entry.key}: fetch_ok=${v['fetch_ok']} '
+          'price=${v['current_price']} '
+          'chart=${v['price_chart_available']} month=$month',
+        );
+      }
+    }
+
     return enriched;
   }
 
-  static Future<Map<String, Object?>> _buildTickerEntry({
+  /// Precio actual + períodos + disponibilidad de gráfico de un ticker.
+  /// Público porque también lo usa el context builder unificado.
+  static Future<Map<String, Object?>> buildTickerEntry({
     required String ticker,
     required QuoteRepository quoteRepository,
   }) async {

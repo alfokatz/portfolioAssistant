@@ -49,9 +49,18 @@ final _closedPositionItemSchema = S.object(
 final _moverSchema = S.object(
   properties: {
     'ticker': S.string(),
-    'pnlPct': S.number(),
+    'pnlPct': S.number(
+      description:
+          'Rendimiento TOTAL desde la compra (P&L %). Usar este campo O '
+          'changePct, nunca ambos.',
+    ),
+    'changePct': S.number(
+      description:
+          'Variación de precio DENTRO de una ventana (ej. esta semana), no '
+          'P&L total. Requiere periodLabel en QaTopMovers.',
+    ),
   },
-  required: ['ticker', 'pnlPct'],
+  required: ['ticker'],
 );
 
 final _budgetSplitItemSchema = S.object(
@@ -290,6 +299,77 @@ final CatalogItem qaPriceChartItem = CatalogItem(
   ],
 );
 
+/// Solo en el catálogo unificado (ver `UnifiedAssistantCatalog`): la foto
+/// de las posiciones abiertas que en modo Portfolio hacía `QaMetricStrip`.
+final CatalogItem qaPositionsSnapshotItem = CatalogItem(
+  name: 'QaPositionsSnapshot',
+  dataSchema: S.object(
+    description:
+        'Foto actual de TUS posiciones abiertas: valor total, P&L y P&L% '
+        'desde la compra (portfolio.total_value, total_pnl_abs, '
+        'total_pnl_pct). Nunca para comparar tickers.',
+    properties: {
+      'totalValue': S.number(description: 'portfolio.total_value'),
+      'pnlAbs': S.number(description: 'portfolio.total_pnl_abs'),
+      'pnlPct': S.number(description: 'portfolio.total_pnl_pct'),
+      'positionsCount': S.integer(
+        description: 'Cantidad de posiciones abiertas (portfolio.positions).',
+      ),
+    },
+    required: ['totalValue', 'pnlAbs', 'pnlPct'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPositionsSnapshot),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "positions_snapshot",
+    "component": "QaPositionsSnapshot",
+    "totalValue": 12450.3,
+    "pnlAbs": 1830.5,
+    "pnlPct": 17.2,
+    "positionsCount": 6
+  }
+]
+''',
+  ],
+);
+
+/// Solo en el catálogo unificado: mismo widget `QaMetricStrip`, con la
+/// descripción reducida a su único significado ahí — comparar 2-3 tickers.
+/// (El ítem compartido `qaMetricStripItem` mantiene la descripción de dos
+/// significados que usa el pipeline por modos, que sigue intacto.)
+final CatalogItem qaMetricStripComparisonItem = CatalogItem(
+  name: 'QaMetricStrip',
+  dataSchema: S.object(
+    description:
+        'Compara 2-3 tickers lado a lado, un item por ticker (variación de '
+        'precio en la ventana pedida). NUNCA para la foto de tus posiciones '
+        '(eso es QaPositionsSnapshot).',
+    properties: {
+      'items': S.list(items: _metricItemSchema, minItems: 2, maxItems: 3),
+    },
+    required: ['items'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMetricStrip),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "compare",
+    "component": "QaMetricStrip",
+    "items": [
+      {"label": "NVDA", "value": "+3,4%", "trend": "up"},
+      {"label": "AMD", "value": "-1,2%", "trend": "down"}
+    ]
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaPeriodChangeItem = CatalogItem(
   name: 'QaPeriodChange',
   dataSchema: S.object(
@@ -388,10 +468,17 @@ final CatalogItem qaPnLBreakdownItem = CatalogItem(
 final CatalogItem qaTopMoversItem = CatalogItem(
   name: 'QaTopMovers',
   dataSchema: S.object(
-    description: 'Mejor y peor posición por rendimiento %.',
+    description:
+        'Mejor y peor posición: por rendimiento total (pnlPct) o por '
+        'variación dentro de una ventana (changePct + periodLabel).',
     properties: {
       'best': _moverSchema,
       'worst': _moverSchema,
+      'periodLabel': S.string(
+        description:
+            'Solo con changePct: la ventana, ej. "últimos 7 días" '
+            '(position_periods.{T}.{period}.label_es).',
+      ),
     },
     required: ['best', 'worst'],
   ),
@@ -405,6 +492,17 @@ final CatalogItem qaTopMoversItem = CatalogItem(
     "component": "QaTopMovers",
     "best": {"ticker": "AAPL", "pnlPct": 8.1},
     "worst": {"ticker": "TSLA", "pnlPct": -3.2}
+  }
+]
+''',
+    () => '''
+[
+  {
+    "id": "movers_week",
+    "component": "QaTopMovers",
+    "periodLabel": "últimos 7 días",
+    "best": {"ticker": "NVDA", "changePct": 4.3},
+    "worst": {"ticker": "MSFT", "changePct": -1.8}
   }
 ]
 ''',

@@ -284,6 +284,8 @@
   "paywall_title_news": "Análisis de noticias con IA",
   "paywall_title_quota": "Consultas agotadas",
   "paywall_subtitle_mode_locked": "Actualizá tu plan para desbloquear modos del asistente y herramientas del portfolio.",
+  "paywall_title_market_data": "Datos de mercado no incluidos en tu plan",
+  "paywall_subtitle_market_data": "Actualizá tu plan para consultar precios, gráficos y tickers que no tenés en tu cartera.",
   "paywall_subtitle_news": "El análisis de noticias con IA está incluido en Gold.",
   "paywall_subtitle_quota": "Alcanzaste el límite mensual de consultas.",
   "paywall_usage": "{used}/{limit} consultas este mes",

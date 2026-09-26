@@ -282,6 +282,8 @@
   "paywall_title_news": "AI news analysis",
   "paywall_title_quota": "Queries exhausted",
   "paywall_subtitle_mode_locked": "Upgrade to unlock assistant modes and portfolio tools.",
+  "paywall_title_market_data": "Market data not included in your plan",
+  "paywall_subtitle_market_data": "Upgrade your plan to look up prices, charts, and tickers outside your portfolio.",
   "paywall_subtitle_news": "AI news analysis is included with Gold.",
   "paywall_subtitle_quota": "You've reached your monthly query limit.",
   "paywall_usage": "{used}/{limit} queries this month",

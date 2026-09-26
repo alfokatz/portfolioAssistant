@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -17,6 +18,13 @@ import 'package:portfolio_assistant/features/assistant/routing/intent_router.dar
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
+import 'package:portfolio_assistant/features/assistant/unified/message_needs.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_access_policy.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_assistant_flag.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_context_builder.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_pipeline_deps.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_snapshot_validator.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_turn_history.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
@@ -30,20 +38,18 @@ import 'package:portfolio_assistant/infraestructure/repositories/quote_repositor
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
 class AssistantProvider extends StateNotifier<AssistantState> {
-  AssistantProvider({
-    required this.ref,
-    required AssistantArgs args,
-  }) : _lastEngineMode = _collapsePlan(args.initialMode),
-       super(
-         AssistantState(
-           messages: [
-             PortfolioQaMessage(
-               role: PortfolioQaRole.assistant,
-               content: 'assistant_unified_welcome'.tr(),
-             ),
-           ],
-         ),
-       ) {
+  AssistantProvider({required this.ref, required AssistantArgs args})
+    : _lastEngineMode = _collapsePlan(args.initialMode),
+      super(
+        AssistantState(
+          messages: [
+            PortfolioQaMessage(
+              role: PortfolioQaRole.assistant,
+              content: 'assistant_unified_welcome'.tr(),
+            ),
+          ],
+        ),
+      ) {
     _initialQuestion = args.initialQuestion;
   }
 
@@ -57,6 +63,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   // No se disponen durante la vida de la pantalla, solo en `disposeResources`.
   final Map<AssistantMode, AssistantOpenAiService> _services = {};
   final Map<AssistantMode, GenUiConversationSubscription> _subscriptions = {};
+
+  // Pipeline unificado (flag `UnifiedAssistantFlag`): UN solo servicio y
+  // UN solo historial para lo que antes eran portfolio/learn/explore.
+  AssistantOpenAiService? _unifiedService;
+  GenUiConversationSubscription? _unifiedSubscription;
+  CompanyTickerResolver? _unifiedTickerResolver;
 
   // Último motor que atendió un turno. Da continuidad cuando un mensaje es
   // ambiguo (no matchea keywords de ningún dominio): el chat sigue con el
@@ -103,6 +115,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   AssistantOpenAiService? serviceFor(AssistantMode engineMode) =>
       _services[engineMode];
 
+  /// Servicio cuya conversación contiene la surface de [message]: el de su
+  /// modo, o el unificado para las respuestas sin modo.
+  AssistantOpenAiService? serviceForMessage(PortfolioQaMessage message) {
+    final mode = message.engineMode;
+    if (mode != null) return _services[mode];
+    final surfaceId = message.surfaceId;
+    if (surfaceId != null &&
+        surfaceId.startsWith(GenUiSurfaceIds.assistantUnifiedPrefix)) {
+      return _unifiedService;
+    }
+    return null;
+  }
+
   void disposeResources() {
     for (final subscription in _subscriptions.values) {
       subscription.cancel();
@@ -112,6 +137,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
     _subscriptions.clear();
     _services.clear();
+    _unifiedSubscription?.cancel();
+    _unifiedService?.dispose();
+    _unifiedSubscription = null;
+    _unifiedService = null;
   }
 
   Future<void> bootstrap() async {
@@ -141,6 +170,23 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       message: trimmed,
       lastEngine: _lastEngineMode,
     );
+    // Con el flag, todo lo que no es Invertir/Planificar va al pipeline
+    // unificado: el modo que devolvió el router (portfolio/learn/explore)
+    // deja de importar — ni catálogo ni contexto dependen de él. El gating
+    // de plan pasa a ser por dato (ver `_sendUnified`).
+    if (UnifiedAssistantFlag.enabled && _isUnifiedEngine(engineMode)) {
+      _lastEngineMode = engineMode;
+      await _sendUnified(trimmed);
+      return;
+    }
+    // TEMP(debug precio sin datos): a qué motor se ruteó cada mensaje.
+    // Solo explore arma datos de ticker. Borrar una vez diagnosticado.
+    if (kDebugMode) {
+      debugPrint(
+        '[Assistant/route] engine=${engineMode.name} '
+        '(last=${_lastEngineMode.name}) msg="$trimmed"',
+      );
+    }
 
     if (!ref.read(subscriptionProvider.notifier).canAccessMode(engineMode)) {
       state = state.copyWith(
@@ -152,6 +198,160 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     _lastEngineMode = engineMode;
     await sendMessage(trimmed, engineMode: engineMode);
+  }
+
+  static bool _isUnifiedEngine(AssistantMode mode) =>
+      mode != AssistantMode.invest && mode != AssistantMode.plan;
+
+  void _ensureUnifiedService() {
+    if (_unifiedService != null) return;
+    final service = ref.read(unifiedPipelineDepsProvider).createService();
+    _unifiedService = service;
+    _unifiedSubscription =
+        GenUiConversationSubscription()
+          ..listen(service.conversation, _onConversationEvent);
+  }
+
+  /// Pipeline unificado: cada mensaje decide desde cero qué datos necesita
+  /// ([MessageNeedsAnalyzer]), qué gating aplica ([UnifiedAccessPolicy], por
+  /// dato y antes de pedir nada), y el modelo elige el widget sobre un
+  /// catálogo único. Duplica a propósito el manejo de envío/errores de
+  /// [sendMessage] para no tocar el pipeline por modos mientras conviven;
+  /// la duplicación se va cuando se borre ese pipeline.
+  Future<void> _sendUnified(String trimmed) async {
+    if (!_sendGuard.tryAcquire()) return;
+    state = state.copyWith(clearError: true, isWaiting: true);
+
+    try {
+      _ensureUnifiedService();
+      final service = _unifiedService!;
+      final deps = ref.read(unifiedPipelineDepsProvider);
+      final subscription = ref.read(subscriptionProvider.notifier);
+      await subscription.refresh();
+      final tier = ref.read(subscriptionProvider).tier;
+      final summary = ref.read(homeProvider).summary;
+
+      final needs = await MessageNeedsAnalyzer.analyze(
+        message: trimmed,
+        summary: summary,
+        followUpTicker: UnifiedTurnHistory.followUpTicker(state.messages),
+        tickerResolver: _unifiedTickerResolver ??= deps.createTickerResolver(),
+      );
+
+      final paywall =
+          UnifiedAccessPolicy.paywallFor(needs, tier) ??
+          await subscription.checkQuotaAllowed(
+            isNewsQuery: needs.isExplicitNewsRequest,
+          );
+      if (paywall != null) {
+        state = state.copyWith(
+          paywallReason: paywall,
+          clearPaywallReason: false,
+        );
+        return;
+      }
+
+      final newsAllowed = UnifiedAccessPolicy.hasNews(tier);
+      final snapshot = await UnifiedContextBuilder.build(
+        needs: needs,
+        userMessage: trimmed,
+        quoteRepository: ref.read(quoteRepositoryProvider),
+        marketDataAllowed: UnifiedAccessPolicy.hasMarketData(tier),
+        newsAllowed: newsAllowed,
+        summary: summary,
+        history: ref.read(homeProvider).history,
+        closedPositions: await _fetchClosedPositions(),
+        newsEnricher: newsAllowed ? deps.createNewsEnricher() : null,
+        earningsEnricher: newsAllowed ? deps.createEarningsEnricher() : null,
+      );
+
+      if (UnifiedSnapshotValidator.allRequestedTickersFailed(snapshot)) {
+        state = state.copyWith(error: 'assistant_explore_fetch_failed'.tr());
+        return;
+      }
+
+      // TEMP(debug precio sin datos): borrar junto con los demás logs TEMP.
+      if (kDebugMode) {
+        debugPrint(
+          '[Unified/needs] tickers=${needs.tickers} held=${needs.heldTickers} '
+          'conceptual=${needs.isConceptual} own=${needs.mentionsOwnPortfolio} '
+          'followUp=${needs.usedFollowUpTicker} '
+          'allPeriods=${needs.needsAllPositionPeriods}',
+        );
+      }
+
+      final surfaceId = GenUiSurfaceIds.assistantUnifiedTurn(state.turnCounter);
+      state = state.copyWith(
+        messages: [
+          ...state.messages,
+          PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
+          PortfolioQaMessage(
+            role: PortfolioQaRole.assistant,
+            surfaceId: surfaceId,
+            isStreaming: true,
+            subjectTickers: [
+              for (final t in needs.tickers)
+                if (t != needs.marketProxyTicker) t,
+            ],
+          ),
+        ],
+        lastMessage: trimmed,
+        turnCounter: state.turnCounter + 1,
+      );
+
+      try {
+        await GenUiRequestTracker.sendAndWait(
+          conversation: service.conversation,
+          targetSurfaceId: surfaceId,
+          send:
+              () => service.sendWithSnapshot(
+                userQuestion: trimmed,
+                portfolioSnapshotJson: jsonEncode(snapshot),
+                surfaceId: surfaceId,
+              ),
+        );
+        state = state.copyWith(
+          messages: AssistantMessageSync.applySurfaceReady(
+            state.messages,
+            surfaceId,
+            hasRootComponent: true,
+          ),
+        );
+        final weight = SubscriptionPolicy.queryWeight(
+          isNewsQuery: needs.isExplicitNewsRequest,
+        );
+        final consumed = await ref
+            .read(aiUsageTrackerProvider)
+            .recordUsage(weight);
+        await subscription.refresh();
+        if (!consumed) {
+          state = state.copyWith(paywallReason: PaywallReason.quotaExceeded);
+        }
+      } on TimeoutException {
+        state = state.copyWith(
+          messages: AssistantMessageSync.applyFallback(
+            state.messages,
+            surfaceId,
+            null,
+          ),
+        );
+      } catch (e) {
+        state = state.copyWith(
+          error: isConnectionFailure(e) ? genUiErrorMessage(e) : state.error,
+          messages:
+              isConnectionFailure(e)
+                  ? _removeStreamingPlaceholder(state.messages)
+                  : AssistantMessageSync.applyFallback(
+                    state.messages,
+                    surfaceId,
+                    null,
+                  ),
+        );
+      }
+    } finally {
+      _sendGuard.release();
+      state = state.copyWith(isWaiting: false);
+    }
   }
 
   void clearPaywall() {
@@ -247,7 +447,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     state = state.copyWith(introRevealed: true);
   }
 
-  Future<void> sendMessage(String text, {required AssistantMode engineMode}) async {
+  Future<void> sendMessage(
+    String text, {
+    required AssistantMode engineMode,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     // El lock se toma de forma sincrónica, antes de cualquier `await`, para
@@ -269,11 +472,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final isNews =
           engineMode == AssistantMode.explore && isExplicitNewsRequest(trimmed);
       await ref.read(subscriptionProvider.notifier).refresh();
-      final paywall =
-          await ref.read(subscriptionProvider.notifier).checkQueryAllowed(
-        mode: engineMode,
-        isNewsQuery: isNews,
-      );
+      final paywall = await ref
+          .read(subscriptionProvider.notifier)
+          .checkQueryAllowed(mode: engineMode, isNewsQuery: isNews);
       if (paywall != null) {
         state = state.copyWith(
           paywallReason: paywall,
@@ -307,9 +508,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       if (engineMode == AssistantMode.explore &&
           validation == SnapshotValidation.exploreFetchFailed) {
         final tickers = snapshot['explore_tickers'] as Map?;
-        final errorKey = tickers == null || tickers.isEmpty
-            ? 'assistant_explore_no_ticker'
-            : 'assistant_explore_fetch_failed';
+        final errorKey =
+            tickers == null || tickers.isEmpty
+                ? 'assistant_explore_no_ticker'
+                : 'assistant_explore_fetch_failed';
         state = state.copyWith(error: errorKey.tr());
         return;
       }
@@ -328,8 +530,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
       }
 
-      final surfaceId =
-          GenUiSurfaceIds.assistantTurn(engineMode, state.turnCounter);
+      final surfaceId = GenUiSurfaceIds.assistantTurn(
+        engineMode,
+        state.turnCounter,
+      );
       final messages = <PortfolioQaMessage>[
         ...state.messages,
         PortfolioQaMessage(role: PortfolioQaRole.user, content: trimmed),
@@ -351,11 +555,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         await GenUiRequestTracker.sendAndWait(
           conversation: targetService.conversation,
           targetSurfaceId: surfaceId,
-          send: () => targetService.sendWithSnapshot(
-            userQuestion: trimmed,
-            portfolioSnapshotJson: snapshotJson,
-            surfaceId: surfaceId,
-          ),
+          send:
+              () => targetService.sendWithSnapshot(
+                userQuestion: trimmed,
+                portfolioSnapshotJson: snapshotJson,
+                surfaceId: surfaceId,
+              ),
         );
 
         state = state.copyWith(
@@ -369,13 +574,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
 
         final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNews);
-        final consumed =
-            await ref.read(aiUsageTrackerProvider).recordUsage(weight);
+        final consumed = await ref
+            .read(aiUsageTrackerProvider)
+            .recordUsage(weight);
         await ref.read(subscriptionProvider.notifier).refresh();
         if (!consumed) {
-          state = state.copyWith(
-            paywallReason: PaywallReason.quotaExceeded,
-          );
+          state = state.copyWith(paywallReason: PaywallReason.quotaExceeded);
         }
       } on TimeoutException {
         // Tras agotar el reintento interno de OpenAIGenUiService, un
@@ -430,7 +634,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// Porty — así que TODOS los motores necesitan poder referirse a la
   /// cartera real del usuario (holdings, valor, PnL), no solo `portfolio`.
   Future<List<ClosedPosition>> _fetchClosedPositions() async {
-    final closedResult = await ref.read(getClosedPositionsUseCaseProvider).call();
+    final closedResult =
+        await ref.read(getClosedPositionsUseCaseProvider).call();
     return closedResult.fold((_) => <ClosedPosition>[], (list) => list);
   }
 
@@ -514,10 +719,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 }
 
 final assistantProvider = StateNotifierProvider.autoDispose
-    .family<AssistantProvider, AssistantState, AssistantArgs>(
-  (ref, args) {
-    final provider = AssistantProvider(ref: ref, args: args);
-    ref.onDispose(provider.disposeResources);
-    return provider;
-  },
-);
+    .family<AssistantProvider, AssistantState, AssistantArgs>((ref, args) {
+      final provider = AssistantProvider(ref: ref, args: args);
+      ref.onDispose(provider.disposeResources);
+      return provider;
+    });

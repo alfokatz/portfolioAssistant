@@ -12,6 +12,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum PaywallReason {
   modeLocked,
+
+  /// Pipeline unificado: el mensaje pide datos de mercado de tickers que el
+  /// usuario no tiene (ver `UnifiedAccessPolicy`).
+  marketDataLocked,
   newsRequiresGold,
   quotaExceeded,
 }
@@ -128,6 +132,17 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     if (isNewsQuery && !SubscriptionPolicy.isNewsAllowed(state.tier)) {
       return PaywallReason.newsRequiresGold;
     }
+    final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNewsQuery);
+    if (!await _tracker.canConsume(weight)) {
+      return PaywallReason.quotaExceeded;
+    }
+    return null;
+  }
+
+  /// Pipeline unificado: el gating por dato lo decide
+  /// `UnifiedAccessPolicy` antes; acá solo queda el chequeo de cuota.
+  Future<PaywallReason?> checkQuotaAllowed({required bool isNewsQuery}) async {
+    await refresh();
     final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNewsQuery);
     if (!await _tracker.canConsume(weight)) {
       return PaywallReason.quotaExceeded;

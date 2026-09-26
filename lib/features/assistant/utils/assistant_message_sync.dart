@@ -25,7 +25,7 @@ abstract final class AssistantMessageSync {
   static List<PortfolioQaMessage> applyFallback(
     List<PortfolioQaMessage> messages,
     String surfaceId,
-    AssistantMode engineMode,
+    AssistantMode? engineMode,
   ) {
     for (var i = messages.length - 1; i >= 0; i--) {
       final message = messages[i];

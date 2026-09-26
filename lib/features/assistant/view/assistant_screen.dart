@@ -563,9 +563,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
       final surfaceService =
-          message.engineMode == null
-              ? fallbackService
-              : (notifier.serviceFor(message.engineMode!) ?? fallbackService);
+          notifier.serviceForMessage(message) ?? fallbackService;
       content = PortfolioQaAssistantSurface(
         surfaceId: message.surfaceId!,
         surfaceContext: surfaceService.controller.contextFor(

@@ -3,6 +3,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/portfolio_qa_system_prompt.dart';
+import 'package:portfolio_assistant/features/assistant/unified/unified_assistant_catalog.dart';
 
 /// Servicio GenUI del asistente unificado con surface dinámico por turno.
 class AssistantOpenAiService extends OpenAIGenUiService {
@@ -11,7 +12,36 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     super.model,
     required super.systemPrompt,
     required super.catalog,
+    this.snapshotLabel = 'PORTFOLIO_SNAPSHOT',
   });
+
+  /// Encabezado del snapshot en cada mensaje de usuario — ver
+  /// `portfolioQaUserMessageBody`.
+  final String snapshotLabel;
+
+  /// Servicio del pipeline unificado (sin modos): un solo catálogo, un solo
+  /// set de reglas y un solo historial de conversación.
+  factory AssistantOpenAiService.unified({String? apiKey, String? model}) {
+    final catalog = UnifiedAssistantCatalog.build();
+    return AssistantOpenAiService(
+      apiKey: apiKey,
+      model: model,
+      systemPrompt: _promptFor(catalog),
+      catalog: catalog,
+      snapshotLabel: 'ASSISTANT_SNAPSHOT',
+    );
+  }
+
+  static String _promptFor(Catalog catalog) => PromptBuilder.custom(
+    catalog: catalog,
+    allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
+    systemPromptFragments: catalog.systemPromptFragments,
+    technicalPossibilities: const TechnicalPossibilities(
+      codeExecution: false,
+      toolCall: false,
+      functionCall: false,
+    ),
+  ).systemPromptJoined();
 
   factory AssistantOpenAiService.forMode({
     required AssistantMode mode,
@@ -52,6 +82,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       portfolioSnapshotJson: portfolioSnapshotJson,
       question: userQuestion,
       surfaceId: surfaceId,
+      snapshotLabel: snapshotLabel,
     );
 
     await handleSend(ChatMessage.user(body), surfaceId: surfaceId);

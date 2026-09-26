@@ -13,12 +13,18 @@ abstract final class PositionPeriodsBuilder {
     'year': (labelEs: 'último año', duration: Duration(days: 365)),
   };
 
+  /// [onlyTickers] acota el cálculo a esas tenencias (un pedido de
+  /// histórico por ticker); `null` = todas las posiciones abiertas.
   static Future<Map<String, Map<String, Object?>>> build({
     required PortfolioSummary summary,
     required QuoteRepository quoteRepository,
+    Set<String>? onlyTickers,
   }) async {
-    final tickers =
-        summary.valuations.map((v) => v.position.ticker).toSet().toList();
+    final tickers = summary.valuations
+        .map((v) => v.position.ticker)
+        .toSet()
+        .where((t) => onlyTickers == null || onlyTickers.contains(t))
+        .toList();
     final result = <String, Map<String, Object?>>{};
 
     for (final ticker in tickers) {

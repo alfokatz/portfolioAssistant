@@ -12,6 +12,7 @@ class PortfolioQaMessage {
     this.engineMode,
     this.hasRevealed = false,
     this.isFallback = false,
+    this.subjectTickers = const [],
   });
 
   final PortfolioQaRole role;
@@ -19,7 +20,13 @@ class PortfolioQaMessage {
   final String? surfaceId;
   final bool isStreaming;
 
+  /// `null` en las respuestas del pipeline unificado (no tiene modos).
   final AssistantMode? engineMode;
+
+  /// Pipeline unificado: tickers sobre los que fue este turno (sin el proxy
+  /// de mercado). Es el "turno guardado" del que sale el ticker de
+  /// seguimiento — ver `UnifiedTurnHistory`.
+  final List<String> subjectTickers;
 
   /// `true` cuando [content] es un mensaje de fallback en texto plano
   /// mostrado porque la generación de esta surface falló, pero [surfaceId]
@@ -55,6 +62,7 @@ class PortfolioQaMessage {
     AssistantMode? engineMode,
     bool? hasRevealed,
     bool? isFallback,
+    List<String>? subjectTickers,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -64,6 +72,7 @@ class PortfolioQaMessage {
       engineMode: engineMode ?? this.engineMode,
       hasRevealed: hasRevealed ?? this.hasRevealed,
       isFallback: isFallback ?? this.isFallback,
+      subjectTickers: subjectTickers ?? this.subjectTickers,
     );
   }
 }
