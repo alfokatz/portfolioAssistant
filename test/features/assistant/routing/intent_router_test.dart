@@ -157,7 +157,6 @@ void main() {
     test('resolves to plan for planning keywords', () {
       final engine = IntentRouter.resolveInvestPlanEngine(
         message: 'para la jubilación en 40 años me podes armar un plan?',
-        lastEngine: AssistantMode.invest,
       );
 
       expect(engine, AssistantMode.plan);
@@ -166,19 +165,14 @@ void main() {
     test('resolves to invest for investment keywords', () {
       final engine = IntentRouter.resolveInvestPlanEngine(
         message: 'Tengo \$500 para invertir',
-        lastEngine: AssistantMode.plan,
       );
 
       expect(engine, AssistantMode.invest);
     });
 
-    test('keeps the previous engine for an ambiguous follow-up', () {
-      // Regresión: "En 40 años quiero tener 1 millón de dólares" no matchea
-      // ninguna keyword de planificación ni de inversión, pero debe seguir
-      // en el motor de plan si el turno anterior estaba ahí.
+    test('an invest keyword plus a goal horizon is a projection → plan', () {
       final engine = IntentRouter.resolveInvestPlanEngine(
-        message: 'En 40 años quiero tener 1 millón de dólares',
-        lastEngine: AssistantMode.plan,
+        message: 'quiero invertir \$1000 en 10 años, ¿cuánto tendría?',
       );
 
       expect(engine, AssistantMode.plan);
@@ -187,10 +181,82 @@ void main() {
     test('prefers plan keywords over invest keywords when both match', () {
       final engine = IntentRouter.resolveInvestPlanEngine(
         message: 'quiero armar un presupuesto para mi jubilación',
-        lastEngine: AssistantMode.invest,
       );
 
       expect(engine, AssistantMode.plan);
+    });
+  });
+
+  // Fix del motor pegajoso en Invertir/Planificar: esos motores se deciden
+  // solo por el contenido de cada mensaje, nunca heredando el turno
+  // anterior (mismo bug que tenía el router principal con Learn).
+  group('Invest/Plan are decided from scratch on every message', () {
+    const everyEngine = AssistantMode.values;
+
+    AssistantMode route(String message, AssistantMode last) =>
+        IntentRouter.detectEngine(message: message, lastEngine: last);
+
+    test(
+      'a goal answer (amount + horizon) reaches plan from ANY engine — '
+      'replaces the old "keep plan for an ambiguous follow-up" inheritance',
+      () {
+        for (final message in const [
+          'En 40 años quiero tener 1 millón de dólares',
+          'quiero llegar a \$50.000 para 2030',
+          'me gustaría juntar 200 mil en 15 años',
+        ]) {
+          for (final last in everyEngine) {
+            expect(route(message, last), AssistantMode.plan, reason: '$message (from $last)');
+          }
+        }
+      },
+    );
+
+    test('a budget answer reaches invest from ANY engine', () {
+      for (final message in const [
+        'Tengo \$500',
+        '¿y con 1000 dólares?',
+        'cuento con unos 2 mil',
+      ]) {
+        for (final last in everyEngine) {
+          expect(route(message, last), AssistantMode.invest, reason: '$message (from $last)');
+        }
+      }
+    });
+
+    test('a message with no signal no longer stays in invest/plan', () {
+      for (final last in [AssistantMode.invest, AssistantMode.plan]) {
+        for (final message in const [
+          'Hola, buenos días',
+          'gracias!',
+          '¿A cuánto está AAPL?',
+        ]) {
+          expect(route(message, last), AssistantMode.portfolio, reason: '$message (from $last)');
+        }
+      }
+    });
+
+    test('keyword questions still leave invest/plan for their own engine', () {
+      expect(route('¿Qué es un ETF?', AssistantMode.plan), AssistantMode.learn);
+      expect(route('¿Cómo va mi cartera?', AssistantMode.invest), AssistantMode.portfolio);
+      expect(route('¿Cuál es el precio de AAPL?', AssistantMode.plan), AssistantMode.explore);
+    });
+
+    test('money without a budget verb does not hijack other engines', () {
+      // "gané más de $1000" es una pregunta de resultados, no un presupuesto.
+      expect(route('¿gané más de \$1000?', AssistantMode.portfolio), AssistantMode.portfolio);
+      expect(route('¿gané más de \$1000?', AssistantMode.invest), AssistantMode.portfolio);
+    });
+
+    test('a plain year is not a goal (no money marker)', () {
+      expect(route('¿cómo le fue a NVDA en 2025?', AssistantMode.plan), AssistantMode.portfolio);
+      expect(route('¿cómo le fue a NVDA en 2025?', AssistantMode.learn), AssistantMode.learn);
+    });
+
+    test('portfolio/learn/explore inheritance is unchanged (out of scope — '
+        'replaced by the unified pipeline)', () {
+      expect(route('Hola, buenos días', AssistantMode.learn), AssistantMode.learn);
+      expect(route('Hola, buenos días', AssistantMode.explore), AssistantMode.explore);
     });
   });
 }

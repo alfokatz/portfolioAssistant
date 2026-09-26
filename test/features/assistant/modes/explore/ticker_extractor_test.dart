@@ -67,5 +67,12 @@ void main() {
         ['C'],
       );
     });
+    // Regresión: "¿Y las noticias?" extraía el ticker "Y" y el seguimiento
+    // del ticker anterior nunca se aplicaba.
+    test('ignores sentence-initial one-letter conjunctions (Y, O, E, U)', () {
+      expect(TickerExtractor.extractTickers('¿Y las noticias?'), isEmpty);
+      expect(TickerExtractor.extractTickers('¿O conviene más TSLA?'), ['TSLA']);
+      expect(TickerExtractor.extractTickers('E igual AAPL subió'), ['AAPL']);
+    });
   });
 }

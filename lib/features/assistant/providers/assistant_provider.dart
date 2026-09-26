@@ -263,8 +263,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final targetService = _services[engineMode];
       if (targetService == null) return;
 
+      // Gatea y cobra solo pedidos EXPLÍCITOS de noticias — ver
+      // `isExplicitNewsRequest`. El contexto sigue usando el detector
+      // amplio para decidir si trae titulares (y marcarlos `locked`).
       final isNews =
-          engineMode == AssistantMode.explore && isNewsQuery(trimmed);
+          engineMode == AssistantMode.explore && isExplicitNewsRequest(trimmed);
       await ref.read(subscriptionProvider.notifier).refresh();
       final paywall =
           await ref.read(subscriptionProvider.notifier).checkQueryAllowed(

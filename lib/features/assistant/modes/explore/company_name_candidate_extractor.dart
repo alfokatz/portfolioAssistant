@@ -8,6 +8,9 @@ abstract final class CompanyNameCandidateExtractor {
 
   static const _leadingStopWords = {
     'Que', 'Como', 'Cual', 'Cuando', 'Donde', 'Por', 'Para',
+    // Con tilde: sin esto "Cómo" (4 letras) empataba con un nombre corto
+    // ("¿Cómo viene Meta?") y ganaba por orden.
+    'Qué', 'Cómo', 'Cuál', 'Cuándo', 'Dónde',
     'What', 'How', 'When', 'Where', 'Why', 'Is', 'Are', 'Tell', 'Show',
   };
 

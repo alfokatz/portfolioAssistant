@@ -4,7 +4,15 @@ abstract final class TickerExtractor {
 
   static const _stopWords = {
     'I',
+    // Conjunciones/preposiciones de una letra que, a principio de oración
+    // ("¿Y las noticias?", "¿O conviene TSLA?"), matchean el patrón de
+    // ticker. Mismo criterio que ya se usaba con 'A': se pierden los
+    // tickers de una letra O/E/U escritos solos.
     'A',
+    'Y',
+    'O',
+    'E',
+    'U',
     'EL',
     'LA',
     'YO',

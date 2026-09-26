@@ -56,5 +56,11 @@ void main() {
       // razonable — no hay nada sensato que mandarle a Finnhub /search.
       expect(CompanyNameCandidateExtractor.extract('es de mi'), isNull);
     });
+    // Regresión: "Cómo" con tilde no era stop word y, con 4 letras,
+    // empataba con nombres cortos y ganaba por orden.
+    test('skips accented question words so short names still win', () {
+      expect(CompanyNameCandidateExtractor.extract('¿Cómo viene Meta?'), 'Meta');
+      expect(CompanyNameCandidateExtractor.extract('¿Qué pasa con Visa?'), 'Visa');
+    });
   });
 }

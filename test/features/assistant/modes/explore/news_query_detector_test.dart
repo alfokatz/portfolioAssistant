@@ -39,4 +39,36 @@ void main() {
       expect(isNewsQuery('Compare GOOGL and AMZN'), isFalse);
     });
   });
+
+  // Regresión (producción): el paywall Gold y el peso 3 de cuota usaban
+  // `isNewsQuery`, que también cuenta "esta semana", "por qué", "subió",
+  // "caída"… Un Premium quedaba bloqueado por preguntas de precio que su
+  // plan cubre, y un Gold pagaba triple por ellas.
+  group('isExplicitNewsRequest', () {
+    test('price/time/why phrasings are NOT explicit news requests', () {
+      for (final message in const [
+        '¿Cómo está NVDA esta semana?',
+        '¿Cuál es el precio de NVDA? ¿Por qué subió?',
+        '¿Cómo está TSLA después de la caída?',
+        '¿Cómo está AAPL? Porque la quiero comprar',
+        'últimas cotizaciones de MSFT',
+      ]) {
+        expect(isNewsQuery(message), isTrue, reason: 'broad detector: $message');
+        expect(isExplicitNewsRequest(message), isFalse, reason: message);
+      }
+    });
+
+    test('explicit news / events requests are', () {
+      for (final message in const [
+        '¿Qué noticias hay de AAPL?',
+        'últimas novedades de MSFT',
+        'titulares de TSLA',
+        '¿Qué pasó con NVDA?',
+        'latest news on AAPL',
+        'what happened to TSLA?',
+      ]) {
+        expect(isExplicitNewsRequest(message), isTrue, reason: message);
+      }
+    });
+  });
 }
