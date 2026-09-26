@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
@@ -9,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/providers/assistant_provi
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
@@ -75,6 +77,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   // (p. ej. un mensaje de usuario, que no pasa por `PortfolioQaAssistantSurface`).
   Timer? _followBottomTimer;
   VoidCallback? _markRevealDone;
+
+  // Alto del composer flotante (incluye margen y safe area), medido en cada
+  // layout; la lista lo usa como padding inferior. Ver `_SizeReporter`.
+  double _composerInset = 0;
 
   // El orbe de "pensando" (placeholder del asistente) se agrega al estado
   // en el mismo instante que el mensaje del usuario — pero visualmente debe
@@ -402,11 +408,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
               children: [
                 ListView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppDimens.pageHorizontal,
                     AppDimens.sp8,
                     AppDimens.pageHorizontal,
-                    AppDimens.sp8,
+                    AppDimens.sp8 + _composerInset,
                   ),
                   children: [
                     for (final (i, m) in state.messages.indexed)
@@ -464,53 +470,70 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   const Center(
                     child: AssistantThinkingOrb(size: AppDimens.sp32),
                   ),
-              ],
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.pageHorizontal,
-                AppDimens.sp8,
-                AppDimens.pageHorizontal,
-                AppDimens.sp12,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      decoration: InputDecoration(
-                        hintText: 'portfolio_qa_input_hint'.tr(),
-                      ),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: PortfolioColors.textPrimary,
-                      ),
-                      maxLines: 4,
-                      minLines: 1,
-                      onSubmitted:
-                          state.isWaiting || _isAutoTyping
-                              ? null
-                              : (text) => _submitMessage(notifier, text),
-                      enabled: !state.isWaiting && service != null,
-                    ),
-                  ),
-                  const SizedBox(width: AppDimens.sp8),
-                  ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: _SendButton(
-                      onTap:
-                          state.isWaiting || service == null || _isAutoTyping
-                              ? null
-                              : () => _submitMessage(
-                                notifier,
-                                _textController.text,
+                // El composer flota sobre la lista (no debajo de ella) para
+                // que los mensajes scrolleen por detrás: solo la píldora y el
+                // send son opacos, sin franja de fondo alrededor. La lista
+                // reserva abajo el alto medido del composer (crece al pasar
+                // a multilínea) para que el último mensaje quede visible.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _SizeReporter(
+                    onHeightChanged: (h) {
+                      if (mounted && h != _composerInset) {
+                        setState(() => _composerInset = h);
+                      }
+                    },
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        // Más aire que el resto de la pantalla (24 vs 20
+                        // lateral) para que el composer se lea flotando y no
+                        // pegado al borde; ver `input-field-chat` en DESIGN.md.
+                        padding: const EdgeInsets.fromLTRB(
+                          AppDimens.sp24,
+                          AppDimens.sp12,
+                          AppDimens.sp24,
+                          AppDimens.sp20,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: AssistantComposerField(
+                                controller: _textController,
+                                hintText: 'portfolio_qa_input_hint'.tr(),
+                                onSubmitted:
+                                    state.isWaiting || _isAutoTyping
+                                        ? null
+                                        : (text) =>
+                                            _submitMessage(notifier, text),
+                                enabled: !state.isWaiting && service != null,
                               ),
+                            ),
+                            const SizedBox(width: AppDimens.sp8),
+                            ScaleTransition(
+                              scale: _pulseAnimation,
+                              child: AssistantSendButton(
+                                onTap:
+                                    state.isWaiting ||
+                                            service == null ||
+                                            _isAutoTyping
+                                        ? null
+                                        : () => _submitMessage(
+                                          notifier,
+                                          _textController.text,
+                                        ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -600,51 +623,36 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   }
 }
 
-class _SendButton extends StatelessWidget {
-  const _SendButton({this.onTap});
+/// Reporta el alto de [child] después de cada layout en que cambie.
+class _SizeReporter extends SingleChildRenderObjectWidget {
+  const _SizeReporter({required this.onHeightChanged, super.child});
 
-  final VoidCallback? onTap;
+  final ValueChanged<double> onHeightChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        boxShadow:
-            enabled
-                ? [
-                  BoxShadow(
-                    color: PortfolioColors.accentBlue.withValues(alpha: 0.30),
-                    blurRadius: AppDimens.glowBlurSm,
-                  ),
-                  BoxShadow(
-                    color: PortfolioColors.accentWarm.withValues(alpha: 0.22),
-                    blurRadius: AppDimens.glowBlurMd,
-                  ),
-                ]
-                : null,
-      ),
-      child: Material(
-        color:
-            enabled
-                ? PortfolioColors.accentBlue
-                : PortfolioColors.accentBlue.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-          child: const SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(
-              Icons.arrow_upward_rounded,
-              color: PortfolioColors.textPrimary,
-              size: AppDimens.iconMd,
-            ),
-          ),
-        ),
-      ),
-    );
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSizeReporter(onHeightChanged);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSizeReporter renderObject,
+  ) => renderObject.onHeightChanged = onHeightChanged;
+}
+
+class _RenderSizeReporter extends RenderProxyBox {
+  _RenderSizeReporter(this.onHeightChanged);
+
+  ValueChanged<double> onHeightChanged;
+  double? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final h = size.height;
+    if (h == _last) return;
+    _last = h;
+    // No se puede llamar setState durante layout.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeightChanged(h));
   }
 }

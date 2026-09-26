@@ -26,6 +26,10 @@ abstract final class AppDimens {
   static const radiusMd = 10.0; // inputs, chips grandes
   static const radiusLg = 14.0; // cards
   static const radiusXl = 18.0; // modals, sheets
+  // Solo input del chat (`input-field-chat`): mitad de composerHeight, así
+  // una línea es píldora exacta y al crecer a multilínea queda estadio.
+  static const radiusPill = 26.0;
+  static const composerHeight = 52.0;
 
   // ── Glow (acento del asistente, Porty) ──────────────────────────────────
   static const glowBlurSm = 10.0;

@@ -53,6 +53,7 @@ rounded:
   md: "10px"
   lg: "14px"
   xl: "18px"
+  pill: "26px"
 spacing:
   page-horizontal: "20px"
   section-gap: "28px"
@@ -77,6 +78,18 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.lg}"
     padding: "16px"
+  input-field-chat:
+    backgroundColor: "{colors.surface-card}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.pill}"
+    padding: "0 20px"
+    height: "52px"
+  button-send-chat:
+    backgroundColor: "{colors.accent-blue}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.pill}"
+    size: "52px"
   card-surface:
     backgroundColor: "{colors.surface-card}"
     textColor: "{colors.text-primary}"
@@ -203,6 +216,14 @@ Componentes refinados y consistentes; estados hover/focus/disabled/loading en co
 - **Focus:** borde Warm Accent 1.4–1.5px, cursor terracota
 - **Error:** borde Deep Loss Red, texto error en bodySmall loss color
 - **Hint:** textSecondary al 60% en theme global; auth usa textSecondary pleno
+
+### Chat Composer (Porty)
+Variante propia del input del chat (`input-field-chat` + `button-send-chat`), separada del `inputDecorationTheme` global: los inputs de formularios y auth no cambian. Código: `AssistantComposerField` + `_SendButton` en `assistant_screen.dart`.
+- **Shape:** píldora, radius `pill` (26px = mitad del alto de 52px); al crecer a multilínea (máx. 4) queda estadio. Send button circular del mismo diámetro (52px).
+- **Background:** Pure Surface opaco (dark: surface-card #1A1A1A). Sin blur ni transparencia — la sensación de "flotante" sale del contraste con Warm Canvas + halo de `AppBackgroundGradient` y del aire alrededor, no de elevación.
+- **Aire:** 24px lateral (más que los 20px de página), 12px arriba, 20px abajo por encima del safe area.
+- **Reposo:** borde 1px Whisper Border, sin sombra.
+- **Focus:** borde Warm Accent 1.5px + glow terracota tenue (alpha 0.16, blur 10px), animado 180ms. Es feedback de interacción, no elevación: única sombra permitida en inputs y solo mientras hay foco.
 
 ### Navigation
 - **App bar:** transparente (revela `AppBackgroundGradient` detrás), título titleMedium w600 charcoal, iconos 20px, elevation 0
