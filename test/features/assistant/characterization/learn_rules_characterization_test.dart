@@ -103,8 +103,9 @@ void main() {
 
   // Línea de base del ruteo actual. El pipeline unificado no tiene router
   // de modos, pero TIENE que igualar el resultado de ROUTE-1/ROUTE-2 (una
-  // pregunta conceptual con un ticker de pasada sigue siendo conceptual) y
-  // corregir ROUTE-BUG (el modo pegajoso que originó la decisión).
+  // pregunta conceptual con un ticker de pasada sigue siendo conceptual).
+  // ROUTE-FIXED era ROUTE-BUG (el modo pegajoso que originó la decisión):
+  // se corrigió en el router actual al decidir Explore por contenido.
   group('Routing baseline (current pipeline)', () {
     AssistantMode route(String message, AssistantMode last) =>
         IntentRouter.detectEngine(message: message, lastEngine: last);
@@ -145,8 +146,8 @@ void main() {
       );
     });
 
-    test('ROUTE-BUG (sticky mode): after a Learn turn, price questions without '
-        'an explore keyword stay in Learn — the bug the unification fixes', () {
+    test('ROUTE-FIXED (was ROUTE-BUG, sticky mode): after a Learn turn, price '
+        'questions go to Explore by content instead of staying in Learn', () {
       for (final message in const [
         '¿A cuánto está AAPL?',
         '¿Cuánto vale AAPL?',
@@ -155,7 +156,7 @@ void main() {
       ]) {
         expect(
           route(message, AssistantMode.learn),
-          AssistantMode.learn,
+          AssistantMode.explore,
           reason: message,
         );
       }
