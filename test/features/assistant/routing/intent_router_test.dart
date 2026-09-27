@@ -261,6 +261,27 @@ void main() {
       );
     });
 
+    test('recommendation and profile questions reach invest from ANY engine',
+        () {
+      for (final message in const [
+        // Los tres mensajes del bug reportado (perfil completo ignorado).
+        'entonces que me recomendas ?',
+        'pero ahora que ya complete mi perfil, que me sugerís?',
+        'pero ves mi perfil?',
+        '¿Qué me recomiendas comprar?',
+        '¿Me aconsejás algo según mi perfil de inversor?',
+        '¿Recomendás NVDA?',
+      ]) {
+        for (final last in everyEngine) {
+          expect(
+            route(message, last),
+            AssistantMode.invest,
+            reason: '$message (from $last)',
+          );
+        }
+      }
+    });
+
     test('money without a budget verb does not hijack other engines', () {
       // "gané más de $1000" es una pregunta de resultados, no un presupuesto.
       expect(

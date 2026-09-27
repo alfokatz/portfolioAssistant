@@ -3,10 +3,6 @@ abstract class PreferencesManager {
 
   Future<String?> getToken();
 
-  Future<double?> getRiskProfile();
-
-  Future<void> saveRiskProfile(double value);
-
   Future<void> saveGoal({
     required String label,
     required double targetAmount,

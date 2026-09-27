@@ -25,6 +25,7 @@ import 'package:portfolio_assistant/features/assistant/unified/unified_context_b
 import 'package:portfolio_assistant/features/assistant/unified/unified_pipeline_deps.dart';
 import 'package:portfolio_assistant/features/assistant/unified/unified_snapshot_validator.dart';
 import 'package:portfolio_assistant/features/assistant/unified/unified_turn_history.dart';
+import 'package:portfolio_assistant/features/assistant/utils/advice_notice_policy.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
@@ -32,6 +33,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
+import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -94,6 +96,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _exploreTickerResolverInstance ??= CompanyTickerResolver();
 
   String? _initialQuestion;
+
+  // El aviso de completar/revisar el perfil de inversor sale una sola vez
+  // por conversación — ver `AdviceNoticePolicy.profileNudge`.
+  bool _profileNudgeShown = false;
 
   static const List<String> _starterChipKeys = [
     'portfolio_qa_chip_today',
@@ -530,6 +536,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
       }
 
+      final profileNudge = AdviceNoticePolicy.profileNudge(
+        engineMode,
+        snapshot,
+        alreadyShown: _profileNudgeShown,
+      );
+      if (profileNudge != null) _profileNudgeShown = true;
+
       final surfaceId = GenUiSurfaceIds.assistantTurn(
         engineMode,
         state.turnCounter,
@@ -542,6 +555,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           surfaceId: surfaceId,
           isStreaming: true,
           engineMode: engineMode,
+          showsAdviceDisclaimer: AdviceNoticePolicy.showsDisclaimer(
+            engineMode,
+            snapshot,
+          ),
+          profileNudge: profileNudge,
         ),
       ];
 
@@ -686,8 +704,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
 
     if (mode == AssistantMode.invest) {
-      final riskProfile =
-          await ref.read(preferenceManagerProvider).getRiskProfile();
+      final investorProfile =
+          await ref.read(investorProfileProvider.notifier).refresh();
       return buildSnapshotJson(
         mode: AssistantMode.invest,
         userMessage: trimmed,
@@ -695,7 +713,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         history: history,
         closedPositions: await _fetchClosedPositions(),
         quoteRepository: ref.read(quoteRepositoryProvider),
-        riskProfile: riskProfile,
+        investorProfile: investorProfile,
       );
     }
 
@@ -703,6 +721,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final prefs = ref.read(preferenceManagerProvider);
       final savedGoal = await prefs.getSavedGoal();
       final monthlyContribution = await prefs.getMonthlyContribution();
+      final investorProfile =
+          await ref.read(investorProfileProvider.notifier).refresh();
       return buildSnapshotJson(
         mode: AssistantMode.plan,
         userMessage: trimmed,
@@ -711,6 +731,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         closedPositions: await _fetchClosedPositions(),
         savedGoal: savedGoal,
         monthlyContribution: monthlyContribution,
+        investorProfile: investorProfile,
       );
     }
 

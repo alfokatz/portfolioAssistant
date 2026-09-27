@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
+import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -41,6 +43,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   void initState() {
     runAfterPostFrameCallback(() {
       ref.read(settingsProvider.notifier).init();
+      ref.read(investorProfileProvider.notifier).refresh();
     });
     super.initState();
   }
@@ -119,6 +122,18 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
         );
       },
     );
+  }
+
+  String? _investorProfileLabel(InvestorProfileState state) {
+    final profile = state.profile;
+    if (profile == null) {
+      return state.hasLoaded ? 'settings_investor_profile_empty'.tr() : null;
+    }
+    if (state.statusAt(DateTime.now()) == InvestorProfileStatus.stale) {
+      return 'settings_investor_profile_review'.tr();
+    }
+    return '${'investor_profile_risk_${profile.risk.storageValue}'.tr()} · '
+        '${'investor_profile_horizon_${profile.horizon.storageValue}'.tr()}';
   }
 
   Future<void> _onReplayOnboarding() async {
@@ -218,6 +233,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final settingsNotifier = ref.read(settingsProvider.notifier);
     final themeMode = ref.watch(themeModeProvider);
     final hapticsEnabled = ref.watch(hapticsEnabledProvider);
+    final investorProfile = ref.watch(investorProfileProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -268,6 +284,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                         title: 'auth_email'.tr(),
                         value: email,
                       ),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.tune_rounded,
+                  label: 'settings_investor_profile'.tr(),
+                  value: _investorProfileLabel(investorProfile),
+                  onTap:
+                      () => context.pushNamed(InvestorProfileRouter.routeName),
                 ),
               ],
             ),

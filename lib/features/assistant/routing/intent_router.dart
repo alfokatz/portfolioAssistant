@@ -13,6 +13,19 @@ abstract final class IntentRouter {
     'presupuesto',
     'budget',
   ];
+  /// Pedidos de recomendación y preguntas sobre el perfil de inversor: solo
+  /// Invertir recibe el perfil y arma candidatos, así que "¿qué me
+  /// recomendás?" o "¿ves mi perfil?" tienen que llegar ahí aunque no digan
+  /// "invertir". Sin esto caían en Portfolio y la respuesta ignoraba el
+  /// perfil recién completado.
+  static const _recommendationKeywords = [
+    'recomend',
+    'recomiend',
+    'suger',
+    'aconsej',
+    'mi perfil',
+    'perfil de inversor',
+  ];
   static const _planKeywords = [
     'planificar',
     'meta',
@@ -106,6 +119,7 @@ abstract final class IntentRouter {
     final lower = message.toLowerCase();
 
     if (_matchesAny(lower, _investKeywords) ||
+        _matchesAny(lower, _recommendationKeywords) ||
         _matchesAny(lower, _planKeywords)) {
       return resolveInvestPlanEngine(message: message);
     }

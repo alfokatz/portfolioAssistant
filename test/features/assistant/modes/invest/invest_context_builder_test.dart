@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
@@ -83,7 +84,12 @@ void main() {
       final snapshot = await InvestContextBuilder.build(
         userMessage: 'Quiero invertir \$500 en NVDA',
         quoteRepository: quoteRepository,
-        riskProfile: 0.6,
+        investorProfile: InvestorProfile(
+          risk: RiskTolerance.moderate,
+          horizon: InvestmentHorizon.long,
+          objective: InvestmentObjective.growth,
+          updatedAt: DateTime.utc(2026, 3, 1, 12),
+        ),
         asOf: fixedAsOf,
         yahooSectorClient: yahooSectorClient,
       );
@@ -93,7 +99,13 @@ void main() {
       expect(snapshot['as_of'], fixedAsOf.toIso8601String());
       expect(snapshot['has_budget'], isTrue);
       expect(snapshot['budget_usd'], 500.0);
-      expect(snapshot['risk_profile'], 0.6);
+      expect(snapshot['investor_profile'], {
+        'status': 'complete',
+        'risk_tolerance': 'moderado',
+        'horizon': 'largo plazo (más de 7 años)',
+        'objective': 'hacer crecer el patrimonio',
+        'updated_at': '2026-03-01',
+      });
 
       final candidates = snapshot['candidates'] as List<dynamic>;
       expect(candidates.length, 1);
@@ -105,6 +117,75 @@ void main() {
       expect(nvda['sector'], 'Tecnología');
       expect(nvda.containsKey('week_change_pct'), isTrue);
       expect(nvda['fit_score'], 100);
+      expect(nvda['risk_level'], 'crecimiento');
+      expect(nvda['matches_profile'], isFalse);
+    });
+
+    test('without a profile: status missing and generic defaults', () async {
+      final snapshot = await InvestContextBuilder.build(
+        userMessage: 'Tengo \$1000, ¿dónde invierto?',
+        quoteRepository: quoteRepository,
+        asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
+      );
+
+      expect(snapshot['investor_profile'], {'status': 'missing'});
+      final tickers = [
+        for (final c in snapshot['candidates'] as List<dynamic>)
+          (c as Map<String, dynamic>)['ticker'],
+      ];
+      expect(tickers, ['NVDA', 'MSFT', 'AAPL', 'JPM']);
+      for (final c in snapshot['candidates'] as List<dynamic>) {
+        expect((c as Map<String, dynamic>)['matches_profile'], isNull);
+      }
+    });
+
+    test('conservative profile picks defensive defaults', () async {
+      final snapshot = await InvestContextBuilder.build(
+        userMessage: 'Tengo \$1000, ¿dónde invierto?',
+        quoteRepository: quoteRepository,
+        investorProfile: InvestorProfile(
+          risk: RiskTolerance.conservative,
+          horizon: InvestmentHorizon.short,
+          objective: InvestmentObjective.growth,
+          updatedAt: DateTime.utc(2026, 1, 1),
+        ),
+        asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
+      );
+
+      final candidates = [
+        for (final c in snapshot['candidates'] as List<dynamic>)
+          c as Map<String, dynamic>,
+      ];
+      expect(
+        candidates.map((c) => c['ticker']),
+        ['JNJ', 'PG', 'KO', 'MSFT'],
+      );
+      expect(
+        candidates.map((c) => c['matches_profile']),
+        [true, true, true, false],
+      );
+    });
+
+    test('profile older than 12 months is reported as stale', () async {
+      final snapshot = await InvestContextBuilder.build(
+        userMessage: 'Invertir \$500 en NVDA',
+        quoteRepository: quoteRepository,
+        investorProfile: InvestorProfile(
+          risk: RiskTolerance.aggressive,
+          horizon: InvestmentHorizon.long,
+          objective: InvestmentObjective.growth,
+          updatedAt: DateTime.utc(2025, 6, 1),
+        ),
+        asOf: fixedAsOf,
+        yahooSectorClient: yahooSectorClient,
+      );
+
+      final profile = snapshot['investor_profile'] as Map<String, Object?>;
+      expect(profile['status'], 'stale');
+      // Vencido no es borrado: sigue llegando con sus valores.
+      expect(profile['risk_tolerance'], 'agresivo');
     });
 
     test('uses keyword defaults when no tickers in message', () async {

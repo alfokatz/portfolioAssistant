@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
@@ -11,6 +12,7 @@ import 'package:portfolio_assistant/features/assistant/modes/explore/explore_new
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
+import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
 
@@ -23,7 +25,8 @@ Future<String> buildSnapshotJson({
   QuoteRepository? quoteRepository,
   DateTime? asOf,
   String userMessage = '',
-  double? riskProfile,
+  // Perfil de inversor (Ajustes): lo leen invest y plan.
+  InvestorProfile? investorProfile,
   ({String label, double targetAmount, String targetDate})? savedGoal,
   double? monthlyContribution,
   ExploreNewsEnricher? exploreNewsEnricher,
@@ -115,6 +118,10 @@ Future<String> buildSnapshotJson({
           'data_source': 'yahoo_finance',
           'as_of': timestamp,
           'has_budget': false,
+          'investor_profile': InvestorProfileContext.build(
+            investorProfile,
+            asOf ?? DateTime.now(),
+          ),
           'candidates': <Map<String, Object?>>[],
           'portfolio_context': portfolioContext(),
         });
@@ -123,7 +130,7 @@ Future<String> buildSnapshotJson({
         userMessage: userMessage,
         quoteRepository: quoteRepository,
         summary: summary,
-        riskProfile: riskProfile,
+        investorProfile: investorProfile,
         asOf: asOf,
       );
       return jsonEncode({
@@ -140,6 +147,10 @@ Future<String> buildSnapshotJson({
       );
       return jsonEncode({
         ...planSnapshot,
+        'investor_profile': InvestorProfileContext.build(
+          investorProfile,
+          asOf ?? DateTime.now(),
+        ),
         'portfolio_context': portfolioContext(),
       });
   }

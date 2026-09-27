@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/providers/assistant_provi
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
@@ -587,7 +588,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       contentKey = const ValueKey('surface');
       final surfaceService =
           notifier.serviceForMessage(message) ?? fallbackService;
-      content = PortfolioQaAssistantSurface(
+      final surface = PortfolioQaAssistantSurface(
         surfaceId: message.surfaceId!,
         surfaceContext: surfaceService.controller.contextFor(
           message.surfaceId!,
@@ -598,6 +599,22 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           notifier.markRevealed(message.surfaceId!);
         },
       );
+      // Los avisos fijos (perfil de inversor + disclaimer) entran recién
+      // cuando la respuesta terminó su reveal, para no cortar la secuencia.
+      content =
+          AssistantAdviceFooter.hasContent(message)
+              ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  surface,
+                  if (message.hasRevealed)
+                    FadeSlideIn(
+                      skipAnimation: MediaQuery.disableAnimationsOf(context),
+                      child: AssistantAdviceFooter(message: message),
+                    ),
+                ],
+              )
+              : surface;
     } else {
       contentKey = const ValueKey('bubble');
       content = PortfolioQaChatBubble(

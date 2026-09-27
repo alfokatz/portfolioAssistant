@@ -3,6 +3,10 @@ import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dar
 /// Mensaje de la conversación Portfolio Q&A (UI).
 enum PortfolioQaRole { user, assistant }
 
+/// Aviso bajo una respuesta de Invertir cuando el perfil de inversor falta
+/// o está vencido — ver `AdviceNoticePolicy`.
+enum InvestorProfileNudge { missing, stale }
+
 class PortfolioQaMessage {
   const PortfolioQaMessage({
     required this.role,
@@ -13,6 +17,8 @@ class PortfolioQaMessage {
     this.hasRevealed = false,
     this.isFallback = false,
     this.subjectTickers = const [],
+    this.showsAdviceDisclaimer = false,
+    this.profileNudge,
   });
 
   final PortfolioQaRole role;
@@ -27,6 +33,16 @@ class PortfolioQaMessage {
   /// de mercado). Es el "turno guardado" del que sale el ticker de
   /// seguimiento — ver `UnifiedTurnHistory`.
   final List<String> subjectTickers;
+
+  /// Respuesta con sugerencia (Invertir, o Planificar con proyección): la
+  /// pantalla agrega debajo "sugerencia informativa, no asesoramiento
+  /// financiero personalizado". Lo pone la app, no el modelo, para que no
+  /// dependa de que el modelo se acuerde de incluirlo.
+  final bool showsAdviceDisclaimer;
+
+  /// Si no es `null`, la pantalla agrega el aviso de completar/revisar el
+  /// perfil en Ajustes → Perfil de inversor, con link directo.
+  final InvestorProfileNudge? profileNudge;
 
   /// `true` cuando [content] es un mensaje de fallback en texto plano
   /// mostrado porque la generación de esta surface falló, pero [surfaceId]
@@ -63,6 +79,8 @@ class PortfolioQaMessage {
     bool? hasRevealed,
     bool? isFallback,
     List<String>? subjectTickers,
+    bool? showsAdviceDisclaimer,
+    InvestorProfileNudge? profileNudge,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -73,6 +91,9 @@ class PortfolioQaMessage {
       hasRevealed: hasRevealed ?? this.hasRevealed,
       isFallback: isFallback ?? this.isFallback,
       subjectTickers: subjectTickers ?? this.subjectTickers,
+      showsAdviceDisclaimer:
+          showsAdviceDisclaimer ?? this.showsAdviceDisclaimer,
+      profileNudge: profileNudge ?? this.profileNudge,
     );
   }
 }

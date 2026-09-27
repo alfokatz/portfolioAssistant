@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:portfolio_assistant/domain/managers/preferences_manager.dart';
 
 const _KEY_USER_TOKEN = 'KEY_USER_TOKEN';
-const _KEY_USER_RISK_PROFILE = 'user_risk_profile';
 const _KEY_GOAL_LABEL = 'goal_label';
 const _KEY_GOAL_TARGET_AMOUNT = 'goal_target_amount';
 const _KEY_GOAL_TARGET_DATE = 'goal_target_date';
@@ -33,16 +32,6 @@ class PreferencesManagerImpl extends PreferencesManager {
   Future<String?> getToken() async {
     final String? token = await secureStorage.read(key: _KEY_USER_TOKEN);
     return token;
-  }
-
-  @override
-  Future<double?> getRiskProfile() async {
-    return sharedPreferences.getDouble(_KEY_USER_RISK_PROFILE);
-  }
-
-  @override
-  Future<void> saveRiskProfile(double value) async {
-    await sharedPreferences.setDouble(_KEY_USER_RISK_PROFILE, value);
   }
 
   @override

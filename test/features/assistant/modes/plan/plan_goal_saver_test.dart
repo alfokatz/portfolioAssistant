@@ -25,12 +25,6 @@ class _FakePreferencesManager implements PreferencesManager {
   Future<void> saveMonthlyContribution(double amount) async {}
 
   @override
-  Future<double?> getRiskProfile() async => null;
-
-  @override
-  Future<void> saveRiskProfile(double value) async {}
-
-  @override
   Future<String?> getToken() async => null;
 
   @override

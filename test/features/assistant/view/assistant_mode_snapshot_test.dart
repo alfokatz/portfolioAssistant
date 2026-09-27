@@ -145,7 +145,6 @@ void main() {
         mode: AssistantMode.invest,
         userMessage: 'Invertir \$500 en NVDA',
         quoteRepository: _FakeQuoteRepository(),
-        riskProfile: 0.5,
         asOf: fixedAsOf,
       );
       final snapshot = jsonDecode(json) as Map<String, dynamic>;
@@ -153,7 +152,7 @@ void main() {
       expect(snapshot['mode'], 'invest');
       expect(snapshot['has_budget'], isTrue);
       expect(snapshot['budget_usd'], 500.0);
-      expect(snapshot['risk_profile'], 0.5);
+      expect(snapshot['investor_profile'], {'status': 'missing'});
 
       final candidates = snapshot['candidates'] as List<dynamic>;
       expect(candidates, isNotEmpty);
