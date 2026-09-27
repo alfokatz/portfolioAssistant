@@ -584,6 +584,17 @@ abstract final class PortfolioQaCatalogWidgets {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (data.nextEpsEstimate != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'EPS estimado \$${data.nextEpsEstimate!.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: PortfolioColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
           if (hasResult) ...[
             const SizedBox(height: 10),
@@ -2133,6 +2144,7 @@ final class _EarningsCalendarData {
     required this.ticker,
     required this.nextReportDateLabel,
     required this.fiscalPeriodLabel,
+    required this.nextEpsEstimate,
     required this.latestReportDateLabel,
     required this.epsActual,
     required this.epsEstimate,
@@ -2142,6 +2154,7 @@ final class _EarningsCalendarData {
   factory _EarningsCalendarData.fromMap(JsonMap map) {
     final epsActualRaw = map['epsActual'];
     final epsEstimateRaw = map['epsEstimate'];
+    final nextEpsEstimateRaw = map['nextEpsEstimate'];
     final beatRaw = map['beat'];
     return _EarningsCalendarData(
       ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
@@ -2153,6 +2166,10 @@ final class _EarningsCalendarData {
         map['fiscalPeriodLabel'],
         defaultValue: '',
       ),
+      nextEpsEstimate:
+          nextEpsEstimateRaw == null
+              ? null
+              : GenUiHelpers.safeDouble(nextEpsEstimateRaw, defaultValue: 0),
       latestReportDateLabel: GenUiHelpers.safeString(
         map['latestReportDateLabel'],
         defaultValue: '',
@@ -2175,6 +2192,7 @@ final class _EarningsCalendarData {
   final String ticker;
   final String nextReportDateLabel;
   final String fiscalPeriodLabel;
+  final double? nextEpsEstimate;
   final String latestReportDateLabel;
   final double? epsActual;
   final double? epsEstimate;

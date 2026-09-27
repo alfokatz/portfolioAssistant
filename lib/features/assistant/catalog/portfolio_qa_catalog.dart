@@ -607,6 +607,14 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
       'fiscalPeriodLabel': S.string(
         description: 'Ej. "T3 FY26" (opcional, junto con nextReportDateLabel).',
       ),
+      'nextEpsEstimate': S.number(
+        description:
+            'EPS esperado por el mercado para el PRÓXIMO reporte (consenso '
+            'de analistas, no un resultado ya publicado). Opcional, junto '
+            'con nextReportDateLabel — usar para "¿cuáles son las ganancias '
+            'esperadas de X?" / "expected earnings". Distinto de epsEstimate, '
+            'que es la comparación del último reporte YA publicado.',
+      ),
       'latestReportDateLabel': S.string(
         description: 'Fecha del último reporte ya publicado (opcional).',
       ),
@@ -632,7 +640,8 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
     "component": "QaEarningsCalendar",
     "ticker": "NVDA",
     "nextReportDateLabel": "13 nov 2026",
-    "fiscalPeriodLabel": "T3 FY26"
+    "fiscalPeriodLabel": "T3 FY26",
+    "nextEpsEstimate": 1.28
   }
 ]
 ''',

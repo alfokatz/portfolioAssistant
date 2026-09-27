@@ -41,6 +41,7 @@ void main() {
 
         expect(find.text('NVDA'), findsOneWidget);
         expect(find.text('13 nov 2026'), findsOneWidget);
+        expect(find.textContaining('1.28'), findsOneWidget);
       },
     );
 

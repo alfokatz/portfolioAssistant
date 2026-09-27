@@ -80,7 +80,41 @@ void main() {
       final next = nvda['next_report'] as Map<String, Object?>;
       expect(next['date_label'], '13 nov 2026');
       expect(next['fiscal_period_label'], 'T3 FY26');
+      expect(next.containsKey('eps_estimate'), isFalse);
     });
+
+    // Regression: Finnhub devuelve un consenso de EPS junto con la fecha del
+    // próximo reporte (mismo endpoint /calendar/earnings), pero se pisaba
+    // acá antes de llegar al snapshot — "¿cuáles son las ganancias esperadas
+    // de X?" respondía "no tengo información" pese a que el dato ya estaba
+    // en `EarningsCalendarEntry.epsEstimate`.
+    test(
+      'includes eps_estimate on next_report when Finnhub provides a consensus',
+      () async {
+        final enricher = ExploreEarningsEnricher(
+          earningsRepository: _FakeEarningsCalendarRepository(
+            onGetNextEarningsDate: (ticker) async => Right(
+              EarningsCalendarEntry(
+                ticker: ticker,
+                reportDate: DateTime(2026, 11, 13),
+                fiscalQuarter: 3,
+                fiscalYear: 2026,
+                epsEstimate: 1.28,
+              ),
+            ),
+          ),
+        );
+
+        final result = await enricher.enrich(
+          snapshot: Map<String, Object?>.from(baseSnapshot),
+        );
+
+        final calendar = result['earnings_calendar'] as Map<String, Object?>;
+        final nvda = calendar['NVDA'] as Map<String, Object?>;
+        final next = nvda['next_report'] as Map<String, Object?>;
+        expect(next['eps_estimate'], 1.28);
+      },
+    );
 
     // Fallback honesto: la API respondió bien (Right(null)) pero no hay
     // reporte próximo ni resultado publicado para el ticker.

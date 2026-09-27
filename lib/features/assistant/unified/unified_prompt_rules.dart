@@ -356,8 +356,12 @@ EARNINGS CALENDAR (CRITICAL)
 earnings_calendar.{TICKER} (only for tickers already in tickers) and
 earnings_calendar_status ('ok'|'empty'|'failed'|'locked') come from Finnhub
 — real, structured data, not model-generated. earnings_calendar.{TICKER}
-may include next_report (date_label, fiscal_period_label) and/or
+may include next_report (date_label, fiscal_period_label, eps_estimate) and/or
 latest_result (report_date_label, eps_actual, eps_estimate, beat).
+next_report.eps_estimate (when present) is the market's CONSENSUS estimate
+for the upcoming report — NOT an already-published result. It may be absent
+even when next_report exists (Finnhub doesn't always have a consensus this
+far out) — never invent one when it's missing.
 
 'empty', 'failed', and 'locked' are THREE DIFFERENT CAUSES — never blend
 their wording:
@@ -374,7 +378,8 @@ resultados NVDA?", "próximo reporte de MSFT", "when does AAPL report
 earnings?", "fecha de resultados de TSLA"):
 - If earnings_calendar.{TICKER}.next_report exists: use QaEarningsCalendar
   with ticker, nextReportDateLabel = next_report.date_label,
-  fiscalPeriodLabel = next_report.fiscal_period_label (if present).
+  fiscalPeriodLabel = next_report.fiscal_period_label (if present),
+  nextEpsEstimate = next_report.eps_estimate (if present).
   QaAnswerText: one plain sentence stating the date, e.g. "NVDA reporta
   resultados el 13 nov 2026."
 - If the ticker has no next_report, or earnings_calendar_status is "empty":
@@ -387,6 +392,24 @@ earnings?", "fecha de resultados de TSLA"):
   plainly that the earnings calendar isn't included in the user's current
   plan, e.g. "El calendario de resultados no está disponible en tu plan
   actual." — never say "no tengo información" here.
+
+When the user asks about EXPECTED/FORECASTED earnings for the NEXT report
+("¿cuáles son las ganancias esperadas de AAPL?", "expected earnings for
+NVDA", "¿cuánto se espera que gane MSFT este trimestre?", "consenso de EPS
+de TSLA") — this is forward-looking, do NOT confuse with "how did the last
+report go" below:
+- If earnings_calendar.{TICKER}.next_report.eps_estimate exists: use
+  QaEarningsCalendar with ticker, nextReportDateLabel, fiscalPeriodLabel (if
+  present), nextEpsEstimate = next_report.eps_estimate. QaAnswerText: one
+  plain sentence, e.g. "Se espera que AAPL reporte un EPS de $2.15 en su
+  próximo balance (13 nov 2026)."
+- If next_report exists but has no eps_estimate, or there's no next_report,
+  or earnings_calendar_status is "empty": QaAnswerText only, stating plainly
+  there's no earnings estimate available for that ticker right now — never
+  invent a figure, and never substitute latest_result's (already-published)
+  eps_estimate for this forward-looking question.
+- If earnings_calendar_status is "failed" or "locked": same handling as the
+  date-only case above.
 
 When the user asks HOW a company's LAST report went ("¿cómo le fue a MSFT
 en su último reporte?", "resultado del último trimestre de AAPL", "¿AAPL

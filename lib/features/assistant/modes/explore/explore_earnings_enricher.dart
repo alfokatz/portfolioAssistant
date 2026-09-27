@@ -85,13 +85,23 @@ class ExploreEarningsEnricher {
   }
 
   Map<String, Object?> _nextReportToJson(EarningsCalendarEntry entry) {
-    return {
+    final json = <String, Object?>{
       'date_label': _dateLabel(entry.reportDate),
       'fiscal_period_label': _fiscalPeriodLabel(
         entry.fiscalQuarter,
         entry.fiscalYear,
       ),
     };
+    // Finnhub ya devuelve un consenso de EPS para el próximo reporte junto
+    // con la fecha (mismo endpoint /calendar/earnings) — antes se pisaba acá
+    // silenciosamente, así que "¿cuáles son las ganancias esperadas de X?"
+    // caía en "no tengo información" pese a que el dato ya estaba en
+    // `EarningsCalendarEntry.epsEstimate`. Opcional: puede no venir todavía
+    // para reportes muy lejanos.
+    if (entry.epsEstimate != null) {
+      json['eps_estimate'] = entry.epsEstimate;
+    }
+    return json;
   }
 
   Map<String, Object?> _latestResultToJson(EarningsReportResult result) {
