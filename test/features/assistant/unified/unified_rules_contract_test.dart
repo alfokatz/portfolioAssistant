@@ -558,11 +558,11 @@ void main() {
           'WIDGET SELECTION GUIDE — RANKING',
         );
         final heldMove = ranking.indexOf(
-          '7. ONE ticker the user HOLDS + an explicit time window → QaTickerMove',
+          '8. ONE ticker the user HOLDS + an explicit time window → QaTickerMove',
         );
-        final chart = ranking.indexOf('8. Any other question about ONE ticker');
+        final chart = ranking.indexOf('9. Any other question about ONE ticker');
         final fallback = ranking.indexOf(
-          '9. Only if step 8 applies but price_chart_available is false',
+          '10. Only if step 9 applies but price_chart_available is false',
         );
         expect(heldMove, isNonNegative);
         expect(heldMove, lessThan(chart));
@@ -573,8 +573,8 @@ void main() {
     test('a named pair is a comparison, never a ranking', () {
       final ranking = ruleSection(rules(), 'WIDGET SELECTION GUIDE — RANKING');
       expect(
-        ranking.indexOf('5. 2-3 tickers'),
-        lessThan(ranking.indexOf('6. Best / worst')),
+        ranking.indexOf('6. 2-3 tickers'),
+        lessThan(ranking.indexOf('7. Best / worst')),
       );
     });
 

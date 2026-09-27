@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_calendar_entry.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_report_result.dart';
@@ -8,6 +9,7 @@ import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
+import 'package:portfolio_assistant/domain/repositories/company_fundamentals_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/earnings_calendar_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
@@ -101,6 +103,22 @@ class FakeEarningsCalendarRepository implements EarningsCalendarRepository {
   Future<Either<HttpError, EarningsReportResult?>> getLatestEarningsResult(
     String ticker,
   ) async => const Right(null);
+}
+
+class FakeCompanyFundamentalsRepository
+    implements CompanyFundamentalsRepository {
+  FakeCompanyFundamentalsRepository({this.data});
+
+  final CompanyFundamentals? data;
+  final calls = <String>[];
+
+  @override
+  Future<Either<HttpError, CompanyFundamentals?>> getFundamentals(
+    String ticker,
+  ) async {
+    calls.add(ticker);
+    return Right(data);
+  }
 }
 
 PositionValuation _valuation(String ticker) => PositionValuation(

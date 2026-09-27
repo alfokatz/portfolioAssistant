@@ -269,6 +269,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         closedPositions: await _fetchClosedPositions(),
         newsEnricher: newsAllowed ? deps.createNewsEnricher() : null,
         earningsEnricher: newsAllowed ? deps.createEarningsEnricher() : null,
+        fundamentalsEnricher:
+            newsAllowed ? deps.createFundamentalsEnricher() : null,
       );
 
       if (UnifiedSnapshotValidator.allRequestedTickersFailed(snapshot)) {
@@ -696,6 +698,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           ref.read(subscriptionProvider).tier,
         ),
         enableEarningsCalendar: SubscriptionPolicy.isNewsAllowed(
+          ref.read(subscriptionProvider).tier,
+        ),
+        enableFundamentals: SubscriptionPolicy.isNewsAllowed(
           ref.read(subscriptionProvider).tier,
         ),
         fallbackExploreTicker: _lastExploreTicker,

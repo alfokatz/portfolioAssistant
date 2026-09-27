@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_calendar_entry.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_report_result.dart';
@@ -9,6 +10,7 @@ import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
+import 'package:portfolio_assistant/domain/repositories/company_fundamentals_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/earnings_calendar_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
@@ -16,6 +18,7 @@ import 'package:portfolio_assistant/domain/repositories/symbol_search_repository
 import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_fundamentals_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 
 class _FakeCompanyNewsRepository implements CompanyNewsRepository {
@@ -50,6 +53,18 @@ class _FakeEarningsCalendarRepository implements EarningsCalendarRepository {
   Future<Either<HttpError, EarningsReportResult?>> getLatestEarningsResult(
     String ticker,
   ) async => Right(latestResult);
+}
+
+class _FakeCompanyFundamentalsRepository
+    implements CompanyFundamentalsRepository {
+  _FakeCompanyFundamentalsRepository({this.data});
+
+  final CompanyFundamentals? data;
+
+  @override
+  Future<Either<HttpError, CompanyFundamentals?>> getFundamentals(
+    String ticker,
+  ) async => Right(data);
 }
 
 class _FakeQuoteRepository implements QuoteRepository {
@@ -371,6 +386,55 @@ void main() {
       );
     });
 
+    group('fundamentals enrichment', () {
+      test('adds fundamentals fields when repository has data', () async {
+        final enricher = ExploreFundamentalsEnricher(
+          fundamentalsRepository: _FakeCompanyFundamentalsRepository(
+            data: CompanyFundamentals(
+              ticker: 'AAPL',
+              peTTM: 38.6073,
+              marketCapitalization: 4977637.06,
+              dividendYieldIndicatedAnnual: 0.50534,
+            ),
+          ),
+        );
+
+        final snapshot = await ExploreContextBuilder.build(
+          userMessage: '¿cuál es el P/E de AAPL?',
+          quoteRepository: quoteRepository,
+          asOf: fixedAsOf,
+          fundamentalsEnricher: enricher,
+        );
+
+        expect(snapshot['fundamentals_status'], 'ok');
+        final fundamentals =
+            snapshot['fundamentals'] as Map<String, dynamic>;
+        final aapl = fundamentals['AAPL'] as Map<String, dynamic>;
+        expect(aapl['pe_ttm'], 38.6073);
+        expect(aapl['market_capitalization'], 4977637.06);
+        expect(aapl['dividend_yield_indicated_annual'], 0.50534);
+      });
+
+      test(
+        'marks status empty when repository has no data for the ticker',
+        () async {
+          final enricher = ExploreFundamentalsEnricher(
+            fundamentalsRepository: _FakeCompanyFundamentalsRepository(),
+          );
+
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿cuál es el P/E de AAPL?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            fundamentalsEnricher: enricher,
+          );
+
+          expect(snapshot['fundamentals_status'], 'empty');
+          expect(snapshot['fundamentals'], isEmpty);
+        },
+      );
+    });
+
     // Regresión: un usuario sin acceso por plan (earningsAllowed/newsAllowed
     // = false, ver SubscriptionPolicy.isNewsAllowed) y un usuario para el
     // que Finnhub genuinamente no tiene datos ("empty") antes producían el
@@ -411,6 +475,40 @@ void main() {
           );
 
           expect(snapshot.containsKey('earnings_calendar_status'), isFalse);
+        },
+      );
+
+      test(
+        'marks fundamentals_status locked when fundamentalsAllowed is '
+        'false and the user has a ticker in question — without calling '
+        'the repository at all',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿cuál es el P/E de AAPL?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            fundamentalsAllowed: false,
+            // Sin fundamentalsEnricher: si el código llegara a intentar
+            // invocarlo igual, esto fallaría con un null check.
+          );
+
+          expect(snapshot['fundamentals_status'], 'locked');
+          expect(snapshot['fundamentals'], isEmpty);
+        },
+      );
+
+      test(
+        'does not mark fundamentals_status at all when there are no '
+        'tickers to ask about, even if fundamentalsAllowed is false',
+        () async {
+          final snapshot = await ExploreContextBuilder.build(
+            userMessage: '¿qué es diversificar?',
+            quoteRepository: quoteRepository,
+            asOf: fixedAsOf,
+            fundamentalsAllowed: false,
+          );
+
+          expect(snapshot.containsKey('fundamentals_status'), isFalse);
         },
       );
 

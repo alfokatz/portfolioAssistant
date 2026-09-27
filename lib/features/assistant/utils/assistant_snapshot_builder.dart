@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_fundamentals_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/invest/invest_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/plan/plan_context_builder.dart';
@@ -33,6 +34,8 @@ Future<String> buildSnapshotJson({
   bool enableNewsEnrichment = true,
   ExploreEarningsEnricher? exploreEarningsEnricher,
   bool enableEarningsCalendar = true,
+  ExploreFundamentalsEnricher? exploreFundamentalsEnricher,
+  bool enableFundamentals = true,
   // Último ticker de un turno explore previo en la sesión — ver
   // `AssistantProvider._lastExploreTicker`. Solo se usa en modo explore.
   String? fallbackExploreTicker,
@@ -104,6 +107,10 @@ Future<String> buildSnapshotJson({
             ? (exploreEarningsEnricher ?? ExploreEarningsEnricher())
             : null,
         earningsAllowed: enableEarningsCalendar,
+        fundamentalsEnricher: enableFundamentals
+            ? (exploreFundamentalsEnricher ?? ExploreFundamentalsEnricher())
+            : null,
+        fundamentalsAllowed: enableFundamentals,
         fallbackTicker: fallbackExploreTicker,
         tickerResolver: exploreTickerResolver,
       );

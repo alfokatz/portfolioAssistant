@@ -573,6 +573,62 @@ final CatalogItem qaPositionListItem = CatalogItem(
   ],
 );
 
+final _fundamentalsMetricItemSchema = S.object(
+  properties: {
+    'label': S.string(
+      description:
+          'Nombre corto del indicador, ej. "P/E", "Market cap", "Margen '
+          'neto", "Dividend yield".',
+    ),
+    'value': S.string(
+      description:
+          'Valor ya formateado como texto, copiado/formateado de '
+          'fundamentals.{TICKER} — nunca inventado. Ej. "38,6x", "\$4,98T", '
+          '"27,6%".',
+    ),
+  },
+  required: ['label', 'value'],
+);
+
+final CatalogItem qaFundamentalsItem = CatalogItem(
+  name: 'QaFundamentals',
+  dataSchema: S.object(
+    description:
+        'Métricas fundamentales de UN ticker (valuación, rentabilidad, '
+        'dividendo, rango de 52 semanas), tomadas de fundamentals.{TICKER}. '
+        'Lista flexible de 1-6 pares label/value: incluí solo los '
+        'indicadores relevantes a la pregunta, no todos los disponibles.',
+    properties: {
+      'ticker': S.string(),
+      'items': S.list(
+        items: _fundamentalsMetricItemSchema,
+        minItems: 1,
+        maxItems: 6,
+      ),
+    },
+    required: ['ticker', 'items'],
+  ),
+  widgetBuilder: (ctx) =>
+      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaFundamentals),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "fundamentals",
+    "component": "QaFundamentals",
+    "ticker": "AAPL",
+    "items": [
+      {"label": "P/E (TTM)", "value": "38,6x"},
+      {"label": "Market cap", "value": "\$4,98T"},
+      {"label": "Margen neto", "value": "27,6%"},
+      {"label": "Dividend yield", "value": "0,51%"}
+    ]
+  }
+]
+''',
+  ],
+);
+
 final _newsItemSchema = S.object(
   properties: {
     'headline': S.string(),
@@ -1190,6 +1246,7 @@ abstract final class PortfolioQaCatalog {
           qaTickerMoveItem,
           qaMetricStripItem,
           qaEarningsCalendarItem,
+          qaFundamentalsItem,
           qaNewsSummaryItem,
           qaTipBannerItem,
         ];

@@ -212,9 +212,13 @@ void main() {
   );
 
   test(
-    'EX-16 states plainly that volume/open/high/low/market cap are not available',
+    'EX-16 states plainly that intraday volume/open/high/low are not in '
+    'tickers, and points to fundamentals for valuation metrics '
+    '(CHANGED: fundamentals.{TICKER} added market cap/P/E/etc., no longer '
+    'blanket "not available")',
     () {
-      expect(r, contains('NO volume, open, high, low'));
+      expect(r, contains('NO intraday volume/open/high/low'));
+      expect(r, contains('fundamentals.{TICKER}'));
     },
   );
 

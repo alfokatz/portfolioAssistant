@@ -219,13 +219,22 @@ void main() {
     // genérico de "no hay datos suficientes" porque ExploreContextBuilder
     // solo computaba day/week/month, aunque el historial que ya trae
     // getHistoricalDaily cubre de sobra un trimestre/año (mismo patrón que
-    // PortfolioContextBuilder). Y "¿cuál es el volumen de AAPL?" no tiene
-    // ningún dato que lo respalde (PriceCandle solo tiene date+close) — el
-    // prompt ahora lo dice explícitamente en vez de dejar que el modelo
-    // improvise una disculpa genérica.
-    test('states plainly that volume/open/high/low/market cap are not available', () {
-      expect(explorePromptRules, contains('NO volume, open, high, low'));
-    });
+    // PortfolioContextBuilder). Y "¿cuál es el volumen intradía de AAPL?" no
+    // tiene ningún dato que lo respalde (PriceCandle solo tiene date+close)
+    // — el prompt ahora lo dice explícitamente en vez de dejar que el
+    // modelo improvise una disculpa genérica. Market cap/P/E SÍ están
+    // disponibles ahora, pero en fundamentals.{TICKER}, no en explore_tickers.
+    test(
+      'states plainly that intraday volume/open/high/low are not in '
+      'explore_tickers, and points to fundamentals for valuation metrics',
+      () {
+        expect(
+          explorePromptRules,
+          contains('NO intraday volume/open/high/low'),
+        );
+        expect(explorePromptRules, contains('fundamentals.{TICKER}'));
+      },
+    );
 
     // EARNINGS CALENDAR: mismo nivel de rigor que TICKER + EXPLICIT PERIOD
     // arriba — ejemplos concretos, mapeo de campos explícito y fallback

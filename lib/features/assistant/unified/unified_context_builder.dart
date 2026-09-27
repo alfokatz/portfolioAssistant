@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_fundamentals_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/unified/message_needs.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
@@ -34,6 +35,7 @@ abstract final class UnifiedContextBuilder {
     List<ClosedPosition> closedPositions = const [],
     ExploreNewsEnricher? newsEnricher,
     ExploreEarningsEnricher? earningsEnricher,
+    ExploreFundamentalsEnricher? fundamentalsEnricher,
     DateTime? asOf,
   }) async {
     final hasOpen = summary != null && summary.valuations.isNotEmpty;
@@ -108,6 +110,7 @@ abstract final class UnifiedContextBuilder {
       snapshot = {
         ...snapshot,
         ...await _earnings(tickers, newsAllowed, earningsEnricher),
+        ...await _fundamentals(tickers, newsAllowed, fundamentalsEnricher),
         ...await _news(tickers, needs, userMessage, newsAllowed, newsEnricher),
       };
     }
@@ -139,6 +142,29 @@ abstract final class UnifiedContextBuilder {
         'earnings_calendar': enriched['earnings_calendar'],
       if (enriched.containsKey('earnings_calendar_status'))
         'earnings_calendar_status': enriched['earnings_calendar_status'],
+    };
+  }
+
+  static Future<Map<String, Object?>> _fundamentals(
+    Map<String, Object?> tickers,
+    bool allowed,
+    ExploreFundamentalsEnricher? enricher,
+  ) async {
+    if (!allowed) {
+      return {
+        'fundamentals': <String, Object?>{},
+        'fundamentals_status': 'locked',
+      };
+    }
+    if (enricher == null) return const {};
+    final enriched = await enricher.enrich(
+      snapshot: {'explore_tickers': tickers},
+    );
+    return {
+      if (enriched.containsKey('fundamentals'))
+        'fundamentals': enriched['fundamentals'],
+      if (enriched.containsKey('fundamentals_status'))
+        'fundamentals_status': enriched['fundamentals_status'],
     };
   }
 

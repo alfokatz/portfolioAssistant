@@ -22,6 +22,7 @@ void main() {
       final names = catalog.items.map((item) => item.name).toSet();
       expect(names, contains('QaEarningsCalendar'));
       expect(names, contains('QaNewsSummary'));
+      expect(names, contains('QaFundamentals'));
     });
 
     testWidgets(
@@ -83,6 +84,24 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('hace 2 días'), findsOneWidget);
+    });
+
+    testWidgets('QaFundamentals example renders ticker and metric values', (
+      tester,
+    ) async {
+      final item = catalog.items.firstWhere((i) => i.name == 'QaFundamentals');
+
+      await pumpCatalogItemExample(
+        tester,
+        catalog,
+        item,
+        exampleIndex: 0,
+        surfaceId: 'explore_0',
+      );
+
+      expect(find.textContaining('AAPL'), findsOneWidget);
+      expect(find.text('38,6x'), findsOneWidget);
+      expect(find.text('\$4,98T'), findsOneWidget);
     });
   });
 }

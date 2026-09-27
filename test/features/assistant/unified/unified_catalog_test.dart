@@ -10,10 +10,10 @@ void main() {
       catalog.items.map((i) => i.name).where((n) => n.startsWith('Qa')).toSet();
 
   test(
-    'exactly the 16 approved widgets: Portfolio + Learn + Explore, no Invest/Plan',
+    'exactly the 17 approved widgets: Portfolio + Learn + Explore, no Invest/Plan',
     () {
       expect(qaNames(), UnifiedAssistantCatalog.widgetNames);
-      expect(qaNames(), hasLength(16));
+      expect(qaNames(), hasLength(17));
       for (final investOrPlan in const [
         'QaBudgetSplit',
         'QaInvestOption',

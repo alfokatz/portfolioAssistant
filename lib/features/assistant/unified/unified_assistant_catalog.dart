@@ -21,8 +21,9 @@ GROUNDING RULES — NEVER VIOLATE:
 ''';
 
 /// Catálogo ÚNICO del pipeline sin modos: los widgets de Portfolio + Learn +
-/// Explore (16, con `QaAnswerText`/`QaTipBanner` deduplicados y
-/// `QaPositionsSnapshot` separado de `QaMetricStrip`). Invest y Plan
+/// Explore (17, con `QaAnswerText`/`QaTipBanner` deduplicados,
+/// `QaPositionsSnapshot` separado de `QaMetricStrip`, y `QaFundamentals`
+/// sumado para valuación/rentabilidad/dividendo por ticker). Invest y Plan
 /// quedan afuera — siguen con su propio catálogo.
 abstract final class UnifiedAssistantCatalog {
   static const widgetNames = {
@@ -33,6 +34,7 @@ abstract final class UnifiedAssistantCatalog {
     'QaTickerMove',
     'QaMetricStrip',
     'QaEarningsCalendar',
+    'QaFundamentals',
     'QaNewsSummary',
     'QaPositionsSnapshot',
     'QaPeriodChange',
@@ -52,6 +54,7 @@ abstract final class UnifiedAssistantCatalog {
     _tickerMoveItem,
     qaMetricStripComparisonItem,
     qaEarningsCalendarItem,
+    qaFundamentalsItem,
     qaNewsSummaryItem,
     qaPositionsSnapshotItem,
     qaPeriodChangeItem,

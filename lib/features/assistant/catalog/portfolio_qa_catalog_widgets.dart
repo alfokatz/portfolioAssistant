@@ -699,6 +699,63 @@ abstract final class PortfolioQaCatalogWidgets {
     );
   }
 
+  static Widget qaFundamentals(CatalogItemContext ctx) {
+    final data = _FundamentalsData.fromMap(ctx.data as JsonMap);
+    return QaCardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Fundamentals de ${data.ticker}',
+            style: const TextStyle(
+              color: PortfolioColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 20,
+            runSpacing: 12,
+            children: [
+              for (final item in data.items)
+                SizedBox(
+                  width: 130,
+                  child: _fundamentalsMetricCell(item),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _fundamentalsMetricCell(_FundamentalsMetricItem item) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          item.label,
+          style: const TextStyle(
+            color: PortfolioColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          item.value,
+          style: const TextStyle(
+            color: PortfolioColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
   static Widget qaTipBanner(CatalogItemContext ctx) {
     final data = _TipBannerData.fromMap(ctx.data as JsonMap);
     final isWarning = data.tone == 'warning';
@@ -2242,6 +2299,39 @@ final class _NewsSummaryData {
 
   final String ticker;
   final List<_NewsItem> items;
+}
+
+final class _FundamentalsMetricItem {
+  _FundamentalsMetricItem({required this.label, required this.value});
+
+  factory _FundamentalsMetricItem.fromMap(JsonMap map) {
+    return _FundamentalsMetricItem(
+      label: GenUiHelpers.safeString(map['label'], defaultValue: ''),
+      value: GenUiHelpers.safeString(map['value'], defaultValue: ''),
+    );
+  }
+
+  final String label;
+  final String value;
+}
+
+final class _FundamentalsData {
+  _FundamentalsData({required this.ticker, required this.items});
+
+  factory _FundamentalsData.fromMap(JsonMap map) {
+    final items = GenUiHelpers.safeList(
+      map['items'],
+      defaultValue: const <_FundamentalsMetricItem>[],
+      mapItem: (item) => _FundamentalsMetricItem.fromMap(item as JsonMap),
+    );
+    return _FundamentalsData(
+      ticker: GenUiHelpers.safeString(map['ticker'], defaultValue: ''),
+      items: items.take(6).toList(),
+    );
+  }
+
+  final String ticker;
+  final List<_FundamentalsMetricItem> items;
 }
 
 final class _TipBannerData {

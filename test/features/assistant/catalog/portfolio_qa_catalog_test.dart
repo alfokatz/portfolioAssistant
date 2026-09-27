@@ -5,7 +5,7 @@ import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dar
 void main() {
   // Cada modo debe recibir solo los widgets `Qa*` que su propia guía de
   // prompt referencia — antes los 5 modos compartían el catálogo completo
-  // de 19 widgets, inflando el JSON schema embebido en cada prompt con
+  // de 20 widgets, inflando el JSON schema embebido en cada prompt con
   // widgets que ese modo ni puede usar. `Catalog.copyWith(newItems: ...)`
   // en el paquete `genui` MERGEA por nombre en vez de reemplazar — por
   // eso `PortfolioQaCatalog._buildFrom` arranca siempre de un
@@ -41,6 +41,7 @@ void main() {
         'QaTickerMove',
         'QaMetricStrip',
         'QaEarningsCalendar',
+        'QaFundamentals',
         'QaNewsSummary',
         'QaTipBanner',
       },
@@ -111,6 +112,7 @@ void main() {
       'QaTickerSnapshot',
       'QaTickerMove',
       'QaEarningsCalendar',
+      'QaFundamentals',
       'QaNewsSummary',
       'QaPeriodChange',
       'QaConcentrationBar',

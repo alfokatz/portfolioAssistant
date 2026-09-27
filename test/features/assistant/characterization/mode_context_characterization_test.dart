@@ -147,6 +147,8 @@ void main() {
         'news_enrichment',
         'earnings_calendar',
         'earnings_calendar_status',
+        'fundamentals',
+        'fundamentals_status',
       ]) {
         expect(snapshot.containsKey(key), isFalse, reason: key);
       }

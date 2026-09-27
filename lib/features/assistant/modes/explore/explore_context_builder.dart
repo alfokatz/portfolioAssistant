@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/modes/explore/broad_marke
 import 'package:portfolio_assistant/features/assistant/modes/explore/company_name_candidate_extractor.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_fundamentals_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/news_query_detector.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/ticker_extractor.dart';
@@ -43,6 +44,8 @@ abstract final class ExploreContextBuilder {
     bool newsAllowed = true,
     ExploreEarningsEnricher? earningsEnricher,
     bool earningsAllowed = true,
+    ExploreFundamentalsEnricher? fundamentalsEnricher,
+    bool fundamentalsAllowed = true,
     // Último ticker de un turno explore previo en la misma sesión (ver
     // `AssistantProvider._lastExploreTicker`) — resuelve follow-ups que no
     // repiten el ticker ("¿y qué expectativas hay sobre estos resultados?").
@@ -131,6 +134,18 @@ abstract final class ExploreContextBuilder {
         ...enriched,
         'earnings_calendar': <String, Object?>{},
         'earnings_calendar_status': 'locked',
+      };
+    }
+
+    if (fundamentalsAllowed) {
+      if (fundamentalsEnricher != null) {
+        enriched = await fundamentalsEnricher.enrich(snapshot: enriched);
+      }
+    } else if (exploreTickers.isNotEmpty) {
+      enriched = {
+        ...enriched,
+        'fundamentals': <String, Object?>{},
+        'fundamentals_status': 'locked',
       };
     }
 

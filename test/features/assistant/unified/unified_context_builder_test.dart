@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_earnings_enricher.dart';
+import 'package:portfolio_assistant/features/assistant/modes/explore/explore_fundamentals_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/modes/explore/explore_news_enricher.dart';
 import 'package:portfolio_assistant/features/assistant/unified/message_needs.dart';
 import 'package:portfolio_assistant/features/assistant/unified/unified_context_builder.dart';
@@ -19,6 +21,7 @@ void main() {
     bool news = true,
     FakeCompanyNewsRepository? newsRepo,
     FakeEarningsCalendarRepository? earningsRepo,
+    FakeCompanyFundamentalsRepository? fundamentalsRepo,
     String? followUp,
   }) async {
     final needs = await MessageNeedsAnalyzer.analyze(
@@ -44,6 +47,13 @@ void main() {
               ? ExploreEarningsEnricher(
                 earningsRepository:
                     earningsRepo ?? FakeEarningsCalendarRepository(),
+              )
+              : null,
+      fundamentalsEnricher:
+          news
+              ? ExploreFundamentalsEnricher(
+                fundamentalsRepository:
+                    fundamentalsRepo ?? FakeCompanyFundamentalsRepository(),
               )
               : null,
       asOf: asOf,
@@ -185,7 +195,8 @@ void main() {
     );
 
     test(
-      'without news access: news and earnings are "locked", nothing is fetched',
+      'without news access: news, earnings, and fundamentals are '
+      '"locked", nothing is fetched',
       () async {
         final snapshot = await build(
           '¿Qué noticias hay de AAPL?',
@@ -194,6 +205,27 @@ void main() {
         );
         expect(snapshot['news_enrichment'], 'locked');
         expect(snapshot['earnings_calendar_status'], 'locked');
+        expect(snapshot['fundamentals_status'], 'locked');
+      },
+    );
+
+    test(
+      'an explicit fundamentals request with access runs the fundamentals '
+      'enricher on the tickers',
+      () async {
+        final fundamentalsRepo = FakeCompanyFundamentalsRepository(
+          data: CompanyFundamentals(ticker: 'AAPL', peTTM: 38.6),
+        );
+        final snapshot = await build(
+          '¿Cuál es el P/E de AAPL?',
+          quotes: CountingQuoteRepository(),
+          fundamentalsRepo: fundamentalsRepo,
+        );
+        expect(fundamentalsRepo.calls, ['AAPL']);
+        expect(snapshot['fundamentals_status'], 'ok');
+        final fundamentals =
+            snapshot['fundamentals'] as Map<String, dynamic>;
+        expect((fundamentals['AAPL'] as Map)['pe_ttm'], 38.6);
       },
     );
 
