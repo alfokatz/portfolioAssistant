@@ -142,6 +142,8 @@ void main() {
         'nextReportDateLabel': '20 oct 2026',
       }, onFollowUp: sent.add);
       expect(find.text('Earnings'), findsNothing);
+      await tester.ensureVisible(find.text('Noticias'));
+      await tester.pump();
       await tester.tap(find.text('Noticias'));
       expect(sent, ['¿Qué noticias hay de TSLA?']);
     });
@@ -235,6 +237,8 @@ void main() {
       }, onFollowUp: sent.add);
       expect(find.text('Gráfico'), findsOneWidget);
       expect(find.text('Earnings'), findsOneWidget);
+      await tester.ensureVisible(find.text('Earnings'));
+      await tester.pump();
       await tester.tap(find.text('Earnings'));
       expect(sent.single, contains('AAPL'));
     });

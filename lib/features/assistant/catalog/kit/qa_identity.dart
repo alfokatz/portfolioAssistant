@@ -3,7 +3,6 @@ import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 
 /// Resuelve el [CompanyBrand] de un ticker vía [CompanyBrandLoader] y
@@ -65,12 +64,22 @@ class QaTickerAvatar extends StatelessWidget {
   /// Si ya se resolvió afuera (p. ej. en [QaCardHeader]); si no, se resuelve acá.
   final CompanyBrand? brand;
 
-  static const _tones = [
+  static const _tonesLight = [
     Color(0xFFF3E4D9), // terracota claro
     Color(0xFFE6ECE4), // salvia claro
     Color(0xFFE9E4DA), // arena
     Color(0xFFE2E8EF), // azul polvo claro
     Color(0xFFECE6EA), // malva claro
+  ];
+
+  // Mismos tonos, apagados: sobre la card oscura los pasteles claros se
+  // veían como manchas de luz.
+  static const _tonesDark = [
+    Color(0xFF3A2C23),
+    Color(0xFF2A322B),
+    Color(0xFF34302A),
+    Color(0xFF283038),
+    Color(0xFF342D32),
   ];
 
   @override
@@ -88,14 +97,14 @@ class QaTickerAvatar extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: PortfolioColors.border),
+          border: Border.all(color: QaColors.border),
         ),
         child: ClipOval(
           child:
               logo == null
                   ? monogram
                   : ColoredBox(
-                    color: PortfolioColors.surfaceCard,
+                    color: QaColors.surfaceCard,
                     child: Image.network(
                       logo,
                       fit: BoxFit.contain,
@@ -119,7 +128,8 @@ class QaTickerAvatar extends StatelessWidget {
     for (final unit in ticker.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }
-    return _tones[hash % _tones.length];
+    final tones = QaColors.isDark ? _tonesDark : _tonesLight;
+    return tones[hash % tones.length];
   }
 }
 
@@ -144,7 +154,7 @@ class _Monogram extends StatelessWidget {
       child: Text(
         letters,
         style: TextStyle(
-          color: PortfolioColors.textPrimary.withValues(alpha: 0.8),
+          color: QaColors.textPrimary.withValues(alpha: 0.8),
           fontSize: size * 0.34,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
@@ -236,7 +246,7 @@ class QaCardTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? PortfolioColors.accentBlue;
+    final color = iconColor ?? QaColors.accentBlue;
     return Row(
       children: [
         if (icon != null) ...[
@@ -374,9 +384,9 @@ class QaFollowUpBar extends StatelessWidget {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: PortfolioColors.surfaceCard,
+                    color: QaColors.surfaceCard,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: PortfolioColors.border),
+                    border: Border.all(color: QaColors.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -384,13 +394,13 @@ class QaFollowUpBar extends StatelessWidget {
                       Icon(
                         items[i].icon ?? Icons.north_east_rounded,
                         size: 13,
-                        color: PortfolioColors.accentBlue,
+                        color: QaColors.accentBlue,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         items[i].label,
                         style: QaText.caption.copyWith(
-                          color: PortfolioColors.textPrimary,
+                          color: QaColors.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -416,9 +426,21 @@ abstract final class QaTickerFollowUps {
   static const earnings = 'earnings';
   static const fundamentals = 'fundamentals';
   static const compare = 'compare';
+  static const analysis = 'analysis';
 
+  /// El pedido de análisis completo de una empresa (ver `QaCompanyAnalysis`).
+  /// Suelto para las cards que arman su propio menú (opciones de inversión).
+  static QaFollowUp analysisFor(String ticker) => QaFollowUp(
+    'Análisis',
+    'Haceme un análisis de $ticker',
+    icon: Icons.insights_rounded,
+  );
+
+  /// Primero va "Análisis": es el siguiente paso más completo desde
+  /// cualquier card de un ticker, y las cards muestran solo los 3 primeros.
   static List<QaFollowUp> of(String ticker, {Set<String> exclude = const {}}) =>
       [
+        if (!exclude.contains(analysis)) analysisFor(ticker),
         if (!exclude.contains(chart))
           QaFollowUp(
             'Gráfico',

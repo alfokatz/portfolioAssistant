@@ -25,6 +25,9 @@ abstract final class AssistantGroundingCheck {
     // cerrado — visto en evals).
     'QaClosedPositionList': {'get_portfolio_details'},
     'QaFundamentals': {'get_fundamentals'},
+    // Precio o fundamentals del ticker como mínimo (con Premium, las
+    // fundamentals vienen locked y el análisis se arma con el precio).
+    'QaCompanyAnalysis': {'get_quote', 'get_fundamentals'},
     'QaEarningsCalendar': {'get_earnings'},
     'QaNewsSummary': {'get_news'},
     'QaBudgetSplit': {'get_invest_candidates'},
@@ -42,11 +45,12 @@ abstract final class AssistantGroundingCheck {
     'QaTickerSnapshot',
     'QaFundamentals',
     'QaEarningsCalendar',
+    'QaCompanyAnalysis',
   };
 
   static String? check(String rawAnswer, List<ToolCallRecord> visibleCalls) {
     final problems = <String>[];
-    for (final component in _components(rawAnswer)) {
+    for (final component in components(rawAnswer)) {
       final type = component['component'];
       final tools = _requires[type];
       if (tools == null) continue;
@@ -80,7 +84,7 @@ abstract final class AssistantGroundingCheck {
 
   /// Componentes de los `updateComponents` de la respuesta (con o sin
   /// fences de markdown).
-  static Iterable<Map<String, dynamic>> _components(String raw) sync* {
+  static Iterable<Map<String, dynamic>> components(String raw) sync* {
     // El modelo suele mandar JSON indentado en varias líneas: el normalizer
     // re-emite cada mensaje A2UI en una sola línea.
     final normalized = A2uiResponseNormalizer.normalize(

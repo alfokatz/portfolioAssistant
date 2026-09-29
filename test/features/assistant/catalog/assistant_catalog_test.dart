@@ -61,7 +61,10 @@ void main() {
   // unificado anterior medía 173.767 caracteres / 32.086 tokens. Si esto
   // falla, alguien volvió a inflar el prompt — medirlo antes de subir el
   // límite.
+  // 2026-09-29: subido de 95.000 a 100.000 para QaCompanyAnalysis (+3,9K
+  // caracteres ≈ +1K tokens). Medido con la eval real: 98.660 caracteres =
+  // 24.310 prompt tokens; ~92% se cachea, así que son < US$0,0004 por turno.
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(95000));
+    expect(prompt.length, lessThan(100000));
   });
 }

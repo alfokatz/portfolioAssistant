@@ -20,19 +20,17 @@ abstract final class PositionPeriodsBuilder {
     required QuoteRepository quoteRepository,
     Set<String>? onlyTickers,
   }) async {
-    final tickers = summary.valuations
-        .map((v) => v.position.ticker)
-        .toSet()
-        .where((t) => onlyTickers == null || onlyTickers.contains(t))
-        .toList();
+    final tickers =
+        summary.valuations
+            .map((v) => v.position.ticker)
+            .toSet()
+            .where((t) => onlyTickers == null || onlyTickers.contains(t))
+            .toList();
     final result = <String, Map<String, Object?>>{};
 
     for (final ticker in tickers) {
       final candles = await quoteRepository.getHistoricalDaily(ticker);
-      final history = candles.fold(
-        (_) => <PriceCandle>[],
-        (list) => list,
-      );
+      final history = candles.fold((_) => <PriceCandle>[], (list) => list);
       final periodsMap = <String, Object?>{};
 
       for (final entry in _periods.entries) {
@@ -56,6 +54,5 @@ abstract final class PositionPeriodsBuilder {
     return result;
   }
 
-  static double _round2(double value) =>
-      double.parse(value.toStringAsFixed(2));
+  static double _round2(double value) => double.parse(value.toStringAsFixed(2));
 }

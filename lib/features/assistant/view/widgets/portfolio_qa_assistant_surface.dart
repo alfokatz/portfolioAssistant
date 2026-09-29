@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -145,6 +146,11 @@ class _PortfolioQaAssistantSurfaceState
     // accesibilidad (`MediaQuery.disableAnimationsOf`): con esto en `true`
     // cada uno de ellos salta directo a su estado final en vez de animar,
     // sin que este widget tenga que conocer a cada uno.
+    // Tema de las cards del catálogo (ver `QaColors`): se fija acá, antes
+    // de construir la surface, y la key incluye el brillo para que un cambio
+    // de tema reconstruya las cards (sus estilos se resuelven al construir).
+    final brightness = Theme.of(context).brightness;
+    QaColors.resolve(brightness);
     final surface = MediaQuery(
       data: MediaQuery.of(context).copyWith(
         disableAnimations:
@@ -152,7 +158,7 @@ class _PortfolioQaAssistantSurfaceState
             MediaQuery.disableAnimationsOf(context),
       ),
       child: Surface(
-        key: ValueKey(widget.surfaceId),
+        key: ValueKey('${widget.surfaceId}/${brightness.name}'),
         surfaceContext: widget.surfaceContext,
       ),
     );

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Un trimestre del historial de EPS.
 class QaEpsQuarter {
@@ -118,10 +117,10 @@ class QaEpsLegend extends StatelessWidget {
       height: 8,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: hollow ? null : PortfolioColors.textPrimary,
+        color: hollow ? null : QaColors.textPrimary,
         border:
             hollow
-                ? Border.all(color: PortfolioColors.textSecondary, width: 1.5)
+                ? Border.all(color: QaColors.textSecondary, width: 1.5)
                 : null,
       ),
     );
@@ -130,11 +129,11 @@ class QaEpsLegend extends StatelessWidget {
       children: [
         dot(hollow: false),
         const SizedBox(width: 4),
-        const Text('Real', style: QaText.caption),
+        Text('Real', style: QaText.caption),
         const SizedBox(width: 10),
         dot(hollow: true),
         const SizedBox(width: 4),
-        const Text('Estimado', style: QaText.caption),
+        Text('Estimado', style: QaText.caption),
       ],
     );
   }
@@ -170,7 +169,7 @@ class _EpsPainter extends CustomPainter {
     // marca un poco más (EPS negativo = pérdida).
     final grid =
         Paint()
-          ..color = PortfolioColors.border
+          ..color = QaColors.border
           ..strokeWidth = 1;
     for (var i = 0; i < 3; i++) {
       final gy = top + (bottom - top) * i / 2;
@@ -181,7 +180,7 @@ class _EpsPainter extends CustomPainter {
         Offset(0, y(0)),
         Offset(size.width, y(0)),
         Paint()
-          ..color = PortfolioColors.textSecondary.withValues(alpha: 0.35)
+          ..color = QaColors.textSecondary.withValues(alpha: 0.35)
           ..strokeWidth = 1,
       );
     }
@@ -192,7 +191,7 @@ class _EpsPainter extends CustomPainter {
       final x = colWidth * (i + 0.5);
       final estY = y(q.estimate);
       final actY = estY + (y(q.actual) - estY) * progress;
-      final color = q.beat ? PortfolioColors.profit : PortfolioColors.loss;
+      final color = q.beat ? QaColors.profit : QaColors.loss;
 
       if ((actY - estY).abs() > _radius * 2) {
         canvas.drawLine(
@@ -211,13 +210,13 @@ class _EpsPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
-          ..color = PortfolioColors.textSecondary,
+          ..color = QaColors.textSecondary,
       );
       // Anillo blanco: separa el punto real del consenso cuando se solapan.
       canvas.drawCircle(
         Offset(x, actY),
         _radius + 1.5,
-        Paint()..color = PortfolioColors.surfaceCard,
+        Paint()..color = QaColors.surfaceCard,
       );
       canvas.drawCircle(Offset(x, actY), _radius, Paint()..color = color);
     }

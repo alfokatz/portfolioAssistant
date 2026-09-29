@@ -5,13 +5,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/ai_usage_indicator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
@@ -20,6 +20,8 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_th
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/top_edge_fade.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -79,8 +81,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Timer? _finishFollowTimer;
   final _tileKeys = <String, GlobalKey>{};
 
-  /// Aire entre el borde superior del chat y la pregunta anclada.
-  static const _anchorGap = AppDimens.sp8;
+  /// Alto del fade con que el chat se desvanece contra el header al
+  /// scrollear (ver `TopEdgeFade`).
+  static const _topFadeExtent = AppDimens.sp20;
+
+  /// Aire entre el borde superior del chat y la pregunta anclada: justo
+  /// debajo del fade, así la pregunta nunca queda desvanecida.
+  static const _anchorGap = _topFadeExtent;
   static const _followDuration = Duration(milliseconds: 400);
   static const _followCurve = Curves.easeOutCubic;
 
@@ -347,6 +354,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     final state = ref.watch(assistantProvider(_args));
     final notifier = ref.read(assistantProvider(_args).notifier);
     final service = notifier.service;
+    final subscription = ref.watch(subscriptionProvider);
 
     // La cascada de saludo + chips solo se muestra una vez (mientras no hay
     // más que el mensaje de bienvenida) — una vez que arrancó, la marcamos
@@ -415,55 +423,29 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         children: [
           SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.pageHorizontal,
-                AppDimens.sp12,
-                AppDimens.pageHorizontal,
-                AppDimens.sp4,
+            child: PortyHeader(
+              activity: notifier.activity,
+              quota: PortyQuota(
+                remaining: subscription.queriesRemaining,
+                limit: subscription.queriesLimit,
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: PortfolioColors.surfaceElevated,
-                      boxShadow: [
-                        BoxShadow(
-                          color: PortfolioColors.accentBlue.withValues(
-                            alpha: 0.18,
-                          ),
-                          blurRadius: AppDimens.glowBlurSm,
-                        ),
-                        BoxShadow(
-                          color: PortfolioColors.accentWarm.withValues(
-                            alpha: 0.16,
-                          ),
-                          blurRadius: AppDimens.glowBlurSm,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 13,
-                      color: PortfolioColors.accentBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'portfolio_qa_title'.tr(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PortfolioColors.textSecondary,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ),
+              // El único detalle de cuota que existe es el paywall de
+              // "consultas agotadas": solo tiene sentido abrirlo en cero.
+              onQuotaTap:
+                  subscription.queriesRemaining == 0
+                      ? () => SubscriptionPaywallSheet.show(
+                        context,
+                        ref,
+                        reason: PaywallReason.quotaExceeded,
+                        onUpgraded:
+                            () =>
+                                ref
+                                    .read(subscriptionProvider.notifier)
+                                    .refresh(),
+                      )
+                      : null,
             ),
           ),
-          const AiUsageIndicator(),
           //const PortfolioQaDisclaimerBanner(),
           if (state.error != null)
             Padding(
@@ -482,71 +464,75 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           Expanded(
             child: Stack(
               children: [
-                NotificationListener<Notification>(
-                  onNotification: _handleScrollNotification,
-                  child: ListView(
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      AppDimens.pageHorizontal,
-                      AppDimens.sp8,
-                      AppDimens.pageHorizontal,
-                      AppDimens.sp8 + _composerInset,
-                    ),
-                    children: [
-                      for (final (i, m) in state.messages.indexed)
-                        MessageAppearFade(
-                          skipAnimation: m.hasRevealed,
-                          child:
-                              service != null
-                                  ? _buildMessageTile(
-                                    notifier,
-                                    service,
-                                    m,
-                                    index: i,
-                                    orbGateOpen: _orbGateOpen,
-                                    onUserTypingComplete: () {
-                                      _openOrbGate();
-                                      notifier.markUserMessageRevealed(i);
-                                    },
-                                  )
-                                  : PortfolioQaChatBubble(
-                                    message: m,
-                                    onTypingComplete: _openOrbGate,
-                                  ),
-                        ),
-                      if (state.messages.length <= 1) ...[
-                        const SizedBox(height: 4),
-                        FadeSlideIn(
-                          skipAnimation: state.introRevealed,
-                          child: Text(
-                            'portfolio_qa_chip_intro'.tr(),
-                            style: Theme.of(
-                              context,
-                            ).textTheme.labelMedium?.copyWith(
-                              color: PortfolioColors.textSecondary,
-                            ),
+                TopEdgeFade(
+                  controller: _scrollController,
+                  extent: _topFadeExtent,
+                  child: NotificationListener<Notification>(
+                    onNotification: _handleScrollNotification,
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        AppDimens.pageHorizontal,
+                        AppDimens.sp8,
+                        AppDimens.pageHorizontal,
+                        AppDimens.sp8 + _composerInset,
+                      ),
+                      children: [
+                        for (final (i, m) in state.messages.indexed)
+                          MessageAppearFade(
+                            skipAnimation: m.hasRevealed,
+                            child:
+                                service != null
+                                    ? _buildMessageTile(
+                                      notifier,
+                                      service,
+                                      m,
+                                      index: i,
+                                      orbGateOpen: _orbGateOpen,
+                                      onUserTypingComplete: () {
+                                        _openOrbGate();
+                                        notifier.markUserMessageRevealed(i);
+                                      },
+                                    )
+                                    : PortfolioQaChatBubble(
+                                      message: m,
+                                      onTypingComplete: _openOrbGate,
+                                    ),
                           ),
-                        ),
-                        const SizedBox(height: AppDimens.sp12),
-                        for (final (i, key) in notifier.chipKeys.indexed) ...[
-                          if (i > 0) const SizedBox(height: 8),
+                        if (state.messages.length <= 1) ...[
+                          const SizedBox(height: 4),
                           FadeSlideIn(
                             skipAnimation: state.introRevealed,
-                            delay: Duration(milliseconds: 60 * (i + 1)),
-                            child: AssistantSuggestionChip(
-                              label: key.tr(),
-                              onTap:
-                                  state.isWaiting ||
-                                          service == null ||
-                                          _isAutoTyping
-                                      ? null
-                                      : () =>
-                                          _startAutoType(notifier, key.tr()),
+                            child: Text(
+                              'portfolio_qa_chip_intro'.tr(),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.labelMedium?.copyWith(
+                                color: PortfolioColors.textSecondary,
+                              ),
                             ),
                           ),
+                          const SizedBox(height: AppDimens.sp12),
+                          for (final (i, key) in notifier.chipKeys.indexed) ...[
+                            if (i > 0) const SizedBox(height: 8),
+                            FadeSlideIn(
+                              skipAnimation: state.introRevealed,
+                              delay: Duration(milliseconds: 60 * (i + 1)),
+                              child: AssistantSuggestionChip(
+                                label: key.tr(),
+                                onTap:
+                                    state.isWaiting ||
+                                            service == null ||
+                                            _isAutoTyping
+                                        ? null
+                                        : () =>
+                                            _startAutoType(notifier, key.tr()),
+                              ),
+                            ),
+                          ],
                         ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 if (!state.isServiceReady)
@@ -669,14 +655,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       contentKey = const ValueKey('surface');
       final surface = QaFollowUpScope(
         onFollowUp: (question) => _startAutoType(notifier, question),
-        child: PortfolioQaAssistantSurface(
-          surfaceId: message.surfaceId!,
-          surfaceContext: service.controller.contextFor(message.surfaceId!),
-          startFullyRevealed: message.hasRevealed,
-          onFullyRevealed: () {
-            if (message.surfaceId == _followSurfaceId) _finishFollowing();
-            notifier.markRevealed(message.surfaceId!);
-          },
+        child: QaEvidenceScope(
+          lookup: service.evidenceFor,
+          child: PortfolioQaAssistantSurface(
+            surfaceId: message.surfaceId!,
+            surfaceContext: service.controller.contextFor(message.surfaceId!),
+            startFullyRevealed: message.hasRevealed,
+            onFullyRevealed: () {
+              if (message.surfaceId == _followSurfaceId) _finishFollowing();
+              notifier.markRevealed(message.surfaceId!);
+            },
+          ),
         ),
       );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién

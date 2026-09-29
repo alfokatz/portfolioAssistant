@@ -22,8 +22,7 @@ class _FakeQuoteRepository implements QuoteRepository {
       daily == null ? Left(HttpError(code: 'history_error')) : Right(daily!);
 
   @override
-  Future<List<PriceCandle>> getIntradayCandles(String ticker) async =>
-      intraday;
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async => intraday;
 }
 
 List<PriceCandle> _dailyCandles(int days) {
@@ -59,15 +58,18 @@ void main() {
       expect(month, hasLength(31));
     });
 
-    test('ALL returns the whole history, downsampled keeping both ends', () async {
-      final loader = PriceChartDataLoader(
-        _FakeQuoteRepository(daily: _dailyCandles(2000)),
-      );
-      final all = await loader.load('AAPL', PriceChartRange.all);
-      expect(all, hasLength(PriceChartDataLoader.maxPoints));
-      expect(all!.first.close, 100);
-      expect(all.last.close, 2099);
-    });
+    test(
+      'ALL returns the whole history, downsampled keeping both ends',
+      () async {
+        final loader = PriceChartDataLoader(
+          _FakeQuoteRepository(daily: _dailyCandles(2000)),
+        );
+        final all = await loader.load('AAPL', PriceChartRange.all);
+        expect(all, hasLength(PriceChartDataLoader.maxPoints));
+        expect(all!.first.close, 100);
+        expect(all.last.close, 2099);
+      },
+    );
 
     test('1D uses the intraday candles', () async {
       final loader = PriceChartDataLoader(
@@ -84,20 +86,23 @@ void main() {
     });
 
     // Un solo camino de fallback: todas estas causas devuelven `null`.
-    test('no history, failed history, and failed intraday are all null', () async {
-      final noHistory = PriceChartDataLoader(_FakeQuoteRepository(daily: []));
-      final failedHistory = PriceChartDataLoader(_FakeQuoteRepository());
-      final failedIntraday = PriceChartDataLoader(
-        _FakeQuoteRepository(daily: _dailyCandles(30)),
-      );
-      final singlePoint = PriceChartDataLoader(
-        _FakeQuoteRepository(daily: _dailyCandles(1)),
-      );
+    test(
+      'no history, failed history, and failed intraday are all null',
+      () async {
+        final noHistory = PriceChartDataLoader(_FakeQuoteRepository(daily: []));
+        final failedHistory = PriceChartDataLoader(_FakeQuoteRepository());
+        final failedIntraday = PriceChartDataLoader(
+          _FakeQuoteRepository(daily: _dailyCandles(30)),
+        );
+        final singlePoint = PriceChartDataLoader(
+          _FakeQuoteRepository(daily: _dailyCandles(1)),
+        );
 
-      expect(await noHistory.load('X', PriceChartRange.month), isNull);
-      expect(await failedHistory.load('X', PriceChartRange.month), isNull);
-      expect(await failedIntraday.load('X', PriceChartRange.day), isNull);
-      expect(await singlePoint.load('X', PriceChartRange.month), isNull);
-    });
+        expect(await noHistory.load('X', PriceChartRange.month), isNull);
+        expect(await failedHistory.load('X', PriceChartRange.month), isNull);
+        expect(await failedIntraday.load('X', PriceChartRange.day), isNull);
+        expect(await singlePoint.load('X', PriceChartRange.month), isNull);
+      },
+    );
   });
 }

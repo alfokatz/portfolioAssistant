@@ -113,6 +113,27 @@ void main() {
     expect(_rootTypes(notAfterPrice), ['QaAnswerText', 'QaFundamentals']);
   });
 
+  test('drops children the model listed but never defined', () {
+    final line = jsonEncode({
+      'version': 'v0.9',
+      'updateComponents': {
+        'surfaceId': 's',
+        'components': [
+          {
+            'id': 'root',
+            'component': 'Column',
+            'children': ['a', 'ghost', 'f'],
+          },
+          {'id': 'a', 'component': 'QaAnswerText'},
+          {'id': 'f', 'component': 'QaFundamentals'},
+        ],
+      },
+    });
+    final out = AssistantLayoutGuard.enforce(line);
+    expect(_rootTypes(out), ['QaAnswerText', 'QaFundamentals']);
+    expect(out, isNot(contains('ghost')));
+  });
+
   test('leaves createSurface lines and unknown shapes untouched', () {
     const create =
         '{"version":"v0.9","createSurface":{"surfaceId":"s","catalogId":"x"}}';

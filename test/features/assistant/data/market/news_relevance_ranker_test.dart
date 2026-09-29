@@ -52,15 +52,22 @@ void main() {
     expect(ranked.map((i) => i.headline), ['KO raises its dividend']);
   });
 
-  test('ranks headline mentions and trusted outlets above summary-only noise', () {
-    final ranked = _rank([
-      _item('Chip stocks slide', summary: 'Nvidia fell 2%.', hoursAgo: 1),
-      _item('Nvidia board adds \$150B to buyback', source: 'CNBC', hoursAgo: 20),
-      _item('Nvidia launches agent safety platform', hoursAgo: 3),
-    ]);
-    expect(ranked.first, 'Nvidia board adds \$150B to buyback');
-    expect(ranked.last, 'Chip stocks slide');
-  });
+  test(
+    'ranks headline mentions and trusted outlets above summary-only noise',
+    () {
+      final ranked = _rank([
+        _item('Chip stocks slide', summary: 'Nvidia fell 2%.', hoursAgo: 1),
+        _item(
+          'Nvidia board adds \$150B to buyback',
+          source: 'CNBC',
+          hoursAgo: 20,
+        ),
+        _item('Nvidia launches agent safety platform', hoursAgo: 3),
+      ]);
+      expect(ranked.first, 'Nvidia board adds \$150B to buyback');
+      expect(ranked.last, 'Chip stocks slide');
+    },
+  );
 
   test('caps each source and removes duplicated syndicated headlines', () {
     final ranked = _rank([
@@ -72,7 +79,11 @@ void main() {
     ], limit: 5);
     expect(ranked.where((h) => h == 'Nvidia news one'), hasLength(1));
     // Yahoo tope 2 ('three' queda afuera); el duplicado de Benzinga no cuenta.
-    expect(ranked, ['Nvidia news one', 'Nvidia news two', 'NVDA options heat up']);
+    expect(ranked, [
+      'Nvidia news one',
+      'Nvidia news two',
+      'NVDA options heat up',
+    ]);
   });
 
   test('strips a placeholder image repeated across the batch', () {
@@ -81,7 +92,11 @@ void main() {
         _item('Nvidia a'),
         _item('Nvidia b'),
         _item('Nvidia c', source: 'CNBC'),
-        _item('Nvidia d', source: 'Reuters', image: 'https://img.example/d.jpg'),
+        _item(
+          'Nvidia d',
+          source: 'Reuters',
+          image: 'https://img.example/d.jpg',
+        ),
       ],
       ticker: 'NVDA',
       companyName: 'NVIDIA Corp',

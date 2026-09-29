@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Chip de variación: ▲/▼ + porcentaje (o monto) sobre un fondo teñido del
 /// color semántico. Es la forma única de mostrar "subió/bajó" en el kit.
@@ -57,7 +56,7 @@ class QaDeltaChip extends StatelessWidget {
                   digits: digits,
                 ).replaceAll('+', '').replaceAll('-', ''),
             style: (dense ? QaText.caption : QaText.valueSm).copyWith(
-              color: isFlat ? PortfolioColors.textSecondary : color,
+              color: isFlat ? QaColors.textSecondary : color,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -78,7 +77,7 @@ class QaTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = color ?? PortfolioColors.textSecondary;
+    final fg = color ?? QaColors.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -233,7 +232,7 @@ class QaDivider extends StatelessWidget {
       child: Divider(
         height: 1,
         thickness: 1,
-        color: PortfolioColors.border,
+        color: QaColors.border,
         indent: indent,
         endIndent: indent,
       ),
@@ -264,13 +263,14 @@ class QaProgressBar extends StatelessWidget {
   const QaProgressBar({
     super.key,
     required this.value,
-    this.color = PortfolioColors.accentBlue,
+    Color? color,
     this.height = 6,
-  });
+  }) : _color = color;
 
   /// 0..1
   final double value;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? QaColors.accentBlue;
   final double height;
 
   @override
@@ -284,9 +284,7 @@ class QaProgressBar extends StatelessWidget {
           builder:
               (context, t, _) => Stack(
                 children: [
-                  const Positioned.fill(
-                    child: ColoredBox(color: QaPalette.track),
-                  ),
+                  Positioned.fill(child: ColoredBox(color: QaPalette.track)),
                   FractionallySizedBox(
                     widthFactor: value.clamp(0.0, 1.0) * t,
                     child: ColoredBox(color: color),
@@ -367,15 +365,16 @@ class QaRing extends StatelessWidget {
     required this.value,
     this.size = 64,
     this.stroke = 7,
-    this.color = PortfolioColors.accentBlue,
+    Color? color,
     this.center,
-  });
+  }) : _color = color;
 
   /// 0..1
   final double value;
   final double size;
   final double stroke;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? QaColors.accentBlue;
   final Widget? center;
 
   @override
@@ -621,8 +620,8 @@ class QaRangeBar extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         gradient: LinearGradient(
                           colors: [
-                            PortfolioColors.loss.withValues(alpha: 0.35),
-                            PortfolioColors.profit.withValues(alpha: 0.35),
+                            QaColors.loss.withValues(alpha: 0.35),
+                            QaColors.profit.withValues(alpha: 0.35),
                           ],
                         ),
                       ),
@@ -633,10 +632,10 @@ class QaRangeBar extends StatelessWidget {
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: PortfolioColors.surfaceCard,
+                          color: QaColors.surfaceCard,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: PortfolioColors.textPrimary,
+                            color: QaColors.textPrimary,
                             width: 2.5,
                           ),
                         ),

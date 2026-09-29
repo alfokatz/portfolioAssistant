@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Contenedor compartido para las tarjetas que Porty genera dentro del
 /// catálogo GenUI (`PortfolioQaCatalogWidgets`). Unifica el `Container` +
@@ -59,23 +58,20 @@ class QaCardShell extends StatelessWidget {
       padding: padding,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: PortfolioColors.surfaceCard,
+        color: QaColors.surfaceCard,
         borderRadius: BorderRadius.circular(QaSpace.cardRadius),
         border: Border.all(
-          color:
-              highlighted
-                  ? PortfolioColors.aiCardBorder
-                  : PortfolioColors.border,
+          color: highlighted ? QaColors.aiCardBorder : QaColors.border,
         ),
         boxShadow:
             highlighted
                 ? [
                   BoxShadow(
-                    color: PortfolioColors.accentBlue.withValues(alpha: 0.14),
+                    color: QaColors.accentBlue.withValues(alpha: 0.14),
                     blurRadius: AppDimens.glowBlurMd,
                   ),
                   BoxShadow(
-                    color: PortfolioColors.accentWarm.withValues(alpha: 0.10),
+                    color: QaColors.accentWarm.withValues(alpha: 0.10),
                     blurRadius: AppDimens.glowBlurSm,
                   ),
                 ]

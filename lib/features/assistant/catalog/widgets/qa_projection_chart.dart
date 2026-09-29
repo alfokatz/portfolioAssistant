@@ -1,7 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Un punto de la serie de proyección: `label` es el eje X (ej. "Ene 2027"),
@@ -181,7 +180,7 @@ class _ProjectionLineChart extends StatelessWidget {
   final double progress;
   final double? targetAmount;
 
-  static const _lineColor = PortfolioColors.accentBlue;
+  static final _lineColor = QaColors.accentBlue;
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +243,7 @@ class _ProjectionLineChart extends StatelessWidget {
             if (target != null)
               HorizontalLine(
                 y: target,
-                color: PortfolioColors.textSecondary.withValues(alpha: 0.55),
+                color: QaColors.textSecondary.withValues(alpha: 0.55),
                 strokeWidth: 1,
                 dashArray: const [4, 4],
                 label: HorizontalLineLabel(
@@ -275,7 +274,7 @@ class _ProjectionLineChart extends StatelessWidget {
                     radius: 3.5,
                     color: _lineColor,
                     strokeWidth: 2,
-                    strokeColor: PortfolioColors.surfaceCard,
+                    strokeColor: QaColors.surfaceCard,
                   ),
             ),
             belowBarData: BarAreaData(

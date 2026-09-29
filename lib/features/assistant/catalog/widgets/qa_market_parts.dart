@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Piezas compartidas por las cards de mercado (gráfico de precio,
 /// comparativo, snapshot/movimiento): selector de período, tag de peso en
@@ -132,13 +131,13 @@ class QaRangeTabs extends StatelessWidget {
                     decoration: BoxDecoration(
                       color:
                           range == selected
-                              ? PortfolioColors.surfaceCard
+                              ? QaColors.surfaceCard
                               : Colors.transparent,
                       borderRadius: BorderRadius.circular(QaSpace.chipRadius),
                       border: Border.all(
                         color:
                             range == selected
-                                ? PortfolioColors.border
+                                ? QaColors.border
                                 : Colors.transparent,
                       ),
                       boxShadow:
@@ -158,8 +157,8 @@ class QaRangeTabs extends StatelessWidget {
                         fontSize: 12,
                         color:
                             range == selected
-                                ? PortfolioColors.textPrimary
-                                : PortfolioColors.textSecondary,
+                                ? QaColors.textPrimary
+                                : QaColors.textSecondary,
                         fontWeight:
                             range == selected
                                 ? FontWeight.w700
@@ -182,13 +181,13 @@ class QaChartSpinner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 1.5,
-          color: PortfolioColors.textSecondary,
+          color: QaColors.textSecondary,
         ),
       ),
     );

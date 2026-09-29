@@ -35,8 +35,7 @@ void main() {
 
         expect(tester.takeException(), isNull);
 
-        final textBox =
-            tester.renderObject(find.text(message)) as RenderBox;
+        final textBox = tester.renderObject(find.text(message)) as RenderBox;
         // Ancho de card disponible en este viewport: 390 - 2*20 (padding
         // horizontal de página) - 2*12 (padding interno) = 326px. El texto
         // debe usar casi todo eso, no quedar apretado a ~129px como con el

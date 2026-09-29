@@ -5,7 +5,11 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class PortfolioQaChatBubble extends StatelessWidget {
-  const PortfolioQaChatBubble({super.key, required this.message, this.onTypingComplete});
+  const PortfolioQaChatBubble({
+    super.key,
+    required this.message,
+    this.onTypingComplete,
+  });
 
   final PortfolioQaMessage message;
 

@@ -372,6 +372,84 @@ void main() {
     expect(service.log.currentTurn!.finalText, contains('reparado'));
   });
 
+  // Regresión del bug de contexto de BAC: una card vieja que se reconstruye
+  // (nuevo mensaje, scroll) y reporta un error de render llegaba al repair
+  // del turno ACTUAL, y la reacción del modelo a "ERROR DE VALIDACIÓN"
+  // reemplazaba una respuesta correcta.
+  test('render errors (no surfaceId) and errors of older surfaces never '
+      'repair the current turn', () async {
+    final api = _FakeOpenAi([
+      (_) => _answer('s0', 'fundamentals'),
+      (_) => _answer('s1', 'analisis correcto'),
+    ]);
+    final service = build(api);
+    await service.runTurn(
+      userText: 'fundamentals de BAC',
+      surfaceId: 's0',
+      tools: [_EchoTool('get_fundamentals')],
+    );
+    await service.runTurn(
+      userText: '¿me analizás estos fundamentales?',
+      surfaceId: 's1',
+      tools: [_EchoTool('get_fundamentals')],
+    );
+
+    ChatMessage error(Map<String, Object?> body) => ChatMessage.user(
+      '',
+      parts: [
+        UiInteractionPart.create(jsonEncode({'version': 'v0.9', 'error': body})),
+      ],
+    );
+    // De render: genui no dice de qué surface es.
+    await service.handleSend(
+      error({
+        'code': 'INTERNAL_ERROR',
+        'message': 'An unexpected system error occurred.',
+      }),
+    );
+    // De validación, pero de la surface del turno anterior.
+    await service.handleSend(
+      error({
+        'code': 'VALIDATION_FAILED',
+        'surfaceId': 's0',
+        'message': 'Widget with id: tip not found.',
+      }),
+    );
+
+    expect(api.requests, hasLength(2), reason: 'ningún pedido de repair');
+    expect(service.log.currentTurn!.finalText, contains('analisis correcto'));
+  });
+
+  test('a text rewrite that drops the card is discarded: the original stays',
+      () async {
+    final api = _FakeOpenAi([
+      (_) => _answer('s0', 'original con card'),
+      (_) => _answer('s0', 'solo texto'),
+    ]);
+    var checks = 0;
+    final service = build(
+      api,
+      answerCheck: (raw, evidence) {
+        checks++;
+        return AnswerCorrection(
+          'fix the text',
+          requiresTools: false,
+          rejectRewrite: (rewritten) => rewritten.contains('solo texto'),
+        );
+      },
+    );
+    await service.runTurn(
+      userText: 'x',
+      surfaceId: 's0',
+      tools: [_EchoTool('get_quote')],
+    );
+    expect(checks, 1);
+    expect(api.requests, hasLength(2));
+    // La reescritura se pidió sin tools.
+    expect(api.requests[1]['tool_choice'], 'none');
+    expect(service.log.currentTurn!.finalText, contains('original con card'));
+  });
+
   test('without an API key the turn fails before any request', () async {
     final api = _FakeOpenAi([]);
     final service = build(api, apiKey: '');
@@ -441,9 +519,12 @@ void main() {
     var checks = 0;
     final service = build(
       api,
-      answerCheck: (raw, calls) {
+      answerCheck: (raw, evidence) {
+        final calls = evidence.calls;
         checks++;
-        return calls.isEmpty ? 'call get_quote first' : null;
+        return calls.isEmpty
+            ? const AnswerCorrection('call get_quote first')
+            : null;
       },
     );
 

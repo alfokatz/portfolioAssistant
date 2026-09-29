@@ -8,7 +8,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projection_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_fit_scorer.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 
 /// Widgets del catálogo de inversión y planificación: opciones de
@@ -121,7 +120,7 @@ abstract final class AdviceWidgets {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (budget != null) ...[
-                  const Text('Presupuesto simulado', style: QaText.label),
+                  Text('Presupuesto simulado', style: QaText.label),
                   const SizedBox(height: 4),
                   Text(budget, style: QaText.display),
                 ],
@@ -147,12 +146,12 @@ abstract final class AdviceWidgets {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 1),
                   child: Icon(
                     Icons.info_outline_rounded,
                     size: 13,
-                    color: PortfolioColors.textSecondary,
+                    color: QaColors.textSecondary,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -214,7 +213,7 @@ abstract final class AdviceWidgets {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Objetivo', style: QaText.label),
+                    Text('Objetivo', style: QaText.label),
                     const SizedBox(height: 4),
                     Text(
                       QaFormat.money(data.targetAmount),
@@ -305,22 +304,22 @@ abstract final class AdviceWidgets {
 
     final tag =
         reached
-            ? const QaTag(
+            ? QaTag(
               'Meta alcanzada',
-              color: PortfolioColors.accentBlue,
+              color: QaColors.accentBlue,
               icon: Icons.check_rounded,
             )
             : onTrack == null
             ? null
             : onTrack
-            ? const QaTag(
+            ? QaTag(
               'En camino',
-              color: PortfolioColors.profit,
+              color: QaColors.profit,
               icon: Icons.check_rounded,
             )
-            : const QaTag(
+            : QaTag(
               'Falta ritmo',
-              color: PortfolioColors.loss,
+              color: QaColors.loss,
               icon: Icons.trending_down_rounded,
             );
 
@@ -337,7 +336,7 @@ abstract final class AdviceWidgets {
               children: [
                 Text(QaFormat.money(heroValue), style: QaText.display),
                 const SizedBox(width: 4),
-                const Text('/ mes', style: QaText.label),
+                Text('/ mes', style: QaText.label),
               ],
             ),
             const SizedBox(height: 2),
@@ -428,7 +427,7 @@ abstract final class AdviceWidgets {
           QaSectionLabel(data.title.isEmpty ? 'Hitos de la meta' : data.title),
           const SizedBox(height: QaSpace.gap),
           if (items.isEmpty)
-            const Text('Sin hitos para mostrar', style: QaText.label)
+            Text('Sin hitos para mostrar', style: QaText.label)
           else
             for (var i = 0; i < items.length; i++)
               _MilestoneRow(
@@ -525,7 +524,7 @@ class _TipBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = warning ? PortfolioColors.loss : PortfolioColors.accentBlue;
+    final color = warning ? QaColors.loss : QaColors.accentBlue;
     final content = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -560,11 +559,9 @@ class _TipBanner extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: PortfolioColors.loss.withValues(alpha: 0.06),
+          color: QaColors.loss.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(QaSpace.insetRadius),
-          border: Border.all(
-            color: PortfolioColors.loss.withValues(alpha: 0.25),
-          ),
+          border: Border.all(color: QaColors.loss.withValues(alpha: 0.25)),
         ),
         child: content,
       );
@@ -623,7 +620,7 @@ class _InvestOptionCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   QaDeltaChip(value: data.weekChangePct!, dense: true),
                   const SizedBox(width: 4),
-                  const Text('7 días', style: QaText.caption),
+                  Text('7 días', style: QaText.caption),
                 ],
               ],
             ),
@@ -643,6 +640,7 @@ class _InvestOptionCard extends StatelessWidget {
           if (ticker.isNotEmpty)
             QaFollowUpBar(
               items: [
+                QaTickerFollowUps.analysisFor(ticker),
                 QaFollowUp(
                   'Gráfico',
                   '¿Cómo viene $ticker?',
@@ -690,9 +688,9 @@ class _FitIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final tier = FitTier.of(score);
     final color = switch (tier) {
-      FitTier.good => PortfolioColors.accentBlue,
-      FitTier.medium => PortfolioColors.accentBlue.withValues(alpha: 0.55),
-      FitTier.low => PortfolioColors.textSecondary,
+      FitTier.good => QaColors.accentBlue,
+      FitTier.medium => QaColors.accentBlue.withValues(alpha: 0.55),
+      FitTier.low => QaColors.textSecondary,
     };
     return Semantics(
       label: 'Encaje con tu portfolio ${score.round()} de 100, ${tier.label}',
@@ -709,12 +707,12 @@ class _FitIndicator extends StatelessWidget {
                 style: QaText.caption.copyWith(
                   color:
                       tier == FitTier.low
-                          ? PortfolioColors.textSecondary
-                          : PortfolioColors.textPrimary,
+                          ? QaColors.textSecondary
+                          : QaColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const Text('con tu perfil', style: QaText.caption),
+              Text('con tu perfil', style: QaText.caption),
             ],
           ),
           const SizedBox(width: 8),
@@ -786,7 +784,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
                   child: Text(
                     _expanded ? 'Ver menos' : 'Ver más',
                     style: QaText.label.copyWith(
-                      color: PortfolioColors.accentBlue,
+                      color: QaColors.accentBlue,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -816,14 +814,14 @@ class _ProsCons extends StatelessWidget {
           label: 'A favor',
           text: pro,
           icon: Icons.add_rounded,
-          color: PortfolioColors.profit,
+          color: QaColors.profit,
         ),
       if (con.isNotEmpty)
         _ProConBlock(
           label: 'En contra',
           text: con,
           icon: Icons.remove_rounded,
-          color: PortfolioColors.loss,
+          color: QaColors.loss,
         ),
     ];
     return LayoutBuilder(
@@ -966,9 +964,9 @@ class _TickerChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
         decoration: BoxDecoration(
-          color: PortfolioColors.surfaceCard,
+          color: QaColors.surfaceCard,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: PortfolioColors.border),
+          border: Border.all(color: QaColors.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1009,19 +1007,15 @@ class _MilestoneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = PortfolioColors.accentBlue;
-    final lineColor =
-        reached ? accent.withValues(alpha: 0.5) : PortfolioColors.border;
+    final accent = QaColors.accentBlue;
+    final lineColor = reached ? accent.withValues(alpha: 0.5) : QaColors.border;
 
     final dot =
         reached
             ? Container(
               width: 18,
               height: 18,
-              decoration: const BoxDecoration(
-                color: accent,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
               child: const Icon(
                 Icons.check_rounded,
                 size: 12,
@@ -1032,15 +1026,13 @@ class _MilestoneRow extends StatelessWidget {
               width: 14,
               height: 14,
               decoration: BoxDecoration(
-                color: PortfolioColors.surfaceCard,
+                color: QaColors.surfaceCard,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color:
                       isNext
                           ? accent
-                          : PortfolioColors.textSecondary.withValues(
-                            alpha: 0.4,
-                          ),
+                          : QaColors.textSecondary.withValues(alpha: 0.4),
                   width: isNext ? 3 : 2,
                 ),
               ),
@@ -1114,8 +1106,8 @@ class _MilestoneRow extends StatelessWidget {
                       style: QaText.value.copyWith(
                         color:
                             reached
-                                ? PortfolioColors.textSecondary
-                                : PortfolioColors.textPrimary,
+                                ? QaColors.textSecondary
+                                : QaColors.textPrimary,
                       ),
                     ),
                   ],

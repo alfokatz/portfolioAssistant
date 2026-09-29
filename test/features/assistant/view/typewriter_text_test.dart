@@ -24,44 +24,46 @@ void main() {
     expect(find.text('hola porty'), findsOneWidget);
   });
 
-  testWidgets('semantics carries the full text immediately, excluding the animated node', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: TypewriterText(text: 'texto completo ya', charsPerSecond: 5),
-        ),
-      ),
-    );
-
-    // Sin esperar ni un frame de la animación, el semantics ya tiene todo.
-    final semantics = tester.getSemantics(find.byType(TypewriterText));
-    expect(semantics.label, 'texto completo ya');
-  });
-
-  testWidgets('reduced motion shows the full text instantly and calls onComplete', (
-    tester,
-  ) async {
-    var completed = false;
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: MaterialApp(
+  testWidgets(
+    'semantics carries the full text immediately, excluding the animated node',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
           home: Scaffold(
-            body: TypewriterText(
-              text: 'sin animación',
-              onComplete: () => completed = true,
+            body: TypewriterText(text: 'texto completo ya', charsPerSecond: 5),
+          ),
+        ),
+      );
+
+      // Sin esperar ni un frame de la animación, el semantics ya tiene todo.
+      final semantics = tester.getSemantics(find.byType(TypewriterText));
+      expect(semantics.label, 'texto completo ya');
+    },
+  );
+
+  testWidgets(
+    'reduced motion shows the full text instantly and calls onComplete',
+    (tester) async {
+      var completed = false;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: MaterialApp(
+            home: Scaffold(
+              body: TypewriterText(
+                text: 'sin animación',
+                onComplete: () => completed = true,
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.pump();
-    expect(find.text('sin animación'), findsOneWidget);
-    expect(completed, isTrue);
-  });
+      await tester.pump();
+      expect(find.text('sin animación'), findsOneWidget);
+      expect(completed, isTrue);
+    },
+  );
 
   testWidgets('onComplete fires once the reveal finishes', (tester) async {
     var completeCount = 0;
@@ -89,11 +91,12 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: _MutatingAncestor(
-              builder: (context, mutate) => TypewriterText(
-                text: 'ya revelado',
-                skipAnimation: true,
-                onComplete: mutate,
-              ),
+              builder:
+                  (context, mutate) => TypewriterText(
+                    text: 'ya revelado',
+                    skipAnimation: true,
+                    onComplete: mutate,
+                  ),
             ),
           ),
         ),

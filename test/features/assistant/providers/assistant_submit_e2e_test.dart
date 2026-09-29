@@ -23,6 +23,7 @@ import 'package:portfolio_assistant/features/assistant/providers/assistant_provi
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -445,5 +446,60 @@ void main() {
     // así que el turno termina con una surface (no con error).
     expect(h.lastAnswer.isStreaming, isFalse);
     expect(h.state.error, isNull);
+  });
+
+  group('turn activity (Porty header status)', () {
+    List<String> record(_Harness h) {
+      final seen = <String>[];
+      void listener() {
+        final a = h.notifier.activity.value;
+        seen.add(
+          a.phase == TurnPhase.runningTools
+              ? 'tools:${a.calls.map((c) => '${c.name}${c.args['tickers']}').join(',')}'
+              : a.phase.name,
+        );
+      }
+
+      h.notifier.activity.addListener(listener);
+      addTearDown(() => h.notifier.activity.removeListener(listener));
+      return seen;
+    }
+
+    test('follows the real loop: thinking, the requested tools with their '
+        'arguments, composing, and idle when the turn ends', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer('AAPL está a 200.'),
+      ]);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('¿A cuánto está AAPL?');
+
+      expect(seen, ['thinking', 'tools:get_quote[AAPL]', 'composing', 'idle']);
+      expect(h.notifier.activity.value.isIdle, isTrue);
+    });
+
+    test('goes back to idle when the turn fails', () async {
+      // Sin guion: el primer request responde 500.
+      final h = harness(SubscriptionTier.free, []);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('Hola');
+
+      expect(seen.first, 'thinking');
+      expect(seen.last, 'idle');
+      expect(h.notifier.activity.value.isIdle, isTrue);
+    });
+
+    test('goes back to idle when the quota paywall stops the turn', () async {
+      final h = harness(SubscriptionTier.free, [_answer()], used: 20);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('Hola');
+
+      expect(seen, ['thinking', 'idle']);
+    });
   });
 }

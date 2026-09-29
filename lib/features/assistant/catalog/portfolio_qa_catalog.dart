@@ -1,5 +1,6 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
 
@@ -320,9 +321,7 @@ final CatalogItem qaCompareChartItem = CatalogItem(
         'ticker, % desde el inicio). La app trae las series.',
     properties: {
       'tickers': S.list(items: S.string(), minItems: 2, maxItems: 3),
-      'initialRange': S.string(
-        enumValues: ['1W', '1M', '3M', '1Y'],
-      ),
+      'initialRange': S.string(enumValues: ['1W', '1M', '3M', '1Y']),
       'items': S.list(
         description: 'Fallback: periods.{period}.change_pct por ticker.',
         items: S.object(
@@ -742,6 +741,93 @@ final CatalogItem qaFundamentalsItem = CatalogItem(
     ],
     "week52Low": 169.21,
     "week52High": 260.10
+  }
+]
+''',
+  ],
+);
+
+/// Análisis de UNA empresa. El modelo solo escribe texto: todos los números
+/// de la card los pone la app desde las tools del turno (ver
+/// `AnalysisWidgets`).
+final CatalogItem qaCompanyAnalysisItem = CatalogItem(
+  name: 'QaCompanyAnalysis',
+  dataSchema: S.object(
+    description:
+        'Análisis de UNA empresa para un inversor casual. Escribí SOLO texto '
+        'en español llano: la app completa sola precio, métricas, rango 52 '
+        'semanas, resultados, titulares, riesgo y cartera desde tus tools. '
+        'Cada número que escribas debe estar en un resultado de tool; sin '
+        'consejos de compra/venta ni "barata/cara" sin un dato comparable.',
+    properties: {
+      'ticker': S.string(),
+      'summary': S.string(
+        description: '2-3 oraciones: la lectura general de la empresa.',
+      ),
+      'keyPoints': S.list(
+        description: '3-4 puntos cortos.',
+        items: S.object(
+          properties: {
+            'tone': S.string(enumValues: ['strength', 'neutral', 'watch']),
+            'text': S.string(
+              description:
+                  'Ej. "Rentabilidad alta: gana 30 de cada 100 dólares que '
+                  'vende".',
+            ),
+          },
+          required: ['tone', 'text'],
+        ),
+        maxItems: 4,
+      ),
+      'metrics': S.list(
+        description: 'Las 3-4 métricas más relevantes (no todas).',
+        items: S.object(
+          properties: {
+            'key': S.string(
+              enumValues: [for (final m in AnalysisMetric.values) m.key],
+            ),
+            'explanation': S.string(
+              description:
+                  'Una línea de qué significa, ej. "pagás 11,6 veces lo '
+                  'que gana por año".',
+            ),
+          },
+          required: ['key', 'explanation'],
+        ),
+        maxItems: 4,
+      ),
+      'newsTake': S.string(
+        description:
+            'Solo si get_news ok: una línea con el tono general de lo que '
+            'dicen los titulares.',
+      ),
+    },
+    required: ['ticker', 'summary'],
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaCompanyAnalysis,
+      ),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "analysis",
+    "component": "QaCompanyAnalysis",
+    "ticker": "BAC",
+    "summary": "Bank of America es uno de los bancos más grandes de Estados Unidos y hoy gana bien con lo que presta. El mercado lo valora con cautela, típico de un banco.",
+    "keyPoints": [
+      {"tone": "strength", "text": "Rentabilidad alta: gana 30 de cada 100 dólares que vende."},
+      {"tone": "neutral", "text": "Paga un dividendo del 3,2% por año."},
+      {"tone": "watch", "text": "Como todo banco, depende de las tasas de interés."}
+    ],
+    "metrics": [
+      {"key": "pe_ttm", "explanation": "Pagás 11,6 veces lo que la empresa gana por año."},
+      {"key": "net_margin_ttm", "explanation": "De cada 100 dólares que factura, le quedan 30."},
+      {"key": "roe_ttm", "explanation": "Gana 11 dólares por cada 100 que pusieron sus accionistas."}
+    ],
+    "newsTake": "Los titulares hablan sobre todo de sus resultados y del negocio de tarjetas."
   }
 ]
 ''',

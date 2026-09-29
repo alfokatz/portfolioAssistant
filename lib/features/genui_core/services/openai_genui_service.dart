@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/conversation_log.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/openai_body_patch_client.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_controller_dispatch.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/async_call_queue.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
@@ -18,6 +19,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
 export 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
+export 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 
 /// Resultado de un turno: qué tools corrieron (para cuota, avisos y
 /// telemetría).
@@ -41,12 +43,60 @@ class TurnAbortedException implements Exception {
   String toString() => 'TurnAbortedException($reason)';
 }
 
+/// Lo que respalda una respuesta: las tool calls cuyos resultados el
+/// modelo tiene a la vista y el contexto fijo (la cartera) de ese turno.
+/// Se guarda por surface al mostrarla (ver [OpenAIGenUiService.evidenceFor])
+/// para que los widgets lean los MISMOS datos que tuvo el modelo — p. ej.
+/// el análisis de una empresa llena sus números desde acá, no desde lo que
+/// escribió el modelo.
+class TurnEvidence {
+  const TurnEvidence({
+    required this.calls,
+    this.turnCalls = const [],
+    this.pinnedContext,
+  });
+
+  static const empty = TurnEvidence(calls: []);
+
+  /// Todo lo que el modelo tiene a la vista (incluye turnos anteriores).
+  final List<ToolCallRecord> calls;
+
+  /// Solo las de ESTE turno: lo que el modelo decidió pedir ahora.
+  final List<ToolCallRecord> turnCalls;
+  final String? pinnedContext;
+}
+
+/// Lo que se le pide al modelo cuando una respuesta no pasa el chequeo.
+class AnswerCorrection {
+  const AnswerCorrection(
+    this.message, {
+    this.requiresTools = true,
+    this.rejectRewrite,
+  });
+
+  final String message;
+
+  /// `true`: faltan datos y la próxima ronda TIENE que llamar una tool
+  /// (widget sin respaldo). `false`: los datos están, hay que reescribir el
+  /// texto (números sin respaldo, consejo de compra/venta).
+  final bool requiresTools;
+
+  /// Si devuelve `true` para la reescritura, se descarta y se usa la
+  /// respuesta original (que el post-proceso limpia). Evita el peor caso
+  /// visto en evals: al pedirle "arreglá el texto", el modelo a veces
+  /// contesta solo con texto y la card desaparece.
+  final bool Function(String rewritten)? rejectRewrite;
+}
+
 /// Verifica la respuesta final antes de mostrarla: devuelve una corrección
 /// para el modelo (ej. "mostraste QaFundamentals sin get_fundamentals"), o
-/// `null` si está bien. [visibleCalls] son las tool calls cuyos resultados
-/// el modelo tiene a la vista.
+/// `null` si está bien.
 typedef AnswerCheck =
-    String? Function(String rawAnswer, List<ToolCallRecord> visibleCalls);
+    AnswerCorrection? Function(String rawAnswer, TurnEvidence evidence);
+
+/// Último ajuste determinístico de la respuesta ya normalizada, antes de
+/// despacharla (guard de layout, limpieza de texto sin respaldo).
+typedef PostProcess = String Function(String normalized, TurnEvidence evidence);
 
 /// Decide, con los resultados de una ronda, si el turno se corta ahí.
 /// Devuelve el motivo, o `null` para seguir.
@@ -129,7 +179,7 @@ class OpenAIGenUiService {
 
   /// Ajuste propio del producto sobre el A2UI ya normalizado, antes de
   /// despacharlo (ej. reglas de layout que el modelo no siempre respeta).
-  final String Function(String normalized)? postProcess;
+  final PostProcess? postProcess;
 
   /// Ver [AnswerCheck]. Se aplica una vez por turno: si falla, el modelo
   /// recibe la corrección y una ronda más con tools obligatorias.
@@ -158,7 +208,9 @@ class OpenAIGenUiService {
   /// turno; [pinnedContext] va como mensaje de sistema antes de toda la
   /// conversación y reemplaza al del turno anterior (ver
   /// `ConversationLog.pinnedContext`). [abortCheck] se evalúa tras la
-  /// primera ronda de tools.
+  /// primera ronda de tools. [onActivity] avisa en qué anda el turno
+  /// (esperando al modelo, qué tools corren, armando la respuesta) — solo
+  /// para mostrarlo; no emite `idle`, el fin del turno lo marca el llamador.
   Future<TurnOutcome> runTurn({
     required String userText,
     required String surfaceId,
@@ -166,6 +218,7 @@ class OpenAIGenUiService {
     String? context,
     String? pinnedContext,
     TurnAbortCheck? abortCheck,
+    TurnActivityCallback? onActivity,
   }) {
     return _sendQueue.run(() {
       log.pinnedContext = pinnedContext;
@@ -175,6 +228,7 @@ class OpenAIGenUiService {
         tools: tools,
         context: context,
         abortCheck: abortCheck,
+        onActivity: onActivity,
       );
     });
   }
@@ -201,6 +255,7 @@ class OpenAIGenUiService {
     required List<DataTool> tools,
     String? context,
     TurnAbortCheck? abortCheck,
+    TurnActivityCallback? onActivity,
   }) async {
     if (apiKey.isEmpty) {
       throw StateError('OPENAI_API_KEY no configurada');
@@ -212,11 +267,15 @@ class OpenAIGenUiService {
     final turn = log.beginTurn(userText, context: context);
     final deadline = DateTime.now().add(_turnDeadline);
     final executor = _ToolExecutor(tools);
+    onActivity?.call(TurnActivity.thinking);
 
     Object? forcedChoice;
     var retried = false;
     var checked = false;
     var extraRound = false;
+    // Respuesta rechazada para reescribir + cómo juzgar la reescritura.
+    String? rejectedRaw;
+    bool Function(String)? rejectRewrite;
     for (var round = 0; ; round++) {
       final canUseTools =
           tools.isNotEmpty &&
@@ -235,7 +294,17 @@ class OpenAIGenUiService {
 
       final calls = message.toolCalls;
       if (canUseTools && calls != null && calls.isNotEmpty) {
+        onActivity?.call(
+          TurnActivity.tools([
+            for (final call in calls)
+              PendingToolCall(
+                call.function.name ?? '',
+                _ToolExecutor._decodeArgs(call.function.arguments) ?? const {},
+              ),
+          ]),
+        );
         final records = await executor.runAll(calls);
+        onActivity?.call(TurnActivity.composing);
         turn.calls.addAll(records);
         turn.exchanges.add(
           ToolExchange(
@@ -287,10 +356,10 @@ class OpenAIGenUiService {
       final check = answerCheck;
       if (check != null && !checked && tools.isNotEmpty) {
         checked = true;
-        final correction = check(raw, log.visibleCalls);
+        final correction = check(raw, _currentEvidence());
         if (correction != null &&
             deadline.difference(DateTime.now()) > _minTimeForToolRound) {
-          GenUiDebugLog.answerRejected(correction);
+          GenUiDebugLog.answerRejected(correction.message);
           turn
             ..scratchAfter = turn.exchanges.length
             ..scratch.addAll([
@@ -299,19 +368,35 @@ class OpenAIGenUiService {
                 role: OpenAIChatMessageRole.user,
                 content: [
                   OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                    correction,
+                    correction.message,
                   ),
                 ],
               ),
             ]);
-          forcedChoice = 'required';
-          extraRound = true;
+          // Sin datos → la ronda extra tiene que traerlos; con datos → solo
+          // reescribir (forzar una tool ahí la haría repetir llamadas).
+          forcedChoice = correction.requiresTools ? 'required' : 'none';
+          extraRound = correction.requiresTools;
+          if (!correction.requiresTools) {
+            rejectedRaw = raw;
+            rejectRewrite = correction.rejectRewrite;
+          }
           continue;
         }
       }
 
       turn.scratch.clear();
-      await _finishTurn(turn, raw, surfaceId, tools, deadline);
+      final fallback = rejectedRaw;
+      final useOriginal =
+          fallback != null && (rejectRewrite?.call(raw) ?? false);
+      if (useOriginal) GenUiDebugLog.rewriteDiscarded();
+      await _finishTurn(
+        turn,
+        useOriginal ? fallback : raw,
+        surfaceId,
+        tools,
+        deadline,
+      );
       return TurnOutcome(executor.records);
     }
   }
@@ -359,6 +444,18 @@ class OpenAIGenUiService {
     final turn = log.currentTurn;
     final surfaceId = _lastSurfaceId;
     if (turn == null || surfaceId == null) return;
+    // Solo se repara lo que se puede atribuir a la respuesta de ESTE turno.
+    // genui manda por este canal también errores de render (un hijo sin
+    // definir, un widget que tira) de CUALQUIER surface en pantalla, sin
+    // decir cuál — y las surfaces viejas se reconstruyen con cada mensaje
+    // nuevo o scroll. Atribuir uno de esos al turno actual reemplazaba una
+    // respuesta correcta por la reacción del modelo a "ERROR DE VALIDACIÓN
+    // … corregí la interfaz" (el bug de "enviame los datos que querés que
+    // analice" tras la card de fundamentals de BAC).
+    if (!_errorBelongsTo(message, surfaceId)) {
+      GenUiDebugLog.repairIgnored(surfaceId);
+      return;
+    }
     if (_repairsThisTurn >= _maxRepairsPerTurn) return;
     _repairsThisTurn++;
 
@@ -482,8 +579,10 @@ class OpenAIGenUiService {
             )
             : normalized;
 
+    final evidence = _currentEvidence();
+    _rememberEvidence(surfaceId, evidence);
     final post = postProcess;
-    if (post != null) cleaned = post(cleaned);
+    if (post != null) cleaned = post(cleaned, evidence);
     GenUiDebugLog.componentChoice(surfaceId: surfaceId, normalized: cleaned);
     A2uiControllerDispatch.dispatchNormalized(controller, cleaned);
 
@@ -496,10 +595,50 @@ class OpenAIGenUiService {
     }
   }
 
+  TurnEvidence _currentEvidence() => TurnEvidence(
+    calls: List.unmodifiable(log.visibleCalls),
+    turnCalls: List.unmodifiable(log.currentTurn?.calls ?? const []),
+    pinnedContext: log.pinnedContext,
+  );
+
+  /// Tope de surfaces recordadas: alcanza para todo lo que sigue en
+  /// pantalla en una conversación normal.
+  static const _maxRememberedSurfaces = 40;
+  final _evidenceBySurface = <String, TurnEvidence>{};
+
+  void _rememberEvidence(String surfaceId, TurnEvidence evidence) {
+    _evidenceBySurface
+      ..remove(surfaceId)
+      ..[surfaceId] = evidence;
+    while (_evidenceBySurface.length > _maxRememberedSurfaces) {
+      _evidenceBySurface.remove(_evidenceBySurface.keys.first);
+    }
+  }
+
+  /// Los datos con los que se armó [surfaceId] (vacío si no se conoce).
+  TurnEvidence evidenceFor(String surfaceId) =>
+      _evidenceBySurface[surfaceId] ?? TurnEvidence.empty;
+
   /// Convierte el JSON de un `UiInteractionPart` en una instrucción legible.
   /// El único que dispara la app es el error de validación de
   /// `SurfaceController.reportError` (`{"error": {...}}`); cualquier otra
   /// forma se reenvía tal cual.
+  /// `true` solo si el mensaje es un error de genui que nombra [surfaceId]
+  /// (los de validación al despachar lo traen; los de render, no). Un
+  /// mensaje de texto que no es un error de genui se acepta (lo arma la app).
+  static bool _errorBelongsTo(ChatMessage message, String surfaceId) {
+    final interactions = message.parts.uiInteractionParts;
+    if (interactions.isEmpty) return true;
+    try {
+      final decoded = jsonDecode(interactions.first.interaction);
+      final error = decoded is Map ? decoded['error'] : null;
+      if (error is! Map) return true;
+      return error['surfaceId'] == surfaceId;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static String _describeInteraction(String interactionJson) {
     try {
       final decoded = jsonDecode(interactionJson);

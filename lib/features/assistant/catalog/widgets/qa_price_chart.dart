@@ -8,7 +8,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_market_parts.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 
 /// Gráfico de precio histórico estilo Quartz / Apple Stocks: identidad del
@@ -205,7 +204,7 @@ class _QaPriceChartState extends State<QaPriceChart>
     final shown = candles ?? (loading ? _displayed : null);
 
     final isUp = shown == null || shown.last.close >= shown.first.close;
-    final color = isUp ? PortfolioColors.profit : PortfolioColors.loss;
+    final color = isUp ? QaColors.profit : QaColors.loss;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -444,14 +443,14 @@ class _ScrubTooltip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: PortfolioColors.textPrimary,
+          color: QaColors.textPrimary,
           borderRadius: BorderRadius.circular(QaSpace.chipRadius - 2),
         ),
         child: Text(
           '${QaFormat.price(candle.close)} · '
           '${QaMarketParts.formatDate(candle.date, range)}',
           style: QaText.valueSm.copyWith(
-            color: PortfolioColors.surfaceCard,
+            color: QaColors.surfaceCard,
             fontSize: 12,
           ),
         ),
@@ -474,8 +473,8 @@ class PriceLinePainter extends CustomPainter {
     this.progress = 1,
     this.scrubIndex,
     this.showReferences = true,
-    this.labelStyle = QaText.caption,
-  });
+    TextStyle? labelStyle,
+  }) : labelStyle = labelStyle ?? QaText.caption;
 
   final List<double> values;
   final TextStyle labelStyle;
@@ -570,7 +569,7 @@ class PriceLinePainter extends CustomPainter {
         canvas,
         y: points.first.dy,
         width: size.width,
-        color: PortfolioColors.textSecondary.withValues(alpha: 0.35),
+        color: QaColors.textSecondary.withValues(alpha: 0.35),
       );
     }
 
@@ -613,10 +612,10 @@ class PriceLinePainter extends CustomPainter {
         Offset(p.dx, 0),
         Offset(p.dx, size.height),
         Paint()
-          ..color = PortfolioColors.textSecondary.withValues(alpha: 0.5)
+          ..color = QaColors.textSecondary.withValues(alpha: 0.5)
           ..strokeWidth = 1,
       );
-      canvas.drawCircle(p, 5.5, Paint()..color = PortfolioColors.surfaceCard);
+      canvas.drawCircle(p, 5.5, Paint()..color = QaColors.surfaceCard);
       canvas.drawCircle(p, 4, Paint()..color = color);
     }
   }
@@ -645,7 +644,7 @@ class PriceLinePainter extends CustomPainter {
       canvas.drawCircle(
         p,
         2,
-        Paint()..color = PortfolioColors.textSecondary.withValues(alpha: 0.6),
+        Paint()..color = QaColors.textSecondary.withValues(alpha: 0.6),
       );
     }
 

@@ -68,12 +68,13 @@ class _TypewriterTextState extends State<TypewriterText>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: _durationFor(widget.text, widget.charsPerSecond),
-    )
-      ..addStatusListener(_handleStatus)
-      ..addListener(_handleTick);
+    _controller =
+        AnimationController(
+            vsync: this,
+            duration: _durationFor(widget.text, widget.charsPerSecond),
+          )
+          ..addStatusListener(_handleStatus)
+          ..addListener(_handleTick);
   }
 
   @override

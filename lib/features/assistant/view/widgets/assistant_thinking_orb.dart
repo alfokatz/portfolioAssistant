@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_breath.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Indicador de espera del asistente: un orbe que respira y flota mientras
@@ -15,7 +16,9 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 /// bitono frío→cálido que es la firma visual de Porty, el asistente.
 /// Dos ciclos independientes (respiración de escala/opacidad y deriva
 /// vertical) con duraciones distintas para que la combinación no se sienta
-/// mecánica. Respeta `disableAnimations` (reduced motion).
+/// mecánica. La respiración usa el reloj de [PortyBreath], así va en fase
+/// con el pulso del avatar del header. Respeta `disableAnimations` (reduced
+/// motion).
 class AssistantThinkingOrb extends StatefulWidget {
   const AssistantThinkingOrb({super.key, this.size = 20});
 
@@ -43,7 +46,7 @@ class _AssistantThinkingOrbState extends State<AssistantThinkingOrb>
     super.initState();
     _breathController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: PortyBreath.period,
     );
     // Duración deliberadamente distinta a la de respiración: al no ser
     // múltiplos entre sí, la fase relativa entre ambos ciclos va corriendo
@@ -63,7 +66,7 @@ class _AssistantThinkingOrbState extends State<AssistantThinkingOrb>
     if (_started) return;
     _started = true;
     if (!MediaQuery.disableAnimationsOf(context)) {
-      _breathController.repeat(reverse: true);
+      PortyBreath.start(_breathController);
       _driftController.repeat();
     }
   }
@@ -83,7 +86,7 @@ class _AssistantThinkingOrbState extends State<AssistantThinkingOrb>
     return AnimatedBuilder(
       animation: Listenable.merge([_breathController, _driftController]),
       builder: (context, _) {
-        final breathT = Curves.easeInOutSine.transform(_breathController.value);
+        final breathT = PortyBreath.wave(_breathController.value);
         final driftT = _driftController.value;
         return _orb(
           scale: lerpDouble(_minScale, _maxScale, breathT)!,

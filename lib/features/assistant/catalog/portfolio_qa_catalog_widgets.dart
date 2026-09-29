@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/advice_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/company_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/market_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/portfolio_widgets.dart';
@@ -16,8 +17,8 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/portfolio
 abstract final class PortfolioQaCatalogWidgets {
   static Widget qaAnswerText(CatalogItemContext ctx) {
     final data = _AnswerTextData.fromMap(ctx.data as JsonMap);
-    const style = TextStyle(
-      color: PortfolioColors.textPrimary,
+    final style = TextStyle(
+      color: QaColors.textPrimary,
       fontSize: 15,
       height: 1.45,
     );
@@ -69,6 +70,8 @@ abstract final class PortfolioQaCatalogWidgets {
   static Widget qaNewsSummary(CatalogItemContext ctx) =>
       CompanyWidgets.qaNewsSummary(ctx);
 
+  static Widget qaCompanyAnalysis(CatalogItemContext ctx) =>
+      AnalysisWidgets.qaCompanyAnalysis(ctx);
   static Widget qaFundamentals(CatalogItemContext ctx) =>
       CompanyWidgets.qaFundamentals(ctx);
 

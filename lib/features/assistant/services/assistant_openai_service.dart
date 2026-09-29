@@ -4,8 +4,7 @@ import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
-import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
-import 'package:portfolio_assistant/features/assistant/utils/assistant_layout_guard.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
@@ -18,8 +17,8 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     required super.systemPrompt,
     required super.catalog,
   }) : super(
-         postProcess: AssistantLayoutGuard.enforce,
-         answerCheck: AssistantGroundingCheck.check,
+         postProcess: AssistantAnswerReview.postProcess,
+         answerCheck: AssistantAnswerReview.check,
        );
 
   factory AssistantOpenAiService({
@@ -58,12 +57,14 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     required String surfaceId,
     required List<DataTool> tools,
     TurnAbortCheck? abortCheck,
+    TurnActivityCallback? onActivity,
   }) {
     return runTurn(
       userText: question,
       surfaceId: surfaceId,
       tools: tools,
       abortCheck: abortCheck,
+      onActivity: onActivity,
       pinnedContext:
           '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
           'referencia, se actualiza en cada turno; no es parte de ninguna '

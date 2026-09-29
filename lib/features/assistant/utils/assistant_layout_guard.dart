@@ -65,7 +65,14 @@ abstract final class AssistantLayoutGuard {
         kept.where((k) => byId[k]?['component'] == type).length;
     for (final id in children.whereType<String>()) {
       final type = byId[id]?['component'];
-      if (type == null || _nonData.contains(type)) {
+      if (type == null) {
+        // Hijo que el modelo listó pero nunca definió: genui lo reporta como
+        // error ("Widget with id not found") cada vez que la surface se
+        // reconstruye — y eso pasa con cada mensaje nuevo o scroll, mucho
+        // después de este turno. Se saca acá, donde todavía se sabe de qué
+        // surface es.
+        dropped.add(id);
+      } else if (_nonData.contains(type)) {
         kept.add(id);
       } else if (primary == null) {
         primary = type as String;

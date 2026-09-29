@@ -99,6 +99,21 @@ abstract final class GenUiDebugLog {
   }
 
   /// Una respuesta final que mostraba datos sin la tool que los respalda.
+  /// Error de genui que no se puede atribuir al turno actual (de render,
+  /// o de otra surface): se ignora en vez de pedirle al modelo que "corrija".
+  static void repairIgnored(String currentSurfaceId) {
+    if (!kDebugMode) return;
+    debugPrint(
+      '[GenUI/repair] ignorado: error no atribuible a $currentSurfaceId',
+    );
+  }
+
+  /// La reescritura pedida perdió la card: se usa la respuesta original.
+  static void rewriteDiscarded() {
+    if (!kDebugMode) return;
+    debugPrint('[GenUI/grounding] reescritura descartada: perdió la card');
+  }
+
   static void answerRejected(String correction) {
     if (!kDebugMode) return;
     debugPrint('[GenUI/grounding] respuesta rechazada: $correction');

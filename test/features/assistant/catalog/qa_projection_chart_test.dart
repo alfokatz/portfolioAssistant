@@ -77,34 +77,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'does not crash when mounted active under reduced motion and '
-    'onFinished mutates ancestor state synchronously (regression: '
-    'setState during build)',
-    (tester) async {
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: MaterialApp(
-            home: Scaffold(
-              body: _MutatingAncestor(
-                builder: (context, mutate) => QaProjectionChart(
-                  label: 'Sin animación',
-                  points: points,
-                  onFinished: mutate,
-                ),
-              ),
+  testWidgets('does not crash when mounted active under reduced motion and '
+      'onFinished mutates ancestor state synchronously (regression: '
+      'setState during build)', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: Scaffold(
+            body: _MutatingAncestor(
+              builder:
+                  (context, mutate) => QaProjectionChart(
+                    label: 'Sin animación',
+                    points: points,
+                    onFinished: mutate,
+                  ),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
+    await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('Sin animación'), findsOneWidget);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.text('Sin animación'), findsOneWidget);
+  });
 
   testWidgets('renders nothing and still finishes with fewer than 2 points', (
     tester,

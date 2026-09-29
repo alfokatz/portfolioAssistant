@@ -294,9 +294,13 @@ void main() {
     expect(find.text('Gráfico'), findsNothing);
     expect(find.text('Noticias'), findsOneWidget);
     expect(find.text('Earnings'), findsOneWidget);
-    expect(find.text('Fundamentals'), findsOneWidget);
+    // "Análisis" va primero en el menú de cada ticker y desplaza al cuarto.
+    expect(find.text('Análisis'), findsOneWidget);
+    expect(find.text('Fundamentals'), findsNothing);
     expect(find.text('vs. S&P 500'), findsNothing);
 
+    await tester.ensureVisible(find.text('Noticias'));
+    await tester.pump();
     await tester.tap(find.text('Noticias'));
     await tester.pumpAndSettle();
     expect(sent, ['¿Qué noticias hay de AAPL?']);

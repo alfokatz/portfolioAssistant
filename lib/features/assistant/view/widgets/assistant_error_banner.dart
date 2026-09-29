@@ -42,9 +42,9 @@ class AssistantErrorBanner extends StatelessWidget {
           children: [
             Text(
               message,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: PortfolioColors.textSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: PortfolioColors.textSecondary,
+              ),
             ),
             Align(
               alignment: Alignment.centerRight,

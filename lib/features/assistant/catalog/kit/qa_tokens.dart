@@ -1,6 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+
+/// Colores del kit resueltos para el tema activo (claro u oscuro).
+///
+/// El catálogo arranca en funciones estáticas y estilos que no reciben
+/// `BuildContext`, así que los tokens no pueden salir de
+/// `Theme.of(context)` en cada uso. En cambio, el host de las surfaces
+/// (`PortfolioQaAssistantSurface`) fija el brillo con [resolve] antes de
+/// construirlas, y las fuerza a reconstruirse cuando cambia el tema. Todo lo
+/// de adentro lee estos getters. Mismos nombres que `PortfolioColors`, para
+/// que la migración sea mecánica. Los valores salen de `CustomColors`
+/// (light/dark), la misma fuente que el resto de la app.
+abstract final class QaColors {
+  static CustomColors _c = CustomColors.light;
+  static bool _dark = false;
+
+  static bool get isDark => _dark;
+
+  /// Lo llama el host de las surfaces en cada build.
+  static void resolve(Brightness brightness) {
+    _dark = brightness == Brightness.dark;
+    _c = _dark ? CustomColors.dark : CustomColors.light;
+  }
+
+  static Color get textPrimary => _c.textPrimary;
+  static Color get textSecondary => _c.textSecondary;
+  static Color get accentBlue => _c.accentBlue;
+  static Color get accentWarm => _c.accentWarm;
+  static Color get surfaceCard => _c.surfaceCard;
+  static Color get surfaceElevated => _c.surfaceElevated;
+  static Color get border => _c.border;
+  static Color get profit => _c.profit;
+  static Color get loss => _c.loss;
+  static Color get profitContainer => _c.profitContainer;
+  static Color get lossContainer => _c.lossContainer;
+  static Color get aiCardBorder => _c.aiCardBorder;
+}
 
 /// Tokens del kit de widgets GenUI de Porty: la escala tipográfica, los
 /// colores derivados y los formatos numéricos que comparten TODAS las cards
@@ -8,13 +44,14 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 /// suelto — si falta un estilo, se agrega acá.
 ///
 /// Todo número usa cifras tabulares, para que columnas y valores que se
-/// actualizan (scrub del gráfico, contadores) no bailen de ancho.
+/// actualizan (scrub del gráfico, contadores) no bailen de ancho. Son
+/// getters (no `const`) porque el color depende del tema — ver [QaColors].
 abstract final class QaText {
   static const _tabular = [FontFeature.tabularFigures()];
 
   /// Número protagonista de una card (precio, valor del portfolio, meta).
-  static const display = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get display => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 30,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.9,
@@ -23,8 +60,8 @@ abstract final class QaText {
   );
 
   /// Número destacado secundario (una sola métrica grande dentro de un bloque).
-  static const displaySm = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get displaySm => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 22,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.5,
@@ -33,8 +70,8 @@ abstract final class QaText {
   );
 
   /// Título de la card: ticker, nombre de la meta.
-  static const title = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get title => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 15,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
@@ -42,22 +79,19 @@ abstract final class QaText {
   );
 
   /// Texto de lectura dentro de una card (titulares, tesis, resúmenes).
-  static const body = TextStyle(
-    color: PortfolioColors.textPrimary,
-    fontSize: 14,
-    height: 1.4,
-  );
+  static TextStyle get body =>
+      TextStyle(color: QaColors.textPrimary, fontSize: 14, height: 1.4);
 
-  static const bodyStrong = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get bodyStrong => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     height: 1.35,
   );
 
   /// Valor de una métrica en una grilla/fila.
-  static const value = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get value => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 15,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
@@ -65,8 +99,8 @@ abstract final class QaText {
     fontFeatures: _tabular,
   );
 
-  static const valueSm = TextStyle(
-    color: PortfolioColors.textPrimary,
+  static TextStyle get valueSm => TextStyle(
+    color: QaColors.textPrimary,
     fontSize: 13,
     fontWeight: FontWeight.w600,
     height: 1.2,
@@ -74,15 +108,12 @@ abstract final class QaText {
   );
 
   /// Rótulo de una métrica ("Market cap", "Próximo reporte").
-  static const label = TextStyle(
-    color: PortfolioColors.textSecondary,
-    fontSize: 12,
-    height: 1.3,
-  );
+  static TextStyle get label =>
+      TextStyle(color: QaColors.textSecondary, fontSize: 12, height: 1.3);
 
   /// Encabezado de sección dentro de una card ("VALUACIÓN", "HISTORIAL").
-  static const eyebrow = TextStyle(
-    color: PortfolioColors.textSecondary,
+  static TextStyle get eyebrow => TextStyle(
+    color: QaColors.textSecondary,
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.6,
@@ -90,8 +121,8 @@ abstract final class QaText {
   );
 
   /// Metadatos: fuente y fecha de una noticia, notas al pie.
-  static const caption = TextStyle(
-    color: PortfolioColors.textSecondary,
+  static TextStyle get caption => TextStyle(
+    color: QaColors.textSecondary,
     fontSize: 11,
     height: 1.3,
     fontFeatures: _tabular,
@@ -101,8 +132,9 @@ abstract final class QaText {
 abstract final class QaPalette {
   /// Paleta categórica para series (segmentos de barras, donuts, leyendas).
   /// Tonos editoriales cálidos que conviven con el terracota de la app — el
-  /// orden importa: los primeros tienen más contraste entre sí.
-  static const categorical = [
+  /// orden importa: los primeros tienen más contraste entre sí. En oscuro el
+  /// "carbón" pasa a un gris claro (si no, desaparece sobre la card).
+  static const _categoricalLight = [
     Color(0xFFD98E5D), // terracota (acento)
     Color(0xFF2F3437), // carbón
     Color(0xFF7A9E7E), // salvia
@@ -110,20 +142,33 @@ abstract final class QaPalette {
     Color(0xFF6F8FAF), // azul polvo
     Color(0xFFA86A46), // terracota oscuro
   ];
+  static const _categoricalDark = [
+    Color(0xFFE3A472), // terracota (acento dark)
+    Color(0xFFD6D6DA), // gris claro
+    Color(0xFF8DB592), // salvia
+    Color(0xFFCDBB9F), // arena
+    Color(0xFF86A6C6), // azul polvo
+    Color(0xFFB9805C), // terracota oscuro
+  ];
+
+  static List<Color> get categorical =>
+      QaColors.isDark ? _categoricalDark : _categoricalLight;
 
   static Color series(int index) => categorical[index % categorical.length];
 
   /// Fondo tenue de superficies internas (bloques dentro de una card).
-  static const inset = Color(0xFFF7F6F3);
+  static Color get inset =>
+      QaColors.isDark ? const Color(0xFF222222) : const Color(0xFFF7F6F3);
 
-  static const track = Color(0x0F000000); // 6% — fondo de barras/anillos
+  /// Fondo de barras/anillos (6%).
+  static Color get track =>
+      QaColors.isDark ? const Color(0x14FFFFFF) : const Color(0x0F000000);
 
-  static const profitTint = Color(0x1A346538); // profit @ 10%
-  static const lossTint = Color(0x1A9F2F2D); // loss @ 10%
-  static const accentTint = Color(0x1FD98E5D); // acento @ 12%
+  static Color get profitTint => QaColors.profit.withValues(alpha: 0.12);
+  static Color get lossTint => QaColors.loss.withValues(alpha: 0.12);
+  static Color get accentTint => QaColors.accentBlue.withValues(alpha: 0.14);
 
-  static Color trend(num value) =>
-      value >= 0 ? PortfolioColors.profit : PortfolioColors.loss;
+  static Color trend(num value) => value >= 0 ? QaColors.profit : QaColors.loss;
 
   static Color trendTint(num value) => value >= 0 ? profitTint : lossTint;
 }

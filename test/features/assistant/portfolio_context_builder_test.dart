@@ -41,9 +41,14 @@ void main() {
         ),
       ];
 
-      final json = jsonDecode(
-        PortfolioContextBuilder.buildJson(null, closedPositions: closed),
-      ) as Map;
+      final json =
+          jsonDecode(
+                PortfolioContextBuilder.buildJson(
+                  null,
+                  closedPositions: closed,
+                ),
+              )
+              as Map;
 
       expect(json['has_positions'], isFalse);
       expect(json['has_closed_positions'], isTrue);
@@ -89,7 +94,8 @@ void main() {
         ],
       );
 
-      final json = jsonDecode(PortfolioContextBuilder.buildJson(summary)) as Map;
+      final json =
+          jsonDecode(PortfolioContextBuilder.buildJson(summary)) as Map;
       expect(json['has_positions'], isTrue);
       expect(json['total_value'], 1000);
 
@@ -135,9 +141,11 @@ void main() {
         ),
       ];
 
-      final json = jsonDecode(
-        PortfolioContextBuilder.buildJson(summary, history: history),
-      ) as Map;
+      final json =
+          jsonDecode(
+                PortfolioContextBuilder.buildJson(summary, history: history),
+              )
+              as Map;
 
       expect(json['total_pnl_abs'], 200);
       final week = json['period_returns']['week'] as Map;
@@ -181,15 +189,16 @@ void main() {
         },
       };
 
-      final json = jsonDecode(
-        PortfolioContextBuilder.buildJson(
-          summary,
-          positionPeriods: positionPeriods,
-        ),
-      ) as Map;
+      final json =
+          jsonDecode(
+                PortfolioContextBuilder.buildJson(
+                  summary,
+                  positionPeriods: positionPeriods,
+                ),
+              )
+              as Map;
 
-      final aaplWeek =
-          (json['position_periods'] as Map)['AAPL']['week'] as Map;
+      final aaplWeek = (json['position_periods'] as Map)['AAPL']['week'] as Map;
       expect(aaplWeek['change_pct'], -4.2);
       expect(aaplWeek['has_sufficient_history'], isTrue);
     });

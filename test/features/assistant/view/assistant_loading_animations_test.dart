@@ -45,8 +45,9 @@ void main() {
     // thinking orb now floats directly in the message list (see
     // AssistantScreen._buildMessageTile), chrome-free, instead of being
     // boxed inside a bubble container. This bubble only ever renders text.
-    testWidgets('never embeds the thinking orb, even for a streaming message',
-        (tester) async {
+    testWidgets('never embeds the thinking orb, even for a streaming message', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         genuiTestApp(
           child: const PortfolioQaChatBubble(
@@ -83,7 +84,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(completed, isFalse);
         final partial = tester.widget<Text>(find.byType(Text)).data!;
-        expect(partial.length, lessThan('hola porty, como va mi cartera'.length));
+        expect(
+          partial.length,
+          lessThan('hola porty, como va mi cartera'.length),
+        );
 
         await tester.pumpAndSettle();
         expect(completed, isTrue);
@@ -92,63 +96,60 @@ void main() {
       },
     );
 
-    testWidgets(
-      'does not retype once already revealed and remounted under '
-      'disableAnimations',
-      (tester) async {
-        // Regresión: al igual que PortfolioQaAssistantSurface, la burbuja de
-        // usuario vive como item del ListView de la pantalla de chat, que
-        // desmonta/remonta items al scrollear. AssistantScreen envuelve la
-        // fila entera en `MediaQuery(disableAnimations: true)` (ver
-        // `_settledAware`) una vez que `PortfolioQaMessage.hasRevealed` es
-        // `true` para ese mensaje — acá se simula ese ciclo directamente
-        // sobre TypewriterText/PortfolioQaChatBubble, sin pasar por toda la
-        // pantalla.
-        const message = PortfolioQaMessage(
-          role: PortfolioQaRole.user,
-          content: 'hola porty, como va mi cartera',
-        );
-        var completedCount = 0;
+    testWidgets('does not retype once already revealed and remounted under '
+        'disableAnimations', (tester) async {
+      // Regresión: al igual que PortfolioQaAssistantSurface, la burbuja de
+      // usuario vive como item del ListView de la pantalla de chat, que
+      // desmonta/remonta items al scrollear. AssistantScreen envuelve la
+      // fila entera en `MediaQuery(disableAnimations: true)` (ver
+      // `_settledAware`) una vez que `PortfolioQaMessage.hasRevealed` es
+      // `true` para ese mensaje — acá se simula ese ciclo directamente
+      // sobre TypewriterText/PortfolioQaChatBubble, sin pasar por toda la
+      // pantalla.
+      const message = PortfolioQaMessage(
+        role: PortfolioQaRole.user,
+        content: 'hola porty, como va mi cartera',
+      );
+      var completedCount = 0;
 
-        await tester.pumpWidget(
-          genuiTestApp(
+      await tester.pumpWidget(
+        genuiTestApp(
+          child: PortfolioQaChatBubble(
+            message: message,
+            onTypingComplete: () => completedCount++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(completedCount, 1);
+      expect(find.text(message.content), findsOneWidget);
+
+      // Desmonta — simula el mensaje scrolleando fuera del viewport.
+      await tester.pumpWidget(genuiTestApp(child: const SizedBox()));
+      await tester.pump();
+      expect(find.text(message.content), findsNothing);
+
+      // Remonta bajo `disableAnimations: true` — lo que produce
+      // `_settledAware` una vez que el mensaje ya se marcó revelado.
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: genuiTestApp(
             child: PortfolioQaChatBubble(
               message: message,
               onTypingComplete: () => completedCount++,
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        expect(completedCount, 1);
-        expect(find.text(message.content), findsOneWidget);
+        ),
+      );
 
-        // Desmonta — simula el mensaje scrolleando fuera del viewport.
-        await tester.pumpWidget(genuiTestApp(child: const SizedBox()));
-        await tester.pump();
-        expect(find.text(message.content), findsNothing);
-
-        // Remonta bajo `disableAnimations: true` — lo que produce
-        // `_settledAware` una vez que el mensaje ya se marcó revelado.
-        await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: genuiTestApp(
-              child: PortfolioQaChatBubble(
-                message: message,
-                onTypingComplete: () => completedCount++,
-              ),
-            ),
-          ),
-        );
-
-        // Un solo pump: si el typewriter se hubiera vuelto a disparar, acá
-        // solo se vería un prefijo del texto, no el texto completo.
-        await tester.pump();
-        expect(find.text(message.content), findsOneWidget);
-        expect(completedCount, 2);
-        expect(tester.takeException(), isNull);
-      },
-    );
+      // Un solo pump: si el typewriter se hubiera vuelto a disparar, acá
+      // solo se vería un prefijo del texto, no el texto completo.
+      await tester.pump();
+      expect(find.text(message.content), findsOneWidget);
+      expect(completedCount, 2);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'reduced motion shows the full user message instantly and still calls onTypingComplete',
@@ -179,16 +180,19 @@ void main() {
 
   group('PortfolioQaAssistantSurface', () {
     testWidgets('fades in on mount without throwing', (tester) async {
-      final controller =
-          SurfaceController(catalogs: [AssistantCatalog.build()]);
+      final controller = SurfaceController(
+        catalogs: [AssistantCatalog.build()],
+      );
       const surfaceId = 'portfolio_qa_0';
       const raw = '''
 [
   {"id": "root", "component": "QaAnswerText", "text": "Tu portfolio subió 5,4% hoy."}
 ]
 ''';
-      final normalized =
-          A2uiResponseNormalizer.normalize(raw, surfaceId: surfaceId);
+      final normalized = A2uiResponseNormalizer.normalize(
+        raw,
+        surfaceId: surfaceId,
+      );
       dispatchNormalizedA2ui(controller, normalized);
 
       await tester.binding.setSurfaceSize(genuiTestViewportSize);
@@ -208,7 +212,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.textContaining('Tu portfolio subió 5,4% hoy.'), findsOneWidget);
+      expect(
+        find.textContaining('Tu portfolio subió 5,4% hoy.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -222,10 +229,12 @@ void main() {
         // `onFullyRevealed` reemplaza esa heurística por una señal exacta
         // — este test confirma que no dispara antes de tiempo mientras el
         // texto sigue tipeándose, y que sí dispara una sola vez al final.
-        final controller =
-            SurfaceController(catalogs: [AssistantCatalog.build()]);
+        final controller = SurfaceController(
+          catalogs: [AssistantCatalog.build()],
+        );
         const surfaceId = 'portfolio_qa_0';
-        const text = 'Diversificar significa repartir tu inversión entre '
+        const text =
+            'Diversificar significa repartir tu inversión entre '
             'distintos activos para no depender del resultado de uno solo.';
         final normalized = A2uiResponseNormalizer.normalize(
           '[{"id": "root", "component": "QaAnswerText", "text": "$text"}]',
@@ -268,8 +277,9 @@ void main() {
         // desmontar (scroll fuera de vista) → remontar (scroll de vuelta)
         // con `startFullyRevealed: true`, y confirma que el segundo montaje
         // no anima nada.
-        final controller =
-            SurfaceController(catalogs: [AssistantCatalog.build()]);
+        final controller = SurfaceController(
+          catalogs: [AssistantCatalog.build()],
+        );
         const surfaceId = 'portfolio_qa_0';
         const text = 'Tu portfolio subió 5,4% hoy.';
         final normalized = A2uiResponseNormalizer.normalize(
@@ -336,8 +346,9 @@ void main() {
         // justo cuando el reveal terminaba, y en producción disparó
         // "Failed assertion: '!_dirty' is not true" en el framework. El fix
         // envuelve siempre en el mismo `MediaQuery`, cambiando solo `data`.
-        final controller =
-            SurfaceController(catalogs: [AssistantCatalog.build()]);
+        final controller = SurfaceController(
+          catalogs: [AssistantCatalog.build()],
+        );
         const surfaceId = 'portfolio_qa_0';
         const text = 'Tu portfolio subió 5,4% hoy.';
         final normalized = A2uiResponseNormalizer.normalize(
@@ -398,18 +409,22 @@ void main() {
         // `AssistantProvider.serviceFor` ahora garantizan que se lea del
         // controller correcto — este test reproduce el bug y prueba el fix
         // a nivel de SurfaceController, sin pasar por la red.
-        final displayModeController =
-            SurfaceController(catalogs: [AssistantCatalog.build()]);
-        final engineController =
-            SurfaceController(catalogs: [AssistantCatalog.build()]);
+        final displayModeController = SurfaceController(
+          catalogs: [AssistantCatalog.build()],
+        );
+        final engineController = SurfaceController(
+          catalogs: [AssistantCatalog.build()],
+        );
         const surfaceId = 'assistant_invest_0';
         const raw = '''
 [
   {"id": "root", "component": "QaAnswerText", "text": "Quiero jubilarme con \$500.000 en 20 años."}
 ]
 ''';
-        final normalized =
-            A2uiResponseNormalizer.normalize(raw, surfaceId: surfaceId);
+        final normalized = A2uiResponseNormalizer.normalize(
+          raw,
+          surfaceId: surfaceId,
+        );
         // Solo el controller del motor real (plan) recibe la respuesta.
         dispatchNormalizedA2ui(engineController, normalized);
 
@@ -429,8 +444,7 @@ void main() {
         expect(
           find.textContaining('jubilarme'),
           findsNothing,
-          reason:
-              'el controller de la pestaña visible nunca vio este surface',
+          reason: 'el controller de la pestaña visible nunca vio este surface',
         );
 
         // Fix: leer con el controller del motor que efectivamente respondió.

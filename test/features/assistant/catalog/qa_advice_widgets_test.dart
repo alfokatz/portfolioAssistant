@@ -86,6 +86,8 @@ void main() {
       expect(find.text('JPM'), findsOneWidget);
       expect(find.text('Encaje medio'), findsOneWidget);
       expect(find.text('Noticias'), findsOneWidget);
+      await tester.ensureVisible(find.text('Simular \$500'));
+      await tester.pump();
       await tester.tap(find.text('Simular \$500'));
       expect(sent, ['Simulá invertir \$500 en JPM']);
     });

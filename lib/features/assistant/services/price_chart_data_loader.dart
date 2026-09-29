@@ -47,9 +47,10 @@ class PriceChartDataLoader {
   static const maxPoints = 320;
 
   Future<List<PriceCandle>?> load(String ticker, PriceChartRange range) async {
-    final candles = range == PriceChartRange.day
-        ? await _quoteRepository.getIntradayCandles(ticker)
-        : await _loadDaily(ticker, range);
+    final candles =
+        range == PriceChartRange.day
+            ? await _quoteRepository.getIntradayCandles(ticker)
+            : await _loadDaily(ticker, range);
     if (candles == null || candles.length < 2) return null;
     return downsample(candles, maxPoints);
   }
@@ -72,9 +73,7 @@ class PriceChartDataLoader {
   static List<PriceCandle> downsample(List<PriceCandle> candles, int max) {
     if (candles.length <= max) return candles;
     final step = (candles.length - 1) / (max - 1);
-    return [
-      for (var i = 0; i < max; i++) candles[(i * step).round()],
-    ];
+    return [for (var i = 0; i < max; i++) candles[(i * step).round()]];
   }
 }
 

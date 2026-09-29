@@ -24,10 +24,9 @@ class PortfolioQaDisclaimerBanner extends StatelessWidget {
           Expanded(
             child: Text(
               'portfolio_qa_disclaimer'.tr(),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: dim,
-                    height: 1.4,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: dim, height: 1.4),
             ),
           ),
         ],

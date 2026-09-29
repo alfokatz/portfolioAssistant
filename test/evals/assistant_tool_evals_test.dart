@@ -10,15 +10,23 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
+import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/yahoo_quote_remote_data_source.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
@@ -80,6 +88,38 @@ class _TurnLog {
   final calls = <ToolCallRecord>[];
   final components = <String>[];
   String text = '';
+
+  /// Propiedades del QaCompanyAnalysis TAL COMO SE MUESTRA (post-proceso).
+  Map<String, Object?>? analysis;
+  TurnEvidence evidence = TurnEvidence.empty;
+  int quotaWeight = 0;
+
+  CompanyAnalysisData? get analysisData =>
+      analysis == null
+          ? null
+          : CompanyAnalysisData.from(evidence, '${analysis!['ticker']}');
+
+  /// Problemas (números sin respaldo, consejo) en el texto mostrado.
+  List<String> get proseProblems {
+    final a = analysis;
+    final d = analysisData;
+    if (a == null || d == null) return const [];
+    final backing = d.backingNumbers.toList();
+    final texts = <String>[
+      if (a['summary'] is String) a['summary'] as String,
+      if (a['newsTake'] is String) a['newsTake'] as String,
+      for (final p in (a['keyPoints'] as List? ?? const []))
+        if (p is Map && p['text'] is String) p['text'] as String,
+      for (final m in (a['metrics'] as List? ?? const []))
+        if (m is Map && m['explanation'] is String) m['explanation'] as String,
+    ];
+    return [
+      for (final t in texts)
+        for (final s in AnalysisProseCheck.sentences(t))
+          ...AnalysisProseCheck.problemsIn(s, backing),
+    ];
+  }
+
   Object? aborted;
   int ms = 0;
 
@@ -100,6 +140,35 @@ class _TurnLog {
 }
 
 List<String> _expect(bool ok, String problem) => ok ? const [] : [problem];
+
+List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
+  ..._expect(
+    t.components.contains('QaCompanyAnalysis'),
+    'sin QaCompanyAnalysis: ${t.components}',
+  ),
+  ..._expect(
+    '${t.analysis?['ticker']}'.toUpperCase() == ticker,
+    'análisis de ${t.analysis?['ticker']} en vez de $ticker',
+  ),
+  if (allTools)
+    for (final tool in const [
+      'get_quote',
+      'get_fundamentals',
+      'get_earnings',
+      'get_news',
+    ])
+      ..._expect(
+        t.tickersOf(tool).contains(ticker) ||
+            t.evidence.calls.any(
+              (c) => c.name == tool && '${c.args['tickers']}'.contains(ticker),
+            ),
+        'no usó $tool($ticker)',
+      ),
+  // (f) nada inventado ni consejo en lo que se muestra
+  ..._expect(t.proseProblems.isEmpty, 'texto: ${t.proseProblems}'),
+  // (g) un análisis cuesta 1 consulta
+  ..._expect(t.quotaWeight == 1, 'cuota ${t.quotaWeight}, no 1'),
+];
 
 final _cases = <_Case>[
   _Case('chat-hola', [
@@ -246,6 +315,107 @@ final _cases = <_Case>[
       ..._expect(t.text.contains('•'), 'sin líneas "• " (EXPLAIN_METRICS)'),
     ],
   ),
+  // Bug reportado: tras la card de fundamentals de BAC, "¿me analizás estos
+  // fundamentales?" respondía "enviame los datos que querés que analice".
+  _Case(
+    'G2-bac-analiza-estos',
+    ['Pasame los fundamentals de BAC', '¿me analizás estos fundamentales?'],
+    (t, _) => [
+      ..._expect(
+        !RegExp(
+          r'env[ií]a(me)?|pas[aá]me los datos|qu[eé] datos|especific',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'pidió datos en vez de usar lo mostrado',
+      ),
+      ..._expect(t.text.contains('BAC'), 'perdió el ticker BAC'),
+    ],
+  ),
+  _Case(
+    'G2-bac-analiza-estos-long',
+    [
+      '¿Qué acciones de finanzas me recomendás?',
+      'sí por favor',
+      'Pasame los fundamentals de BAC',
+      '¿me analizás estos fundamentales?',
+    ],
+    (t, _) => [
+      ..._expect(
+        !RegExp(
+          r'env[ií]a(me)?|pas[aá]me los datos|qu[eé] datos|especific',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'pidió datos en vez de usar lo mostrado',
+      ),
+    ],
+  ),
+  // ── Análisis de una empresa ──────────────────────────────────────────
+  _Case('A-chip-bac', [
+    'Haceme un análisis de BAC',
+  ], (t, _) => _analysisOf(t, 'BAC')),
+  _Case('B-analizame-nike', [
+    'analizame Nike',
+  ], (t, _) => _analysisOf(t, 'NKE')),
+  _Case('B-que-opinas-apple', [
+    '¿qué opinás de Apple?',
+  ], (t, _) => _analysisOf(t, 'AAPL')),
+  _Case(
+    'C-bac-estos-fundamentales',
+    ['Pasame los fundamentals de BAC', '¿me analizás estos fundamentales?'],
+    (t, _) => [
+      ..._analysisOf(t, 'BAC'),
+      ..._expect(
+        !RegExp(
+          r'env[ií]a(me)?|pas[aá]me los datos|qu[eé] datos|especific',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'pidió datos en vez de usar lo mostrado',
+      ),
+    ],
+  ),
+  _Case(
+    'D-held-aapl',
+    ['Haceme un análisis de AAPL'],
+    (t, _) => [
+      ..._analysisOf(t, 'AAPL'),
+      ..._expect(t.analysisData?.position != null, 'sin "En tu cartera"'),
+    ],
+  ),
+  _Case(
+    'E-premium-no-news',
+    ['Haceme un análisis de BAC'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._analysisOf(t, 'BAC', allTools: false),
+      ..._expect(
+        t.analysisData?.newsStatus == AnalysisSourceStatus.locked,
+        'noticias no quedaron como bloqueadas: ${t.analysisData?.newsStatus}',
+      ),
+      ..._expect(
+        t.analysisData?.quoteStatus == AnalysisSourceStatus.ok,
+        'el resto no se mostró (precio)',
+      ),
+    ],
+  ),
+  // El bug de contexto afectaba a cualquier seguimiento: "¿y eso es bueno?"
+  // tras una card tiene que resolverse contra lo recién mostrado.
+  _Case(
+    'generic-es-bueno-fundamentals',
+    ['Pasame los fundamentals de Tesla', '¿y eso es bueno?'],
+    (t, _) => [
+      ..._expect(
+        !RegExp(
+          r'env[ií]a(me)?|qu[eé] datos|a qu[eé] te refer|especific',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'no resolvió "eso" contra lo recién mostrado',
+      ),
+      ..._expect(
+        t.text.contains('TSLA') || t.text.contains('Tesla'),
+        'perdió TSLA',
+      ),
+    ],
+  ),
   _Case(
     'compare-2',
     ['Comparame AAPL y MSFT'],
@@ -388,6 +558,23 @@ void main() {
                 .trim()
                 .replaceAll('"', ''),
       };
+      // EVAL_REAL_DATA=1: Yahoo/Finnhub/Google reales en vez de fixtures —
+      // para reproducir bugs que dependen de la forma real de los datos.
+      AssistantDataSources? realData;
+      if (Platform.environment['EVAL_REAL_DATA'] == '1') {
+        dotenv.testLoad(
+          fileInput: File('assets/env/.env.development').readAsStringSync(),
+        );
+        realData = AssistantDataSources(
+          quoteRepository: QuoteRepositoryImpl(
+            remoteDataSource: YahooQuoteRemoteDataSource(),
+          ),
+          preferences: FakePreferences(),
+          earnings: EarningsFetcher(),
+          fundamentals: FundamentalsFetcher(),
+          news: NewsFetcher(),
+        );
+      }
       final report = <Map<String, Object?>>[];
       var failures = 0;
 
@@ -395,6 +582,13 @@ void main() {
       for (final c in _cases.where(
         (c) => only == null || only.split(',').contains(c.id),
       )) {
+        // EVAL_CASE_DELAY_S: pausa entre casos para no chocar con el límite
+        // de tokens por minuto de la key (sin esto, las latencias medidas
+        // incluyen las esperas por 429).
+        final delay = int.tryParse(
+          Platform.environment['EVAL_CASE_DELAY_S'] ?? '',
+        );
+        if (delay != null) await Future<void>.delayed(Duration(seconds: delay));
         final recorder = _UsageRecorder();
         final service = AssistantOpenAiService(
           apiKey: env['OPENAI_API_KEY'],
@@ -407,37 +601,42 @@ void main() {
           final ctx = AssistantToolContext(
             tier: c.tier,
             summary: heldSummary,
-            data: fakeDataSources(
-              fundamentals: FakeCompanyFundamentalsRepository(
-                data: const CompanyFundamentals(
-                  ticker: 'X',
-                  peTTM: 38.6,
-                  marketCapitalization: 3500000,
-                  roeTTM: 150.2,
-                  netMarginTTM: 24.3,
-                  dividendYieldIndicatedAnnual: 0.45,
-                  beta: 1.2,
+            data:
+                realData ??
+                fakeDataSources(
+                  fundamentals: FakeCompanyFundamentalsRepository(
+                    data: const CompanyFundamentals(
+                      ticker: 'X',
+                      peTTM: 38.6,
+                      marketCapitalization: 3500000,
+                      roeTTM: 150.2,
+                      netMarginTTM: 24.3,
+                      dividendYieldIndicatedAnnual: 0.45,
+                      beta: 1.2,
+                    ),
+                  ),
+                  profiles: FakeProfileClient({
+                    for (final t in const [
+                      'NEE',
+                      'ENPH',
+                      'FSLR',
+                      'BEP',
+                      'ICLN',
+                      'TAN',
+                      'RUN',
+                      'PLUG',
+                      'SEDG',
+                      'AY',
+                      'CWEN',
+                      'ORA',
+                      'NEP',
+                    ])
+                      t: const YahooCompanyProfile(
+                        sector: 'Utilities',
+                        beta: 1.0,
+                      ),
+                  }),
                 ),
-              ),
-              profiles: FakeProfileClient({
-                for (final t in const [
-                  'NEE',
-                  'ENPH',
-                  'FSLR',
-                  'BEP',
-                  'ICLN',
-                  'TAN',
-                  'RUN',
-                  'PLUG',
-                  'SEDG',
-                  'AY',
-                  'CWEN',
-                  'ORA',
-                  'NEP',
-                ])
-                  t: const YahooCompanyProfile(sector: 'Utilities', beta: 1.0),
-              }),
-            ),
           );
           final surfaceId = 'eval_${c.id}_$i';
           final stopwatch = Stopwatch()..start();
@@ -450,6 +649,8 @@ void main() {
               abortCheck: (round) => AssistantTurnPolicy.paywallFor(round, ctx),
             );
             log.calls.addAll(outcome.toolCalls);
+            log.quotaWeight = AssistantTurnPolicy.quotaWeight(outcome);
+            log.evidence = service.evidenceFor(surfaceId);
             final raw = service.log.currentTurn?.finalText ?? '';
             log.text = raw;
             // Lo que ve el usuario: la surface ya despachada (post normalizer
@@ -461,8 +662,14 @@ void main() {
               final children = root.properties['children'];
               if (children is List) {
                 for (final id in children) {
-                  final type = surface!.components['$id']?.type;
+                  final component = surface!.components['$id'];
+                  final type = component?.type;
                   if (type != null) log.components.add(type);
+                  if (type == 'QaCompanyAnalysis') {
+                    log.analysis = Map<String, Object?>.from(
+                      component!.properties,
+                    );
+                  }
                 }
               }
             }
@@ -473,6 +680,14 @@ void main() {
           }
           log.ms = stopwatch.elapsedMilliseconds;
           logs.add(log);
+        }
+        if (Platform.environment['EVAL_PRINT_TEXT'] == '1') {
+          for (final l in logs) {
+            // ignore: avoid_print
+            print(
+              '--- ${c.id} text: ${l.text.replaceAll(RegExp(r'\s+'), ' ')}',
+            );
+          }
         }
         final problems = c.check(logs.last, logs);
         // Regla de LAYOUT: como máximo un widget de datos (QaNewsSummary puede

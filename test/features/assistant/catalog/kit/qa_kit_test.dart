@@ -76,10 +76,11 @@ void main() {
       await tester.pumpWidget(
         _host(
           QaFollowUpBar(
-            items: QaTickerFollowUps.of(
-              'NVDA',
-              exclude: {QaTickerFollowUps.chart},
-            ).take(2).toList(),
+            items:
+                QaTickerFollowUps.of(
+                  'NVDA',
+                  exclude: {QaTickerFollowUps.chart},
+                ).take(2).toList(),
           ),
           onFollowUp: sent.add,
         ),

@@ -70,6 +70,23 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// La conversación de Porty (sus surfaces). `null` hasta `bootstrap`.
   AssistantOpenAiService? get service => _service;
 
+  // Fuera de [AssistantState] a propósito: cambia varias veces por turno y
+  // solo le importa al header, no tiene por qué reconstruir el chat.
+  final _activity = ValueNotifier<TurnActivity>(TurnActivity.idle);
+
+  /// En qué anda el turno en curso (ver `PortyHeader`); `idle` entre turnos.
+  ValueListenable<TurnActivity> get activity => _activity;
+
+  void _setActivity(TurnActivity value) {
+    if (mounted) _activity.value = value;
+  }
+
+  @override
+  void dispose() {
+    _activity.dispose();
+    super.dispose();
+  }
+
   void disposeResources() {
     _subscription?.cancel();
     _service?.dispose();
@@ -114,6 +131,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // ventana en la que el guard está tomado.
     if (!_sendGuard.tryAcquire()) return;
     state = state.copyWith(clearError: true, isWaiting: true);
+    _setActivity(TurnActivity.thinking);
 
     try {
       _ensureService();
@@ -168,6 +186,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
               abortCheck:
                   (firstRound) =>
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
+              onActivity: _setActivity,
             );
           },
         );
@@ -233,6 +252,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       // Se libera siempre, sin importar por qué rama se salió, así el guard
       // y `isWaiting` nunca quedan trabados en `true`.
       _sendGuard.release();
+      _setActivity(TurnActivity.idle);
       state = state.copyWith(isWaiting: false);
     }
   }

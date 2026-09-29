@@ -7,7 +7,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_eps_history_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_media_index.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -59,7 +58,7 @@ abstract final class CompanyWidgets {
             const SizedBox(height: QaSpace.gap),
             Text(
               'Sin fechas de reporte disponibles.',
-              style: QaText.body.copyWith(color: PortfolioColors.textSecondary),
+              style: QaText.body.copyWith(color: QaColors.textSecondary),
             ),
           ],
           QaFollowUpBar(
@@ -103,7 +102,7 @@ abstract final class CompanyWidgets {
             const SizedBox(height: QaSpace.gap),
             Text(
               'No hay noticias recientes.',
-              style: QaText.body.copyWith(color: PortfolioColors.textSecondary),
+              style: QaText.body.copyWith(color: QaColors.textSecondary),
             ),
           ] else ...[
             const SizedBox(height: QaSpace.gap),
@@ -215,7 +214,7 @@ class _NextReportBlock extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('PRÓXIMO REPORTE', style: QaText.eyebrow),
+                    Text('PRÓXIMO REPORTE', style: QaText.eyebrow),
                     const SizedBox(height: 6),
                     Text(
                       data.nextReportDateLabel,
@@ -247,7 +246,7 @@ class _NextReportBlock extends StatelessWidget {
                 if (countdown != null)
                   QaTag(
                     countdown,
-                    color: PortfolioColors.accentBlue,
+                    color: QaColors.accentBlue,
                     icon: Icons.schedule_rounded,
                   ),
                 if (timing.isNotEmpty) QaTag(timing, icon: _timingIcon(timing)),
@@ -319,7 +318,7 @@ class _LatestResultRow extends StatelessWidget {
           children: [
             QaTag(
               beat ? 'Superó' : 'No alcanzó',
-              color: beat ? PortfolioColors.profit : PortfolioColors.loss,
+              color: beat ? QaColors.profit : QaColors.loss,
               icon: beat ? Icons.check_rounded : Icons.close_rounded,
             ),
             if (surprise != null && surprise != 0) ...[
@@ -407,7 +406,7 @@ class _NewsImage extends StatelessWidget {
       errorBuilder: (_, _, _) => const SizedBox.shrink(),
       frameBuilder: (context, child, frameIndex, sync) {
         if (frameIndex == null && !sync) {
-          return frame(const ColoredBox(color: QaPalette.inset));
+          return frame(ColoredBox(color: QaPalette.inset));
         }
         return frame(child);
       },
@@ -455,7 +454,7 @@ class _NewsHero extends StatelessWidget {
               Text(
                 item.summaryLine,
                 style: QaText.body.copyWith(
-                  color: PortfolioColors.textSecondary,
+                  color: QaColors.textSecondary,
                   fontSize: 13,
                 ),
                 maxLines: 2,
@@ -568,10 +567,10 @@ class _MetaLine extends StatelessWidget {
         ),
         if (linked) ...[
           const SizedBox(width: 4),
-          const Icon(
+          Icon(
             Icons.north_east_rounded,
             size: 11,
-            color: PortfolioColors.textSecondary,
+            color: QaColors.textSecondary,
           ),
         ],
       ],
@@ -718,7 +717,7 @@ class _MetricCell extends StatelessWidget {
         Text(
           item.value,
           style: QaText.value.copyWith(
-            color: (item.percent ?? 0) < 0 ? PortfolioColors.loss : null,
+            color: (item.percent ?? 0) < 0 ? QaColors.loss : null,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -728,10 +727,7 @@ class _MetricCell extends StatelessWidget {
           QaProgressBar(
             value: bar,
             height: 4,
-            color:
-                item.percent! < 0
-                    ? PortfolioColors.loss
-                    : PortfolioColors.accentBlue,
+            color: item.percent! < 0 ? QaColors.loss : QaColors.accentBlue,
           ),
         ],
       ],

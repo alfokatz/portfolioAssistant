@@ -21,16 +21,16 @@ abstract final class InvestorProfileContext {
   }
 
   static String riskLabel(RiskTolerance risk) => switch (risk) {
-        RiskTolerance.conservative => 'conservador',
-        RiskTolerance.moderate => 'moderado',
-        RiskTolerance.aggressive => 'agresivo',
-      };
+    RiskTolerance.conservative => 'conservador',
+    RiskTolerance.moderate => 'moderado',
+    RiskTolerance.aggressive => 'agresivo',
+  };
 
   static String horizonLabel(InvestmentHorizon horizon) => switch (horizon) {
-        InvestmentHorizon.short => 'corto plazo (menos de 3 años)',
-        InvestmentHorizon.medium => 'mediano plazo (3 a 7 años)',
-        InvestmentHorizon.long => 'largo plazo (más de 7 años)',
-      };
+    InvestmentHorizon.short => 'corto plazo (menos de 3 años)',
+    InvestmentHorizon.medium => 'mediano plazo (3 a 7 años)',
+    InvestmentHorizon.long => 'largo plazo (más de 7 años)',
+  };
 
   static String objectiveLabel(InvestmentObjective objective) =>
       switch (objective) {

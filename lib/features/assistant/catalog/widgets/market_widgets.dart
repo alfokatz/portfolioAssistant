@@ -10,7 +10,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_compar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_market_parts.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 
 /// Widgets del catálogo sobre el precio de un ticker y comparaciones entre
@@ -479,10 +478,7 @@ class _TickerCompareRow extends StatelessWidget {
                               ),
                               if (isLeader) ...[
                                 const SizedBox(width: 6),
-                                const QaTag(
-                                  'Lidera',
-                                  color: PortfolioColors.accentBlue,
-                                ),
+                                QaTag('Lidera', color: QaColors.accentBlue),
                               ],
                             ],
                           ),
@@ -509,7 +505,7 @@ class _TickerCompareRow extends StatelessWidget {
               height: 4,
               color:
                   direction == 0
-                      ? PortfolioColors.textSecondary
+                      ? QaColors.textSecondary
                       : QaPalette.trend(direction),
             ),
           ),
@@ -537,8 +533,8 @@ class _MetricColumns extends StatelessWidget {
             value: item.value,
             large: true,
             valueColor: switch (item.trend) {
-              'up' => PortfolioColors.profit,
-              'down' => PortfolioColors.loss,
+              'up' => QaColors.profit,
+              'down' => QaColors.loss,
               _ => null,
             },
             trailing:
@@ -590,7 +586,7 @@ class _ComparisonSide extends StatelessWidget {
           color: isWinner ? QaPalette.inset : Colors.transparent,
           borderRadius: BorderRadius.circular(QaSpace.insetRadius),
           border: Border.all(
-            color: isWinner ? Colors.transparent : PortfolioColors.border,
+            color: isWinner ? Colors.transparent : QaColors.border,
           ),
         ),
         child: QaBrandBuilder(
@@ -605,7 +601,7 @@ class _ComparisonSide extends StatelessWidget {
                       QaTickerAvatar(ticker: ticker, brand: brand, size: 28),
                       const Spacer(),
                       if (isWinner)
-                        QaTag(winnerLabel, color: PortfolioColors.accentBlue),
+                        QaTag(winnerLabel, color: QaColors.accentBlue),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -632,7 +628,7 @@ class _ComparisonSide extends StatelessWidget {
                   QaProgressBar(
                     value: share,
                     height: 4,
-                    color: color ?? PortfolioColors.textPrimary,
+                    color: color ?? QaColors.textPrimary,
                   ),
                 ],
               ),
@@ -655,9 +651,9 @@ class _VsBadge extends StatelessWidget {
           height: 24,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: PortfolioColors.surfaceCard,
+            color: QaColors.surfaceCard,
             shape: BoxShape.circle,
-            border: Border.all(color: PortfolioColors.border),
+            border: Border.all(color: QaColors.border),
           ),
           child: Text('vs', style: QaText.caption),
         ),

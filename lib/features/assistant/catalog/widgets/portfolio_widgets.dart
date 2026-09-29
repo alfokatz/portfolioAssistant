@@ -11,7 +11,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 
@@ -53,7 +52,7 @@ abstract final class PortfolioWidgets {
                     '${QaFormat.pct(data.pnlPct.abs())}',
               ),
               const SizedBox(width: 8),
-              const Flexible(
+              Flexible(
                 child: Text(
                   'desde la compra',
                   style: QaText.label,
@@ -126,9 +125,7 @@ abstract final class PortfolioWidgets {
     ];
   }
 
-  static final _othersColor = PortfolioColors.textSecondary.withValues(
-    alpha: 0.3,
-  );
+  static final _othersColor = QaColors.textSecondary.withValues(alpha: 0.3);
 
   /// Cambio del portfolio completo en una ventana. El label del período
   /// aparece primero y el número después (reveal en dos etapas); la curva
@@ -138,7 +135,7 @@ abstract final class PortfolioWidgets {
     final data = _PeriodChangeData.fromMap(ctx.data as JsonMap);
     final color =
         data.changeAbs == 0
-            ? PortfolioColors.textPrimary
+            ? QaColors.textPrimary
             : QaPalette.trend(data.changeAbs);
     final hasRange = data.valueStart > 0 && data.valueEnd > 0;
     final label = data.periodLabel.isEmpty ? 'En el período' : data.periodLabel;
@@ -179,10 +176,10 @@ abstract final class PortfolioWidgets {
                     value: QaFormat.money(data.valueStart),
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_rounded,
                   size: 16,
-                  color: PortfolioColors.textSecondary,
+                  color: QaColors.textSecondary,
                 ),
                 Expanded(
                   child: QaStat(
@@ -290,7 +287,7 @@ abstract final class PortfolioWidgets {
           ),
           const SizedBox(height: QaSpace.sectionGap),
           if (top == null)
-            const Text(
+            Text(
               'No hay posiciones para medir la concentración.',
               style: QaText.label,
             )
@@ -359,14 +356,14 @@ abstract final class PortfolioWidgets {
   /// riesgo del portfolio; < 25% ya es un reparto razonable.
   static Widget _concentrationSeverity(double topWeight) {
     if (topWeight >= 40) {
-      return const QaTag(
+      return QaTag(
         'Alta concentración',
-        color: PortfolioColors.accentBlue,
+        color: QaColors.accentBlue,
         icon: Icons.error_outline_rounded,
       );
     }
     if (topWeight >= 25) return const QaTag('Concentración moderada');
-    return const QaTag('Bien repartido', color: PortfolioColors.profit);
+    return QaTag('Bien repartido', color: QaColors.profit);
   }
 
   /// Invertido → valor actual → resultado, como una barra: el tramo neutro
@@ -378,7 +375,7 @@ abstract final class PortfolioWidgets {
     final trend = QaPalette.trend(gain);
     final kept = math.max(0.0, math.min(data.costBasis, data.currentValue));
     final delta = gain.abs();
-    final neutral = PortfolioColors.textPrimary.withValues(alpha: 0.75);
+    final neutral = QaColors.textPrimary.withValues(alpha: 0.75);
 
     return QaCardShell(
       child: Column(
@@ -392,7 +389,7 @@ abstract final class PortfolioWidgets {
                 child: Text(
                   QaFormat.signedMoney(gain),
                   style: QaText.display.copyWith(
-                    color: gain == 0 ? PortfolioColors.textPrimary : trend,
+                    color: gain == 0 ? QaColors.textPrimary : trend,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -411,9 +408,7 @@ abstract final class PortfolioWidgets {
                 QaSegment(
                   value: delta,
                   color:
-                      gain >= 0
-                          ? trend
-                          : PortfolioColors.loss.withValues(alpha: 0.35),
+                      gain >= 0 ? trend : QaColors.loss.withValues(alpha: 0.35),
                 ),
             ],
           ),
@@ -430,9 +425,7 @@ abstract final class PortfolioWidgets {
               Expanded(
                 child: _LegendStat(
                   color:
-                      gain >= 0
-                          ? trend
-                          : PortfolioColors.loss.withValues(alpha: 0.35),
+                      gain >= 0 ? trend : QaColors.loss.withValues(alpha: 0.35),
                   label: gain >= 0 ? 'Ganancia' : 'Pérdida',
                   value: QaFormat.money(delta),
                 ),
@@ -510,7 +503,7 @@ abstract final class PortfolioWidgets {
           QaSectionLabel(metricLabel),
           const SizedBox(height: QaSpace.gap),
           if (tiles.isEmpty)
-            const Text('No hay posiciones para comparar.', style: QaText.label)
+            Text('No hay posiciones para comparar.', style: QaText.label)
           else
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -823,8 +816,8 @@ class _ConcentrationRow extends StatelessWidget {
                             fontSize: 13,
                             color:
                                 emphasized
-                                    ? PortfolioColors.textPrimary
-                                    : PortfolioColors.textSecondary,
+                                    ? QaColors.textPrimary
+                                    : QaColors.textSecondary,
                           ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -835,8 +828,8 @@ class _ConcentrationRow extends StatelessWidget {
                     style: QaText.valueSm.copyWith(
                       color:
                           emphasized
-                              ? PortfolioColors.textPrimary
-                              : PortfolioColors.textSecondary,
+                              ? QaColors.textPrimary
+                              : QaColors.textSecondary,
                     ),
                   ),
                 ],
@@ -903,7 +896,7 @@ class _MoverTile extends StatelessWidget {
               range: range,
               color:
                   neutralSpark
-                      ? PortfolioColors.textSecondary.withValues(alpha: 0.7)
+                      ? QaColors.textSecondary.withValues(alpha: 0.7)
                       : null,
             ),
           ],
@@ -1014,7 +1007,7 @@ class _ClosedPositionRow extends StatelessWidget {
                   style: QaText.value.copyWith(
                     color:
                         item.pnlAbs == 0
-                            ? PortfolioColors.textPrimary
+                            ? QaColors.textPrimary
                             : QaPalette.trend(item.pnlAbs),
                   ),
                 ),
@@ -1048,7 +1041,7 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.all(QaSpace.cardPadding),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: PortfolioColors.textSecondary),
+            Icon(icon, size: 22, color: QaColors.textSecondary),
             const SizedBox(width: QaSpace.gap),
             Expanded(
               child: Column(
@@ -1110,7 +1103,7 @@ class _ExpandableRowsState extends State<_ExpandableRows> {
                     _expanded ? 'Ver menos' : 'Ver todas (${rows.length})',
                     style: QaText.bodyStrong.copyWith(
                       fontSize: 13,
-                      color: PortfolioColors.accentBlue,
+                      color: QaColors.accentBlue,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -1119,7 +1112,7 @@ class _ExpandableRowsState extends State<_ExpandableRows> {
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
                     size: 18,
-                    color: PortfolioColors.accentBlue,
+                    color: QaColors.accentBlue,
                   ),
                 ],
               ),
