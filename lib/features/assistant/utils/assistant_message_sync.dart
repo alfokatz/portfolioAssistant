@@ -1,4 +1,3 @@
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 
@@ -10,7 +9,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer
 /// además dispara su propia auto-resubmisión (no cancelable, no esperada
 /// por nadie) cuando la primera respuesta del modelo no valida — así que
 /// una surface puede terminar resolviéndose con componentes válidos
-/// después de que `AssistantProvider.sendMessage` ya agotó su propia
+/// después de que `AssistantProvider.submitMessage` ya agotó su propia
 /// espera y congeló un mensaje de fallback. Estas funciones son las únicas
 /// que tocan `List<PortfolioQaMessage>` por `surfaceId`, para que ese caso
 /// tardío tenga un único lugar donde "resucitar" el mensaje.
@@ -25,7 +24,6 @@ abstract final class AssistantMessageSync {
   static List<PortfolioQaMessage> applyFallback(
     List<PortfolioQaMessage> messages,
     String surfaceId,
-    AssistantMode? engineMode,
   ) {
     for (var i = messages.length - 1; i >= 0; i--) {
       final message = messages[i];
@@ -38,6 +36,31 @@ abstract final class AssistantMessageSync {
         );
         return updated;
       }
+    }
+    return messages;
+  }
+
+  /// El turno de [surfaceId] terminó bien: deja de estar en streaming y
+  /// recibe los avisos que la app agrega debajo (ver
+  /// `AssistantTurnPolicy.noticesFor`).
+  static List<PortfolioQaMessage> applyTurnReady(
+    List<PortfolioQaMessage> messages,
+    String surfaceId, {
+    bool showsAdviceDisclaimer = false,
+    InvestorProfileNudge? profileNudge,
+  }) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final message = messages[i];
+      if (message.surfaceId != surfaceId) continue;
+      final updated = [...messages];
+      updated[i] = message.copyWith(
+        isStreaming: false,
+        isFallback: false,
+        content: message.isFallback ? '' : null,
+        showsAdviceDisclaimer: showsAdviceDisclaimer,
+        profileNudge: profileNudge,
+      );
+      return updated;
     }
     return messages;
   }

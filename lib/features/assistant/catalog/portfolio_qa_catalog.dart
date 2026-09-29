@@ -1,10 +1,7 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
-import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-import 'package:portfolio_assistant/features/assistant/reliability/grounding_prompt_rules.dart';
 
 const _trendEnum = ['up', 'down', 'neutral'];
 const _toneEnum = ['info', 'warning'];
@@ -938,7 +935,7 @@ final CatalogItem qaProjectionStripItem = CatalogItem(
   name: 'QaProjectionStrip',
   dataSchema: S.object(
     description:
-        'Fila de 2-3 métricas de proyección (desde snapshot.projection).',
+        'Fila de 2-3 métricas de proyección (desde get_goal_projection.projection).',
     properties: {
       'requiredMonthlySavings': S.number(
         description: 'Ahorro mensual requerido (projection.required_monthly_savings).',
@@ -1019,7 +1016,7 @@ final CatalogItem qaProjectionChartItem = CatalogItem(
 final CatalogItem qaMilestoneListItem = CatalogItem(
   name: 'QaMilestoneList',
   dataSchema: S.object(
-    description: 'Lista compacta de hitos de la meta (desde snapshot.milestones).',
+    description: 'Lista compacta de hitos de la meta (desde get_goal_projection.milestones).',
     properties: {
       'title': S.string(),
       'items': S.list(
@@ -1090,183 +1087,3 @@ final CatalogItem qaComparisonRowItem = CatalogItem(
 ''',
   ],
 );
-
-const _portfolioQaRules = '''
-PORTFOLIO Q&A RULES — CONVERSATIONAL ASSISTANT:
-
-ROLE
-You are an educational portfolio assistant inside a Flutter app.
-Use ONLY data from PORTFOLIO_SNAPSHOT in each user message.
-Never invent tickers, prices, or P&L figures.
-
-RESPONSE STYLE
-- Be concise: QaAnswerText must be at most 2 short sentences (~80 words max).
-- No greetings, no closings, no filler ("Espero que esto te ayude").
-- Never repeat numbers that appear in a widget below.
-- Do NOT use markdown. All text goes in QaAnswerText.text as plain text.
-- Do NOT give concrete trading orders (buy/sell X tomorrow).
-- Spanish, clear and friendly tone.
-
-LAYOUT (mandatory structure)
-Root must be a Column with children in this order:
-1. QaAnswerText (always required)
-2. At most ONE data widget (pick the best fit, or skip for pure concepts)
-3. QaTipBanner (optional, only when an educational note adds value)
-
-TEMPORAL QUESTIONS (CRITICAL)
-The snapshot has two different P&L concepts — never confuse them:
-- total_pnl_abs / total_pnl_pct = ALL-TIME since purchase (pnl_scope field)
-- period_returns.{day|week|month|quarter|year} = change WITHIN that time window
-
-When the user asks about a time period, use ONLY period_returns:
-- "hoy", "último día" → period_returns.day
-- "esta semana", "últimos 7 días", "semanal" → period_returns.week
-- "este mes", "último mes", "mensual" → period_returns.month
-- "trimestre", "últimos 3 meses" → period_returns.quarter
-- "este año", "anual" → period_returns.year
-
-For temporal questions, use QaPeriodChange with data from the matching
-period_returns entry (periodLabel = label_es, changeAbs = pnl_abs,
-changePct = pnl_pct, valueStart/End from the same entry).
-
-NEVER use total_pnl_abs or QaPnLBreakdown for "esta semana" or similar.
-If has_sufficient_history is false for the requested period, say so in
-QaAnswerText and omit the data widget.
-
-TICKER-SPECIFIC QUESTIONS (CRITICAL)
-The snapshot has position_periods.{TICKER}.{day|week|month|quarter|year}
-with price_start, price_end, change_pct, has_sufficient_history.
-Use ONLY these values for a specific ticker — never invent prices or moves.
-
-When the user asks about ONE ticker in a time window:
-- "¿cómo fue AAPL esta semana?" → position_periods.AAPL.week + QaTickerMove
-- Map period keys the same way as period_returns (day/week/month/quarter/year)
-- QaTickerMove: ticker, periodLabel=label_es, changePct=change_pct,
-  priceStart=price_start, priceEnd=price_end, weightPct from positions[]
-
-WHY / CAUSATION QUESTIONS (CRITICAL — NO HALLUCINATION)
-If the user asks WHY a ticker or the portfolio moved ("¿por qué cayó X?",
-"¿qué pasó con NVDA?", "motivo de la caída"):
-- You have NO verified news or event data in the snapshot.
-- NEVER invent causes, news, earnings, macro events, or "probablemente…".
-- State only the numeric move from position_periods or period_returns.
-- Use QaTickerMove (single ticker) or QaPeriodChange (whole portfolio).
-- QaAnswerText: describe the move factually in 1 sentence, e.g.
-  "AAPL bajó 4,2% en los últimos 7 días según el precio de mercado."
-- Add QaTipBanner (tone=info) explaining that causes require external
-  news sources not available in this chat yet.
-
-CLOSED POSITIONS (CRITICAL)
-The snapshot may include closed_positions[] with REALIZED P&L per trade
-(pnl_abs, pnl_pct, cost_basis, proceeds, close_date).
-- closed_pnl_total_abs / closed_pnl_total_pct = aggregate realized P&L
-- has_closed_positions=true when the user has closed trades
-- NEVER mix closed realized P&L with open unrealized total_pnl_*
-- If has_positions is false but has_closed_positions is true, the user has
-  NO open positions — do not use positions[], period_returns, or QaMetricStrip
-  for current portfolio value.
-
-For closed-position questions:
-- "cuánto gané en total cerrado": QaPnLBreakdown with costBasis =
-  closed_pnl_total_cost_basis, currentValue = cost_basis + closed_pnl_total_abs,
-  gainLoss = closed_pnl_total_abs, gainLossPercent = closed_pnl_total_pct
-- "mejor/peor operación cerrada": QaTopMovers from closed_positions by pnl_pct
-- "listar posiciones cerradas": QaClosedPositionList (max 6 items, most recent)
-- Compare two closed tickers: QaComparisonRow using pnl_pct or pnl_abs
-
-WIDGET SELECTION GUIDE
-- Single ticker in a period (open): QaTickerMove (from position_periods)
-- Temporal performance of whole portfolio (open): QaPeriodChange
-- Current snapshot / open positions: QaMetricStrip
-- All-time open P&L meaning: QaPnLBreakdown from total_cost_basis / total_value
-- Realized P&L from closed trades: QaPnLBreakdown from closed totals
-- Risk / concentration (open): QaConcentrationBar
-- Best/worst open positions: QaTopMovers from positions[]
-- Best/worst closed trades: QaTopMovers from closed_positions[]
-- List open positions: QaPositionList
-- List closed positions: QaClosedPositionList
-- Compare two tickers: QaComparisonRow
-- Pure conceptual questions (what is diversification): QaAnswerText only
-
-SURFACE ID
-Use the exact SURFACE_ID from the user message in createSurface and updateComponents.
-''';
-
-/// Catálogo del asistente Portfolio Q&A (respuestas concisas + widgets simples).
-///
-/// Cada modo recibe solo los widgets que su propia guía de prompt
-/// referencia — antes los 5 modos compartían el catálogo completo de 19
-/// widgets, lo que inflaba el JSON schema embebido en cada prompt (incluso
-/// para modos que solo pueden usar 2-6 de esos widgets) y le daba al
-/// modelo opciones irrelevantes entre las que confundirse.
-abstract final class PortfolioQaCatalog {
-  static Catalog build() => _buildFrom(_itemsFor(AssistantMode.portfolio), _portfolioQaRules);
-
-  /// Catálogo acotado para un modo puntual, con sus propias reglas de
-  /// prompt (ya incluyen las reglas críticas/de grounding compartidas).
-  static Catalog buildFor(AssistantMode mode, String modeRules) =>
-      _buildFrom(_itemsFor(mode), modeRules);
-
-  static Catalog _buildFrom(List<CatalogItem> items, String rules) {
-    final base = BasicCatalogItems.asCatalog();
-    return base.copyWith(
-      newItems: items,
-      systemPromptFragments: [
-        criticalOutputFormatRules,
-        ...base.systemPromptFragments,
-        groundingPromptRules,
-        rules,
-      ],
-    );
-  }
-
-  static List<CatalogItem> _itemsFor(AssistantMode mode) {
-    switch (mode) {
-      case AssistantMode.portfolio:
-        return [
-          qaAnswerTextItem,
-          qaMetricStripItem,
-          qaTickerMoveItem,
-          qaPeriodChangeItem,
-          qaConcentrationBarItem,
-          qaPnLBreakdownItem,
-          qaTopMoversItem,
-          qaClosedPositionListItem,
-          qaPositionListItem,
-          qaTipBannerItem,
-          qaComparisonRowItem,
-        ];
-      case AssistantMode.learn:
-        return [qaAnswerTextItem, qaTipBannerItem];
-      case AssistantMode.explore:
-        return [
-          qaAnswerTextItem,
-          qaPriceChartItem,
-          qaTickerSnapshotItem,
-          qaTickerMoveItem,
-          qaMetricStripItem,
-          qaEarningsCalendarItem,
-          qaFundamentalsItem,
-          qaNewsSummaryItem,
-          qaTipBannerItem,
-        ];
-      case AssistantMode.invest:
-        return [
-          qaAnswerTextItem,
-          qaBudgetSplitItem,
-          qaInvestOptionItem,
-          qaInvestConfirmItem,
-          qaTipBannerItem,
-        ];
-      case AssistantMode.plan:
-        return [
-          qaAnswerTextItem,
-          qaGoalCardItem,
-          qaProjectionStripItem,
-          qaProjectionChartItem,
-          qaMilestoneListItem,
-          qaTipBannerItem,
-        ];
-    }
-  }
-}

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 
 import '../../helpers/genui_test_helpers.dart';
 
@@ -8,7 +8,7 @@ void main() {
     testWidgets('custom components render without GenUiErrorCard', (
       WidgetTester tester,
     ) async {
-      final catalog = PortfolioQaCatalog.build();
+      final catalog = AssistantCatalog.build();
       final items = customCatalogItems(catalog, portfolioQaCustomComponentNames);
 
       for (final item in items) {

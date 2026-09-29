@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genui/genui.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
@@ -180,7 +180,7 @@ void main() {
   group('PortfolioQaAssistantSurface', () {
     testWidgets('fades in on mount without throwing', (tester) async {
       final controller =
-          SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+          SurfaceController(catalogs: [AssistantCatalog.build()]);
       const surfaceId = 'portfolio_qa_0';
       const raw = '''
 [
@@ -223,7 +223,7 @@ void main() {
         // — este test confirma que no dispara antes de tiempo mientras el
         // texto sigue tipeándose, y que sí dispara una sola vez al final.
         final controller =
-            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+            SurfaceController(catalogs: [AssistantCatalog.build()]);
         const surfaceId = 'portfolio_qa_0';
         const text = 'Diversificar significa repartir tu inversión entre '
             'distintos activos para no depender del resultado de uno solo.';
@@ -269,7 +269,7 @@ void main() {
         // con `startFullyRevealed: true`, y confirma que el segundo montaje
         // no anima nada.
         final controller =
-            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+            SurfaceController(catalogs: [AssistantCatalog.build()]);
         const surfaceId = 'portfolio_qa_0';
         const text = 'Tu portfolio subió 5,4% hoy.';
         final normalized = A2uiResponseNormalizer.normalize(
@@ -337,7 +337,7 @@ void main() {
         // "Failed assertion: '!_dirty' is not true" en el framework. El fix
         // envuelve siempre en el mismo `MediaQuery`, cambiando solo `data`.
         final controller =
-            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+            SurfaceController(catalogs: [AssistantCatalog.build()]);
         const surfaceId = 'portfolio_qa_0';
         const text = 'Tu portfolio subió 5,4% hoy.';
         final normalized = A2uiResponseNormalizer.normalize(
@@ -399,9 +399,9 @@ void main() {
         // controller correcto — este test reproduce el bug y prueba el fix
         // a nivel de SurfaceController, sin pasar por la red.
         final displayModeController =
-            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+            SurfaceController(catalogs: [AssistantCatalog.build()]);
         final engineController =
-            SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+            SurfaceController(catalogs: [AssistantCatalog.build()]);
         const surfaceId = 'assistant_invest_0';
         const raw = '''
 [

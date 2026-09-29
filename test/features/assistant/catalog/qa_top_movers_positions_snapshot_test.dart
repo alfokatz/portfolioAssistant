@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portfolio_assistant/features/assistant/unified/unified_assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
 
 void main() {
-  final catalog = UnifiedAssistantCatalog.build();
+  final catalog = AssistantCatalog.build();
 
   group('QaTopMovers labels its metric by which field is populated', () {
     final item = catalog.items.firstWhere((i) => i.name == 'QaTopMovers');

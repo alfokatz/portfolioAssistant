@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:a2ui_core/a2ui_core.dart' show A2uiMessage;
 import 'package:genui/genui.dart';
 
 /// Aplica líneas A2UI normalizadas al [controller] de forma síncrona.

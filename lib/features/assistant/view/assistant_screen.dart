@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -26,13 +25,8 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
 class AssistantScreen extends StatefulHookConsumerWidget {
-  const AssistantScreen({
-    super.key,
-    this.initialMode = AssistantMode.portfolio,
-    this.initialQuestion,
-  });
+  const AssistantScreen({super.key, this.initialQuestion});
 
-  final AssistantMode initialMode;
   final String? initialQuestion;
 
   @override
@@ -99,10 +93,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void initState() {
-    _args = AssistantArgs(
-      initialMode: widget.initialMode,
-      initialQuestion: widget.initialQuestion,
-    );
+    _args = AssistantArgs(initialQuestion: widget.initialQuestion);
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -282,7 +273,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Widget buildView(BuildContext context) {
     final state = ref.watch(assistantProvider(_args));
     final notifier = ref.read(assistantProvider(_args).notifier);
-    final service = notifier.serviceFor(AssistantMode.portfolio);
+    final service = notifier.service;
 
     // La cascada de saludo + chips solo se muestra una vez (mientras no hay
     // más que el mensaje de bienvenida) — una vez que arrancó, la marcamos
@@ -544,7 +535,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   Widget _buildMessageTile(
     AssistantProvider notifier,
-    AssistantOpenAiService fallbackService,
+    AssistantOpenAiService service,
     PortfolioQaMessage message, {
     required int index,
     required bool orbGateOpen,
@@ -586,11 +577,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
-      final surfaceService =
-          notifier.serviceForMessage(message) ?? fallbackService;
       final surface = PortfolioQaAssistantSurface(
         surfaceId: message.surfaceId!,
-        surfaceContext: surfaceService.controller.contextFor(
+        surfaceContext: service.controller.contextFor(
           message.surfaceId!,
         ),
         startFullyRevealed: message.hasRevealed,

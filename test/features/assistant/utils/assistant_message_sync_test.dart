@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
@@ -16,15 +15,12 @@ void main() {
             role: PortfolioQaRole.assistant,
             surfaceId: 'assistant_invest_2',
             isStreaming: true,
-            engineMode: AssistantMode.invest,
           ),
         ];
 
         final updated = AssistantMessageSync.applyFallback(
           messages,
-          'assistant_invest_2',
-          AssistantMode.invest,
-        );
+          'assistant_invest_2');
 
         final message = updated.last;
         expect(message.isStreaming, isFalse);
@@ -47,9 +43,7 @@ void main() {
 
       final updated = AssistantMessageSync.applyFallback(
         messages,
-        'assistant_invest_2',
-        AssistantMode.invest,
-      );
+        'assistant_invest_2');
 
       expect(identical(updated, messages), isTrue);
     });
@@ -62,7 +56,6 @@ void main() {
           role: PortfolioQaRole.assistant,
           surfaceId: 'assistant_invest_2',
           isStreaming: true,
-          engineMode: AssistantMode.invest,
         ),
       ];
 
@@ -92,7 +85,6 @@ void main() {
             role: PortfolioQaRole.assistant,
             surfaceId: 'assistant_explore_3',
             isStreaming: true,
-            engineMode: AssistantMode.explore,
           ),
         ];
 
@@ -115,7 +107,6 @@ void main() {
           PortfolioQaMessage(
             role: PortfolioQaRole.assistant,
             surfaceId: 'assistant_explore_3',
-            engineMode: AssistantMode.explore,
             isFallback: true,
             content: LlmJsonSanitizer.defaultFallbackMessage,
           ),
@@ -147,7 +138,6 @@ void main() {
           PortfolioQaMessage(
             role: PortfolioQaRole.assistant,
             surfaceId: 'assistant_invest_2',
-            engineMode: AssistantMode.invest,
             isFallback: true,
             content: LlmJsonSanitizer.defaultFallbackMessage,
           ),

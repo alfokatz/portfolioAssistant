@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 
 void main() {
   group('SubscriptionTier', () {
@@ -59,90 +58,29 @@ void main() {
     });
   });
 
-  group('SubscriptionPolicy.isModeAllowed', () {
-    test('free allows portfolio and learn only', () {
+  group('SubscriptionPolicy per-data access', () {
+    test('market data for non-held tickers: premium and gold', () {
       expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.free,
-          AssistantMode.portfolio,
-        ),
+        SubscriptionPolicy.isMarketDataAllowed(SubscriptionTier.free),
+        isFalse,
+      );
+      expect(
+        SubscriptionPolicy.isMarketDataAllowed(SubscriptionTier.premium),
         isTrue,
       );
       expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.free,
-          AssistantMode.learn,
-        ),
+        SubscriptionPolicy.isMarketDataAllowed(SubscriptionTier.gold),
         isTrue,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.free,
-          AssistantMode.explore,
-        ),
-        isFalse,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.free,
-          AssistantMode.invest,
-        ),
-        isFalse,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.free,
-          AssistantMode.plan,
-        ),
-        isFalse,
       );
     });
 
-    test('premium adds explore to free modes', () {
+    test('investment simulation and goal planning: gold only', () {
+      expect(SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.free), isFalse);
       expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.premium,
-          AssistantMode.portfolio,
-        ),
-        isTrue,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.premium,
-          AssistantMode.learn,
-        ),
-        isTrue,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.premium,
-          AssistantMode.explore,
-        ),
-        isTrue,
-      );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.premium,
-          AssistantMode.invest,
-        ),
+        SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.premium),
         isFalse,
       );
-      expect(
-        SubscriptionPolicy.isModeAllowed(
-          SubscriptionTier.premium,
-          AssistantMode.plan,
-        ),
-        isFalse,
-      );
-    });
-
-    test('gold allows all modes', () {
-      for (final mode in AssistantMode.values) {
-        expect(
-          SubscriptionPolicy.isModeAllowed(SubscriptionTier.gold, mode),
-          isTrue,
-        );
-      }
+      expect(SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.gold), isTrue);
     });
   });
 

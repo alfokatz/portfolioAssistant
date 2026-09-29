@@ -3,18 +3,17 @@ import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_tracker.dart';
-import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/subscription_repository_impl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum PaywallReason {
+  /// Función fuera del plan (en el asistente: simulación de inversión y
+  /// planificación de metas).
   modeLocked,
 
-  /// Pipeline unificado: el mensaje pide datos de mercado de tickers que el
-  /// usuario no tiene (ver `UnifiedAccessPolicy`).
+  /// El asistente pidió datos de mercado de tickers que el usuario no tiene.
   marketDataLocked,
   newsRequiresGold,
   quotaExceeded,
@@ -116,34 +115,10 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     }
   }
 
-  bool canAccessMode(AssistantMode mode) {
-    return SubscriptionPolicy.isModeAllowed(state.tier, mode);
-  }
-
-  Future<PaywallReason?> checkQueryAllowed({
-    required AssistantMode mode,
-    required bool isNewsQuery,
-  }) async {
+  /// Chequeo de cuota antes de un turno del asistente. El gating por dato
+  /// lo hace cada tool al ejecutarse.
+  Future<PaywallReason?> checkQuotaAllowed({int weight = 1}) async {
     await refresh();
-
-    if (!canAccessMode(mode)) {
-      return PaywallReason.modeLocked;
-    }
-    if (isNewsQuery && !SubscriptionPolicy.isNewsAllowed(state.tier)) {
-      return PaywallReason.newsRequiresGold;
-    }
-    final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNewsQuery);
-    if (!await _tracker.canConsume(weight)) {
-      return PaywallReason.quotaExceeded;
-    }
-    return null;
-  }
-
-  /// Pipeline unificado: el gating por dato lo decide
-  /// `UnifiedAccessPolicy` antes; acá solo queda el chequeo de cuota.
-  Future<PaywallReason?> checkQuotaAllowed({required bool isNewsQuery}) async {
-    await refresh();
-    final weight = SubscriptionPolicy.queryWeight(isNewsQuery: isNewsQuery);
     if (!await _tracker.canConsume(weight)) {
       return PaywallReason.quotaExceeded;
     }

@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  a2ui_core: ^0.1.1
   animate_do: ^4.2.0
   cupertino_icons: ^1.0.8
   dart_openai: ^5.1.0
@@ -44,15 +45,16 @@ dependencies:
   flutter_svg: ^2.0.10
   freezed: ^3.0.0-0.0.dev
   freezed_annotation: ^3.0.0
-  genui: ^0.8.0
+  genui: ^0.10.4
   go_router: ^14.2.7
   google_fonts: ^8.1.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   hooks_riverpod: ^2.5.2
+  http: ^1.6.0
   intl: ^0.20.2
   json_annotation: ^4.9.0
-  json_schema_builder: ^0.1.3
+  json_schema_builder: ^0.1.7
   lottie: ^3.1.2
   path_provider: ^2.1.3
   permission_handler: ^11.3.1

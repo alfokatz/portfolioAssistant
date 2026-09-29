@@ -5,10 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-import 'package:portfolio_assistant/features/assistant/modes/explore/explore_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 
@@ -248,10 +246,7 @@ void main() {
   );
 
   group('catalog integration', () {
-    final catalog = PortfolioQaCatalog.buildFor(
-      AssistantMode.explore,
-      explorePromptRules,
-    );
+    final catalog = AssistantCatalog.build();
 
     testWidgets(
       'without data the catalog widget falls back to QaTickerMove content '

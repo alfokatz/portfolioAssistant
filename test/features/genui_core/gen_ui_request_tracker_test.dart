@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genui/genui.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
 import '../../helpers/genui_test_helpers.dart';
@@ -13,7 +13,7 @@ void main() {
     late Conversation conversation;
 
     setUp(() {
-      controller = SurfaceController(catalogs: [PortfolioQaCatalog.build()]);
+      controller = SurfaceController(catalogs: [AssistantCatalog.build()]);
       conversation = Conversation(
         controller: controller,
         transport: A2uiTransportAdapter(),

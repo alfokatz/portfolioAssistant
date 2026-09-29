@@ -6,7 +6,6 @@ import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
-import 'package:portfolio_assistant/features/assistant/prompts/portfolio_qa_system_prompt.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 
 void main() {
@@ -193,19 +192,6 @@ void main() {
           (json['position_periods'] as Map)['AAPL']['week'] as Map;
       expect(aaplWeek['change_pct'], -4.2);
       expect(aaplWeek['has_sufficient_history'], isTrue);
-    });
-  });
-
-  group('portfolioQaUserMessageBody', () {
-    test('wraps snapshot, question and surface id', () {
-      final body = portfolioQaUserMessageBody(
-        portfolioSnapshotJson: '{"ticker":"AAPL"}',
-        question: '¿Cómo voy?',
-        surfaceId: 'portfolio_qa_0',
-      );
-      expect(body, contains('PORTFOLIO_SNAPSHOT'));
-      expect(body, contains('¿Cómo voy?'));
-      expect(body, contains('portfolio_qa_0'));
     });
   });
 }

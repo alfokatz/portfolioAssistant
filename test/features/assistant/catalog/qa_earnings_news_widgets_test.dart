@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-import 'package:portfolio_assistant/features/assistant/modes/explore/explore_prompt_rules.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
 
@@ -13,12 +11,9 @@ import '../../../helpers/genui_test_helpers.dart';
 // renderiza sin caer al fallback de error.
 void main() {
   group('QaEarningsCalendar / QaNewsSummary routing', () {
-    final catalog = PortfolioQaCatalog.buildFor(
-      AssistantMode.explore,
-      explorePromptRules,
-    );
+    final catalog = AssistantCatalog.build();
 
-    test('both widgets are reachable from the explore catalog', () {
+    test('both widgets are reachable from the assistant catalog', () {
       final names = catalog.items.map((item) => item.name).toSet();
       expect(names, contains('QaEarningsCalendar'));
       expect(names, contains('QaNewsSummary'));

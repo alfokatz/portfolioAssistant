@@ -1,10 +1,8 @@
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-
 /// Mensaje de la conversación Portfolio Q&A (UI).
 enum PortfolioQaRole { user, assistant }
 
-/// Aviso bajo una respuesta de Invertir cuando el perfil de inversor falta
-/// o está vencido — ver `AdviceNoticePolicy`.
+/// Aviso bajo una simulación de inversión cuando el perfil de inversor
+/// falta o está vencido — ver `AssistantTurnPolicy.noticesFor`.
 enum InvestorProfileNudge { missing, stale }
 
 class PortfolioQaMessage {
@@ -13,10 +11,8 @@ class PortfolioQaMessage {
     this.content = '',
     this.surfaceId,
     this.isStreaming = false,
-    this.engineMode,
     this.hasRevealed = false,
     this.isFallback = false,
-    this.subjectTickers = const [],
     this.showsAdviceDisclaimer = false,
     this.profileNudge,
   });
@@ -26,15 +22,8 @@ class PortfolioQaMessage {
   final String? surfaceId;
   final bool isStreaming;
 
-  /// `null` en las respuestas del pipeline unificado (no tiene modos).
-  final AssistantMode? engineMode;
-
-  /// Pipeline unificado: tickers sobre los que fue este turno (sin el proxy
-  /// de mercado). Es el "turno guardado" del que sale el ticker de
-  /// seguimiento — ver `UnifiedTurnHistory`.
-  final List<String> subjectTickers;
-
-  /// Respuesta con sugerencia (Invertir, o Planificar con proyección): la
+  /// Respuesta con sugerencia (simulación de inversión, o meta con
+  /// proyección): la
   /// pantalla agrega debajo "sugerencia informativa, no asesoramiento
   /// financiero personalizado". Lo pone la app, no el modelo, para que no
   /// dependa de que el modelo se acuerde de incluirlo.
@@ -75,10 +64,8 @@ class PortfolioQaMessage {
     String? content,
     String? surfaceId,
     bool? isStreaming,
-    AssistantMode? engineMode,
     bool? hasRevealed,
     bool? isFallback,
-    List<String>? subjectTickers,
     bool? showsAdviceDisclaimer,
     InvestorProfileNudge? profileNudge,
   }) {
@@ -87,10 +74,8 @@ class PortfolioQaMessage {
       content: content ?? this.content,
       surfaceId: surfaceId ?? this.surfaceId,
       isStreaming: isStreaming ?? this.isStreaming,
-      engineMode: engineMode ?? this.engineMode,
       hasRevealed: hasRevealed ?? this.hasRevealed,
       isFallback: isFallback ?? this.isFallback,
-      subjectTickers: subjectTickers ?? this.subjectTickers,
       showsAdviceDisclaimer:
           showsAdviceDisclaimer ?? this.showsAdviceDisclaimer,
       profileNudge: profileNudge ?? this.profileNudge,

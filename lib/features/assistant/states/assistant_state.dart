@@ -1,20 +1,13 @@
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 class AssistantArgs {
-  const AssistantArgs({
-    this.initialMode = AssistantMode.portfolio,
-    this.initialQuestion,
-  });
+  const AssistantArgs({this.initialQuestion});
 
-  final AssistantMode initialMode;
   final String? initialQuestion;
 }
 
-/// Estado del asistente: un único hilo de conversación. Puertas adentro cada
-/// mensaje puede resolverse con un motor distinto (portfolio/learn/explore/
-/// invest/plan), pero de cara al usuario es un solo chat continuo.
+/// Estado del asistente: un único hilo de conversación con Porty.
 class AssistantState {
   final List<PortfolioQaMessage> messages;
   final String? error;

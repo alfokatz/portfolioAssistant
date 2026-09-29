@@ -1,14 +1,24 @@
 import 'dart:convert';
 
+import 'package:genui/genui.dart' show basicCatalogId;
+
 /// Convierte respuestas del LLM al formato A2UI v0.9 esperado por GenUI.
 abstract final class A2uiResponseNormalizer {
-  static const defaultCatalogId =
-      'https://a2ui.org/specification/v0_9/standard_catalog.json';
+  /// La constante de genui y no un literal: en 0.10.3 cambió la URL
+  /// canónica del catálogo básico, y un id que no matchea ningún catálogo
+  /// deja las surfaces sin renderizar, sin ningún error.
+  static const defaultCatalogId = basicCatalogId;
 
+  /// [ensureCreateSurface]: la surface todavía no existe, así que si la
+  /// respuesta trae `updateComponents` sin `createSurface` se antepone uno.
+  /// Pasa en la práctica: después de una ronda de tools, gpt-4.1-mini suele
+  /// emitir solo `updateComponents` (verificado en evals), y sin
+  /// `createSurface` genui nunca crea la surface.
   static String normalize(
     String raw, {
     required String surfaceId,
     String catalogId = defaultCatalogId,
+    bool ensureCreateSurface = false,
   }) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -63,6 +73,10 @@ abstract final class A2uiResponseNormalizer {
           ),
         ),
       );
+    }
+
+    if (ensureCreateSurface && hasUpdateComponents && !hasCreateSurface) {
+      output.insert(0, jsonEncode(_createSurface(surfaceId, catalogId)));
     }
 
     return output.isEmpty ? trimmed : output.join('\n');

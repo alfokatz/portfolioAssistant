@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 /// Logging de diagnóstico para el pipeline GenUI — no hace nada fuera de
 /// debug mode.
@@ -81,6 +82,26 @@ abstract final class GenUiDebugLog {
       }
     }
     return types;
+  }
+
+  /// Qué tools pidió el modelo en una ronda, con qué argumentos, y con qué
+  /// `status` volvió cada una — para distinguir "el modelo no pidió el
+  /// dato" de "lo pidió y la fuente falló / el plan no lo incluye".
+  static void toolRound({
+    required int round,
+    required List<ToolCallRecord> calls,
+  }) {
+    if (!kDebugMode) return;
+    final summary = calls
+        .map((c) => '${c.name}(${jsonEncode(c.args)})→${c.status}')
+        .join(', ');
+    debugPrint('[GenUI/tools] round=$round $summary');
+  }
+
+  /// Una respuesta final que mostraba datos sin la tool que los respalda.
+  static void answerRejected(String correction) {
+    if (!kDebugMode) return;
+    debugPrint('[GenUI/grounding] respuesta rechazada: $correction');
   }
 
   /// `Conversation` reenvía automáticamente cualquier mensaje que

@@ -1,103 +1,77 @@
-import 'package:genui/genui.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
-import 'package:portfolio_assistant/features/assistant/prompts/portfolio_qa_system_prompt.dart';
-import 'package:portfolio_assistant/features/assistant/unified/unified_assistant_catalog.dart';
+import 'dart:convert';
 
-/// Servicio GenUI del asistente unificado con surface dinámico por turno.
+import 'package:genui/genui.dart';
+import 'package:http/http.dart' as http;
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_layout_guard.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+
+/// Servicio GenUI de Porty: un catálogo, un set de reglas, una conversación.
 class AssistantOpenAiService extends OpenAIGenUiService {
-  AssistantOpenAiService({
+  AssistantOpenAiService._({
     super.apiKey,
     super.model,
+    super.httpClient,
     required super.systemPrompt,
     required super.catalog,
-    this.snapshotLabel = 'PORTFOLIO_SNAPSHOT',
-  });
+  }) : super(
+         postProcess: AssistantLayoutGuard.enforce,
+         answerCheck: AssistantGroundingCheck.check,
+       );
 
-  /// Encabezado del snapshot en cada mensaje de usuario — ver
-  /// `portfolioQaUserMessageBody`.
-  final String snapshotLabel;
-
-  /// Servicio del pipeline unificado (sin modos): un solo catálogo, un solo
-  /// set de reglas y un solo historial de conversación.
-  factory AssistantOpenAiService.unified({String? apiKey, String? model}) {
-    final catalog = UnifiedAssistantCatalog.build();
-    return AssistantOpenAiService(
-      apiKey: apiKey,
-      model: model,
-      systemPrompt: _promptFor(catalog),
-      catalog: catalog,
-      snapshotLabel: 'ASSISTANT_SNAPSHOT',
-    );
-  }
-
-  static String _promptFor(Catalog catalog) => PromptBuilder.custom(
-    catalog: catalog,
-    allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
-    systemPromptFragments: catalog.systemPromptFragments,
-    technicalPossibilities: const TechnicalPossibilities(
-      codeExecution: false,
-      toolCall: false,
-      functionCall: false,
-    ),
-  ).systemPromptJoined();
-
-  factory AssistantOpenAiService.forMode({
-    required AssistantMode mode,
+  factory AssistantOpenAiService({
     String? apiKey,
     String? model,
+    http.Client? httpClient,
   }) {
-    final catalog = AssistantCatalog.buildFor(mode);
-    final prompt =
-        PromptBuilder.custom(
-          catalog: catalog,
-          allowedOperations: SurfaceOperations.createAndUpdate(
-            dataModel: false,
-          ),
-          systemPromptFragments: catalog.systemPromptFragments,
-          technicalPossibilities: const TechnicalPossibilities(
-            codeExecution: false,
-            toolCall: false,
-            functionCall: false,
-          ),
-        ).systemPromptJoined();
-
-    return AssistantOpenAiService(
+    final catalog = AssistantCatalog.build();
+    return AssistantOpenAiService._(
       apiKey: apiKey,
       model: model,
-      systemPrompt: prompt,
+      httpClient: httpClient,
+      systemPrompt: systemPromptFor(catalog),
       catalog: catalog,
     );
   }
 
-  static const maxTurnPairs = 5;
+  /// `PromptBuilder` ya agrega `catalog.systemPromptFragments` por su
+  /// cuenta; pasarlos también como argumento los duplicaba (~8,9K tokens
+  /// repetidos en cada request).
+  static String systemPromptFor(Catalog catalog) =>
+      PromptBuilder.custom(
+        catalog: catalog,
+        allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
+        technicalPossibilities: const TechnicalPossibilities(
+          codeExecution: false,
+          toolCall: false,
+          functionCall: false,
+        ),
+      ).systemPromptJoined();
 
-  Future<void> sendWithSnapshot({
-    required String userQuestion,
-    required String portfolioSnapshotJson,
+  /// Un turno de Porty: [question] + resumen de cartera fresco + tools.
+  Future<TurnOutcome> ask({
+    required String question,
+    required Map<String, Object?> portfolioBrief,
     required String surfaceId,
-  }) async {
-    final body = portfolioQaUserMessageBody(
-      portfolioSnapshotJson: portfolioSnapshotJson,
-      question: userQuestion,
+    required List<DataTool> tools,
+    TurnAbortCheck? abortCheck,
+  }) {
+    return runTurn(
+      userText: question,
       surfaceId: surfaceId,
-      snapshotLabel: snapshotLabel,
+      tools: tools,
+      abortCheck: abortCheck,
+      pinnedContext:
+          '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
+          'referencia, se actualiza en cada turno; no es parte de ninguna '
+          'pregunta):\n${jsonEncode(portfolioBrief)}',
+      context:
+          'SURFACE_ID (usar exactamente en createSurface y '
+          'updateComponents): $surfaceId\n\n'
+          'PREGUNTA DEL USUARIO:',
     );
-
-    await handleSend(ChatMessage.user(body), surfaceId: surfaceId);
-    _trimHistory();
-  }
-
-  void _trimHistory() {
-    if (history.length <= 1) return;
-    const maxMessages = 1 + maxTurnPairs * 2;
-    if (history.length <= maxMessages) return;
-    final system = history.first;
-    final tail = history.sublist(history.length - (maxMessages - 1));
-    history
-      ..clear()
-      ..add(system)
-      ..addAll(tail);
   }
 }

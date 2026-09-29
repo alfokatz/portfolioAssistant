@@ -32,7 +32,7 @@ void main() {
 
     test('rewrites wrong surfaceId to portfolio_analysis', () {
       const raw = '''
-{"version":"v0.9","createSurface":{"surfaceId":"portfolioSummary","catalogId":"https://a2ui.org/specification/v0_9/standard_catalog.json"}}
+{"version":"v0.9","createSurface":{"surfaceId":"portfolioSummary","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
 ''';
 
       final normalized = A2uiResponseNormalizer.normalize(
@@ -46,7 +46,7 @@ void main() {
 
     test('adds updateComponents when createSurface exists without components', () {
       const raw = '''
-{"version":"v0.9","createSurface":{"surfaceId":"portfolioSummary","catalogId":"https://a2ui.org/specification/v0_9/standard_catalog.json"}}
+{"version":"v0.9","createSurface":{"surfaceId":"portfolioSummary","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
 [
   {"id":"summary","component":"PortfolioSummaryCard","totalValue":1,"totalGainLoss":1,"totalGainLossPercent":1,"trend":"up","periodLabel":"hoy"}
 ]
@@ -65,7 +65,7 @@ void main() {
 
     test('wraps updateComponents without root Column into Column root', () {
       const raw = '''
-{"version":"v0.9","createSurface":{"surfaceId":"long_term_planning","catalogId":"https://a2ui.org/specification/v0_9/standard_catalog.json"}}
+{"version":"v0.9","createSurface":{"surfaceId":"long_term_planning","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
 {"version":"v0.9","updateComponents":{"surfaceId":"long_term_planning","components":[
   {"id":"goal","component":"GoalCard","goalLabel":"Retiro","targetAmount":500000,"targetDate":"2046-01-01","currentProgress":10,"currentSaved":50000,"monthsRemaining":240},
   {"id":"chart","component":"ProjectionChart","currentValue":50000,"targetValue":500000,"targetDate":"2046-01-01","highlightScenario":"Moderado","scenarios":[
@@ -85,5 +85,29 @@ void main() {
       expect(normalized, contains('"component":"Column"'));
       expect(normalized, contains('"children":["goal","chart"]'));
     });
+
+    test(
+      'adds createSurface when a new surface only gets updateComponents '
+      '(what the model does after a tool round)',
+      () {
+        const raw =
+            '{"version":"v0.9","updateComponents":{"surfaceId":"x",'
+            '"components":[{"id":"root","component":"Column","children":[]}]}}';
+
+        final added = A2uiResponseNormalizer.normalize(
+          raw,
+          surfaceId: 'assistant_3',
+          ensureCreateSurface: true,
+        );
+        expect(added.split('\n').first, contains('"createSurface"'));
+        expect(added, contains('"surfaceId":"assistant_3"'));
+
+        final untouched = A2uiResponseNormalizer.normalize(
+          raw,
+          surfaceId: 'assistant_3',
+        );
+        expect(untouched, isNot(contains('"createSurface"')));
+      },
+    );
   });
 }

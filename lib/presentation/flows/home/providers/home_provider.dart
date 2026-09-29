@@ -12,7 +12,6 @@ import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_c
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
@@ -127,13 +126,10 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoClosedPositions());
   }
 
-  void openAssistant({
-    AssistantMode mode = AssistantMode.portfolio,
-    String? initialQuestion,
-  }) {
+  void openAssistant({String? initialQuestion}) {
     ref
         .read(navigationProvider.notifier)
-        .navigate(GotoAssistant(mode: mode, initialQuestion: initialQuestion));
+        .navigate(GotoAssistant(initialQuestion: initialQuestion));
   }
 
   @Deprecated('Use openAssistant instead')

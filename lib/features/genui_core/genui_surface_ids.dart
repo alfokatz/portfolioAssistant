@@ -1,5 +1,3 @@
-import 'package:portfolio_assistant/features/assistant/models/assistant_mode.dart';
-
 /// IDs de surface GenUI por flujo.
 abstract final class GenUiSurfaceIds {
   static const portfolioAnalysis = 'portfolio_analysis';
@@ -7,14 +5,11 @@ abstract final class GenUiSurfaceIds {
   static const longTermPlanning = 'long_term_planning';
   static const portfolioQaPrefix = 'portfolio_qa';
 
-  static String portfolioQaTurn(int turnIndex) => '${portfolioQaPrefix}_$turnIndex';
+  static String portfolioQaTurn(int turnIndex) =>
+      '${portfolioQaPrefix}_$turnIndex';
 
-  static String assistantTurn(AssistantMode mode, int turn) =>
-      'assistant_${mode.name}_$turn';
+  static const assistantPrefix = 'assistant_';
 
-  static const assistantUnifiedPrefix = 'assistant_unified_';
-
-  /// Turno del pipeline unificado (sin modo en el id).
-  static String assistantUnifiedTurn(int turn) =>
-      '$assistantUnifiedPrefix$turn';
+  /// Surface de la respuesta a un turno del asistente.
+  static String assistantTurn(int turn) => '$assistantPrefix$turn';
 }

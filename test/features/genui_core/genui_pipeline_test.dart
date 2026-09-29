@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genui/genui.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 import '../../helpers/genui_test_helpers.dart';
@@ -9,11 +9,11 @@ import '../../helpers/genui_test_helpers.dart';
 void main() {
   group('GenUI pipeline (sanitize → normalize → SurfaceController)', () {
     test('portfolio Q&A answer fixture activates surface', () {
-      final catalog = PortfolioQaCatalog.build();
+      final catalog = AssistantCatalog.build();
       final controller = SurfaceController(catalogs: [catalog]);
       const surfaceId = 'portfolio_qa_0';
       const raw = '''
-{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId","catalogId":"https://a2ui.org/specification/v0_9/standard_catalog.json"}}
+{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
 {"version":"v0.9","updateComponents":{"surfaceId":"$surfaceId","components":[
   {"id":"answer","component":"QaAnswerText","text":"Tu portfolio subió 5,4% hoy."}
 ]}}
@@ -34,7 +34,7 @@ void main() {
     });
 
     test('broken LLM text falls back to valid A2UI surface', () {
-      final catalog = PortfolioQaCatalog.build();
+      final catalog = AssistantCatalog.build();
       final controller = SurfaceController(catalogs: [catalog]);
       const surfaceId = 'portfolio_qa_0';
 
@@ -59,11 +59,11 @@ void main() {
     testWidgets('portfolio Q&A answer surface builds in widget tree', (
       WidgetTester tester,
     ) async {
-      final catalog = PortfolioQaCatalog.build();
+      final catalog = AssistantCatalog.build();
       final controller = SurfaceController(catalogs: [catalog]);
       const surfaceId = 'portfolio_qa_0';
       const raw = '''
-{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId","catalogId":"https://a2ui.org/specification/v0_9/standard_catalog.json"}}
+{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
 {"version":"v0.9","updateComponents":{"surfaceId":"$surfaceId","components":[
   {"id":"answer","component":"QaAnswerText","text":"Tu portfolio subió 5,4% hoy."}
 ]}}
