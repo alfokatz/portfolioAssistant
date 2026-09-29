@@ -3,10 +3,17 @@ import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
 /// Lo que la card de noticias necesita de un artículo y el modelo NO:
 /// la imagen de portada y el timestamp exacto.
 class NewsMedia {
-  const NewsMedia({required this.publishedAt, this.imageUrl});
+  const NewsMedia({
+    required this.publishedAt,
+    this.imageUrl,
+    this.sourceDomain,
+  });
 
   final DateTime publishedAt;
   final String? imageUrl;
+
+  /// Dominio del medio: si no hay imagen, la card muestra su logo.
+  final String? sourceDomain;
 }
 
 /// Índice en memoria `url del artículo → NewsMedia`, que llena
@@ -33,6 +40,7 @@ class NewsMediaIndex {
     _byUrl[item.url] = NewsMedia(
       publishedAt: item.publishedAt,
       imageUrl: item.imageUrl,
+      sourceDomain: item.sourceDomain,
     );
     // Tope por si la sesión es larga: se descartan los más viejos.
     while (_byUrl.length > maxEntries) {

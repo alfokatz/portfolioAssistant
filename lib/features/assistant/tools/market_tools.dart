@@ -232,8 +232,9 @@ class GetNewsTool implements DataTool {
 
   @override
   String get description =>
-      'Up to 3 recent real headlines (last 14 days) for 1-3 tickers: ticker, '
-      'title, snippet, url (copy it verbatim into the widget: the app uses it '
+      'Up to 3 of the most relevant real headlines (last 7-14 days, reputable '
+      'outlets first) for 1-3 tickers: ticker, title, snippet (may be empty), '
+      'url (copy it verbatim into the widget: the app uses it '
       'for the image and link), source, published_at. Use it when the user asks '
       'for news, or asks WHY a ticker moved (the only allowed source of '
       'causes). status: ok | empty (no recent news) | failed | locked.';

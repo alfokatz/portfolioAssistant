@@ -136,7 +136,7 @@ void main() {
   });
 
   group('SubscriptionPolicy.queryWeight', () {
-    test('news queries consume 3 units', () {
+    test('news queries consume the news weight (1 since Google News RSS)', () {
       expect(
         SubscriptionPolicy.queryWeight(isNewsQuery: true),
         AiUsageLimits.newsQueryWeight,

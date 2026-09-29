@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -203,10 +204,16 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
                 used: subscription.queriesUsed,
                 limit: subscription.queriesLimit,
               ),
-              if (reason == PaywallReason.newsRequiresGold) ...[
+              // Solo tiene sentido avisarlo si una consulta de noticias pesa
+              // más que una común (hoy pesan igual — ver AiUsageLimits).
+              if (reason == PaywallReason.newsRequiresGold &&
+                  AiUsageLimits.newsQueryWeight >
+                      AiUsageLimits.standardQueryWeight) ...[
                 const SizedBox(height: AppDimens.sp12),
                 Text(
-                  'paywall_news_weight_note'.tr(),
+                  'paywall_news_weight_note'.tr(
+                    args: ['${AiUsageLimits.newsQueryWeight}'],
+                  ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textSecondary,
                     height: 1.4,

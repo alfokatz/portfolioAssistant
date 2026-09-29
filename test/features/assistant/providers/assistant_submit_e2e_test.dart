@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
@@ -335,26 +336,29 @@ void main() {
     },
   );
 
-  test('a news search costs 3; a premium user asking for news gets the gold '
-      'paywall', () async {
-    final gold = harness(SubscriptionTier.gold, [
-      _call('get_news', {
-        'tickers': ['NVDA'],
-      }),
-      _answer(),
-    ]);
-    await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-    expect(gold.subscriptionRepo.consumed, [3]);
+  test(
+    'a news search costs the news weight; a premium user asking for news gets the gold '
+    'paywall',
+    () async {
+      final gold = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+      ]);
+      await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      expect(gold.subscriptionRepo.consumed, [AiUsageLimits.newsQueryWeight]);
 
-    final premium = harness(SubscriptionTier.premium, [
-      _call('get_news', {
-        'tickers': ['NVDA'],
-      }),
-    ]);
-    await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-    expect(premium.state.paywallReason, PaywallReason.newsRequiresGold);
-    expect(premium.subscriptionRepo.consumed, isEmpty);
-  });
+      final premium = harness(SubscriptionTier.premium, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+      ]);
+      await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      expect(premium.state.paywallReason, PaywallReason.newsRequiresGold);
+      expect(premium.subscriptionRepo.consumed, isEmpty);
+    },
+  );
 
   test(
     'premium fundamentals are locked but not a paywall: the model words it',

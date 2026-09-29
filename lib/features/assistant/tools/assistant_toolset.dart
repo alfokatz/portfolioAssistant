@@ -57,7 +57,8 @@ abstract final class AssistantTurnPolicy {
     return null;
   }
 
-  /// Un turno cuesta 3 si se buscaron noticias (la fuente más cara), si no 1.
+  /// Peso del turno en la cuota: `newsQueryWeight` si se buscaron noticias
+  /// (hoy 1, igual que el resto — ver `AiUsageLimits`), si no 1.
   static int quotaWeight(TurnOutcome outcome) {
     final searchedNews = outcome.toolCalls.any(
       (c) => c.name == 'get_news' && (c.status == 'ok' || c.status == 'empty'),

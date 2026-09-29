@@ -464,7 +464,11 @@ class _NewsHero extends StatelessWidget {
             ],
             if (meta.isNotEmpty) ...[
               const SizedBox(height: 8),
-              _MetaLine(meta: meta, linked: item.url.isNotEmpty),
+              _MetaLine(
+                meta: meta,
+                linked: item.url.isNotEmpty,
+                sourceDomain: media?.sourceDomain,
+              ),
             ],
           ],
         ),
@@ -510,7 +514,11 @@ class _NewsRow extends StatelessWidget {
                     ),
                     if (meta.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      _MetaLine(meta: meta, linked: item.url.isNotEmpty),
+                      _MetaLine(
+                        meta: meta,
+                        linked: item.url.isNotEmpty,
+                        sourceDomain: media?.sourceDomain,
+                      ),
                     ],
                   ],
                 ),
@@ -528,15 +536,28 @@ class _NewsRow extends StatelessWidget {
 }
 
 class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.meta, required this.linked});
+  const _MetaLine({
+    required this.meta,
+    required this.linked,
+    this.sourceDomain,
+  });
 
   final String meta;
   final bool linked;
 
+  /// Con dominio, el logo del medio antecede a la línea: la señal de
+  /// confianza más rápida de leer ("esto es de Reuters").
+  final String? sourceDomain;
+
   @override
   Widget build(BuildContext context) {
+    final domain = sourceDomain;
     return Row(
       children: [
+        if (domain != null) ...[
+          _SourceLogo(domain: domain),
+          const SizedBox(width: 6),
+        ],
         Flexible(
           child: Text(
             meta,
@@ -1068,4 +1089,26 @@ final class _FundamentalsData {
   final String industry;
   final List<_FundamentalsMetricItem> items;
   final _Week52Range? week52;
+}
+
+/// Favicon del medio vía el servicio público de Google (el mismo origen
+/// que las notas). Si falla, no ocupa lugar.
+class _SourceLogo extends StatelessWidget {
+  const _SourceLogo({required this.domain});
+
+  final String domain;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: Image.network(
+        'https://www.google.com/s2/favicons?domain=$domain&sz=64',
+        width: 14,
+        height: 14,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      ),
+    );
+  }
 }

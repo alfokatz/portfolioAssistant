@@ -219,7 +219,7 @@ class _ImageNews implements CompanyNewsRepository {
   }) async => Right([
     CompanyNewsItem(
       ticker: ticker,
-      headline: 'h',
+      headline: 'AAPL headline',
       summary: 's',
       url: 'https://example.com/a',
       source: 'Reuters',

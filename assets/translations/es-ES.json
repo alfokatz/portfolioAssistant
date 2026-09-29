@@ -306,7 +306,7 @@
   "paywall_price_unavailable": "Precio al confirmar la compra",
   "paywall_upgrade_premium": "Actualizar a Premium",
   "paywall_upgrade_gold": "Actualizar a Gold",
-  "paywall_news_weight_note": "Las consultas de noticias consumen 3 del cupo",
+  "paywall_news_weight_note": "Las consultas de noticias consumen {} del cupo",
   "assistant_usage_label": "{used}/{limit} consultas",
   "benchmark_locked_title": "Comparativa vs S&P 500",
   "benchmark_locked_subtitle": "Disponible en Premium",

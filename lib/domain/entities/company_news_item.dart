@@ -8,6 +8,7 @@ class CompanyNewsItem {
     required this.source,
     required this.publishedAt,
     this.imageUrl,
+    this.sourceDomain,
   });
 
   final String ticker;
@@ -20,4 +21,8 @@ class CompanyNewsItem {
   /// Imagen de portada que publica el medio. Solo la usa la card (vía
   /// `NewsMediaIndex`) — nunca se le manda al modelo.
   final String? imageUrl;
+
+  /// Dominio del medio ("reuters.com"), para mostrar su logo en la card
+  /// cuando la nota no trae imagen. Tampoco se le manda al modelo.
+  final String? sourceDomain;
 }

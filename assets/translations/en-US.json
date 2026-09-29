@@ -304,7 +304,7 @@
   "paywall_price_unavailable": "Price shown at checkout",
   "paywall_upgrade_premium": "Upgrade to Premium",
   "paywall_upgrade_gold": "Upgrade to Gold",
-  "paywall_news_weight_note": "News queries consume 3 from your quota",
+  "paywall_news_weight_note": "News queries consume {} from your quota",
   "assistant_usage_label": "{used}/{limit} queries",
   "benchmark_locked_title": "Comparativa vs S&P 500",
   "benchmark_locked_subtitle": "Available on Premium",

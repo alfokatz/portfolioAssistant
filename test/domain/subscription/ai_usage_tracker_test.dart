@@ -73,8 +73,10 @@ void main() {
       );
     });
 
+    // Peso 3 literal: prueba el consumo de varias unidades en un turno, que
+    // el tracker soporta aunque hoy ningún turno pese más de 1.
     test('recordUsage delegates to consumeQuota RPC', () async {
-      final ok = await tracker.recordUsage(AiUsageLimits.newsQueryWeight);
+      final ok = await tracker.recordUsage(3);
 
       expect(ok, isTrue);
       expect(repository.consumeCalls, 1);
@@ -89,7 +91,7 @@ void main() {
         month: '2026-06',
       );
 
-      final ok = await tracker.recordUsage(AiUsageLimits.newsQueryWeight);
+      final ok = await tracker.recordUsage(3);
 
       expect(ok, isFalse);
       expect(repository.status.queriesUsed, 19);

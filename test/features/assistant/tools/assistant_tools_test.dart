@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -282,14 +283,14 @@ void main() {
       );
     });
 
-    test('a turn costs 3 only when news were actually searched', () {
+    test('a news turn costs the news weight only when news were searched', () {
       expect(
         AssistantTurnPolicy.quotaWeight(
           TurnOutcome([
             _record('get_news', {'status': 'empty'}),
           ]),
         ),
-        3,
+        AiUsageLimits.newsQueryWeight,
       );
       expect(
         AssistantTurnPolicy.quotaWeight(

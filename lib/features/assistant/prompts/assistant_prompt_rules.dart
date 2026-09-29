@@ -295,7 +295,7 @@ FUNDAMENTALS ([W:FUNDAMENTALS]) — get_fundamentals
 NEWS ([W:NEWS]) — get_news
 - status ok → QaNewsSummary, one item per news entry (max 3): ticker,
   headline = title, url = url (verbatim), summaryLine = snippet rewritten
-  as ONE plain sentence, dateLabel relative to as_of ("hoy", "hace 2 días", explicit date past a
+  as ONE plain sentence (no snippet → omit it, never invent one), dateLabel relative to as_of ("hoy", "hace 2 días", explicit date past a
   week — anything older than 3 days must look old), source.
 - empty → "No tengo noticias recientes sobre X"; failed / locked → TOOL
   STATUS wording. Never invent headlines.
