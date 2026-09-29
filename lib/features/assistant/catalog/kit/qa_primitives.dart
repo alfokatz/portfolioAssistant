@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Chip de variación: ▲/▼ + porcentaje (o monto) sobre un fondo teñido del
@@ -278,18 +279,16 @@ class QaProgressBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(height),
       child: SizedBox(
         height: height,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+        child: EntranceFill(
           duration: const Duration(milliseconds: 700),
-          curve: Curves.easeOutCubic,
           builder:
-              (context, v, _) => Stack(
+              (context, t, _) => Stack(
                 children: [
                   const Positioned.fill(
                     child: ColoredBox(color: QaPalette.track),
                   ),
                   FractionallySizedBox(
-                    widthFactor: v,
+                    widthFactor: value.clamp(0.0, 1.0) * t,
                     child: ColoredBox(color: color),
                   ),
                 ],
@@ -321,10 +320,8 @@ class QaSegmentedBar extends StatelessWidget {
     if (total <= 0) {
       return QaProgressBar(value: 0, height: height);
     }
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
+    return EntranceFill(
       duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOutCubic,
       builder:
           (context, t, _) => SizedBox(
             height: height,
@@ -385,14 +382,14 @@ class QaRing extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
-        duration: const Duration(milliseconds: 900),
-        curve: Curves.easeOutCubic,
+      child: EntranceFill(
+        duration: RevealTiming.fill,
         builder:
-            (context, v, child) => CustomPaint(
+            (context, t, child) => CustomPaint(
               painter: _RingPainter(
-                segments: [QaSegment(value: v, color: color)],
+                segments: [
+                  QaSegment(value: value.clamp(0.0, 1.0) * t, color: color),
+                ],
                 total: 1,
                 stroke: stroke,
               ),
@@ -424,10 +421,8 @@ class QaDonut extends StatelessWidget {
     final total = segments.fold<double>(0, (a, s) => a + math.max(0, s.value));
     return SizedBox.square(
       dimension: size,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
+      child: EntranceFill(
         duration: const Duration(milliseconds: 900),
-        curve: Curves.easeOutCubic,
         builder:
             (context, t, child) => CustomPaint(
               painter: _RingPainter(

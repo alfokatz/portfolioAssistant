@@ -16,8 +16,9 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 /// Todo widget que use este shell queda con reveal secuencial "gratis": si
 /// hay una [SurfaceRevealScope] ancestro (la respuesta de Porty siempre la
 /// provee — ver `PortfolioQaAssistantSurface`), la card reclama el próximo
-/// turno y aparece recién cuando le toca, en vez de saltar junto con todo lo
-/// demás. Fuera de una surface (p. ej. un test aislado) se muestra directo.
+/// turno y entra recién cuando le toca, con la entrada común a todas
+/// ([RevealEntrance]: abre su espacio + fade + slide, y su haptic). Fuera
+/// de una surface (p. ej. un test aislado) se muestra directo.
 class QaCardShell extends StatelessWidget {
   const QaCardShell({
     super.key,
@@ -101,7 +102,7 @@ class QaCardShell extends StatelessWidget {
       if (revealController == null) {
         return _decorate(staged(context, true, () {}));
       }
-      return RevealStep(
+      return RevealStep.entrance(
         controller: revealController,
         builder:
             (context, active, onFinished) =>

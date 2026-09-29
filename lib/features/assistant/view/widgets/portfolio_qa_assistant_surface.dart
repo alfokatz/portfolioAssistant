@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 
 /// Renderiza la surface GenUI que arma Porty como respuesta.
 ///
@@ -78,12 +79,35 @@ class _PortfolioQaAssistantSurfaceState
     // once.
     if (_started) return;
     _started = true;
-    final reduceMotion =
-        MediaQuery.disableAnimationsOf(context) || widget.startFullyRevealed;
-    _revealController = SurfaceRevealController(reduceMotion: reduceMotion);
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = disableAnimations || widget.startFullyRevealed;
+    // Haptics solo para un mensaje nuevo: reconstruir una surface ya vista
+    // (scroll, volver a la pantalla) no vibra. Con reduce motion no hay
+    // entradas que acompañar, pero sí el cierre de "respuesta lista".
+    _revealController = SurfaceRevealController(
+      reduceMotion: reduceMotion,
+      haptics: PortyHapticsService.maybeOf(context),
+      hapticsMode:
+          widget.startFullyRevealed
+              ? RevealHaptics.none
+              : disableAnimations
+              ? RevealHaptics.closeOnly
+              : RevealHaptics.full,
+    );
     _revealController.addListener(_handleRevealChanged);
     if (reduceMotion) {
       _controller.value = 1;
+      // Con todo desbloqueado de entrada, `SurfaceRevealController` nunca
+      // notifica (no hay `advance` que lo dispare), así que el aviso de
+      // "surface revelada" se da acá, después del primer frame (nunca
+      // durante el build: quien escucha muta estado de Riverpod). Sin esto,
+      // con reduce motion el mensaje no se marcaba revelado y el footer de
+      // avisos (disclaimer, perfil) no aparecía nunca.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _reportedFullyRevealed) return;
+        _reportedFullyRevealed = true;
+        widget.onFullyRevealed?.call();
+      });
     } else {
       _controller.forward();
     }
@@ -143,7 +167,10 @@ class _PortfolioQaAssistantSurfaceState
             ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: SurfaceRevealScope(controller: _revealController, child: surface),
+          child: SurfaceRevealScope(
+            controller: _revealController,
+            child: surface,
+          ),
         ),
       ),
     );

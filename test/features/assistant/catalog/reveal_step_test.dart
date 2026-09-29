@@ -17,10 +17,7 @@ void main() {
             activeLog.add(label);
           }
           return active
-              ? TextButton(
-                onPressed: onFinished,
-                child: Text('finish-$label'),
-              )
+              ? TextButton(onPressed: onFinished, child: Text('finish-$label'))
               : SizedBox(key: ValueKey('waiting-$label'));
         },
       );
@@ -29,9 +26,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: Column(
-            children: [stepFor('a'), stepFor('b'), stepFor('c')],
-          ),
+          body: Column(children: [stepFor('a'), stepFor('b'), stepFor('c')]),
         ),
       ),
     );
@@ -41,13 +36,17 @@ void main() {
     expect(find.byKey(const ValueKey('waiting-b')), findsOneWidget);
     expect(find.byKey(const ValueKey('waiting-c')), findsOneWidget);
 
+    // Un paso bloqueante (el texto) desbloquea al siguiente recién una
+    // pausa después de terminar.
     await tester.tap(find.text('finish-a'));
     await tester.pump();
+    expect(activeLog, ['a']);
+    await tester.pump(RevealTiming.gapAfterText);
     expect(activeLog, ['a', 'b']);
     expect(find.byKey(const ValueKey('waiting-c')), findsOneWidget);
 
     await tester.tap(find.text('finish-b'));
-    await tester.pump();
+    await tester.pump(RevealTiming.gapAfterText);
     expect(activeLog, ['a', 'b', 'c']);
   });
 
@@ -101,9 +100,11 @@ void main() {
       // la surface entera sigue sin estar completamente revelada.
       expect(controller.isFullyRevealed, isFalse);
 
+      await tester.pump(RevealTiming.gapAfterText);
       finishB();
       await tester.pump();
       expect(controller.isFullyRevealed, isTrue);
+      await tester.pump(RevealTiming.gapAfterText);
     },
   );
 
@@ -111,9 +112,7 @@ void main() {
     expect(SurfaceRevealController().isFullyRevealed, isFalse);
   });
 
-  testWidgets('reduced motion unlocks every step immediately', (
-    tester,
-  ) async {
+  testWidgets('reduced motion unlocks every step immediately', (tester) async {
     final controller = SurfaceRevealController(reduceMotion: true);
     final activeLog = <String>[];
 
@@ -138,16 +137,9 @@ void main() {
     expect(activeLog, ['a', 'b', 'c']);
   });
 
-  testWidgets('RevealStep.fade renders reserved-space invisible until active, then fades in', (
-    tester,
-  ) async {
+  testWidgets('RevealStep.fade stays collapsed until its turn, then opens '
+      'its space continuously while it fades in', (tester) async {
     final controller = SurfaceRevealController();
-    final outer = RevealStep.fade(
-      controller: controller,
-      child: const Text('primero'),
-    );
-    // Un segundo paso, detrás de un RevealStep genérico que solo se activa
-    // al terminar el primero.
     late VoidCallback finishFirst;
     await tester.pumpWidget(
       MaterialApp(
@@ -158,30 +150,89 @@ void main() {
                 controller: controller,
                 builder: (context, active, onFinished) {
                   finishFirst = onFinished;
-                  return active
-                      ? const Text('paso-activo')
-                      : const SizedBox(key: ValueKey('paso-esperando'));
+                  return const SizedBox(height: 20);
                 },
               ),
-              outer,
+              RevealStep.fade(
+                controller: controller,
+                child: const SizedBox(
+                  key: ValueKey('card'),
+                  height: 200,
+                  child: Text('primero'),
+                ),
+              ),
+              const SizedBox(key: ValueKey('below'), height: 10),
             ],
           ),
         ),
       ),
     );
 
-    // El segundo paso (el fade) todavía no arrancó su animación: el
-    // contenido está en el árbol (reserva su espacio) pero invisible.
-    final opacityBefore = tester.widget<Opacity>(find.byType(Opacity));
-    expect(opacityBefore.opacity, 0);
+    // Montado (el contenido existe) pero sin ocupar lugar ni verse.
     expect(find.text('primero'), findsOneWidget);
+    double belowTop() =>
+        tester.getTopLeft(find.byKey(const ValueKey('below'))).dy;
+    expect(belowTop(), 20);
 
     finishFirst();
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(find.text('primero'), findsOneWidget);
-    expect(find.byType(Opacity), findsNothing);
+    await tester.pump(RevealTiming.gapAfterText);
+
+    // Lo de abajo se desliza de a poco: ningún frame salta más de un tramo
+    // chico, y llega a su lugar final.
+    var previous = belowTop();
+    var maxStep = 0.0;
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final now = belowTop();
+      maxStep = now - previous > maxStep ? now - previous : maxStep;
+      previous = now;
+    }
+    expect(belowTop(), 220);
+    expect(maxStep, lessThan(40), reason: 'the space must open, not jump');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('widgets enter overlapped: each starts one stagger after the '
+      'previous one STARTED, without waiting for it to finish', (tester) async {
+    final controller = SurfaceRevealController();
+    final started = <String, Duration>{};
+    var elapsed = Duration.zero;
+
+    Widget card(String label) => RevealStep.entrance(
+      controller: controller,
+      builder: (context, active, onFinished) {
+        if (active) started.putIfAbsent(label, () => elapsed);
+        if (active) onFinished();
+        return SizedBox(height: 50, child: Text(label));
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(children: [card('a'), card('b'), card('c')]),
+        ),
+      ),
+    );
+    for (var i = 0; i < 100; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+      elapsed += const Duration(milliseconds: 10);
+    }
+
+    expect(started.keys, ['a', 'b', 'c']);
+    final gapAB = started['b']! - started['a']!;
+    final gapBC = started['c']! - started['b']!;
+    for (final gap in [gapAB, gapBC]) {
+      // ±1 pump de muestreo (10 ms).
+      expect(
+        gap,
+        greaterThanOrEqualTo(
+          RevealTiming.stagger - const Duration(milliseconds: 10),
+        ),
+      );
+      expect(gap, lessThan(RevealTiming.entrance));
+    }
+    expect(controller.isFullyRevealed, isTrue);
   });
 
   testWidgets(
@@ -219,38 +270,37 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('card'), findsOneWidget);
+      await tester.pump(RevealTiming.entrance);
     },
   );
 
-  testWidgets(
-    'TwoStageReveal does not crash when mounted active under reduced '
-    'motion and onFinished mutates ancestor state synchronously '
-    '(regression: setState during build)',
-    (tester) async {
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: MaterialApp(
-            home: Scaffold(
-              body: _MutatingAncestor(
-                builder: (context, mutate) => TwoStageReveal(
-                  active: true,
-                  first: const Text('label'),
-                  second: const Text('valor'),
-                  onFinished: mutate,
-                ),
-              ),
+  testWidgets('TwoStageReveal does not crash when mounted active under reduced '
+      'motion and onFinished mutates ancestor state synchronously '
+      '(regression: setState during build)', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: Scaffold(
+            body: _MutatingAncestor(
+              builder:
+                  (context, mutate) => TwoStageReveal(
+                    active: true,
+                    first: const Text('label'),
+                    second: const Text('valor'),
+                    onFinished: mutate,
+                  ),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
+    await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('label'), findsOneWidget);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.text('label'), findsOneWidget);
+  });
 }
 
 /// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le

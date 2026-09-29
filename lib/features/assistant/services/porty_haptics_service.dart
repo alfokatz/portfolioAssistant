@@ -26,37 +26,23 @@ const streamTickCooldown = Duration(milliseconds: 100);
 /// un punto por pixel y un drag rápido cruzaría decenas por frame.
 const scrubTickCooldown = Duration(milliseconds: 35);
 
-/// Vibración al terminar de revelarse cada componente GenUI, por nombre de
-/// componente del catálogo (`CatalogItemContext.type`). Los componentes que
-/// no estén acá no vibran.
-const componentHapticPatterns = <String, PortyHapticPattern>{
-  // Movimiento / cambio brusco.
-  'QaTickerMove': PortyHapticPattern.heavy,
-  'QaTopMovers': PortyHapticPattern.heavy,
-  // Informativos neutros (datos, listas, charts).
-  'QaTickerSnapshot': PortyHapticPattern.medium,
-  'QaMetricStrip': PortyHapticPattern.medium,
-  'QaEarningsCalendar': PortyHapticPattern.medium,
-  'QaPeriodChange': PortyHapticPattern.medium,
-  'QaConcentrationBar': PortyHapticPattern.medium,
-  'QaPnLBreakdown': PortyHapticPattern.medium,
-  'QaPositionList': PortyHapticPattern.medium,
-  'QaClosedPositionList': PortyHapticPattern.medium,
-  'QaInvestOption': PortyHapticPattern.medium,
-  'QaBudgetSplit': PortyHapticPattern.medium,
-  'QaGoalCard': PortyHapticPattern.medium,
-  'QaProjectionStrip': PortyHapticPattern.medium,
-  'QaProjectionChart': PortyHapticPattern.medium,
-  'QaPriceChart': PortyHapticPattern.medium,
-  'QaMilestoneList': PortyHapticPattern.medium,
-  'QaComparisonRow': PortyHapticPattern.medium,
-  // Texto / noticias.
-  'QaAnswerText': PortyHapticPattern.light,
-  'QaNewsSummary': PortyHapticPattern.light,
-  // Avisos / pedidos de atención.
-  'QaTipBanner': PortyHapticPattern.doubleLight,
-  'QaInvestConfirm': PortyHapticPattern.doubleLight,
-};
+/// Toque que acompaña la entrada de cada widget de una respuesta, en el
+/// mismo frame en que empieza a moverse. `lightImpact`: con cuerpo
+/// suficiente para sentirse como "llegó algo", sin llegar a golpe.
+const widgetEntryPattern = PortyHapticPattern.light;
+
+/// Cierre al terminar de entrar el último widget: `mediumImpact`, un
+/// escalón más firme que los toques de entrada, como un punto final. La
+/// alternativa probada en papel es `selection` (más seco y liviano que los
+/// toques): cambiar acá si en device se siente mejor.
+const answerCompletePattern = PortyHapticPattern.medium;
+
+/// Respuesta de solo texto: el toque leve de siempre al terminar de tipear.
+const textAnswerPattern = PortyHapticPattern.light;
+
+/// Tope de toques por widget en una respuesta. Con el cierre, una
+/// respuesta nunca pasa de 4 vibraciones.
+const maxWidgetEntryTicks = 3;
 
 /// Único punto que dispara haptics de Porty: chequea el setting del usuario
 /// antes de cada llamada, así ningún widget tiene que conocer el flag. Si el
@@ -105,11 +91,37 @@ class PortyHapticsService {
     _performer(PortyHapticPattern.selection);
   }
 
-  /// El componente [componentType] del catálogo terminó de revelarse.
-  void componentRevealed(String componentType) {
+  /// El widget [index] (de [total]) de una respuesta arrancó su entrada.
+  /// Con más widgets que [maxWidgetEntryTicks], vibran solo algunos,
+  /// repartidos parejo (el primero y el último siempre).
+  void widgetEntryStarted({required int index, required int total}) {
+    if (!enabled || !ticksOnWidget(index, total)) return;
+    _performer(widgetEntryPattern);
+  }
+
+  /// El último widget de la respuesta terminó de entrar.
+  void answerRevealCompleted() {
     if (!enabled) return;
-    final pattern = componentHapticPatterns[componentType];
-    if (pattern != null) _performer(pattern);
+    _performer(answerCompletePattern);
+  }
+
+  /// Una respuesta de solo texto terminó de tipearse.
+  void textAnswerRevealed() {
+    if (!enabled) return;
+    _performer(textAnswerPattern);
+  }
+
+  /// Si el widget [index] de [total] vibra al entrar, respetando
+  /// [maxWidgetEntryTicks].
+  @visibleForTesting
+  static bool ticksOnWidget(int index, int total) {
+    if (index < 0 || index >= total) return false;
+    if (total <= maxWidgetEntryTicks) return true;
+    for (var tick = 0; tick < maxWidgetEntryTicks; tick++) {
+      final chosen = (tick * (total - 1) / (maxWidgetEntryTicks - 1)).round();
+      if (chosen == index) return true;
+    }
+    return false;
   }
 
   static Future<void> _perform(PortyHapticPattern pattern) async {
@@ -153,10 +165,9 @@ final hapticsEnabledProvider =
 /// Instancia estable (conserva el estado del throttle) que se entera de los
 /// cambios del setting en vez de recrearse.
 final portyHapticsServiceProvider = Provider<PortyHapticsService>((ref) {
-  final service = PortyHapticsService(enabled: ref.read(hapticsEnabledProvider));
-  ref.listen<bool>(
-    hapticsEnabledProvider,
-    (_, next) => service.enabled = next,
+  final service = PortyHapticsService(
+    enabled: ref.read(hapticsEnabledProvider),
   );
+  ref.listen<bool>(hapticsEnabledProvider, (_, next) => service.enabled = next);
   return service;
 });

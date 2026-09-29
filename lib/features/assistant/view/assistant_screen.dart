@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -53,26 +55,38 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   static const _autoTypeCharDelay = Duration(milliseconds: 22);
 
-  // La respuesta de Porty crece después de que ya llegó al estado (ver
-  // TypewriterText + RevealStep): el typewriter y las cards en secuencia
-  // siguen agregando contenido varios segundos después del único autoscroll
-  // que dispara `ref.listen` al resolverse el turno. Sin esto, ese
-  // contenido nuevo queda tapado detrás de la barra de input. `_followBottomTimer`
-  // persigue el fondo mientras el contenido sigue creciendo.
+  // Scroll durante un turno: la vista se ancla a la PREGUNTA del usuario.
+  // Mientras el turno crece (burbuja del usuario, orbe, typewriter, widgets
+  // que abren su espacio) la vista acompaña el fondo, pero nunca más allá
+  // del punto en que la pregunta toca el borde superior: la pregunta queda
+  // visible arriba y la respuesta de Porty empieza justo debajo. Si la
+  // respuesta supera el viewport, el resto entra abajo y el usuario scrollea.
   //
-  // Corte: NO se infiere "terminó de crecer" mirando si `maxScrollExtent`
-  // dejó de cambiar por un ratito — una línea de texto que todavía se está
-  // tipeando puede tardar más que eso en cruzar a la siguiente línea (el
-  // alto del contenido no cambia hasta que hay wrap), así que esa heurística
-  // cortaba el seguimiento a mitad de línea, mucho antes de que el
-  // typewriter realmente terminara. En su lugar, `_markRevealDone` es la
-  // señal explícita (ver `PortfolioQaAssistantSurface.onFullyRevealed`,
-  // respaldada por `SurfaceRevealController.isFullyRevealed`) de que la
-  // surface entera ya reveló todo su contenido. El tope de ticks que queda
-  // es solo una red de seguridad generosa por si esa señal nunca llega
-  // (p. ej. un mensaje de usuario, que no pasa por `PortfolioQaAssistantSurface`).
-  Timer? _followBottomTimer;
-  VoidCallback? _markRevealDone;
+  // Cada movimiento es un `animateTo` de [_followDuration]; si el contenido
+  // sigue creciendo mientras tanto, al terminar se encadena el siguiente
+  // (nunca se reinicia uno a mitad de camino, que se sentía como tirón).
+  //
+  // El seguimiento se recalcula cada vez que cambia el alto del contenido
+  // (`ScrollMetricsNotification`), se corta apenas el usuario arrastra la
+  // lista (no se le pisa el scroll) y termina cuando la respuesta terminó
+  // su reveal (`PortfolioQaAssistantSurface.onFullyRevealed`) o el turno
+  // cerró sin surface (fallback, error, paywall).
+  bool _followingTurn = false;
+  String? _followSurfaceId;
+  String? _questionTileId;
+  bool _followScheduled = false;
+  bool _animating = false;
+  Timer? _finishFollowTimer;
+  final _tileKeys = <String, GlobalKey>{};
+
+  /// Aire entre el borde superior del chat y la pregunta anclada.
+  static const _anchorGap = AppDimens.sp8;
+  static const _followDuration = Duration(milliseconds: 400);
+  static const _followCurve = Curves.easeOutCubic;
+
+  /// Tras el fin del reveal, el footer de avisos todavía abre su espacio
+  /// ([RevealTiming.entrance]): la última pasada espera a que termine.
+  static const _finishFollowDelay = Duration(milliseconds: 650);
 
   // Alto del composer flotante (incluye margen y safe area), medido en cada
   // layout; la lista lo usa como padding inferior. Ver `_SizeReporter`.
@@ -124,7 +138,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void dispose() {
-    _followBottomTimer?.cancel();
+    _finishFollowTimer?.cancel();
     _textController.removeListener(_handleTextChanged);
     _pulseController.dispose();
     _textController.dispose();
@@ -145,53 +159,115 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     }
   }
 
-  void _scrollToBottom() {
-    if (!_scrollController.hasClients) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+  /// Arranca el seguimiento del turno de [surfaceId], anclado a la
+  /// pregunta [questionTileId] (id de fila, ver [_tileIdOf]).
+  void _followTurn(String surfaceId, String? questionTileId) {
+    _finishFollowTimer?.cancel();
+    _followingTurn = true;
+    _followSurfaceId = surfaceId;
+    _questionTileId = questionTileId;
+    _scheduleFollow();
+  }
+
+  /// Última pasada un toque después de que la respuesta terminó (el footer
+  /// de avisos entra recién ahí) y fin del seguimiento.
+  void _finishFollowing() {
+    if (!_followingTurn) return;
+    _finishFollowTimer?.cancel();
+    _finishFollowTimer = Timer(_finishFollowDelay, () {
+      if (!mounted) return;
+      _scheduleFollow(last: true);
     });
   }
 
-  /// Persigue el fondo de la lista mientras el contenido sigue creciendo
-  /// (typewriter de la respuesta + widgets en secuencia + dibujo de chart),
-  /// que pasa varios segundos después del único autoscroll que dispara
-  /// `ref.listen` al resolverse el turno. Se corta apenas llega la señal
-  /// explícita de que terminó (`_markRevealDone`, ver su declaración), o
-  /// como red de seguridad, a los 30s.
-  void _followBottomWhileRevealing() {
-    _followBottomTimer?.cancel();
-    var revealDone = false;
-    _markRevealDone = () {
-      revealDone = true;
-      // Pasada extra, un toque después de la señal: `onFullyRevealed`
-      // dispara `notifier.markRevealed` (un cambio de estado de Riverpod)
-      // en el mismo instante — ese rebuild puede tardar un frame más en
-      // asentarse, y la ÚLTIMA pasada del timer de abajo corre en el
-      // mismo tick que esta señal, así que puede alcanzar a leer
-      // `maxScrollExtent` todavía a mitad de ese asentamiento.
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) _scrollToBottom();
+  void _stopFollowing() {
+    _finishFollowTimer?.cancel();
+    _followingTurn = false;
+  }
+
+  /// Una sola pasada por frame, después del layout (las posiciones y el
+  /// `maxScrollExtent` ya son los finales de ese frame).
+  void _scheduleFollow({bool last = false}) {
+    if (!_followingTurn) return;
+    if (last) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _followNow();
+        _followingTurn = false;
       });
-    };
-    var ticksLeft = 250; // 250 * 120ms = 30s de tope, solo por si acaso
-    _followBottomTimer = Timer.periodic(const Duration(milliseconds: 120), (
-      timer,
-    ) {
-      if (!mounted || !_scrollController.hasClients) {
-        timer.cancel();
-        return;
-      }
-      _scrollToBottom();
-      ticksLeft--;
-      if (revealDone || ticksLeft <= 0) {
-        timer.cancel();
-      }
+      WidgetsBinding.instance.scheduleFrame();
+      return;
+    }
+    if (_followScheduled) return;
+    _followScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followScheduled = false;
+      if (mounted) _followNow();
     });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _followNow() {
+    if (!_followingTurn || !_scrollController.hasClients || _animating) {
+      return;
+    }
+    final position = _scrollController.position;
+    var target = position.maxScrollExtent;
+    // Si la pregunta todavía no está montada (quedó lejos, abajo, fuera del
+    // cache del ListView: el usuario estaba scrolleado arriba o la
+    // respuesta anterior era larga), se va al fondo — donde está — y en la
+    // próxima pasada ya se puede medir.
+    final questionId = _questionTileId;
+    final anchor = questionId == null ? null : _tileOffset(questionId);
+    if (anchor != null) target = math.min(target, anchor);
+    target = target.clamp(position.minScrollExtent, position.maxScrollExtent);
+    if ((target - position.pixels).abs() < 1) return;
+
+    if (MediaQuery.disableAnimationsOf(context)) {
+      position.jumpTo(target);
+      return;
+    }
+    _animating = true;
+    position
+        .animateTo(target, duration: _followDuration, curve: _followCurve)
+        .whenComplete(() {
+          _animating = false;
+          // El contenido pudo seguir creciendo durante la animación.
+          if (mounted) _scheduleFollow();
+        });
+  }
+
+  /// Offset de scroll que deja la fila [tileId] a [_anchorGap] del borde
+  /// superior. `null` si la fila no está montada.
+  double? _tileOffset(String tileId) {
+    final box = _tileKeys[tileId]?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return null;
+    return viewport.getOffsetToReveal(box, 0).offset - _anchorGap;
+  }
+
+  /// Id estable de la fila de [message] en la posición [index]: el
+  /// `surfaceId` para una respuesta; índice + hash del texto para un
+  /// mensaje de usuario (dos mensajes con el mismo texto — p. ej. la misma
+  /// sugerencia enviada dos veces — antes colisionaban solo con el hash).
+  static String _tileIdOf(PortfolioQaMessage message, int index) =>
+      message.surfaceId ?? 'user_${index}_${message.content.hashCode}';
+
+  bool _handleScrollNotification(Notification notification) {
+    final userDragged = switch (notification) {
+      ScrollStartNotification(:final dragDetails) => dragDetails != null,
+      ScrollUpdateNotification(:final dragDetails) => dragDetails != null,
+      _ => false,
+    };
+    if (userDragged) {
+      _stopFollowing();
+    } else if (notification is ScrollMetricsNotification) {
+      // El contenido creció (typewriter, card nueva, footer) o cambió el
+      // viewport.
+      _scheduleFollow();
+    }
+    return false;
   }
 
   /// Swap limpio: se limpia el input y el mensaje pasa a existir en el
@@ -206,11 +282,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     if (trimmed.isEmpty) return;
     _textController.clear();
     setState(() => _orbGateOpen = false);
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      _followBottomWhileRevealing();
-    }
     await notifier.submitMessage(trimmed);
-    _scrollToBottom();
   }
 
   /// Escribe [suggestion] en el input carácter por carácter, simulando que
@@ -290,27 +362,38 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     }
 
     ref.listen(assistantProvider(_args), (previous, next) {
-      if (previous?.messages.length != next.messages.length ||
-          previous?.isWaiting != next.isWaiting) {
-        _scrollToBottom();
+      final prevLast = previous?.messages.lastOrNull;
+      final nextLast = next.messages.lastOrNull;
+
+      // Turno nuevo (envío manual, sugerencia o pregunta inicial): aparece
+      // el placeholder en streaming, justo después de la pregunta.
+      final turnStarted =
+          nextLast != null &&
+          nextLast.isStreaming &&
+          nextLast.surfaceId != prevLast?.surfaceId;
+      if (turnStarted) {
+        final questionIndex = next.messages.length - 2;
+        final question =
+            questionIndex >= 0 ? next.messages[questionIndex] : null;
+        _followTurn(
+          nextLast.surfaceId!,
+          question?.role == PortfolioQaRole.user
+              ? _tileIdOf(question!, questionIndex)
+              : null,
+        );
+      } else if (previous?.messages.length != next.messages.length) {
+        _scheduleFollow();
       }
 
-      // El último mensaje acaba de dejar de "streamear" (el turno resolvió
-      // y el contenido final ya está disponible): arranca ahí el reveal
-      // visual (typewriter + cards en secuencia + chart), que sigue
-      // creciendo el contenido varios segundos más.
-      final prevLast =
-          previous?.messages.isNotEmpty == true
-              ? previous!.messages.last
-              : null;
-      final nextLast = next.messages.isNotEmpty ? next.messages.last : null;
-      final justStoppedStreaming =
-          nextLast != null &&
-          nextLast.surfaceId != null &&
-          !nextLast.isStreaming &&
-          (prevLast == null || prevLast.isStreaming);
-      if (justStoppedStreaming && !MediaQuery.disableAnimationsOf(context)) {
-        _followBottomWhileRevealing();
+      // El turno cerró sin una surface que todavía se esté revelando
+      // (fallback de texto, error de conexión, paywall): nadie va a llamar
+      // a `onFullyRevealed`, así que el seguimiento se cierra acá.
+      if (previous?.isWaiting == true && !next.isWaiting) {
+        final revealing =
+            nextLast != null &&
+            nextLast.isGenUiSurface &&
+            !nextLast.hasRevealed;
+        if (!revealing) _finishFollowing();
       }
 
       final reason = next.paywallReason;
@@ -399,65 +482,72 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           Expanded(
             child: Stack(
               children: [
-                ListView(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    AppDimens.pageHorizontal,
-                    AppDimens.sp8,
-                    AppDimens.pageHorizontal,
-                    AppDimens.sp8 + _composerInset,
-                  ),
-                  children: [
-                    for (final (i, m) in state.messages.indexed)
-                      MessageAppearFade(
-                        skipAnimation: m.hasRevealed,
-                        child:
-                            service != null
-                                ? _buildMessageTile(
-                                  notifier,
-                                  service,
-                                  m,
-                                  index: i,
-                                  orbGateOpen: _orbGateOpen,
-                                  onUserTypingComplete: () {
-                                    _openOrbGate();
-                                    notifier.markUserMessageRevealed(i);
-                                  },
-                                )
-                                : PortfolioQaChatBubble(
-                                  message: m,
-                                  onTypingComplete: _openOrbGate,
-                                ),
-                      ),
-                    if (state.messages.length <= 1) ...[
-                      const SizedBox(height: 4),
-                      FadeSlideIn(
-                        skipAnimation: state.introRevealed,
-                        child: Text(
-                          'portfolio_qa_chip_intro'.tr(),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: PortfolioColors.textSecondary),
+                NotificationListener<Notification>(
+                  onNotification: _handleScrollNotification,
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      AppDimens.pageHorizontal,
+                      AppDimens.sp8,
+                      AppDimens.pageHorizontal,
+                      AppDimens.sp8 + _composerInset,
+                    ),
+                    children: [
+                      for (final (i, m) in state.messages.indexed)
+                        MessageAppearFade(
+                          skipAnimation: m.hasRevealed,
+                          child:
+                              service != null
+                                  ? _buildMessageTile(
+                                    notifier,
+                                    service,
+                                    m,
+                                    index: i,
+                                    orbGateOpen: _orbGateOpen,
+                                    onUserTypingComplete: () {
+                                      _openOrbGate();
+                                      notifier.markUserMessageRevealed(i);
+                                    },
+                                  )
+                                  : PortfolioQaChatBubble(
+                                    message: m,
+                                    onTypingComplete: _openOrbGate,
+                                  ),
                         ),
-                      ),
-                      const SizedBox(height: AppDimens.sp12),
-                      for (final (i, key) in notifier.chipKeys.indexed) ...[
-                        if (i > 0) const SizedBox(height: 8),
+                      if (state.messages.length <= 1) ...[
+                        const SizedBox(height: 4),
                         FadeSlideIn(
                           skipAnimation: state.introRevealed,
-                          delay: Duration(milliseconds: 60 * (i + 1)),
-                          child: AssistantSuggestionChip(
-                            label: key.tr(),
-                            onTap:
-                                state.isWaiting ||
-                                        service == null ||
-                                        _isAutoTyping
-                                    ? null
-                                    : () => _startAutoType(notifier, key.tr()),
+                          child: Text(
+                            'portfolio_qa_chip_intro'.tr(),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.labelMedium?.copyWith(
+                              color: PortfolioColors.textSecondary,
+                            ),
                           ),
                         ),
+                        const SizedBox(height: AppDimens.sp12),
+                        for (final (i, key) in notifier.chipKeys.indexed) ...[
+                          if (i > 0) const SizedBox(height: 8),
+                          FadeSlideIn(
+                            skipAnimation: state.introRevealed,
+                            delay: Duration(milliseconds: 60 * (i + 1)),
+                            child: AssistantSuggestionChip(
+                              label: key.tr(),
+                              onTap:
+                                  state.isWaiting ||
+                                          service == null ||
+                                          _isAutoTyping
+                                      ? null
+                                      : () =>
+                                          _startAutoType(notifier, key.tr()),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
-                  ],
+                  ),
                 ),
                 if (!state.isServiceReady)
                   const Center(
@@ -544,13 +634,12 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   }) {
     // Key estable: identifica la fila para el ListView a través de todo su
     // ciclo de vida (orbe → respuesta), así el AnimatedSwitcher de abajo
-    // conserva su estado entre rebuilds en vez de perder la animación. Para
-    // mensajes de usuario (sin surfaceId) se incluye el índice: dos
-    // mensajes con el mismo texto (p. ej. la misma sugerencia enviada dos
-    // veces) antes colisionaban en la misma key solo con el hash del
-    // contenido.
-    final stableKey = ValueKey(
-      message.surfaceId ?? 'user_${index}_${message.content.hashCode}',
+    // conserva su estado entre rebuilds en vez de perder la animación. Es
+    // una GlobalKey para que el scroll pueda medir la fila (ver
+    // `_tileOffset`).
+    final stableKey = _tileKeys.putIfAbsent(
+      _tileIdOf(message, index),
+      GlobalKey.new,
     );
 
     late final Key contentKey;
@@ -582,12 +671,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         onFollowUp: (question) => _startAutoType(notifier, question),
         child: PortfolioQaAssistantSurface(
           surfaceId: message.surfaceId!,
-          surfaceContext: service.controller.contextFor(
-            message.surfaceId!,
-          ),
+          surfaceContext: service.controller.contextFor(message.surfaceId!),
           startFullyRevealed: message.hasRevealed,
           onFullyRevealed: () {
-            _markRevealDone?.call();
+            if (message.surfaceId == _followSurfaceId) _finishFollowing();
             notifier.markRevealed(message.surfaceId!);
           },
         ),
@@ -598,14 +685,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           AssistantAdviceFooter.hasContent(message)
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  surface,
-                  if (message.hasRevealed)
-                    FadeSlideIn(
-                      skipAnimation: MediaQuery.disableAnimationsOf(context),
-                      child: AssistantAdviceFooter(message: message),
-                    ),
-                ],
+                children: [surface, _AdviceFooterEntrance(message: message)],
               )
               : surface;
     } else {
@@ -620,15 +700,47 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     // El orbe no tenía salida propia: al llegar la respuesta, desaparecía de
     // golpe reemplazado por la card. El crossfade acá hace que se desvanezca
     // mientras la card entra, en vez de un swap instantáneo y desconectado.
+    // Con reduce motion el swap es instantáneo (duración cero).
     return AnimatedSwitcher(
       key: stableKey,
-      duration: const Duration(milliseconds: 220),
+      duration:
+          MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder:
           (child, animation) =>
               FadeTransition(opacity: animation, child: child),
       child: KeyedSubtree(key: contentKey, child: content),
+    );
+  }
+}
+
+/// El footer de avisos entra último, cuando la respuesta terminó su reveal:
+/// fade simple (sin slide ni escala) mientras abre su espacio, así el final
+/// de la lista crece en vez de saltar. Si el mensaje ya estaba revelado al
+/// montarse (se reconstruyó el historial), aparece directo.
+class _AdviceFooterEntrance extends StatefulWidget {
+  const _AdviceFooterEntrance({required this.message});
+
+  final PortfolioQaMessage message;
+
+  @override
+  State<_AdviceFooterEntrance> createState() => _AdviceFooterEntranceState();
+}
+
+class _AdviceFooterEntranceState extends State<_AdviceFooterEntrance> {
+  late final bool _revealedAtMount = widget.message.hasRevealed;
+
+  @override
+  Widget build(BuildContext context) {
+    return RevealEntrance(
+      active: widget.message.hasRevealed,
+      skip: _revealedAtMount,
+      slideDistance: 0,
+      scaleFrom: 1,
+      child: AssistantAdviceFooter(message: widget.message),
     );
   }
 }
