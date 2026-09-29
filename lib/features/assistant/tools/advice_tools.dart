@@ -96,14 +96,18 @@ class GetInvestCandidatesTool implements DataTool {
         tickers.isNotEmpty && tickers.every(ctx.heldTickers.contains);
     if (tickers.isEmpty ||
         (onlyHoldings && args['about_current_holdings'] != true)) {
+      // El reintento se arma de cero: sin repetir el presupuesto acá, el
+      // modelo lo pierde en la segunda llamada (visto en evals: 2 de 3).
+      final budget = ToolArgs.number(args, 'budget_usd');
       return {
         'status': DataTool.needsRetryStatus,
         'theme': theme,
+        if (budget != null) 'budget_usd': budget,
         'message':
             'Choose 2-6 NEW US-listed stocks or ETFs from your own knowledge '
             'that fit this theme — any company or industry, not the user\'s '
             'current holdings — and call get_invest_candidates again with '
-            'them.',
+            'them${budget != null ? ', keeping the same budget_usd' : ''}.',
       };
     }
     final profile = await ctx.loadInvestorProfile?.call();

@@ -43,17 +43,55 @@ void main() {
     expect(out, isNot(contains('"c1"')));
   });
 
-  test('goal answers keep only the first projection widget', () {
+  test('goal overview keeps the card + its projection strip, nothing more', () {
     final out = AssistantLayoutGuard.enforce(
       _update([
         ('a', 'QaAnswerText'),
         ('g', 'QaGoalCard'),
         ('p', 'QaProjectionStrip'),
         ('m', 'QaMilestoneList'),
+        ('p2', 'QaProjectionStrip'),
         ('t', 'QaTipBanner'),
       ]),
     );
-    expect(_rootTypes(out), ['QaAnswerText', 'QaGoalCard', 'QaTipBanner']);
+    expect(_rootTypes(out), [
+      'QaAnswerText',
+      'QaGoalCard',
+      'QaProjectionStrip',
+      'QaTipBanner',
+    ]);
+  });
+
+  test('a strip that leads keeps the other projection widgets out', () {
+    final out = AssistantLayoutGuard.enforce(
+      _update([
+        ('a', 'QaAnswerText'),
+        ('p', 'QaProjectionStrip'),
+        ('m', 'QaMilestoneList'),
+      ]),
+    );
+    expect(_rootTypes(out), ['QaAnswerText', 'QaProjectionStrip']);
+  });
+
+  test('invest ideas keep up to 3 option cards, never mixed kinds', () {
+    final out = AssistantLayoutGuard.enforce(
+      _update([
+        ('a', 'QaAnswerText'),
+        ('o1', 'QaInvestOption'),
+        ('o2', 'QaInvestOption'),
+        ('b', 'QaBudgetSplit'),
+        ('o3', 'QaInvestOption'),
+        ('o4', 'QaInvestOption'),
+        ('t', 'QaTipBanner'),
+      ]),
+    );
+    expect(_rootTypes(out), [
+      'QaAnswerText',
+      'QaInvestOption',
+      'QaInvestOption',
+      'QaInvestOption',
+      'QaTipBanner',
+    ]);
   });
 
   test('a "why" answer may add news after a price widget', () {

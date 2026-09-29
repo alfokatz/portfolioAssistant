@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
+import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 
@@ -39,6 +43,11 @@ class _FakeQuoteRepository implements QuoteRepository {
   }
 }
 
+class _NoBrandRepo implements CompanyBrandRepository {
+  @override
+  Future<CompanyBrand?> getBrand(String ticker) async => null;
+}
+
 /// 60 cierres diarios subiendo de 100 a 159 (último: 25 sep 2026).
 final _daily = [
   for (var i = 0; i < 60; i++)
@@ -62,6 +71,8 @@ void main() {
     WidgetTester tester,
     _FakeQuoteRepository repo, {
     PriceChartRange initialRange = PriceChartRange.month,
+    ValueChanged<String>? onFollowUp,
+    double weightPct = 0,
   }) async {
     haptics = [];
     finished = false;
@@ -69,6 +80,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          companyBrandLoaderProvider.overrideWithValue(
+            CompanyBrandLoader(_NoBrandRepo()),
+          ),
           priceChartDataLoaderProvider.overrideWithValue(
             PriceChartDataLoader(repo),
           ),
@@ -81,13 +95,19 @@ void main() {
         ],
         child: MaterialApp(
           home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(16),
-              child: QaPriceChart(
-                ticker: 'AAPL',
-                initialRange: initialRange,
-                fallback: const Text('FALLBACK'),
-                onFinished: () => finished = true,
+            body: QaFollowUpScope(
+              onFollowUp: onFollowUp ?? (_) {},
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  child: QaPriceChart(
+                    ticker: 'AAPL',
+                    initialRange: initialRange,
+                    weightPct: weightPct,
+                    fallback: const Text('FALLBACK'),
+                    onFinished: () => finished = true,
+                  ),
+                ),
               ),
             ),
           ),
@@ -104,6 +124,13 @@ void main() {
           .whereType<PriceLinePainter>()
           .single;
 
+  String hero(WidgetTester tester) =>
+      tester.widget<Text>(find.byKey(QaPriceChart.heroKey)).data!;
+
+  final chartFinder = find.byWidgetPredicate(
+    (w) => w is CustomPaint && w.painter is PriceLinePainter,
+  );
+
   testWidgets('renders the line with range summary and finishes its reveal', (
     tester,
   ) async {
@@ -112,9 +139,16 @@ void main() {
 
     // 1M = últimos 30 días: 129 → 159.
     expect(find.text('AAPL'), findsOneWidget);
-    expect(find.text('\$159.00'), findsOneWidget);
-    expect(find.textContaining('+\$30.00 (+23.26%)'), findsOneWidget);
+    expect(hero(tester), '\$159.00');
+    expect(find.text('\$30.00 (23.26%)'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_drop_up_rounded), findsOneWidget);
     expect(find.textContaining('Último mes'), findsOneWidget);
+    // Stats del rango, calculados de las velas cargadas.
+    expect(find.text('Inicio'), findsOneWidget);
+    // Serie siempre en alza: inicio = mínimo ($129), máximo = último.
+    expect(find.text('\$129.00'), findsNWidgets(2));
+    expect(find.text('Máximo'), findsOneWidget);
+    expect(find.text('Mínimo'), findsOneWidget);
     expect(painter(tester).values.first, 129);
     expect(painter(tester).color, isNot(painter(tester).color.withAlpha(0)));
     expect(finished, isTrue);
@@ -218,8 +252,7 @@ void main() {
       await pump(tester, _FakeQuoteRepository(daily: _daily));
       haptics.clear();
 
-      final chart = find.byType(CustomPaint).last;
-      final box = tester.getRect(chart);
+      final box = tester.getRect(chartFinder);
       final gesture = await tester.startGesture(
         box.centerLeft + const Offset(2, 0),
       );
@@ -230,6 +263,7 @@ void main() {
 
       // Primer punto del rango 1M: 26 ago 2026, $129.
       expect(find.text('\$129.00 · 26 ago 2026'), findsOneWidget);
+      expect(hero(tester), '\$129.00');
       expect(painter(tester).scrubIndex, 0);
       expect(find.textContaining('Último mes'), findsNothing);
       expect(find.textContaining('desde el inicio'), findsOneWidget);
@@ -241,9 +275,32 @@ void main() {
       expect(find.textContaining(' · 26 ago 2026'), findsNothing);
       expect(painter(tester).scrubIndex, isNull);
       expect(find.textContaining('Último mes'), findsOneWidget);
-      expect(find.text('\$159.00'), findsOneWidget);
+      expect(hero(tester), '\$159.00');
     },
   );
+
+  testWidgets('weight tag, high/low references and follow-ups', (tester) async {
+    final sent = <String>[];
+    await pump(
+      tester,
+      _FakeQuoteRepository(daily: _daily),
+      weightPct: 12.4,
+      onFollowUp: sent.add,
+    );
+    expect(find.text('12% de tu portfolio'), findsOneWidget);
+    expect(painter(tester).showReferences, isTrue);
+
+    // Follow-ups: sin "Gráfico" (es esta card), tres como máximo.
+    expect(find.text('Gráfico'), findsNothing);
+    expect(find.text('Noticias'), findsOneWidget);
+    expect(find.text('Earnings'), findsOneWidget);
+    expect(find.text('Fundamentals'), findsOneWidget);
+    expect(find.text('vs. S&P 500'), findsNothing);
+
+    await tester.tap(find.text('Noticias'));
+    await tester.pumpAndSettle();
+    expect(sent, ['¿Qué noticias hay de AAPL?']);
+  });
 
   group('catalog integration', () {
     final catalog = AssistantCatalog.build();
@@ -258,8 +315,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('NVDA'), findsOneWidget);
-        expect(find.text('últimos 7 días'), findsOneWidget); // QaTickerMove
-        expect(find.text('-2.1%'), findsOneWidget);
+        expect(find.text('Últimos 7 días'), findsOneWidget); // QaTickerMove
+        expect(find.text('\$2.59 (2.10%)'), findsOneWidget);
+        expect(find.text('Inicio'), findsOneWidget);
+        // Día / Semana / Mes del payload, como chips.
+        expect(find.text('Semana'), findsOneWidget);
+        expect(find.text('5.80%'), findsOneWidget);
+        // Sin QaFollowUpScope no hay follow-ups.
+        expect(find.text('Noticias'), findsNothing);
       },
     );
   });

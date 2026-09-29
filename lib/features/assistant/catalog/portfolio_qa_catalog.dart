@@ -29,8 +29,17 @@ final _positionItemSchema = S.object(
     'ticker': S.string(),
     'weightPct': S.number(),
     'pnlPct': S.number(),
+    'marketValue': S.number(description: 'positions[].market_value'),
   },
   required: ['ticker', 'weightPct', 'pnlPct'],
+);
+
+final _allocationItemSchema = S.object(
+  properties: {
+    'ticker': S.string(),
+    'weightPct': S.number(description: 'positions[].weight_pct'),
+  },
+  required: ['ticker', 'weightPct'],
 );
 
 final _closedPositionItemSchema = S.object(
@@ -61,11 +70,7 @@ final _moverSchema = S.object(
 );
 
 final _budgetSplitItemSchema = S.object(
-  properties: {
-    'ticker': S.string(),
-    'amount': S.number(),
-    'pct': S.number(),
-  },
+  properties: {'ticker': S.string(), 'amount': S.number(), 'pct': S.number()},
   required: ['ticker', 'amount', 'pct'],
 );
 
@@ -99,8 +104,9 @@ final CatalogItem qaAnswerTextItem = CatalogItem(
     },
     required: ['text'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaAnswerText),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaAnswerText),
   exampleData: [
     () => '''
 [
@@ -126,8 +132,9 @@ final CatalogItem qaMetricStripItem = CatalogItem(
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMetricStrip),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMetricStrip),
   exampleData: [
     () => '''
 [
@@ -153,7 +160,9 @@ final CatalogItem qaTickerSnapshotItem = CatalogItem(
     properties: {
       'ticker': S.string(),
       'currentPrice': S.number(description: 'Precio actual del ticker.'),
-      'dayChangePct': S.number(description: 'Cambio porcentual del último día.'),
+      'dayChangePct': S.number(
+        description: 'Cambio porcentual del último día.',
+      ),
       'weekChangePct': S.number(
         description: 'Cambio porcentual de los últimos 7 días.',
       ),
@@ -166,8 +175,9 @@ final CatalogItem qaTickerSnapshotItem = CatalogItem(
     },
     required: ['ticker', 'currentPrice'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerSnapshot),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerSnapshot),
   exampleData: [
     () => '''
 [
@@ -209,8 +219,9 @@ final CatalogItem qaTickerMoveItem = CatalogItem(
     },
     required: ['ticker', 'periodLabel', 'changePct'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerMove),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTickerMove),
   exampleData: [
     () => '''
 [
@@ -249,7 +260,9 @@ final CatalogItem qaPriceChartItem = CatalogItem(
             '"3M" (trimestre), "1Y" (año), "ALL" (todo el histórico).',
         enumValues: ['1D', '1W', '1M', '3M', '1Y', 'ALL'],
       ),
-      'currentPrice': S.number(description: 'explore_tickers.{T}.current_price.'),
+      'currentPrice': S.number(
+        description: 'explore_tickers.{T}.current_price.',
+      ),
       'dayChangePct': S.number(description: 'periods.day.change_pct.'),
       'weekChangePct': S.number(description: 'periods.week.change_pct.'),
       'monthChangePct': S.number(description: 'periods.month.change_pct.'),
@@ -272,8 +285,9 @@ final CatalogItem qaPriceChartItem = CatalogItem(
     },
     required: ['ticker', 'initialRange', 'currentPrice'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPriceChart),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPriceChart),
   exampleData: [
     () => '''
 [
@@ -296,6 +310,51 @@ final CatalogItem qaPriceChartItem = CatalogItem(
   ],
 );
 
+/// Solo en el catálogo unificado: rendimiento comparado de 2-3 tickers.
+/// La app trae las series sola; `items` es el fallback sin histórico.
+final CatalogItem qaCompareChartItem = CatalogItem(
+  name: 'QaCompareChart',
+  dataSchema: S.object(
+    description:
+        'Rendimiento de precio comparado de 2-3 tickers (una línea por '
+        'ticker, % desde el inicio). La app trae las series.',
+    properties: {
+      'tickers': S.list(items: S.string(), minItems: 2, maxItems: 3),
+      'initialRange': S.string(
+        enumValues: ['1W', '1M', '3M', '1Y'],
+      ),
+      'items': S.list(
+        description: 'Fallback: periods.{period}.change_pct por ticker.',
+        items: S.object(
+          properties: {'ticker': S.string(), 'changePct': S.number()},
+          required: ['ticker', 'changePct'],
+        ),
+        maxItems: 3,
+      ),
+    },
+    required: ['tickers', 'initialRange'],
+  ),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaCompareChart),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "compare_chart",
+    "component": "QaCompareChart",
+    "tickers": ["AAPL", "MSFT"],
+    "initialRange": "1M",
+    "items": [
+      {"ticker": "AAPL", "changePct": -1.96},
+      {"ticker": "MSFT", "changePct": 1.39}
+    ]
+  }
+]
+''',
+  ],
+);
+
 /// Solo en el catálogo unificado (ver `UnifiedAssistantCatalog`): la foto
 /// de las posiciones abiertas que en modo Portfolio hacía `QaMetricStrip`.
 final CatalogItem qaPositionsSnapshotItem = CatalogItem(
@@ -312,11 +371,19 @@ final CatalogItem qaPositionsSnapshotItem = CatalogItem(
       'positionsCount': S.integer(
         description: 'Cantidad de posiciones abiertas (portfolio.positions).',
       ),
+      'positions': S.list(
+        description: 'Reparto por peso, de PORTFOLIO_BRIEF positions[].',
+        items: _allocationItemSchema,
+        maxItems: 10,
+      ),
     },
     required: ['totalValue', 'pnlAbs', 'pnlPct'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPositionsSnapshot),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaPositionsSnapshot,
+      ),
   exampleData: [
     () => '''
 [
@@ -326,7 +393,15 @@ final CatalogItem qaPositionsSnapshotItem = CatalogItem(
     "totalValue": 12450.3,
     "pnlAbs": 1830.5,
     "pnlPct": 17.2,
-    "positionsCount": 6
+    "positionsCount": 6,
+    "positions": [
+      {"ticker": "NVDA", "weightPct": 38.2},
+      {"ticker": "AAPL", "weightPct": 22.5},
+      {"ticker": "MSFT", "weightPct": 18.1},
+      {"ticker": "VOO", "weightPct": 11.4},
+      {"ticker": "KO", "weightPct": 6.3},
+      {"ticker": "TSLA", "weightPct": 3.5}
+    ]
   }
 ]
 ''',
@@ -346,17 +421,20 @@ final CatalogItem qaMetricStripComparisonItem = CatalogItem(
         '(eso es QaPositionsSnapshot).',
     properties: {
       'items': S.list(items: _metricItemSchema, minItems: 2, maxItems: 3),
+      'periodLabel': S.string(description: 'periods.{period}.label_es'),
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMetricStrip),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMetricStrip),
   exampleData: [
     () => '''
 [
   {
     "id": "compare",
     "component": "QaMetricStrip",
+    "periodLabel": "último día",
     "items": [
       {"label": "NVDA", "value": "+3,4%", "trend": "up"},
       {"label": "AMD", "value": "-1,2%", "trend": "down"}
@@ -383,8 +461,9 @@ final CatalogItem qaPeriodChangeItem = CatalogItem(
     },
     required: ['periodLabel', 'changeAbs', 'changePct'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPeriodChange),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPeriodChange),
   exampleData: [
     () => '''
 [
@@ -405,15 +484,24 @@ final CatalogItem qaPeriodChangeItem = CatalogItem(
 final CatalogItem qaConcentrationBarItem = CatalogItem(
   name: 'QaConcentrationBar',
   dataSchema: S.object(
-    description: 'Barras de concentración por ticker (peso %).',
+    description:
+        'Concentración por ticker (peso %), mayor primero. isHighlighted '
+        'resalta las que importan para la respuesta.',
     properties: {
       'title': S.string(),
-      'items': S.list(items: _concentrationItemSchema, minItems: 1, maxItems: 5),
+      'items': S.list(
+        items: _concentrationItemSchema,
+        minItems: 1,
+        maxItems: 5,
+      ),
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaConcentrationBar),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaConcentrationBar,
+      ),
   exampleData: [
     () => '''
 [
@@ -437,6 +525,9 @@ final CatalogItem qaPnLBreakdownItem = CatalogItem(
   dataSchema: S.object(
     description: 'Desglose invertido → valor actual → resultado.',
     properties: {
+      'title': S.string(
+        description: 'Opcional, ej. "Desde la compra" o "Resultado realizado".',
+      ),
       'costBasis': S.number(),
       'currentValue': S.number(),
       'gainLoss': S.number(),
@@ -444,14 +535,16 @@ final CatalogItem qaPnLBreakdownItem = CatalogItem(
     },
     required: ['costBasis', 'currentValue', 'gainLoss', 'gainLossPercent'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPnLBreakdown),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPnLBreakdown),
   exampleData: [
     () => '''
 [
   {
     "id": "pnl",
     "component": "QaPnLBreakdown",
+    "title": "Desde la compra",
     "costBasis": 23110.50,
     "currentValue": 24350.80,
     "gainLoss": 1240.30,
@@ -479,8 +572,8 @@ final CatalogItem qaTopMoversItem = CatalogItem(
     },
     required: ['best', 'worst'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTopMovers),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTopMovers),
   exampleData: [
     () => '''
 [
@@ -512,18 +605,17 @@ final CatalogItem qaClosedPositionListItem = CatalogItem(
     description: 'Lista compacta de posiciones cerradas con P&L realizado.',
     properties: {
       'title': S.string(),
-      'items': S.list(
-        items: _closedPositionItemSchema,
-        minItems: 1,
-        maxItems: 6,
-      ),
+      'items': S.list(items: _closedPositionItemSchema, maxItems: 6),
+      'totalPnlAbs': S.number(description: 'closed_pnl_total_abs'),
+      'totalPnlPct': S.number(description: 'closed_pnl_total_pct'),
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) => guardedCatalogWidget(
-    ctx,
-    PortfolioQaCatalogWidgets.qaClosedPositionList,
-  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaClosedPositionList,
+      ),
   exampleData: [
     () => '''
 [
@@ -531,6 +623,8 @@ final CatalogItem qaClosedPositionListItem = CatalogItem(
     "id": "closed_positions",
     "component": "QaClosedPositionList",
     "title": "Posiciones cerradas",
+    "totalPnlAbs": 155,
+    "totalPnlPct": 5.8,
     "items": [
       {"ticker": "AAPL", "pnlPct": 12.5, "pnlAbs": 240, "closeDateLabel": "3 jun 2026"},
       {"ticker": "TSLA", "pnlPct": -4.1, "pnlAbs": -85, "closeDateLabel": "15 may 2026"}
@@ -544,15 +638,16 @@ final CatalogItem qaClosedPositionListItem = CatalogItem(
 final CatalogItem qaPositionListItem = CatalogItem(
   name: 'QaPositionList',
   dataSchema: S.object(
-    description: 'Lista compacta de posiciones con peso y P&L %.',
+    description: 'Lista de posiciones con peso y P&L %, mayor peso primero.',
     properties: {
       'title': S.string(),
-      'items': S.list(items: _positionItemSchema, minItems: 1, maxItems: 6),
+      'items': S.list(items: _positionItemSchema, minItems: 1, maxItems: 12),
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPositionList),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaPositionList),
   exampleData: [
     () => '''
 [
@@ -561,14 +656,21 @@ final CatalogItem qaPositionListItem = CatalogItem(
     "component": "QaPositionList",
     "title": "Tus posiciones",
     "items": [
-      {"ticker": "AAPL", "weightPct": 23.0, "pnlPct": 8.1},
-      {"ticker": "MSFT", "weightPct": 18.5, "pnlPct": 4.2}
+      {"ticker": "AAPL", "weightPct": 23.0, "pnlPct": 8.1, "marketValue": 2864},
+      {"ticker": "MSFT", "weightPct": 18.5, "pnlPct": -4.2, "marketValue": 2303}
     ]
   }
 ]
 ''',
   ],
 );
+
+const _fundamentalsGroupEnum = [
+  'valuation',
+  'profitability',
+  'dividend',
+  'other',
+];
 
 final _fundamentalsMetricItemSchema = S.object(
   properties: {
@@ -583,6 +685,13 @@ final _fundamentalsMetricItemSchema = S.object(
           'fundamentals.{TICKER} — nunca inventado. Ej. "38,6x", "\$4,98T", '
           '"27,6%".',
     ),
+    'group': S.string(
+      enumValues: _fundamentalsGroupEnum,
+      description:
+          'Sección: valuation (P/E, P/B, EV/EBITDA, market cap), '
+          'profitability (márgenes, ROE, ROA, EPS), dividend (yield, '
+          'payout), other (beta, volumen).',
+    ),
   },
   required: ['label', 'value'],
 );
@@ -592,21 +701,30 @@ final CatalogItem qaFundamentalsItem = CatalogItem(
   dataSchema: S.object(
     description:
         'Métricas fundamentales de UN ticker (valuación, rentabilidad, '
-        'dividendo, rango de 52 semanas), tomadas de fundamentals.{TICKER}. '
-        'Lista flexible de 1-6 pares label/value: incluí solo los '
-        'indicadores relevantes a la pregunta, no todos los disponibles.',
+        'dividendo), tomadas de fundamentals.{TICKER}. Lista flexible de '
+        '1-8 pares label/value: incluí solo los indicadores relevantes a la '
+        'pregunta, no todos los disponibles. El rango de 52 semanas va en '
+        'week52Low/week52High, no como item.',
     properties: {
       'ticker': S.string(),
+      'industry': S.string(description: 'fundamentals.industry (opcional).'),
       'items': S.list(
         items: _fundamentalsMetricItemSchema,
         minItems: 1,
-        maxItems: 6,
+        maxItems: 8,
+      ),
+      'week52Low': S.number(description: 'week_52_low (opcional).'),
+      'week52High': S.number(description: 'week_52_high (opcional).'),
+      'currentPrice': S.number(
+        description:
+            'Precio actual de get_quote, solo si ya lo llamaste (opcional).',
       ),
     },
     required: ['ticker', 'items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaFundamentals),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaFundamentals),
   exampleData: [
     () => '''
 [
@@ -614,12 +732,16 @@ final CatalogItem qaFundamentalsItem = CatalogItem(
     "id": "fundamentals",
     "component": "QaFundamentals",
     "ticker": "AAPL",
+    "industry": "Technology",
     "items": [
-      {"label": "P/E (TTM)", "value": "38,6x"},
-      {"label": "Market cap", "value": "\$4,98T"},
-      {"label": "Margen neto", "value": "27,6%"},
-      {"label": "Dividend yield", "value": "0,51%"}
-    ]
+      {"label": "P/E (TTM)", "value": "38,6x", "group": "valuation"},
+      {"label": "Market cap", "value": "\$4,98T", "group": "valuation"},
+      {"label": "Margen neto", "value": "27,6%", "group": "profitability"},
+      {"label": "ROE", "value": "151,9%", "group": "profitability"},
+      {"label": "Dividend yield", "value": "0,51%", "group": "dividend"}
+    ],
+    "week52Low": 169.21,
+    "week52High": 260.10
   }
 ]
 ''',
@@ -638,24 +760,49 @@ final _newsItemSchema = S.object(
           '"18 sep 2026" — debe reflejar la antigüedad real.',
     ),
     'source': S.string(description: 'Medio/fuente de la noticia (opcional).'),
+    'url': S.string(
+      description:
+          'news[].url copiada TAL CUAL de get_news (la app la usa para la '
+          'imagen y el link). Nunca inventada.',
+    ),
+    'ticker': S.string(
+      description: 'news[].ticker, solo si la card mezcla varios tickers.',
+    ),
   },
   required: ['headline', 'summaryLine', 'dateLabel'],
+);
+
+final _epsQuarterSchema = S.object(
+  properties: {
+    'periodLabel': S.string(description: 'fiscal_period_label, ej. "T2 FY26".'),
+    'epsActual': S.number(),
+    'epsEstimate': S.number(),
+  },
+  required: ['periodLabel', 'epsActual', 'epsEstimate'],
 );
 
 final CatalogItem qaEarningsCalendarItem = CatalogItem(
   name: 'QaEarningsCalendar',
   dataSchema: S.object(
     description:
-        'Próximo reporte de resultados de un ticker y/o cómo le fue en su '
-        'último reporte (real vs. esperado por el mercado). Los dos bloques '
-        'son independientes: usa nextReportDateLabel para "¿cuándo reporta '
-        'X?" y los campos eps* para "¿cómo le fue a X?".',
+        'Próximo reporte de resultados de un ticker y/o cómo le fue en sus '
+        'últimos reportes (real vs. esperado por el mercado). Los bloques '
+        'son independientes: nextReport* para "¿cuándo reporta X?", eps* + '
+        'history para "¿cómo le fue a X?".',
     properties: {
       'ticker': S.string(),
       'nextReportDateLabel': S.string(
         description:
             'Fecha del próximo reporte, legible, ej. "13 nov 2026" '
             '(omitir si no hay reporte próximo programado).',
+      ),
+      'nextReportDate': S.string(
+        description:
+            'next_report.date (ISO "2026-11-13"), junto con '
+            'nextReportDateLabel — la app calcula la cuenta regresiva.',
+      ),
+      'timingLabel': S.string(
+        description: 'next_report.timing_label (opcional).',
       ),
       'fiscalPeriodLabel': S.string(
         description: 'Ej. "T3 FY26" (opcional, junto con nextReportDateLabel).',
@@ -669,7 +816,9 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
             'que es la comparación del último reporte YA publicado.',
       ),
       'latestReportDateLabel': S.string(
-        description: 'Fecha del último reporte ya publicado (opcional).',
+        description:
+            'latest_result.report_date_label, o su fiscal_period_label si '
+            'no hay fecha (opcional).',
       ),
       'epsActual': S.number(
         description: 'EPS real del último reporte (opcional).',
@@ -680,11 +829,21 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
       'beat': S.boolean(
         description: 'true si epsActual superó epsEstimate (opcional).',
       ),
+      'history': S.list(
+        description:
+            'get_earnings history copiado en el mismo orden (más viejo '
+            'primero), para "¿cómo le fue?" (opcional).',
+        items: _epsQuarterSchema,
+        maxItems: 4,
+      ),
     },
     required: ['ticker'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaEarningsCalendar),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaEarningsCalendar,
+      ),
   exampleData: [
     () => '''
 [
@@ -693,6 +852,8 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
     "component": "QaEarningsCalendar",
     "ticker": "NVDA",
     "nextReportDateLabel": "13 nov 2026",
+    "nextReportDate": "2026-11-13",
+    "timingLabel": "Después del cierre",
     "fiscalPeriodLabel": "T3 FY26",
     "nextEpsEstimate": 1.28
   }
@@ -711,6 +872,29 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
   }
 ]
 ''',
+    () => '''
+[
+  {
+    "id": "earnings_full",
+    "component": "QaEarningsCalendar",
+    "ticker": "TSLA",
+    "nextReportDateLabel": "20 oct 2026",
+    "nextReportDate": "2026-10-20",
+    "fiscalPeriodLabel": "T3 FY26",
+    "nextEpsEstimate": 0.45,
+    "latestReportDateLabel": "22 jul 2026",
+    "epsActual": 0.40,
+    "epsEstimate": 0.43,
+    "beat": false,
+    "history": [
+      {"periodLabel": "T3 FY25", "epsActual": 0.50, "epsEstimate": 0.55},
+      {"periodLabel": "T4 FY25", "epsActual": 0.50, "epsEstimate": 0.47},
+      {"periodLabel": "T1 FY26", "epsActual": 0.27, "epsEstimate": 0.41},
+      {"periodLabel": "T2 FY26", "epsActual": 0.40, "epsEstimate": 0.43}
+    ]
+  }
+]
+''',
   ],
 );
 
@@ -719,15 +903,17 @@ final CatalogItem qaNewsSummaryItem = CatalogItem(
   dataSchema: S.object(
     description:
         '2-3 titulares recientes de un ticker, resumidos en una línea cada '
-        'uno en lenguaje llano, con fecha visible.',
+        'uno en lenguaje llano, con fecha visible. Cada item lleva la url '
+        'de get_news.',
     properties: {
       'ticker': S.string(),
       'items': S.list(items: _newsItemSchema, minItems: 1, maxItems: 3),
     },
     required: ['ticker', 'items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaNewsSummary),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaNewsSummary),
   exampleData: [
     () => '''
 [
@@ -740,13 +926,15 @@ final CatalogItem qaNewsSummaryItem = CatalogItem(
         "headline": "Apple supera expectativas de ingresos en el trimestre",
         "summaryLine": "Los ingresos por servicios impulsaron el resultado por encima de lo esperado.",
         "dateLabel": "hace 2 días",
-        "source": "Reuters"
+        "source": "Reuters",
+        "url": "https://www.reuters.com/technology/apple-results"
       },
       {
         "headline": "Apple anuncia nueva línea de chips propios",
         "summaryLine": "La compañía busca reducir su dependencia de proveedores externos.",
         "dateLabel": "hace 5 días",
-        "source": "Bloomberg"
+        "source": "Bloomberg",
+        "url": "https://www.bloomberg.com/news/apple-chips"
       }
     ]
   }
@@ -765,8 +953,8 @@ final CatalogItem qaTipBannerItem = CatalogItem(
     },
     required: ['message', 'tone'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTipBanner),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaTipBanner),
   exampleData: [
     () => '''
 [
@@ -784,24 +972,30 @@ final CatalogItem qaTipBannerItem = CatalogItem(
 final CatalogItem qaInvestOptionItem = CatalogItem(
   name: 'QaInvestOption',
   dataSchema: S.object(
-    description:
-        'Tarjeta de opción de inversión educativa con fit score y pros/contras.',
+    description: 'UN candidato de inversión educativa; una card por candidato.',
     properties: {
       'ticker': S.string(),
-      'thesis': S.string(description: 'Tesis breve en una línea.'),
+      'thesis': S.string(description: 'Tesis breve (1-2 frases).'),
       'fitScore': S.number(
-        description: 'Puntuación de encaje 0-100 (desde candidates[].fit_score).',
+        description:
+            'Puntuación de encaje 0-100 (desde candidates[].fit_score).',
       ),
       'pro': S.string(description: 'Argumento a favor.'),
       'con': S.string(description: 'Argumento en contra.'),
       'currentPrice': S.number(
-        description: 'Precio actual (opcional, desde candidates[].current_price).',
+        description:
+            'Precio actual (opcional, desde candidates[].current_price).',
       ),
+      'weekChangePct': S.number(description: 'candidates[].week_change_pct'),
+      'riskLevel': S.string(description: 'candidates[].risk_level'),
+      'sector': S.string(description: 'candidates[].sector'),
+      'budgetUsd': S.number(description: 'budget_usd, si has_budget'),
     },
     required: ['ticker', 'thesis', 'fitScore', 'pro', 'con'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestOption),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestOption),
   exampleData: [
     () => '''
 [
@@ -809,11 +1003,15 @@ final CatalogItem qaInvestOptionItem = CatalogItem(
     "id": "invest_option",
     "component": "QaInvestOption",
     "ticker": "NVDA",
-    "thesis": "Líder en IA con fuerte momentum semanal",
-    "fitScore": 78,
+    "thesis": "Líder en chips para IA",
+    "fitScore": 85,
     "pro": "Diversifica fuera de tu sector dominante",
     "con": "Alta volatilidad y valuación elevada",
-    "currentPrice": 120.50
+    "currentPrice": 120.50,
+    "weekChangePct": 2.4,
+    "riskLevel": "crecimiento",
+    "sector": "Tecnología",
+    "budgetUsd": 500
   }
 ]
 ''',
@@ -823,22 +1021,18 @@ final CatalogItem qaInvestOptionItem = CatalogItem(
 final CatalogItem qaBudgetSplitItem = CatalogItem(
   name: 'QaBudgetSplit',
   dataSchema: S.object(
-    description:
-        'Distribución educativa del presupuesto entre 2-4 tickers.',
+    description: 'Distribución educativa del presupuesto entre 2-4 tickers.',
     properties: {
       'totalBudget': S.number(
         description: 'Presupuesto total en USD (desde budget_usd).',
       ),
-      'items': S.list(
-        items: _budgetSplitItemSchema,
-        minItems: 2,
-        maxItems: 4,
-      ),
+      'items': S.list(items: _budgetSplitItemSchema, minItems: 2, maxItems: 4),
     },
     required: ['totalBudget', 'items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaBudgetSplit),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaBudgetSplit),
   exampleData: [
     () => '''
 [
@@ -877,8 +1071,9 @@ final CatalogItem qaInvestConfirmItem = CatalogItem(
     },
     required: ['summary', 'budgetUsd', 'tickers'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestConfirm),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaInvestConfirm),
   exampleData: [
     () => '''
 [
@@ -899,7 +1094,9 @@ final CatalogItem qaGoalCardItem = CatalogItem(
   dataSchema: S.object(
     description: 'Tarjeta de meta financiera con monto objetivo y fecha.',
     properties: {
-      'label': S.string(description: 'Nombre de la meta (desde active_goal.label).'),
+      'label': S.string(
+        description: 'Nombre de la meta (desde active_goal.label).',
+      ),
       'targetAmount': S.number(
         description: 'Monto objetivo en USD (desde active_goal.target_amount).',
       ),
@@ -910,21 +1107,23 @@ final CatalogItem qaGoalCardItem = CatalogItem(
         description:
             'Monto actual en USD (opcional, desde current_portfolio_value).',
       ),
+      'monthsRemaining': S.number(description: 'projection.months_remaining'),
     },
     required: ['label', 'targetAmount', 'targetDateLabel'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoalCard),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoalCard),
   exampleData: [
     () => '''
 [
   {
     "id": "goal",
     "component": "QaGoalCard",
-    "label": "Fondo de emergencia",
+    "label": "Casa",
     "targetAmount": 50000,
     "targetDateLabel": "1 ene 2030",
-    "currentAmount": 12000
+    "currentAmount": 12000,
+    "monthsRemaining": 39
   }
 ]
 ''',
@@ -938,7 +1137,8 @@ final CatalogItem qaProjectionStripItem = CatalogItem(
         'Fila de 2-3 métricas de proyección (desde get_goal_projection.projection).',
     properties: {
       'requiredMonthlySavings': S.number(
-        description: 'Ahorro mensual requerido (projection.required_monthly_savings).',
+        description:
+            'Ahorro mensual requerido (projection.required_monthly_savings).',
       ),
       'monthlyContributionUsed': S.number(
         description:
@@ -952,13 +1152,17 @@ final CatalogItem qaProjectionStripItem = CatalogItem(
             'Monto proyectado a la fecha (projection.projected_amount_at_date).',
       ),
       'onTrack': S.boolean(
-        description: 'Si el aporte actual alcanza la meta (projection.on_track).',
+        description:
+            'Si el aporte actual alcanza la meta (projection.on_track).',
       ),
     },
     required: ['monthsRemaining'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaProjectionStrip),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaProjectionStrip,
+      ),
   exampleData: [
     () => '''
 [
@@ -989,11 +1193,15 @@ final CatalogItem qaProjectionChartItem = CatalogItem(
         minItems: 2,
         maxItems: 12,
       ),
+      'targetAmount': S.number(description: 'active_goal.target_amount'),
     },
     required: ['label', 'points'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaProjectionChart),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(
+        ctx,
+        PortfolioQaCatalogWidgets.qaProjectionChart,
+      ),
   exampleData: [
     () => '''
 [
@@ -1006,7 +1214,8 @@ final CatalogItem qaProjectionChartItem = CatalogItem(
       {"label": "Año 1", "value": 9800},
       {"label": "Año 2", "value": 14900},
       {"label": "Año 3", "value": 20600}
-    ]
+    ],
+    "targetAmount": 25000
   }
 ]
 ''',
@@ -1016,19 +1225,18 @@ final CatalogItem qaProjectionChartItem = CatalogItem(
 final CatalogItem qaMilestoneListItem = CatalogItem(
   name: 'QaMilestoneList',
   dataSchema: S.object(
-    description: 'Lista compacta de hitos de la meta (desde get_goal_projection.milestones).',
+    description:
+        'Lista compacta de hitos de la meta (desde get_goal_projection.milestones).',
     properties: {
       'title': S.string(),
-      'items': S.list(
-        items: _milestoneItemSchema,
-        minItems: 1,
-        maxItems: 4,
-      ),
+      'items': S.list(items: _milestoneItemSchema, minItems: 1, maxItems: 4),
+      'currentAmount': S.number(description: 'current_portfolio_value'),
     },
     required: ['items'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMilestoneList),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMilestoneList),
   exampleData: [
     () => '''
 [
@@ -1036,6 +1244,7 @@ final CatalogItem qaMilestoneListItem = CatalogItem(
     "id": "milestones",
     "component": "QaMilestoneList",
     "title": "Hitos de la meta",
+    "currentAmount": 14000,
     "items": [
       {"label": "25%", "amount": 12500, "dateLabel": "10 jun 2027"},
       {"label": "50%", "amount": 25000, "dateLabel": "10 jun 2028"},
@@ -1051,7 +1260,9 @@ final CatalogItem qaMilestoneListItem = CatalogItem(
 final CatalogItem qaComparisonRowItem = CatalogItem(
   name: 'QaComparisonRow',
   dataSchema: S.object(
-    description: 'Comparación lado a lado de dos activos o métricas.',
+    description:
+        'Dos tickers lado a lado con un valor cada uno (ej. P&L de tus '
+        'posiciones); resalta el mayor.',
     properties: {
       'label': S.string(),
       'leftTicker': S.string(),
@@ -1060,16 +1271,11 @@ final CatalogItem qaComparisonRowItem = CatalogItem(
       'rightValue': S.string(),
       'metricLabel': S.string(),
     },
-    required: [
-      'label',
-      'leftTicker',
-      'leftValue',
-      'rightTicker',
-      'rightValue',
-    ],
+    required: ['label', 'leftTicker', 'leftValue', 'rightTicker', 'rightValue'],
   ),
-  widgetBuilder: (ctx) =>
-      guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaComparisonRow),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaComparisonRow),
   exampleData: [
     () => '''
 [

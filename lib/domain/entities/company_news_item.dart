@@ -7,6 +7,7 @@ class CompanyNewsItem {
     required this.url,
     required this.source,
     required this.publishedAt,
+    this.imageUrl,
   });
 
   final String ticker;
@@ -15,4 +16,8 @@ class CompanyNewsItem {
   final String url;
   final String source;
   final DateTime publishedAt;
+
+  /// Imagen de portada que publica el medio. Solo la usa la card (vía
+  /// `NewsMediaIndex`) — nunca se le manda al modelo.
+  final String? imageUrl;
 }

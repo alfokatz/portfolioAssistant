@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -22,8 +23,8 @@ class QaCardShell extends StatelessWidget {
     super.key,
     required Widget child,
     this.highlighted = false,
-    this.padding = const EdgeInsets.all(AppDimens.sp12),
-    this.margin = const EdgeInsets.symmetric(vertical: AppDimens.sp4),
+    this.padding = const EdgeInsets.all(QaSpace.cardPadding),
+    this.margin = const EdgeInsets.symmetric(vertical: AppDimens.sp6),
   }) : child = child,
        staged = null;
 
@@ -38,8 +39,8 @@ class QaCardShell extends StatelessWidget {
     required Widget Function(BuildContext, bool active, VoidCallback onFinished)
     staged,
     this.highlighted = false,
-    this.padding = const EdgeInsets.all(AppDimens.sp12),
-    this.margin = const EdgeInsets.symmetric(vertical: AppDimens.sp4),
+    this.padding = const EdgeInsets.all(QaSpace.cardPadding),
+    this.margin = const EdgeInsets.symmetric(vertical: AppDimens.sp6),
   }) : child = null,
        staged = staged;
 
@@ -52,11 +53,13 @@ class QaCardShell extends StatelessWidget {
 
   Widget _decorate(Widget inner) {
     return Container(
+      width: double.infinity,
       margin: margin,
       padding: padding,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: PortfolioColors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderRadius: BorderRadius.circular(QaSpace.cardRadius),
         border: Border.all(
           color:
               highlighted
@@ -75,7 +78,15 @@ class QaCardShell extends StatelessWidget {
                     blurRadius: AppDimens.glowBlurSm,
                   ),
                 ]
-                : null,
+                // Sombra casi imperceptible: despega la card del fondo
+                // cálido sin el look "material elevado".
+                : const [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 2),
+                  ),
+                ],
       ),
       child: inner,
     );

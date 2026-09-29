@@ -1,9 +1,14 @@
 import 'dart:convert';
 
 /// Hace cumplir la regla de LAYOUT de Porty sobre el A2UI ya normalizado:
-/// el Column raíz lleva QaAnswerText, UN widget de datos y QaTipBanner. La
-/// única excepción es QaNewsSummary acompañando a un widget de precio (una
-/// pregunta de "por qué se movió").
+/// el Column raíz lleva QaAnswerText, UN widget de datos y QaTipBanner.
+/// Excepciones (composiciones diseñadas como tales):
+/// - QaNewsSummary acompañando a un widget de precio ("por qué se movió").
+/// - Hasta [maxInvestOptions] QaInvestOption: pedir ideas nombra varios
+///   candidatos en el texto, y cada uno necesita su card (antes se veía
+///   solo el primero, aunque el texto hablara de tres).
+/// - QaGoalCard + un QaProjectionStrip: la meta sin el ahorro mensual
+///   necesario deja la respuesta a medias.
 ///
 /// Está en el prompt, pero gpt-4.1-mini a veces igual suma un gráfico por
 /// ticker a una comparación, o tres widgets de proyección juntos (medido en
@@ -17,6 +22,8 @@ abstract final class AssistantLayoutGuard {
     'QaTickerSnapshot',
     'QaPeriodChange',
   };
+
+  static const maxInvestOptions = 3;
 
   static String enforce(String normalized) {
     final lines = normalized.split('\n');
@@ -54,6 +61,8 @@ abstract final class AssistantLayoutGuard {
     final kept = <String>[];
     final dropped = <String>{};
     String? primary;
+    int count(String type) =>
+        kept.where((k) => byId[k]?['component'] == type).length;
     for (final id in children.whereType<String>()) {
       final type = byId[id]?['component'];
       if (type == null || _nonData.contains(type)) {
@@ -63,7 +72,15 @@ abstract final class AssistantLayoutGuard {
         kept.add(id);
       } else if (type == 'QaNewsSummary' &&
           _priceWidgets.contains(primary) &&
-          !kept.any((k) => byId[k]?['component'] == 'QaNewsSummary')) {
+          count('QaNewsSummary') == 0) {
+        kept.add(id);
+      } else if (type == 'QaInvestOption' &&
+          primary == 'QaInvestOption' &&
+          count('QaInvestOption') < maxInvestOptions) {
+        kept.add(id);
+      } else if (type == 'QaProjectionStrip' &&
+          primary == 'QaGoalCard' &&
+          count('QaProjectionStrip') == 0) {
         kept.add(id);
       } else {
         dropped.add(id);

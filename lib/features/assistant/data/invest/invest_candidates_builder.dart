@@ -62,7 +62,6 @@ abstract final class InvestCandidatesBuilder {
           ticker: ticker,
           profile: profiles[ticker],
           quoteRepository: quoteRepository,
-          hasBudget: hasBudget,
           concentration: concentration,
           investorProfile: investorProfile,
           sector: sectorByTicker[ticker] ?? SectorDisplayName.unclassified,
@@ -86,22 +85,22 @@ abstract final class InvestCandidatesBuilder {
     required String ticker,
     required YahooCompanyProfile? profile,
     required QuoteRepository quoteRepository,
-    required bool hasBudget,
     required SectorConcentration concentration,
     required InvestorProfile? investorProfile,
     required String sector,
   }) async {
     final riskLevel = ProfileCandidateMatcher.riskLevelForBeta(profile?.beta);
+    final matchesProfile = ProfileCandidateMatcher.matchesProfile(
+      riskLevel,
+      investorProfile,
+    );
     final descriptive = <String, Object?>{
       'ticker': ticker,
       'sector': sector,
       if (profile?.industry != null) 'industry': profile!.industry,
       if (profile?.beta != null) 'beta': _round2(profile!.beta!),
       'risk_level': riskLevel,
-      'matches_profile': ProfileCandidateMatcher.matchesProfile(
-        riskLevel,
-        investorProfile,
-      ),
+      'matches_profile': matchesProfile,
     };
     final sectorOverlapPct = concentration.sectorWeights[sector];
     final addsDiversification =
@@ -115,9 +114,9 @@ abstract final class InvestCandidatesBuilder {
         'fetch_ok': false,
         'fit_score': computeFitScore(
           fetchOk: false,
-          hasBudget: hasBudget,
           addsDiversification: addsDiversification,
           sectorOverlapPct: sectorOverlapPct,
+          matchesProfile: matchesProfile,
         ),
       };
     }
@@ -137,9 +136,9 @@ abstract final class InvestCandidatesBuilder {
       'fetch_ok': true,
       'fit_score': computeFitScore(
         fetchOk: true,
-        hasBudget: hasBudget,
         addsDiversification: addsDiversification,
         sectorOverlapPct: sectorOverlapPct,
+        matchesProfile: matchesProfile,
       ),
     };
   }

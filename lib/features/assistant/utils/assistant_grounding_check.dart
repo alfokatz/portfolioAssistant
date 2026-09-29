@@ -17,8 +17,13 @@ abstract final class AssistantGroundingCheck {
   static const _requires = <String, Set<String>>{
     'QaPriceChart': {'get_quote'},
     'QaTickerSnapshot': {'get_quote'},
+    'QaCompareChart': {'get_quote'},
     'QaTickerMove': {'get_quote', 'get_portfolio_details'},
     'QaMetricStrip': {'get_quote', 'get_portfolio_details'},
+    // El detalle por operación cerrada solo viene de la tool (el brief trae
+    // totales): sin ella el modelo inventa filas ("VOO -3%" sin haberla
+    // cerrado — visto en evals).
+    'QaClosedPositionList': {'get_portfolio_details'},
     'QaFundamentals': {'get_fundamentals'},
     'QaEarningsCalendar': {'get_earnings'},
     'QaNewsSummary': {'get_news'},

@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -577,16 +578,19 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
-      final surface = PortfolioQaAssistantSurface(
-        surfaceId: message.surfaceId!,
-        surfaceContext: service.controller.contextFor(
-          message.surfaceId!,
+      final surface = QaFollowUpScope(
+        onFollowUp: (question) => _startAutoType(notifier, question),
+        child: PortfolioQaAssistantSurface(
+          surfaceId: message.surfaceId!,
+          surfaceContext: service.controller.contextFor(
+            message.surfaceId!,
+          ),
+          startFullyRevealed: message.hasRevealed,
+          onFullyRevealed: () {
+            _markRevealDone?.call();
+            notifier.markRevealed(message.surfaceId!);
+          },
         ),
-        startFullyRevealed: message.hasRevealed,
-        onFullyRevealed: () {
-          _markRevealDone?.call();
-          notifier.markRevealed(message.surfaceId!);
-        },
       );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.

@@ -1,16 +1,20 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_market_parts.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 
-/// Gráfico de precio histórico estilo Quartz / Apple Stocks: línea suavizada
-/// con gradiente a transparente debajo, sin ejes ni grilla, selector de
-/// período y scrub táctil con tooltip.
+/// Gráfico de precio histórico estilo Quartz / Apple Stocks: identidad del
+/// ticker, precio protagonista, línea suavizada con gradiente, referencia
+/// punteada al inicio del período, máximo/mínimo rotulados, selector de
+/// período, stats del rango y follow-ups.
 ///
 /// Cambiar de período es puramente cliente — refetchea vía
 /// [PriceChartDataLoader] (nunca vuelve a llamar a Porty) y cachea cada
@@ -44,7 +48,11 @@ class QaPriceChart extends StatefulWidget {
   final bool active;
   final VoidCallback? onFinished;
 
-  static const chartHeight = 150.0;
+  static const chartHeight = 160.0;
+
+  /// Key del precio protagonista (para tests: el mismo monto puede
+  /// aparecer también como "Máximo" en los stats).
+  static const heroKey = ValueKey('qa_price_chart_hero');
 
   @override
   State<QaPriceChart> createState() => _QaPriceChartState();
@@ -200,20 +208,22 @@ class _QaPriceChartState extends State<QaPriceChart>
     final color = isUp ? PortfolioColors.profit : PortfolioColors.loss;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Header(
+        QaTickerHeader(
           ticker: widget.ticker,
-          weightPct: widget.weightPct,
+          trailing: QaMarketParts.weightTag(widget.weightPct),
+        ),
+        const SizedBox(height: QaSpace.sectionGap),
+        _Hero(
           candles: shown,
           range: _range,
-          scrubIndex: _scrubIndex,
-          color: color,
+          scrubIndex: candles == null ? null : _scrubIndex,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         SizedBox(
-          height: 30,
+          height: 28,
           child:
               candles != null && _scrubIndex != null
                   ? _ScrubTooltip(
@@ -228,8 +238,27 @@ class _QaPriceChartState extends State<QaPriceChart>
           width: double.infinity,
           child: _buildChartArea(shown, loading, color),
         ),
-        const SizedBox(height: 10),
-        _RangeSelector(selected: _range, onSelected: _selectRange),
+        const SizedBox(height: QaSpace.gap),
+        QaRangeTabs(
+          ranges: PriceChartRange.values,
+          selected: _range,
+          onSelected: _selectRange,
+        ),
+        if (shown != null) ...[
+          const SizedBox(height: QaSpace.sectionGap),
+          AnimatedOpacity(
+            opacity: loading ? 0.4 : 1,
+            duration: const Duration(milliseconds: 150),
+            child: _RangeStats(candles: shown, range: _range),
+          ),
+        ],
+        QaFollowUpBar(
+          items:
+              QaTickerFollowUps.of(
+                widget.ticker,
+                exclude: {QaTickerFollowUps.chart},
+              ).take(3).toList(),
+        ),
       ],
     );
   }
@@ -237,22 +266,10 @@ class _QaPriceChartState extends State<QaPriceChart>
   Widget _buildChartArea(List<PriceCandle>? shown, bool loading, Color color) {
     if (shown == null) {
       if (loading || !_cache.containsKey(_range)) {
-        return const Center(
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: PortfolioColors.textSecondary,
-            ),
-          ),
-        );
+        return const QaChartSpinner();
       }
-      return const Center(
-        child: Text(
-          'Sin datos para este período',
-          style: TextStyle(color: PortfolioColors.textSecondary, fontSize: 12),
-        ),
+      return Center(
+        child: Text('Sin datos para este período', style: QaText.label),
       );
     }
 
@@ -265,6 +282,11 @@ class _QaPriceChartState extends State<QaPriceChart>
             painter: PriceLinePainter(
               values: closes,
               color: color,
+              // El painter no hereda el theme: sin esto los rótulos salen
+              // en la fuente del sistema en vez de Plus Jakarta Sans.
+              labelStyle: DefaultTextStyle.of(
+                context,
+              ).style.merge(QaText.caption),
               progress: Curves.easeOutCubic.transform(_draw.value),
               scrubIndex: loading ? null : _scrubIndex,
             ),
@@ -300,60 +322,19 @@ class _QaPriceChartState extends State<QaPriceChart>
   }
 }
 
-final _currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-
-const _monthsEs = [
-  'ene',
-  'feb',
-  'mar',
-  'abr',
-  'may',
-  'jun',
-  'jul',
-  'ago',
-  'sep',
-  'oct',
-  'nov',
-  'dic',
-];
-
-String _formatDate(DateTime date, PriceChartRange range) {
-  if (range == PriceChartRange.day) {
-    final h = date.hour.toString().padLeft(2, '0');
-    final m = date.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-  return '${date.day} ${_monthsEs[date.month - 1]} ${date.year}';
-}
-
-String _rangeSummaryLabel(PriceChartRange range) => switch (range) {
-  PriceChartRange.day => 'Hoy',
-  PriceChartRange.week => 'Última semana',
-  PriceChartRange.month => 'Último mes',
-  PriceChartRange.quarter => 'Últimos 3 meses',
-  PriceChartRange.year => 'Último año',
-  PriceChartRange.all => 'Todo el histórico',
-};
-
-/// Ticker + precio + variación. Sin scrub: resumen del rango completo
-/// (último precio y variación total). Durante el scrub: precio del punto
+/// Precio protagonista + chip de variación del rango. Sin scrub: último
+/// precio y variación total del rango. Durante el scrub: precio del punto
 /// y variación desde el inicio del rango hasta ese punto.
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.ticker,
-    required this.weightPct,
+class _Hero extends StatelessWidget {
+  const _Hero({
     required this.candles,
     required this.range,
     required this.scrubIndex,
-    required this.color,
   });
 
-  final String ticker;
-  final double weightPct;
   final List<PriceCandle>? candles;
   final PriceChartRange range;
   final int? scrubIndex;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -365,72 +346,78 @@ class _Header extends StatelessWidget {
         point != null && start != null ? point.close - start : 0.0;
     final changePct =
         start != null && start != 0 ? changeAbs / start * 100 : 0.0;
-    final sign = changeAbs >= 0 ? '+' : '-';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Text(
-              ticker,
-              style: const TextStyle(
-                color: PortfolioColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Spacer(),
-            if (weightPct > 0)
-              Text(
-                '${weightPct.toStringAsFixed(1)}% del portfolio',
-                style: const TextStyle(
-                  color: PortfolioColors.textSecondary,
-                  fontSize: 11,
-                ),
-              ),
-          ],
+        Text(
+          point == null ? '—' : QaFormat.price(point.close),
+          key: QaPriceChart.heroKey,
+          style: QaText.display,
         ),
         const SizedBox(height: 8),
-        Text(
-          point == null ? '—' : _currency.format(point.close),
-          style: const TextStyle(
-            color: PortfolioColors.textPrimary,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text:
-                    point == null
-                        ? ' '
-                        : '$sign${_currency.format(changeAbs.abs())} '
-                            '($sign${changePct.abs().toStringAsFixed(2)}%)',
-                style: TextStyle(color: color, fontWeight: FontWeight.w600),
-              ),
-              TextSpan(
-                text:
-                    point == null
-                        ? ''
-                        : scrubIndex != null
-                        ? '  desde el inicio'
-                        : '  ${_rangeSummaryLabel(range)}',
-                style: const TextStyle(color: PortfolioColors.textSecondary),
-              ),
-            ],
-          ),
-          style: const TextStyle(
-            fontSize: 13,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
+        SizedBox(
+          height: 24,
+          child:
+              point == null
+                  ? null
+                  : Row(
+                    children: [
+                      QaDeltaChip(
+                        value: changeAbs,
+                        text:
+                            '${QaFormat.price(changeAbs.abs())} '
+                            '(${QaFormat.pct(changePct.abs(), digits: 2)})',
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          scrubIndex != null
+                              ? 'desde el inicio'
+                              : QaMarketParts.rangeSummaryLabel(range),
+                          style: QaText.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
         ),
       ],
+    );
+  }
+}
+
+/// Stats del rango elegido, calculados de las velas ya cargadas (sin
+/// request extra): dónde arrancó, el techo y el piso del período.
+class _RangeStats extends StatelessWidget {
+  const _RangeStats({required this.candles, required this.range});
+
+  final List<PriceCandle> candles;
+  final PriceChartRange range;
+
+  @override
+  Widget build(BuildContext context) {
+    var high = candles.first;
+    var low = candles.first;
+    for (final c in candles) {
+      if (c.close > high.close) high = c;
+      if (c.close < low.close) low = c;
+    }
+    return QaInset(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: QaStatGrid(
+        columns: 3,
+        stats: [
+          QaStat(
+            label: range == PriceChartRange.day ? 'Apertura' : 'Inicio',
+            value: QaFormat.price(candles.first.close),
+          ),
+          QaStat(label: 'Máximo', value: QaFormat.price(high.close)),
+          QaStat(label: 'Mínimo', value: QaFormat.price(low.close)),
+        ],
+      ),
     );
   }
 }
@@ -457,72 +444,18 @@ class _ScrubTooltip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: PortfolioColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: PortfolioColors.border),
+          color: PortfolioColors.textPrimary,
+          borderRadius: BorderRadius.circular(QaSpace.chipRadius - 2),
         ),
         child: Text(
-          '${_currency.format(candle.close)} · '
-          '${_formatDate(candle.date, range)}',
-          style: const TextStyle(
-            color: PortfolioColors.textPrimary,
+          '${QaFormat.price(candle.close)} · '
+          '${QaMarketParts.formatDate(candle.date, range)}',
+          style: QaText.valueSm.copyWith(
+            color: PortfolioColors.surfaceCard,
             fontSize: 12,
-            fontWeight: FontWeight.w600,
-            fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _RangeSelector extends StatelessWidget {
-  const _RangeSelector({required this.selected, required this.onSelected});
-
-  final PriceChartRange selected;
-  final ValueChanged<PriceChartRange> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final range in PriceChartRange.values)
-          Expanded(
-            child: Semantics(
-              button: true,
-              selected: range == selected,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onSelected(range),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    color:
-                        range == selected
-                            ? PortfolioColors.surfaceElevated
-                            : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    range.label,
-                    style: TextStyle(
-                      color:
-                          range == selected
-                              ? PortfolioColors.textPrimary
-                              : PortfolioColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight:
-                          range == selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -531,28 +464,39 @@ class _RangeSelector extends StatelessWidget {
 /// (Fritsch–Carlson): a diferencia de Catmull-Rom no "sobrepasa" los
 /// máximos/mínimos reales, así la curva nunca muestra un precio que no
 /// existió. Debajo, un gradiente del color de la línea a transparente. Sin
-/// ejes ni grilla. [progress] (0–1) revela la línea de izquierda a derecha.
+/// ejes ni grilla: solo una referencia punteada al precio de inicio del
+/// rango y el máximo/mínimo rotulados, muy tenues. [progress] (0–1) revela
+/// la línea de izquierda a derecha.
 class PriceLinePainter extends CustomPainter {
   PriceLinePainter({
     required this.values,
     required this.color,
     this.progress = 1,
     this.scrubIndex,
+    this.showReferences = true,
+    this.labelStyle = QaText.caption,
   });
 
   final List<double> values;
+  final TextStyle labelStyle;
   final Color color;
   final double progress;
   final int? scrubIndex;
 
-  static const _verticalPadding = 0.08;
+  /// Línea de inicio punteada + rótulos de máximo/mínimo.
+  final bool showReferences;
+
+  /// Margen vertical reservado para los rótulos de máximo/mínimo.
+  static const _labelBand = 18.0;
+  static const _verticalPadding = 0.06;
 
   List<Offset> _points(Size size) {
     final minV = values.reduce(math.min);
     final maxV = values.reduce(math.max);
     final span = maxV - minV;
-    final top = size.height * _verticalPadding;
-    final usable = size.height * (1 - 2 * _verticalPadding);
+    final band = showReferences ? _labelBand : 0.0;
+    final top = band + size.height * _verticalPadding;
+    final usable = size.height - 2 * top;
     final dx = size.width / (values.length - 1);
     return [
       for (var i = 0; i < values.length; i++)
@@ -620,6 +564,16 @@ class PriceLinePainter extends CustomPainter {
     final points = _points(size);
     final line = smoothPath(points);
 
+    // Referencia de inicio: debajo de la línea, para que la curva la tape.
+    if (showReferences) {
+      paintDashedHorizontal(
+        canvas,
+        y: points.first.dy,
+        width: size.width,
+        color: PortfolioColors.textSecondary.withValues(alpha: 0.35),
+      );
+    }
+
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width * progress, size.height));
 
@@ -634,7 +588,7 @@ class PriceLinePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0)],
+          colors: [color.withValues(alpha: 0.20), color.withValues(alpha: 0)],
         ).createShader(Offset.zero & size),
     );
     canvas.drawPath(
@@ -649,6 +603,10 @@ class PriceLinePainter extends CustomPainter {
     canvas.restore();
 
     final index = scrubIndex;
+    if (showReferences && index == null && progress >= 1) {
+      _paintExtremes(canvas, size, points);
+    }
+
     if (index != null && index >= 0 && index < points.length) {
       final p = points[index];
       canvas.drawLine(
@@ -663,11 +621,44 @@ class PriceLinePainter extends CustomPainter {
     }
   }
 
+  /// Rótulos de máximo (arriba del punto) y mínimo (debajo), en caption
+  /// gris y clampeados al ancho del gráfico. Se omiten si la serie es
+  /// plana (no hay extremos que contar).
+  void _paintExtremes(Canvas canvas, Size size, List<Offset> points) {
+    var hi = 0;
+    var lo = 0;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i] > values[hi]) hi = i;
+      if (values[i] < values[lo]) lo = i;
+    }
+    if (values[hi] == values[lo]) return;
+
+    void label(int i, {required bool above}) {
+      final tp = TextPainter(
+        text: TextSpan(text: QaFormat.price(values[i]), style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final p = points[i];
+      final x = (p.dx - tp.width / 2).clamp(0.0, size.width - tp.width);
+      final y = above ? p.dy - tp.height - 4 : p.dy + 4;
+      tp.paint(canvas, Offset(x, y.clamp(0.0, size.height - tp.height)));
+      canvas.drawCircle(
+        p,
+        2,
+        Paint()..color = PortfolioColors.textSecondary.withValues(alpha: 0.6),
+      );
+    }
+
+    label(hi, above: true);
+    label(lo, above: false);
+  }
+
   @override
   bool shouldRepaint(PriceLinePainter old) =>
       old.color != color ||
       old.progress != progress ||
       old.scrubIndex != scrubIndex ||
+      old.showReferences != showReferences ||
       !_sameValues(old.values, values);
 
   static bool _sameValues(List<double> a, List<double> b) {

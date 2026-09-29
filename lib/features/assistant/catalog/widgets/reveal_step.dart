@@ -62,7 +62,11 @@ class SurfaceRevealController extends ChangeNotifier {
 /// cuando termine su propia animación de entrada, para desbloquear el
 /// siguiente paso).
 class RevealStep extends StatefulWidget {
-  const RevealStep({super.key, required this.controller, required this.builder});
+  const RevealStep({
+    super.key,
+    required this.controller,
+    required this.builder,
+  });
 
   /// Reveal por defecto para pasos que no necesitan una entrada a medida
   /// (cualquier card que ya tenga su propio contenido armado): un fade-in

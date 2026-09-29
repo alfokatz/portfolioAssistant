@@ -109,5 +109,37 @@ void main() {
         expect(untouched, isNot(contains('"createSurface"')));
       },
     );
+    // Regresión: "¿qué posiciones cerré?" terminaba en "No pude procesar tu
+    // consulta" porque el modelo juntaba dos operaciones en un objeto y
+    // A2uiMessage.fromJson tiraba A2uiValidationError fuera del retry.
+    const merged = '''
+{"version":"v0.9",
+ "createSurface":{"surfaceId":"s","catalogId":"c"},
+ "updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"QaAnswerText","text":"Hola"}]}}
+''';
+
+    test('splits a message carrying two operations into one per line', () {
+      final lines = A2uiResponseNormalizer.normalize(
+        merged,
+        surfaceId: 'turn_1',
+      ).split('\n');
+
+      expect(lines, hasLength(2));
+      expect(lines[0], contains('"createSurface"'));
+      expect(lines[0], isNot(contains('"updateComponents"')));
+      expect(lines[1], contains('"updateComponents"'));
+      expect(lines[1], contains('"surfaceId":"turn_1"'));
+    });
+
+    test('drops createSurface when the surface already exists', () {
+      final normalized = A2uiResponseNormalizer.normalize(
+        merged,
+        surfaceId: 'turn_1',
+        stripCreateSurface: true,
+      );
+
+      expect(normalized, isNot(contains('"createSurface"')));
+      expect(normalized, contains('"updateComponents"'));
+    });
   });
 }

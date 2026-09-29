@@ -6,6 +6,7 @@ class EarningsCalendarEntry {
     this.fiscalQuarter,
     this.fiscalYear,
     this.epsEstimate,
+    this.hour,
   });
 
   final String ticker;
@@ -13,4 +14,8 @@ class EarningsCalendarEntry {
   final int? fiscalQuarter;
   final int? fiscalYear;
   final double? epsEstimate;
+
+  /// Momento del día según Finnhub: `bmo` (antes de la apertura), `amc`
+  /// (después del cierre) o `dmh` (durante la sesión). Suele venir vacío.
+  final String? hour;
 }

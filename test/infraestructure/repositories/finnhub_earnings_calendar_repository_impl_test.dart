@@ -25,52 +25,60 @@ void main() {
       return dio;
     }
 
-    test('returns the earliest upcoming report as next earnings date', () async {
-      final dio = dioResolving(
-        (_) => {
-          'earningsCalendar': [
-            {
-              'symbol': 'NVDA',
-              'date': '2027-02-10',
-              'quarter': 4,
-              'year': 2026,
-              'epsEstimate': 1.5,
-            },
-            {
-              'symbol': 'NVDA',
-              'date': '2026-11-13',
-              'quarter': 3,
-              'year': 2026,
-              'epsEstimate': 1.36,
-            },
-          ],
-        },
-      );
+    test(
+      'returns the earliest upcoming report as next earnings date',
+      () async {
+        final dio = dioResolving(
+          (_) => {
+            'earningsCalendar': [
+              {
+                'symbol': 'NVDA',
+                'date': '2027-02-10',
+                'quarter': 4,
+                'year': 2026,
+                'epsEstimate': 1.5,
+              },
+              {
+                'symbol': 'NVDA',
+                'date': '2026-11-13',
+                'quarter': 3,
+                'year': 2026,
+                'epsEstimate': 1.36,
+                'hour': 'amc',
+              },
+            ],
+          },
+        );
 
-      final repository = FinnhubEarningsCalendarRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
-      );
+        final repository = FinnhubEarningsCalendarRepositoryImpl(
+          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        );
 
-      final result = await repository.getNextEarningsDate('NVDA');
-      final entry = result.fold((_) => null, (value) => value);
+        final result = await repository.getNextEarningsDate('NVDA');
+        final entry = result.fold((_) => null, (value) => value);
 
-      expect(entry, isNotNull);
-      expect(entry!.reportDate, DateTime(2026, 11, 13));
-      expect(entry.fiscalQuarter, 3);
-      expect(entry.fiscalYear, 2026);
-    });
+        expect(entry, isNotNull);
+        expect(entry!.reportDate, DateTime(2026, 11, 13));
+        expect(entry.fiscalQuarter, 3);
+        expect(entry.fiscalYear, 2026);
+        expect(entry.hour, 'amc');
+      },
+    );
 
-    test('returns null (not an error) when there is no upcoming report', () async {
-      final dio = dioResolving((_) => {'earningsCalendar': <dynamic>[]});
-      final repository = FinnhubEarningsCalendarRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
-      );
+    test(
+      'returns null (not an error) when there is no upcoming report',
+      () async {
+        final dio = dioResolving((_) => {'earningsCalendar': <dynamic>[]});
+        final repository = FinnhubEarningsCalendarRepositoryImpl(
+          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        );
 
-      final result = await repository.getNextEarningsDate('NVDA');
+        final result = await repository.getNextEarningsDate('NVDA');
 
-      expect(result.isRight(), isTrue);
-      expect(result.fold((_) => 'left', (value) => value), isNull);
-    });
+        expect(result.isRight(), isTrue);
+        expect(result.fold((_) => 'left', (value) => value), isNull);
+      },
+    );
 
     test(
       'returns the most recent reported entry with both eps values as latest result',
@@ -134,14 +142,17 @@ void main() {
       expect(result.isLeft(), isTrue);
     });
 
-    test('returns Left without throwing when no API key is configured', () async {
-      final repository = FinnhubEarningsCalendarRepositoryImpl(
-        client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
-      );
+    test(
+      'returns Left without throwing when no API key is configured',
+      () async {
+        final repository = FinnhubEarningsCalendarRepositoryImpl(
+          client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
+        );
 
-      final result = await repository.getNextEarningsDate('NVDA');
+        final result = await repository.getNextEarningsDate('NVDA');
 
-      expect(result.isLeft(), isTrue);
-    });
+        expect(result.isLeft(), isTrue);
+      },
+    );
   });
 }

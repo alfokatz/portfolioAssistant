@@ -10,7 +10,8 @@ import 'package:portfolio_assistant/infraestructure/data_sources/finnhub_http_cl
 /// ticker sin dato (sin reporte próximo, o sin resultado ya publicado)
 /// devuelve `Right(null)` — la misma distinción absence-vs-error que ya usa
 /// el resto de la capa de datos externa de la app.
-class FinnhubEarningsCalendarRepositoryImpl implements EarningsCalendarRepository {
+class FinnhubEarningsCalendarRepositoryImpl
+    implements EarningsCalendarRepository {
   FinnhubEarningsCalendarRepositoryImpl({FinnhubHttpClient? client})
     : _client = client ?? FinnhubHttpClient();
 
@@ -41,6 +42,7 @@ class FinnhubEarningsCalendarRepositoryImpl implements EarningsCalendarRepositor
           fiscalQuarter: next.quarter,
           fiscalYear: next.year,
           epsEstimate: next.epsEstimate,
+          hour: next.hour,
         ),
       );
     });
@@ -140,11 +142,17 @@ class FinnhubEarningsCalendarRepositoryImpl implements EarningsCalendarRepositor
       epsEstimate: (raw['epsEstimate'] as num?)?.toDouble(),
       revenueActual: (raw['revenueActual'] as num?)?.toDouble(),
       revenueEstimate: (raw['revenueEstimate'] as num?)?.toDouble(),
+      hour: _hour(raw['hour']),
     );
   }
 
-  static DateTime _dateOnly(DateTime dt) =>
-      DateTime(dt.year, dt.month, dt.day);
+  static String? _hour(Object? raw) {
+    if (raw is! String) return null;
+    final value = raw.trim().toLowerCase();
+    return const {'bmo', 'amc', 'dmh'}.contains(value) ? value : null;
+  }
+
+  static DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 }
 
 class _RawEarningsEntry {
@@ -157,6 +165,7 @@ class _RawEarningsEntry {
     this.epsEstimate,
     this.revenueActual,
     this.revenueEstimate,
+    this.hour,
   });
 
   final String symbol;
@@ -167,4 +176,5 @@ class _RawEarningsEntry {
   final double? epsEstimate;
   final double? revenueActual;
   final double? revenueEstimate;
+  final String? hour;
 }

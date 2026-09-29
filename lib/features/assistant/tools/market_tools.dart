@@ -199,11 +199,14 @@ class GetEarningsTool implements DataTool {
 
   @override
   String get description =>
-      'Earnings calendar for 1-3 tickers: next_report (date_label, '
-      'fiscal_period_label, eps_estimate = market CONSENSUS for the upcoming '
-      'report, may be absent) and latest_result (report_date_label, '
-      'eps_actual, eps_estimate, beat). Use it for "¿cuándo reporta X?", '
-      'expected earnings / EPS consensus, or how the last report went. '
+      'Earnings for 1-3 tickers: next_report (date ISO, date_label, '
+      'fiscal_period_label, timing_label?, eps_estimate = market CONSENSUS '
+      'for the upcoming report, may be absent), latest_result (last '
+      'reported quarter: report_date_label? or fiscal_period_label, '
+      'eps_actual, eps_estimate, surprise_pct, beat) and history (up to 4 '
+      'reported quarters, OLDEST first: fiscal_period_label, eps_actual, '
+      'eps_estimate, surprise_pct, beat). Use it for "¿cuándo reporta X?", '
+      'expected earnings / EPS consensus, or how the last report(s) went. '
       'status: ok | empty | failed | locked.';
 
   @override
@@ -230,7 +233,8 @@ class GetNewsTool implements DataTool {
   @override
   String get description =>
       'Up to 3 recent real headlines (last 14 days) for 1-3 tickers: ticker, '
-      'title, snippet, url, source, published_at. Use it when the user asks '
+      'title, snippet, url (copy it verbatim into the widget: the app uses it '
+      'for the image and link), source, published_at. Use it when the user asks '
       'for news, or asks WHY a ticker moved (the only allowed source of '
       'causes). status: ok | empty (no recent news) | failed | locked.';
 

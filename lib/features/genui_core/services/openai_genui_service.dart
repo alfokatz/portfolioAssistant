@@ -465,11 +465,13 @@ class OpenAIGenUiService {
         catalogId: catalogId,
       );
     }
+    final surfaceExists = controller.registry.getSurface(surfaceId) != null;
     final normalized = A2uiResponseNormalizer.normalize(
       cleaned,
       surfaceId: surfaceId,
       catalogId: catalogId,
-      ensureCreateSurface: controller.registry.getSurface(surfaceId) == null,
+      ensureCreateSurface: !surfaceExists,
+      stripCreateSurface: surfaceExists,
     );
     cleaned =
         normalized.trim().isEmpty

@@ -86,6 +86,15 @@ class FinnhubCompanyNewsRepositoryImpl implements CompanyNewsRepository {
         datetimeRaw.toInt() * 1000,
         isUtc: true,
       ),
+      imageUrl: _imageUrl(raw['image']),
     );
+  }
+
+  /// Finnhub manda `""` cuando no hay imagen, y algunos medios publican
+  /// URLs `http://` que iOS bloquea: solo se aceptan `https` no vacías.
+  static String? _imageUrl(Object? raw) {
+    if (raw is! String) return null;
+    final trimmed = raw.trim();
+    return trimmed.startsWith('https://') ? trimmed : null;
   }
 }

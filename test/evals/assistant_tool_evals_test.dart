@@ -251,7 +251,12 @@ final _cases = <_Case>[
     ['Comparame AAPL y MSFT'],
     (t, _) => [
       ..._expect(
-        t.components.any((c) => c == 'QaComparisonRow' || c == 'QaMetricStrip'),
+        t.components.any(
+          (c) =>
+              c == 'QaCompareChart' ||
+              c == 'QaComparisonRow' ||
+              c == 'QaMetricStrip',
+        ),
         'esperaba comparación',
       ),
     ],
