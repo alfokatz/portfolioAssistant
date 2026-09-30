@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -656,6 +657,8 @@ class _InvestOptionCard extends StatelessWidget {
                   'Noticias',
                   '¿Qué noticias hay de $ticker?',
                   icon: Icons.article_outlined,
+                  feature: PlanFeature.news,
+                  ticker: ticker,
                 ),
               ],
             ),

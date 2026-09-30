@@ -6,7 +6,7 @@ import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_tracker.dart';
 
 class _FakeSubscriptionRepository implements SubscriptionRepository {
-  SubscriptionStatus status = const SubscriptionStatus(
+  SubscriptionStatus status = SubscriptionStatus(
     tier: SubscriptionTier.free,
     queriesUsed: 0,
     queriesLimit: AiUsageLimits.freeMonthly,
@@ -45,7 +45,7 @@ void main() {
     });
 
     test('getStatus returns server status', () async {
-      repository.status = const SubscriptionStatus(
+      repository.status = SubscriptionStatus(
         tier: SubscriptionTier.premium,
         queriesUsed: 42,
         queriesLimit: AiUsageLimits.premiumMonthly,

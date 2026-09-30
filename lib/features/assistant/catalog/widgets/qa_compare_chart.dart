@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
@@ -412,12 +413,16 @@ List<QaFollowUp> compareFollowUps(List<String> tickers) => [
       'Noticias de $t',
       '¿Qué noticias hay de $t?',
       icon: Icons.article_outlined,
+      feature: PlanFeature.news,
+      ticker: t,
     ),
   if (tickers.isNotEmpty)
     QaFollowUp(
       'Fundamentals de ${tickers.first}',
       'Pasame los fundamentals de ${tickers.first}',
       icon: Icons.analytics_outlined,
+      feature: PlanFeature.fundamentals,
+      ticker: tickers.first,
     ),
 ];
 

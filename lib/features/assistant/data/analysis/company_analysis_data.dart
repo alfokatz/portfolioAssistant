@@ -36,6 +36,7 @@ class CompanyAnalysisData {
     required this.news,
     required this.newsStatus,
     required this.position,
+    required this.isCourtesy,
   });
 
   factory CompanyAnalysisData.from(TurnEvidence evidence, String ticker) {
@@ -48,6 +49,7 @@ class CompanyAnalysisData {
     var fundamentalsStatus = AnalysisSourceStatus.missing;
     var earningsStatus = AnalysisSourceStatus.missing;
     var newsStatus = AnalysisSourceStatus.missing;
+    var courtesy = false;
 
     bool asksFor(ToolCallRecord call) {
       final tickers = call.args['tickers'];
@@ -58,6 +60,7 @@ class CompanyAnalysisData {
       if (!asksFor(call)) continue;
       final result = call.result;
       final locked = call.status == 'locked';
+      if (result['courtesy'] == 'weekly_free_analysis') courtesy = true;
       switch (call.name) {
         case 'get_quote':
           final entry = _map(_map(result['tickers'])?[t]);
@@ -116,6 +119,7 @@ class CompanyAnalysisData {
       news: news ?? const [],
       newsStatus: newsStatus,
       position: _positionFrom(evidence.pinnedContext, t),
+      isCourtesy: courtesy,
     );
   }
 
@@ -131,6 +135,16 @@ class CompanyAnalysisData {
 
   /// La posición del usuario en este ticker (de PORTFOLIO_BRIEF), si la tiene.
   final Map<String, Object?>? position;
+
+  /// Fuentes de Gold que el plan no incluye (en el orden en que se nombran).
+  List<String> get lockedGoldFeatures => [
+    if (fundamentalsStatus == AnalysisSourceStatus.locked) 'fundamentals',
+    if (earningsStatus == AnalysisSourceStatus.locked) 'earnings',
+    if (newsStatus == AnalysisSourceStatus.locked) 'news',
+  ];
+
+  /// Si las fuentes de Gold vinieron por el análisis de cortesía semanal.
+  final bool isCourtesy;
 
   bool get hasAnyData =>
       quote != null ||

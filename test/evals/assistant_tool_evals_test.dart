@@ -26,8 +26,10 @@ import 'package:portfolio_assistant/features/assistant/services/assistant_openai
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 import '../features/assistant/fakes/assistant_fakes.dart';
@@ -74,11 +76,15 @@ class _Case {
     this.turns,
     this.check, {
     this.tier = SubscriptionTier.gold,
+    this.weeklyFree = false,
   });
 
   final String id;
   final List<String> turns;
   final SubscriptionTier tier;
+
+  /// El usuario tiene disponible el análisis Gold de cortesía de la semana.
+  final bool weeklyFree;
 
   /// Devuelve la lista de problemas (vacía = pasa) del ÚLTIMO turno.
   final List<String> Function(_TurnLog last, List<_TurnLog> all) check;
@@ -93,6 +99,9 @@ class _TurnLog {
   Map<String, Object?>? analysis;
   TurnEvidence evidence = TurnEvidence.empty;
   int quotaWeight = 0;
+
+  /// Cuántas veces el turno gastó la cortesía semanal en el "servidor".
+  int courtesyConsumed = 0;
 
   CompanyAnalysisData? get analysisData =>
       analysis == null
@@ -399,6 +408,98 @@ final _cases = <_Case>[
   ),
   // El bug de contexto afectaba a cualquier seguimiento: "¿y eso es bueno?"
   // tras una card tiene que resolverse contra lo recién mostrado.
+  // ── Planes: análisis de cortesía semanal ─────────────────────────────
+  _Case(
+    'P-premium-analysis-free',
+    ['Haceme un análisis de BAC'],
+    tier: SubscriptionTier.premium,
+    weeklyFree: true,
+    (t, _) => [
+      ..._analysisOf(t, 'BAC'),
+      ..._expect(
+        t.courtesyConsumed == 1,
+        'cortesía gastada ${t.courtesyConsumed} veces',
+      ),
+      ..._expect(
+        t.analysisData?.isCourtesy == true,
+        'no se marcó como cortesía',
+      ),
+      ..._expect(
+        t.analysisData?.fundamentalsStatus == AnalysisSourceStatus.ok,
+        'con cortesía las fuentes de Gold tenían que venir completas',
+      ),
+    ],
+  ),
+  _Case(
+    'P-premium-analysis-nofree',
+    ['Haceme un análisis de BAC'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._analysisOf(t, 'BAC', allTools: false),
+      ..._expect(
+        t.analysisData?.lockedGoldFeatures.isNotEmpty == true,
+        'sin cortesía, lo de Gold tenía que quedar bloqueado',
+      ),
+      ..._expect(t.courtesyConsumed == 0, 'gastó una cortesía que no tenía'),
+    ],
+  ),
+  _Case(
+    'F-free-own-analysis',
+    ['Haceme un análisis de AAPL'],
+    tier: SubscriptionTier.free,
+    weeklyFree: true,
+    (t, _) => [
+      ..._analysisOf(t, 'AAPL'),
+      ..._expect(t.analysisData?.isCourtesy == true, 'no usó la cortesía'),
+    ],
+  ),
+  _Case(
+    'F-free-foreign-analysis',
+    ['Haceme un análisis de BAC'],
+    tier: SubscriptionTier.free,
+    weeklyFree: true,
+    (t, _) => [
+      ..._expect(
+        '${t.aborted}' == '${PaywallReason.marketDataLocked}',
+        'esperaba el paywall de Premium (mercado ajeno), fue ${t.aborted}',
+      ),
+      ..._expect(
+        t.courtesyConsumed == 0,
+        'gastó la cortesía en un ticker ajeno',
+      ),
+    ],
+  ),
+  _Case(
+    'P-premium-news-teaser',
+    ['¿Qué noticias hay de NVDA?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.aborted == null,
+        'cortó el turno con un paywall: ${t.aborted}',
+      ),
+      ..._expect(
+        t.components.contains('QaGoldTeaser'),
+        'sin bloque Gold: ${t.components}',
+      ),
+      ..._expect(
+        t.quotaWeight == 0,
+        'cobró ${t.quotaWeight} consulta(s) por algo bloqueado',
+      ),
+    ],
+  ),
+  _Case(
+    'P-premium-invest',
+    ['Tengo \$1000 para invertir en tecnología'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.aborted == null,
+        'Premium ya incluye simulaciones: ${t.aborted}',
+      ),
+      ..._expect(t.called('get_invest_candidates'), 'no simuló'),
+    ],
+  ),
   _Case(
     'generic-es-bueno-fundamentals',
     ['Pasame los fundamentals de Tesla', '¿y eso es bueno?'],
@@ -596,6 +697,7 @@ void main() {
           httpClient: recorder,
         );
         final logs = <_TurnLog>[];
+        var courtesyLeft = c.weeklyFree;
         for (var i = 0; i < c.turns.length; i++) {
           final log = _TurnLog();
           final ctx = AssistantToolContext(
@@ -638,6 +740,16 @@ void main() {
                   }),
                 ),
           );
+          final courtesy = WeeklyFreeAnalysisGrant(
+            ctx: ctx,
+            available: courtesyLeft,
+            consume: (_) async {
+              log.courtesyConsumed++;
+              final ok = courtesyLeft;
+              courtesyLeft = false;
+              return ok;
+            },
+          );
           final surfaceId = 'eval_${c.id}_$i';
           final stopwatch = Stopwatch()..start();
           try {
@@ -647,6 +759,7 @@ void main() {
               surfaceId: surfaceId,
               tools: AssistantToolset.build(ctx),
               abortCheck: (round) => AssistantTurnPolicy.paywallFor(round, ctx),
+              beforeRound: courtesy.beforeRound,
             );
             log.calls.addAll(outcome.toolCalls);
             log.quotaWeight = AssistantTurnPolicy.quotaWeight(outcome);

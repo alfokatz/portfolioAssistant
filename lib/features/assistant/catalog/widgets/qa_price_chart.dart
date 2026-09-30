@@ -252,11 +252,11 @@ class _QaPriceChartState extends State<QaPriceChart>
           ),
         ],
         QaFollowUpBar(
-          items:
-              QaTickerFollowUps.of(
-                widget.ticker,
-                exclude: {QaTickerFollowUps.chart},
-              ).take(3).toList(),
+          items: QaTickerFollowUps.of(
+            widget.ticker,
+            exclude: {QaTickerFollowUps.chart},
+          ),
+          limit: 3,
         ),
       ],
     );

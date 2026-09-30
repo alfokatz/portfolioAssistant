@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
@@ -67,7 +68,7 @@ class SettingsSubscriptionCard extends ConsumerWidget {
               ),
               const SizedBox(height: AppDimens.sp12),
               Text(
-                _descriptionKey(tier).tr(),
+                _description(tier),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: isGold ? Colors.white : colors.textPrimary,
                       height: 1.45,
@@ -161,11 +162,14 @@ class SettingsSubscriptionCard extends ConsumerWidget {
     );
   }
 
-  String _descriptionKey(SubscriptionTier tier) => switch (tier) {
-        SubscriptionTier.free => 'settings_plan_free_desc',
-        SubscriptionTier.premium => 'settings_plan_premium_desc',
-        SubscriptionTier.gold => 'settings_plan_gold_desc',
-      };
+  /// "500 consultas/mes · Cualquier ticker… · …", desde la matriz de planes
+  /// (la misma que usan el gating y el paywall).
+  String _description(SubscriptionTier tier) => [
+        'paywall_queries_month'.tr(
+          namedArgs: {'count': '${PlanMatrix.of(tier).monthlyQueries}'},
+        ),
+        for (final key in PlanMatrix.marketingKeys(tier)) key.tr(),
+      ].join(' · ');
 }
 
 class _PlanBadge extends StatelessWidget {

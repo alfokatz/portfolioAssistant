@@ -9,13 +9,14 @@ import 'package:portfolio_assistant/infraestructure/repositories/subscription_re
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum PaywallReason {
-  /// Función fuera del plan (en el asistente: simulación de inversión y
-  /// planificación de metas).
+  /// Función de Premium fuera del plan (simulaciones, metas, límite de
+  /// posiciones, benchmark).
   modeLocked,
 
   /// El asistente pidió datos de mercado de tickers que el usuario no tiene.
   marketDataLocked,
-  newsRequiresGold,
+  /// Datos de Gold: análisis, noticias, earnings, fundamentals.
+  goldRequired,
   quotaExceeded,
 }
 
@@ -61,7 +62,7 @@ class SubscriptionState {
     );
   }
 
-  static const initial = SubscriptionState(
+  static final initial = SubscriptionState(
     tier: SubscriptionTier.free,
     queriesUsed: 0,
     queriesLimit: AiUsageLimits.freeMonthly,
@@ -89,7 +90,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
 
   Future<void> refresh() async {
     if (_authService.currentSession == null) {
-      state = const SubscriptionState(
+      state = SubscriptionState(
         tier: SubscriptionTier.free,
         queriesUsed: 0,
         queriesLimit: AiUsageLimits.freeMonthly,

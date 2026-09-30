@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -48,11 +49,11 @@ abstract final class MarketWidgets {
         ],
         // Sin histórico, "Gráfico" volvería a esta misma card.
         QaFollowUpBar(
-          items:
-              QaTickerFollowUps.of(
-                data.ticker,
-                exclude: {QaTickerFollowUps.chart},
-              ).take(3).toList(),
+          items: QaTickerFollowUps.of(
+            data.ticker,
+            exclude: {QaTickerFollowUps.chart},
+          ),
+          limit: 3,
         ),
       ],
     );
@@ -139,11 +140,11 @@ abstract final class MarketWidgets {
           _PeriodChips(periods: periods),
         ],
         QaFollowUpBar(
-          items:
-              QaTickerFollowUps.of(
-                data.ticker,
-                exclude: {QaTickerFollowUps.chart},
-              ).take(3).toList(),
+          items: QaTickerFollowUps.of(
+            data.ticker,
+            exclude: {QaTickerFollowUps.chart},
+          ),
+          limit: 3,
         ),
       ],
     );
@@ -316,6 +317,8 @@ abstract final class MarketWidgets {
                     'Noticias de $t',
                     '¿Qué noticias hay de $t?',
                     icon: Icons.article_outlined,
+                    feature: PlanFeature.news,
+                    ticker: t,
                   ),
               ],
             ),

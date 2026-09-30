@@ -58,6 +58,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     required List<DataTool> tools,
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
+    BeforeToolRound? beforeRound,
   }) {
     return runTurn(
       userText: question,
@@ -65,6 +66,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       tools: tools,
       abortCheck: abortCheck,
       onActivity: onActivity,
+      beforeRound: beforeRound,
       pinnedContext:
           '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
           'referencia, se actualiza en cada turno; no es parte de ninguna '

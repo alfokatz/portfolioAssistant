@@ -161,7 +161,10 @@ Future<void> _pump(
       theme: ThemeData(extensions: const [CustomColors.light]),
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reduceMotion),
-        child: QaEvidenceScope(lookup: (_) => evidence, child: body),
+        child: QaEvidenceScope(
+          lookup: (_) => ValueNotifier(evidence),
+          child: body,
+        ),
       ),
     ),
   );
@@ -228,8 +231,9 @@ void main() {
         _locked('get_news'),
       ],
     );
-    expect(find.text('Incluido en el plan Gold'), findsNWidgets(3));
-    expect(find.text('NOTICIAS'), findsOneWidget);
+    // Tope: UN solo bloque bloqueado por card, que nombra todo lo de Gold.
+    expect(find.text('Incluido en el plan Gold'), findsOneWidget);
+    expect(find.text('Valuación, resultados y noticias'), findsOneWidget);
     // El resto se muestra igual.
     expect(find.text('\$47.31'), findsOneWidget);
     expect(find.textContaining('bancos más grandes'), findsOneWidget);

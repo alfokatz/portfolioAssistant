@@ -62,11 +62,11 @@ abstract final class CompanyWidgets {
             ),
           ],
           QaFollowUpBar(
-            items:
-                QaTickerFollowUps.of(
-                  data.ticker,
-                  exclude: {QaTickerFollowUps.earnings},
-                ).take(3).toList(),
+            items: QaTickerFollowUps.of(
+              data.ticker,
+              exclude: {QaTickerFollowUps.earnings},
+            ),
+            limit: 3,
           ),
         ],
       ),
@@ -122,11 +122,11 @@ abstract final class CompanyWidgets {
           ],
           if (data.ticker.isNotEmpty)
             QaFollowUpBar(
-              items:
-                  QaTickerFollowUps.of(
-                    data.ticker,
-                    exclude: {QaTickerFollowUps.news},
-                  ).take(3).toList(),
+              items: QaTickerFollowUps.of(
+                data.ticker,
+                exclude: {QaTickerFollowUps.news},
+              ),
+              limit: 3,
             ),
         ],
       ),
@@ -172,11 +172,11 @@ abstract final class CompanyWidgets {
             _Week52Block(range: range),
           ],
           QaFollowUpBar(
-            items:
-                QaTickerFollowUps.of(
-                  data.ticker,
-                  exclude: {QaTickerFollowUps.fundamentals},
-                ).take(3).toList(),
+            items: QaTickerFollowUps.of(
+              data.ticker,
+              exclude: {QaTickerFollowUps.fundamentals},
+            ),
+            limit: 3,
           ),
         ],
       ),

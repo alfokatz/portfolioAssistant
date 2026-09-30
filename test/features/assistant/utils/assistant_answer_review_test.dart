@@ -159,4 +159,45 @@ void main() {
     expect((root['children'] as List).first, 'analysisIntro');
     expect(out, contains('Este es el análisis de BAC.'));
   });
+
+  test('a text-only answer to a locked Gold source gets the Gold teaser '
+      'right after the intro', () {
+    const locked = ToolCallRecord(
+      name: 'get_news',
+      args: {
+        'tickers': ['NVDA'],
+      },
+      result: {'status': 'locked', 'required_plan': 'gold'},
+    );
+    final out = AssistantAnswerReview.postProcess(
+      _answer([_intro('Las noticias están incluidas en Gold.')]),
+      const TurnEvidence(calls: [locked], turnCalls: [locked]),
+    );
+    final update = (jsonDecode(out) as Map)['updateComponents'] as Map;
+    final components = (update['components'] as List).cast<Map>();
+    final root = components.firstWhere((c) => c['id'] == 'root');
+    expect(root['children'], ['a', 'goldTeaser']);
+    expect(
+      components.firstWhere((c) => c['id'] == 'goldTeaser')['ticker'],
+      'NVDA',
+    );
+  });
+
+  test('no teaser when a data card already answers', () {
+    const locked = ToolCallRecord(
+      name: 'get_news',
+      args: {
+        'tickers': ['NVDA'],
+      },
+      result: {'status': 'locked'},
+    );
+    final out = AssistantAnswerReview.postProcess(
+      _answer([
+        _intro('NVDA subió.'),
+        {'id': 'p', 'component': 'QaPriceChart', 'ticker': 'NVDA'},
+      ]),
+      const TurnEvidence(calls: [locked], turnCalls: [locked]),
+    );
+    expect(out, isNot(contains('QaGoldTeaser')));
+  });
 }

@@ -82,17 +82,22 @@ void main() {
   });
 
   group('premium data (gold)', () {
-    test('fundamentals / earnings / news are locked below gold; only news '
-        'offers the upgrade sheet', () async {
+    test('fundamentals / earnings / news are locked below gold, all with '
+        'the same Gold reason and required_plan', () async {
       final ctx = _ctx(SubscriptionTier.premium);
       final args = {
         'tickers': ['AAPL'],
       };
-      expect((await GetFundamentalsTool(ctx).run(args))['status'], 'locked');
-      expect((await GetEarningsTool(ctx).run(args))['status'], 'locked');
-      expect(ctx.lockedReasons, isEmpty);
-      expect((await GetNewsTool(ctx).run(args))['status'], 'locked');
-      expect(ctx.lockedReasons, {PaywallReason.newsRequiresGold});
+      for (final tool in [
+        GetFundamentalsTool(ctx),
+        GetEarningsTool(ctx),
+        GetNewsTool(ctx),
+      ]) {
+        final result = await tool.run(args);
+        expect(result['status'], 'locked');
+        expect(result['required_plan'], 'gold');
+      }
+      expect(ctx.lockedReasons, {PaywallReason.goldRequired});
     });
 
     test('gold fundamentals come back with their status', () async {
@@ -183,15 +188,14 @@ void main() {
       );
     });
 
-    test('requires gold', () async {
-      final premium = _ctx(SubscriptionTier.premium);
-      expect(
-        (await GetInvestCandidatesTool(premium).run({
-          'tickers': ['NEE'],
-        }))['status'],
-        'locked',
-      );
-      expect(premium.lockedReasons, {PaywallReason.modeLocked});
+    test('requires premium (free is locked with the plan paywall)', () async {
+      final free = _ctx(SubscriptionTier.free);
+      final result = await GetInvestCandidatesTool(free).run({
+        'tickers': ['NEE'],
+      });
+      expect(result['status'], 'locked');
+      expect(result['required_plan'], 'premium');
+      expect(free.lockedReasons, {PaywallReason.modeLocked});
     });
   });
 
@@ -292,13 +296,14 @@ void main() {
         ),
         AiUsageLimits.newsQueryWeight,
       );
+      // Todo fuera del plan: la respuesta solo explica qué incluye Gold.
       expect(
         AssistantTurnPolicy.quotaWeight(
           TurnOutcome([
             _record('get_news', {'status': 'locked'}),
           ]),
         ),
-        1,
+        0,
       );
       expect(AssistantTurnPolicy.quotaWeight(const TurnOutcome([])), 1);
     });

@@ -1,10 +1,10 @@
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_candidates_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
-import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 /// Candidatos para una simulación educativa de inversión (Gold).
 class GetInvestCandidatesTool implements DataTool {
@@ -80,8 +80,8 @@ class GetInvestCandidatesTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.adviceAllowed) {
-      return ctx.locked('gold', PaywallReason.modeLocked);
+    if (!ctx.allows(PlanFeature.investSimulation)) {
+      return ctx.lockedFeature(PlanFeature.investSimulation);
     }
     final theme = ToolArgs.string(args, 'theme');
     final tickers = ToolArgs.tickers(
@@ -181,8 +181,8 @@ class GetGoalProjectionTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.adviceAllowed) {
-      return ctx.locked('gold', PaywallReason.modeLocked);
+    if (!ctx.allows(PlanFeature.goals)) {
+      return ctx.lockedFeature(PlanFeature.goals);
     }
     final prefs = ctx.data.preferences;
     final saved = await prefs.getSavedGoal();
@@ -236,8 +236,8 @@ class SaveGoalTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.adviceAllowed) {
-      return ctx.locked('gold', PaywallReason.modeLocked);
+    if (!ctx.allows(PlanFeature.goals)) {
+      return ctx.lockedFeature(PlanFeature.goals);
     }
     final amount = ToolArgs.number(args, 'target_amount');
     final date = ToolArgs.date(args, 'target_date');

@@ -390,5 +390,19 @@
     "connection_error_message": "Could not connect. Check your network.",
     "unknown_title": "Unknown error",
     "unknown_message": "An unexpected error occurred."
-  }
+  },
+  "paywall_title_gold": "The full analysis, with Gold",
+  "paywall_subtitle_gold": "Porty explains what each number means, what the news says and how its results went.",
+  "plan_feature_own_portfolio": "Your portfolio, with Porty",
+  "plan_feature_market_data": "Any ticker, charts and comparisons",
+  "plan_feature_benchmark": "Your portfolio vs. the S&P 500",
+  "plan_feature_unlimited_positions": "Unlimited positions",
+  "plan_feature_invest_simulation": "Investment simulations",
+  "plan_feature_goals": "Savings goals and projections",
+  "plan_feature_company_analysis": "Full analysis of every company",
+  "plan_feature_news": "News, explained",
+  "plan_feature_earnings": "Earnings: dates and results",
+  "plan_feature_fundamentals": "Valuation, margins and dividends",
+  "plan_feature_everything_premium": "Everything in Premium",
+  "plan_feature_price_alerts": "Price alerts"
 }

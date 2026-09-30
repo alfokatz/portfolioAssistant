@@ -6,6 +6,9 @@ import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -13,6 +16,7 @@ import 'package:portfolio_assistant/features/assistant/states/assistant_state.da
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
@@ -22,6 +26,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
@@ -106,6 +111,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     _ensureService();
     state = state.copyWith(isServiceReady: true);
+    // La app pudo quedar abierta de domingo a lunes: semana nueva, cortesía
+    // nueva. Sin Supabase (tests), no hace nada.
+    try {
+      unawaited(
+        ref
+            .read(weeklyFreeAnalysisProvider.notifier)
+            .refreshIfNewWeek(
+              eligible: PlanMatrix.hasWeeklyFreeAnalysis(
+                ref.read(subscriptionProvider).tier,
+              ),
+            ),
+      );
+    } catch (_) {}
 
     final question = _initialQuestion?.trim();
     if (question != null && question.isNotEmpty) {
@@ -120,6 +138,48 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     _subscription =
         GenUiConversationSubscription()
           ..listen(service.conversation, _onConversationEvent);
+  }
+
+  /// Sin Supabase (tests, sin sesión), la cortesía simplemente no se ofrece.
+  bool _weeklyFreeAvailable() =>
+      ref.read(weeklyFreeAnalysisAvailableProvider) == true;
+
+  /// Después de comprar Gold desde una card: trae las fuentes de Gold del
+  /// ticker SIN pasar por el modelo (no cuesta una consulta) y las suma a
+  /// la evidencia de esa surface, así las secciones bloqueadas se completan
+  /// en el lugar. Mientras cargan, la card muestra skeletons.
+  Future<void> unlockGoldData(String surfaceId, String ticker) async {
+    final service = _service;
+    if (service == null) return;
+    final tier = ref.read(subscriptionProvider).tier;
+    if (!PlanMatrix.allows(tier, PlanFeature.companyAnalysis)) return;
+    service.setEvidenceLoading(surfaceId, loading: true);
+    try {
+      final ctx = AssistantToolContext(
+        tier: tier,
+        data: _data ??= ref.read(assistantDepsProvider).createData(),
+        summary: ref.read(homeProvider).summary,
+      );
+      final args = <String, Object?>{
+        'tickers': [ticker.toUpperCase()],
+      };
+      final records = await Future.wait([
+        for (final tool in <DataTool>[
+          GetFundamentalsTool(ctx),
+          GetEarningsTool(ctx),
+          GetNewsTool(ctx),
+        ])
+          tool
+              .run(args)
+              .then(
+                (result) =>
+                    ToolCallRecord(name: tool.name, args: args, result: result),
+              ),
+      ]);
+      service.appendEvidence(surfaceId, records);
+    } catch (_) {
+      service.setEvidenceLoading(surfaceId, loading: false);
+    }
   }
 
   Future<void> submitMessage(String text) async {
@@ -157,6 +217,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             () => ref.read(investorProfileProvider.notifier).refresh(),
       );
 
+      // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
+      // pide un análisis completo (ver WeeklyFreeAnalysisGrant).
+      final courtesy = WeeklyFreeAnalysisGrant(
+        ctx: ctx,
+        available: _weeklyFreeAvailable(),
+        consume:
+            (ticker) =>
+                ref.read(weeklyFreeAnalysisProvider.notifier).consume(ticker),
+      );
+
       final surfaceId = GenUiSurfaceIds.assistantTurn(state.turnCounter);
       state = state.copyWith(
         messages: [
@@ -187,6 +257,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   (firstRound) =>
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
               onActivity: _setActivity,
+              beforeRound: courtesy.beforeRound,
             );
           },
         );
@@ -203,11 +274,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             profileNudge: notices.profileNudge,
           ),
         );
-        final consumed = await ref
-            .read(aiUsageTrackerProvider)
-            .recordUsage(
-              AssistantTurnPolicy.quotaWeight(outcome ?? const TurnOutcome([])),
-            );
+        final weight = AssistantTurnPolicy.quotaWeight(
+          outcome ?? const TurnOutcome([]),
+        );
+        // Peso 0 = el turno solo pudo decir qué incluye otro plan.
+        final consumed =
+            weight == 0 ||
+            await ref.read(aiUsageTrackerProvider).recordUsage(weight);
         await subscription.refresh();
         if (!consumed) {
           state = state.copyWith(paywallReason: PaywallReason.quotaExceeded);

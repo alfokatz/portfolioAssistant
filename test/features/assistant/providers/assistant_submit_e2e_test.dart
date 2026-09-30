@@ -338,8 +338,9 @@ void main() {
   );
 
   test(
-    'a news search costs the news weight; a premium user asking for news gets the gold '
-    'paywall',
+    'a news search costs the news weight; a premium user asking for news '
+    'gets an answer (with the Gold block), not an interrupting paywall, and '
+    'no query is charged',
     () async {
       final gold = harness(SubscriptionTier.gold, [
         _call('get_news', {
@@ -354,9 +355,10 @@ void main() {
         _call('get_news', {
           'tickers': ['NVDA'],
         }),
+        _answer('Las noticias están incluidas en Gold.'),
       ]);
       await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-      expect(premium.state.paywallReason, PaywallReason.newsRequiresGold);
+      expect(premium.state.paywallReason, isNull);
       expect(premium.subscriptionRepo.consumed, isEmpty);
     },
   );
@@ -380,7 +382,8 @@ void main() {
               )
               as Map;
       expect(toolResult['status'], 'locked');
-      expect(h.subscriptionRepo.consumed, [1]);
+      // Solo se pudo decir qué incluye Gold: no se cobra la consulta.
+      expect(h.subscriptionRepo.consumed, isEmpty);
     },
   );
 
@@ -408,8 +411,10 @@ void main() {
     expect(h.lastAnswer.profileNudge, isNull);
   });
 
-  test('a non-gold user asking to invest gets the plan paywall', () async {
-    final h = harness(SubscriptionTier.premium, [
+  // Desde la matriz de planes (2026-09-30) las simulaciones son de Premium:
+  // el paywall lo ve Free.
+  test('a free user asking to invest gets the plan paywall', () async {
+    final h = harness(SubscriptionTier.free, [
       _call('get_invest_candidates', {
         'tickers': ['NEE', 'KO'],
         'budget_usd': 500,

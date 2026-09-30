@@ -834,6 +834,27 @@ final CatalogItem qaCompanyAnalysisItem = CatalogItem(
   ],
 );
 
+/// Lo agrega la APP (nunca el modelo) cuando una fuente de Gold vino
+/// `locked`: ver `AssistantAnswerReview._withGoldTeaser`.
+final CatalogItem qaGoldTeaserItem = CatalogItem(
+  name: 'QaGoldTeaser',
+  dataSchema: S.object(
+    description: 'Solo lo agrega la app. Nunca lo emitas.',
+    properties: {'ticker': S.string()},
+    required: ['ticker'],
+  ),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoldTeaser),
+  exampleData: [
+    () => '''
+[
+  {"id": "goldTeaser", "component": "QaGoldTeaser", "ticker": "NVDA"}
+]
+''',
+  ],
+);
+
 final _newsItemSchema = S.object(
   properties: {
     'headline': S.string(),

@@ -146,6 +146,10 @@ abstract final class AssistantAnswerReview {
       changed = true;
     }
 
+    if (_withGoldTeaser(list, components, root, evidence)) {
+      changed = true;
+    }
+
     final widgetNumbers = _widgetNumbers(components, evidence);
     if (widgetNumbers != null) {
       for (final c in components) {
@@ -163,6 +167,45 @@ abstract final class AssistantAnswerReview {
       }
     }
     return changed ? jsonEncode(message) : line;
+  }
+
+  static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};
+
+  /// Si en ESTE turno una fuente de Gold vino `locked` y la respuesta quedó
+  /// en solo texto, agrega un `QaGoldTeaser` después del texto: lo bloqueado
+  /// se ve (y se toca para abrir el paywall) en vez de desaparecer detrás de
+  /// un "no está incluido en tu plan". Uno solo por respuesta.
+  static bool _withGoldTeaser(
+    List list,
+    List<Map<String, dynamic>> components,
+    Map<String, dynamic>? root,
+    TurnEvidence evidence,
+  ) {
+    if (root == null || root['children'] is! List) return false;
+    if (components.any((c) => !_nonData.contains(c['component']))) {
+      return false;
+    }
+    String? ticker;
+    for (final call in evidence.turnCalls) {
+      if (!_goldSources.contains(call.name) || call.status != 'locked') continue;
+      final tickers = call.args['tickers'];
+      if (tickers is List && tickers.isNotEmpty) {
+        ticker = '${tickers.first}'.toUpperCase();
+        break;
+      }
+    }
+    if (ticker == null) return false;
+    const id = 'goldTeaser';
+    list.add({'id': id, 'component': 'QaGoldTeaser', 'ticker': ticker});
+    final children = List.of(root['children'] as List);
+    final introAt = children.indexWhere(
+      (child) => components.any(
+        (c) => c['id'] == child && c['component'] == 'QaAnswerText',
+      ),
+    );
+    children.insert(introAt < 0 ? 0 : introAt + 1, id);
+    root['children'] = children;
+    return true;
   }
 
   /// Las 4 fuentes del análisis. Un resultado locked/empty/failed cuenta

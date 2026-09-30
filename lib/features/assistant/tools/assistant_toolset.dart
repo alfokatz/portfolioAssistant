@@ -41,6 +41,11 @@ abstract final class AssistantTurnPolicy {
   /// modelo en la primera ronda está fuera del plan y alguna de esas cosas
   /// tiene una hoja de upgrade. Si parte sí se pudo traer, el turno sigue y
   /// el modelo explica qué no incluye el plan.
+  ///
+  /// Los datos de Gold NO cortan el turno: la respuesta sigue y la app le
+  /// agrega un bloque "Gold" tocable (`QaGoldTeaser`) que abre el paywall
+  /// desde ahí — mostrar lo bloqueado en vez de interrumpir con una hoja.
+  /// Lo de Premium (mercado ajeno, simulaciones, metas) sí corta, como antes.
   static PaywallReason? paywallFor(
     List<ToolCallRecord> firstRound,
     AssistantToolContext ctx,
@@ -49,7 +54,6 @@ abstract final class AssistantTurnPolicy {
     if (!firstRound.every((c) => c.status == 'locked')) return null;
     for (final reason in const [
       PaywallReason.modeLocked,
-      PaywallReason.newsRequiresGold,
       PaywallReason.marketDataLocked,
     ]) {
       if (ctx.lockedReasons.contains(reason)) return reason;
@@ -60,6 +64,12 @@ abstract final class AssistantTurnPolicy {
   /// Peso del turno en la cuota: `newsQueryWeight` si se buscaron noticias
   /// (hoy 1, igual que el resto — ver `AiUsageLimits`), si no 1.
   static int quotaWeight(TurnOutcome outcome) {
+    // Todo lo que se pidió estaba fuera del plan: la respuesta solo explica
+    // qué incluye Gold. No se cobra una consulta por algo que no se mostró.
+    if (outcome.toolCalls.isNotEmpty &&
+        outcome.toolCalls.every((c) => c.status == 'locked')) {
+      return 0;
+    }
     final searchedNews = outcome.toolCalls.any(
       (c) => c.name == 'get_news' && (c.status == 'ok' || c.status == 'empty'),
     );

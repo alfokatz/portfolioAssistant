@@ -3,6 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_gold_lock.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
@@ -31,23 +37,77 @@ abstract final class AnalysisWidgets {
   static Widget qaCompanyAnalysis(CatalogItemContext ctx) {
     final prose = _AnalysisProse.fromMap(ctx.data as JsonMap);
     return Builder(
-      builder: (context) {
-        final data = CompanyAnalysisData.from(
-          QaEvidenceScope.of(context, ctx.surfaceId),
-          prose.ticker,
-        );
-        return QaCardShell.staged(
-          staged:
-              (context, active, onFinished) => _AnalysisBody(
-                prose: prose.cleaned(data.backingNumbers.toList()),
-                data: data,
-                active: active,
-                onFinished: onFinished,
-              ),
-        );
-      },
+      builder:
+          (context) => ValueListenableBuilder<TurnEvidence>(
+            // Observable: tras comprar Gold llegan las fuentes que faltaban y
+            // la card se completa en el lugar, sin volver a preguntar.
+            valueListenable: QaEvidenceScope.listenableOf(
+              context,
+              ctx.surfaceId,
+            ),
+            builder: (context, evidence, _) {
+              final data = CompanyAnalysisData.from(evidence, prose.ticker);
+              return QaCardShell.staged(
+                staged:
+                    (context, active, onFinished) => _AnalysisBody(
+                      prose: prose.cleaned(data.backingNumbers.toList()),
+                      data: data,
+                      loading: evidence.loading,
+                      surfaceId: ctx.surfaceId,
+                      active: active,
+                      onFinished: onFinished,
+                    ),
+              );
+            },
+          ),
     );
   }
+
+  /// Bloque de Gold que la app agrega a una respuesta cuando lo que se pidió
+  /// (noticias, earnings, fundamentals) está fuera del plan: en vez de solo
+  /// un texto de "no incluido", se ve qué hay detrás y se toca para abrir
+  /// el paywall. Si el usuario compra, se completa acá mismo con los datos.
+  static Widget qaGoldTeaser(CatalogItemContext ctx) {
+    final map = ctx.data as JsonMap;
+    final ticker = '${map['ticker'] ?? ''}'.toUpperCase();
+    return Builder(
+      builder:
+          (context) => ValueListenableBuilder<TurnEvidence>(
+            valueListenable: QaEvidenceScope.listenableOf(
+              context,
+              ctx.surfaceId,
+            ),
+            builder: (context, evidence, _) {
+              final data = CompanyAnalysisData.from(evidence, ticker);
+              return QaCardShell(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    QaTickerHeader(ticker: ticker),
+                    const SizedBox(height: QaSpace.gap),
+                    _GoldArea(
+                      data: data,
+                      prose: _AnalysisProse.empty(ticker),
+                      loading: evidence.loading,
+                      surfaceId: ctx.surfaceId,
+                      teaser: true,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  /// Vista previa del análisis de [data] para la hoja de paywall: lo que el
+  /// usuario ya tiene (encabezado con precio, resumen) con sus datos reales,
+  /// y las secciones de Gold como títulos con líneas skeleton — sin números
+  /// ni texto de esas secciones, y sin pedir datos de Gold para armarla.
+  static Widget paywallPreview({
+    required CompanyAnalysisData data,
+    required String summary,
+  }) => _PaywallPreview(data: data, summary: summary);
 }
 
 /// Métricas que el modelo puede destacar, con el rótulo, el formato y una
@@ -198,6 +258,14 @@ class _AnalysisProse {
     required this.newsTake,
   });
 
+  factory _AnalysisProse.empty(String ticker) => _AnalysisProse(
+    ticker: ticker,
+    summary: '',
+    keyPoints: const [],
+    metrics: const [],
+    newsTake: '',
+  );
+
   factory _AnalysisProse.fromMap(JsonMap map) {
     String str(Object? v) => v is String ? v.trim() : '';
     final points = <_KeyPoint>[];
@@ -259,12 +327,18 @@ class _AnalysisBody extends StatefulWidget {
   const _AnalysisBody({
     required this.prose,
     required this.data,
+    required this.loading,
+    required this.surfaceId,
     required this.active,
     required this.onFinished,
   });
 
   final _AnalysisProse prose;
   final CompanyAnalysisData data;
+
+  /// Se están trayendo las fuentes de Gold recién compradas.
+  final bool loading;
+  final String surfaceId;
   final bool active;
   final VoidCallback onFinished;
 
@@ -290,6 +364,12 @@ class _AnalysisBodyState extends State<_AnalysisBody>
   void didUpdateWidget(covariant _AnalysisBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     _maybeStart();
+    // Cierre del desbloqueo en vivo (compra → datos): una sola vez, nunca
+    // al reconstruir el historial (ahí la card nace ya abierta).
+    if (_goldPhase(oldWidget.data, oldWidget.loading) != _GoldPhase.open &&
+        _goldPhase(widget.data, widget.loading) == _GoldPhase.open) {
+      PortyHapticsService.maybeOf(context)?.goldUnlocked();
+    }
   }
 
   void _maybeStart() {
@@ -347,24 +427,261 @@ class _AnalysisBodyState extends State<_AnalysisBody>
     add(_Header(data: d), divided: false);
     if (p.summary.isNotEmpty) add(_Summary(text: p.summary), divided: false);
     add(_KeyPoints.maybe(p.keyPoints));
-    add(_Metrics.maybe(d, p.metrics));
-    add(_PriceRange.maybe(d));
-    add(_Results.maybe(d));
-    add(_News.maybe(d, p.newsTake));
-    add(_Risk.maybe(d));
+    add(
+      _GoldArea.maybe(
+        d,
+        p,
+        loading: widget.loading,
+        surfaceId: widget.surfaceId,
+      ),
+    );
     add(_Holding.maybe(d));
-    add(const _Disclaimer());
+    if (d.isCourtesy) add(_CourtesyLine(ticker: d.ticker), divided: false);
+    add(const _Disclaimer(), divided: !d.isCourtesy);
     add(
       QaFollowUpBar(
-        items:
-            QaTickerFollowUps.of(
-              d.ticker,
-              exclude: {QaTickerFollowUps.analysis},
-            ).take(3).toList(),
+        items: QaTickerFollowUps.of(
+          d.ticker,
+          exclude: {QaTickerFollowUps.analysis},
+        ),
+        limit: 3,
+        // La card ya tiene su bloque de Gold: ningún chip con candado más.
+        allowLockedChip: d.lockedGoldFeatures.isEmpty,
       ),
       divided: false,
     );
     return out;
+  }
+}
+
+enum _GoldPhase { open, loading, locked }
+
+_GoldPhase _goldPhase(CompanyAnalysisData d, bool loading) {
+  if (d.lockedGoldFeatures.isEmpty) return _GoldPhase.open;
+  return loading ? _GoldPhase.loading : _GoldPhase.locked;
+}
+
+/// Todo lo que depende de fuentes de Gold (valuación, precio en 52 semanas,
+/// resultados, noticias, riesgo), como UNA sección que cambia de estado:
+/// bloqueada (un solo bloque tocable) → cargando (skeletons) → abierta. El
+/// cambio ajusta el espacio y hace crossfade ([QaStateSwitcher]): lo de
+/// abajo se desliza, no salta.
+class _GoldArea extends StatelessWidget {
+  const _GoldArea({
+    required this.data,
+    required this.prose,
+    required this.loading,
+    required this.surfaceId,
+    this.teaser = false,
+  });
+
+  final CompanyAnalysisData data;
+  final _AnalysisProse prose;
+  final bool loading;
+  final String surfaceId;
+
+  /// Bloque suelto (no dentro de un análisis): mide su `source` aparte.
+  final bool teaser;
+
+  static Widget? maybe(
+    CompanyAnalysisData d,
+    _AnalysisProse p, {
+    required bool loading,
+    required String surfaceId,
+  }) {
+    final area = _GoldArea(
+      data: d,
+      prose: p,
+      loading: loading,
+      surfaceId: surfaceId,
+    );
+    if (_goldPhase(d, loading) == _GoldPhase.open &&
+        area._openSections().isEmpty) {
+      return null;
+    }
+    return area;
+  }
+
+  List<Widget> _openSections() => [
+    for (final w in [
+      _Metrics.maybe(data, prose.metrics),
+      _PriceRange.maybe(data),
+      _Results.maybe(data),
+      _News.maybe(data, prose.newsTake),
+      _Risk.maybe(data),
+    ])
+      if (w != null) w,
+  ];
+
+  static const _titles = {
+    'fundamentals': 'Valuación',
+    'earnings': 'resultados',
+    'news': 'noticias',
+  };
+
+  /// "Valuación, resultados y noticias" con lo que esté bloqueado.
+  static String titleFor(List<String> locked) {
+    final names = [for (final f in locked) _titles[f] ?? f];
+    if (names.isEmpty) return '';
+    final first = names.first;
+    names[0] = first[0].toUpperCase() + first.substring(1);
+    if (names.length == 1) return names.single;
+    return '${names.sublist(0, names.length - 1).join(', ')} y ${names.last}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final phase = _goldPhase(data, loading);
+    final locked = data.lockedGoldFeatures;
+    final Widget child = switch (phase) {
+      _GoldPhase.locked => QaGoldLock(
+        key: const ValueKey('locked'),
+        title: titleFor(locked),
+        request: QaPaywallRequest(
+          source:
+              teaser
+                  ? 'answer_locked_${locked.join('+')}'
+                  : locked.length == 1
+                  ? 'analysis_locked_${locked.single}'
+                  : 'analysis_locked_group',
+          ticker: data.ticker,
+          surfaceId: surfaceId,
+          preview: (_) => _PaywallPreview(data: data, summary: prose.summary),
+        ),
+      ),
+      _GoldPhase.loading => Column(
+        key: const ValueKey('loading'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final f in locked) ...[
+            if (f != locked.first) const SizedBox(height: QaSpace.sectionGap),
+            QaSectionLabel(titleFor([f])),
+            const SizedBox(height: 10),
+            const QaSkeleton(lines: 2),
+          ],
+        ],
+      ),
+      _GoldPhase.open => Column(
+        key: const ValueKey('open'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, section) in _openSections().indexed) ...[
+            if (i > 0) const QaDivider(vertical: 14),
+            section,
+          ],
+        ],
+      ),
+    };
+    return QaStateSwitcher(child: child);
+  }
+}
+
+/// "Análisis Gold de cortesía" + link al paywall: el análisis se ve
+/// completo esta vez, y se dice por qué sin interrumpir.
+class _CourtesyLine extends StatelessWidget {
+  const _CourtesyLine({required this.ticker});
+  final String ticker;
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = QaPlanScope.maybeOf(context);
+    return Row(
+      children: [
+        Icon(Icons.auto_awesome_rounded, size: 13, color: QaColors.accentBlue),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text('Análisis Gold de cortesía', style: QaText.caption),
+        ),
+        if (plan != null)
+          Semantics(
+            button: true,
+            label: 'Conocer el plan Gold',
+            excludeSemantics: true,
+            child: QaTappable(
+              onTap: () {
+                PortyHapticsService.maybeOf(context)?.lockedTap();
+                plan.openPaywall(
+                  QaPaywallRequest(
+                    source: 'weekly_free_analysis',
+                    ticker: ticker,
+                  ),
+                );
+              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(
+                    'Conocer Gold',
+                    style: QaText.caption.copyWith(
+                      color: QaColors.accentBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Lo que la hoja de paywall muestra del análisis: encabezado y resumen con
+/// datos reales + los títulos de Gold con skeletons. Entra con la entrada
+/// centralizada ([RevealEntrance]).
+class _PaywallPreview extends StatelessWidget {
+  const _PaywallPreview({required this.data, required this.summary});
+
+  final CompanyAnalysisData data;
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = data.lockedGoldFeatures;
+    final titles =
+        locked.isEmpty ? const ['fundamentals', 'earnings', 'news'] : locked;
+    return RevealEntrance(
+      active: true,
+      child: Container(
+        padding: const EdgeInsets.all(QaSpace.cardPadding),
+        decoration: BoxDecoration(
+          color: QaColors.surfaceCard,
+          borderRadius: BorderRadius.circular(QaSpace.cardRadius),
+          border: Border.all(color: QaColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Header(data: data),
+            if (summary.isNotEmpty) ...[
+              const SizedBox(height: QaSpace.gap),
+              Text(
+                summary,
+                style: QaText.body,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            for (final f in titles) ...[
+              const QaDivider(vertical: 14),
+              Row(
+                children: [
+                  Expanded(child: QaSectionLabel(_GoldArea.titleFor([f]))),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 13,
+                    color: QaColors.textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const QaSkeleton(lines: 2),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -552,42 +869,6 @@ class _KeyPointRow extends StatelessWidget {
   }
 }
 
-// ── Aviso de sección fuera del plan ───────────────────────────────────────
-
-class _GoldNotice extends StatelessWidget {
-  const _GoldNotice({required this.title, required this.what});
-
-  final String title;
-  final String what;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        QaSectionLabel(title),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Icon(
-              Icons.lock_outline_rounded,
-              size: 15,
-              color: QaColors.accentBlue,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                what,
-                style: QaText.label.copyWith(color: QaColors.textPrimary),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 // ── d) Valuación y rentabilidad ───────────────────────────────────────────
 
 class _Metrics extends StatelessWidget {
@@ -595,12 +876,7 @@ class _Metrics extends StatelessWidget {
   final List<({AnalysisMetric metric, double value, String explanation})> rows;
 
   static Widget? maybe(CompanyAnalysisData d, List<_MetricPick> picks) {
-    if (d.fundamentalsStatus == AnalysisSourceStatus.locked) {
-      return const _GoldNotice(
-        title: 'Valuación y rentabilidad',
-        what: 'Incluido en el plan Gold',
-      );
-    }
+    if (d.fundamentalsStatus == AnalysisSourceStatus.locked) return null;
     final chosen =
         picks.isNotEmpty
             ? picks
@@ -758,12 +1034,7 @@ class _Results extends StatelessWidget {
   final Map<String, Object?>? next;
 
   static Widget? maybe(CompanyAnalysisData d) {
-    if (d.earningsStatus == AnalysisSourceStatus.locked) {
-      return const _GoldNotice(
-        title: 'Resultados',
-        what: 'Incluido en el plan Gold',
-      );
-    }
+    if (d.earningsStatus == AnalysisSourceStatus.locked) return null;
     final latest = d.latestResult;
     final next = d.nextReport;
     final hasLatest =
@@ -885,12 +1156,7 @@ class _News extends StatelessWidget {
   final String take;
 
   static Widget? maybe(CompanyAnalysisData d, String take) {
-    if (d.newsStatus == AnalysisSourceStatus.locked) {
-      return const _GoldNotice(
-        title: 'Noticias',
-        what: 'Incluido en el plan Gold',
-      );
-    }
+    if (d.newsStatus == AnalysisSourceStatus.locked) return null;
     if (d.news.isEmpty) return null;
     return _News(items: d.news.take(3).toList(), take: take);
   }

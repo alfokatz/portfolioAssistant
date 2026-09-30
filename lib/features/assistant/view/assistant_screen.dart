@@ -7,6 +7,9 @@ import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
@@ -284,6 +287,26 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   /// La burbuja del usuario se revela con su propio typewriter (ver
   /// `PortfolioQaChatBubble`) — el orbe de "pensando" queda cerrado
   /// (`_orbGateOpen = false`) hasta que ese typewriter avisa que terminó.
+  /// Paywall de Gold pedido desde una card (bloque bloqueado, chip con
+  /// candado, "Conocer Gold" del análisis de cortesía). Cerrarlo deja el
+  /// chat donde estaba (la hoja no toca el scroll). Si compra, la card de
+  /// donde vino se completa en el lugar ([AssistantProvider.unlockGoldData]).
+  void _openGoldPaywall(AssistantProvider notifier, QaPaywallRequest request) {
+    final surfaceId = request.surfaceId;
+    final ticker = request.ticker;
+    SubscriptionPaywallSheet.show(
+      context,
+      ref,
+      reason: PaywallReason.goldRequired,
+      source: request.source,
+      preview: request.preview,
+      onUpgraded:
+          surfaceId == null || ticker == null
+              ? null
+              : () => notifier.unlockGoldData(surfaceId, ticker),
+    );
+  }
+
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -653,18 +676,30 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
-      final surface = QaFollowUpScope(
-        onFollowUp: (question) => _startAutoType(notifier, question),
-        child: QaEvidenceScope(
-          lookup: service.evidenceFor,
-          child: PortfolioQaAssistantSurface(
-            surfaceId: message.surfaceId!,
-            surfaceContext: service.controller.contextFor(message.surfaceId!),
-            startFullyRevealed: message.hasRevealed,
-            onFullyRevealed: () {
-              if (message.surfaceId == _followSurfaceId) _finishFollowing();
-              notifier.markRevealed(message.surfaceId!);
-            },
+      final surface = QaPlanScope(
+        tier: ref.watch(subscriptionProvider).tier,
+        weeklyFreeAnalysisAvailable: ref.watch(
+          weeklyFreeAnalysisAvailableProvider,
+        ),
+        heldTickers: {
+          for (final v
+              in ref.watch(homeProvider).summary?.valuations ?? const [])
+            v.position.ticker.toUpperCase(),
+        },
+        openPaywall: (request) => _openGoldPaywall(notifier, request),
+        child: QaFollowUpScope(
+          onFollowUp: (question) => _startAutoType(notifier, question),
+          child: QaEvidenceScope(
+            lookup: service.evidenceListenable,
+            child: PortfolioQaAssistantSurface(
+              surfaceId: message.surfaceId!,
+              surfaceContext: service.controller.contextFor(message.surfaceId!),
+              startFullyRevealed: message.hasRevealed,
+              onFullyRevealed: () {
+                if (message.surfaceId == _followSurfaceId) _finishFollowing();
+                notifier.markRevealed(message.surfaceId!);
+              },
+            ),
           ),
         ),
       );

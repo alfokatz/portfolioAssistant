@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dart_openai/dart_openai.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
@@ -54,6 +55,7 @@ class TurnEvidence {
     required this.calls,
     this.turnCalls = const [],
     this.pinnedContext,
+    this.loading = false,
   });
 
   static const empty = TurnEvidence(calls: []);
@@ -64,6 +66,18 @@ class TurnEvidence {
   /// Solo las de ESTE turno: lo que el modelo decidió pedir ahora.
   final List<ToolCallRecord> turnCalls;
   final String? pinnedContext;
+
+  /// Se están trayendo datos nuevos para esta surface (p. ej. las fuentes
+  /// de Gold recién compradas): las cards muestran skeletons mientras tanto.
+  final bool loading;
+
+  TurnEvidence copyWith({List<ToolCallRecord>? calls, bool? loading}) =>
+      TurnEvidence(
+        calls: calls ?? this.calls,
+        turnCalls: turnCalls,
+        pinnedContext: pinnedContext,
+        loading: loading ?? this.loading,
+      );
 }
 
 /// Lo que se le pide al modelo cuando una respuesta no pasa el chequeo.
@@ -97,6 +111,11 @@ typedef AnswerCheck =
 /// Último ajuste determinístico de la respuesta ya normalizada, antes de
 /// despacharla (guard de layout, limpieza de texto sin respaldo).
 typedef PostProcess = String Function(String normalized, TurnEvidence evidence);
+
+/// Se llama con las tools que el modelo pidió en una ronda, ANTES de
+/// ejecutarlas: permite ajustar el contexto de la ronda (p. ej. habilitar
+/// el análisis de cortesía de la semana) según lo que se va a pedir.
+typedef BeforeToolRound = Future<void> Function(List<PendingToolCall> calls);
 
 /// Decide, con los resultados de una ronda, si el turno se corta ahí.
 /// Devuelve el motivo, o `null` para seguir.
@@ -219,6 +238,7 @@ class OpenAIGenUiService {
     String? pinnedContext,
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
+    BeforeToolRound? beforeRound,
   }) {
     return _sendQueue.run(() {
       log.pinnedContext = pinnedContext;
@@ -229,6 +249,7 @@ class OpenAIGenUiService {
         context: context,
         abortCheck: abortCheck,
         onActivity: onActivity,
+        beforeRound: beforeRound,
       );
     });
   }
@@ -256,6 +277,7 @@ class OpenAIGenUiService {
     String? context,
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
+    BeforeToolRound? beforeRound,
   }) async {
     if (apiKey.isEmpty) {
       throw StateError('OPENAI_API_KEY no configurada');
@@ -303,6 +325,13 @@ class OpenAIGenUiService {
               ),
           ]),
         );
+        await beforeRound?.call([
+          for (final call in calls)
+            PendingToolCall(
+              call.function.name ?? '',
+              _ToolExecutor._decodeArgs(call.function.arguments) ?? const {},
+            ),
+        ]);
         final records = await executor.runAll(calls);
         onActivity?.call(TurnActivity.composing);
         turn.calls.addAll(records);
@@ -604,20 +633,50 @@ class OpenAIGenUiService {
   /// Tope de surfaces recordadas: alcanza para todo lo que sigue en
   /// pantalla en una conversación normal.
   static const _maxRememberedSurfaces = 40;
-  final _evidenceBySurface = <String, TurnEvidence>{};
+  final _evidenceBySurface = <String, ValueNotifier<TurnEvidence>>{};
 
   void _rememberEvidence(String surfaceId, TurnEvidence evidence) {
-    _evidenceBySurface
-      ..remove(surfaceId)
-      ..[surfaceId] = evidence;
+    final existing = _evidenceBySurface.remove(surfaceId);
+    if (existing != null) {
+      existing.value = evidence;
+      _evidenceBySurface[surfaceId] = existing;
+    } else {
+      _evidenceBySurface[surfaceId] = ValueNotifier(evidence);
+    }
     while (_evidenceBySurface.length > _maxRememberedSurfaces) {
-      _evidenceBySurface.remove(_evidenceBySurface.keys.first);
+      _evidenceBySurface.remove(_evidenceBySurface.keys.first)?.dispose();
     }
   }
 
   /// Los datos con los que se armó [surfaceId] (vacío si no se conoce).
   TurnEvidence evidenceFor(String surfaceId) =>
-      _evidenceBySurface[surfaceId] ?? TurnEvidence.empty;
+      _evidenceBySurface[surfaceId]?.value ?? TurnEvidence.empty;
+
+  /// Igual que [evidenceFor], pero observable: la card se redibuja cuando
+  /// llegan datos nuevos para su surface (ver [appendEvidence]).
+  ValueListenable<TurnEvidence> evidenceListenable(String surfaceId) =>
+      _evidenceBySurface.putIfAbsent(
+        surfaceId,
+        () => ValueNotifier(TurnEvidence.empty),
+      );
+
+  /// Marca que se están trayendo datos nuevos para [surfaceId].
+  void setEvidenceLoading(String surfaceId, {required bool loading}) {
+    final notifier = _evidenceBySurface[surfaceId];
+    if (notifier != null) notifier.value = notifier.value.copyWith(loading: loading);
+  }
+
+  /// Suma resultados de tools a la evidencia de [surfaceId] SIN pasar por el
+  /// modelo — p. ej. las fuentes de Gold que se pudieron traer recién
+  /// después de comprar el plan. Van al final: ganan sobre los `locked`.
+  void appendEvidence(String surfaceId, List<ToolCallRecord> records) {
+    final notifier = _evidenceBySurface[surfaceId];
+    if (notifier == null) return;
+    notifier.value = notifier.value.copyWith(
+      calls: [...notifier.value.calls, ...records],
+      loading: false,
+    );
+  }
 
   /// Convierte el JSON de un `UiInteractionPart` en una instrucción legible.
   /// El único que dispara la app es el error de validación de

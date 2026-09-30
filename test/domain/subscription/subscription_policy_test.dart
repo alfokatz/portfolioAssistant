@@ -74,13 +74,17 @@ void main() {
       );
     });
 
-    test('investment simulation and goal planning: gold only', () {
-      expect(SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.free), isFalse);
-      expect(
-        SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.premium),
-        isFalse,
-      );
-      expect(SubscriptionPolicy.isAdviceAllowed(SubscriptionTier.gold), isTrue);
+    // Matriz 2026-09-30: simulaciones y metas pasaron a Premium (se le suma
+    // a Premium; Gold no pierde nada).
+    test('investment simulation and goals: premium and gold', () {
+      for (final check in [
+        SubscriptionPolicy.isInvestSimulationAllowed,
+        SubscriptionPolicy.isGoalsAllowed,
+      ]) {
+        expect(check(SubscriptionTier.free), isFalse);
+        expect(check(SubscriptionTier.premium), isTrue);
+        expect(check(SubscriptionTier.gold), isTrue);
+      }
     });
   });
 

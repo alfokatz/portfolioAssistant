@@ -72,6 +72,8 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaCompanyAnalysis(CatalogItemContext ctx) =>
       AnalysisWidgets.qaCompanyAnalysis(ctx);
+  static Widget qaGoldTeaser(CatalogItemContext ctx) =>
+      AnalysisWidgets.qaGoldTeaser(ctx);
   static Widget qaFundamentals(CatalogItemContext ctx) =>
       CompanyWidgets.qaFundamentals(ctx);
 

@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/data/market/ticker_quote_builder.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -183,8 +184,12 @@ class GetFundamentalsTool implements DataTool {
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
     final tickers = ToolArgs.tickers(args);
     if (tickers.isEmpty) return ToolArgs.invalid();
-    if (!ctx.premiumDataAllowed) return ctx.locked('gold');
-    return {...await ctx.data.fundamentals.fetch(tickers), 'as_of': ctx.asOf};
+    final locked = ctx.gate(PlanFeature.fundamentals, tickers);
+    if (locked != null) return locked;
+    return ctx.courtesyTag({
+      ...await ctx.data.fundamentals.fetch(tickers),
+      'as_of': ctx.asOf,
+    });
   }
 }
 
@@ -216,8 +221,12 @@ class GetEarningsTool implements DataTool {
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
     final tickers = ToolArgs.tickers(args);
     if (tickers.isEmpty) return ToolArgs.invalid();
-    if (!ctx.premiumDataAllowed) return ctx.locked('gold');
-    return {...await ctx.data.earnings.fetch(tickers), 'as_of': ctx.asOf};
+    final locked = ctx.gate(PlanFeature.earnings, tickers);
+    if (locked != null) return locked;
+    return ctx.courtesyTag({
+      ...await ctx.data.earnings.fetch(tickers),
+      'as_of': ctx.asOf,
+    });
   }
 }
 
@@ -246,9 +255,11 @@ class GetNewsTool implements DataTool {
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
     final tickers = ToolArgs.tickers(args);
     if (tickers.isEmpty) return ToolArgs.invalid();
-    if (!ctx.premiumDataAllowed) {
-      return ctx.locked('gold', PaywallReason.newsRequiresGold);
-    }
-    return {...await ctx.data.news.fetch(tickers), 'as_of': ctx.asOf};
+    final locked = ctx.gate(PlanFeature.news, tickers);
+    if (locked != null) return locked;
+    return ctx.courtesyTag({
+      ...await ctx.data.news.fetch(tickers),
+      'as_of': ctx.asOf,
+    });
   }
 }

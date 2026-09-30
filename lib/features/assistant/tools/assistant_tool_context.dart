@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/managers/preferences_manager.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
@@ -81,11 +82,58 @@ class AssistantToolContext {
   /// turno (ver `AssistantTurnPolicy.paywallFor`).
   final lockedReasons = <PaywallReason>{};
 
-  bool get marketDataAllowed => SubscriptionPolicy.isMarketDataAllowed(tier);
-  bool get premiumDataAllowed => SubscriptionPolicy.isNewsAllowed(tier);
-  bool get adviceAllowed => SubscriptionPolicy.isAdviceAllowed(tier);
+  bool allows(PlanFeature feature) => SubscriptionPolicy.allows(tier, feature);
+
+  bool get marketDataAllowed => allows(PlanFeature.marketData);
+
+  /// El plan más barato que incluye [feature], como lo nombra la tool
+  /// ("premium" / "gold") en `required_plan`.
+  String requiredPlanFor(PlanFeature feature) =>
+      PlanMatrix.minimumTier(feature).name;
 
   String get asOf => now.toUtc().toIso8601String();
+
+  /// Ticker del análisis de cortesía de la semana, si este turno lo usa
+  /// (ver `WeeklyFreeAnalysisGrant`). Mientras esté fijado, las fuentes de
+  /// Gold de ESE ticker responden aunque el plan no las incluya.
+  String? courtesyTicker;
+
+  /// Si alguna tool sirvió datos de Gold gracias a la cortesía.
+  bool courtesyServed = false;
+
+  /// Gating único de las fuentes de datos: el plan la incluye, o es el
+  /// análisis de cortesía de [courtesyTicker]. Devuelve `null` si pasa, o
+  /// el resultado `locked` a devolverle al modelo.
+  Map<String, Object?>? gate(PlanFeature feature, List<String> tickers) {
+    if (allows(feature)) return null;
+    final grant = courtesyTicker;
+    if (grant != null &&
+        tickers.isNotEmpty &&
+        tickers.every((t) => t.toUpperCase() == grant)) {
+      courtesyServed = true;
+      return null;
+    }
+    return lockedFeature(feature);
+  }
+
+  /// `locked` con el plan mínimo y el paywall que corresponden a [feature].
+  Map<String, Object?> lockedFeature(PlanFeature feature) {
+    final plan = PlanMatrix.minimumTier(feature);
+    final reason = switch (feature) {
+      PlanFeature.marketData => PaywallReason.marketDataLocked,
+      _ when plan == SubscriptionTier.gold => PaywallReason.goldRequired,
+      _ => PaywallReason.modeLocked,
+    };
+    return locked(plan.name, reason);
+  }
+
+  /// Marca un resultado servido por la cortesía, para que la card lo diga.
+  Map<String, Object?> courtesyTag(Map<String, Object?> result) =>
+      courtesyTicker != null && !allowsAnyGoldData
+          ? {...result, 'courtesy': 'weekly_free_analysis'}
+          : result;
+
+  bool get allowsAnyGoldData => allows(PlanFeature.companyAnalysis);
 
   Map<String, Object?> locked(String requiredPlan, [PaywallReason? reason]) {
     if (reason != null) lockedReasons.add(reason);

@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/subscription/services/paywall_source_log.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -16,16 +20,28 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     super.key,
     required this.reason,
     this.onUpgraded,
+    this.source,
+    this.preview,
   });
 
   final PaywallReason reason;
   final VoidCallback? onUpgraded;
+
+  /// De dónde se abrió ("analysis_locked_news", "chip_news"…), para medir
+  /// conversiones. Ver [PaywallSourceLog].
+  final String? source;
+
+  /// Gancho visual arriba de los planes (p. ej. la vista previa del
+  /// análisis del ticker desde el que se abrió).
+  final WidgetBuilder? preview;
 
   static Future<void> show(
     BuildContext context,
     WidgetRef ref, {
     required PaywallReason reason,
     VoidCallback? onUpgraded,
+    String? source,
+    WidgetBuilder? preview,
   }) {
     final subscription = ref.read(subscriptionProvider);
     if (subscription.tier == SubscriptionTier.gold && !subscription.isLoading) {
@@ -33,6 +49,10 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     }
 
     ref.invalidate(subscriptionTierPricesProvider);
+    PaywallSourceLog.record(source ?? reason.name);
+    // Toque leve al abrir; el de "tocaste algo bloqueado" ya lo dio el
+    // widget en el mismo frame del toque.
+    PortyHapticsService.maybeOf(context)?.paywallOpened();
 
     final colors = Theme.of(context).extension<CustomColors>()!;
 
@@ -48,28 +68,39 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
         ),
       ),
       builder:
-          (_) =>
-              SubscriptionPaywallSheet(reason: reason, onUpgraded: onUpgraded),
+          (_) => SubscriptionPaywallSheet(
+            reason: reason,
+            onUpgraded: onUpgraded,
+            source: source,
+            preview: preview,
+          ),
     );
   }
+
+  /// Lo que el paywall lista de cada plan, de la matriz de planes (la misma
+  /// fuente que el gating): Gold abre con "Todo lo de Premium".
+  static List<String> featureKeysFor(SubscriptionTier tier) => [
+    if (tier == SubscriptionTier.gold) 'plan_feature_everything_premium',
+    ...PlanMatrix.marketingKeys(tier),
+  ];
 
   String get _titleKey => switch (reason) {
     PaywallReason.modeLocked => 'paywall_title_mode_locked',
     PaywallReason.marketDataLocked => 'paywall_title_market_data',
-    PaywallReason.newsRequiresGold => 'paywall_title_news',
+    PaywallReason.goldRequired => 'paywall_title_gold',
     PaywallReason.quotaExceeded => 'paywall_title_quota',
   };
 
   String get _subtitleKey => switch (reason) {
     PaywallReason.modeLocked => 'paywall_subtitle_mode_locked',
     PaywallReason.marketDataLocked => 'paywall_subtitle_market_data',
-    PaywallReason.newsRequiresGold => 'paywall_subtitle_news',
+    PaywallReason.goldRequired => 'paywall_subtitle_gold',
     PaywallReason.quotaExceeded => 'paywall_subtitle_quota',
   };
 
   List<SubscriptionTier> _visibleTiers(SubscriptionTier currentTier) {
     return switch (reason) {
-      PaywallReason.newsRequiresGold => [SubscriptionTier.gold],
+      PaywallReason.goldRequired => [SubscriptionTier.gold],
       PaywallReason.quotaExceeded ||
       PaywallReason.modeLocked ||
       PaywallReason.marketDataLocked =>
@@ -199,6 +230,10 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
                   height: 1.45,
                 ),
               ),
+              if (preview != null) ...[
+                const SizedBox(height: AppDimens.sp16),
+                preview!(context),
+              ],
               const SizedBox(height: AppDimens.sp16),
               _PaywallUsageMeter(
                 used: subscription.queriesUsed,
@@ -206,7 +241,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
               ),
               // Solo tiene sentido avisarlo si una consulta de noticias pesa
               // más que una común (hoy pesan igual — ver AiUsageLimits).
-              if (reason == PaywallReason.newsRequiresGold &&
+              if (reason == PaywallReason.goldRequired &&
                   AiUsageLimits.newsQueryWeight >
                       AiUsageLimits.standardQueryWeight) ...[
                 const SizedBox(height: AppDimens.sp12),
@@ -357,19 +392,8 @@ class _PaywallPlanCard extends StatelessWidget {
     SubscriptionTier.free => '',
   };
 
-  static List<String> _featureKeysFor(SubscriptionTier tier) => switch (tier) {
-    SubscriptionTier.premium => const [
-      'paywall_premium_feature_explore',
-      'paywall_premium_feature_benchmark',
-      'paywall_premium_feature_alerts',
-    ],
-    SubscriptionTier.gold => const [
-      'paywall_gold_feature_invest',
-      'paywall_gold_feature_plan',
-      'paywall_gold_feature_news',
-    ],
-    SubscriptionTier.free => const [],
-  };
+  static List<String> _featureKeysFor(SubscriptionTier tier) =>
+      SubscriptionPaywallSheet.featureKeysFor(tier);
 
   @override
   Widget build(BuildContext context) {
@@ -507,12 +531,17 @@ class _PaywallPriceLine extends StatelessWidget {
     final TextStyle style;
 
     if (isLoading) {
-      text = 'paywall_price_loading'.tr();
-      style = Theme.of(context).textTheme.bodySmall!.copyWith(
-        color:
-            featured
-                ? Colors.white.withValues(alpha: 0.72)
-                : colors.textSecondary,
+      // La hoja no espera a RevenueCat: el precio aparece en su lugar.
+      return Semantics(
+        label: 'paywall_price_loading'.tr(),
+        child: SizedBox(
+          width: 96,
+          height: 20,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: QaSkeleton(lines: 1, widths: const [1]),
+          ),
+        ),
       );
     } else if (priceLabel != null) {
       text = 'paywall_price_per_month'.tr(namedArgs: {'price': priceLabel!});

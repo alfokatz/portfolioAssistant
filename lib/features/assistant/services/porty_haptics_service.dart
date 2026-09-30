@@ -40,6 +40,18 @@ const answerCompletePattern = PortyHapticPattern.medium;
 /// Respuesta de solo texto: el toque leve de siempre al terminar de tipear.
 const textAnswerPattern = PortyHapticPattern.light;
 
+/// Tocar algo bloqueado por plan: el "tick" seco de selección, en el mismo
+/// frame del toque — confirma que se registró aunque la hoja tarde.
+const lockedTapPattern = PortyHapticPattern.selection;
+
+/// La hoja de paywall terminó de abrirse: un toque leve, el mismo cuerpo que
+/// la entrada de un widget (algo "llegó"), nunca más fuerte.
+const paywallOpenedPattern = PortyHapticPattern.light;
+
+/// Las secciones de Gold se desbloquearon en el lugar tras comprar: el
+/// mismo cierre que una respuesta completa ("listo").
+const goldUnlockedPattern = PortyHapticPattern.medium;
+
 /// Tope de toques por widget en una respuesta. Con el cierre, una
 /// respuesta nunca pasa de 4 vibraciones.
 const maxWidgetEntryTicks = 3;
@@ -109,6 +121,24 @@ class PortyHapticsService {
   void textAnswerRevealed() {
     if (!enabled) return;
     _performer(textAnswerPattern);
+  }
+
+  /// Se tocó un bloque o chip bloqueado por plan.
+  void lockedTap() {
+    if (!enabled) return;
+    _performer(lockedTapPattern);
+  }
+
+  /// Se abrió la hoja de paywall.
+  void paywallOpened() {
+    if (!enabled) return;
+    _performer(paywallOpenedPattern);
+  }
+
+  /// Las secciones de Gold de una card se desbloquearon tras comprar.
+  void goldUnlocked() {
+    if (!enabled) return;
+    _performer(goldUnlockedPattern);
   }
 
   /// Si el widget [index] de [total] vibra al entrar, respetando
