@@ -404,5 +404,10 @@
   "plan_feature_earnings": "Earnings: dates and results",
   "plan_feature_fundamentals": "Valuation, margins and dividends",
   "plan_feature_everything_premium": "Everything in Premium",
-  "plan_feature_price_alerts": "Price alerts"
+  "plan_feature_price_alerts": "Price alerts",
+  "assistant_daily_limit_title": "You've reached today's query limit.",
+  "assistant_daily_limit_body": "You'll have queries again tomorrow.",
+  "app_update_required_title": "Update the app",
+  "app_update_required_body": "This version is no longer supported. Update PortfolioAI to keep using the app.",
+  "app_update_required_action": "Update"
 }

@@ -278,6 +278,15 @@ String a2uiAnswer(String surfaceId, String text) =>
 
 /// OpenAI falso a nivel HTTP: devuelve [script] en orden y guarda el body
 /// de cada request — los tests afirman sobre lo que la app MANDÓ.
+/// Rechazo tipado del proxy `ai-chat` (402 cuota, 429 tope diario…) como
+/// paso de un [ScriptedOpenAi].
+Map<String, Object?> proxyRejection(int status, String type) => {
+  '__status': status,
+  '__body': {
+    'error': {'type': type, 'message': type},
+  },
+};
+
 class ScriptedOpenAi {
   ScriptedOpenAi(this.script);
 
@@ -297,6 +306,11 @@ class ScriptedOpenAi {
         500,
       );
     }
+    final message = script[index](body);
+    final status = message['__status'];
+    if (status is int) {
+      return http.Response(jsonEncode(message['__body']), status);
+    }
     return http.Response(
       jsonEncode({
         'id': 'chatcmpl-$index',
@@ -305,7 +319,7 @@ class ScriptedOpenAi {
         'model': 'gpt-4.1-mini',
         'system_fingerprint': 'fp',
         'choices': [
-          {'index': 0, 'message': script[index](body), 'finish_reason': 'stop'},
+          {'index': 0, 'message': message, 'finish_reason': 'stop'},
         ],
         'usage': {
           'prompt_tokens': 10,

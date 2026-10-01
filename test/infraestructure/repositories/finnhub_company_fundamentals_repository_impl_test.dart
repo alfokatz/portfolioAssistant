@@ -67,7 +67,7 @@ void main() {
       );
 
       final repository = FinnhubCompanyFundamentalsRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.getFundamentals('AAPL');
@@ -95,7 +95,7 @@ void main() {
       () async {
         final dio = dioResolving(profile: {}, metric: {});
         final repository = FinnhubCompanyFundamentalsRepositoryImpl(
-          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+          client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
         );
 
         final result = await repository.getFundamentals('ZZZZ');
@@ -113,7 +113,7 @@ void main() {
           metric: {},
         );
         final repository = FinnhubCompanyFundamentalsRepositoryImpl(
-          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+          client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
         );
 
         final result = await repository.getFundamentals('AAPL');
@@ -140,7 +140,7 @@ void main() {
       );
 
       final repository = FinnhubCompanyFundamentalsRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.getFundamentals('AAPL');
@@ -148,9 +148,9 @@ void main() {
       expect(result.isLeft(), isTrue);
     });
 
-    test('returns Left without throwing when no API key is configured', () async {
+    test('returns Left without throwing when the Finnhub proxy is not configured', () async {
       final repository = FinnhubCompanyFundamentalsRepositoryImpl(
-        client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
+        client: FinnhubHttpClient(dio: Dio(), baseUrl: ''),
       );
 
       final result = await repository.getFundamentals('AAPL');

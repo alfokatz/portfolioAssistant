@@ -6,12 +6,13 @@ import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 /// Servicio GenUI de Porty: un catálogo, un set de reglas, una conversación.
 class AssistantOpenAiService extends OpenAIGenUiService {
   AssistantOpenAiService._({
-    super.apiKey,
+    super.proxy,
     super.model,
     super.httpClient,
     required super.systemPrompt,
@@ -22,13 +23,13 @@ class AssistantOpenAiService extends OpenAIGenUiService {
        );
 
   factory AssistantOpenAiService({
-    String? apiKey,
+    AiProxyConfig? proxy,
     String? model,
     http.Client? httpClient,
   }) {
     final catalog = AssistantCatalog.build();
     return AssistantOpenAiService._(
-      apiKey: apiKey,
+      proxy: proxy,
       model: model,
       httpClient: httpClient,
       systemPrompt: systemPromptFor(catalog),

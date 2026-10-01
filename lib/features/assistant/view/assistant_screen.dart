@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/features/assistant/states/assistant_state.da
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
@@ -654,7 +655,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     late final Key contentKey;
     late final Widget content;
 
-    if (message.isGenUiSurface && message.isStreaming && !orbGateOpen) {
+    final notice = message.notice;
+    if (notice != null) {
+      contentKey = const ValueKey('notice');
+      content = AssistantQuietNotice(notice: notice);
+    } else if (message.isGenUiSurface &&
+        message.isStreaming &&
+        !orbGateOpen) {
       // El placeholder ya existe en el estado (se agrega junto con el
       // mensaje del usuario), pero visualmente espera a que la burbuja del
       // usuario termine su propio typewriter antes de mostrar el orbe.

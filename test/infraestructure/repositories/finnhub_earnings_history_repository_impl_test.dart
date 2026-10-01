@@ -22,7 +22,7 @@ void main() {
         ),
       );
       return FinnhubEarningsHistoryRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
     }
 
@@ -68,13 +68,13 @@ void main() {
       expect(result.fold((_) => null, (v) => v), isEmpty);
     });
 
-    test('Left on 401 and without API key, never throws', () async {
+    test('Left on 401 and without the proxy configured, never throws', () async {
       expect(
         (await repoResolving(401, {}).getEpsHistory('X')).isLeft(),
         isTrue,
       );
       final noKey = FinnhubEarningsHistoryRepositoryImpl(
-        client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
+        client: FinnhubHttpClient(dio: Dio(), baseUrl: ''),
       );
       expect((await noKey.getEpsHistory('X')).isLeft(), isTrue);
     });

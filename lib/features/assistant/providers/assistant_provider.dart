@@ -19,6 +19,7 @@ import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dar
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_flow_screen_helpers.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tracker.dart';
@@ -197,15 +198,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _ensureService();
       final service = _service!;
       final subscription = ref.read(subscriptionProvider.notifier);
-
-      final quotaPaywall = await subscription.checkQuotaAllowed();
-      if (quotaPaywall != null) {
-        state = state.copyWith(
-          paywallReason: quotaPaywall,
-          clearPaywallReason: false,
-        );
-        return;
-      }
+      // La cuota ya no se chequea ni se descuenta acá: la aplica el proxy
+      // `ai-chat` (una consulta por turno, al responder) y, si no hay,
+      // rechaza el turno con un error tipado (ver `ProxyLimitException`).
+      // El refresh sigue: el plan con el que se habilitan las tools tiene
+      // que ser el actual (p. ej. recién cambiado por el webhook).
+      await subscription.refresh();
 
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
@@ -274,17 +272,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             profileNudge: notices.profileNudge,
           ),
         );
-        final weight = AssistantTurnPolicy.quotaWeight(
-          outcome ?? const TurnOutcome([]),
-        );
-        // Peso 0 = el turno solo pudo decir qué incluye otro plan.
-        final consumed =
-            weight == 0 ||
-            await ref.read(aiUsageTrackerProvider).recordUsage(weight);
-        await subscription.refresh();
-        if (!consumed) {
-          state = state.copyWith(paywallReason: PaywallReason.quotaExceeded);
-        }
+        // El contador del header refleja lo que cobró el servidor.
+        unawaited(subscription.refresh());
+      } on ProxyLimitException catch (e) {
+        state = _applyServerLimit(state, e, surfaceId);
+        if (e.isQuota) unawaited(subscription.refresh());
       } on TurnAbortedException catch (e) {
         // Todo lo que pidió el modelo está fuera del plan: igual que antes
         // de las tools, el turno no deja mensajes ni consume cuota — se
@@ -328,6 +320,40 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _setActivity(TurnActivity.idle);
       state = state.copyWith(isWaiting: false);
     }
+  }
+
+  /// Rechazo del servidor antes de responder: la cuota del mes abre el
+  /// paywall (como antes); el tope diario es un aviso discreto en la fila
+  /// de la respuesta, no una venta; el resto, el banner de error.
+  AssistantState _applyServerLimit(
+    AssistantState current,
+    ProxyLimitException e,
+    String surfaceId,
+  ) {
+    if (e.isQuota) {
+      return current.copyWith(
+        messages: _removeTurn(current.messages, surfaceId),
+        paywallReason: PaywallReason.quotaExceeded,
+        clearPaywallReason: false,
+      );
+    }
+    if (e.isDailyLimit) {
+      return current.copyWith(
+        messages: [
+          for (final m in current.messages)
+            m.surfaceId == surfaceId
+                ? m.copyWith(
+                  isStreaming: false,
+                  notice: AssistantNotice.dailyLimit,
+                )
+                : m,
+        ],
+      );
+    }
+    return current.copyWith(
+      error: genUiErrorMessage(e),
+      messages: _removeStreamingPlaceholder(current.messages),
+    );
   }
 
   void clearPaywall() {

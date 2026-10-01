@@ -411,3 +411,18 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# RevenueCat no manda un JWT de Supabase: la función verifica su propio
+# header (REVENUECAT_WEBHOOK_SECRET).
+[functions.revenuecat-webhook]
+verify_jwt = false
+
+# ai-chat y finnhub validan el JWT del usuario ellas mismas (auth.getUser →
+# 401) antes de cualquier trabajo. La verificación del gateway se apaga
+# porque el proyecto usa las signing keys nuevas (JWKS), con las que la
+# verificación legacy del gateway puede rechazar tokens válidos.
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.finnhub]
+verify_jwt = false

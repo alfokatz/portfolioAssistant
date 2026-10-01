@@ -1,10 +1,17 @@
 // Evals del asistente contra el modelo REAL (OpenAI). No corre en la suite
 // normal: cuesta dinero y no es determinístico.
 //
-//   RUN_ASSISTANT_EVALS=1 flutter test test/evals/assistant_tool_evals_test.dart
+//   RUN_ASSISTANT_EVALS=1 EVAL_PROXY_JWT=<jwt> \
+//     flutter test test/evals/assistant_tool_evals_test.dart
 //
-// Usa la OPENAI_API_KEY de assets/env/.env.development, el prompt y las tools
-// de producción, y fuentes de datos fake (Yahoo/Finnhub con fixtures): mide
+// Pasa por el proxy `ai-chat` igual que la app (la key de OpenAI está en el
+// servidor, nunca acá): por defecto el local de `supabase functions serve`
+// (EVAL_PROXY_URL para otro), con el JWT de un usuario de prueba
+// (EVAL_PROXY_JWT) y la anon key (EVAL_ANON_KEY, opcional en local). Ver
+// docs/runbooks/ai-proxy-cutover.md → "Evals contra el proxy local".
+//
+// Usa el prompt y las tools de producción y fuentes de datos fake
+// (Yahoo/Finnhub con fixtures): mide
 // lo que decide el modelo — qué tools pide, con qué argumentos, qué widget
 // elige — no la calidad de los datos.
 import 'dart:convert';
@@ -30,6 +37,7 @@ import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysi
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 import '../features/assistant/fakes/assistant_fakes.dart';
@@ -659,6 +667,16 @@ void main() {
                 .trim()
                 .replaceAll('"', ''),
       };
+      final jwt = Platform.environment['EVAL_PROXY_JWT'] ?? '';
+      if (jwt.isEmpty) fail('EVAL_PROXY_JWT es obligatorio (ver runbook)');
+      final proxy = AiProxyConfig.fixed(
+        Uri.parse(
+          Platform.environment['EVAL_PROXY_URL'] ??
+              'http://127.0.0.1:54321/functions/v1/ai-chat',
+        ),
+        jwt,
+        anonKey: Platform.environment['EVAL_ANON_KEY'],
+      );
       // EVAL_REAL_DATA=1: Yahoo/Finnhub/Google reales en vez de fixtures —
       // para reproducir bugs que dependen de la forma real de los datos.
       AssistantDataSources? realData;
@@ -692,7 +710,7 @@ void main() {
         if (delay != null) await Future<void>.delayed(Duration(seconds: delay));
         final recorder = _UsageRecorder();
         final service = AssistantOpenAiService(
-          apiKey: env['OPENAI_API_KEY'],
+          proxy: proxy,
           model: env['OPENAI_MODEL'] ?? 'gpt-4.1-mini',
           httpClient: recorder,
         );

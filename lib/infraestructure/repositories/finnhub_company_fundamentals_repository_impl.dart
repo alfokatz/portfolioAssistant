@@ -26,11 +26,11 @@ class FinnhubCompanyFundamentalsRepositoryImpl
   Future<Either<HttpError, CompanyFundamentals?>> getFundamentals(
     String ticker,
   ) async {
-    if (!_client.hasApiKey) {
+    if (!_client.isConfigured) {
       return Left(
         HttpError(
-          code: 'missing_api_key',
-          message: 'FINNHUB_API_KEY no configurada',
+          code: 'finnhub_unavailable',
+          message: 'Proxy de Finnhub no configurado',
         ),
       );
     }

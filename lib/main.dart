@@ -12,6 +12,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
+import 'package:portfolio_assistant/features/app_update/app_update_gate.dart';
+import 'package:portfolio_assistant/features/app_update/app_update_required_screen.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_initializer.dart';
@@ -92,6 +94,8 @@ class MyApp extends HookConsumerWidget {
     final lightTheme = ref.watch(themeDataLightProvider);
     final darkTheme = ref.watch(themeDataDarkProvider);
     final themeMode = ref.watch(themeModeProvider);
+    // Mientras el chequeo corre (o si falla) la app arranca normal.
+    final update = ref.watch(appUpdateStatusProvider).valueOrNull;
     return MaterialApp.router(
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: !kReleaseMode,
@@ -107,6 +111,10 @@ class MyApp extends HookConsumerWidget {
           children: [
             const Positioned.fill(child: AppBackgroundGradient()),
             if (child != null) child,
+            if (update?.required ?? false)
+              Positioned.fill(
+                child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
+              ),
           ],
         );
       },

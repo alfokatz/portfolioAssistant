@@ -45,7 +45,7 @@ void main() {
         );
 
         final repository = FinnhubCompanyNewsRepositoryImpl(
-          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+          client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
         );
 
         final result = await repository.getRecentNews('AAPL', limit: 3);
@@ -85,7 +85,7 @@ void main() {
         );
 
         final repository = FinnhubCompanyNewsRepositoryImpl(
-          client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+          client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
         );
 
         final result = await repository.getRecentNews('NVDA');
@@ -111,7 +111,7 @@ void main() {
       );
 
       final repository = FinnhubCompanyNewsRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.getRecentNews('NVDA');
@@ -120,10 +120,10 @@ void main() {
     });
 
     test(
-      'returns Left without throwing when no API key is configured',
+      'returns Left without throwing when the Finnhub proxy is not configured',
       () async {
         final repository = FinnhubCompanyNewsRepositoryImpl(
-          client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
+          client: FinnhubHttpClient(dio: Dio(), baseUrl: ''),
         );
 
         final result = await repository.getRecentNews('NVDA');

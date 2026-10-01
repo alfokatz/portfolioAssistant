@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/conversation_log.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/openai_body_patch_client.dart';
@@ -136,6 +137,10 @@ typedef TurnAbortCheck = Object? Function(List<ToolCallRecord> roundCalls);
 /// un turno sin tools sigue siendo 1 llamada, y la respuesta trae `usage`.
 ///
 /// Por defecto usa [defaultModel]; override con `OPENAI_MODEL` en `.env`.
+///
+/// Nunca habla con OpenAI directo: cada request va al proxy `ai-chat`
+/// ([AiProxyClient]) con el JWT del usuario y el id del turno. La key de
+/// OpenAI, la cuota y los topes viven en el servidor.
 class OpenAIGenUiService {
   static const defaultModel = 'gpt-4.1-mini';
   static const maxRateLimitRetries = 3;
@@ -167,7 +172,7 @@ class OpenAIGenUiService {
   static const _temperature = 0.35;
 
   OpenAIGenUiService({
-    String? apiKey,
+    AiProxyConfig? proxy,
     String? model,
     required this.systemPrompt,
     required Catalog catalog,
@@ -175,11 +180,16 @@ class OpenAIGenUiService {
     this.postProcess,
     this.answerCheck,
     http.Client? httpClient,
-  }) : apiKey = apiKey ?? dotenv.env['OPENAI_API_KEY'] ?? '',
-       model = model ?? dotenv.env['OPENAI_MODEL'] ?? defaultModel,
-       _httpClient = OpenAiBodyPatchClient(httpClient),
+  }) : model = model ?? dotenv.env['OPENAI_MODEL'] ?? defaultModel,
+       _proxyClient = AiProxyClient(
+         proxy ?? AiProxyConfig.fromEnvironment(),
+         httpClient,
+       ),
        log = ConversationLog(systemPrompt: systemPrompt) {
-    OpenAI.apiKey = this.apiKey;
+    _httpClient = OpenAiBodyPatchClient(_proxyClient);
+    // `dart_openai` exige una key para armar el header; [AiProxyClient] lo
+    // reemplaza por el JWT del usuario antes de salir del dispositivo.
+    OpenAI.apiKey = 'proxy';
     controller = SurfaceController(catalogs: [catalog]);
     transport = A2uiTransportAdapter(onSend: handleSend);
     conversation = Conversation(controller: controller, transport: transport);
@@ -191,7 +201,6 @@ class OpenAIGenUiService {
     );
   }
 
-  final String apiKey;
   final String model;
   final String systemPrompt;
   final String? a2uiCatalogId;
@@ -203,7 +212,8 @@ class OpenAIGenUiService {
   /// Ver [AnswerCheck]. Se aplica una vez por turno: si falla, el modelo
   /// recibe la corrección y una ronda más con tools obligatorias.
   final AnswerCheck? answerCheck;
-  final http.Client _httpClient;
+  final AiProxyClient _proxyClient;
+  late final http.Client _httpClient;
   final ConversationLog log;
   late final SurfaceController controller;
   late final A2uiTransportAdapter transport;
@@ -240,17 +250,24 @@ class OpenAIGenUiService {
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
   }) {
-    return _sendQueue.run(() {
+    return _sendQueue.run(() async {
       log.pinnedContext = pinnedContext;
-      return _runTurn(
-        userText: userText,
-        surfaceId: surfaceId,
-        tools: tools,
-        context: context,
-        abortCheck: abortCheck,
-        onActivity: onActivity,
-        beforeRound: beforeRound,
-      );
+      try {
+        return await _runTurn(
+          userText: userText,
+          surfaceId: surfaceId,
+          tools: tools,
+          context: context,
+          abortCheck: abortCheck,
+          onActivity: onActivity,
+          beforeRound: beforeRound,
+        );
+      } on ProxyLimitException {
+        // El servidor no dejó responder (cuota, tope diario…): el turno no
+        // existió para el modelo, igual que uno cortado por el paywall.
+        log.dropLastTurn();
+        rethrow;
+      }
     });
   }
 
@@ -279,9 +296,6 @@ class OpenAIGenUiService {
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
   }) async {
-    if (apiKey.isEmpty) {
-      throw StateError('OPENAI_API_KEY no configurada');
-    }
     _lastTools = tools;
     _lastSurfaceId = surfaceId;
     _repairsThisTurn = 0;
@@ -488,9 +502,6 @@ class OpenAIGenUiService {
     if (_repairsThisTurn >= _maxRepairsPerTurn) return;
     _repairsThisTurn++;
 
-    if (apiKey.isEmpty) {
-      throw StateError('OPENAI_API_KEY no configurada');
-    }
     final reply = await _request(
       tools: _lastTools,
       toolChoice: 'none',
@@ -526,6 +537,9 @@ class OpenAIGenUiService {
         await OpenAiRequestThrottle.waitIfNeeded();
         OpenAiRequestThrottle.markRequestStarted();
       }
+      // Rondas, reintentos y reparación del mismo turno comparten id: el
+      // proxy cobra una consulta por turno.
+      _proxyClient.turnId = log.currentTurn?.id;
       try {
         final response = await OpenAI.instance.chat
             .create(

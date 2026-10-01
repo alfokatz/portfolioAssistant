@@ -5,6 +5,7 @@ import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 /// Tool de prueba: devuelve [result] (o lanza si [fails]) y registra args.
@@ -124,11 +125,14 @@ String _text(Map message) {
 void main() {
   OpenAIGenUiService build(
     _FakeOpenAi api, {
-    String apiKey = 'sk-test',
+    String? session = 'jwt-test',
     AnswerCheck? answerCheck,
   }) {
     final service = OpenAIGenUiService(
-      apiKey: apiKey,
+      proxy: AiProxyConfig(
+        endpoint: Uri.parse('https://proxy.test/functions/v1/ai-chat'),
+        accessToken: () async => session,
+      ),
       answerCheck: answerCheck,
       model: 'gpt-4.1-mini',
       systemPrompt: 'SYSTEM',
@@ -450,13 +454,15 @@ void main() {
     expect(service.log.currentTurn!.finalText, contains('original con card'));
   });
 
-  test('without an API key the turn fails before any request', () async {
+  test('without a session the turn fails before any request', () async {
     final api = _FakeOpenAi([]);
-    final service = build(api, apiKey: '');
+    final service = build(api, session: null);
 
     await expectLater(
       service.runTurn(userText: 'hola', surfaceId: 's0', tools: const []),
-      throwsA(isA<StateError>()),
+      throwsA(
+        isA<ProxyLimitException>().having((e) => e.type, 'type', 'unauthorized'),
+      ),
     );
     expect(api.requests, isEmpty);
   });

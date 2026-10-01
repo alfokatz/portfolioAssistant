@@ -13,7 +13,7 @@ class FinnhubCompanyBrandRepositoryImpl implements CompanyBrandRepository {
 
   @override
   Future<CompanyBrand?> getBrand(String ticker) async {
-    if (!_client.hasApiKey) return null;
+    if (!_client.isConfigured) return null;
     final upper = ticker.toUpperCase();
     try {
       final response = await _client.get(

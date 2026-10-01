@@ -34,7 +34,7 @@ void main() {
       );
 
       final repository = FinnhubSymbolSearchRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.search('Apple');
@@ -66,7 +66,7 @@ void main() {
       );
 
       final repository = FinnhubSymbolSearchRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.search('asdfghjkl');
@@ -91,7 +91,7 @@ void main() {
       );
 
       final repository = FinnhubSymbolSearchRepositoryImpl(
-        client: FinnhubHttpClient(dio: dio, apiKey: 'test-key'),
+        client: FinnhubHttpClient(dio: dio, baseUrl: 'https://proxy.test/finnhub', accessToken: () async => 'jwt'),
       );
 
       final result = await repository.search('Apple');
@@ -99,9 +99,9 @@ void main() {
       expect(result.isLeft(), isTrue);
     });
 
-    test('returns Left without throwing when no API key is configured', () async {
+    test('returns Left without throwing when the Finnhub proxy is not configured', () async {
       final repository = FinnhubSymbolSearchRepositoryImpl(
-        client: FinnhubHttpClient(dio: Dio(), apiKey: ''),
+        client: FinnhubHttpClient(dio: Dio(), baseUrl: ''),
       );
 
       final result = await repository.search('Apple');

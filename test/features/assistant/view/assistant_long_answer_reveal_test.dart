@@ -42,6 +42,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
 import '../fakes/assistant_fakes.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 
 /// Reproduce, sobre la pantalla real, una respuesta larga de Porty (texto +
 /// 3 candidatos + disclaimer) entregada como en producción: provider,
@@ -554,7 +555,7 @@ class _Screen {
           AssistantDeps(
             createService:
                 () => AssistantOpenAiService(
-                  apiKey: 'test',
+                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
                   model: 'gpt-4.1-mini',
                   httpClient: api.client,
                 ),

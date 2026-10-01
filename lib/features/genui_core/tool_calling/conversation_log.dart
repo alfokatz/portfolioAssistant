@@ -1,5 +1,6 @@
 import 'package:dart_openai/dart_openai.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:uuid/uuid.dart';
 
 /// Una ronda de tools: el mensaje del asistente con `tool_calls` y un
 /// mensaje `tool` por cada `tool_call_id`, en el mismo orden. Se guardan
@@ -21,7 +22,12 @@ class ToolExchange {
 
 /// Un turno de la conversación tal como se le reenvía al modelo.
 class TurnRecord {
-  TurnRecord({required this.userText, this.context});
+  TurnRecord({required this.userText, this.context, String? id})
+    : id = id ?? const Uuid().v4();
+
+  /// Identifica el turno ante el proxy `ai-chat`: todas sus rondas (y
+  /// reintentos) viajan con este id y el servidor cobra una sola consulta.
+  final String id;
 
   /// Lo que escribió el usuario (o, para un turno sintético, su resumen).
   final String userText;

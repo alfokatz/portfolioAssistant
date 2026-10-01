@@ -5,6 +5,10 @@ enum PortfolioQaRole { user, assistant }
 /// falta o está vencido — ver `AssistantTurnPolicy.noticesFor`.
 enum InvestorProfileNudge { missing, stale }
 
+/// Aviso discreto de la app en lugar de una respuesta (no es un error ni
+/// un paywall): hoy, el tope diario de consultas del plan.
+enum AssistantNotice { dailyLimit }
+
 class PortfolioQaMessage {
   const PortfolioQaMessage({
     required this.role,
@@ -15,6 +19,7 @@ class PortfolioQaMessage {
     this.isFallback = false,
     this.showsAdviceDisclaimer = false,
     this.profileNudge,
+    this.notice,
   });
 
   final PortfolioQaRole role;
@@ -32,6 +37,11 @@ class PortfolioQaMessage {
   /// Si no es `null`, la pantalla agrega el aviso de completar/revisar el
   /// perfil en Ajustes → Perfil de inversor, con link directo.
   final InvestorProfileNudge? profileNudge;
+
+  /// Si no es `null`, la fila muestra este aviso en vez de la respuesta.
+  /// Conserva [surfaceId] (misma fila que el orbe, que se funde en el
+  /// aviso sin saltos de layout).
+  final AssistantNotice? notice;
 
   /// `true` cuando [content] es un mensaje de fallback en texto plano
   /// mostrado porque la generación de esta surface falló, pero [surfaceId]
@@ -57,7 +67,8 @@ class PortfolioQaMessage {
   /// burbuja de texto plano). Un mensaje con `surfaceId` pero marcado
   /// [isFallback] todavía no tiene una surface válida para mostrar — se ve
   /// como texto hasta que, si acaso, un reintento tardío la resuelve.
-  bool get isGenUiSurface => surfaceId != null && !isFallback;
+  bool get isGenUiSurface =>
+      surfaceId != null && !isFallback && notice == null;
 
   PortfolioQaMessage copyWith({
     PortfolioQaRole? role,
@@ -68,6 +79,7 @@ class PortfolioQaMessage {
     bool? isFallback,
     bool? showsAdviceDisclaimer,
     InvestorProfileNudge? profileNudge,
+    AssistantNotice? notice,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -79,6 +91,7 @@ class PortfolioQaMessage {
       showsAdviceDisclaimer:
           showsAdviceDisclaimer ?? this.showsAdviceDisclaimer,
       profileNudge: profileNudge ?? this.profileNudge,
+      notice: notice ?? this.notice,
     );
   }
 }

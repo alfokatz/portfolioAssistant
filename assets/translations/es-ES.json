@@ -406,5 +406,10 @@
   "plan_feature_earnings": "Earnings: fechas y resultados",
   "plan_feature_fundamentals": "Valuación, márgenes y dividendos",
   "plan_feature_everything_premium": "Todo lo de Premium",
-  "plan_feature_price_alerts": "Alertas de precio"
+  "plan_feature_price_alerts": "Alertas de precio",
+  "assistant_daily_limit_title": "Llegaste al tope de consultas de hoy.",
+  "assistant_daily_limit_body": "Volvés a tener consultas mañana.",
+  "app_update_required_title": "Actualizá la app",
+  "app_update_required_body": "Esta versión ya no es compatible. Actualizá PortfolioAI para seguir usando la app.",
+  "app_update_required_action": "Actualizar"
 }

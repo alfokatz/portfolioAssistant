@@ -33,6 +33,7 @@ import 'package:portfolio_assistant/presentation/flows/home/states/home_state.da
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../fakes/assistant_fakes.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 
 /// Punta a punta de `submitMessage`: cuota → placeholder → turno con tools
 /// (servicio y loop reales) → gating al ejecutar cada tool → A2UI al
@@ -167,7 +168,7 @@ class _Harness {
           AssistantDeps(
             createService:
                 () => AssistantOpenAiService(
-                  apiKey: 'test',
+                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
                   model: 'gpt-4.1-mini',
                   httpClient: api.client,
                 ),
@@ -253,7 +254,8 @@ void main() {
     );
     expect(h.lastAnswer.isStreaming, isFalse);
     expect(h.lastAnswer.isFallback, isFalse);
-    expect(h.subscriptionRepo.consumed, [1]);
+    // La consulta la descuenta el proxy al responder, no la app.
+    expect(h.subscriptionRepo.consumed, isEmpty);
     expect(h.quotes.priceCalls, isEmpty);
   });
 
@@ -338,9 +340,9 @@ void main() {
   );
 
   test(
-    'a news search costs the news weight; a premium user asking for news '
-    'gets an answer (with the Gold block), not an interrupting paywall, and '
-    'no query is charged',
+    'a news search is answered for gold; a premium user asking for news '
+    'gets an answer (with the Gold block), not an interrupting paywall; the '
+    'app never charges (the proxy does)',
     () async {
       final gold = harness(SubscriptionTier.gold, [
         _call('get_news', {
@@ -349,7 +351,8 @@ void main() {
         _answer(),
       ]);
       await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-      expect(gold.subscriptionRepo.consumed, [AiUsageLimits.newsQueryWeight]);
+      // Cobra el proxy (una consulta por turno), no la app.
+      expect(gold.subscriptionRepo.consumed, isEmpty);
 
       final premium = harness(SubscriptionTier.premium, [
         _call('get_news', {
@@ -427,14 +430,59 @@ void main() {
     expect(h.state.messages, hasLength(1));
   });
 
-  test('no quota left: paywall before any request', () async {
-    final h = harness(SubscriptionTier.free, [_answer()], used: 20);
+  test('no monthly quota: the server rejects the turn and the paywall '
+      'replaces it', () async {
+    final h = harness(SubscriptionTier.free, [
+      (_) => proxyRejection(402, 'quota_exceeded'),
+    ], used: 20);
 
     await h.notifier.submitMessage('Hola');
 
     expect(h.state.paywallReason, PaywallReason.quotaExceeded);
-    expect(h.api.requests, isEmpty);
+    expect(h.api.requests, hasLength(1));
     expect(h.state.messages, hasLength(1));
+    expect(h.state.error, isNull);
+    expect(h.state.isWaiting, isFalse);
+  });
+
+  test('daily cap: a quiet notice takes the answer slot — no paywall, no '
+      'error banner — and the model never sees the turn', () async {
+    final h = harness(SubscriptionTier.gold, [
+      (_) => proxyRejection(429, 'daily_limit'),
+      _answer('mañana'),
+    ]);
+
+    await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+    expect(h.state.paywallReason, isNull);
+    expect(h.state.error, isNull);
+    expect(h.api.requests, hasLength(1), reason: 'sin reintentos');
+    expect(h.state.messages, hasLength(3));
+    expect(h.lastAnswer.notice, AssistantNotice.dailyLimit);
+    expect(h.lastAnswer.isStreaming, isFalse);
+    expect(h.lastAnswer.isGenUiSurface, isFalse);
+
+    // El turno rechazado no queda en la memoria del modelo.
+    await h.notifier.submitMessage('Hola de nuevo');
+    final users = [
+      for (final m in (h.api.requests.last['messages'] as List).cast<Map>())
+        if (m['role'] == 'user') _textOf(m),
+    ];
+    expect(users, hasLength(1));
+    expect(users.single, endsWith('Hola de nuevo'));
+  });
+
+  test('other server rejections show the error banner with a user-facing '
+      'message', () async {
+    final h = harness(SubscriptionTier.premium, [
+      (_) => proxyRejection(429, 'rate_limited'),
+    ]);
+
+    await h.notifier.submitMessage('Hola');
+
+    expect(h.state.paywallReason, isNull);
+    expect(h.state.error, contains('muchas consultas seguidas'));
+    expect(h.state.error, isNot(contains('OpenAI')));
   });
 
   test('a broken generation falls back to text instead of leaving the user '
