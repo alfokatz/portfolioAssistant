@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_ra
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/time_range_selector.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
 class PortfolioHeroSection extends StatelessWidget {
   final PortfolioSummary summary;
@@ -28,7 +29,7 @@ class PortfolioHeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final currency = AppNumberFormat.currency();
     final colors = context.customColors;
     final pnl = periodPnlAbsolute;
     final sign = pnl >= 0 ? '+' : '';
