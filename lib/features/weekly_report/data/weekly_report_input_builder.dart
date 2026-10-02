@@ -34,9 +34,6 @@ class WeeklyReportInputBuilder {
   final EarningsFetcher _earnings;
   final InvestorPulseClient _pulse;
 
-  /// Ítems de super investors que van al informe (la UI muestra 2–4).
-  static const maxInvestorItems = 8;
-
   static const sp500Ticker = '^GSPC';
 
   /// Tickers con noticias: los de más peso, más los que más movieron la
@@ -212,12 +209,11 @@ class WeeklyReportInputBuilder {
       }
       final names = results[1] as List<String?>;
       return (
-        items: InvestorPulseRelevance.rank(
+        items: InvestorPulseRelevance.selectForReport(
           items,
           holdings: {
             for (var i = 0; i < tickers.length; i++) tickers[i]: names[i],
           },
-          limit: maxInvestorItems,
         ),
         failed: false,
       );
@@ -259,6 +255,7 @@ class WeeklyReportInputBuilder {
             ticker: ticker,
             date: day,
             timingLabel: report?['timing_label'] as String?,
+            epsEstimate: (report?['eps_estimate'] as num?)?.toDouble(),
           ),
         );
       }

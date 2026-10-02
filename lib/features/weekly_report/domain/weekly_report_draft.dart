@@ -1,41 +1,39 @@
 import 'dart:convert';
 
 /// Lo que escribe Porty para el informe: solo prosa y referencias por id a
-/// los datos. Los números, links y fuentes los pone la app.
+/// los datos. Los números, links, fuentes y preguntas sugeridas los pone la
+/// app.
 class WeeklyReportDraft {
   const WeeklyReportDraft({
-    required this.headline,
+    required this.reading,
     required this.movers,
-    required this.news,
+    required this.headlines,
     required this.investors,
     this.learn,
-    this.followUpQuestion,
-    this.closing,
   });
 
   static const empty = WeeklyReportDraft(
-    headline: null,
+    reading: null,
     movers: [],
-    news: [],
+    headlines: [],
     investors: [],
   );
 
-  final String? headline;
+  /// La frase de lectura de la semana: lo que el número solo no dice.
+  final String? reading;
   final List<DraftMover> movers;
-  final List<DraftNews> news;
+
+  /// Titulares reescritos en español (sección "Noticias de la semana").
+  final List<DraftHeadline> headlines;
   final List<DraftInvestor> investors;
   final DraftLearn? learn;
-  final String? followUpQuestion;
-  final String? closing;
 
   bool get isEmpty =>
-      headline == null &&
+      reading == null &&
       movers.isEmpty &&
-      news.isEmpty &&
+      headlines.isEmpty &&
       investors.isEmpty &&
-      learn == null &&
-      followUpQuestion == null &&
-      closing == null;
+      learn == null;
 
   /// Parsea la respuesta del modelo. Tolera texto alrededor del JSON (un
   /// ```json …```) y campos faltantes; `null` si no hay un objeto JSON.
@@ -60,7 +58,7 @@ class WeeklyReportDraft {
     ];
     final learn = j['learn'];
     return WeeklyReportDraft(
-      headline: _text(j['headline']),
+      reading: _text(j['reading']),
       movers: [
         for (final m in list('movers'))
           if (_text(m['ticker']) != null && _text(m['why']) != null)
@@ -70,10 +68,13 @@ class WeeklyReportDraft {
               newsId: _text(m['news_id']),
             ),
       ],
-      news: [
-        for (final n in list('news'))
-          if (_text(n['news_id']) != null && _text(n['take']) != null)
-            DraftNews(newsId: _text(n['news_id'])!, take: _text(n['take'])!),
+      headlines: [
+        for (final h in list('headlines'))
+          if (_text(h['news_id']) != null && _text(h['title_es']) != null)
+            DraftHeadline(
+              newsId: _text(h['news_id'])!,
+              title: _text(h['title_es'])!,
+            ),
       ],
       investors: [
         for (final i in list('investors'))
@@ -93,19 +94,17 @@ class WeeklyReportDraft {
                 text: _text(learn['text'])!,
               )
               : null,
-      followUpQuestion: _text(j['follow_up_question']),
-      closing: _text(j['closing']),
     );
   }
 
   Map<String, Object?> toJson() => {
-    'headline': headline,
+    'reading': reading,
     'movers': [
       for (final m in movers)
         {'ticker': m.ticker, 'why': m.why, 'news_id': m.newsId},
     ],
-    'news': [
-      for (final n in news) {'news_id': n.newsId, 'take': n.take},
+    'headlines': [
+      for (final h in headlines) {'news_id': h.newsId, 'title_es': h.title},
     ],
     'investors': [
       for (final i in investors) {'item_id': i.itemId, 'take': i.take},
@@ -118,8 +117,6 @@ class WeeklyReportDraft {
               'concept': learn!.concept,
               'text': learn!.text,
             },
-    'follow_up_question': followUpQuestion,
-    'closing': closing,
   };
 
   static String? _text(Object? v) {
@@ -136,10 +133,10 @@ class DraftMover {
   final String? newsId;
 }
 
-class DraftNews {
-  const DraftNews({required this.newsId, required this.take});
+class DraftHeadline {
+  const DraftHeadline({required this.newsId, required this.title});
   final String newsId;
-  final String take;
+  final String title;
 }
 
 class DraftInvestor {
@@ -151,7 +148,7 @@ class DraftInvestor {
 class DraftLearn {
   const DraftLearn({this.topic, required this.concept, required this.text});
 
-  /// Uno de `weeklyReportLearnTopics`, de los que aplican esta semana.
+  /// El `learn_topic` que eligió la app para esta semana.
   final String? topic;
   final String concept;
   final String text;

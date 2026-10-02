@@ -207,4 +207,35 @@ void main() {
     expect(n.sp500Pct, isNull);
     expect(n.vsSp500Pp, isNull);
   });
+
+  test('daily series: 0% on the previous Friday, ends on the weekly change, '
+      'and the S&P alongside', () {
+    final n = _compute(
+      [_lot('AAPL', 10, 50), _lot('MSFT', 5, 150)],
+      {'AAPL': _week5(100, 110), 'MSFT': _week5(200, 190)},
+      benchmark: _week5(5000, 5100),
+    );
+    expect(n.daily, hasLength(6)); // viernes anterior + 5 ruedas
+    expect(n.daily.first.day, DateTime(2026, 9, 18));
+    expect(n.daily.first.portfolioPct, 0);
+    expect(n.daily.last.portfolioPct, closeTo(n.changePct, 1e-9));
+    expect(n.daily.last.sp500Pct, closeTo(2, 1e-9));
+  });
+
+  test('daily series does not count new money as a gain', () {
+    final n = _compute(
+      [
+        _lot('AAPL', 10, 50),
+        _lot('AAPL', 10, 105, bought: DateTime(2026, 9, 23), id: 'y'),
+      ],
+      {'AAPL': _week5(100, 110)},
+    );
+    // El miércoles entra la compra a 105 con cierre 105: no salta la serie.
+    final wed = n.daily.firstWhere((p) => p.day == DateTime(2026, 9, 23));
+    final tue = n.daily.firstWhere((p) => p.day == DateTime(2026, 9, 22));
+    // El primer lote ganó 50 (100 → 105); el nuevo entra a costo (0).
+    expect(wed.portfolioPct, closeTo(50 / 2050 * 100, 1e-9));
+    expect(tue.portfolioPct, 0);
+    expect(n.daily.last.portfolioPct, closeTo(n.changePct, 1e-9));
+  });
 }

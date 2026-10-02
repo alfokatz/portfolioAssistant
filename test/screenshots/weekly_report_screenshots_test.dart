@@ -66,7 +66,22 @@ typedef _Scene =
       bool fullPage,
     });
 
-final List<_Scene> _scenes = [
+/// Tres informes reales del modelo (salida de los evals, ver
+/// test/evals/weekly_report_evals_test.dart): semana buena con noticias y
+/// earnings, semana plana sin noticias, una sola posición.
+final Map<String, WeeklyReport> _samples = {
+  for (final MapEntry(:key, :value)
+      in (jsonDecode(
+                File(
+                  'test/screenshots/weekly_report_samples.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>)
+          .entries)
+    key: WeeklyReport.tryParse(value as Map<String, dynamic>)!,
+};
+
+List<_Scene> _scenes() => [
   (
     name: 'card_loading',
     state: const WeeklyReportState(
@@ -79,7 +94,7 @@ final List<_Scene> _scenes = [
   ),
   (
     name: 'card_ready',
-    state: ui_test.ready(ui_test.fullReport(), seen: true),
+    state: ui_test.ready(_samples['good_week']!, seen: true),
     screen: false,
     benchmark: true,
     fullPage: false,
@@ -94,20 +109,22 @@ final List<_Scene> _scenes = [
     benchmark: false,
     fullPage: false,
   ),
-  (
-    name: 'screen_full',
-    state: ui_test.ready(ui_test.fullReport(courtesy: true), seen: true),
-    screen: true,
-    benchmark: true,
-    fullPage: false,
-  ),
-  (
-    name: 'screen_full_page',
-    state: ui_test.ready(ui_test.fullReport(), seen: true),
-    screen: true,
-    benchmark: true,
-    fullPage: true,
-  ),
+  for (final key in _samples.keys) ...[
+    (
+      name: 'screen_$key',
+      state: ui_test.ready(_samples[key]!, seen: true),
+      screen: true,
+      benchmark: true,
+      fullPage: false,
+    ),
+    (
+      name: 'screen_${key}_page',
+      state: ui_test.ready(_samples[key]!, seen: true),
+      screen: true,
+      benchmark: true,
+      fullPage: true,
+    ),
+  ],
   (
     name: 'screen_free_page',
     state: ui_test.ready(
@@ -136,11 +153,10 @@ void main() {
     await _loadFonts();
   });
 
-  for (final scene in _scenes) {
+  for (final scene in _scenes()) {
     for (final brightness in Brightness.values) {
       for (final MapEntry(key: device, value: (size, dpr))
           in _devices.entries) {
-        if (scene.fullPage && device == 'pro') continue;
         final name = '${scene.name}_${brightness.name}_$device';
         testWidgets(name, (tester) async {
           final logical = scene.fullPage ? Size(size.width, 2200) : size;

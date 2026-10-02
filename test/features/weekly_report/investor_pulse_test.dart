@@ -195,4 +195,99 @@ void main() {
       expect(await client(_Adapter(429, {'error': {}})).fetch(week), isNull);
     });
   });
+
+  group('selectForReport (what the weekly report shows)', () {
+    InvestorPulseItem filing(
+      String id, {
+      required String investor,
+      String? org,
+      String form = '4',
+      String action = 'buy',
+      String? ticker,
+      String? issuer,
+    }) =>
+        InvestorPulseItem.tryParse({
+          'id': id,
+          'investor_id': investor,
+          'investor_name': investor,
+          'organization': org,
+          'voice': 'investor',
+          'type': 'filing',
+          'form': form,
+          'action': action,
+          'issuer_ticker': ticker,
+          'issuer_name': issuer,
+          'date': '2026-09-24',
+          'url': 'https://www.sec.gov/$id',
+        })!;
+
+    final holdings = {'VOO': 'Vanguard S&P 500 ETF', 'AMZN': 'Amazon.com Inc'};
+
+    test('related to a holding: shown', () {
+      final picked = InvestorPulseRelevance.selectForReport([
+        filing('i1', investor: 'Warren Buffett', ticker: 'AMZN'),
+      ], holdings: holdings);
+      expect(picked.single.relatedTickers, ['AMZN']);
+    });
+
+    test('unrelated and not notable (Buffett buys Lennar): no section', () {
+      final picked = InvestorPulseRelevance.selectForReport([
+        filing(
+          'i1',
+          investor: 'Warren Buffett',
+          ticker: 'LEN',
+          issuer: 'Lennar',
+        ),
+        _news('i2', 'fed-chair', 'Fed Chair signals patience on rates'),
+      ], holdings: holdings);
+      expect(picked, isEmpty);
+    });
+
+    test('an investor filing about their own company never appears', () {
+      final self = filing(
+        'i1',
+        investor: 'Carl Icahn',
+        org: 'Icahn Enterprises',
+        form: 'SCHEDULE 13D/A',
+        action: 'stake_update',
+        ticker: 'IEP',
+        issuer: 'ICAHN ENTERPRISES L.P.',
+      );
+      expect(InvestorPulseRelevance.isSelfFiling(self), isTrue);
+      expect(
+        InvestorPulseRelevance.selectForReport([self], holdings: holdings),
+        isEmpty,
+      );
+    });
+
+    test('notable without relation: one new 13D (not an amendment)', () {
+      final picked = InvestorPulseRelevance.selectForReport([
+        filing(
+          'i1',
+          investor: 'Bill Ackman',
+          form: 'SCHEDULE 13D/A',
+          action: 'stake_update',
+          ticker: 'XYZ',
+          issuer: 'XYZ Corp',
+        ),
+        filing(
+          'i2',
+          investor: 'Bill Ackman',
+          form: 'SCHEDULE 13D',
+          action: 'stake',
+          ticker: 'HHH',
+          issuer: 'Howard Hughes',
+        ),
+        filing(
+          'i3',
+          investor: 'Carl Icahn',
+          form: 'SCHEDULE 13D',
+          action: 'stake',
+          ticker: 'ABC',
+          issuer: 'ABC Inc',
+        ),
+      ], holdings: holdings);
+      expect(picked.map((r) => r.item.id), ['i2']);
+    });
+  });
 }

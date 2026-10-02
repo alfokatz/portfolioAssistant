@@ -29,11 +29,13 @@ Position _lot(String t, double qty) => Position(
 );
 
 /// Semana de ejemplo: AAPL +10% (lo que más movió), MSFT −5%, una noticia
-/// de cada una, un Form 4 de Berkshire sobre LEN (que no tiene), una nota de
-/// Ackman sobre MSFT (que sí tiene) y earnings de MSFT la semana siguiente.
+/// de cada una, un Form 4 de Berkshire sobre LEN (que no tiene: queda
+/// afuera del informe), una nota de Ackman sobre MSFT (que sí tiene) y
+/// earnings de MSFT la semana siguiente con EPS estimado.
 WeeklyReportInput fixtureInput({
   bool withNews = true,
   bool withInvestors = true,
+  bool withEarnings = true,
 }) {
   final numbers = WeeklyPortfolioCalculator.compute(
     week: fixtureWeek,
@@ -94,20 +96,21 @@ WeeklyReportInput fixtureInput({
             ]
             : const [],
     upcomingEarnings: [
-      UpcomingEarnings(
-        ticker: 'MSFT',
-        date: DateTime(2026, 9, 30),
-        timingLabel: 'Después del cierre',
-      ),
+      if (withEarnings)
+        UpcomingEarnings(
+          ticker: 'MSFT',
+          date: DateTime(2026, 9, 30),
+          timingLabel: 'Después del cierre',
+          epsEstimate: 3.12,
+        ),
     ],
     newsFailed: false,
     earningsFailed: false,
     investors:
         withInvestors
-            ? InvestorPulseRelevance.rank(
+            ? InvestorPulseRelevance.selectForReport(
               investors,
               holdings: {'AAPL': 'Apple Inc', 'MSFT': 'Microsoft Corp'},
-              limit: 8,
             )
             : const [],
   );

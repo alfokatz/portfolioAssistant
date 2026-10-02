@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
@@ -8,16 +12,21 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
+import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_format.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// El informe semanal completo. Secciones editoriales planas (título,
-/// filas, divisores), sin cards anidadas: los números los pone la app y el
-/// texto es de Porty.
+/// El informe semanal. Responde tres preguntas, en orden: ¿cómo me fue?
+/// (número, gráfico, mercado), ¿por qué? (qué movió la cartera) y ¿qué
+/// viene? (resultados de la semana próxima). Después, solo si hay algo que
+/// valga la pena: noticias, grandes inversores y un concepto. Una sección
+/// sin nada relevante no aparece.
+///
+/// Secciones editoriales planas (título, filas, divisores finos), sin cajas
+/// por ítem. Los números los pone la app; el texto es de Porty.
 class WeeklyReportScreen extends ConsumerStatefulWidget {
   const WeeklyReportScreen({super.key});
 
@@ -43,8 +52,10 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Los logos de las filas usan la paleta del kit de Porty.
+    QaColors.resolve(Theme.of(context).brightness);
     final report = ref.watch(weeklyReportControllerProvider).report;
-    final colors = context.customColors;
+    final benchmark = ref.watch(weeklyReportBenchmarkAllowedProvider);
     return Scaffold(
       appBar: AppBar(title: Text('weekly_report_screen_title'.tr())),
       body:
@@ -66,21 +77,13 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (final (i, section)
-                          in _sections(context, report).indexed)
+                          in _sections(context, report, benchmark).indexed)
                         FadeSlideIn(
                           delay: WeeklyReportScreen.stagger * i,
                           duration: WeeklyReportScreen.entrance,
                           skipAnimation: !_animate,
                           child: section,
                         ),
-                      const SizedBox(height: AppDimens.sp24),
-                      Text(
-                        'weekly_report_disclaimer'.tr(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                          height: 1.45,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -88,41 +91,43 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     );
   }
 
-  List<Widget> _sections(BuildContext context, WeeklyReport r) => [
-    _Header(report: r),
-    _Numbers(report: r),
-    if (r.variant == WeeklyReportVariant.numbersLocked) const _GoldTeaser(),
-    if (r.variant == WeeklyReportVariant.numbersUnavailable)
-      _Note(text: 'weekly_report_unavailable'.tr()),
-    if (r.news.isNotEmpty)
-      _Section(
-        title: 'weekly_report_news_section'.tr(),
-        children: [for (final n in r.news) _NewsRow(news: n)],
-      ),
-    if (r.investors.isNotEmpty)
-      _Section(
-        title: 'weekly_report_investors_section'.tr(),
-        children: [for (final i in r.investors) _InvestorRow(investor: i)],
-      ),
-    if (r.upcomingEarnings.isNotEmpty || r.closing != null)
-      _Section(
-        title: 'weekly_report_upcoming_section'.tr(),
-        children: [
-          for (final e in r.upcomingEarnings) _EarningsRow(earnings: e),
-          if (r.closing != null) _Prose(r.closing!),
-        ],
-      ),
-    if (r.learn != null)
-      _Section(
-        title: 'weekly_report_learn_section'.tr(),
-        children: [_Learn(learn: r.learn!)],
-      ),
-    if (r.followUpQuestion != null) _AskPorty(question: r.followUpQuestion!),
-  ];
+  List<Widget> _sections(BuildContext context, WeeklyReport r, bool benchmark) {
+    final questions = r.hasProse ? WeeklyReportFormat.questions(r) : const <String>[];
+    return [
+      _Header(report: r),
+      _Week(report: r, benchmark: benchmark),
+      if (r.movers.isNotEmpty) _Movers(report: r),
+      if (r.variant == WeeklyReportVariant.numbersLocked) const _GoldTeaser(),
+      if (r.variant == WeeklyReportVariant.numbersUnavailable)
+        _Section(child: _Prose('weekly_report_unavailable'.tr(), muted: true)),
+      if (r.upcomingEarnings.isNotEmpty)
+        _Section(
+          title: 'weekly_report_upcoming_section'.tr(),
+          rows: [for (final e in r.upcomingEarnings) _EarningsRow(e)],
+        ),
+      if (r.news.isNotEmpty)
+        _Section(
+          title: 'weekly_report_news_section'.tr(),
+          rows: [for (final n in r.news) _NewsRow(n)],
+        ),
+      if (r.investors.isNotEmpty)
+        _Section(
+          title: 'weekly_report_investors_section'.tr(),
+          rows: [for (final i in r.investors) _InvestorRow(i)],
+        ),
+      if (r.learn != null)
+        _Section(
+          title: 'weekly_report_learn_section'.tr(),
+          child: _Learn(r.learn!),
+        ),
+      if (questions.isNotEmpty) _Questions(questions),
+      const _Disclaimer(),
+    ];
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Secciones
+// A. Encabezado
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
@@ -161,9 +166,10 @@ class _Header extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDimens.sp20),
-        // La misma voz que el saludo del login: texto suelto, sin burbuja.
+        // Nivel 1: la frase de lectura. La misma voz que el saludo del
+        // login: texto suelto, sin burbuja.
         Text(
-          WeeklyReportFormat.headline(report),
+          WeeklyReportFormat.reading(report),
           style: tt.bodyLarge?.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w500,
@@ -174,22 +180,10 @@ class _Header extends StatelessWidget {
         ),
         if (report.courtesy) ...[
           const SizedBox(height: AppDimens.sp12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                size: 16,
-                color: colors.accentBlue,
-              ),
-              const SizedBox(width: AppDimens.sp8),
-              Expanded(
-                child: Text(
-                  'weekly_report_courtesy'.tr(),
-                  style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-                ),
-              ),
-            ],
+          _Meta(
+            'weekly_report_courtesy'.tr(),
+            icon: Icons.auto_awesome_rounded,
+            iconColor: colors.accentBlue,
           ),
         ],
       ],
@@ -197,113 +191,190 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Numbers extends ConsumerWidget {
-  const _Numbers({required this.report});
+// ---------------------------------------------------------------------------
+// B. El número de la semana + gráfico + mercado
+// ---------------------------------------------------------------------------
+
+class _Week extends ConsumerWidget {
+  const _Week({required this.report, required this.benchmark});
   final WeeklyReport report;
+  final bool benchmark;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final r = report;
-    final benchmarkAllowed = ref.watch(weeklyReportBenchmarkAllowedProvider);
     final tabular = const [FontFeature.tabularFigures()];
+    final comparison = benchmark ? WeeklyReportFormat.comparison(r) : null;
     return _Section(
-      title: 'weekly_report_numbers_section'.tr(),
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              WeeklyReportFormat.pct(r.changePct),
-              style: tt.displaySmall?.copyWith(
-                fontSize: 34,
-                fontWeight: FontWeight.w700,
-                height: 1.05,
-                letterSpacing: -0.8,
-                color: colors.pnlColor(r.changePct),
-                fontFeatures: tabular,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Meta('weekly_report_this_week_label'.tr()),
+          const SizedBox(height: AppDimens.sp4),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: AppDimens.sp12,
+            children: [
+              Text(
+                WeeklyReportFormat.pct(r.changePct),
+                style: tt.displaySmall?.copyWith(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  height: 1.05,
+                  letterSpacing: -0.8,
+                  color: colors.pnlColor(r.changePct),
+                  fontFeatures: tabular,
+                ),
               ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  WeeklyReportFormat.signedMoney(r.changeAbs),
+                  style: tt.bodyLarge?.copyWith(
+                    color: colors.textSecondary,
+                    fontFeatures: tabular,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (r.daily.length >= 2) ...[
+            const SizedBox(height: AppDimens.sp20),
+            WeeklyReportChart(points: r.daily, showSp500: benchmark),
+          ],
+          const SizedBox(height: AppDimens.sp16),
+          if (comparison != null)
+            _Prose(comparison)
+          else if (!benchmark && r.sp500Pct != null)
+            _LockedRow(
+              text: 'weekly_report_sp500_locked'.tr(),
+              onTap:
+                  () => SubscriptionPaywallSheet.show(
+                    context,
+                    ref,
+                    reason: PaywallReason.modeLocked,
+                    source: 'weekly_report_sp500',
+                  ),
             ),
+          const SizedBox(height: AppDimens.sp8),
+          // El total de la Home es al precio actual; este, al cierre.
+          _Meta(
+            'weekly_report_value_friday'.tr(
+              namedArgs: {'amount': WeeklyReportFormat.money(r.valueEnd)},
+            ),
+          ),
+          if (r.newMoney > 0) ...[
             const SizedBox(height: AppDimens.sp4),
-            Text(
-              '${WeeklyReportFormat.money(r.changeAbs, signed: true)} · '
-              '${WeeklyReportFormat.money(r.valueEnd)}',
-              style: tt.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                fontFeatures: tabular,
+            _Meta(
+              'weekly_report_new_money'.tr(
+                namedArgs: {'amount': WeeklyReportFormat.money(r.newMoney)},
               ),
             ),
-            if (r.newMoney > 0) ...[
-              const SizedBox(height: AppDimens.sp8),
-              Text(
-                'weekly_report_new_money'.tr(
-                  namedArgs: {'amount': WeeklyReportFormat.money(r.newMoney)},
-                ),
-                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+          ],
+          if (r.tradingDays > 0 && r.tradingDays < 5) ...[
+            const SizedBox(height: AppDimens.sp4),
+            _Meta(
+              'weekly_report_short_week'.tr(
+                namedArgs: {'days': '${r.tradingDays}'},
               ),
-            ],
-            if (r.tradingDays > 0 && r.tradingDays < 5) ...[
-              const SizedBox(height: AppDimens.sp4),
-              Text(
-                'weekly_report_short_week'.tr(
-                  namedArgs: {'days': '${r.tradingDays}'},
-                ),
-                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// C. Qué movió tu cartera
+// ---------------------------------------------------------------------------
+
+class _Movers extends StatelessWidget {
+  const _Movers({required this.report});
+  final WeeklyReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxAbs = report.movers
+        .map((m) => m.contributionPp.abs())
+        .fold(0.0, math.max);
+    final others = WeeklyReportFormat.others(report);
+    return _Section(
+      title: 'weekly_report_movers_section'.tr(),
+      rows: [
+        for (final m in report.movers) _MoverRow(mover: m, maxAbs: maxAbs),
+        if (others != null) _Meta(others),
+      ],
+    );
+  }
+}
+
+class _MoverRow extends StatelessWidget {
+  const _MoverRow({required this.mover, required this.maxAbs});
+  final ReportMover mover;
+  final double maxAbs;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final m = mover;
+    final role = switch (m.role) {
+      MoverRole.addedMost => 'weekly_report_role_added_most'.tr(),
+      MoverRole.subtractedMost => 'weekly_report_role_subtracted_most'.tr(),
+      null => m.boughtThisWeek ? 'weekly_report_bought_this_week'.tr() : null,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            QaTickerAvatar(ticker: m.ticker, size: 32),
+            const SizedBox(width: AppDimens.sp12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    m.ticker,
+                    style: tt.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  if (role != null)
+                    Text(
+                      role,
+                      style: tt.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
+            Text(
+              WeeklyReportFormat.pct(m.movePct),
+              style: tt.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colors.pnlColor(m.movePct),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
           ],
         ),
-        if (r.sp500Pct != null)
-          benchmarkAllowed
-              ? Column(
-                children: [
-                  _ValueRow(
-                    label: 'weekly_report_sp500_row'.tr(),
-                    value: WeeklyReportFormat.pct(r.sp500Pct!),
-                    color: colors.pnlColor(r.sp500Pct!),
-                  ),
-                  const SizedBox(height: AppDimens.sp8),
-                  _ValueRow(
-                    label: 'weekly_report_difference_row'.tr(),
-                    value: WeeklyReportFormat.pts(r.vsSp500Pp!),
-                    color: colors.pnlColor(r.vsSp500Pp!),
-                  ),
-                ],
-              )
-              : _LockedRow(
-                text: 'weekly_report_sp500_locked'.tr(),
-                onTap:
-                    () => SubscriptionPaywallSheet.show(
-                      context,
-                      ref,
-                      reason: PaywallReason.modeLocked,
-                      source: 'weekly_report_sp500',
-                    ),
-              ),
-        for (final m in r.movers) _MoverRow(mover: m),
-        if (r.concentration != null)
-          _Prose(
-            r.concentration!.weightFourWeeksAgo == null
-                ? 'weekly_report_concentration'.tr(
-                  namedArgs: {
-                    'ticker': r.concentration!.ticker,
-                    'now': WeeklyReportFormat.weight(
-                      r.concentration!.weightNow,
-                    ),
-                  },
-                )
-                : 'weekly_report_concentration_before'.tr(
-                  namedArgs: {
-                    'ticker': r.concentration!.ticker,
-                    'now': WeeklyReportFormat.weight(
-                      r.concentration!.weightNow,
-                    ),
-                    'before': WeeklyReportFormat.weight(
-                      r.concentration!.weightFourWeeksAgo!,
-                    ),
-                  },
-                ),
+        const SizedBox(height: AppDimens.sp8),
+        WeeklyImpactBar(contribution: m.contributionPp, maxAbs: maxAbs),
+        if (m.why != null) ...[
+          const SizedBox(height: AppDimens.sp8),
+          _Prose(m.why!),
+        ],
+        if (m.source != null)
+          _SourceLink(
+            source: m.source!.source,
+            date: m.source!.date,
+            url: m.source!.url,
           ),
       ],
     );
@@ -317,8 +388,7 @@ class _GoldTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: AppDimens.sectionGap),
+    return _Section(
       child: Semantics(
         button: true,
         child: InkWell(
@@ -387,41 +457,260 @@ class _GoldTeaser extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Filas
+// D–G. Lo que viene, noticias, inversores, para aprender
 // ---------------------------------------------------------------------------
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-  final String title;
-  final List<Widget> children;
+class _EarningsRow extends StatelessWidget {
+  const _EarningsRow(this.earnings);
+  final ReportEarnings earnings;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final when = [
+      WeeklyReportFormat.day(context, earnings.date),
+      if (earnings.timingLabel != null) earnings.timingLabel!.toLowerCase(),
+    ].join(' · ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'weekly_report_upcoming_row'.tr(
+            namedArgs: {'ticker': earnings.ticker},
+          ),
+          style: tt.bodyMedium?.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppDimens.sp2),
+        _Meta(when),
+        if (earnings.epsEstimate != null) ...[
+          const SizedBox(height: AppDimens.sp4),
+          _Prose(
+            'weekly_report_eps_estimate'.tr(
+              namedArgs: {
+                'amount': WeeklyReportFormat.money(earnings.epsEstimate!),
+              },
+            ),
+            muted: true,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _NewsRow extends StatelessWidget {
+  const _NewsRow(this.news);
+  final ReportNews news;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TickerTag(news.ticker),
+        const SizedBox(height: AppDimens.sp6),
+        Text(
+          news.title,
+          style: tt.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: colors.textPrimary,
+            height: 1.4,
+          ),
+        ),
+        _SourceLink(source: news.source, date: news.date, url: news.url),
+      ],
+    );
+  }
+}
+
+class _InvestorRow extends StatelessWidget {
+  const _InvestorRow(this.investor);
+  final ReportInvestor investor;
+
+  @override
+  Widget build(BuildContext context) {
+    final i = investor;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (i.relatedTickers.isNotEmpty) ...[
+          Wrap(
+            spacing: AppDimens.sp6,
+            children: [for (final t in i.relatedTickers) _TickerTag(t)],
+          ),
+          const SizedBox(height: AppDimens.sp6),
+        ],
+        _Prose(i.take),
+        _SourceLink(
+          source: i.isFiling ? _filingLabel(i.form) : (i.source ?? ''),
+          date: i.date,
+          url: i.url,
+        ),
+      ],
+    );
+  }
+}
+
+class _Learn extends StatelessWidget {
+  const _Learn(this.learn);
+  final ReportLearn learn;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          learn.concept,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppDimens.sp4),
+        _Prose(learn.text),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// H–I. Seguir con Porty y disclaimer
+// ---------------------------------------------------------------------------
+
+class _Questions extends StatelessWidget {
+  const _Questions(this.questions);
+  final List<String> questions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return _Section(
+      title: 'weekly_report_follow_section'.tr(),
+      child: Wrap(
+        spacing: AppDimens.sp8,
+        runSpacing: AppDimens.sp8,
+        children: [
+          for (final q in questions)
+            Semantics(
+              button: true,
+              child: Material(
+                color: colors.surfaceCard,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                  side: BorderSide(
+                    color: colors.accentBlue.withValues(alpha: 0.45),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    PortyHapticsService.maybeOf(context)?.selectionTap();
+                    GotoAssistant(
+                      initialQuestion: q,
+                    ).navigate(context: context);
+                  },
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: AppDimens.touchTarget,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppDimens.sp16,
+                        vertical: AppDimens.sp8,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 14,
+                            color: colors.accentBlue,
+                          ),
+                          const SizedBox(width: AppDimens.sp6),
+                          Flexible(
+                            child: Text(
+                              q,
+                              style: tt.bodyMedium?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Disclaimer extends StatelessWidget {
+  const _Disclaimer();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: AppDimens.sectionGap),
+    child: _Meta('weekly_report_disclaimer'.tr()),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Piezas
+// ---------------------------------------------------------------------------
+
+/// Una sección: espacio de `section-gap` arriba, un divisor fino, título
+/// (nivel 2) y filas separadas por divisores. Sin cajas.
+class _Section extends StatelessWidget {
+  const _Section({this.title, this.rows, this.child})
+    : assert(rows != null || child != null);
+  final String? title;
+  final List<Widget>? rows;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final items = rows ?? [child!];
     return Padding(
       padding: const EdgeInsets.only(top: AppDimens.sectionGap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colors.textPrimary,
+          if (title != null) ...[
+            Text(
+              title!,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: AppDimens.sp12),
-          for (final (i, child) in children.indexed) ...[
+            const SizedBox(height: AppDimens.sp16),
+          ],
+          for (final (i, item) in items.indexed) ...[
             if (i > 0)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.sp16),
                 child: Divider(
                   height: 0.5,
                   thickness: 0.5,
                   color: colors.border,
                 ),
               ),
-            child,
+            item,
           ],
         ],
       ),
@@ -429,37 +718,75 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _ValueRow extends StatelessWidget {
-  const _ValueRow({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String label;
-  final String value;
-  final Color color;
+/// Nivel 3: cuerpo.
+class _Prose extends StatelessWidget {
+  const _Prose(this.text, {this.muted = false});
+  final String text;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final colors = context.customColors;
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: muted ? colors.textSecondary : colors.textPrimary,
+        height: 1.5,
+      ),
+    );
+  }
+}
+
+/// Nivel 4: metadata (etiquetas, fuentes, notas).
+class _Meta extends StatelessWidget {
+  const _Meta(this.text, {this.icon, this.iconColor});
+  final String text;
+  final IconData? icon;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final label = Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.4),
+    );
+    if (icon == null) return label;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-          ),
-        ),
-        Text(
-          value,
-          style: tt.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: color,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
+        Icon(icon, size: 14, color: iconColor ?? colors.textSecondary),
+        const SizedBox(width: AppDimens.sp6),
+        Expanded(child: label),
       ],
+    );
+  }
+}
+
+/// El ticker como etiqueta aparte (no como prefijo del titular).
+class _TickerTag extends StatelessWidget {
+  const _TickerTag(this.ticker);
+  final String ticker;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+      ),
+      child: Text(
+        ticker,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.textSecondary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
+      ),
     );
   }
 }
@@ -503,311 +830,8 @@ class _LockedRow extends StatelessWidget {
   }
 }
 
-class _MoverRow extends StatelessWidget {
-  const _MoverRow({required this.mover});
-  final ReportMover mover;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    final m = mover;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              m.ticker,
-              style: tt.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: colors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: AppDimens.sp8),
-            if (m.pricePct != null)
-              PnlBadge(percent: m.pricePct!, compact: true),
-            const Spacer(),
-            Text(
-              'weekly_report_contribution'.tr(
-                namedArgs: {
-                  'value':
-                      '${m.contributionPp >= 0 ? '+' : ''}${m.contributionPp.toStringAsFixed(1)}',
-                },
-              ),
-              style: tt.bodySmall?.copyWith(
-                color: colors.textSecondary,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-        if (m.boughtThisWeek) ...[
-          const SizedBox(height: AppDimens.sp4),
-          Text(
-            'weekly_report_bought_this_week'.tr(),
-            style: tt.labelSmall?.copyWith(color: colors.textSecondary),
-          ),
-        ],
-        if (m.why != null) ...[
-          const SizedBox(height: AppDimens.sp6),
-          _Prose(m.why!),
-        ],
-        if (m.news != null) ...[
-          const SizedBox(height: AppDimens.sp4),
-          _SourceLink(
-            source: m.news!.source,
-            date: m.news!.date,
-            url: m.news!.url,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _NewsRow extends StatelessWidget {
-  const _NewsRow({required this.news});
-  final ReportNews news;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${news.ticker} · ${news.headline}',
-          style: tt.titleSmall?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: colors.textPrimary,
-            height: 1.35,
-          ),
-        ),
-        if (news.take != null) ...[
-          const SizedBox(height: AppDimens.sp6),
-          _Prose(news.take!, secondary: true),
-        ],
-        const SizedBox(height: AppDimens.sp4),
-        _SourceLink(source: news.source, date: news.date, url: news.url),
-      ],
-    );
-  }
-}
-
-class _InvestorRow extends StatelessWidget {
-  const _InvestorRow({required this.investor});
-  final ReportInvestor investor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    final i = investor;
-    final meta = [
-      if (i.organization != null) i.organization!,
-      if (i.isMarketVoice) 'weekly_report_market_voice'.tr(),
-    ].join(' · ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          i.who,
-          style: tt.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colors.textPrimary,
-          ),
-        ),
-        if (meta.isNotEmpty)
-          Text(
-            meta,
-            style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-          ),
-        const SizedBox(height: AppDimens.sp6),
-        _Prose(i.take),
-        // Si Porty ya lo dijo ("Tenés MSFT en tu cartera"), no repetirlo.
-        if (i.relatedTickers.isNotEmpty &&
-            !i.take.toLowerCase().contains('tenés')) ...[
-          const SizedBox(height: AppDimens.sp4),
-          Text(
-            'weekly_report_you_hold'.tr(
-              namedArgs: {'tickers': i.relatedTickers.join(', ')},
-            ),
-            style: tt.labelSmall?.copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        const SizedBox(height: AppDimens.sp4),
-        _SourceLink(
-          source: i.isFiling ? _filingLabel(i.form) : (i.source ?? ''),
-          date: i.date,
-          url: i.url,
-        ),
-      ],
-    );
-  }
-}
-
-class _EarningsRow extends StatelessWidget {
-  const _EarningsRow({required this.earnings});
-  final ReportEarnings earnings;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    final when = [
-      WeeklyReportFormat.day(context, earnings.date),
-      if (earnings.timingLabel != null) earnings.timingLabel!,
-    ].join(' · ');
-    // Una debajo de la otra: con la fecha a la derecha el nombre se cortaba.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'weekly_report_upcoming_row'.tr(
-            namedArgs: {'ticker': earnings.ticker},
-          ),
-          style: tt.bodyMedium?.copyWith(
-            color: colors.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: AppDimens.sp2),
-        Text(when, style: tt.bodySmall?.copyWith(color: colors.textSecondary)),
-      ],
-    );
-  }
-}
-
-class _Learn extends StatelessWidget {
-  const _Learn({required this.learn});
-  final ReportLearn learn;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          learn.concept,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppDimens.sp6),
-        _Prose(learn.text),
-      ],
-    );
-  }
-}
-
-class _AskPorty extends StatelessWidget {
-  const _AskPorty({required this.question});
-  final String question;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: AppDimens.sectionGap),
-      child: Material(
-        color: colors.surfaceCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-          side: BorderSide(color: colors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            PortyHapticsService.maybeOf(context)?.selectionTap();
-            GotoAssistant(initialQuestion: question).navigate(context: context);
-          },
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: AppDimens.composerHeight,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.sp20,
-                vertical: AppDimens.sp12,
-              ),
-              child: Row(
-                children: [
-                  const PortyAvatar(size: 24),
-                  const SizedBox(width: AppDimens.sp12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'weekly_report_ask_porty'.tr(),
-                          style: tt.labelSmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          question,
-                          style: tt.bodyMedium?.copyWith(
-                            color: colors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 18,
-                    color: colors.accentBlue,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Note extends StatelessWidget {
-  const _Note({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppDimens.sectionGap),
-    child: _Prose(text, secondary: true),
-  );
-}
-
-class _Prose extends StatelessWidget {
-  const _Prose(this.text, {this.secondary = false});
-  final String text;
-  final bool secondary;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: secondary ? colors.textSecondary : colors.textPrimary,
-        height: 1.5,
-      ),
-    );
-  }
-}
-
-/// "Reuters · jue 24 ↗": link a la nota (terracota: es un link).
+/// "Reuters · jue 24 sept ↗": fuente tocable, en gris (no compite con el
+/// contenido; el terracota queda para Porty y las preguntas).
 class _SourceLink extends StatelessWidget {
   const _SourceLink({
     required this.source,
@@ -838,18 +862,21 @@ class _SourceLink extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colors.accentBlue,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
                 ),
               ),
               const SizedBox(width: AppDimens.sp4),
               Icon(
                 Icons.north_east_rounded,
-                size: 14,
-                color: colors.accentBlue,
+                size: 12,
+                color: colors.textSecondary,
               ),
             ],
           ),
@@ -859,7 +886,7 @@ class _SourceLink extends StatelessWidget {
   }
 }
 
-/// "SEC · Form 4", "SEC · 13F-HR", "SEC · Schedule 13G".
+/// "SEC · Form 4", "SEC · 13F-HR", "SEC · Schedule 13D".
 String _filingLabel(String? form) {
   if (form == null || form.isEmpty) return 'SEC';
   final name = switch (form) {

@@ -56,6 +56,74 @@ abstract final class InvestorPulseRelevance {
     return out;
   }
 
+  /// Lo que el informe muestra de super investors (puede ser nada):
+  /// - lo que toca una acción del usuario (presentación sobre ese ticker o
+  ///   titular que la nombra), hasta [maxRelated];
+  /// - si no hay nada de eso, como mucho UN movimiento notable: un Schedule
+  ///   13D nuevo (más del 5% de una empresa con intención activista; hay
+  ///   pocos por trimestre, y las enmiendas no cuentan);
+  /// - nunca: presentaciones del inversor sobre su propia empresa ("Icahn
+  ///   actualizó su participación en Icahn Enterprises") ni voces del
+  ///   mercado que no nombran nada de la cartera.
+  static List<RelatedPulseItem> selectForReport(
+    List<InvestorPulseItem> items, {
+    required Map<String, String?> holdings,
+  }) {
+    final usable = [
+      for (final i in items)
+        if (!isSelfFiling(i)) i,
+    ];
+    final ranked = rank(usable, holdings: holdings, limit: usable.length);
+    final related = [
+      for (final r in ranked)
+        if (r.isRelevant) r,
+    ];
+    if (related.isNotEmpty) return related.take(maxRelated).toList();
+    final notable = ranked.where(
+      (r) => !r.item.isMarketVoice && isNotable(r.item),
+    );
+    return notable.take(1).toList();
+  }
+
+  static const maxRelated = 3;
+
+  /// Un 13D nuevo (no una enmienda): participación activista de más del 5%.
+  static bool isNotable(InvestorPulseItem item) =>
+      item.isFiling &&
+      item.action == 'stake' &&
+      (item.form ?? '').toUpperCase().contains('13D');
+
+  /// El inversor presentando sobre su propia empresa (o un vehículo
+  /// propio): no dice nada del mercado.
+  static bool isSelfFiling(InvestorPulseItem item) {
+    final issuer = _core(item.issuerName);
+    if (!item.isFiling || issuer == null) return false;
+    for (final own in [item.organization, item.investorName]) {
+      final o = _core(own);
+      if (o == null) continue;
+      if (issuer.contains(o) || o.contains(issuer)) return true;
+    }
+    return false;
+  }
+
+  /// "ICAHN ENTERPRISES L.P." → "icahn enterprises".
+  static String? _core(String? name) {
+    if (name == null) return null;
+    final c =
+        name
+            .toLowerCase()
+            .replaceAll(
+              RegExp(
+                r'\b(inc|corp|corporation|co|company|ltd|plc|lp|l\.p|llc|holdings?|group|the)\b\.?',
+              ),
+              ' ',
+            )
+            .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+    return c.length < 3 ? null : c;
+  }
+
   static bool _mentions(
     InvestorPulseItem item,
     String ticker,

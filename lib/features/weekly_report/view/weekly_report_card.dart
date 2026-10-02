@@ -14,8 +14,9 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
-/// "Tu semana, por Porty" en la Home, entre el hero y las pestañas: el
-/// titular de la semana y tres cifras. Lleva a la pantalla del informe.
+/// "Tu semana" en la Home, entre el hero y las pestañas: la frase de Porty y
+/// una sola métrica (la variación de la semana, dicho así: "esta semana").
+/// Lleva a la pantalla del informe.
 ///
 /// Mientras se calcula (o Porty escribe) muestra la misma estructura con el
 /// texto en skeleton, del alto final: al llegar los datos no se mueve nada.
@@ -119,13 +120,14 @@ class _CardBody extends ConsumerWidget {
     final tt = Theme.of(context).textTheme;
     final r = report;
     final benchmarkAllowed = ref.watch(weeklyReportBenchmarkAllowedProvider);
-    final headlineStyle = tt.bodyLarge?.copyWith(
+    final readingStyle = tt.bodyLarge?.copyWith(
       fontSize: 17,
       fontWeight: FontWeight.w500,
       height: 1.35,
       color: colors.textPrimary,
     );
-    final top = r?.movers.firstOrNull;
+    final market =
+        r == null || !benchmarkAllowed ? null : WeeklyReportFormat.market(r);
 
     final body = Padding(
       padding: const EdgeInsets.all(AppDimens.cardPadding),
@@ -149,7 +151,7 @@ class _CardBody extends ConsumerWidget {
                     ),
                     SkeletonText(
                       r == null ? null : WeeklyReportFormat.range(context, r),
-                      placeholder: '00 sept – 00 sept',
+                      placeholder: '00 al 00 de septiembre',
                       style: tt.bodySmall?.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -171,51 +173,49 @@ class _CardBody extends ConsumerWidget {
             Text(
               'weekly_report_preparing'.tr(),
               maxLines: 2,
-              style: headlineStyle?.copyWith(color: colors.textSecondary),
+              style: readingStyle?.copyWith(color: colors.textSecondary),
             )
           else
             SkeletonText(
-              r == null ? null : WeeklyReportFormat.headline(r),
-              placeholder: 'Tu cartera tuvo una semana de movimientos',
-              style: headlineStyle,
+              r == null ? null : WeeklyReportFormat.reading(r),
+              placeholder: 'Una semana tranquila para tu cartera',
+              style: readingStyle,
             ),
           const SizedBox(height: AppDimens.sp12),
+          // Una sola métrica, con su período dicho: debajo del total y del
+          // gráfico de la Home (que pueden ser de otro período) no se presta
+          // a confusión.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Expanded(
-                child: _Stat(
-                  label: 'weekly_report_portfolio'.tr(),
-                  value: r == null ? null : WeeklyReportFormat.pct(r.changePct),
-                  valueColor: r == null ? null : colors.pnlColor(r.changePct),
+              SkeletonText(
+                r == null ? null : WeeklyReportFormat.pct(r.changePct),
+                placeholder: '+0,0%',
+                style: tt.titleLarge?.copyWith(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      r == null
+                          ? colors.textPrimary
+                          : colors.pnlColor(r.changePct),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
-              if (benchmarkAllowed && (r == null || r.vsSp500Pp != null))
-                Expanded(
-                  child: _Stat(
-                    label: 'weekly_report_vs_sp500'.tr(),
-                    value:
-                        r == null ? null : WeeklyReportFormat.pts(r.vsSp500Pp!),
-                    valueColor:
-                        r == null ? null : colors.pnlColor(r.vsSp500Pp!),
-                  ),
-                ),
-              Expanded(
-                child: _Stat(
-                  label: 'weekly_report_top_mover'.tr(),
-                  value:
-                      r == null
-                          ? null
-                          : top == null
-                          ? '—'
-                          : '${top.ticker} ${WeeklyReportFormat.pct(top.pricePct ?? 0)}',
-                  valueColor:
-                      top?.pricePct == null
-                          ? null
-                          : colors.pnlColor(top!.pricePct!),
-                ),
+              const SizedBox(width: AppDimens.sp8),
+              Text(
+                'weekly_report_this_week'.tr(),
+                style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
               ),
             ],
           ),
+          if (market != null) ...[
+            const SizedBox(height: AppDimens.sp2),
+            Text(
+              market,
+              style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+            ),
+          ],
           if (r?.variant == WeeklyReportVariant.numbersLocked) ...[
             const SizedBox(height: AppDimens.sp12),
             Row(
@@ -258,41 +258,6 @@ class _CardBody extends ConsumerWidget {
           child: body,
         ),
       ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, this.valueColor});
-
-  final String label;
-  final String? value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: tt.labelSmall?.copyWith(color: colors.textSecondary),
-        ),
-        const SizedBox(height: AppDimens.sp2),
-        SkeletonText(
-          value,
-          placeholder: 'AAPL +0.0%',
-          style: tt.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: valueColor ?? colors.textPrimary,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
     );
   }
 }

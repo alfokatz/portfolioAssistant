@@ -137,7 +137,7 @@ select week_start, fetched_at, jsonb_array_length(items) as items
 from public.investor_pulse_cache order by week_start desc limit 4;
 ```
 
-**Esperado** (evals del 2026-10-02): unos US$0,005 por informe completo; cerca del 35% necesitan una reescritura (2 rondas); `failed` debería ser casi nulo.
+**Esperado** (evals v2 del 2026-10-02, 6 corridas × 11 casos): unos US$0,004 por informe completo; ~3% necesitan una reescritura (2 rondas); `failed` casi nulo (los únicos fallos fueron cortes de red con OpenAI).
 
 **Logs de la función:** `{"fn":"investor-pulse","cache":"hit|miss|stale|error"}`. Si aparece `SEC_USER_AGENT not set`, falta el secret.
 
@@ -147,7 +147,17 @@ from public.investor_pulse_cache order by week_start desc limit 4;
 
 1. Editar el prompt y correr los evals (abajo).
 2. `UPDATE_PROMPT_ALLOWLIST=1 flutter test test/security/system_prompt_allowlist_test.dart`: agrega el hash a `allowed_report_prompts.json`.
-3. **Desplegar `ai-chat` antes de publicar la app.** El hash viejo se conserva para las versiones que siguen en la calle.
+3. **Desplegar `ai-chat` antes de publicar la app.** El hash viejo se conserva para las versiones que siguen en la calle. Si la app sale primero, el proxy responde `prompt_not_allowed` y el informe queda en "Porty no pudo escribir su parte".
+
+### v2 (2026-10-02): rediseño editorial
+
+- Prompt nuevo: hash `16aae0b9…` en `allowed_report_prompts.json`, junto al de v1 (`bc82a128…`).
+- **Orden:** `supabase functions deploy ai-chat` → recién después publicar la app.
+- El informe guardado cambia de formato (`v: 2`). Uno v1 no se lee (`tryParse` → null): esa semana la app recalcula los números y los muestra sin la parte de Porty (`numbersUnavailable`); no se regenera. La semana siguiente ya sale v2. Como el informe nunca se prendió en prod, solo afecta a DEV; para regenerar una semana ya reservada:
+  ```sql
+  delete from public.weekly_reports where week_start = '2026-09-21';
+  ```
+- El modelo ya no ve cifras: solo direcciones y categorías (`direction`, `vs_market`, `role`, `needs_why`). Lo que se ve con números lo calcula y formatea la app.
 
 ## Evals (modelo real, proxy local)
 
@@ -163,7 +173,9 @@ RUN_WEEKLY_REPORT_EVALS=1 EVAL_REPORT_USERS=/tmp/report_users.json EVAL_ANON_KEY
   flutter test test/evals/weekly_report_evals_test.dart
 ```
 
-Son 11 casos, unos US$0,05 por corrida. Las salidas quedan en `build/weekly_report_evals.json` para leer el tono.
+Son 11 casos, unos US$0,05 por corrida. Salidas: `build/weekly_report_evals.json` (borradores e informe compuesto) y `build/weekly_report_evals.md` (cada informe en texto, como se lee en la app). Para refrescar los screenshots con informes reales, copiar tres `report` de ese JSON a `test/screenshots/weekly_report_samples.json`.
+
+Si `deno` no está en el PATH: `~/.deno/bin/deno`. Errores `network`/`http_500` con `peer closed connection` en el log del serve son cortes con OpenAI, no del contenido: volver a correr.
 
 **Screenshots** con fuentes y textos reales:
 ```bash

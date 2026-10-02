@@ -23,8 +23,10 @@ http.Response _completion(Map<String, Object?> content) => http.Response(
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
-Map<String, Object?> _report({String headline = 'Apple empujó tu cartera'}) => {
-  'headline': headline,
+Map<String, Object?> _report({
+  String reading = 'Una semana tranquila: AAPL compensó a MSFT.',
+}) => {
+  'reading': reading,
   'movers': [
     {
       'ticker': 'AAPL',
@@ -32,11 +34,9 @@ Map<String, Object?> _report({String headline = 'Apple empujó tu cartera'}) => 
       'news_id': 'n1',
     },
   ],
-  'news': [],
+  'headlines': [],
   'investors': [],
   'learn': null,
-  'follow_up_question': null,
-  'closing': null,
 };
 
 WeeklyReportGenerator _generator(MockClient client) => WeeklyReportGenerator(
@@ -64,7 +64,10 @@ void main() {
 
       expect(result.rounds, 1);
       expect(result.error, isNull);
-      expect(result.draft.headline, 'Apple empujó tu cartera');
+      expect(
+        result.draft.reading,
+        'Una semana tranquila: AAPL compensó a MSFT.',
+      );
       final req = requests.single;
       expect(req.headers['x-porty-purpose'], 'weekly_report');
       expect(req.headers['x-porty-report-week'], '2026-09-21');
@@ -90,7 +93,7 @@ void main() {
           n++;
           return _completion(
             n == 1
-                ? _report(headline: 'Es buen momento para comprar Apple')
+                ? _report(reading: 'Es buen momento para comprar Apple')
                 : _report(),
           );
         }),
@@ -98,7 +101,10 @@ void main() {
       final result = await g.generate(week: fixtureWeek, input: fixtureInput());
 
       expect(result.rounds, 2);
-      expect(result.draft.headline, 'Apple empujó tu cartera');
+      expect(
+        result.draft.reading,
+        'Una semana tranquila: AAPL compensó a MSFT.',
+      );
       expect(result.remainingIssues, isEmpty);
       final second = bodies.last['messages'] as List;
       expect(second[second.length - 2]['role'], 'assistant');
@@ -111,12 +117,12 @@ void main() {
     () async {
       final g = _generator(
         MockClient(
-          (_) async => _completion(_report(headline: 'Comprá más Apple ya')),
+          (_) async => _completion(_report(reading: 'Comprá más Apple ya')),
         ),
       );
       final result = await g.generate(week: fixtureWeek, input: fixtureInput());
       expect(result.rounds, 2);
-      expect(result.draft.headline, isNull);
+      expect(result.draft.reading, isNull);
       expect(result.draft.movers, hasLength(1));
       expect(result.remainingIssues, isNotEmpty);
       expect(result.failed, isFalse);

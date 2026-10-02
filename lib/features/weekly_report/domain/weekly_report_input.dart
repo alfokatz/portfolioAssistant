@@ -2,7 +2,7 @@ import 'package:portfolio_assistant/features/weekly_report/domain/investor_pulse
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_portfolio_numbers.dart';
 
 /// Un titular de la semana sobre una acción de la cartera. El LLM lo elige
-/// por [id]; título, medio, fecha y link los muestra la app tal cual.
+/// por [id]; medio, fecha y link los muestra la app tal cual.
 class WeeklyNewsItem {
   const WeeklyNewsItem({
     required this.id,
@@ -28,6 +28,7 @@ class UpcomingEarnings {
     required this.ticker,
     required this.date,
     this.timingLabel,
+    this.epsEstimate,
   });
 
   final String ticker;
@@ -35,7 +36,14 @@ class UpcomingEarnings {
 
   /// "Antes de la apertura", "Después del cierre"…
   final String? timingLabel;
+
+  /// Ganancia por acción que espera el mercado (Finnhub).
+  final double? epsEstimate;
 }
+
+/// Cómo le fue a la cartera contra el S&P 500, en palabras. Lo decide la
+/// app: el modelo nunca compara números.
+enum MarketComparison { better, slightlyBetter, similar, slightlyWorse, worse }
 
 /// Todo lo que entra al informe de una semana, ya calculado. Lo único que
 /// el LLM agrega es prosa que referencia estos datos.
@@ -54,19 +62,74 @@ class WeeklyReportInput {
   final List<WeeklyNewsItem> news;
   final List<UpcomingEarnings> upcomingEarnings;
 
-  /// La fuente falló (distinto de "no hubo noticias"): la UI puede ofrecer
-  /// reintentar en vez de decir que no pasó nada.
+  /// La fuente falló (distinto de "no hubo noticias").
   final bool newsFailed;
   final bool earningsFailed;
 
-  /// Super investors y voces del mercado, ya ordenados (lo que toca la
-  /// cartera primero) y acotados.
+  /// Super investors ya filtrados para el informe
+  /// ([InvestorPulseRelevance.selectForReport]): vacío = no hay sección.
   final List<RelatedPulseItem> investors;
   final bool investorsFailed;
 
-  /// Cuántas posiciones van al prompt como máximo (las de más impacto). El
-  /// resto no cambia la historia de la semana y solo suma tokens.
-  static const maxPromptPositions = 15;
+  /// Filas de "Qué movió tu cartera" como mucho.
+  static const maxRows = 5;
+
+  /// Debajo de este movimiento semanal (en %), una posición "casi no se
+  /// movió": va agrupada en una línea y no necesita un "por qué".
+  static const smallMovePct = 0.5;
+
+  /// "Por qué" como mucho (las de más impacto).
+  static const maxWhy = 3;
+
+  /// Menos que esto contra el S&P 500 (en puntos porcentuales) es "casi
+  /// igual que el mercado".
+  static const similarMarketPp = 0.5;
+
+  /// Desde esto es "mejor/peor" a secas, no "un poco".
+  static const clearMarketPp = 2.0;
+
+  /// Movimiento de una posición en la semana: el del precio si se conoce;
+  /// si no, el de la posición del usuario.
+  static double moveOf(WeeklyPositionMove p) => p.pricePct ?? p.positionPct;
+
+  /// Las posiciones que van como fila: las de más impacto que se movieron
+  /// al menos [smallMovePct]. Con una sola posición, esa siempre.
+  List<WeeklyPositionMove> get rows {
+    final positions = numbers.positions;
+    if (positions.length == 1) return positions;
+    return [
+      for (final p in positions)
+        if (moveOf(p).abs() >= smallMovePct && p.contributionPp != 0) p,
+    ].take(maxRows).toList();
+  }
+
+  /// Las que no entraron como fila (se resumen en una línea).
+  int get othersCount => numbers.positions.length - rows.length;
+
+  /// Si todas las que quedaron afuera se movieron menos de [smallMovePct].
+  bool get othersAllSmall {
+    final shown = {for (final r in rows) r.ticker};
+    return numbers.positions
+        .where((p) => !shown.contains(p.ticker))
+        .every((p) => moveOf(p).abs() < smallMovePct);
+  }
+
+  /// A cuáles Porty les escribe un "por qué".
+  List<String> get explainTickers =>
+      [
+        for (final r in rows)
+          if (moveOf(r).abs() >= smallMovePct) r.ticker,
+      ].take(maxWhy).toList();
+
+  MarketComparison? get marketComparison {
+    final diff = numbers.vsSp500Pp;
+    if (diff == null) return null;
+    if (diff.abs() < similarMarketPp) return MarketComparison.similar;
+    if (diff >= clearMarketPp) return MarketComparison.better;
+    if (diff > 0) return MarketComparison.slightlyBetter;
+    if (diff <= -clearMarketPp) return MarketComparison.worse;
+    return MarketComparison.slightlyWorse;
+  }
 
   /// La concentración merece un comentario: cartera de 4 o más posiciones
   /// con una que pesa un cuarto o más, o una que ganó 5 puntos de peso en 4
@@ -79,79 +142,61 @@ class WeeklyReportInput {
     return grew || (numbers.positions.length >= 4 && c.weightNow >= 0.25);
   }
 
-  /// El tema de "para aprender" de esta semana. Lo elige la app (el modelo
-  /// solo lo redacta): primero lo específico de la semana; si no hay nada,
-  /// rota por semana entre los temas generales para no repetir siempre el
-  /// mismo.
-  String get learnTopic {
-    final specific = [
+  /// El tema de "Para aprender", elegido por lo que pasó en la semana del
+  /// usuario (el modelo solo lo redacta). `null` = esta semana no hay un
+  /// tema que salga de sus datos: la sección no aparece (mejor nada que un
+  /// concepto genérico).
+  String? get learnTopic {
+    final comparison = marketComparison;
+    return [
       if (upcomingEarnings.isNotEmpty) 'earnings',
+      if (comparison == MarketComparison.worse ||
+          comparison == MarketComparison.slightlyWorse)
+        'sp500_comparison',
+      if (numbers.newMoney > 0) 'new_money',
+      if (isConcentrationNotable) 'concentration',
       if (investors.any(
         (r) => r.item.isFiling && r.item.action != 'quarterly_portfolio',
       ))
         'sec_filing',
-      if (investors.any((r) => r.item.action == 'quarterly_portfolio'))
-        'quarterly_portfolio',
-      if (numbers.newMoney > 0) 'new_money',
       if (numbers.tradingDays > 0 && numbers.tradingDays < 5) 'short_week',
-      if (isConcentrationNotable) 'concentration',
-    ];
-    if (specific.isNotEmpty) return specific.first;
-    final general = [
-      if (numbers.sp500Pct != null) 'sp500_comparison',
-      'contribution',
-      if (news.isNotEmpty) 'reading_news',
-    ];
-    final weekIndex =
-        numbers.week.monday.toUtc().millisecondsSinceEpoch ~/
-        const Duration(days: 7).inMilliseconds;
-    return general[weekIndex % general.length];
+    ].firstOrNull;
   }
 
-  /// Datos para el LLM: cifras ya redondeadas como las va a mostrar la app,
-  /// para que si alguna aparece en la prosa coincida con la pantalla.
+  /// Datos para el LLM: categorías y textos, sin cifras. La prosa del
+  /// informe no lleva números (los pone la app), así que tampoco se le dan:
+  /// lo que no está, no se puede copiar mal.
   Map<String, Object?> toPromptJson() {
     final n = numbers;
+    final rows = this.rows;
+    final explain = explainTickers.toSet();
+    final mostUp = rows.where((r) => r.contributionPp > 0).firstOrNull;
+    final mostDown = rows.where((r) => r.contributionPp < 0).firstOrNull;
+    final comparison = marketComparison;
     return {
-      'week': {
-        'from': _ymd(n.week.monday),
-        'to': _ymd(n.week.friday),
-        'trading_days': n.tradingDays,
-      },
       'portfolio': {
-        'change_pct': _pct(n.changePct),
-        'change_abs': _money(n.changeAbs),
-        'value_end': _money(n.valueEnd),
-        if (n.newMoney > 0) 'new_money': _money(n.newMoney),
-        if (n.sp500Pct != null) 'sp500_pct': _pct(n.sp500Pct!),
-        if (n.vsSp500Pp != null) 'vs_sp500_pp': _pct(n.vsSp500Pp!),
+        'direction': _direction(n.changePct),
+        if (comparison != null) 'vs_market': _comparisonKey(comparison),
+        if (n.sp500Pct != null) 'market_direction': _direction(n.sp500Pct!),
+        if (n.newMoney > 0) 'added_money_this_week': true,
+        if (n.tradingDays > 0 && n.tradingDays < 5) 'short_week': true,
       },
       'positions': [
-        for (final p in n.positions.take(maxPromptPositions))
+        for (final r in rows)
           {
-            'ticker': p.ticker,
-            'weight_pct': _pct(p.weightEnd * 100),
-            'contribution_pp': _pct(p.contributionPp),
-            if (p.pricePct != null) 'price_pct': _pct(p.pricePct!),
-            if (p.boughtThisWeek) 'bought_this_week': true,
+            'ticker': r.ticker,
+            'direction': _direction(moveOf(r)),
+            if (numbers.sp500Pct != null)
+              'vs_market': _positionVsMarket(moveOf(r), numbers.sp500Pct!),
+            if (rows.length > 1 && identical(r, mostUp)) 'role': 'added_most',
+            if (rows.length > 1 && identical(r, mostDown))
+              'role': 'subtracted_most',
+            'needs_why': explain.contains(r.ticker),
+            if (r.boughtThisWeek) 'bought_this_week': true,
           },
       ],
-      // Solo si es notable (lo decide la app): con 2 o 3 posiciones siempre
-      // hay una que pesa más de un cuarto y no es noticia.
-      if (n.concentration != null && isConcentrationNotable)
-        'concentration': {
-          'ticker': n.concentration!.ticker,
-          'weight_pct': _pct(n.concentration!.weightNow * 100),
-          if (n.concentration!.weightFourWeeksAgo != null)
-            'weight_pct_4_weeks_ago': _pct(
-              n.concentration!.weightFourWeeksAgo! * 100,
-            ),
-        },
-      if (n.closedThisWeek.isNotEmpty)
-        'closed_this_week': [
-          for (final c in n.closedThisWeek)
-            {'ticker': c.ticker, 'pnl_pct': _pct(c.pnlPercent)},
-        ],
+      if (othersCount > 0)
+        'other_positions': othersAllSmall ? 'barely_moved' : 'smaller_impact',
       'news': [
         for (final item in news)
           {
@@ -159,21 +204,47 @@ class WeeklyReportInput {
             'ticker': item.ticker,
             'headline': item.headline,
             'source': item.source,
-            'date': _ymd(item.publishedAt.toLocal()),
           },
       ],
       'investors': [for (final r in investors) _investorJson(r)],
-      'learn_topic': learnTopic,
       'upcoming_earnings': [
         for (final e in upcomingEarnings)
           {
             'ticker': e.ticker,
-            'date': _ymd(e.date),
             if (e.timingLabel != null) 'timing': e.timingLabel,
           },
       ],
+      'learn_topic': learnTopic,
     };
   }
+
+  static String _comparisonKey(MarketComparison c) => switch (c) {
+    MarketComparison.better => 'better',
+    MarketComparison.slightlyBetter => 'slightly_better',
+    MarketComparison.similar => 'similar',
+    MarketComparison.slightlyWorse => 'slightly_worse',
+    MarketComparison.worse => 'worse',
+  };
+
+  /// Cómo se movió una posición respecto del S&P 500, en palabras: para que
+  /// "se movió junto con el mercado" no se diga de una que subió el triple.
+  static String _positionVsMarket(double move, double market) {
+    final mine = _direction(move);
+    final theirs = _direction(market);
+    if (mine == 'flat' && theirs == 'flat') return 'with_market';
+    if (mine != theirs) return 'against_market';
+    final diff = move.abs() - market.abs();
+    if (diff >= clearMarketPp) return 'more_than_market';
+    if (diff <= -clearMarketPp) return 'less_than_market';
+    return 'with_market';
+  }
+
+  static String _direction(double pct) =>
+      pct > 0.15
+          ? 'up'
+          : pct < -0.15
+          ? 'down'
+          : 'flat';
 
   static Map<String, Object?> _investorJson(RelatedPulseItem r) {
     final i = r.item;
@@ -181,16 +252,11 @@ class WeeklyReportInput {
       'id': i.id,
       'who': i.investorName,
       if (i.organization != null) 'organization': i.organization,
-      'voice': i.isMarketVoice ? 'market_voice' : 'investor',
-      'date': _ymd(i.date),
       if (i.isFiling) ...{
         'kind': 'sec_filing',
-        'form': i.form,
         'action': i.action,
-        if (i.issuerName != null) 'issuer': i.issuerName,
-        if (i.issuerTicker != null) 'issuer_ticker': i.issuerTicker,
-        if (i.shares != null) 'shares': i.shares!.round(),
-        if (i.period != null) 'period_end': _ymd(i.period!),
+        if (i.issuerName != null) 'company': i.issuerName,
+        if (i.issuerTicker != null) 'company_ticker': i.issuerTicker,
       } else ...{
         'kind': 'news_headline',
         'headline': i.headline,
@@ -201,10 +267,4 @@ class WeeklyReportInput {
       if (r.relatedTickers.isNotEmpty) 'related_holdings': r.relatedTickers,
     };
   }
-
-  static double _pct(double v) => double.parse(v.toStringAsFixed(2));
-  static double _money(double v) => double.parse(v.toStringAsFixed(2));
-  static String _ymd(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
 }

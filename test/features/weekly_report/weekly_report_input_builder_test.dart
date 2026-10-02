@@ -215,23 +215,37 @@ void main() {
     expect(input.upcomingEarnings, isEmpty);
   });
 
-  test('prompt JSON carries rounded figures and ids, never URLs', () async {
+  test('prompt JSON carries no figures and no URLs: the model only gets '
+      'directions and categories', () async {
     final input = await _builder({
       'AAPL': _flatThen(112.3456),
       'MSFT': _flatThen(100),
       '^GSPC': _flatThen(101),
     }).build(week: _week, lots: [_lot('AAPL', 3), _lot('MSFT', 1)]);
     final json = input.toPromptJson();
-    final portfolio = json['portfolio'] as Map;
-    expect(portfolio['change_pct'], isA<double>());
-    expect(
-      '${portfolio['change_pct']}'.split('.').last.length,
-      lessThanOrEqualTo(2),
-    );
-    expect((json['week'] as Map)['from'], '2026-09-21');
+    final numbers = <num>[];
+    void walk(Object? v) {
+      if (v is num) numbers.add(v);
+      if (v is Map) v.values.forEach(walk);
+      if (v is List) v.forEach(walk);
+    }
+
+    walk(json);
+    expect(numbers, isEmpty);
+    expect((json['portfolio'] as Map)['direction'], 'up');
+    expect((json['portfolio'] as Map)['vs_market'], isNotNull);
+    // Cada posición contra el mercado, en palabras: AAPL subió mucho más que
+    // el S&P; MSFT quedó plana mientras el S&P subía.
+    final positions = {
+      for (final p in (json['positions'] as List).cast<Map>())
+        p['ticker']: p['vs_market'],
+    };
+    expect(positions['AAPL'], 'more_than_market');
+    if (positions.containsKey('MSFT')) {
+      expect(positions['MSFT'], 'against_market');
+    }
     final news = json['news'] as List;
     expect(news.first, containsPair('id', 'n1'));
-    expect(news.first, isNot(contains('url')));
     expect(json.toString(), isNot(contains('https://')));
   });
 
@@ -245,11 +259,12 @@ void main() {
       ],
     ).build(week: _week, lots: [_lot('AAPL', 1), _lot('MSFT', 1)]);
 
-    expect(input.investors.map((r) => r.item.id), ['i2', 'i1']);
+    // Solo lo que toca la cartera: la nota de Dalio sobre bonos queda afuera.
+    expect(input.investors.map((r) => r.item.id), ['i2']);
     expect(input.investors.first.relatedTickers, ['MSFT']);
     expect(input.investorsFailed, isFalse);
     final json = input.toPromptJson();
-    final first = (json['investors'] as List).first as Map;
+    final first = (json['investors'] as List).single as Map;
     expect(first['id'], 'i2');
     expect(first['kind'], 'news_headline');
     expect(first['related_holdings'], ['MSFT']);

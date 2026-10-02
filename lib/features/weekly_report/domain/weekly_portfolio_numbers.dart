@@ -74,6 +74,20 @@ class WeeklyConcentration {
   final double? weightFourWeeksAgo;
 }
 
+/// Un punto del gráfico de la semana: variación acumulada desde el cierre del
+/// viernes anterior (0 %) hasta ese día.
+class WeeklyDayPoint {
+  const WeeklyDayPoint({
+    required this.day,
+    required this.portfolioPct,
+    this.sp500Pct,
+  });
+
+  final DateTime day;
+  final double portfolioPct;
+  final double? sp500Pct;
+}
+
 /// Los números de la semana: todo lo que el informe muestra en cifras. El
 /// LLM nunca produce ninguno de estos valores; solo los lee.
 class WeeklyPortfolioNumbers {
@@ -88,6 +102,7 @@ class WeeklyPortfolioNumbers {
     this.sp500Pct,
     this.concentration,
     this.closedThisWeek = const [],
+    this.daily = const [],
   });
 
   final ReportWeek week;
@@ -115,6 +130,10 @@ class WeeklyPortfolioNumbers {
   final WeeklyConcentration? concentration;
 
   final List<WeeklyClosedPosition> closedThisWeek;
+
+  /// El viernes anterior (0 %) y cada rueda de la semana. Vacío si no hay
+  /// velas suficientes.
+  final List<WeeklyDayPoint> daily;
 
   double get changeAbs => valueEnd - valueStart;
   double get changePct => valueStart > 0 ? changeAbs / valueStart * 100 : 0;
@@ -200,6 +219,7 @@ abstract final class WeeklyPortfolioCalculator {
       missingPrices: missing.toList()..sort(),
       sp500Pct: _weekPct(benchmark, week),
       concentration: _concentration(week, lots, candles, positions),
+      daily: _daily(week, lots, candles, benchmark),
       closedThisWeek: [
         for (final c in closed)
           if (!_day(c.closeDate).isBefore(week.monday) &&
@@ -211,6 +231,78 @@ abstract final class WeeklyPortfolioCalculator {
             ),
       ],
     );
+  }
+
+  /// Cada rueda: valor de lo que tenía ese día contra su valor al empezar la
+  /// semana (lo comprado en la semana entra a costo el día de la compra,
+  /// igual que en [compute]: la plata nueva no es ganancia). Al viernes
+  /// coincide con [WeeklyPortfolioNumbers.changePct].
+  static List<WeeklyDayPoint> _daily(
+    ReportWeek week,
+    List<Position> lots,
+    Map<String, List<PriceCandle>> candles,
+    List<PriceCandle> benchmark,
+  ) {
+    final days =
+        {
+            for (final series
+                in benchmark.isNotEmpty ? [benchmark] : candles.values)
+              for (final c in series)
+                if (!_candleDay(c).isBefore(week.monday) &&
+                    !_candleDay(c).isAfter(week.friday))
+                  _candleDay(c),
+          }.toList()
+          ..sort();
+    if (days.isEmpty) return const [];
+    final spStart = _closeBefore(benchmark, week.monday);
+
+    double? portfolioPctOn(DateTime day) {
+      var start = 0.0;
+      var value = 0.0;
+      for (final lot in lots) {
+        final buy = _day(lot.purchaseDate);
+        if (buy.isAfter(day)) continue;
+        final series =
+            candles[PortfolioCalculator.normalizeTicker(lot.ticker)] ??
+            const <PriceCandle>[];
+        final close = _closeOnOrBefore(series, day);
+        if (close == null) continue;
+        start +=
+            buy.isBefore(week.monday)
+                ? lot.quantity *
+                    (_closeBefore(series, week.monday) ?? lot.purchasePrice)
+                : lot.costBasis;
+        value += lot.quantity * close;
+      }
+      return start > 0 ? (value - start) / start * 100 : null;
+    }
+
+    double? spPctOn(DateTime day) {
+      final close = _closeOnOrBefore(benchmark, day);
+      if (spStart == null || close == null || spStart <= 0) return null;
+      return (close - spStart) / spStart * 100;
+    }
+
+    final previousFriday = DateTime(
+      week.monday.year,
+      week.monday.month,
+      week.monday.day - 3,
+    );
+    final points = <WeeklyDayPoint>[
+      WeeklyDayPoint(
+        day: previousFriday,
+        portfolioPct: 0,
+        sp500Pct: spStart == null ? null : 0,
+      ),
+    ];
+    for (final day in days) {
+      final pct = portfolioPctOn(day);
+      if (pct == null) continue;
+      points.add(
+        WeeklyDayPoint(day: day, portfolioPct: pct, sp500Pct: spPctOn(day)),
+      );
+    }
+    return points.length >= 2 ? points : const [];
   }
 
   static WeeklyConcentration? _concentration(

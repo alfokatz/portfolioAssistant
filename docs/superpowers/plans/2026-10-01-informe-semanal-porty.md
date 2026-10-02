@@ -1,6 +1,6 @@
 # Informe semanal de Porty en la Home
 
-**Fecha:** 2026-10-01 (decisiones 2026-10-02) · **Estado:** implementado y probado en local (F1–F6); nada desplegado · **Reemplaza a:** la §a ("Resumen semanal") de `2026-09-30-diferenciacion-planes.md`. Esa sección asume que las posiciones viven en Hive y que OpenAI se llama desde el cliente; ninguna de las dos cosas sigue siendo cierta.
+**Fecha:** 2026-10-01 (decisiones 2026-10-02) · **Estado:** implementado y probado en local (F1–F6 + rediseño v2); nada desplegado · **Reemplaza a:** la §a ("Resumen semanal") de `2026-09-30-diferenciacion-planes.md`. Esa sección asume que las posiciones viven en Hive y que OpenAI se llama desde el cliente; ninguna de las dos cosas sigue siendo cierta.
 
 ## Estado de implementación
 
@@ -12,6 +12,7 @@
 | F4 | ✅ 2026-10-02 | `prompts/weekly_report_prompt.dart` (fijo, hash en `allowed_report_prompts.json`) + esquema JSON estricto; `WeeklyReportDraft`, `WeeklyReportValidator`, `WeeklyReportGenerator` (1 llamada + 1 reescritura). Evals en `test/evals/weekly_report_evals_test.dart` (11 casos) contra el proxy local: 11/11 en 5 corridas seguidas; ~35% de los informes piden reescritura |
 | F5 | ✅ 2026-10-02 | `WeeklyReportController` (máquina de estados del claim), `WeeklyReport` (lo que se muestra y se guarda en `payload`, v1), tarjeta en la Home entre el hero y las pestañas, pantalla `/weekly-report`. Variantes: completa, solo números con teaser de Gold, y solo números sin teaser cuando falla la generación. La variante bloqueada nunca lleva datos de Gold. Gold suma "Informe semanal" al paywall (`extraMarketingKeys`). Screenshots con fuentes reales: `test/screenshots/weekly_report_screenshots_test.dart` (`RUN_SCREENSHOTS=1`) |
 | F6 | ✅ 2026-10-02 | Interruptor en el servidor (`app_config.weekly_report.enabled`, arranca apagado; lo chequean `claim_weekly_report` y `ai_report_begin`, así corta también en versiones viejas). Runbook: `docs/runbooks/weekly-report.md` (orden de despliegue, prender/apagar, checklist en el iPhone, monitoreo, evals) |
+| v2 | ✅ 2026-10-02 (sin commit) | Rediseño editorial (tres preguntas: cómo me fue, por qué, qué viene). El modelo solo escribe prosa sin cifras (lectura, por qué, titulares en español, inversores, para aprender); la app decide filas, comparación con el mercado (`MarketComparison`, también por posición), tema de "Para aprender" y las preguntas. Filtro estricto de noticias (`NewsRelevanceRanker.isLowQuality`), `InvestorPulseRelevance.selectForReport`, serie diaria contra el S&P (velas de Yahoo ya usadas), EPS estimado (Finnhub earnings ya usado), `AppNumberFormat` compartido con la Home. Payload v2; prompt hash `16aae0b9…`. Evals: 11 casos, 6 corridas, 0 fallos de contenido, ~3% reescrituras. Sin dividendos próximos: ninguna fuente actual los da gratis |
 
 Pendientes conocidos de F5:
 - Las posiciones cerradas en la semana no llegan desde la Home (solo tiene el conteo); el cálculo ya las soporta.

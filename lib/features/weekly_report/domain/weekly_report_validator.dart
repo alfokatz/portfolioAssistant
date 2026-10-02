@@ -18,19 +18,15 @@ class WeeklyReportReview {
 /// de la semana. Nunca se muestra algo que no pase: o se pide reescribir, o
 /// se saca esa parte.
 abstract final class WeeklyReportValidator {
-  static const maxMovers = 3;
-  static const maxNews = 4;
-  static const maxInvestors = 4;
+  static const maxHeadlines = 3;
 
   /// Largos máximos del prompt, con un margen (el modelo cuenta mal).
+  static const readingMax = 160;
+  static const whyMax = 160;
   static const headlineMax = 100;
-  static const moverMax = 160;
-  static const newsMax = 160;
   static const investorMax = 185;
   static const conceptMax = 50;
   static const learnMax = 250;
-  static const questionMax = 95;
-  static const closingMax = 160;
 
   /// "subió por X", "cayó debido a X": el informe no afirma causas.
   static final _causal = RegExp(
@@ -49,11 +45,19 @@ abstract final class WeeklyReportValidator {
   static const _notLetter = '(?<![$_letters])';
   static const _endWord = '(?![$_letters])';
 
-  /// "No hay reportes de resultados": una lista vacía no prueba que algo
-  /// no exista (los earnings cubren solo las posiciones de más peso).
-  static final _absence = RegExp(
-    r'no\s+(hay|tiene[ns]?|presenta[n]?|habr[aá])\s+[^.]{0,30}'
-    r'(resultados|reportes|ganancias|balances|earnings)',
+  /// Jerga que el informe no usa (o explica). "pts" era lo que más
+  /// confundía en la versión anterior.
+  static final _jargon = RegExp(
+    '$_notLetter(pts|pp|puntos\\s+porcentuales|puntos\\s+b[aá]sicos|'
+    'basis\\s+points|exposici[oó]n|rally|sell-?off|bullish|bearish|'
+    'outperform\\w*|underperform\\w*)$_endWord',
+    caseSensitive: false,
+  );
+
+  /// Frases que no dicen nada que el número no diga.
+  static final _empty = RegExp(
+    'liderando\\s+(el\\s+movimiento|la\\s+suba|la\\s+baja)|'
+    'en\\s+terreno\\s+(positivo|negativo)',
     caseSensitive: false,
   );
 
@@ -67,28 +71,38 @@ abstract final class WeeklyReportValidator {
     caseSensitive: false,
   );
 
+  /// "No hay reportes de resultados": una lista vacía no prueba que algo
+  /// no exista.
+  static final _absence = RegExp(
+    r'no\s+(hay|tiene[ns]?|presenta[n]?|habr[aá])\s+[^.]{0,30}'
+    r'(resultados|reportes|ganancias|balances|earnings)',
+    caseSensitive: false,
+  );
+
   /// Mencionar la cartera del usuario en un ítem que no la toca.
   static final _mentionsPortfolio = RegExp(
     r'(tu\s+cartera|ten[eé]s|no\s+la\s+ten[eé]s)',
     caseSensitive: false,
   );
 
-  /// ", aunque no tenés LEN en tu cartera": el modelo insiste en aclararlo
-  /// aunque no suma. Es una cláusula sobrante, no un error de fondo: se saca
-  /// sin pedir reescritura.
+  /// ", aunque no tenés LEN en tu cartera": cláusula sobrante, se saca sin
+  /// pedir reescritura.
   static final _notHeldClause = RegExp(
     r',?\s*(aunque|pero|y)?\s*no\s+(la|lo|las|los)?\s*ten[eé]s\b[^.]*',
     caseSensitive: false,
   );
 
-  static String _withoutNotHeld(String take) {
-    final cleaned = take.replaceAll(_notHeldClause, '').trim();
-    if (cleaned.isEmpty) return take;
-    return cleaned.endsWith('.') ? cleaned : '$cleaned.';
-  }
+  /// "S&P 500" es un nombre, no una cifra.
+  static final _sp500 = RegExp(r'S&P\s*500', caseSensitive: false);
 
   /// Comillas: en lo atribuido a terceros, una cita inventada.
   static final _quotes = RegExp('["“”«»]');
+
+  /// Un titular "en español" que en realidad quedó en inglés.
+  static final _english = RegExp(
+    r'\b(the|and|with|after|stock|shares|says|amid|over|its|for)\b',
+    caseSensitive: false,
+  );
 
   static WeeklyReportReview review(
     WeeklyReportDraft draft,
@@ -98,10 +112,7 @@ abstract final class WeeklyReportValidator {
     final backing = _numbersIn(input.toPromptJson());
     final newsById = {for (final n in input.news) n.id: n};
     final investorsById = {for (final r in input.investors) r.item.id: r};
-    final positionTickers = {
-      for (final p in input.numbers.positions)
-        if (p.contributionPp != 0) p.ticker,
-    };
+    final explain = input.explainTickers.toSet();
 
     /// `null` si [text] falla algún chequeo general (y anota por qué).
     String? check(
@@ -110,8 +121,16 @@ abstract final class WeeklyReportValidator {
       int max, {
       bool noQuotes = false,
       bool noCausal = false,
+      String? source,
     }) {
       if (text == null) return null;
+      // Un número del titular citado está respaldado ("iPhone 18", "10 mil
+      // millones" de "$10 billion"); el resto de la prosa no lleva cifras.
+      final backed = [
+        ...backing,
+        if (source != null)
+          for (final n in AnalysisProseCheck.numbersIn(source)) n.value,
+      ];
       final problems = <String>[
         if (text.length > max) 'es demasiado largo (máx. $max caracteres)',
         if (AnalysisProseCheck.hasAdvice(text))
@@ -121,14 +140,19 @@ abstract final class WeeklyReportValidator {
         if (_relayedAdvice.hasMatch(text))
           'repite un consejo de compra o venta de un tercero',
         if (_absence.hasMatch(text))
-          'afirma que no hay resultados; si no hay datos, no hables de eso',
+          'afirma que algo no existe; si no hay datos, no hables de eso',
+        if (_jargon.hasMatch(text))
+          'usa jerga ("${_jargon.firstMatch(text)!.group(0)}"); decilo en palabras simples',
+        if (_empty.hasMatch(text)) 'es una frase vacía: decí algo concreto',
         if (noQuotes && _quotes.hasMatch(text))
           'usa comillas: parafraseá sin citar',
         if (noCausal && _causal.hasMatch(text))
           'afirma una causa; usá "coincidió con" o "en una semana en la que"',
-        for (final n in AnalysisProseCheck.numbersIn(text))
-          if (!AnalysisProseCheck.isBacked(n, backing))
-            'usa el número ${_fmt(n.value)}, que no está en los datos',
+        for (final n in AnalysisProseCheck.numbersIn(
+          text.replaceAll(_sp500, ''),
+        ))
+          if (!AnalysisProseCheck.isBacked(n, backed))
+            'usa el número ${_fmt(n.value)}: la prosa no lleva cifras',
       ];
       if (problems.isEmpty) return text;
       issues.add('$field ${problems.toSet().join('; ')}: «$text»');
@@ -137,9 +161,8 @@ abstract final class WeeklyReportValidator {
 
     final movers = <DraftMover>[];
     for (final m in draft.movers) {
-      if (movers.length >= maxMovers) break;
-      if (!positionTickers.contains(m.ticker)) {
-        issues.add('movers: ${m.ticker} no es una posición que se movió');
+      if (!explain.contains(m.ticker)) {
+        issues.add('movers: ${m.ticker} no necesita un "por qué"');
         continue;
       }
       if (movers.any((x) => x.ticker == m.ticker)) continue;
@@ -151,34 +174,55 @@ abstract final class WeeklyReportValidator {
       final why = check(
         'movers ${m.ticker}.why',
         m.why,
-        moverMax,
+        whyMax,
         noCausal: true,
+        source: newsById[newsId]?.headline,
       );
       if (why != null) {
         movers.add(DraftMover(ticker: m.ticker, why: why, newsId: newsId));
       }
     }
+    final usedNews = {
+      for (final m in movers)
+        if (m.newsId != null) m.newsId!,
+    };
 
-    final news = <DraftNews>[];
-    for (final n in draft.news) {
-      if (news.length >= maxNews) break;
-      if (!newsById.containsKey(n.newsId)) {
-        issues.add('news: ${n.newsId} no existe');
+    final headlines = <DraftHeadline>[];
+    for (final h in draft.headlines) {
+      if (headlines.length >= maxHeadlines) break;
+      final item = newsById[h.newsId];
+      if (item == null) {
+        issues.add('headlines: ${h.newsId} no existe');
         continue;
       }
-      if (news.any((x) => x.newsId == n.newsId)) continue;
-      final take = check(
-        'news ${n.newsId}.take',
-        n.take,
-        newsMax,
-        noCausal: true,
+      if (usedNews.contains(h.newsId) ||
+          headlines.any((x) => x.newsId == h.newsId)) {
+        continue; // ya está en un "por qué": no repetir
+      }
+      var title = check(
+        'headlines ${h.newsId}.title_es',
+        h.title,
+        headlineMax,
+        noQuotes: true,
+        source: item.headline,
       );
-      if (take != null) news.add(DraftNews(newsId: n.newsId, take: take));
+      if (title != null && title.toUpperCase().startsWith('${item.ticker} ')) {
+        issues.add('headlines ${h.newsId}: sin el ticker adelante: «$title»');
+        title = null;
+      }
+      if (title != null && _english.hasMatch(title)) {
+        issues.add(
+          'headlines ${h.newsId}: tiene que estar en español: «$title»',
+        );
+        title = null;
+      }
+      if (title != null) {
+        headlines.add(DraftHeadline(newsId: h.newsId, title: title));
+      }
     }
 
     final investors = <DraftInvestor>[];
     for (final i in draft.investors) {
-      if (investors.length >= maxInvestors) break;
       final related = investorsById[i.itemId];
       if (related == null) {
         issues.add('investors: ${i.itemId} no existe');
@@ -204,10 +248,13 @@ abstract final class WeeklyReportValidator {
     }
 
     var learn = draft.learn;
-    if (learn != null && learn.topic != input.learnTopic) {
+    final topic = input.learnTopic;
+    if (learn != null && (topic == null || learn.topic != topic)) {
       issues.add(
-        'learn.topic "${learn.topic}" no es el de esta semana: tiene que ser '
-        '"${input.learnTopic}"',
+        topic == null
+            ? 'learn tiene que ser null esta semana'
+            : 'learn.topic "${learn.topic}" no es el de esta semana: '
+                'tiene que ser "$topic"',
       );
       learn = null;
     }
@@ -216,49 +263,33 @@ abstract final class WeeklyReportValidator {
 
     return WeeklyReportReview(
       draft: WeeklyReportDraft(
-        headline: check(
-          'headline',
-          draft.headline,
-          headlineMax,
-          noCausal: true,
-        ),
+        reading: check('reading', draft.reading, readingMax),
         movers: movers,
-        news: news,
+        headlines: headlines,
         investors: investors,
         learn:
             concept != null && learnText != null
-                ? DraftLearn(
-                  topic: learn!.topic,
-                  concept: concept,
-                  text: learnText,
-                )
+                ? DraftLearn(topic: topic, concept: concept, text: learnText)
                 : null,
-        followUpQuestion: check(
-          'follow_up_question',
-          draft.followUpQuestion,
-          questionMax,
-        ),
-        closing: check('closing', draft.closing, closingMax, noCausal: true),
       ),
       issues: issues,
     );
   }
 
+  static String _withoutNotHeld(String take) {
+    final cleaned = take.replaceAll(_notHeldClause, '').trim();
+    if (cleaned.isEmpty) return take;
+    return cleaned.endsWith('.') ? cleaned : '$cleaned.';
+  }
+
   /// Todos los números de los datos que vio el modelo (para respaldar los
-  /// que cite). Las fechas `YYYY-MM-DD` aportan año, mes y día sueltos.
+  /// que cite). En v2 casi no hay: la prosa no lleva cifras.
   static List<double> _numbersIn(Object? json) {
     final out = <double>[];
     void walk(Object? v) {
       switch (v) {
         case num n:
           out.add(n.toDouble());
-        case String s:
-          final date = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
-          if (date != null) {
-            for (var g = 1; g <= 3; g++) {
-              out.add(double.parse(date.group(g)!));
-            }
-          }
         case Map m:
           m.values.forEach(walk);
         case List l:

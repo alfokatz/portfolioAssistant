@@ -111,7 +111,7 @@ class _Generator extends WeeklyReportGenerator {
     }
     return const WeeklyReportGeneration(
       draft: WeeklyReportDraft(
-        headline: 'Apple empujó tu cartera',
+        reading: 'Apple empujó tu cartera',
         movers: [
           DraftMover(
             ticker: 'AAPL',
@@ -119,7 +119,7 @@ class _Generator extends WeeklyReportGenerator {
             newsId: 'n1',
           ),
         ],
-        news: [DraftNews(newsId: 'n2', take: 'Una investigación lleva meses.')],
+        headlines: [DraftHeadline(newsId: 'n2', title: 'Titular n2')],
         investors: [
           DraftInvestor(
             itemId: 'i2',
@@ -131,7 +131,6 @@ class _Generator extends WeeklyReportGenerator {
           concept: 'Qué es un reporte de resultados',
           text: 'Es el informe trimestral de una empresa.',
         ),
-        followUpQuestion: '¿Qué espera el mercado de MSFT?',
       ),
       rounds: 1,
       remainingIssues: [],
@@ -191,11 +190,11 @@ void main() {
       expect(s.c.state.freshlyGenerated, isTrue);
       final r = s.c.state.report!;
       expect(r.variant, WeeklyReportVariant.full);
-      expect(r.headline, 'Apple empujó tu cartera');
-      expect(r.movers.first.news!.source, 'Reuters');
+      expect(r.reading, 'Apple empujó tu cartera');
+      expect(r.movers.first.source!.source, 'Reuters');
       expect(r.news.single.url, 'https://news.google.com/n2');
       expect(r.investors.single.who, 'Bill Ackman');
-      expect(s.store.completed.single['headline'], 'Apple empujó tu cartera');
+      expect(s.store.completed.single['reading'], 'Apple empujó tu cartera');
     },
   );
 
@@ -205,9 +204,9 @@ void main() {
       final saved = WeeklyReport.compose(
         input: fixtureInput(),
         draft: const WeeklyReportDraft(
-          headline: 'Guardado en otro dispositivo',
+          reading: 'Guardado en otro dispositivo',
           movers: [],
-          news: [],
+          headlines: [],
           investors: [],
         ),
         variant: WeeklyReportVariant.full,
@@ -219,7 +218,7 @@ void main() {
 
       expect(s.builder.calls, isEmpty);
       expect(s.gen.calls, 0);
-      expect(s.c.state.report!.headline, 'Guardado en otro dispositivo');
+      expect(s.c.state.report!.reading, 'Guardado en otro dispositivo');
       expect(s.c.state.freshlyGenerated, isFalse);
     },
   );
@@ -260,9 +259,9 @@ void main() {
       final saved = WeeklyReport.compose(
         input: fixtureInput(),
         draft: const WeeklyReportDraft(
-          headline: 'Lo escribió el otro teléfono',
+          reading: 'Lo escribió el otro teléfono',
           movers: [],
-          news: [],
+          headlines: [],
           investors: [],
         ),
         variant: WeeklyReportVariant.full,
@@ -280,7 +279,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(s.store.claimCalls, 2);
-      expect(s.c.state.report!.headline, 'Lo escribió el otro teléfono');
+      expect(s.c.state.report!.reading, 'Lo escribió el otro teléfono');
     },
   );
 
@@ -336,13 +335,11 @@ void main() {
     final report = WeeklyReport.compose(
       input: fixtureInput(),
       draft: const WeeklyReportDraft(
-        headline: 'h',
+        reading: 'h',
         movers: [DraftMover(ticker: 'AAPL', why: 'w', newsId: 'n1')],
-        news: [DraftNews(newsId: 'n2', take: 't')],
-        investors: [DraftInvestor(itemId: 'i1', take: 'Berkshire informó.')],
+        headlines: [DraftHeadline(newsId: 'n2', title: 'Titular n2')],
+        investors: [DraftInvestor(itemId: 'i2', take: 'Ackman habló de MSFT.')],
         learn: DraftLearn(topic: 'earnings', concept: 'c', text: 'x'),
-        followUpQuestion: 'q',
-        closing: 'cl',
       ),
       variant: WeeklyReportVariant.full,
       courtesy: true,
@@ -350,7 +347,7 @@ void main() {
     final back = WeeklyReport.tryParse(report.toJson())!;
     expect(back.toJson(), report.toJson());
     expect(back.courtesy, isTrue);
-    expect(back.investors.single.isFiling, isTrue);
+    expect(back.investors.single.who, 'Bill Ackman');
     expect(WeeklyReport.tryParse({'v': 99}), isNull);
   });
 
@@ -358,9 +355,9 @@ void main() {
     final locked = WeeklyReport.compose(
       input: fixtureInput(),
       draft: const WeeklyReportDraft(
-        headline: null,
+        reading: null,
         movers: [],
-        news: [DraftNews(newsId: 'n1', take: 't')],
+        headlines: [DraftHeadline(newsId: 'n1', title: 'Titular n1')],
         investors: [DraftInvestor(itemId: 'i2', take: 't')],
       ),
       variant: WeeklyReportVariant.numbersLocked,
@@ -390,7 +387,7 @@ void main() {
         const ClaimNumbersOnly(),
       ]);
       await s.c.ensureFor(_lots);
-      expect(s.c.state.report!.headline, 'Apple empujó tu cartera');
+      expect(s.c.state.report!.reading, 'Apple empujó tu cartera');
 
       // A cierra sesión y entra B.
       _currentUser = 'user-b';
@@ -399,7 +396,7 @@ void main() {
       await pending;
       expect(s.store.claimCalls, 2);
       expect(s.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
-      expect(s.c.state.report!.headline, isNull);
+      expect(s.c.state.report!.reading, isNull);
     });
 
     test(
@@ -420,7 +417,7 @@ void main() {
         gate.complete();
         await forA;
         expect(s.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
-        expect(s.c.state.report!.headline, isNull);
+        expect(s.c.state.report!.reading, isNull);
         // Tampoco se guarda: la sesión ya es de B, y `complete` con el token
         // de B podría escribir los datos de A en la fila de B. La reserva de
         // A vence sola y A lo regenera al volver a entrar.

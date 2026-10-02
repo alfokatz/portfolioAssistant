@@ -25,6 +25,10 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
 import 'weekly_report_fixtures.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:intl/intl.dart';
 
 class _NoStore implements WeeklyReportStore {
   @override
@@ -77,7 +81,9 @@ class FixedWeeklyReportController extends WeeklyReportController {
 WeeklyReport fullReport({bool courtesy = false}) => WeeklyReport.compose(
   input: fixtureInput(),
   draft: const WeeklyReportDraft(
-    headline: 'Apple empujó tu cartera en una semana tranquila',
+    reading:
+        'Una buena semana: subiste más que el mercado porque AAPL compensó '
+        'con creces la baja de MSFT.',
     movers: [
       DraftMover(
         ticker: 'AAPL',
@@ -90,24 +96,14 @@ WeeklyReport fullReport({bool courtesy = false}) => WeeklyReport.compose(
         newsId: 'n2',
       ),
     ],
-    news: [
-      DraftNews(
-        newsId: 'n2',
-        take: 'Una investigación así suele llevar meses antes de definirse.',
-      ),
-    ],
+    headlines: [],
     investors: [
       DraftInvestor(
         itemId: 'i2',
         take:
-            'Según CNBC, Bill Ackman ve a Microsoft como su principal apuesta '
-            'en inteligencia artificial. Tenés MSFT en tu cartera.',
-      ),
-      DraftInvestor(
-        itemId: 'i1',
-        take:
-            'Berkshire Hathaway, la firma de Warren Buffett, informó compras '
-            'de acciones de Lennar.',
+            'Bill Ackman, gestor de Pershing Square, dijo que Microsoft es su '
+            'principal apuesta en inteligencia artificial. Tenés MSFT en tu '
+            'cartera.',
       ),
     ],
     learn: DraftLearn(
@@ -115,10 +111,8 @@ WeeklyReport fullReport({bool courtesy = false}) => WeeklyReport.compose(
       concept: 'Qué es un reporte de resultados',
       text:
           'Cada trimestre las empresas cuentan cuánto vendieron y ganaron. '
-          'El mercado lo compara con lo que esperaba.',
+          'El precio puede moverse ese día si el resultado sorprende.',
     ),
-    followUpQuestion: '¿Qué espera el mercado de los resultados de MSFT?',
-    closing: 'La semana que viene presenta resultados Microsoft.',
   ),
   variant: WeeklyReportVariant.full,
   courtesy: courtesy,
@@ -218,8 +212,10 @@ WeeklyReportState ready(
 
 void main() {
   group('Home card', () {
-    testWidgets('while Porty writes, it says so; then shows the headline and '
-        'the three figures', (tester) async {
+    testWidgets('while Porty writes, it says so; then the reading and ONE '
+        'metric labeled "this week", with the market in plain words', (
+      tester,
+    ) async {
       final controller = FixedWeeklyReportController(
         const WeeklyReportState(
           status: WeeklyReportStatus.loading,
@@ -233,12 +229,12 @@ void main() {
 
       controller.emit(ready(fullReport(), fresh: true));
       await tester.pumpAndSettle();
-      expect(
-        find.text('Apple empujó tu cartera en una semana tranquila'),
-        findsOneWidget,
-      );
-      expect(find.text('+2.5%'), findsOneWidget); // cartera
-      expect(find.text('AAPL +10.0%'), findsOneWidget); // lo que más movió
+      expect(find.textContaining('AAPL compensó'), findsOneWidget);
+      expect(find.text(AppNumberFormat.percent(2.5)), findsOneWidget);
+      expect(find.text('weekly_report_this_week'), findsOneWidget);
+      expect(find.text('weekly_report_market_up'), findsOneWidget);
+      // Nada de "pts" ni de la comparación en rojo.
+      expect(find.textContaining('pts'), findsNothing);
       // Porty terminó con la Home en pantalla: un toque.
       expect(haptics, [PortyHapticPattern.light]);
     });
@@ -256,7 +252,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('weekly_report_fallback_up'), findsOneWidget);
-      expect(find.text('weekly_report_vs_sp500'), findsNothing);
+      expect(find.text('weekly_report_market_up'), findsNothing);
       expect(find.text('weekly_report_locked_title'), findsOneWidget);
     });
 
@@ -276,14 +272,16 @@ void main() {
       await tester.tap(find.text('weekly_report_title'));
       await tester.pumpAndSettle();
       expect(find.text('weekly_report_screen_title'), findsOneWidget);
-      expect(find.text('weekly_report_numbers_section'), findsOneWidget);
+      expect(find.text('weekly_report_movers_section'), findsOneWidget);
     });
   });
 
   group('Report screen', () {
-    testWidgets('full report: every section, source links and disclaimer', (
-      tester,
-    ) async {
+    Future<void> scrollTo(WidgetTester tester, Finder f) => tester
+        .scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
+
+    testWidgets('full report: the three questions, then only the sections '
+        'that have something; sources are gray and tappable', (tester) async {
       await tester.pumpWidget(
         reportApp(
           FixedWeeklyReportController(ready(fullReport(courtesy: true))),
@@ -293,37 +291,101 @@ void main() {
       await tester.pumpAndSettle();
       for (final key in [
         'weekly_report_courtesy', // en el encabezado: primero
-        'weekly_report_numbers_section',
-        'weekly_report_news_section',
-        'weekly_report_investors_section',
+        'weekly_report_this_week_label',
+        'weekly_report_comparison',
+        'weekly_report_value_friday',
+        'weekly_report_movers_section',
+        'weekly_report_role_added_most',
+        'weekly_report_role_subtracted_most',
         'weekly_report_upcoming_section',
+        'weekly_report_eps_estimate',
+        'weekly_report_investors_section',
         'weekly_report_learn_section',
-        'weekly_report_ask_porty',
+        'weekly_report_follow_section',
+        'weekly_report_disclaimer',
       ]) {
-        await tester.scrollUntilVisible(
-          find.text(key),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
+        await scrollTo(tester, find.text(key));
         expect(find.text(key), findsOneWidget, reason: key);
       }
-      await tester.scrollUntilVisible(
-        find.text('weekly_report_disclaimer'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
+      // Sin titulares de Porty, la sección de noticias no aparece.
+      expect(find.text('weekly_report_news_section'), findsNothing);
       expect(find.text('weekly_report_locked_title'), findsNothing);
-      // Links tocables de 44 px como mínimo.
+      expect(find.byType(WeeklyReportChart), findsOneWidget);
+      expect(find.byType(WeeklyImpactBar), findsNWidgets(2));
+      // Las preguntas las arma la app (neutrales): reporte que viene y año.
+      expect(find.text('weekly_report_q_earnings'), findsOneWidget);
+      expect(find.text('weekly_report_q_year'), findsOneWidget);
+      // Fuentes: gris (textSecondary), con su área táctil de 44 px.
+      final theme = Theme.of(tester.element(find.byType(WeeklyReportChart)));
+      final secondary = theme.extension<CustomColors>()!.textSecondary;
       for (final link in tester.widgetList<Semantics>(
         find.byWidgetPredicate(
           (w) => w is Semantics && w.properties.link == true,
         ),
       )) {
-        expect(
-          tester.getSize(find.byWidget(link)).height,
-          greaterThanOrEqualTo(44),
+        final finder = find.byWidget(link);
+        expect(tester.getSize(finder).height, greaterThanOrEqualTo(44));
+        final label = tester.widget<Text>(
+          find.descendant(of: finder, matching: find.byType(Text)).first,
         );
+        expect(label.style?.color, secondary);
       }
+    });
+
+    testWidgets('numbers use the same format as the Home', (tester) async {
+      final report = fullReport();
+      await tester.pumpWidget(
+        reportApp(FixedWeeklyReportController(ready(report)), openScreen: true),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AppNumberFormat.percent(report.changePct)),
+        findsWidgets,
+      );
+      expect(
+        find.text(AppNumberFormat.signedMoney(report.changeAbs)),
+        findsOneWidget,
+      );
+      // El de la Home es este mismo NumberFormat (ver portfolio_hero_section).
+      expect(
+        AppNumberFormat.money(report.valueEnd),
+        NumberFormat.currency(
+          symbol: '\$',
+          decimalDigits: 2,
+        ).format(report.valueEnd),
+      );
+    });
+
+    testWidgets('a quiet week without Porty extras: no empty sections', (
+      tester,
+    ) async {
+      final quiet = WeeklyReport.compose(
+        input: fixtureInput(
+          withNews: false,
+          withInvestors: false,
+          withEarnings: false,
+        ),
+        draft: const WeeklyReportDraft(
+          reading: 'Una semana tranquila.',
+          movers: [],
+          headlines: [],
+          investors: [],
+        ),
+        variant: WeeklyReportVariant.full,
+      );
+      await tester.pumpWidget(
+        reportApp(FixedWeeklyReportController(ready(quiet)), openScreen: true),
+      );
+      await tester.pumpAndSettle();
+      for (final key in [
+        'weekly_report_upcoming_section',
+        'weekly_report_news_section',
+        'weekly_report_investors_section',
+        'weekly_report_learn_section',
+      ]) {
+        expect(find.text(key), findsNothing, reason: key);
+      }
+      expect(find.text('weekly_report_movers_section'), findsOneWidget);
     });
 
     testWidgets('numbers only: Gold teaser instead of Porty sections; Free '
@@ -340,8 +402,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('weekly_report_locked_title'), findsOneWidget);
       expect(find.text('weekly_report_sp500_locked'), findsOneWidget);
-      expect(find.text('weekly_report_news_section'), findsNothing);
-      expect(find.text('weekly_report_investors_section'), findsNothing);
+      expect(find.text('weekly_report_comparison'), findsNothing);
+      expect(find.text('weekly_report_upcoming_section'), findsNothing);
+      expect(find.text('weekly_report_follow_section'), findsNothing);
     });
 
     testWidgets('generation failed (has access): a note, no teaser', (
