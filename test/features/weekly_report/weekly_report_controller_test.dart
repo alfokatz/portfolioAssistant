@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -19,6 +21,10 @@ import 'package:portfolio_assistant/features/weekly_report/providers/weekly_repo
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'weekly_report_fixtures.dart';
+
+/// Usuario de la sesión actual (los tests lo cambian para simular otra
+/// cuenta).
+var _currentUser = 'user-a';
 
 /// Sábado 26/9: cubre la semana del 21 (la de los fixtures).
 DateTime _saturday() => DateTime(2026, 9, 26, 10);
@@ -76,12 +82,16 @@ class _Builder extends WeeklyReportInputBuilder {
 }
 
 class _Generator extends WeeklyReportGenerator {
-  _Generator({this.error})
+  _Generator({this.error, this.gate})
     : super(
         config: AiProxyConfig.fixed(Uri.parse('https://x/ai-chat'), 'jwt'),
         model: 'gpt-4.1-mini',
       );
   final String? error;
+
+  /// Si está, la generación espera a que se complete (para simular que
+  /// Porty sigue escribiendo mientras cambia el usuario).
+  final Future<void>? gate;
   var calls = 0;
 
   @override
@@ -90,6 +100,7 @@ class _Generator extends WeeklyReportGenerator {
     required WeeklyReportInput input,
   }) async {
     calls++;
+    await gate;
     if (error != null) {
       return WeeklyReportGeneration(
         draft: WeeklyReportDraft.empty,
@@ -145,17 +156,19 @@ _setup(
   List<WeeklyReportClaim> claims, {
   SubscriptionTier tier = SubscriptionTier.gold,
   String? generationError,
+  Future<void>? gate,
   Duration retryDelay = const Duration(milliseconds: 10),
 }) async {
   SharedPreferences.setMockInitialValues({});
   final store = _Store(claims);
   final builder = _Builder();
-  final gen = _Generator(error: generationError);
+  final gen = _Generator(error: generationError, gate: gate);
   final c = WeeklyReportController(
     store: store,
     builder: builder,
     generator: gen,
     tier: () => tier,
+    userId: () => _currentUser,
     preferences: await SharedPreferences.getInstance(),
     clock: _saturday,
     retryDelay: retryDelay,
@@ -164,6 +177,8 @@ _setup(
 }
 
 void main() {
+  setUp(() => _currentUser = 'user-a');
+
   test(
     'claimed: builds the full input, Porty writes, the report is saved',
     () async {
@@ -269,23 +284,28 @@ void main() {
     },
   );
 
-  test(
-    'unavailable server: Gold sees plain numbers, Free sees the teaser',
-    () async {
-      final gold = await _setup([const ClaimUnavailable()]);
-      await gold.c.ensureFor(_lots);
-      expect(
-        gold.c.state.report!.variant,
-        WeeklyReportVariant.numbersUnavailable,
-      );
+  test('unavailable server (or backend not deployed yet): no card', () async {
+    final s = await _setup([const ClaimUnavailable()]);
+    await s.c.ensureFor(_lots);
+    expect(s.c.state.status, WeeklyReportStatus.hidden);
+    expect(s.builder.calls, isEmpty);
+  });
 
-      final free = await _setup([
-        const ClaimUnavailable(),
-      ], tier: SubscriptionTier.free);
-      await free.c.ensureFor(_lots);
-      expect(free.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
-    },
-  );
+  test('a failed claim (attempts used up): Gold sees plain numbers, Free '
+      'sees the teaser', () async {
+    final gold = await _setup([const ClaimFailed()]);
+    await gold.c.ensureFor(_lots);
+    expect(
+      gold.c.state.report!.variant,
+      WeeklyReportVariant.numbersUnavailable,
+    );
+
+    final free = await _setup([
+      const ClaimFailed(),
+    ], tier: SubscriptionTier.free);
+    await free.c.ensureFor(_lots);
+    expect(free.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+  });
 
   test('no positions: hidden, and nothing is claimed', () async {
     final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
@@ -309,7 +329,7 @@ void main() {
     s.c.markSeen();
     expect(s.c.state.seen, isTrue);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('weekly_report_seen_2026-09-21'), isTrue);
+    expect(prefs.getBool('weekly_report_seen_user-a_2026-09-21'), isTrue);
   });
 
   test('the stored payload round-trips', () {
@@ -362,4 +382,75 @@ void main() {
       expect(s.builder.calls, isEmpty);
     },
   );
+
+  group('switching accounts (bug 2026-10-02)', () {
+    test('B never sees the report of A', () async {
+      final s = await _setup([
+        const ClaimGranted(courtesy: false, attempt: 1),
+        const ClaimNumbersOnly(),
+      ]);
+      await s.c.ensureFor(_lots);
+      expect(s.c.state.report!.headline, 'Apple empujó tu cartera');
+
+      // A cierra sesión y entra B.
+      _currentUser = 'user-b';
+      final pending = s.c.ensureFor(_lots);
+      expect(s.c.state.report, isNull, reason: 'el de A se descarta ya');
+      await pending;
+      expect(s.store.claimCalls, 2);
+      expect(s.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+      expect(s.c.state.report!.headline, isNull);
+    });
+
+    test(
+      'a generation of A that finishes after B logged in is dropped',
+      () async {
+        final gate = Completer<void>();
+        final s = await _setup([
+          const ClaimGranted(courtesy: false, attempt: 1),
+          const ClaimNumbersOnly(),
+        ], gate: gate.future);
+        final forA = s.c.ensureFor(_lots); // Porty escribe para A…
+
+        await Future<void>.delayed(Duration.zero);
+        _currentUser = 'user-b';
+        await s.c.ensureFor(_lots); // …y B entra antes de que termine
+        expect(s.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+
+        gate.complete();
+        await forA;
+        expect(s.c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+        expect(s.c.state.report!.headline, isNull);
+        // Tampoco se guarda: la sesión ya es de B, y `complete` con el token
+        // de B podría escribir los datos de A en la fila de B. La reserva de
+        // A vence sola y A lo regenera al volver a entrar.
+        expect(s.store.completed, isEmpty);
+        expect(s.store.failed, 0);
+      },
+    );
+
+    test('signed out: no card and nothing is claimed', () async {
+      final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+      final c = WeeklyReportController(
+        store: s.store,
+        builder: s.builder,
+        generator: s.gen,
+        tier: () => SubscriptionTier.gold,
+        userId: () => null,
+        clock: _saturday,
+      );
+      await c.ensureFor(_lots);
+      expect(c.state.status, WeeklyReportStatus.hidden);
+      expect(s.store.claimCalls, 0);
+    });
+
+    test('"seen" is per user', () async {
+      final s = await _setup([const ClaimNumbersOnly()]);
+      await s.c.ensureFor(_lots);
+      s.c.markSeen();
+      _currentUser = 'user-b';
+      await s.c.ensureFor(_lots);
+      expect(s.c.state.seen, isFalse);
+    });
+  });
 }

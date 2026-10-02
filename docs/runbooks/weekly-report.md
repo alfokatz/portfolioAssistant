@@ -9,7 +9,8 @@ El informe aparece en la Home los sábados (cubre la semana bursátil cerrada) y
 | Pieza | Dónde | Qué hace |
 |---|---|---|
 | Migración `20261002000000_investor_pulse.sql` | `supabase/migrations/` | `super_investors` (lista editable con CIKs de EDGAR verificados) y `investor_pulse_cache` |
-| Migración `20261002120000_weekly_reports.sql` | idem | `weekly_reports`, `claim/complete/fail_weekly_report`, `ai_report_begin`, columna `purpose` en `ai_turn_usage` e **interruptor** `app_config.weekly_report` (arranca apagado) |
+| Migración `20261002120000_weekly_reports.sql` | idem | `weekly_reports`, `claim/complete/fail_weekly_report`, `ai_report_begin` y columna `purpose` en `ai_turn_usage` |
+| Migración `20261002130000_weekly_report_flag.sql` | idem | **Interruptor** `app_config.weekly_report` (arranca apagado). Redefine el claim y `ai_report_begin` con el chequeo. Va aparte porque la anterior ya estaba aplicada en dev |
 | Edge function `investor-pulse` | `supabase/functions/investor-pulse/` | Noticias (Google News) + presentaciones a la SEC de la semana, con caché global |
 | `ai-chat`, modo informe | `supabase/functions/ai-chat/handler.ts` + `allowed_report_prompts.json` | Header `x-porty-purpose: weekly_report`: prompt propio, sin tools ni stream, exige claim, no cobra cuota, tope de 6 llamadas por usuario y semana |
 | App | `lib/features/weekly_report/` | Datos de la semana, prompt + validador, controller, tarjeta en la Home y pantalla `/weekly-report` |
@@ -75,6 +76,26 @@ Corta en el acto, también para versiones viejas de la app:
 - `ai_report_begin` rechaza cualquier llamada al LLM en curso.
 
 Los informes ya generados quedan guardados y vuelven a mostrarse al prender.
+
+## Si el informe sale con "Porty no pudo escribir su parte"
+
+La reserva funcionó y falló la llamada al LLM. En la consola de la app (debug) aparece `[WeeklyReport] generation failed for <semana>: <tipo>`:
+
+| Tipo | Causa probable | Qué hacer |
+|---|---|---|
+| `prompt_not_allowed` | `ai-chat` desplegado sin el hash del prompt actual (o sin el modo informe) | `supabase functions deploy ai-chat` desde el repo actual |
+| `disabled` | El interruptor está apagado | Prenderlo (arriba) |
+| `not_claimed` | La reserva venció (más de 2 min entre el claim y la llamada) o la sesión cambió | Reintentar; si se repite, revisar la latencia |
+| `too_many_rounds` | Se usaron las 6 llamadas de la semana de ese usuario | En dev, resetear (abajo) |
+| `unavailable` / `http_5xx` | `OPENAI_API_KEY` o el proxy | Logs de `ai-chat` |
+
+Cada falla gasta un intento: a los 3, la semana queda en `failed` y muestra solo números. **En dev**, para volver a probar con una cuenta:
+
+```sql
+delete from public.weekly_reports
+ where user_id = (select id from auth.users where email = '<email>')
+   and week_start = '<lunes de la semana>';
+```
 
 ## Checklist en el iPhone
 

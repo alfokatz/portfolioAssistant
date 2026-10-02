@@ -65,6 +65,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     required WeeklyReportInputBuilder builder,
     required WeeklyReportGenerator generator,
     required SubscriptionTier Function() tier,
+    required String? Function() userId,
     SharedPreferences? preferences,
     DateTime Function()? clock,
     this.retryDelay = const Duration(seconds: 20),
@@ -72,6 +73,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
        _builder = builder,
        _generator = generator,
        _tier = tier,
+       _userId = userId,
        _prefs = preferences,
        _clock = clock ?? DateTime.now,
        super(const WeeklyReportState());
@@ -80,6 +82,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
   final WeeklyReportInputBuilder _builder;
   final WeeklyReportGenerator _generator;
   final SubscriptionTier Function() _tier;
+  final String? Function() _userId;
   final SharedPreferences? _prefs;
   final DateTime Function() _clock;
   final Duration retryDelay;
@@ -91,6 +94,14 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
   Timer? _retry;
   int _inProgressRetries = 0;
   ReportWeek? _disabledWeek;
+
+  /// Para quién es el estado actual. Al cambiar de cuenta (cerrar sesión y
+  /// entrar con otra) se descarta todo: el informe de A nunca se muestra a B.
+  String? _loadedFor;
+
+  /// Sube con cada cambio de usuario: una carga en curso del usuario anterior
+  /// que vuelve de un `await` con un epoch viejo no toca el estado.
+  int _epoch = 0;
   List<Position> _lots = const [];
   List<ClosedPosition> _closed = const [];
 
@@ -100,9 +111,11 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     List<Position> lots, {
     List<ClosedPosition> closed = const [],
   }) {
+    final uid = _userId();
+    if (uid != _loadedFor) _resetFor(uid);
     _lots = lots;
     _closed = closed;
-    if (lots.isEmpty) {
+    if (uid == null || lots.isEmpty) {
       _retry?.cancel();
       state = const WeeklyReportState();
       return Future.value();
@@ -119,8 +132,24 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     // Apagado desde el servidor: no volver a preguntar en cada rebuild de la
     // Home (sí al cambiar de semana o reabrir la app).
     if (_disabledWeek == week) return Future.value();
-    return _inFlight ??= _load(week).whenComplete(() => _inFlight = null);
+    return _inFlight ??= _load(
+      week,
+      _epoch,
+    ).whenComplete(() => _inFlight = null);
   }
+
+  void _resetFor(String? uid) {
+    _epoch++;
+    _loadedFor = uid;
+    _retry?.cancel();
+    _retry = null;
+    _inFlight = null;
+    _inProgressRetries = 0;
+    _disabledWeek = null;
+    state = const WeeklyReportState();
+  }
+
+  bool _stale(int epoch) => !mounted || epoch != _epoch;
 
   /// La pantalla del informe se abrió.
   void markSeen() {
@@ -137,12 +166,12 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
   }
 
-  Future<void> _load(ReportWeek week) async {
+  Future<void> _load(ReportWeek week, int epoch) async {
     if (state.report?.week != week) {
       state = const WeeklyReportState(status: WeeklyReportStatus.loading);
     }
     final claim = await _store.claim(week);
-    if (!mounted) return;
+    if (_stale(epoch)) return;
     switch (claim) {
       case ClaimReady(:final payload):
         _retry?.cancel();
@@ -152,28 +181,37 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
           _show(report);
         } else {
           // Payload de otra versión: se recalculan los números.
-          await _numbers(week, WeeklyReportVariant.numbersUnavailable);
+          await _numbers(week, WeeklyReportVariant.numbersUnavailable, epoch);
         }
       case ClaimGranted(:final courtesy):
-        await _generate(week, courtesy: courtesy);
+        await _generate(week, epoch, courtesy: courtesy);
       case ClaimInProgress():
         if (state.report?.week != week) {
-          await _numbers(week, WeeklyReportVariant.numbersUnavailable);
+          await _numbers(week, WeeklyReportVariant.numbersUnavailable, epoch);
         }
-        _scheduleInProgressRetry(week);
+        _scheduleInProgressRetry(week, epoch);
       case ClaimNumbersOnly():
-        await _numbers(week, WeeklyReportVariant.numbersLocked);
+        await _numbers(week, WeeklyReportVariant.numbersLocked, epoch);
       case ClaimDisabled():
         _retry?.cancel();
         _retry = null;
         _disabledWeek = week;
         state = const WeeklyReportState();
-      case ClaimFailed() || ClaimUnavailable():
-        await _numbers(week, _locked());
+      case ClaimFailed():
+        await _numbers(week, _locked(), epoch);
+      case ClaimUnavailable():
+        // Sin respuesta del servidor no se sabe si el informe está prendido
+        // (ni si el backend existe): no hay tarjeta. Se reintenta en la
+        // próxima apertura de la Home.
+        state = const WeeklyReportState();
     }
   }
 
-  Future<void> _generate(ReportWeek week, {required bool courtesy}) async {
+  Future<void> _generate(
+    ReportWeek week,
+    int epoch, {
+    required bool courtesy,
+  }) async {
     state = WeeklyReportState(
       status: WeeklyReportStatus.loading,
       report: state.report?.week == week ? state.report : null,
@@ -184,10 +222,15 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       lots: _lots,
       closed: _closed,
     );
+    if (_stale(epoch)) return;
     final generation = await _generator.generate(week: week, input: input);
-    if (!mounted) return;
+    if (_stale(epoch)) return;
     if (generation.failed) {
+      debugPrint(
+        '[WeeklyReport] generation failed for ${week.key}: ${generation.error}',
+      );
       await _store.fail(week);
+      if (_stale(epoch)) return;
       _show(
         WeeklyReport.compose(
           input: input,
@@ -206,18 +249,22 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
     final saved = await _store.complete(week, report.toJson());
     if (!saved) debugPrint('[WeeklyReport] complete rejected for ${week.key}');
-    if (!mounted) return;
+    if (_stale(epoch)) return;
     _show(report, fresh: true);
   }
 
-  Future<void> _numbers(ReportWeek week, WeeklyReportVariant variant) async {
+  Future<void> _numbers(
+    ReportWeek week,
+    WeeklyReportVariant variant,
+    int epoch,
+  ) async {
     final input = await _builder.build(
       week: week,
       lots: _lots,
       closed: _closed,
       numbersOnly: true,
     );
-    if (!mounted) return;
+    if (_stale(epoch)) return;
     if (input.numbers.isEmpty) {
       state = const WeeklyReportState();
       return;
@@ -231,7 +278,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
   }
 
-  void _scheduleInProgressRetry(ReportWeek week) {
+  void _scheduleInProgressRetry(ReportWeek week, int epoch) {
     _retry?.cancel();
     if (_inProgressRetries >= maxInProgressRetries) {
       _retry = null;
@@ -240,8 +287,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     _inProgressRetries++;
     _retry = Timer(retryDelay, () {
       _retry = null;
-      if (!mounted) return;
-      _inFlight ??= _load(week).whenComplete(() => _inFlight = null);
+      if (_stale(epoch)) return;
+      _inFlight ??= _load(week, epoch).whenComplete(() => _inFlight = null);
     });
   }
 
@@ -267,7 +314,10 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     }
   }
 
-  static String _seenKey(ReportWeek week) => 'weekly_report_seen_${week.key}';
+  /// Por usuario: en un teléfono compartido, que A lo haya visto no le
+  /// saca la entrada animada a B.
+  String _seenKey(ReportWeek week) =>
+      'weekly_report_seen_${_loadedFor ?? 'anon'}_${week.key}';
 
   @override
   void dispose() {
@@ -288,6 +338,7 @@ final weeklyReportControllerProvider =
         ),
         generator: WeeklyReportGenerator(),
         tier: () => ref.read(subscriptionProvider).tier,
+        userId: () => ref.read(supabaseAuthServiceProvider).currentUser?.id,
         preferences: ref.watch(sharedPreferencesProvider),
       );
     });

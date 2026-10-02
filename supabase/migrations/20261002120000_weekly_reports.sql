@@ -61,30 +61,6 @@ as $$
                          and (now() at time zone 'utc')::date - 4;
 $$;
 
--- Interruptor del informe (`app_config.weekly_report.enabled`, arranca
--- apagado). Lo chequea el servidor, no la app: apagarlo frena la tarjeta y
--- el gasto de LLM incluso en versiones viejas, sin publicar nada:
---
---   update public.app_config set value = '{"enabled": true}', updated_at = now()
---    where key = 'weekly_report';
-insert into public.app_config (key, value)
-values ('weekly_report', '{"enabled": false}'::jsonb)
-on conflict (key) do nothing;
-
-create or replace function public._weekly_report_enabled()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(
-    (select (value ->> 'enabled')::boolean from public.app_config
-     where key = 'weekly_report'),
-    false
-  );
-$$;
-
 -- Una generación cortada (app cerrada a mitad) se puede retomar después de
 -- este tiempo.
 create or replace function public._report_claim_ttl()
@@ -109,7 +85,6 @@ as $$ select 3 $$;
 -- - in_progress  → otro dispositivo lo está generando: reintentar en un rato
 -- - numbers_only → sin Gold y degustación ya usada: solo números, sin LLM
 -- - failed       → se agotaron los intentos: solo números
--- - disabled     → el informe está apagado (app_config): sin tarjeta
 create or replace function public.claim_weekly_report(p_week_start date)
 returns jsonb
 language plpgsql
@@ -127,9 +102,6 @@ begin
   end if;
   if not public._valid_report_week(p_week_start) then
     raise exception 'invalid_week_start';
-  end if;
-  if not public._weekly_report_enabled() then
-    return jsonb_build_object('state', 'disabled');
   end if;
 
   v_tier := coalesce(public._effective_tier(v_user_id), 'free');
@@ -249,7 +221,7 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- RPC del proxy ai-chat (service role): antes de cada llamada al LLM del
--- informe. Devuelve {ok} o {ok:false, reason}: disabled | model_not_allowed |
+-- informe. Devuelve {ok} o {ok:false, reason}: model_not_allowed |
 -- rate_limited | not_claimed | too_many_rounds | turn_mismatch.
 -- ---------------------------------------------------------------------------
 
@@ -270,10 +242,6 @@ declare
   v_row public.weekly_reports%rowtype;
   v_owner uuid;
 begin
-  -- Apagado a mitad de una generación: no se gasta ni una llamada más.
-  if not public._weekly_report_enabled() then
-    return jsonb_build_object('ok', false, 'reason', 'disabled');
-  end if;
   if not exists (
     select 1 from public.model_prices where model = p_model and allowed
   ) then
@@ -325,7 +293,6 @@ $$;
 
 revoke all on function public.ai_report_begin(uuid, text, date, text, int, int)
   from public, anon, authenticated;
-revoke all on function public._weekly_report_enabled() from public, anon, authenticated;
 revoke all on function public.claim_weekly_report(date) from public, anon;
 revoke all on function public.complete_weekly_report(date, jsonb) from public, anon;
 revoke all on function public.fail_weekly_report(date) from public, anon;

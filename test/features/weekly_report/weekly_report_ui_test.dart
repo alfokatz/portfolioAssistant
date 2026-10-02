@@ -60,6 +60,7 @@ class FixedWeeklyReportController extends WeeklyReportController {
           model: 'gpt-4.1-mini',
         ),
         tier: () => SubscriptionTier.gold,
+        userId: () => 'user-a',
       ) {
     state = initial;
   }
