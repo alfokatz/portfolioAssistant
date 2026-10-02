@@ -47,19 +47,36 @@ class GoogleNewsRssRepositoryImpl implements CompanyNewsRepository {
   Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
     String ticker, {
     int limit = 3,
+    DateTime? from,
+    DateTime? to,
   }) async {
     final upper = ticker.toUpperCase();
+    final window = from != null && to != null ? (from: from, to: to) : null;
     try {
       final name = await companyNameOf?.call(upper);
       final feeds = await Future.wait(
-        searchQueries(upper, name).map((q) => _search(q, upper)),
+        searchQueries(
+          upper,
+          name,
+        ).map((q) => _search(withTimeWindow(q, window), upper)),
       );
       final ok = [
         for (final f in feeds)
           if (f != null) f,
       ];
       if (ok.isEmpty) return Left(HttpError(code: 'google_news_failed'));
-      return Right(interleave(ok).take(limit).toList());
+      var items = interleave(ok);
+      if (window != null) {
+        // Google respeta after/before, pero por día y en su zona horaria:
+        // se recorta igual, para que la semana sea exactamente la pedida.
+        items = [
+          for (final i in items)
+            if (!i.publishedAt.isBefore(window.from) &&
+                i.publishedAt.isBefore(window.to))
+              i,
+        ];
+      }
+      return Right(items.take(limit).toList());
     } catch (_) {
       return Left(HttpError(code: 'unknown'));
     }
@@ -70,7 +87,7 @@ class GoogleNewsRssRepositoryImpl implements CompanyNewsRepository {
       final response = await _dio.get<String>(
         _endpoint,
         queryParameters: {
-          'q': '$query when:7d',
+          'q': query,
           'hl': 'en-US',
           'gl': 'US',
           'ceid': 'US:en',
@@ -94,6 +111,21 @@ class GoogleNewsRssRepositoryImpl implements CompanyNewsRepository {
     final core = coreName(companyName);
     return core == null ? ['$ticker stock'] : ['"$core"', '$core stock'];
   }
+
+  /// Agrega el rango de fechas a la búsqueda: `when:7d` (lo reciente) o,
+  /// con [window], `after:` / `before:` (probado: Google News los respeta en
+  /// el RSS). `before` es exclusivo, igual que `window.to`.
+  static String withTimeWindow(
+    String query,
+    ({DateTime from, DateTime to})? window,
+  ) {
+    if (window == null) return '$query when:7d';
+    return '$query after:${_ymd(window.from)} before:${_ymd(window.to)}';
+  }
+
+  static String _ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 
   /// Intercala feeds preservando el orden de relevancia de cada uno, sin
   /// repetir URLs.

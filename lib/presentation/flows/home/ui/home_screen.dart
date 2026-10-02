@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/content_state/content_state_widget.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -132,6 +133,11 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         onRangeSelected: notifier.selectTimeRange,
                       ),
                       const SizedBox(height: AppDimens.sectionGap),
+                      // Informe semanal de Porty (se oculta solo sin
+                      // posiciones). Trae su propio espacio inferior.
+                      WeeklyReportCard(
+                        lots: [for (final lot in summary.lots) lot.position],
+                      ),
                       _HomeSections(
                         assets:
                             (_) => PositionsSection(

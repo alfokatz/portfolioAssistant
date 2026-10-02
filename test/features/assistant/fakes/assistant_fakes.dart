@@ -87,6 +87,8 @@ class FakeCompanyNewsRepository implements CompanyNewsRepository {
   Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
     String ticker, {
     int limit = 3,
+    DateTime? from,
+    DateTime? to,
   }) async {
     calls.add(ticker);
     if (fail) return Left(HttpError(code: 'x'));

@@ -18,6 +18,8 @@ class FinnhubCompanyNewsRepositoryImpl implements CompanyNewsRepository {
   Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
     String ticker, {
     int limit = 3,
+    DateTime? from,
+    DateTime? to,
   }) async {
     if (!_client.isConfigured) {
       return Left(
@@ -28,8 +30,13 @@ class FinnhubCompanyNewsRepositoryImpl implements CompanyNewsRepository {
       );
     }
 
-    final to = DateTime.now();
-    final from = to.subtract(const Duration(days: 14));
+    final windowed = from != null && to != null;
+    // Finnhub toma `to` inclusive (días): el `to` exclusivo del contrato es
+    // el día anterior.
+    final rangeTo =
+        windowed ? to.subtract(const Duration(days: 1)) : DateTime.now();
+    final rangeFrom =
+        windowed ? from : rangeTo.subtract(const Duration(days: 14));
     final upperTicker = ticker.toUpperCase();
 
     try {
@@ -37,8 +44,8 @@ class FinnhubCompanyNewsRepositoryImpl implements CompanyNewsRepository {
         '/company-news',
         queryParameters: {
           'symbol': upperTicker,
-          'from': FinnhubHttpClient.formatDate(from),
-          'to': FinnhubHttpClient.formatDate(to),
+          'from': FinnhubHttpClient.formatDate(rangeFrom),
+          'to': FinnhubHttpClient.formatDate(rangeTo),
         },
       );
 
@@ -56,6 +63,11 @@ class FinnhubCompanyNewsRepositoryImpl implements CompanyNewsRepository {
               .whereType<CompanyNewsItem>()
               .toList()
             ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      if (windowed) {
+        items.removeWhere(
+          (i) => i.publishedAt.isBefore(from) || !i.publishedAt.isBefore(to),
+        );
+      }
 
       return Right(items.take(limit).toList());
     } on DioException catch (e) {

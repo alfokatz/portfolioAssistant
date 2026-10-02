@@ -86,8 +86,36 @@ class NewsFetcher {
     return {'status': 'ok', 'news': top.map(_toJson).toList()};
   }
 
-  Future<List<CompanyNewsItem>?> _forTicker(String ticker) async {
-    final cached = _cache.get(ticker);
+  /// Los mejores [perTicker] titulares de cada ticker publicados en
+  /// `[from, to)`, ya rankeados (mismo criterio que [fetch]). `null` en un
+  /// ticker = las dos fuentes fallaron; lista vacía = no hubo noticias.
+  /// Lo usa el informe semanal: una semana cerrada, aunque se genere días
+  /// después.
+  Future<Map<String, List<CompanyNewsItem>?>> fetchWindow(
+    List<String> tickers, {
+    required DateTime from,
+    required DateTime to,
+    int perTicker = 2,
+  }) async {
+    final lists = await Future.wait(
+      tickers.map((t) => _forTicker(t, window: (from: from, to: to))),
+    );
+    return {
+      for (var i = 0; i < tickers.length; i++)
+        tickers[i]: lists[i]?.take(perTicker).toList(),
+    };
+  }
+
+  Future<List<CompanyNewsItem>?> _forTicker(
+    String ticker, {
+    ({DateTime from, DateTime to})? window,
+  }) async {
+    final cacheKey =
+        window == null
+            ? ticker
+            : '$ticker|${window.from.toIso8601String()}|'
+                '${window.to.toIso8601String()}';
+    final cached = _cache.get(cacheKey);
     if (cached != null) return cached;
     try {
       final name = await _companyName(ticker);
@@ -96,15 +124,21 @@ class NewsFetcher {
         ticker,
         name,
         feedIsRanked: _primaryIsRanked,
+        window: window,
       );
       final fallback = _fallback;
       if ((ranked == null || ranked.isEmpty) && fallback != null) {
-        final second = await _rankedFrom(fallback, ticker, name);
+        final second = await _rankedFrom(
+          fallback,
+          ticker,
+          name,
+          window: window,
+        );
         // Falla la principal y el fallback no tiene nada → sigue siendo un
         // "empty" honesto, no un "failed".
         if (second != null) ranked = second;
       }
-      if (ranked != null) _cache.put(ticker, ranked);
+      if (ranked != null) _cache.put(cacheKey, ranked);
       return ranked;
     } catch (_) {
       return null;
@@ -116,10 +150,13 @@ class NewsFetcher {
     String ticker,
     String? name, {
     bool feedIsRanked = false,
+    ({DateTime from, DateTime to})? window,
   }) async {
     final result = await repository.getRecentNews(
       ticker,
       limit: _candidatePool,
+      from: window?.from,
+      to: window?.to,
     );
     return result.fold<List<CompanyNewsItem>?>(
       (_) => null,
@@ -128,10 +165,17 @@ class NewsFetcher {
         ticker: ticker,
         companyName: name,
         limit: maxItems,
+        // En una semana cerrada la frescura se mide contra su final: si no,
+        // las notas del lunes pierden contra las del viernes solo por fecha.
+        now: window?.to.toUtc(),
         feedIsRanked: feedIsRanked,
       ),
     );
   }
+
+  /// Nombre de la compañía de [ticker] (cacheado 24 h). Lo usa también el
+  /// informe semanal para reconocer menciones en otros titulares.
+  Future<String?> companyName(String ticker) => _companyName(ticker);
 
   /// Nombre de la compañía para reconocer menciones ("Nvidia" en un
   /// titular de NVDA). Falla → `null` y el ranker usa solo el ticker.

@@ -58,4 +58,18 @@ void main() {
     // menciona a Nvidia.
     expect(ranked.map((i) => i.source), ['Reuters', 'bloomberg.com']);
   });
+
+  test('recent news uses when:7d; a closed week uses after/before', () {
+    expect(
+      GoogleNewsRssRepositoryImpl.withTimeWindow('"NVIDIA"', null),
+      '"NVIDIA" when:7d',
+    );
+    expect(
+      GoogleNewsRssRepositoryImpl.withTimeWindow('NVIDIA stock', (
+        from: DateTime(2026, 9, 21),
+        to: DateTime(2026, 9, 26),
+      )),
+      'NVIDIA stock after:2026-09-21 before:2026-09-26',
+    );
+  });
 }

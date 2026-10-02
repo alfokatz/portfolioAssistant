@@ -216,6 +216,8 @@ class _ImageNews implements CompanyNewsRepository {
   Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
     String ticker, {
     int limit = 3,
+    DateTime? from,
+    DateTime? to,
   }) async => Right([
     CompanyNewsItem(
       ticker: ticker,

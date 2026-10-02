@@ -120,6 +120,10 @@ abstract final class PlanMatrix {
         PlanFeature.earnings,
         PlanFeature.fundamentals,
       ],
+      // El informe semanal no es una feature con gating en la app: el
+      // permiso lo decide el servidor (`claim_weekly_report`), igual que la
+      // degustación.
+      extraMarketingKeys: ['plan_feature_weekly_report'],
     ),
   };
 
