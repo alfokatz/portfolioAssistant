@@ -426,3 +426,7 @@ verify_jwt = false
 
 [functions.finnhub]
 verify_jwt = false
+
+# Valida el JWT del usuario ella misma, como finnhub.
+[functions.investor-pulse]
+verify_jwt = false

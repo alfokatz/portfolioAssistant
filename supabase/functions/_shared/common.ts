@@ -7,7 +7,8 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-porty-turn-id",
+    "authorization, x-client-info, apikey, content-type, x-porty-turn-id, " +
+    "x-porty-purpose, x-porty-report-week",
 };
 
 export function json(

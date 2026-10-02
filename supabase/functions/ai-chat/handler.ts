@@ -12,6 +12,11 @@
 // - tope diario por plan, rate limit por usuario, tope de rondas por turno;
 // - registro de tokens y costo por turno (ai_turn_usage).
 // Streaming (stream: true) se reenvía tal cual, chunk a chunk.
+//
+// Modo informe semanal (header `x-porty-purpose: weekly_report`): otro
+// allowlist de prompts, sin tools ni streaming ni mensajes de sistema
+// extra, y solo con un claim activo de esa semana (weekly_reports). NO cobra
+// cuota: el informe se cuenta por semana, con su propio tope de llamadas.
 
 import {
   bearer,
@@ -22,6 +27,7 @@ import {
   typedError,
 } from "../_shared/common.ts";
 import allowedPrompts from "./allowed_system_prompts.json" with { type: "json" };
+import allowedReportPrompts from "./allowed_report_prompts.json" with { type: "json" };
 
 export const config = {
   /// Tope de salida por ronda. La respuesta más larga de la app (un análisis
@@ -38,6 +44,11 @@ export const config = {
   /// Único mensaje de sistema extra permitido: el contexto de cartera.
   pinnedContextPrefix: "PORTFOLIO_BRIEF",
   openAiUrl: "https://api.openai.com/v1/chat/completions",
+  /// Informe: llamadas al LLM por usuario y semana, sumando reintentos (3
+  /// intentos × borrador + reescritura).
+  maxReportRounds: 6,
+  /// El informe es JSON de prosa corta: ~900 tokens esperados.
+  maxReportOutputTokens: 2000,
 };
 
 /// Hashes SHA-256 de los system prompts que publica la app (uno por
@@ -45,6 +56,12 @@ export const config = {
 /// `system_prompt_allowlist_test.dart` (UPDATE_PROMPT_ALLOWLIST=1).
 export const bundledPromptHashes = new Set<string>(
   (allowedPrompts as { hashes: string[] }).hashes,
+);
+
+/// Hashes del prompt del informe semanal (test de Flutter
+/// `system_prompt_allowlist_test.dart`, UPDATE_PROMPT_ALLOWLIST=1).
+export const bundledReportPromptHashes = new Set<string>(
+  (allowedReportPrompts as { hashes: string[] }).hashes,
 );
 
 type ChatMessage = { role?: string; content?: unknown };
@@ -88,6 +105,8 @@ const limitStatus: Record<string, [number, string]> = {
   daily_limit: [429, "Daily query limit reached"],
   rate_limited: [429, "Too many requests"],
   too_many_rounds: [429, "Too many rounds for this turn"],
+  not_claimed: [409, "No weekly report is being generated for this week"],
+  disabled: [403, "The weekly report is disabled"],
   turn_mismatch: [409, "turn_id belongs to another user"],
   model_not_allowed: [400, "Model not allowed"],
 };
@@ -127,10 +146,15 @@ async function recordRound(
   if (error) console.error("ai_record_round failed", error.message);
 }
 
+type HandleOptions = {
+  allowedPromptHashes?: Set<string>;
+  allowedReportPromptHashes?: Set<string>;
+};
+
 export async function handle(
   req: Request,
   deps: Deps,
-  options: { allowedPromptHashes?: Set<string> } = {},
+  options: HandleOptions = {},
 ): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return typedError(405, "method_not_allowed", "POST only");
@@ -154,6 +178,12 @@ export async function handle(
   } catch {
     return typedError(400, "invalid_json", "Body must be JSON");
   }
+
+  const purpose = req.headers.get("x-porty-purpose") ?? "chat";
+  if (purpose === "weekly_report") {
+    return handleReport(req, deps, userId, turnId, body, options);
+  }
+  if (purpose !== "chat") return typedError(400, "invalid_purpose", "Unknown x-porty-purpose");
 
   const model = typeof body.model === "string" ? body.model : "";
   const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
@@ -268,6 +298,90 @@ export async function handle(
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
     },
+  });
+}
+
+/// El informe semanal: una sola respuesta JSON, sin tools. Mismo pass-through
+/// a OpenAI, pero con su propio permiso (claim de la semana) y sin cobrar.
+async function handleReport(
+  req: Request,
+  deps: Deps,
+  userId: string,
+  turnId: string,
+  body: Record<string, unknown>,
+  options: HandleOptions,
+): Promise<Response> {
+  const week = req.headers.get("x-porty-report-week") ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+    return typedError(400, "invalid_report_week", "x-porty-report-week header required");
+  }
+  if (body.tools !== undefined || body.tool_choice !== undefined || body.functions !== undefined) {
+    return typedError(400, "tools_not_allowed", "The weekly report does not use tools");
+  }
+  if (body.stream === true) {
+    return typedError(400, "stream_not_allowed", "The weekly report is not streamed");
+  }
+
+  const model = typeof body.model === "string" ? body.model : "";
+  const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
+  if (messages.length < 2 || messages[0].role !== "system") {
+    return typedError(403, "prompt_not_allowed", "the first message must be the report prompt");
+  }
+  const hash = await sha256Hex(textOf(messages[0].content));
+  const allowed = options.allowedReportPromptHashes ?? bundledReportPromptHashes;
+  if (!allowed.has(hash)) return typedError(403, "prompt_not_allowed", "report prompt not allowed");
+  if (messages.slice(1).some((m) => m.role === "system")) {
+    return typedError(403, "prompt_not_allowed", "extra system messages are not allowed");
+  }
+
+  const begin = await deps.db.rpc("ai_report_begin", {
+    p_user_id: userId,
+    p_turn_id: turnId,
+    p_week_start: week,
+    p_model: model,
+    p_max_rounds: config.maxReportRounds,
+    p_rate_per_minute: config.ratePerMinute,
+  });
+  if (begin.error) {
+    console.error("ai_report_begin failed", begin.error.message);
+    return typedError(503, "unavailable", "Quota service unavailable");
+  }
+  const verdict = begin.data as { ok: boolean; reason?: string };
+  if (!verdict.ok) {
+    const reason = verdict.reason ?? "rejected";
+    const [status, message] = limitStatus[reason] ?? [403, "Rejected"];
+    return typedError(status, reason, message);
+  }
+
+  const requested = Number(body.max_completion_tokens ?? body.max_tokens ?? config.maxReportOutputTokens);
+  delete body.max_tokens;
+  body.max_completion_tokens = Math.min(
+    Number.isFinite(requested) && requested > 0 ? requested : config.maxReportOutputTokens,
+    config.maxReportOutputTokens,
+  );
+  body.n = 1;
+  body.store = false;
+
+  const apiKey = deps.env("OPENAI_API_KEY");
+  if (!apiKey) return typedError(503, "unavailable", "OpenAI key not configured");
+
+  const upstream = await deps.fetch(config.openAiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  });
+  const text = await upstream.text();
+  if (upstream.ok) {
+    try {
+      // final = false siempre: suma tokens y costo, nunca cobra la consulta.
+      await recordRound(deps, userId, turnId, model, usageOf(JSON.parse(text).usage), false);
+    } catch (e) {
+      console.error("could not parse OpenAI response", String(e));
+    }
+  }
+  return new Response(text, {
+    status: upstream.status,
+    headers: { ...corsHeaders, "Content-Type": upstream.headers.get("Content-Type") ?? "application/json" },
   });
 }
 
