@@ -169,6 +169,8 @@ class NewsFetcher {
         // las notas del lunes pierden contra las del viernes solo por fecha.
         now: window?.to.toUtc(),
         feedIsRanked: feedIsRanked,
+        // Una semana cerrada (el informe) solo quiere noticias de verdad.
+        strict: window != null,
       ),
     );
   }

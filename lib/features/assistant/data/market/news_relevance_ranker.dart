@@ -61,6 +61,7 @@ abstract final class NewsRelevanceRanker {
     required int limit,
     DateTime? now,
     bool feedIsRanked = false,
+    bool strict = false,
   }) {
     final clock = now ?? DateTime.now().toUtc();
     final matchers = _matchers(ticker, companyName);
@@ -75,6 +76,7 @@ abstract final class NewsRelevanceRanker {
       final inHeadline = matchers.any((m) => m.hasMatch(headline));
       final inSummary = matchers.any((m) => m.hasMatch(summary));
       if (!inHeadline && !inSummary) continue;
+      if (strict && isLowQuality(item)) continue;
       // El mismo titular sindicado por dos medios cuenta una vez.
       if (!seenHeadlines.add(_normalizeHeadline(headline))) continue;
 
@@ -116,6 +118,68 @@ abstract final class NewsRelevanceRanker {
     }
     return picked;
   }
+
+  /// Modo [strict] (informe semanal): solo noticias de la semana. Descarta
+  /// lo que no es una noticia aunque nombre a la compañía:
+  /// - evergreen / SEO: listas de holdings, comparativas ("VOO vs VTI",
+  ///   "Is VOO or VTI…"), "Best ETFs", "3 reasons…", predicciones de precio;
+  /// - opinión o rating presentado como hecho ("Could Be 48% Undervalued",
+  ///   "Is It a Buy?") y sitios que publican sobre todo eso;
+  /// - titulares-pregunta, que casi siempre son clickbait.
+  /// Calibrado con los titulares reales de VOO/AMZN de la semana del
+  /// 21/9/2026 que el informe mostraba como noticias.
+  static bool isLowQuality(CompanyNewsItem item) {
+    final source = item.source.toLowerCase();
+    if (_opinionSources.any(source.contains)) return true;
+    final h = item.headline.trim();
+    if (h.endsWith('?')) return true;
+    return _lowQualityHeadline.hasMatch(h);
+  }
+
+  static const _opinionSources = [
+    'motley fool',
+    'fool.com',
+    'zacks',
+    'simply wall',
+    'marketbeat',
+    'investorplace',
+    '24/7 wall',
+    'tipranks',
+    'gurufocus',
+    'insider monkey',
+    'stock analysis',
+    'nasdaq.com/articles', // sindicación de Zacks/Fool
+    'etf trends',
+    'etf.com',
+  ];
+
+  static final _lowQualityHeadline = RegExp(
+    [
+      r'\btop\s+\d*\s*holdings\b',
+      r'\bholdings\s+list\b',
+      r'\bexposure\b',
+      r'\bvs\.?\s',
+      r'\bversus\b',
+      r'\b(is|are|should)\b.{0,40}\bor\b.{0,40}\b(better|best)\b',
+      r'\bbetter\b.{0,25}\b(investment|buy|stock|etf|pick)\b',
+      r'\bbest\b.{0,25}\b(etfs?|stocks?|funds?|dividend|buy)\b',
+      r'\b(is it|is now)\b.{0,20}\b(a buy|time to buy|time to sell)\b',
+      r'\b(buy|sell)\s+(now|before|today|this)\b',
+      r'\b(should you|time to)\s+(buy|sell)\b',
+      r'\b(could|might|may)\s+(be\s+)?(\d+%\s+)?(undervalued|overvalued|soar|skyrocket|double|triple|crash)\b',
+      r'\b(undervalued|overvalued)\b',
+      // Listicles ("3 reasons", "10 ETFs"), no "S&P 500 ETF".
+      r'(?<![\d&])\b\d{1,2}\s+(reasons?|stocks?|things|ways|etfs?)\b',
+      r'\bprice\s+(prediction|target|forecast)\b',
+      r'\bforecast\s+20\d\d\b',
+      r"\bhere['’]?s\s+(why|how|what)\b",
+      r'\b(what to know|everything you need)\b',
+      r'\bhow to (buy|invest)\b',
+      r'\b(passive income|millionaire|retire(ment)? (early|rich))\b',
+      r'\bdividend (yield|history) explained\b',
+    ].join('|'),
+    caseSensitive: false,
+  );
 
   /// Solo se agrupan los mejores N: más abajo no se va a elegir nada.
   static const _clusterPool = 40;
