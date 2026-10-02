@@ -56,9 +56,11 @@ abstract final class AssistantAnswerReview {
       'result of this conversation; no buy/sell advice. Answer again with '
       'the same widgets.',
       requiresTools: false,
-      rejectRewrite: (rewritten) => !_dataTypes(
-        AssistantGroundingCheck.components(rewritten).toList(),
-      ).containsAll(original),
+      rejectRewrite:
+          (rewritten) =>
+              !_dataTypes(
+                AssistantGroundingCheck.components(rewritten).toList(),
+              ).containsAll(original),
     );
   }
 
@@ -187,7 +189,8 @@ abstract final class AssistantAnswerReview {
     }
     String? ticker;
     for (final call in evidence.turnCalls) {
-      if (!_goldSources.contains(call.name) || call.status != 'locked') continue;
+      if (!_goldSources.contains(call.name) || call.status != 'locked')
+        continue;
       final tickers = call.args['tickers'];
       if (tickers is List && tickers.isNotEmpty) {
         ticker = '${tickers.first}'.toUpperCase();
@@ -276,19 +279,93 @@ abstract final class AssistantAnswerReview {
         'marks locked sources itself), not another widget.';
   }
 
-  /// Si se sacaron todas las oraciones de la intro: una neutra, sin datos.
+  /// Si se sacaron todas las oraciones de la intro: una que explica qué
+  /// muestra la card de abajo y cómo leerla, sin datos. Nunca un "esto es
+  /// lo que encontré" vacío.
   static String _fallbackIntro(List<Map<String, dynamic>> components) {
     for (final c in components) {
       if (_nonData.contains(c['component'])) continue;
-      final ticker = c['ticker'];
-      if (c['component'] == 'QaCompanyAnalysis' && ticker is String) {
-        return 'Este es el análisis de $ticker.';
-      }
-      if (ticker is String && ticker.isNotEmpty) {
-        return 'Esto es lo que encontré sobre $ticker.';
-      }
+      final intro = _describe(c);
+      if (intro != null) return intro;
     }
-    return 'Esto es lo que encontré.';
+    return 'Te dejo el detalle abajo.';
+  }
+
+  static String? _describe(Map<String, dynamic> c) {
+    final rawTicker = c['ticker'];
+    final ticker =
+        rawTicker is String && rawTicker.trim().isNotEmpty
+            ? rawTicker.trim().toUpperCase()
+            : null;
+    final of = ticker ?? 'la acción';
+    return switch (c['component']) {
+      'QaCompanyAnalysis' => 'Este es el análisis de $of.',
+      'QaTickerSnapshot' =>
+        'Este es el precio actual de $of y cómo se movió en el día, la semana '
+            'y el mes.',
+      'QaTickerMove' =>
+        'Así se movió el precio de $of en el período que pediste, del '
+            'inicio al cierre.',
+      'QaPriceChart' =>
+        'Este es el gráfico de precio de $of; podés cambiar el período '
+            'desde el mismo gráfico.',
+      'QaCompareChart' =>
+        'Este gráfico compara cuánto subió o bajó cada una desde el inicio '
+            'del período, en porcentaje.',
+      'QaMetricStrip' =>
+        'Comparé lado a lado cómo se movió el precio de cada una en el '
+            'período.',
+      'QaComparisonRow' =>
+        'Comparé ${c['leftTicker'] ?? 'las dos'} y '
+            '${c['rightTicker'] ?? 'la otra'} lado a lado; se resalta la '
+            'mayor.',
+      'QaPositionsSnapshot' =>
+        'Esta es la foto actual de tus posiciones: cuánto valen hoy y cuánto '
+            'ganaste o perdiste desde la compra.',
+      'QaPeriodChange' =>
+        'Así cambió el valor de tu portfolio en el período que pediste.',
+      'QaTopMovers' =>
+        'Comparé tus posiciones: a la izquierda la que mejor le fue y a la '
+            'derecha la que peor.',
+      'QaConcentrationBar' =>
+        'Esto muestra qué parte de tu portfolio ocupa cada acción, de mayor '
+            'a menor.',
+      'QaPnLBreakdown' =>
+        'Este desglose va de lo que invertiste a lo que vale hoy, y el '
+            'resultado entre ambos.',
+      'QaPositionList' =>
+        'Estas son tus posiciones, ordenadas por cuánto pesan en tu '
+            'portfolio.',
+      'QaClosedPositionList' =>
+        'Estas son tus posiciones cerradas y lo que ganaste o perdiste en '
+            'cada una.',
+      'QaFundamentals' =>
+        'Estos son los indicadores de $of que tienen que ver con tu pregunta.',
+      'QaEarningsCalendar' =>
+        'Esto resume los resultados de $of: su próximo reporte y cómo le fue '
+            'frente a lo que esperaba el mercado.',
+      'QaNewsSummary' =>
+        'Estos son los titulares más recientes de $of, cada uno resumido en '
+            'una línea.',
+      'QaInvestOption' =>
+        'Estas son algunas ideas para mirar, cada una con su a favor, su en '
+            'contra y qué tan bien encaja con tu perfil.',
+      'QaBudgetSplit' =>
+        'Así se podría repartir el presupuesto entre estas acciones, a modo '
+            'de ejemplo.',
+      'QaInvestConfirm' =>
+        'Este es el resumen de la simulación; no se hace ninguna operación '
+            'real.',
+      'QaGoalCard' =>
+        'Esta es tu meta: cuánto querés juntar, para cuándo y cuánto llevás.',
+      'QaProjectionStrip' =>
+        'Esto proyecta tu meta con el ahorro mensual que venís haciendo.',
+      'QaProjectionChart' =>
+        'Este gráfico muestra cómo crecería tu ahorro hasta la fecha de la '
+            'meta.',
+      'QaMilestoneList' => 'Estos son los hitos en el camino a tu meta.',
+      _ => null,
+    };
   }
 
   static Iterable<String> _prose(Map<String, dynamic> c) sync* {

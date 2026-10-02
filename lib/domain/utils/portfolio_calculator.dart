@@ -112,6 +112,7 @@ class PortfolioCalculator {
       totalPnlAbsolute: totalPnlAbsolute,
       totalPnlPercent: totalPnlPercent,
       valuations: aggregateByTicker(valuations),
+      lots: valuations,
     );
   }
 }

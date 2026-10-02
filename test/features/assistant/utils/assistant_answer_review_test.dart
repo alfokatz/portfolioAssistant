@@ -127,8 +127,53 @@ void main() {
     ]);
     expect(AssistantAnswerReview.check(raw, _evidence), isNull);
     final out = AssistantAnswerReview.postProcess(raw, _evidence);
-    expect(out, contains('Esto es lo que encontré sobre BAC.'));
+    expect(
+      out,
+      contains(
+        'Estos son los indicadores de BAC que tienen que ver con tu pregunta.',
+      ),
+    );
     expect(out, isNot(contains('Aquí tienes')));
+  });
+
+  test('an intro that names the period but not the card numbers is kept', () {
+    final raw = _answer([
+      _intro(
+        'Comparé cómo se movieron tus posiciones en los últimos 30 días: a '
+        'la izquierda la que más subió, a la derecha la que más bajó.',
+      ),
+      {
+        'id': 'm',
+        'component': 'QaTopMovers',
+        'periodLabel': 'últimos 30 días',
+        'items': [
+          {'ticker': 'VOO', 'changePct': -0.3},
+          {'ticker': 'AMZN', 'changePct': -5.0},
+        ],
+      },
+    ]);
+    final out = AssistantAnswerReview.postProcess(raw, _evidence);
+    expect(out, contains('Comparé cómo se movieron tus posiciones'));
+  });
+
+  test('an intro made only of card numbers falls back to describing the '
+      'card, never to a content-free opener', () {
+    final raw = _answer([
+      _intro('VOO bajó 0,3% y AMZN bajó 5,0%.'),
+      {
+        'id': 'm',
+        'component': 'QaTopMovers',
+        'periodLabel': 'últimos 30 días',
+        'items': [
+          {'ticker': 'VOO', 'changePct': -0.3},
+          {'ticker': 'AMZN', 'changePct': -5.0},
+        ],
+      },
+    ]);
+    final out = AssistantAnswerReview.postProcess(raw, _evidence);
+    expect(out, isNot(contains('0,3')));
+    expect(out, isNot(contains('Esto es lo que encontré')));
+    expect(out, contains('la que mejor le fue'));
   });
 
   test('postProcess drops what the model did not fix', () {

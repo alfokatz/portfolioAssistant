@@ -1,10 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 enum HomeSection { assets, insights }
 
+/// Selector Activos / Insights: un único indicador que se desliza de una
+/// opción a la otra. Antes cada opción animaba su propio fondo por
+/// separado, así que a mitad de camino las dos quedaban grises a la vez.
 class HomeSectionTabs extends StatelessWidget {
   const HomeSectionTabs({
     super.key,
@@ -20,30 +24,70 @@ class HomeSectionTabs extends StatelessWidget {
     (section: HomeSection.insights, labelKey: 'home_tab_insights'),
   ];
 
+  static const slideDuration = Duration(milliseconds: 220);
+  static const _height = 44.0;
+  static const _inset = 4.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final duration =
+        MediaQuery.disableAnimationsOf(context) ? Duration.zero : slideDuration;
+    final selectedIndex = _tabs.indexWhere((t) => t.section == selected);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
       child: Container(
-        height: 44,
-        padding: const EdgeInsets.all(4),
+        height: _height,
+        padding: const EdgeInsets.all(_inset),
         decoration: BoxDecoration(
           color: colors.surfaceElevated,
           borderRadius: BorderRadius.circular(AppDimens.radiusXl),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            for (final tab in _tabs)
-              Expanded(
-                child: _TabButton(
-                  label: tab.labelKey.tr(),
-                  active: selected == tab.section,
-                  onTap: () => onSelected(tab.section),
-                  colors: colors,
+            AnimatedAlign(
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              alignment:
+                  selectedIndex == 0
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+              child: FractionallySizedBox(
+                key: const ValueKey('home_section_indicator'),
+                widthFactor: 1 / _tabs.length,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color.lerp(
+                      colors.surfaceCard,
+                      colors.accentWarm,
+                      0.30,
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      AppDimens.radiusXl - _inset,
+                    ),
+                  ),
                 ),
               ),
+            ),
+            Row(
+              children: [
+                for (final tab in _tabs)
+                  Expanded(
+                    child: _TabLabel(
+                      label: tab.labelKey.tr(),
+                      active: selected == tab.section,
+                      duration: duration,
+                      onTap: () {
+                        if (tab.section == selected) return;
+                        PortyHapticsService.maybeOf(context)?.selectionTap();
+                        onSelected(tab.section);
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -51,50 +95,43 @@ class HomeSectionTabs extends StatelessWidget {
   }
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
+class _TabLabel extends StatelessWidget {
+  const _TabLabel({
     required this.label,
     required this.active,
+    required this.duration,
     required this.onTap,
-    required this.colors,
   });
 
   final String label;
   final bool active;
+  final Duration duration;
   final VoidCallback onTap;
-  final CustomColors colors;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color:
-              active
-                  ? Color.lerp(colors.surfaceCard, colors.accentWarm, 0.30)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppDimens.radiusXl - 4),
-          boxShadow:
-              active
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 6,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                  : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: active ? colors.textPrimary : colors.textSecondary,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+    final colors = context.customColors;
+    final base = Theme.of(context).textTheme.labelLarge!;
+    return Semantics(
+      button: true,
+      selected: active,
+      child: GestureDetector(
+        // `onTap` y no `onTapDown`: dentro del scroll de la home, el down
+        // recién se confirma al soltar (o a los 100 ms) igual que el tap, y
+        // así un scroll que arranca sobre el selector no cambia de pestaña.
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: AnimatedDefaultTextStyle(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            style: base.copyWith(
+              color: active ? colors.textPrimary : colors.textSecondary,
+              // Peso fijo: interpolar el peso hace "respirar" el ancho del
+              // texto durante el cambio.
+              fontWeight: FontWeight.w600,
+            ),
+            child: Text(label),
           ),
         ),
       ),

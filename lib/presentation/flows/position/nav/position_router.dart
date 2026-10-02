@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/add_position_screen.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/close_position_screen.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/closed_positions_screen.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/position_detail_screen.dart';
 
 class PositionRouter {
@@ -60,6 +61,7 @@ class PositionRouter {
             key: state.pageKey,
             child: PositionDetailScreen(
               ticker: extra?['ticker'] as String? ?? '',
+              seed: extra?['seed'] as PositionDetailSeed?,
             ),
             name: detailRouteName,
           );

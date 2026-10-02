@@ -159,8 +159,14 @@ class OpenAIGenUiService {
   static const maxTransientRetries = 1;
   static const _transientRetryBackoff = Duration(milliseconds: 600);
 
-  static const _toolRoundTimeout = Duration(seconds: 10);
-  static const _finalRoundTimeout = Duration(seconds: 20);
+  /// Tope de cada request al modelo. Es el mismo para todas las rondas:
+  /// cualquiera puede terminar siendo la respuesta final (el modelo decide
+  /// en la ronda si pide tools o contesta). Antes las rondas con tools
+  /// habilitadas tenían 10 s, y una respuesta larga escrita en la ronda 1
+  /// (~1.300 tokens, ~11 s) se cortaba y caía al fallback "No pude procesar
+  /// tu consulta" — aunque el servidor ya la había generado y cobrado. Se
+  /// acota además al deadline del turno (ver [_request]).
+  static const defaultRoundTimeout = Duration(seconds: 25);
   static const _toolTimeout = Duration(seconds: 8);
 
   // Deadline del turno completo, por debajo de los 60 s de
@@ -168,6 +174,8 @@ class OpenAIGenUiService {
   // siguiente es la final.
   static const _turnDeadline = Duration(seconds: 55);
   static const _minTimeForToolRound = Duration(seconds: 25);
+
+  static const _minRequestTimeout = Duration(seconds: 5);
 
   static const _temperature = 0.35;
 
@@ -180,6 +188,7 @@ class OpenAIGenUiService {
     this.postProcess,
     this.answerCheck,
     http.Client? httpClient,
+    this.roundTimeout = defaultRoundTimeout,
   }) : model = model ?? dotenv.env['OPENAI_MODEL'] ?? defaultModel,
        _proxyClient = AiProxyClient(
          proxy ?? AiProxyConfig.fromEnvironment(),
@@ -203,6 +212,9 @@ class OpenAIGenUiService {
 
   final String model;
   final String systemPrompt;
+
+  /// Ver [defaultRoundTimeout] (inyectable solo para tests).
+  final Duration roundTimeout;
   final String? a2uiCatalogId;
 
   /// Ajuste propio del producto sobre el A2UI ya normalizado, antes de
@@ -323,7 +335,7 @@ class OpenAIGenUiService {
       final message = await _request(
         tools: tools,
         toolChoice: !canUseTools ? 'none' : forcedChoice ?? 'auto',
-        timeout: canUseTools ? _toolRoundTimeout : _finalRoundTimeout,
+        timeout: roundTimeout,
         throttle: round == 0,
         deadline: deadline,
       );
@@ -465,7 +477,7 @@ class OpenAIGenUiService {
         final retry = await _request(
           tools: tools,
           toolChoice: 'none',
-          timeout: _finalRoundTimeout,
+          timeout: roundTimeout,
           throttle: false,
           deadline: deadline,
         );
@@ -505,7 +517,7 @@ class OpenAIGenUiService {
     final reply = await _request(
       tools: _lastTools,
       toolChoice: 'none',
-      timeout: _finalRoundTimeout,
+      timeout: roundTimeout,
       throttle: true,
       extra: [
         OpenAIChatCompletionChoiceMessageModel(
@@ -530,6 +542,13 @@ class OpenAIGenUiService {
     List<OpenAIChatCompletionChoiceMessageModel> extra = const [],
     DateTime? deadline,
   }) async {
+    // Nunca esperar más allá del deadline del turno.
+    if (deadline != null) {
+      final left = deadline.difference(DateTime.now());
+      if (left < timeout) {
+        timeout = left > _minRequestTimeout ? left : _minRequestTimeout;
+      }
+    }
     for (var attempt = 0; ; attempt++) {
       if (throttle) {
         // Espacia turnos, no las rondas de un mismo turno: una

@@ -17,6 +17,8 @@ import 'package:portfolio_assistant/presentation/flows/home/states/home_action.d
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_nav.dart';
 
 class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
@@ -103,10 +105,25 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoAddPosition());
   }
 
+  /// Navega en el mismo frame, con lo que la home ya tiene cargado: el
+  /// detalle no espera ningún fetch para mostrarse.
   void openPositionDetail(PositionValuation valuation) {
+    final ticker = PortfolioCalculator.normalizeTicker(
+      valuation.position.ticker,
+    );
+    final lots = [
+      for (final lot in state.summary?.lots ?? const <PositionValuation>[])
+        if (PortfolioCalculator.normalizeTicker(lot.position.ticker) == ticker)
+          lot,
+    ];
     ref
         .read(navigationProvider.notifier)
-        .navigate(GotoPositionDetail(ticker: valuation.position.ticker));
+        .navigate(
+          GotoPositionDetail(
+            ticker: valuation.position.ticker,
+            seed: PositionDetailSeed.fromLots(lots),
+          ),
+        );
   }
 
   void openClosePosition(PositionValuation valuation) {

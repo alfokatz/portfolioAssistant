@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/fade_through_switcher.dart';
 
 class HomeScreen extends StatefulHookConsumerWidget {
   const HomeScreen({super.key});
@@ -29,8 +30,6 @@ class HomeScreen extends StatefulHookConsumerWidget {
 }
 
 class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
-  HomeSection _section = HomeSection.assets;
-
   // Home stays mounted alongside Assistant and Settings inside the shell's
   // IndexedStack — AppShell is the single place that subscribes to
   // alerts/navigation events for all three tabs (see its docs).
@@ -133,80 +132,49 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                         onRangeSelected: notifier.selectTimeRange,
                       ),
                       const SizedBox(height: AppDimens.sectionGap),
-                      HomeSectionTabs(
-                        selected: _section,
-                        onSelected:
-                            (section) => setState(() => _section = section),
-                      ),
-                      const SizedBox(height: AppDimens.sp16),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 260),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          final slide = Tween<Offset>(
-                            begin: Offset(
-                              _section == HomeSection.assets ? -0.04 : 0.04,
-                              0,
+                      _HomeSections(
+                        assets:
+                            (_) => PositionsSection(
+                              valuations: displayValuations,
+                              onPositionTap: notifier.openPositionDetail,
+                              onDeletePosition:
+                                  (valuation) =>
+                                      notifier.deletePositionsForTicker(
+                                        valuation.position.ticker,
+                                      ),
+                              actionLabel:
+                                  hasMorePositions
+                                      ? (state.showAllPositions
+                                          ? 'view_less'.tr()
+                                          : 'view_all'.tr())
+                                      : null,
+                              onAction:
+                                  hasMorePositions
+                                      ? notifier.togglePositionsExpanded
+                                      : null,
                             ),
-                            end: Offset.zero,
-                          ).animate(animation);
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: slide,
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey(_section),
-                          child:
-                              _section == HomeSection.assets
-                                  ? PositionsSection(
-                                    valuations: displayValuations,
-                                    onPositionTap: notifier.openPositionDetail,
-                                    onDeletePosition:
-                                        (valuation) =>
-                                            notifier.deletePositionsForTicker(
-                                              valuation.position.ticker,
-                                            ),
-                                    actionLabel:
-                                        hasMorePositions
-                                            ? (state.showAllPositions
-                                                ? 'view_less'.tr()
-                                                : 'view_all'.tr())
-                                            : null,
-                                    onAction:
-                                        hasMorePositions
-                                            ? notifier.togglePositionsExpanded
-                                            : null,
+                        insights:
+                            (_) => Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                PortfolioQaEntryCard(
+                                  onTap: notifier.openAssistant,
+                                ),
+                                if (isBenchmarkAllowed)
+                                  BenchmarkComparisonCard(
+                                    portfolioPercent: periodPnl.percent,
+                                    benchmarkPoints: filteredBenchmark,
                                   )
-                                  : Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      PortfolioQaEntryCard(
-                                        onTap: notifier.openAssistant,
-                                      ),
-                                      if (isBenchmarkAllowed)
-                                        BenchmarkComparisonCard(
-                                          portfolioPercent: periodPnl.percent,
-                                          benchmarkPoints: filteredBenchmark,
-                                        )
-                                      else
-                                        const BenchmarkLockedCard(),
-                                      ClosedPositionsEntryCard(
-                                        count: state.closedPositionsCount,
-                                        onTap: notifier.openClosedPositions,
-                                      ),
-                                      if (valuations.isNotEmpty)
-                                        PnlDistributionCard(
-                                          valuations: valuations,
-                                        ),
-                                    ],
-                                  ),
-                        ),
+                                else
+                                  const BenchmarkLockedCard(),
+                                ClosedPositionsEntryCard(
+                                  count: state.closedPositionsCount,
+                                  onTap: notifier.openClosedPositions,
+                                ),
+                                if (valuations.isNotEmpty)
+                                  PnlDistributionCard(valuations: valuations),
+                              ],
+                            ),
                       ),
                       const SizedBox(height: 100),
                     ] else
@@ -218,6 +186,44 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Selector Activos / Insights + su contenido. El estado de la pestaña vive
+/// acá y no en [HomeScreen]: antes, cada tap hacía `setState` en toda la
+/// home (hero, gráfico, filtros de historia) solo para cambiar de pestaña.
+/// Las dos pestañas quedan vivas en [FadeThroughSwitcher], así cambiar no
+/// construye la de Insights (benchmark, distribución) en medio de la
+/// animación.
+class _HomeSections extends StatefulWidget {
+  const _HomeSections({required this.assets, required this.insights});
+
+  final WidgetBuilder assets;
+  final WidgetBuilder insights;
+
+  @override
+  State<_HomeSections> createState() => _HomeSectionsState();
+}
+
+class _HomeSectionsState extends State<_HomeSections> {
+  HomeSection _section = HomeSection.assets;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HomeSectionTabs(
+          selected: _section,
+          onSelected: (section) => setState(() => _section = section),
+        ),
+        const SizedBox(height: AppDimens.sp16),
+        FadeThroughSwitcher(
+          index: _section.index,
+          builders: [widget.assets, widget.insights],
+        ),
+      ],
     );
   }
 }

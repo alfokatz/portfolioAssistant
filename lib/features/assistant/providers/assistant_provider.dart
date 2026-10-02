@@ -275,6 +275,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // El contador del header refleja lo que cobró el servidor.
         unawaited(subscription.refresh());
       } on ProxyLimitException catch (e) {
+        // `prompt_not_allowed` en desarrollo = cambió el prompt y falta
+        // regenerar la allowlist y desplegar `ai-chat` (ver runbook).
+        if (kDebugMode) debugPrint('[Assistant/turn] rejected by proxy: $e');
         state = _applyServerLimit(state, e, surfaceId);
         if (e.isQuota) unawaited(subscription.refresh());
       } on TurnAbortedException catch (e) {
@@ -286,7 +289,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           paywallReason: e.reason as PaywallReason,
           clearPaywallReason: false,
         );
-      } on TimeoutException {
+      } on TimeoutException catch (e) {
+        if (kDebugMode) debugPrint('[Assistant/turn] timed out: $e');
         // Falla de generación (el modelo no llegó a tiempo), no de
         // conexión: respuesta de texto simple, sin banner de error.
         state = state.copyWith(

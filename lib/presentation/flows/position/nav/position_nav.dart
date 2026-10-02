@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/presentation/base/navigation/navigation_event.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
 
 class GotoAddPosition extends NavigationEvent {
   final String? ticker;
@@ -64,13 +65,16 @@ class GotoClosedPositions extends NavigationEvent {
 class GotoPositionDetail extends NavigationEvent {
   final String ticker;
 
-  GotoPositionDetail({required this.ticker});
+  /// Datos que ya tiene la pantalla de origen (ver [PositionDetailSeed]).
+  final PositionDetailSeed? seed;
+
+  GotoPositionDetail({required this.ticker, this.seed});
 
   @override
   void navigate({required BuildContext context}) {
     context.pushNamed(
       PositionRouter.detailRouteName,
-      extra: {'ticker': ticker},
+      extra: {'ticker': ticker, if (seed != null) 'seed': seed},
     );
   }
 }

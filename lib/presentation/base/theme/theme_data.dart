@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart' show Provider;
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/opaque_page_transitions.dart';
 import 'package:portfolio_assistant/presentation/base/theme/color_schema.dart'
     show colorSchemeDarkProvider, colorSchemeLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/text_extension.dart'
@@ -27,6 +29,22 @@ ThemeData _buildThemeData({
     // quiera optar por fuera (auth, onboarding) fija su propio
     // Scaffold.backgroundColor opaco, que lo tapa.
     scaffoldBackgroundColor: Colors.transparent,
+    // Cada ruta pinta su propio fondo (ver OpaquePageTransitionsBuilder):
+    // con el fondo único detrás del Router, dos rutas en transición se
+    // veían una a través de la otra.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.iOS: OpaquePageTransitionsBuilder(
+          CupertinoPageTransitionsBuilder(),
+        ),
+        TargetPlatform.macOS: OpaquePageTransitionsBuilder(
+          CupertinoPageTransitionsBuilder(),
+        ),
+        TargetPlatform.android: OpaquePageTransitionsBuilder(
+          FadeThroughForwardsPageTransitionsBuilder(),
+        ),
+      },
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,

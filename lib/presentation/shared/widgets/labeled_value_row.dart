@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
 class LabeledValueRow extends StatelessWidget {
   const LabeledValueRow({
@@ -8,12 +9,18 @@ class LabeledValueRow extends StatelessWidget {
     required this.value,
     this.valueColor,
     this.dense = false,
+    this.animateValue = false,
   });
 
   final String label;
-  final String value;
+
+  /// `null` muestra una barra de skeleton del alto del valor.
+  final String? value;
   final Color? valueColor;
   final bool dense;
+
+  /// Crossfade corto cuando el valor cambia (refresh en el lugar).
+  final bool animateValue;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +42,9 @@ class LabeledValueRow extends StatelessWidget {
               style: labelStyle?.copyWith(color: colors.textSecondary),
             ),
           ),
-          Text(
+          SkeletonText(
             value,
+            animate: animateValue,
             style: valueStyle?.copyWith(
               color: valueColor ?? colors.textPrimary,
               fontWeight: FontWeight.w600,

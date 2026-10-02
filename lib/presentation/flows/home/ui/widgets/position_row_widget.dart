@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/sparkline_chart.dart';
@@ -95,6 +96,13 @@ class PositionRowWidget extends StatelessWidget {
 
     if (onDetailTap == null) return content;
 
-    return InkWell(onTap: onDetailTap, child: content);
+    return InkWell(
+      onTap: () {
+        // Haptic y navegación en el mismo frame del tap.
+        PortyHapticsService.maybeOf(context)?.selectionTap();
+        onDetailTap!();
+      },
+      child: content,
+    );
   }
 }

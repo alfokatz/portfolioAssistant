@@ -25,7 +25,10 @@ abstract final class AnalysisProseCheck {
     );
     for (final m in re.allMatches(text)) {
       final raw = m.group(1)!;
-      final word = (m.group(2) ?? '').toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final word = (m.group(2) ?? '').toLowerCase().replaceAll(
+        RegExp(r'\s+'),
+        ' ',
+      );
       final suffix = switch (word) {
         'billones' || 'billón' || 'billon' => 'T',
         'mil millones' => 'B',
@@ -170,12 +173,20 @@ abstract final class AnalysisProseCheck {
   /// frase que acompaña a una card no debería repetirlos).
   static int repeatedNumbers(String text, Iterable<double> widgetNumbers) {
     var count = 0;
-    for (final n in numbersIn(text)) {
+    // "los últimos 30 días", "52 semanas": el período que la card cubre,
+    // no un dato que la card muestra — nombrarlo es justo lo que se espera
+    // de la intro.
+    for (final n in numbersIn(text.replaceAll(_timeSpan, ''))) {
       if (_isFraming(n.value, n.decimals, n.scale)) continue;
       if (isBacked(n, widgetNumbers)) count++;
     }
     return count;
   }
+
+  static final _timeSpan = RegExp(
+    r'\b\d+\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?|horas?|trimestres?)\b',
+    caseSensitive: false,
+  );
 
   static String _fmt(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';

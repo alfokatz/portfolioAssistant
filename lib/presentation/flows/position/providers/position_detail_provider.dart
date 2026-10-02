@@ -13,21 +13,35 @@ class PositionDetailProvider
     required super.ref,
     required this.ticker,
     required this.getPositionLotsByTickerUseCase,
-  }) : super(state: const PositionDetailState());
+    PositionDetailSeed? seed,
+  }) : super(
+         state:
+             seed == null
+                 ? const PositionDetailState()
+                 : PositionDetailState(
+                   isLoading: false,
+                   lots: seed.lots,
+                   summary: seed.summary,
+                 ),
+       );
 
   final String ticker;
   final GetPositionLotsByTickerUseCase getPositionLotsByTickerUseCase;
 
   Future<void> init() => load();
 
+  /// Con datos ya en pantalla (seed o carga anterior) refresca en el
+  /// lugar: sin estado de carga, y si falla se quedan los datos que había.
   Future<void> load() async {
-    reducer(action: SetLoadingAction());
+    final hasData = state.summary != null;
+    if (!hasData) reducer(action: SetLoadingAction());
 
     final result = await getPositionLotsByTickerUseCase.call(params: ticker);
     result.fold(
-      (error) => reducer(
-            action: LoadLotsErrorAction(error.message ?? error.code),
-          ),
+      (error) {
+        if (hasData) return;
+        reducer(action: LoadLotsErrorAction(error.message ?? error.code));
+      },
       (lots) {
         reducer(
           action: LoadLotsSuccessAction(
@@ -118,12 +132,17 @@ class PositionDetailProvider
   }
 }
 
-final positionDetailProvider = StateNotifierProvider.autoDispose
-    .family<PositionDetailProvider, PositionDetailState, String>(
-  (ref, ticker) => PositionDetailProvider(
+final positionDetailProvider = StateNotifierProvider.autoDispose.family<
+  PositionDetailProvider,
+  PositionDetailState,
+  PositionDetailArgs
+>(
+  (ref, args) => PositionDetailProvider(
     ref: ref,
-    ticker: ticker,
-    getPositionLotsByTickerUseCase:
-        ref.watch(getPositionLotsByTickerUseCaseProvider),
+    ticker: args.ticker,
+    seed: args.seed,
+    getPositionLotsByTickerUseCase: ref.watch(
+      getPositionLotsByTickerUseCaseProvider,
+    ),
   ),
 );
