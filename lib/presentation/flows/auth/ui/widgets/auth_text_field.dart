@@ -16,6 +16,10 @@ class AuthTextField extends StatelessWidget {
     this.validator,
     this.onFieldSubmitted,
     this.autocorrect = true,
+    this.focusNode,
+    this.autofillHints,
+    this.forceErrorText,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -28,6 +32,13 @@ class AuthTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onFieldSubmitted;
   final bool autocorrect;
+  final FocusNode? focusNode;
+  final Iterable<String>? autofillHints;
+
+  /// Error que no sale del [validator] (ej. el del servidor al pedir el
+  /// reset de contraseña): se pinta igual que uno de validación.
+  final String? forceErrorText;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +46,10 @@ class AuthTextField extends StatelessWidget {
 
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
+      autofillHints: autofillHints,
+      forceErrorText: forceErrorText,
+      onChanged: onChanged,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       obscureText: obscureText,

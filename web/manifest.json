@@ -1,6 +1,6 @@
 {
-    "name": "portfolio_assistant",
-    "short_name": "portfolio_assistant",
+    "name": "Porty",
+    "short_name": "Porty",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

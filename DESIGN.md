@@ -1,5 +1,5 @@
 ---
-name: PortfolioAI
+name: Porty
 description: Dashboard de portfolio premium silencioso para inversor retail casual
 colors:
   background: "#FBFBFA"
@@ -109,13 +109,13 @@ components:
     padding: "4px 8px"
 ---
 
-# Design System: PortfolioAI
+# Design System: Porty
 
 ## Overview
 
 **Creative North Star: "The Quiet Ledger"**
 
-PortfolioAI se ve como un cuaderno financiero bien editado: tipografía precisa, mucho aire, cifras que mandan. No compite por atención con neón ni gamificación; la confianza viene de la legibilidad y del silencio visual. El usuario casual abre la app, entiende su snapshot en segundos y, si lo necesita, llega al asistente IA sin fricción.
+Porty se ve como un cuaderno financiero bien editado: tipografía precisa, mucho aire, cifras que mandan. No compite por atención con neón ni gamificación; la confianza viene de la legibilidad y del silencio visual. El usuario casual abre la app, entiende su snapshot en segundos y, si lo necesita, llega al asistente IA sin fricción.
 
 La densidad es moderada en mobile: padding horizontal generoso (20px), 28px entre secciones, cards solo cuando el affordance lo exige. Preferir filas editoriales planas (benchmark locked, settings rows) sobre cajas anidadas. Jerarquía tipográfica antes que color decorativo.
 
@@ -197,7 +197,17 @@ Componentes refinados y consistentes; estados hover/focus/disabled/loading en co
 - **Shape:** esquinas suaves (14px / `radiusLg`)
 - **Primary (auth):** fondo Charcoal Ink (#2F3437), texto Pure Surface, altura 52px, ancho completo, sin elevación
 - **Disabled:** mismo fondo al 35% opacidad, spinner 20px blanco en loading
-- **Secondary / Ghost:** no estandarizado aún; preferir `TextButton` con `textSecondary` o filas `InkWell` planas
+- **Secondary (OAuth):** fondo Pure Surface, borde 1px Whisper Border, texto Charcoal Ink w600, misma altura y radius que el resto de los botones de auth (48px / 14px). Sin relleno gris. Código: `SocialSignInButton`.
+- **Sign in with Apple:** estilo oficial de Apple (negro con texto/logo blanco en light, blanco con negro en dark), mismo alto y radius que el de Google, arriba de Google y solo en iOS. Es la única excepción a los tokens: Apple no permite teñirlo. Código: `AppleSignInButton`.
+- **Ghost:** preferir `TextButton` con `textSecondary` o filas `InkWell` planas
+
+### Login (Porty)
+- **Fondo:** el mismo halo de `AppBackgroundGradient` que el resto de la app (lo pinta la ruta). Sin superficie propia.
+- **Identidad:** `PortyAvatar` (el mismo del header del chat) a 60px + wordmark "Porty" (24px w700 Charcoal Ink) + línea "Tu asistente de portfolio" en textSecondary. Es la versión grande del header del chat.
+- **Saludo:** una frase de Porty con la forma de su respuesta en el chat: texto suelto, 20px w500, sin burbuja ni borde lateral. Se tipea una vez por sesión de la app (~0,7 s); al cambiar de pestaña cambia con fade through.
+- **Teclado abierto:** avatar a 32px, wordmark a 17px w600, línea y saludo colapsan (220ms ease-out-cubic) para que campos y CTA entren sin scroll en un iPhone SE.
+- **Errores:** texto loss debajo del campo o del CTA + haptic de error leve. Nunca diálogos ni snackbars.
+- **Entrada a la app:** fade through opaco (`FadeThroughPage`): el fondo tapa la pantalla saliente antes de que aparezca la nueva.
 
 ### Chips / Segmented controls
 - **TimeRangeSelector:** fila de labels, sin caja contenedora; activo = `textPrimary` w700, inactivo = `textSecondary` w500; altura táctil 44px

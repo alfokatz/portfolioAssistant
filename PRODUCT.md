@@ -8,9 +8,13 @@ product
 
 Inversor retail casual: alguien que invierte en acciones/ETFs de forma personal, no es trader profesional ni vive pegado al mercado. Abre la app en momentos puntuales — mañana, fin de semana, después de una noticia — para ver cómo va su portfolio y, si hace falta, consultar al asistente IA. Usa el teléfono en contextos cotidianos (casa, transporte), con poca paciencia para interfaces ruidosas o datos crípticos.
 
+## Name
+
+La app se llama **Porty**, igual que su asistente: la marca es el asistente. Nombre en tiendas: "Porty: asistente de portfolio" (29 caracteres, límite 30). Subtítulo / descripción corta: "Tu asistente de inversiones". Los identificadores técnicos (paquete Dart `portfolio_assistant`, bundle id, applicationId) no cambian.
+
 ## Product Purpose
 
-PortfolioAI combina un dashboard de portfolio (valor total, PnL, posiciones, gráficos) con un asistente conversacional de IA. El trabajo principal al abrir la app es **entender de un vistazo cómo va la inversión**; el segundo es **obtener contexto o respuestas** vía asistente sin salir del flujo. Éxito = el usuario sale sabiendo su situación financiera actual y, cuando lo necesita, con una respuesta clara del asistente — sin fricción, sin ruido visual, sin sensación de app genérica de fintech.
+Porty combina un dashboard de portfolio (valor total, PnL, posiciones, gráficos) con un asistente conversacional de IA. El trabajo principal al abrir la app es **entender de un vistazo cómo va la inversión**; el segundo es **obtener contexto o respuestas** vía asistente sin salir del flujo. Éxito = el usuario sale sabiendo su situación financiera actual y, cuando lo necesita, con una respuesta clara del asistente — sin fricción, sin ruido visual, sin sensación de app genérica de fintech.
 
 ## Brand Personality
 

@@ -1,4 +1,4 @@
-# PortfolioAI
+# Porty
 
 App Flutter para inversores que combina un dashboard de portfolio con flujos conversacionales de UI generada por IA.
 

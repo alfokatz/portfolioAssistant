@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_s
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projection_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_fit_scorer.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 /// Widgets del catálogo de inversión y planificación: opciones de
 /// inversión, reparto de presupuesto, metas, proyecciones y tips.
@@ -767,10 +768,8 @@ class _ExpandableTextState extends State<_ExpandableText> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSize(
+            MotionAwareSize(
               duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
               child: Text(
                 widget.text,
                 style: QaText.body,

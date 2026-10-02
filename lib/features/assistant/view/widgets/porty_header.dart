@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_activity_copy.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_breath.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -45,7 +46,7 @@ class PortyHeader extends StatefulWidget {
   /// `null` deja el chip no interactivo.
   final VoidCallback? onQuotaTap;
 
-  static const avatarSize = 38.0;
+  static const avatarSize = PortyAvatar.defaultSize;
 
   @override
   State<PortyHeader> createState() => _PortyHeaderState();
@@ -185,7 +186,7 @@ class _PortyHeaderState extends State<PortyHeader>
                           child: child,
                         );
                       },
-                      child: const _PortyAvatar(),
+                      child: const PortyAvatar(),
                     ),
                     const SizedBox(width: AppDimens.sp12),
                     Expanded(
@@ -246,36 +247,6 @@ class _PortyHeaderState extends State<PortyHeader>
             child: _QuotaChip(quota: quota, onTap: widget.onQuotaTap),
           ),
       ],
-    );
-  }
-}
-
-/// La marca de Porty: disco terracota con el sparkle en claro. Se probó
-/// también sparkle terracota sobre un tinte tenue, pero en light ese disco
-/// se funde con el halo de `AppBackgroundGradient` y Porty volvía a verse
-/// apagado. Es la única superficie terracota del header (38 px): marca, no
-/// fondo (ver "The One Accent Rule" en DESIGN.md).
-class _PortyAvatar extends StatelessWidget {
-  const _PortyAvatar();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: PortyHeader.avatarSize,
-      height: PortyHeader.avatarSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colors.accentWarm,
-      ),
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        size: AppDimens.iconMd,
-        // En dark el acento es más claro (#E3A472): el sparkle va en el
-        // fondo de la app para mantener el contraste.
-        color: dark ? colors.background : colors.surfaceCard,
-      ),
     );
   }
 }

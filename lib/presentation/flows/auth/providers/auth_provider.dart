@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/config/supabase/auth_providers_config.dart';
 import 'package:portfolio_assistant/config/supabase/sign_up_result.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_error_mapper.dart';
@@ -12,18 +14,32 @@ class AuthUiState {
   final bool obscurePassword;
   final bool obscureConfirmPassword;
 
+  /// Error del servidor (credenciales, red, etc.): va en texto debajo del
+  /// botón principal, nunca en un diálogo ni en un snackbar.
+  final String? formError;
+
+  /// Error del email al pedir "¿Olvidaste tu contraseña?" sin un email
+  /// válido: se muestra debajo del campo, como un error de validación.
+  final String? emailError;
+
   const AuthUiState({
     this.isLoading = false,
     this.isSignUpMode = false,
     this.obscurePassword = true,
     this.obscureConfirmPassword = true,
+    this.formError,
+    this.emailError,
   });
+
+  static const _keep = Object();
 
   AuthUiState copyWith({
     bool? isLoading,
     bool? isSignUpMode,
     bool? obscurePassword,
     bool? obscureConfirmPassword,
+    Object? formError = _keep,
+    Object? emailError = _keep,
   }) {
     return AuthUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -31,6 +47,12 @@ class AuthUiState {
       obscurePassword: obscurePassword ?? this.obscurePassword,
       obscureConfirmPassword:
           obscureConfirmPassword ?? this.obscureConfirmPassword,
+      formError: identical(formError, _keep)
+          ? this.formError
+          : formError as String?,
+      emailError: identical(emailError, _keep)
+          ? this.emailError
+          : emailError as String?,
     );
   }
 }
@@ -43,17 +65,35 @@ class AuthController extends StateNotifier<AuthUiState> {
 
   void toggleMode() {
     if (state.isLoading) return;
-    state = state.copyWith(isSignUpMode: !state.isSignUpMode);
+    state = state.copyWith(
+      isSignUpMode: !state.isSignUpMode,
+      formError: null,
+      emailError: null,
+    );
   }
 
   void setSignInMode() {
     if (state.isLoading || !state.isSignUpMode) return;
-    state = state.copyWith(isSignUpMode: false);
+    state = state.copyWith(
+      isSignUpMode: false,
+      formError: null,
+      emailError: null,
+    );
   }
 
   void setSignUpMode() {
     if (state.isLoading || state.isSignUpMode) return;
-    state = state.copyWith(isSignUpMode: true);
+    state = state.copyWith(
+      isSignUpMode: true,
+      formError: null,
+      emailError: null,
+    );
+  }
+
+  /// El usuario volvió a escribir: el error anterior ya no aplica.
+  void clearErrors() {
+    if (state.formError == null && state.emailError == null) return;
+    state = state.copyWith(formError: null, emailError: null);
   }
 
   void toggleObscurePassword() {
@@ -112,15 +152,11 @@ class AuthController extends StateNotifier<AuthUiState> {
   Future<void> requestPasswordReset({required String email}) async {
     final trimmed = email.trim();
     if (trimmed.isEmpty) {
-      _ref.read(alertProvider.notifier).showError(
-            message: 'auth_email_required'.tr(),
-          );
+      state = state.copyWith(emailError: 'auth_email_required'.tr());
       return;
     }
     if (!trimmed.contains('@')) {
-      _ref.read(alertProvider.notifier).showError(
-            message: 'auth_email_invalid'.tr(),
-          );
+      state = state.copyWith(emailError: 'auth_email_invalid'.tr());
       return;
     }
 
@@ -137,7 +173,7 @@ class AuthController extends StateNotifier<AuthUiState> {
 
   void _showErrorIfNeeded(HttpError? error) {
     if (error == null) return;
-    _ref.read(alertProvider.notifier).showError(message: error.message);
+    state = state.copyWith(formError: error.message);
   }
 
   Future<HttpError?> signInWithEmail({
@@ -155,7 +191,7 @@ class AuthController extends StateNotifier<AuthUiState> {
     required String password,
     String? fullName,
   }) async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, formError: null, emailError: null);
     try {
       return await _authService.signUpWithEmail(
         email: email,
@@ -183,7 +219,7 @@ class AuthController extends StateNotifier<AuthUiState> {
   }
 
   Future<HttpError?> _run(Future<void> Function() action) async {
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, formError: null, emailError: null);
     try {
       await action();
       return null;
@@ -201,4 +237,10 @@ final authControllerProvider =
     ref.watch(supabaseAuthServiceProvider),
     ref,
   ),
+);
+
+/// Si el login muestra "Continuar con Apple". Provider (y no la constante
+/// directa) para que los tests y los screenshots puedan prenderlo.
+final appleSignInAvailableProvider = Provider<bool>(
+  (ref) => AuthProvidersConfig.showsAppleSignIn(defaultTargetPlatform),
 );

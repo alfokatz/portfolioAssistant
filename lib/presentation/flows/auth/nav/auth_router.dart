@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/fade_through_page.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/login_screen.dart';
 
 class AuthRouter {
@@ -10,7 +10,7 @@ class AuthRouter {
     return GoRoute(
       name: loginRouteName,
       path: loginPath,
-      pageBuilder: (context, state) => MaterialPage<void>(
+      pageBuilder: (context, state) => FadeThroughPage<void>(
         key: state.pageKey,
         child: const LoginScreen(),
         name: loginRouteName,

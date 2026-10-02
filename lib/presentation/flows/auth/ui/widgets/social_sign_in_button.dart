@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
-/// Botón compacto para inicio de sesión con proveedores OAuth.
+/// Botón secundario para OAuth (Google): superficie de card + borde
+/// Whisper, como los inputs de auth. Sin relleno gris: el único bloque con
+/// fondo propio del formulario es el CTA primario.
 class SocialSignInButton extends StatelessWidget {
   const SocialSignInButton({
     super.key,
@@ -15,16 +17,19 @@ class SocialSignInButton extends StatelessWidget {
   final Widget icon;
   final VoidCallback? onPressed;
 
+  /// Mismo alto para Google y Apple.
+  static const height = AppDimens.touchTarget + AppDimens.sp4;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
 
     return SizedBox(
-      height: AppDimens.touchTarget + AppDimens.sp4,
+      height: height,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: colors.surfaceCard,
           foregroundColor: colors.textPrimary,
           side: BorderSide(color: colors.border),
           shape: RoundedRectangleBorder(

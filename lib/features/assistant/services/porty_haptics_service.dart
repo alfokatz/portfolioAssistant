@@ -52,6 +52,14 @@ const paywallOpenedPattern = PortyHapticPattern.light;
 /// mismo cierre que una respuesta completa ("listo").
 const goldUnlockedPattern = PortyHapticPattern.medium;
 
+/// Entraste (login, registro con sesión o vuelta de OAuth): un toque leve,
+/// el mismo "llegó algo" de siempre, nunca un golpe de celebración.
+const authSucceededPattern = PortyHapticPattern.light;
+
+/// Algo del login falló (validación o servidor): dos toques leves seguidos,
+/// el "no" más suave que permite `HapticFeedback` sin ir a lo nativo.
+const authFailedPattern = PortyHapticPattern.doubleLight;
+
 /// Tope de toques por widget en una respuesta. Con el cierre, una
 /// respuesta nunca pasa de 4 vibraciones.
 const maxWidgetEntryTicks = 3;
@@ -123,6 +131,13 @@ class PortyHapticsService {
     _performer(textAnswerPattern);
   }
 
+  /// Se eligió una opción de un selector (ej. Activos / Insights) o se tocó
+  /// una fila que navega: el tick seco de selección, en el mismo frame.
+  void selectionTap() {
+    if (!enabled) return;
+    _performer(PortyHapticPattern.selection);
+  }
+
   /// Se tocó un bloque o chip bloqueado por plan.
   void lockedTap() {
     if (!enabled) return;
@@ -139,6 +154,18 @@ class PortyHapticsService {
   void goldUnlocked() {
     if (!enabled) return;
     _performer(goldUnlockedPattern);
+  }
+
+  /// El usuario entró a la app desde el login.
+  void authSucceeded() {
+    if (!enabled) return;
+    _performer(authSucceededPattern);
+  }
+
+  /// El login o el registro mostró un error (de un campo o del servidor).
+  void authFailed() {
+    if (!enabled) return;
+    _performer(authFailedPattern);
   }
 
   /// Si el widget [index] de [total] vibra al entrar, respetando

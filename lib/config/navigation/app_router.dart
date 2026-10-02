@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/config/navigation/app_shell.dart';
 import 'package:portfolio_assistant/config/navigation/go_router_refresh.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
+import 'package:portfolio_assistant/presentation/base/theme/fade_through_page.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_router.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
@@ -71,9 +72,12 @@ class AppRouter {
         AuthRouter.getRoute(),
         OnboardingRouter.getRoute(),
         StatefulShellRoute.indexedStack(
-          builder:
-              (context, state, navigationShell) =>
-                  AppShell(navigationShell: navigationShell),
+          // Se entra al shell solo desde login u onboarding: fade, no slide.
+          pageBuilder:
+              (context, state, navigationShell) => FadeThroughPage<void>(
+                key: state.pageKey,
+                child: AppShell(navigationShell: navigationShell),
+              ),
           branches: [
             StatefulShellBranch(routes: [HomeRouter.getRoute()]),
             StatefulShellBranch(routes: [AssistantRouter.getRoute()]),

@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 /// Resuelve el [CompanyBrand] de un ticker vía [CompanyBrandLoader] y
 /// reconstruye cuando llega. Sin `ProviderScope` (tests aislados) queda en
@@ -621,11 +622,14 @@ class QaStateSwitcher extends StatelessWidget {
             : QaStateMotion.change;
     // Ancho completo fijo: solo anima el ALTO (lo de abajo se desliza); si
     // también animara el ancho, el contenido quedaría angosto a mitad de
-    // camino y desbordaría.
+    // camino y desbordaría. MotionAwareSize y no AnimatedSize directo: con
+    // reduce motion la duración es cero, y un AnimatedSize de duración cero
+    // se re-ensucia en su propio layout (assert de Flutter al cambiar de
+    // estado, ej. el análisis de una empresa al llegar los datos).
     return SizedBox(
       width: double.infinity,
-      child: AnimatedSize(
-        duration: duration,
+      child: MotionAwareSize(
+        duration: QaStateMotion.change,
         curve: QaStateMotion.curve,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(

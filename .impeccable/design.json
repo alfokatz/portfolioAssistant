@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-06-20T05:40:00.000Z",
-  "title": "Design System: PortfolioAI",
+  "title": "Design System: Porty",
   "extensions": {
     "colorMeta": {
       "background": {
@@ -195,7 +195,7 @@
   ],
   "narrative": {
     "northStar": "The Quiet Ledger",
-    "overview": "PortfolioAI se ve como un cuaderno financiero bien editado: tipografía precisa, mucho aire, cifras que mandan. No compite por atención con neón ni gamificación; la confianza viene de la legibilidad y del silencio visual. La densidad es moderada en mobile con padding generoso y cards solo cuando el affordance lo exige.",
+    "overview": "Porty se ve como un cuaderno financiero bien editado: tipografía precisa, mucho aire, cifras que mandan. No compite por atención con neón ni gamificación; la confianza viene de la legibilidad y del silencio visual. La densidad es moderada en mobile con padding generoso y cards solo cuando el affordance lo exige.",
     "keyCharacteristics": [
       "Una sola familia tipográfica (Plus Jakarta Sans) en todo el producto",
       "Superficies planas con borde sutil, sin sombras en reposo",
