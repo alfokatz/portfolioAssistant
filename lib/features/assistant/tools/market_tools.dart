@@ -263,3 +263,56 @@ class GetNewsTool implements DataTool {
     });
   }
 }
+
+/// Qué tiene adentro un ETF o fondo (10 posiciones principales, sectores,
+/// clase de activo, costo). Como el precio: ETFs en cartera, todos los
+/// planes; ajenos, Premium o Gold.
+class GetEtfHoldingsTool implements DataTool {
+  GetEtfHoldingsTool(this.ctx);
+
+  final AssistantToolContext ctx;
+
+  static const toolName = 'get_etf_holdings';
+
+  @override
+  String get name => toolName;
+
+  @override
+  String get description =>
+      'What an ETF or mutual fund holds, for 1-3 fund tickers: fund_name, '
+      'fund_family, category, expense_ratio_pct, total_assets_usd, '
+      'top_holdings (its 10 largest positions: symbol, name, weight_pct — '
+      'NOT the full portfolio), top_holdings_weight_pct (their combined '
+      'weight), sectors (sector already in Spanish, weight_pct, largest '
+      'first), stock/bond/cash_position_pct. All percentages are ALREADY in '
+      '%. Use it for "¿qué acciones tiene XLF?", "¿en qué invierte VOO?", '
+      '"¿cuánto pesa Apple en QQQ?", sector exposure or overlap between '
+      'funds. Tickers in not_funds are stocks (no holdings to show). '
+      'status: ok | empty | failed | locked.';
+
+  @override
+  Map<String, Object?> get parameters => _tickersParams;
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    final tickers = ToolArgs.tickers(args);
+    if (tickers.isEmpty) return ToolArgs.invalid();
+    final allowed = [
+      for (final t in tickers)
+        if (ctx.marketDataAllowed || ctx.heldTickers.contains(t)) t,
+    ];
+    if (allowed.isEmpty) return ctx.lockedFeature(PlanFeature.marketData);
+    final lockedTickers = [
+      for (final t in tickers)
+        if (!allowed.contains(t)) t,
+    ];
+    return {
+      ...await ctx.data.etfHoldings.fetch(allowed),
+      if (lockedTickers.isNotEmpty) ...{
+        'locked_tickers': lockedTickers,
+        'required_plan': ctx.requiredPlanFor(PlanFeature.marketData),
+      },
+      'as_of': ctx.asOf,
+    };
+  }
+}

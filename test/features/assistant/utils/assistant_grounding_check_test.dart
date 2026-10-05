@@ -45,6 +45,28 @@ void main() {
     );
   });
 
+  test('ETF holdings need an ok get_etf_holdings for that ticker', () {
+    final widget = [
+      {'id': 'h', 'component': 'QaEtfHoldings', 'ticker': 'XLF'},
+    ];
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), const []),
+      contains('QaEtfHoldings (XLF) needs get_etf_holdings'),
+    );
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), [
+        _call('get_etf_holdings', ['VOO']),
+      ]),
+      isNotNull,
+    );
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), [
+        _call('get_etf_holdings', ['XLF']),
+      ]),
+      isNull,
+    );
+  });
+
   test('the backing result must be ok and for the same ticker', () {
     final widget = [
       {'id': 'c', 'component': 'QaPriceChart', 'ticker': 'MSFT'},

@@ -19,6 +19,7 @@ abstract final class AssistantToolset {
     GetFundamentalsTool(ctx),
     GetEarningsTool(ctx),
     GetNewsTool(ctx),
+    GetEtfHoldingsTool(ctx),
     GetPortfolioDetailsTool(ctx),
     GetInvestCandidatesTool(ctx),
     GetGoalProjectionTool(ctx),

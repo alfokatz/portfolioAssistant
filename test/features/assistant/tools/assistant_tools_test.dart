@@ -22,6 +22,7 @@ AssistantToolContext _ctx(
   FakePreferences? prefs,
   FakeProfileClient? profiles,
   FakeCompanyFundamentalsRepository? fundamentals,
+  FakeYahooProxy? yahoo,
   InvestorProfile? investorProfile,
 }) => AssistantToolContext(
   tier: tier,
@@ -30,6 +31,7 @@ AssistantToolContext _ctx(
     preferences: prefs,
     profiles: profiles,
     fundamentals: fundamentals,
+    yahoo: yahoo,
   ),
   summary: heldSummary,
   loadInvestorProfile: () async => investorProfile,
@@ -113,6 +115,85 @@ void main() {
       });
       expect(result['status'], 'ok');
       expect((result['fundamentals'] as Map)['AAPL']['pe_ttm'], 38.6);
+    });
+  });
+
+  group('get_etf_holdings', () {
+    test('parses top holdings, sectors and cost, percentages already in %',
+        () async {
+      final yahoo = FakeYahooProxy(results: {'XLF': etfQuoteSummary()});
+      final result = await GetEtfHoldingsTool(
+        _ctx(SubscriptionTier.premium, yahoo: yahoo),
+      ).run({
+        'tickers': ['xlf'],
+      });
+
+      expect(result['status'], 'ok');
+      final xlf = (result['etfs'] as Map)['XLF'] as Map;
+      expect(xlf['fund_name'], 'Financial Select Sector SPDR Fund');
+      expect(xlf['category'], 'Financial');
+      expect(xlf['expense_ratio_pct'], 0.08);
+      expect(xlf['total_assets_usd'], 49500000000);
+      final holdings = xlf['top_holdings'] as List;
+      expect(holdings.first, {
+        'symbol': 'BRK-B',
+        'name': 'Berkshire Hathaway Inc Class B',
+        'weight_pct': 12.05,
+      });
+      expect(xlf['top_holdings_weight_pct'], 29.8);
+      // Sectores en español, sin los de peso 0, de mayor a menor.
+      expect(xlf['sectors'], [
+        {'sector': 'Finanzas', 'weight_pct': 87.12},
+        {'sector': 'Bienes raíces', 'weight_pct': 1.23},
+      ]);
+      expect(xlf['stock_position_pct'], 99.89);
+    });
+
+    test('a stock is reported in not_funds, an unknown ticker is empty and '
+        'a Yahoo outage is failed', () async {
+      final yahoo = FakeYahooProxy(
+        results: {
+          'AAPL': {
+            'quoteType': {'quoteType': 'EQUITY', 'longName': 'Apple Inc.'},
+          },
+        },
+        failing: {'SPY'},
+      );
+      final ctx = _ctx(SubscriptionTier.premium, yahoo: yahoo);
+
+      final stock = await GetEtfHoldingsTool(ctx).run({
+        'tickers': ['AAPL', 'ZZZZ'],
+      });
+      expect(stock['status'], 'empty');
+      expect(stock['not_funds'], ['AAPL']);
+
+      final down = await GetEtfHoldingsTool(ctx).run({
+        'tickers': ['SPY'],
+      });
+      expect(down['status'], 'failed');
+    });
+
+    test('free: held funds are fetched, others locked without a request',
+        () async {
+      final yahoo = FakeYahooProxy(
+        results: {'AAPL': etfQuoteSummary(), 'XLF': etfQuoteSummary()},
+      );
+      final ctx = _ctx(SubscriptionTier.free, yahoo: yahoo);
+
+      final onlyOthers = await GetEtfHoldingsTool(ctx).run({
+        'tickers': ['XLF'],
+      });
+      expect(onlyOthers['status'], 'locked');
+      expect(onlyOthers['required_plan'], 'premium');
+      expect(ctx.lockedReasons, {PaywallReason.marketDataLocked});
+
+      // heldSummary tiene AAPL: ese sí se trae, XLF queda en locked_tickers.
+      final mixed = await GetEtfHoldingsTool(ctx).run({
+        'tickers': ['AAPL', 'XLF'],
+      });
+      expect((mixed['etfs'] as Map).keys, ['AAPL']);
+      expect(mixed['locked_tickers'], ['XLF']);
+      expect(yahoo.requested, ['AAPL']);
     });
   });
 
@@ -356,6 +437,7 @@ void main() {
       'get_fundamentals',
       'get_earnings',
       'get_news',
+      'get_etf_holdings',
       'get_portfolio_details',
       'get_invest_candidates',
       'get_goal_projection',

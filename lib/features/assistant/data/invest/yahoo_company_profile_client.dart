@@ -1,5 +1,5 @@
-import 'package:dio/dio.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/yahoo_proxy_client.dart';
 
 /// Sector, industria y beta de un ticker según Yahoo Finance.
 class YahooCompanyProfile {
@@ -10,40 +10,27 @@ class YahooCompanyProfile {
   final double? beta;
 }
 
-/// Perfil de compañía de CUALQUIER ticker vía Yahoo
-/// `v10/finance/quoteSummary?modules=assetProfile,summaryDetail` — sin
-/// listas precargadas: el sector y el riesgo salen del dato real, así que
-/// Porty puede hablar de cualquier empresa de cualquier industria.
+/// Perfil de compañía de CUALQUIER ticker vía Yahoo `quoteSummary`
+/// (`assetProfile,summaryDetail`), a través del proxy `yahoo` — sin listas
+/// precargadas: el sector y el riesgo salen del dato real, así que Porty
+/// puede hablar de cualquier empresa de cualquier industria.
+///
+/// Antes se pedía directo a Yahoo desde el teléfono, sin la cookie + crumb
+/// que Yahoo exige hoy: si respondía 401/429, el sector y la beta llegaban
+/// vacíos sin aviso. El proxy arma esa sesión y cachea para todos.
 ///
 /// Nunca lanza: ante 401/red/timeout devuelve `null` para ese ticker.
 class YahooCompanyProfileClient {
-  YahooCompanyProfileClient({Dio? dio}) : _dio = dio ?? _createDio();
+  YahooCompanyProfileClient({YahooProxyClient? proxy})
+    : _proxy = proxy ?? YahooProxyClient();
 
-  final Dio _dio;
+  final YahooProxyClient _proxy;
   final Map<String, YahooCompanyProfile?> _cache = {};
 
-  // `v7/finance/quote` trae precios pero NUNCA el sector de una acción; el
-  // sector vive en `assetProfile` y la beta en `summaryDetail`, ambos
-  // módulos de `quoteSummary`, que es por símbolo (no admite batch).
-  static const _quoteSummaryBaseUrl =
-      'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
-
-  static Dio _createDio() {
-    return Dio(
-      BaseOptions(
-        headers: const {
-          'User-Agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-              'AppleWebKit/537.36 (KHTML, like Gecko) '
-              'Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-        connectTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-        validateStatus: (status) => status != null && status < 500,
-      ),
-    );
-  }
+  // `v8/finance/chart` (precios) no trae el sector de una acción; el sector
+  // vive en `assetProfile` y la beta en `summaryDetail`, ambos módulos de
+  // `quoteSummary`, que es por símbolo (no admite batch).
+  static const _modules = ['assetProfile', 'summaryDetail'];
 
   Future<Map<String, YahooCompanyProfile?>> fetchProfiles(
     Iterable<String> tickers,
@@ -77,35 +64,18 @@ class YahooCompanyProfileClient {
 
   Future<YahooCompanyProfile?> _fetchOne(String ticker) async {
     try {
-      final symbol = PortfolioCalculator.toYahooFinanceSymbol(ticker);
-      final response = await _dio.get<Map<String, dynamic>>(
-        '$_quoteSummaryBaseUrl/${Uri.encodeComponent(symbol)}',
-        queryParameters: {'modules': 'assetProfile,summaryDetail'},
+      final result = await _proxy.quoteSummary(
+        PortfolioCalculator.toYahooFinanceSymbol(ticker),
+        _modules,
       );
-      if (response.statusCode != 200) return null;
-
-      final quoteSummary = response.data?['quoteSummary'];
-      if (quoteSummary is! Map<String, dynamic>) return null;
-      final results = quoteSummary['result'];
-      if (results is! List || results.isEmpty) return null;
-      final first = results.first;
-      if (first is! Map<String, dynamic>) return null;
-
-      final asset = first['assetProfile'];
-      final summary = first['summaryDetail'];
-      final beta = summary is Map ? summary['beta'] : null;
+      if (result == null) return null;
+      final asset = result['assetProfile'];
+      final summary = result['summaryDetail'];
       return YahooCompanyProfile(
         sector: asset is Map ? asset['sector'] as String? : null,
         industry: asset is Map ? asset['industry'] as String? : null,
-        // Yahoo manda los números como {"raw": 1.2, "fmt": "1.20"}.
-        beta: switch (beta) {
-          {'raw': final num raw} => raw.toDouble(),
-          final num raw => raw.toDouble(),
-          _ => null,
-        },
+        beta: summary is Map ? YahooProxyClient.number(summary['beta']) : null,
       );
-    } on DioException {
-      return null;
     } catch (_) {
       return null;
     }

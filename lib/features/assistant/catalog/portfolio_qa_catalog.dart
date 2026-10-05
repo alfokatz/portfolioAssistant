@@ -747,6 +747,34 @@ final CatalogItem qaFundamentalsItem = CatalogItem(
   ],
 );
 
+/// Composición de UN ETF o fondo. El modelo solo nombra el ticker: las
+/// posiciones, pesos, sectores y costo los pone la app desde
+/// `get_etf_holdings` (ver `FundWidgets`).
+final CatalogItem qaEtfHoldingsItem = CatalogItem(
+  name: 'QaEtfHoldings',
+  dataSchema: S.object(
+    description:
+        'Composición de UN ETF/fondo. Solo el ticker: la app pone posiciones, '
+        'pesos, sectores y costo desde get_etf_holdings.',
+    properties: {'ticker': S.string()},
+    required: ['ticker'],
+  ),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaEtfHoldings),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "holdings",
+    "component": "QaEtfHoldings",
+    "ticker": "XLF"
+  }
+]
+''',
+  ],
+);
+
 /// Análisis de UNA empresa. El modelo solo escribe texto: todos los números
 /// de la card los pone la app desde las tools del turno (ver
 /// `AnalysisWidgets`).

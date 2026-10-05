@@ -29,6 +29,7 @@ abstract final class AssistantGroundingCheck {
     // fundamentals vienen locked y el análisis se arma con el precio).
     'QaCompanyAnalysis': {'get_quote', 'get_fundamentals'},
     'QaEarningsCalendar': {'get_earnings'},
+    'QaEtfHoldings': {'get_etf_holdings'},
     'QaNewsSummary': {'get_news'},
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},
@@ -46,6 +47,7 @@ abstract final class AssistantGroundingCheck {
     'QaFundamentals',
     'QaEarningsCalendar',
     'QaCompanyAnalysis',
+    'QaEtfHoldings',
   };
 
   static String? check(String rawAnswer, List<ToolCallRecord> visibleCalls) {

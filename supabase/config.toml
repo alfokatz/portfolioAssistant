@@ -428,5 +428,9 @@ verify_jwt = false
 verify_jwt = false
 
 # Valida el JWT del usuario ella misma, como finnhub.
+[functions.yahoo]
+verify_jwt = false
+
+# Valida el JWT del usuario ella misma, como finnhub.
 [functions.investor-pulse]
 verify_jwt = false

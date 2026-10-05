@@ -64,7 +64,10 @@ void main() {
   // 2026-09-29: subido de 95.000 a 100.000 para QaCompanyAnalysis (+3,9K
   // caracteres ≈ +1K tokens). Medido con la eval real: 98.660 caracteres =
   // 24.310 prompt tokens; ~92% se cachea, así que son < US$0,0004 por turno.
+  // 2026-10-05: subido a 103.000 para get_etf_holdings + QaEtfHoldings y
+  // el grounding con conocimiento general: de 99.989 a 101.992 caracteres
+  // (+2K ≈ +500 tokens, casi todo cacheado).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(100000));
+    expect(prompt.length, lessThan(103000));
   });
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_layout_guard.dart';
@@ -341,6 +342,9 @@ abstract final class AssistantAnswerReview {
             'cada una.',
       'QaFundamentals' =>
         'Estos son los indicadores de $of que tienen que ver con tu pregunta.',
+      'QaEtfHoldings' =>
+        'Estas son las principales posiciones de ${ticker ?? 'el fondo'}, con '
+            'cuánto pesa cada una, y cómo se reparte entre sectores.',
       'QaEarningsCalendar' =>
         'Esto resume los resultados de $of: su próximo reporte y cómo le fue '
             'frente a lo que esperaba el mercado.',
@@ -403,6 +407,10 @@ abstract final class AssistantAnswerReview {
           final v = d.metric(m.key);
           if (v != null) out.add(v);
         }
+      } else if (c['component'] == 'QaEtfHoldings') {
+        // Como el análisis: los pesos los pone la app, no están en el JSON.
+        final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');
+        if (d != null) out.addAll(d.backingNumbers);
       } else {
         for (final n in AnalysisProseCheck.numbersIn(jsonEncode(c))) {
           out.add(n.value);

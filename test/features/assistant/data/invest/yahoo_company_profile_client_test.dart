@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/yahoo_proxy_client.dart';
 
 Dio _dio(Response<dynamic> Function(RequestOptions options) respond) {
   final dio = Dio(
-    BaseOptions(validateStatus: (status) => status != null && status < 500),
+    BaseOptions(validateStatus: (status) => status != null && status < 600),
   );
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -13,6 +14,13 @@ Dio _dio(Response<dynamic> Function(RequestOptions options) respond) {
   );
   return dio;
 }
+
+YahooProxyClient _proxy(Dio dio) => YahooProxyClient(
+  dio: dio,
+  baseUrl: 'https://proxy.test/functions/v1/yahoo',
+  accessToken: () async => 'user-jwt',
+  anonKey: 'anon',
+);
 
 Map<String, dynamic> _quoteSummary(Map<String, dynamic> result) => {
   'quoteSummary': {
@@ -26,10 +34,10 @@ void main() {
     test(
       'parses sector, industry and beta for ANY ticker (no fixed list)',
       () async {
-        final requested = <Uri>[];
+        final requested = <RequestOptions>[];
         final client = YahooCompanyProfileClient(
-          dio: _dio((options) {
-            requested.add(options.uri);
+          proxy: _proxy(_dio((options) {
+            requested.add(options);
             return Response(
               requestOptions: options,
               statusCode: 200,
@@ -43,7 +51,7 @@ void main() {
                 },
               }),
             );
-          }),
+          })),
         );
 
         final profiles = await client.fetchProfiles(['NEE']);
@@ -51,23 +59,29 @@ void main() {
         expect(profiles['NEE']!.sector, 'Utilities');
         expect(profiles['NEE']!.industry, 'Utilities—Renewable');
         expect(profiles['NEE']!.beta, 0.72);
-        expect(requested.single.path, endsWith('/quoteSummary/NEE'));
+        // Va al proxy `yahoo` (que arma cookie + crumb), con el JWT del
+        // usuario — nunca directo a Yahoo.
+        final sent = requested.single;
+        expect(sent.uri.host, 'proxy.test');
+        expect(sent.uri.path, '/functions/v1/yahoo/quote-summary');
+        expect(sent.uri.queryParameters['symbol'], 'NEE');
         expect(
-          requested.single.queryParameters['modules'],
+          sent.uri.queryParameters['modules'],
           'assetProfile,summaryDetail',
         );
+        expect(sent.headers['Authorization'], 'Bearer user-jwt');
       },
     );
 
-    test('returns null on 401 and on network errors, never throws', () async {
+    test('returns null on proxy errors and on network errors, never throws', () async {
       final unauthorized = YahooCompanyProfileClient(
-        dio: _dio(
+        proxy: _proxy(_dio(
           (options) => Response(
             requestOptions: options,
             statusCode: 401,
             data: <String, dynamic>{},
           ),
-        ),
+        )),
       );
       expect((await unauthorized.fetchProfiles(['GGAL']))['GGAL'], isNull);
 
@@ -83,7 +97,7 @@ void main() {
               ),
         ),
       );
-      final offline = YahooCompanyProfileClient(dio: dio);
+      final offline = YahooCompanyProfileClient(proxy: _proxy(dio));
       expect((await offline.fetchProfiles(['X']))['X'], isNull);
     });
 
@@ -91,7 +105,7 @@ void main() {
       var calls = 0;
       var fail = true;
       final client = YahooCompanyProfileClient(
-        dio: _dio((options) {
+        proxy: _proxy(_dio((options) {
           calls++;
           return fail
               ? Response(requestOptions: options, statusCode: 404, data: {})
@@ -102,7 +116,7 @@ void main() {
                   'assetProfile': {'sector': 'Technology'},
                 }),
               );
-        }),
+        })),
       );
 
       expect((await client.fetchProfiles(['AAPL']))['AAPL'], isNull);

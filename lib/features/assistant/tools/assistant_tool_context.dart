@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -23,22 +24,25 @@ class AssistantDataSources {
     EarningsFetcher? earnings,
     FundamentalsFetcher? fundamentals,
     NewsFetcher? news,
+    EtfHoldingsFetcher? etfHoldings,
     YahooCompanyProfileClient? profileClient,
   }) : _tickerResolver = tickerResolver,
        _earnings = earnings,
        _fundamentals = fundamentals,
        _news = news,
+       _etfHoldings = etfHoldings,
        _profileClient = profileClient;
 
   final QuoteRepository quoteRepository;
   final PreferencesManager preferences;
 
-  // Lazy: los clientes de Finnhub leen `dotenv` al construirse, y un turno
+  // Lazy: los clientes de Finnhub y Yahoo leen `dotenv` al construirse, y un turno
   // que no pide esos datos no debería tocarlo.
   CompanyTickerResolver? _tickerResolver;
   EarningsFetcher? _earnings;
   FundamentalsFetcher? _fundamentals;
   NewsFetcher? _news;
+  EtfHoldingsFetcher? _etfHoldings;
   YahooCompanyProfileClient? _profileClient;
 
   CompanyTickerResolver get tickerResolver =>
@@ -47,6 +51,8 @@ class AssistantDataSources {
   FundamentalsFetcher get fundamentals =>
       _fundamentals ??= FundamentalsFetcher();
   NewsFetcher get news => _news ??= NewsFetcher();
+  EtfHoldingsFetcher get etfHoldings =>
+      _etfHoldings ??= EtfHoldingsFetcher();
   YahooCompanyProfileClient get profileClient =>
       _profileClient ??= YahooCompanyProfileClient();
 }

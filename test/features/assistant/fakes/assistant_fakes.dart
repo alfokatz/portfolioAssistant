@@ -22,9 +22,11 @@ import 'package:portfolio_assistant/domain/repositories/symbol_search_repository
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/yahoo_proxy_client.dart';
 
 /// Registra cada ticker pedido a Yahoo, para verificar que solo se piden
 /// los datos que el modelo pidió.
@@ -199,6 +201,74 @@ class FakeProfileClient extends YahooCompanyProfileClient {
   }
 }
 
+/// Proxy de Yahoo sin red: `quoteSummary` fijo por símbolo. Un símbolo que
+/// no está en [results] es 404 (sin dato); uno en [failing], una falla.
+class FakeYahooProxy extends YahooProxyClient {
+  FakeYahooProxy({this.results = const {}, this.failing = const {}})
+    : super(baseUrl: 'https://proxy.test', accessToken: () async => null);
+
+  final Map<String, Map<String, dynamic>> results;
+  final Set<String> failing;
+  final requested = <String>[];
+
+  @override
+  Future<Map<String, dynamic>?> quoteSummary(
+    String symbol,
+    List<String> modules,
+  ) async {
+    requested.add(symbol);
+    if (failing.contains(symbol)) {
+      throw const YahooUnavailableException('http_502');
+    }
+    return results[symbol];
+  }
+}
+
+/// Un `quoteSummary` de ETF como lo manda Yahoo (fracciones, {raw, fmt}).
+Map<String, dynamic> etfQuoteSummary({
+  String name = 'Financial Select Sector SPDR Fund',
+  List<(String, String, double)> holdings = const [
+    ('BRK-B', 'Berkshire Hathaway Inc Class B', 0.1205),
+    ('JPM', 'JPMorgan Chase & Co', 0.1021),
+    ('V', 'Visa Inc Class A', 0.0754),
+  ],
+}) => {
+  'quoteType': {'quoteType': 'ETF', 'longName': name},
+  'topHoldings': {
+    'stockPosition': {'raw': 0.9989},
+    'bondPosition': {'raw': 0.0},
+    'holdings': [
+      for (final (symbol, holdingName, pct) in holdings)
+        {
+          'symbol': symbol,
+          'holdingName': holdingName,
+          'holdingPercent': {'raw': pct, 'fmt': '${pct * 100}%'},
+        },
+    ],
+    'sectorWeightings': [
+      {
+        'financial_services': {'raw': 0.8712},
+      },
+      {
+        'technology': {'raw': 0.0},
+      },
+      {
+        'realestate': {'raw': 0.0123},
+      },
+    ],
+  },
+  'fundProfile': {
+    'family': 'SPDR State Street Global Advisors',
+    'categoryName': 'Financial',
+    'feesExpensesInvestment': {
+      'annualReportExpenseRatio': {'raw': 0.0008},
+    },
+  },
+  'summaryDetail': {
+    'totalAssets': {'raw': 49500000000},
+  },
+};
+
 AssistantDataSources fakeDataSources({
   QuoteRepository? quotes,
   FakePreferences? preferences,
@@ -207,6 +277,7 @@ AssistantDataSources fakeDataSources({
   FakeEarningsCalendarRepository? earnings,
   FakeCompanyFundamentalsRepository? fundamentals,
   FakeProfileClient? profiles,
+  FakeYahooProxy? yahoo,
 }) => AssistantDataSources(
   quoteRepository: quotes ?? CountingQuoteRepository(),
   preferences: preferences ?? FakePreferences(),
@@ -220,6 +291,7 @@ AssistantDataSources fakeDataSources({
   fundamentals: FundamentalsFetcher(
     repository: fundamentals ?? FakeCompanyFundamentalsRepository(),
   ),
+  etfHoldings: EtfHoldingsFetcher(proxy: yahoo ?? FakeYahooProxy()),
   profileClient: profiles ?? FakeProfileClient(),
 );
 

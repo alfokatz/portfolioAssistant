@@ -8,12 +8,13 @@ import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/advice_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/company_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/fund_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/market_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/portfolio_widgets.dart';
 
 /// Punto de entrada único que usan los `CatalogItem`. La implementación vive
-/// por dominio en `widgets/market_widgets.dart`, `portfolio_widgets.dart` y
-/// `advice_widgets.dart`.
+/// por dominio en `widgets/market_widgets.dart`, `portfolio_widgets.dart`,
+/// `fund_widgets.dart` y `advice_widgets.dart`.
 abstract final class PortfolioQaCatalogWidgets {
   static Widget qaAnswerText(CatalogItemContext ctx) {
     final data = _AnswerTextData.fromMap(ctx.data as JsonMap);
@@ -76,6 +77,9 @@ abstract final class PortfolioQaCatalogWidgets {
       AnalysisWidgets.qaGoldTeaser(ctx);
   static Widget qaFundamentals(CatalogItemContext ctx) =>
       CompanyWidgets.qaFundamentals(ctx);
+
+  static Widget qaEtfHoldings(CatalogItemContext ctx) =>
+      FundWidgets.qaEtfHoldings(ctx);
 
   static Widget qaMetricStrip(CatalogItemContext ctx) =>
       MarketWidgets.qaMetricStrip(ctx);
