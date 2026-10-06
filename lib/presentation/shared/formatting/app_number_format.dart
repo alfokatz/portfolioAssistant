@@ -24,4 +24,10 @@ abstract final class AppNumberFormat {
     final sign = !signed ? '' : (value < 0 ? '-' : '+');
     return '$sign${f.format(signed ? value.abs() : value)}%';
   }
+
+  /// Cantidad de acciones: hasta [maxDecimals] decimales, sin ceros de más
+  /// ("2.0434", "1", nunca "1.0000" ni "2.0434492300000002"). Donde la
+  /// cantidad exacta importa (detalle, cierre) van 4; en listas, 2.
+  static String shares(double quantity, {int maxDecimals = 4}) =>
+      NumberFormat('#,##0.${'#' * maxDecimals}').format(quantity);
 }

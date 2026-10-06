@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -12,8 +14,9 @@ import 'package:portfolio_assistant/presentation/flows/position/providers/close_
 import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_date_field.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 
@@ -133,7 +136,7 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
       ),
       child: Text(
         'position_shares_equivalent'.tr(
-          namedArgs: {'shares': shares.toStringAsFixed(4)},
+          namedArgs: {'shares': AppNumberFormat.shares(shares)},
         ),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colors.accentBlue,
@@ -143,12 +146,14 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     );
   }
 
+  /// Resultado del cierre: lo que ganás o perdés con la venta es el número
+  /// protagonista; abajo, de dónde sale.
   Widget _preview(
     BuildContext context,
     ClosePositionProvider notifier,
   ) {
     final colors = context.customColors;
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final tt = Theme.of(context).textTheme;
     final closePrice = notifier.closePrice();
     final shares = notifier.sharesToSell();
     if (closePrice == null || closePrice <= 0 || shares == null) {
@@ -159,44 +164,57 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     final proceeds = shares * closePrice;
     final pnlAbs = proceeds - costBasis;
     final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
-    final sign = pnlAbs >= 0 ? '+' : '';
+    const tabular = [FontFeature.tabularFigures()];
 
-    return SurfaceCard(
-      margin: const EdgeInsets.only(top: AppDimens.sp16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'close_position_preview_title'.tr(),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.only(top: AppDimens.sp16),
+      child: _Card(
+        title: 'close_position_preview_title'.tr(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppNumberFormat.signedMoney(pnlAbs),
+              style: tt.displaySmall?.copyWith(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.8,
+                height: 1.1,
+                color: colors.pnlColor(pnlAbs),
+                fontFeatures: tabular,
+              ),
+            ),
+            const SizedBox(height: AppDimens.sp6),
+            Text(
+              'close_position_preview_pnl_detail'.tr(
+                namedArgs: {'pct': AppNumberFormat.percent(pnlPct)},
+              ),
+              style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            Row(
+              children: [
+                Expanded(
+                  child: _Stat(
+                    label: 'close_position_preview_shares'.tr(),
+                    value: AppNumberFormat.shares(shares),
+                  ),
                 ),
-          ),
-          const SizedBox(height: AppDimens.sp12),
-          LabeledValueRow(
-            label: 'close_position_preview_shares'.tr(),
-            value: shares.toStringAsFixed(4),
-            dense: true,
-          ),
-          LabeledValueRow(
-            label: 'close_position_preview_cost'.tr(),
-            value: currency.format(costBasis),
-            dense: true,
-          ),
-          LabeledValueRow(
-            label: 'close_position_preview_proceeds'.tr(),
-            value: currency.format(proceeds),
-            dense: true,
-          ),
-          LabeledValueRow(
-            label: 'close_position_preview_pnl'.tr(),
-            value:
-                '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueColor: colors.pnlColor(pnlAbs),
-            dense: true,
-          ),
-        ],
+                Expanded(
+                  child: _Stat(
+                    label: 'close_position_preview_proceeds'.tr(),
+                    value: AppNumberFormat.money(proceeds),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _Stat(
+              label: 'close_position_preview_cost'.tr(),
+              value: AppNumberFormat.money(costBasis),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -230,154 +248,199 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     });
     _syncControllers(state);
 
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final tt = Theme.of(context).textTheme;
+    final quantity = widget.quantity;
+    final shares =
+        quantity == 1
+            ? 'position_shares_one'.tr()
+            : 'position_shares'.tr(
+              namedArgs: {'count': AppNumberFormat.shares(quantity)},
+            );
+    // Los logos usan la paleta del kit de Porty.
+    QaColors.resolve(Theme.of(context).brightness);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('close_position_title'.tr()),
-      ),
+      appBar: AppBar(title: Text('close_position_title'.tr())),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             AppDimens.pageHorizontal,
-            AppDimens.sp16,
+            AppDimens.sp8,
             AppDimens.pageHorizontal,
             AppDimens.sp48,
           ),
           children: [
-            SurfaceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.ticker,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            // Qué se cierra: logo, ticker, cuántas acciones y a qué precio
+            // promedio se compraron.
+            Row(
+              children: [
+                QaTickerAvatar(ticker: widget.ticker, size: 48),
+                const SizedBox(width: AppDimens.sp12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.ticker,
+                        style: tt.displaySmall?.copyWith(
+                          fontSize: 26,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: -0.6,
+                          height: 1.1,
                           color: colors.textPrimary,
                         ),
-                  ),
-                  const SizedBox(height: AppDimens.sp8),
-                  Text(
-                    'position_shares'.tr(
-                      namedArgs: {'count': widget.quantity.toString()},
-                    ),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'close_position_holding'.tr(
+                          namedArgs: {
+                            'shares': shares,
+                            'price': AppNumberFormat.money(
+                              widget.avgPurchasePrice,
+                            ),
+                          },
+                        ),
+                        style: tt.bodyMedium?.copyWith(
                           color: colors.textSecondary,
                         ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppDimens.sp4),
-                  Text(
-                    'close_position_avg_cost'.tr(
-                      namedArgs: {
-                        'price': currency.format(widget.avgPurchasePrice),
-                      },
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sp24),
+            _Card(
+              title: 'close_position_scope'.tr(),
+              child: MotionAwareSize(
+                duration: const Duration(milliseconds: 220),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SegmentedChoice<CloseScope>(
+                      selected: state.scope,
+                      onChanged: notifier.setScope,
+                      options: [
+                        (
+                          value: CloseScope.all,
+                          label: 'close_position_scope_all'.tr(),
                         ),
-                  ),
-                ],
+                        (
+                          value: CloseScope.partial,
+                          label: 'close_position_scope_partial'.tr(),
+                        ),
+                      ],
+                    ),
+                    if (state.scope == CloseScope.partial) ...[
+                      const SizedBox(height: AppDimens.sp20),
+                      Text(
+                        'close_position_sell_amount'.tr(),
+                        style: tt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppDimens.sp12),
+                      SegmentedChoice<SellInputMode>(
+                        selected: state.sellMode,
+                        onChanged: notifier.setSellMode,
+                        options: [
+                          (
+                            value: SellInputMode.shares,
+                            label: 'position_amount_type_shares'.tr(),
+                          ),
+                          (
+                            value: SellInputMode.usd,
+                            label: 'position_amount_type_usd'.tr(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimens.sp12),
+                      TextFormField(
+                        controller: _sellAmountController,
+                        decoration: InputDecoration(
+                          labelText:
+                              state.sellMode == SellInputMode.shares
+                                  ? 'position_quantity'.tr()
+                                  : 'close_position_sell_usd'.tr(),
+                          hintText:
+                              state.sellMode == SellInputMode.shares
+                                  ? AppNumberFormat.shares(quantity)
+                                  : null,
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator:
+                            (value) => _validateSellAmount(value, notifier),
+                        onChanged: notifier.setSellAmountText,
+                      ),
+                      if (_sharesEquivalentHint(context, notifier) != null)
+                        _sharesEquivalentHint(context, notifier)!,
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: AppDimens.sp20),
-            SurfaceCard(
+            const SizedBox(height: AppDimens.sp16),
+            _Card(
+              title: 'close_position_details'.tr(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'close_position_scope'.tr(),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colors.textPrimary,
-                        ),
+                  PositionDateField(
+                    label: 'close_position_date'.tr(),
+                    date: state.closeDate,
+                    onTap: () => _pickDate(notifier),
                   ),
                   const SizedBox(height: AppDimens.sp12),
-                  _DualChoiceRow<CloseScope>(
-                    value: state.scope,
-                    leftValue: CloseScope.all,
-                    rightValue: CloseScope.partial,
-                    leftLabel: 'close_position_scope_all'.tr(),
-                    rightLabel: 'close_position_scope_partial'.tr(),
-                    onChanged: notifier.setScope,
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: InputDecoration(
+                      labelText: 'close_position_price'.tr(),
+                      prefixText: r'$ ',
+                      suffixIcon: DelayedLoaderVisibility(
+                        loading: state.loadingPrice,
+                        builder:
+                            (context, showSpinner) =>
+                                showSpinner
+                                    ? Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: ButtonSpinner.small(
+                                        color: colors.accentBlue,
+                                      ),
+                                    )
+                                    : IconButton(
+                                      tooltip: 'close_position_price_refresh'
+                                          .tr(),
+                                      onPressed:
+                                          state.loadingPrice
+                                              ? null
+                                              : notifier.fetchPriceForDate,
+                                      icon: const Icon(Icons.refresh_rounded),
+                                    ),
+                      ),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (v) {
+                      final n = double.tryParse(v ?? '');
+                      if (n == null || n <= 0) return 'invalid_number'.tr();
+                      return null;
+                    },
+                    onChanged: notifier.setPriceText,
                   ),
-                  if (state.scope == CloseScope.partial) ...[
-                    const SizedBox(height: AppDimens.sp20),
-                    Text(
-                      'close_position_sell_amount'.tr(),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: colors.textPrimary,
-                          ),
+                  const SizedBox(height: AppDimens.sp8),
+                  Text(
+                    'close_position_price_hint'.tr(),
+                    style: tt.bodySmall?.copyWith(
+                      color: colors.textSecondary,
                     ),
-                    const SizedBox(height: AppDimens.sp12),
-                    _DualChoiceRow<SellInputMode>(
-                      value: state.sellMode,
-                      leftValue: SellInputMode.shares,
-                      rightValue: SellInputMode.usd,
-                      leftLabel: 'position_amount_type_shares'.tr(),
-                      rightLabel: 'position_amount_type_usd'.tr(),
-                      onChanged: notifier.setSellMode,
-                    ),
-                    const SizedBox(height: AppDimens.sp12),
-                    TextFormField(
-                      controller: _sellAmountController,
-                      decoration: InputDecoration(
-                        labelText: state.sellMode == SellInputMode.shares
-                            ? 'position_quantity'.tr()
-                            : 'position_invested_amount'.tr(),
-                        hintText: state.sellMode == SellInputMode.shares
-                            ? widget.quantity.toStringAsFixed(4)
-                            : null,
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: (value) => _validateSellAmount(value, notifier),
-                      onChanged: notifier.setSellAmountText,
-                    ),
-                    if (_sharesEquivalentHint(context, notifier) != null)
-                      _sharesEquivalentHint(context, notifier)!,
-                  ],
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: AppDimens.sp20),
-            PositionDateField(
-              label: 'close_position_date'.tr(),
-              date: state.closeDate,
-              onTap: () => _pickDate(notifier),
-            ),
-            const SizedBox(height: AppDimens.sp16),
-            TextFormField(
-              controller: _priceController,
-              decoration: InputDecoration(
-                labelText: 'close_position_price'.tr(),
-                suffixIcon: DelayedLoaderVisibility(
-                  loading: state.loadingPrice,
-                  builder: (context, showSpinner) => showSpinner
-                      ? Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: ButtonSpinner.small(color: colors.accentBlue),
-                        )
-                      : IconButton(
-                          tooltip: 'retry'.tr(),
-                          onPressed: state.loadingPrice
-                              ? null
-                              : notifier.fetchPriceForDate,
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
-                ),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              validator: (v) {
-                final n = double.tryParse(v ?? '');
-                if (n == null || n <= 0) return 'invalid_number'.tr();
-                return null;
-              },
-              onChanged: notifier.setPriceText,
             ),
             _preview(context, notifier),
             const SizedBox(height: AppDimens.sp32),
@@ -393,92 +456,70 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
   }
 }
 
-class _DualChoiceRow<T> extends StatelessWidget {
-  const _DualChoiceRow({
-    required this.value,
-    required this.leftValue,
-    required this.rightValue,
-    required this.leftLabel,
-    required this.rightLabel,
-    required this.onChanged,
-  });
+/// Card con título fuerte, como las del resto de la app.
+class _Card extends StatelessWidget {
+  const _Card({required this.title, required this.child});
 
-  final T value;
-  final T leftValue;
-  final T rightValue;
-  final String leftLabel;
-  final String rightLabel;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ChoiceTile(
-            label: leftLabel,
-            selected: value == leftValue,
-            onTap: () => onChanged(leftValue),
-          ),
-        ),
-        const SizedBox(width: AppDimens.sp12),
-        Expanded(
-          child: _ChoiceTile(
-            label: rightLabel,
-            selected: value == rightValue,
-            onTap: () => onChanged(rightValue),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChoiceTile extends StatelessWidget {
-  const _ChoiceTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String title;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.sp12,
-            vertical: 14,
-          ),
-          decoration: BoxDecoration(
-            color: selected
-                ? colors.accentBlue.withValues(alpha: 0.18)
-                : colors.surfaceElevated,
-            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            border: Border.all(
-              color: selected ? colors.accentBlue : colors.border,
-              width: selected ? 1.5 : 1,
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        border: Border.all(color: colors.border),
+      ),
+      padding: const EdgeInsets.all(AppDimens.cardPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
             ),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? colors.textPrimary : colors.textSecondary,
-                ),
+          const SizedBox(height: AppDimens.sp16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: tt.bodySmall?.copyWith(color: colors.textSecondary)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: tt.titleSmall?.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-      ),
+      ],
     );
   }
 }

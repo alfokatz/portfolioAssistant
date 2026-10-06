@@ -23,6 +23,9 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
   final GetPriceOnDateUseCase getPriceOnDateUseCase;
   final GetCurrentPriceUseCase getCurrentPriceUseCase;
 
+  /// El usuario escribió el precio a mano: ya no se completa solo.
+  bool _priceEditedByUser = false;
+
   Future<void> setPurchaseDate(DateTime date) async {
     state = state.copyWith(purchaseDate: date, datePicked: true);
     await fetchPriceForDate();
@@ -64,6 +67,12 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
       (price) => state = state.copyWith(
         loadingCurrent: false,
         currentPrice: price,
+        // Con la fecha de hoy (sin elegir otra), el precio de compra es el
+        // actual, salvo que el usuario lo haya escrito él.
+        priceText:
+            !state.datePicked && !_priceEditedByUser && price > 0
+                ? price.toStringAsFixed(2)
+                : null,
       ),
     );
   }
@@ -80,7 +89,9 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
     state = state.copyWith(quantityText: value);
   }
 
+  /// Lo que el usuario escribe en el precio (no el autocompletado).
   void setPriceText(String value) {
+    _priceEditedByUser = true;
     state = state.copyWith(priceText: value);
   }
 

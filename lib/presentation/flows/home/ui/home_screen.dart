@@ -161,10 +161,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                           (_) => PositionsSection(
                             valuations: displayValuations,
                             totalCount: valuations.length,
-                            portfolioValue: valuations.fold<double>(
-                              0,
-                              (sum, v) => sum + v.marketValue,
-                            ),
                             expanded: state.showAllPositions,
                             onToggleExpanded:
                                 hasMorePositions
@@ -197,12 +193,14 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                 )
                               else
                                 const BenchmarkLockedCard(),
+                              if (valuations.isNotEmpty)
+                                PnlDistributionCard(valuations: valuations),
+                              // Al final: es historial, no el estado actual
+                              // de la cartera.
                               ClosedPositionsEntryCard(
                                 count: state.closedPositionsCount,
                                 onTap: notifier.openClosedPositions,
                               ),
-                              if (valuations.isNotEmpty)
-                                PnlDistributionCard(valuations: valuations),
                             ],
                           ),
                     ),

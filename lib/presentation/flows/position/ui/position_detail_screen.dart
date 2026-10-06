@@ -450,7 +450,7 @@ class _PositionCard extends StatelessWidget {
               Expanded(
                 child: _Stat(
                   label: 'position_preview_shares'.tr(),
-                  value: s == null ? null : formatShares(s.position.quantity),
+                  value: s == null ? null : AppNumberFormat.shares(s.position.quantity),
                 ),
               ),
               Expanded(
@@ -642,7 +642,7 @@ class _PurchaseRow extends StatelessWidget {
                                 ? 'position_shares_one'.tr()
                                 : 'position_shares'.tr(
                                   namedArgs: {
-                                    'count': formatShares(
+                                    'count': AppNumberFormat.shares(
                                       lot.position.quantity,
                                     ),
                                   },
@@ -732,11 +732,6 @@ class _CloseAllButton extends StatelessWidget {
     );
   }
 }
-
-/// "2.0434" en vez de "2.0434492300000002" o "1.0000": hasta 4 decimales,
-/// sin ceros de más.
-String formatShares(double quantity) =>
-    NumberFormat('#,##0.####').format(quantity);
 
 class _ErrorBody extends StatelessWidget {
   const _ErrorBody({required this.message, required this.onRetry});

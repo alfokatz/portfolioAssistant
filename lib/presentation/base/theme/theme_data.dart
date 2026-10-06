@@ -156,7 +156,15 @@ final themeDataLightProvider = Provider<ThemeData>((ref) {
 
 final themeDataDarkProvider = Provider<ThemeData>((ref) {
   final scheme = ref.watch(colorSchemeDarkProvider);
-  final textTheme = ref.watch(textThemeProvider);
+  // La escala tipográfica sale de `Typography.black` (texto oscuro): en
+  // oscuro, lo que no fija su color (p. ej. lo que se escribe en un campo)
+  // quedaba gris oscuro sobre fondo oscuro, casi ilegible.
+  final textTheme = ref
+      .watch(textThemeProvider)
+      .apply(
+        bodyColor: CustomColors.dark.textPrimary,
+        displayColor: CustomColors.dark.textPrimary,
+      );
   final customTexts = ref.watch(customTextProvider);
   return _buildThemeData(
     scheme: scheme,

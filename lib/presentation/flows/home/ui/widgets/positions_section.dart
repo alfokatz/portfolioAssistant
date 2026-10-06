@@ -18,9 +18,6 @@ class PositionsSection extends StatelessWidget {
   /// Cuántas posiciones hay en total (para el subtítulo y "Ver todas").
   final int? totalCount;
 
-  /// Valor de toda la cartera, para el peso de cada posición.
-  final double? portfolioValue;
-
   final bool expanded;
 
   /// Si es null no hay "Ver todas" (entran todas).
@@ -35,7 +32,6 @@ class PositionsSection extends StatelessWidget {
     super.key,
     required this.valuations,
     this.totalCount,
-    this.portfolioValue,
     this.expanded = false,
     this.onToggleExpanded,
     this.onPositionTap,
@@ -47,7 +43,6 @@ class PositionsSection extends StatelessWidget {
   const PositionsSection.skeleton({super.key, int rows = 5})
     : valuations = const [],
       totalCount = null,
-      portfolioValue = null,
       expanded = false,
       onToggleExpanded = null,
       onPositionTap = null,
@@ -162,7 +157,6 @@ class PositionsSection extends StatelessWidget {
                 for (final valuation in valuations)
                   _PositionDismissibleRow(
                     valuation: valuation,
-                    portfolioValue: portfolioValue,
                     onPositionTap: onPositionTap,
                     onDeletePosition: onDeletePosition,
                     confirmDelete:
@@ -186,14 +180,12 @@ class PositionsSection extends StatelessWidget {
 
 class _PositionDismissibleRow extends StatelessWidget {
   final PositionValuation valuation;
-  final double? portfolioValue;
   final void Function(PositionValuation valuation)? onPositionTap;
   final Future<bool> Function(PositionValuation valuation)? onDeletePosition;
   final Future<bool> Function(String ticker) confirmDelete;
 
   const _PositionDismissibleRow({
     required this.valuation,
-    required this.portfolioValue,
     required this.onPositionTap,
     required this.onDeletePosition,
     required this.confirmDelete,
@@ -204,7 +196,6 @@ class _PositionDismissibleRow extends StatelessWidget {
     final colors = context.customColors;
     final row = PositionRowWidget(
       valuation: valuation,
-      portfolioValue: portfolioValue,
       onDetailTap:
           onPositionTap == null ? null : () => onPositionTap!(valuation),
     );

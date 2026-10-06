@@ -9,38 +9,26 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
-/// Una posición de la Home: logo, ticker, cuántas acciones y cuánto pesa en
-/// la cartera; a la derecha, lo que vale hoy y lo que ganó o perdió desde la
-/// compra. Con [PositionRowWidget.skeleton] es su propio skeleton: mismos
-/// paddings y alturas, valores en barras.
-///
-/// Sin mini gráfico: el que había era una recta entre el precio de compra y
-/// el actual (no una serie real), y sugería una evolución que no existía.
+/// Una posición de la Home, liviana a propósito: logo, ticker y cuántas
+/// acciones (el mismo dato en todas las filas); a la derecha, lo que vale
+/// hoy y cuánto rinde. La ganancia en dólares y el resto están en el
+/// detalle (el chevron dice que se puede tocar). Con [PositionRowWidget.skeleton] es su
+/// propio skeleton: mismos paddings y alturas, valores en barras.
 class PositionRowWidget extends StatelessWidget {
   final PositionValuation? valuation;
-
-  /// Valor de toda la cartera, para el peso de la posición. Sin él, la fila
-  /// muestra solo las acciones.
-  final double? portfolioValue;
   final VoidCallback? onDetailTap;
 
   const PositionRowWidget({
     super.key,
     required PositionValuation this.valuation,
-    this.portfolioValue,
     this.onDetailTap,
   });
 
   const PositionRowWidget.skeleton({super.key})
     : valuation = null,
-      portfolioValue = null,
       onDetailTap = null;
 
   static const avatarSize = 36.0;
-
-  /// "2.0434" en vez de "2.0434492300000002": hasta 4 decimales, sin ceros
-  /// de más.
-  static final _shares = NumberFormat('#,##0.####');
 
   @override
   Widget build(BuildContext context) {
@@ -48,34 +36,14 @@ class PositionRowWidget extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final valuation = this.valuation;
     const tabular = [FontFeature.tabularFigures()];
-
-    String? shares;
-    String? weight;
-    String? pnl;
-    if (valuation != null) {
-      final quantity = valuation.position.quantity;
-      shares =
-          quantity == 1
-              ? 'position_shares_one'.tr()
-              : 'position_shares'.tr(
-                namedArgs: {'count': _shares.format(quantity)},
-              );
-      final total = portfolioValue;
-      if (total != null && total > 0) {
-        weight = AppNumberFormat.percent(
-          valuation.marketValue / total * 100,
-          signed: false,
-        );
-      }
-      pnl =
-          '${AppNumberFormat.signedMoney(valuation.pnlAbsolute)} · '
-          '${AppNumberFormat.percent(valuation.pnlPercent)}';
-    }
+    final secondaryStyle = tt.bodySmall?.copyWith(color: colors.textSecondary);
 
     final content = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.cardPadding,
-        vertical: AppDimens.sp8,
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.cardPadding,
+        AppDimens.sp8,
+        AppDimens.sp12,
+        AppDimens.sp8,
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
@@ -97,44 +65,22 @@ class PositionRowWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // El peso al lado del ticker, como en la leyenda de la
-                  // cartera de Porty ("NVDA 38.2%").
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      SkeletonText(
-                        valuation?.position.ticker,
-                        placeholder: 'AAPL',
-                        style: tt.titleSmall?.copyWith(
-                          color: colors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                      if (weight != null) ...[
-                        const SizedBox(width: AppDimens.sp6),
-                        Semantics(
-                          label: 'home_position_weight'.tr(
-                            namedArgs: {'pct': weight},
-                          ),
-                          excludeSemantics: true,
-                          child: Text(
-                            weight,
-                            style: tt.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                              fontFeatures: tabular,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  SkeletonText(
+                    valuation?.position.ticker,
+                    placeholder: 'AAPL',
+                    style: tt.titleSmall?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   SkeletonText(
-                    shares,
-                    placeholder: '00 acciones',
-                    style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+                    valuation == null
+                        ? null
+                        : _shares(valuation.position.quantity),
+                    placeholder: '0.00 acciones',
+                    style: secondaryStyle,
                   ),
                 ],
               ),
@@ -158,9 +104,11 @@ class PositionRowWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 SkeletonText(
-                  pnl,
+                  valuation == null
+                      ? null
+                      : AppNumberFormat.percent(valuation.pnlPercent),
                   animate: true,
-                  placeholder: '+\$000.00 · +0.0%',
+                  placeholder: '+00.0%',
                   style: tt.bodySmall?.copyWith(
                     color: colors.pnlColor(valuation?.pnlAbsolute ?? 0),
                     fontWeight: FontWeight.w600,
@@ -169,6 +117,16 @@ class PositionRowWidget extends StatelessWidget {
                 ),
               ],
             ),
+            // El chevron es de la fila, no un dato: el skeleton lo lleva
+            // igual, así las columnas quedan alineadas con las filas reales.
+            if (onDetailTap != null || valuation == null) ...[
+              const SizedBox(width: AppDimens.sp4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: AppDimens.iconMd,
+                color: colors.textSecondary,
+              ),
+            ],
           ],
         ),
       ),
@@ -176,13 +134,26 @@ class PositionRowWidget extends StatelessWidget {
 
     if (onDetailTap == null) return content;
 
-    return InkWell(
-      onTap: () {
-        // Haptic y navegación en el mismo frame del tap.
-        PortyHapticsService.maybeOf(context)?.selectionTap();
-        onDetailTap!();
-      },
-      child: content,
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () {
+          // Haptic y navegación en el mismo frame del tap.
+          PortyHapticsService.maybeOf(context)?.selectionTap();
+          onDetailTap!();
+        },
+        child: content,
+      ),
     );
+  }
+
+  /// "2.04 acciones": en la lista alcanza con 2 decimales (el detalle
+  /// muestra la cantidad exacta).
+  static String _shares(double quantity) {
+    final count = AppNumberFormat.shares(quantity, maxDecimals: 2);
+    // Por lo que se ve (1.004 se muestra "1"): nunca "1 acciones".
+    return count == '1'
+        ? 'position_shares_one'.tr()
+        : 'position_shares'.tr(namedArgs: {'count': count});
   }
 }
