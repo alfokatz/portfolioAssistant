@@ -1,4 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/supabase/clock_skew_retry_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Inicializa el cliente global de Supabase desde variables `.env`.
@@ -21,6 +22,7 @@ class SupabaseInitializer {
     await Supabase.initialize(
       url: url,
       publishableKey: anonKey,
+      httpClient: ClockSkewRetryClient(),
     );
   }
 }
