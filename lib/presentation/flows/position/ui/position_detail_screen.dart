@@ -3,19 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
+import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
+import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/position_detail_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
-import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/section_header.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
 class PositionDetailScreen extends StatefulHookConsumerWidget {
   const PositionDetailScreen({super.key, required this.ticker, this.seed});
@@ -46,6 +50,16 @@ class _PositionDetailScreenState
   // Con seed el contenido ya está en el primer frame (entra con la ruta);
   // la entrada escalonada de las cards solo se usa al salir del skeleton.
   late final bool _seeded = widget.seed != null;
+
+  /// El título grande ya salió de pantalla: la barra muestra el ticker.
+  bool _titleInBar = false;
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
+    final inBar = n.metrics.pixels > _Header.height;
+    if (inBar != _titleInBar) setState(() => _titleInBar = inBar);
+    return false;
+  }
 
   @override
   void initState() {
@@ -119,10 +133,15 @@ class _PositionDetailScreenState
         backgroundColor: context.customColors.surfaceCard,
         onRefresh: notifier.load,
         child: _DetailList(
+          ticker: widget.ticker,
           summary: state.summary,
           lots: state.lots,
           onCloseAll: notifier.closeAll,
           onCloseLot: notifier.closeLot,
+          onAskPorty:
+              (question) => GotoAssistant(
+                initialQuestion: question,
+              ).navigate(context: context),
           animateEntrance: !_seeded,
         ),
       );
@@ -133,12 +152,30 @@ class _PositionDetailScreenState
       // Skeleton: la misma lista con los valores vacíos, así tiene la altura
       // final y el cambio a datos no mueve nada.
       bodyKey = 'skeleton';
-      body = const _DetailList(summary: null, lots: [null]);
+      body = _DetailList(
+        ticker: widget.ticker,
+        summary: null,
+        lots: const [null],
+      );
     }
 
+    // Los logos y el gráfico usan la paleta del kit de Porty.
+    QaColors.resolve(Theme.of(context).brightness);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.ticker)),
-      body: AnimatedSwitcher(
+      appBar: AppBar(
+        title: AnimatedOpacity(
+          opacity: _titleInBar ? 1 : 0,
+          duration:
+              reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
+          child: ExcludeSemantics(
+            excluding: !_titleInBar,
+            child: Text(widget.ticker),
+          ),
+        ),
+      ),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: AnimatedSwitcher(
         duration:
             reduceMotion ? Duration.zero : PositionDetailScreen.swapDuration,
         switchInCurve: Curves.easeOutCubic,
@@ -149,32 +186,40 @@ class _PositionDetailScreenState
               children: [...previous, if (current != null) current],
             ),
         child: KeyedSubtree(key: ValueKey(bodyKey), child: body),
+        ),
       ),
     );
   }
 }
 
-/// Resumen + botón + compras. Con `summary == null` (o un lote `null`) es
-/// su propio skeleton: mismos labels y alturas, valores en barras.
+/// El detalle de una posición, de arriba abajo: quién es (logo, ticker,
+/// nombre), cuánto vale tu posición y cuánto ganaste, tus compras, el
+/// precio de la acción, una pregunta lista para Porty y, al final, cerrar
+/// la posición (lo único que no se deshace va último y sin protagonismo).
+///
+/// Con `summary == null` (o un lote `null`) es su propio skeleton: mismos
+/// títulos y alturas, valores en barras.
 class _DetailList extends StatelessWidget {
   const _DetailList({
+    required this.ticker,
     required this.summary,
     required this.lots,
     this.onCloseAll,
     this.onCloseLot,
+    this.onAskPorty,
     this.animateEntrance = false,
   });
 
+  final String ticker;
   final PositionValuation? summary;
   final List<PositionValuation?> lots;
   final VoidCallback? onCloseAll;
   final void Function(PositionValuation lot)? onCloseLot;
+  final ValueChanged<String>? onAskPorty;
   final bool animateEntrance;
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final dateFormat = DateFormat.yMMMd();
     final skeleton = summary == null;
     var order = 0;
 
@@ -190,6 +235,13 @@ class _DetailList extends StatelessWidget {
       );
     }
 
+    // Cerrar una compra suelta solo tiene sentido con más de una: con una
+    // sola es lo mismo que cerrar toda la posición (el botón del final).
+    final closeLot = lots.length > 1 ? onCloseLot : null;
+    final question = 'position_detail_porty_question'.tr(
+      namedArgs: {'ticker': ticker},
+    );
+
     return ListView(
       physics:
           skeleton
@@ -197,43 +249,270 @@ class _DetailList extends StatelessWidget {
               : const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AppDimens.pageHorizontal,
-        AppDimens.sp16,
+        0,
         AppDimens.pageHorizontal,
         AppDimens.sp48,
       ),
       children: [
-        enter(_SummaryCard(summary: summary, currency: currency)),
+        _Header(ticker: ticker),
+        const SizedBox(height: AppDimens.sp24),
+        enter(_PositionCard(summary: summary)),
         const SizedBox(height: AppDimens.sp16),
-        enter(
-          PositionPrimaryButton(
-            label: 'position_detail_close_all'.tr(),
-            onPressed: skeleton ? null : onCloseAll,
+        enter(_PurchasesCard(lots: lots, onCloseLot: closeLot)),
+        const SizedBox(height: AppDimens.sp16),
+        // Después de lo tuyo, el mercado. Va abajo también porque su alto
+        // depende de los datos: arriba movería las compras al cargar.
+        enter(_PriceCard(ticker: ticker, skeleton: skeleton)),
+        if (!skeleton) ...[
+          const SizedBox(height: AppDimens.sp24),
+          enter(
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PortyQuestionPill(
+                question: question,
+                onTap: () => onAskPorty?.call(question),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: AppDimens.sectionGap),
-        SectionHeader(title: 'position_detail_purchases'.tr()),
-        const SizedBox(height: AppDimens.sp12),
-        MotionAwareSize(
-          duration: PositionDetailScreen.swapDuration,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          const SizedBox(height: AppDimens.sp32),
+          enter(_CloseAllButton(onPressed: onCloseAll)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Título grande: logo, ticker y nombre de la compañía. Al scrollear pasa a
+/// la barra (ver [_PositionDetailScreenState]).
+class _Header extends StatelessWidget {
+  const _Header({required this.ticker});
+
+  final String ticker;
+
+  /// Scroll a partir del cual el título grande ya no se ve.
+  static const height = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return QaBrandBuilder(
+      ticker: ticker,
+      builder:
+          (context, brand) => Row(
             children: [
-              for (var i = 0; i < lots.length; i++) ...[
-                enter(
-                  _PurchaseLotCard(
-                    key: ValueKey(lots[i]?.position.id ?? 'skeleton_$i'),
-                    lot: lots[i],
-                    currency: currency,
-                    dateFormat: dateFormat,
-                    onClose:
-                        lots[i] == null || onCloseLot == null
-                            ? null
-                            : () => onCloseLot!(lots[i]!),
-                  ),
+              QaTickerAvatar(ticker: ticker, brand: brand, size: 48),
+              const SizedBox(width: AppDimens.sp12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        ticker,
+                        style: tt.displaySmall?.copyWith(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.7,
+                          height: 1.1,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (brand.name != null && brand.name!.isNotEmpty)
+                      Text(
+                        brand.name!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
-                if (i < lots.length - 1) const SizedBox(height: AppDimens.sp12),
-              ],
+              ),
             ],
+          ),
+    );
+  }
+}
+
+/// Card con título fuerte (como las de Insights) y su contenido.
+class _Card extends StatelessWidget {
+  const _Card({required this.title, this.subtitle, required this.child});
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        border: Border.all(color: colors.border),
+      ),
+      padding: const EdgeInsets.all(AppDimens.cardPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: tt.titleMedium?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+            ),
+          ],
+          const SizedBox(height: AppDimens.sp16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Tu posición: lo que vale hoy (el número protagonista) y lo que ganaste o
+/// perdiste desde la compra; abajo, las métricas que lo explican.
+class _PositionCard extends StatelessWidget {
+  const _PositionCard({required this.summary});
+
+  final PositionValuation? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final s = summary;
+    const tabular = [FontFeature.tabularFigures()];
+    final pnl = s?.pnlAbsolute ?? 0;
+    final invested = s?.position.costBasis;
+
+    return _Card(
+      title: 'position_detail_summary'.tr(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonText(
+            s == null ? null : AppNumberFormat.money(s.marketValue),
+            animate: true,
+            placeholder: '\$0,000.00',
+            style: tt.displaySmall?.copyWith(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.8,
+              height: 1.1,
+              color: colors.textPrimary,
+              fontFeatures: tabular,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp6),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppDimens.sp6,
+            children: [
+              SkeletonText(
+                s == null
+                    ? null
+                    : '${AppNumberFormat.signedMoney(pnl)} · '
+                        '${AppNumberFormat.percent(s.pnlPercent)}',
+                animate: true,
+                placeholder: '+\$000.00 · +00.0%',
+                style: tt.bodyMedium?.copyWith(
+                  color: colors.pnlColor(pnl),
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: tabular,
+                ),
+              ),
+              Text(
+                'position_detail_since_purchase'.tr(),
+                style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sp20),
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  label: 'position_preview_shares'.tr(),
+                  value: s == null ? null : formatShares(s.position.quantity),
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  label: 'position_preview_current_price'.tr(),
+                  value:
+                      s == null ? null : AppNumberFormat.money(s.currentPrice),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  label: 'position_detail_avg_price'.tr(),
+                  value:
+                      s == null
+                          ? null
+                          : AppNumberFormat.money(s.position.purchasePrice),
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  label: 'position_detail_invested'.tr(),
+                  value:
+                      invested == null ? null : AppNumberFormat.money(invested),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+
+  final String label;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: tt.bodySmall?.copyWith(color: colors.textSecondary)),
+        const SizedBox(height: 2),
+        SkeletonText(
+          value,
+          animate: true,
+          placeholder: '\$000.00',
+          style: tt.titleSmall?.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -241,159 +520,223 @@ class _DetailList extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary, required this.currency});
+/// El precio de la acción con el gráfico de Porty (datos reales, rangos y
+/// scrub). En el skeleton, un bloque del mismo alto.
+class _PriceCard extends StatelessWidget {
+  const _PriceCard({required this.ticker, required this.skeleton});
 
-  final PositionValuation? summary;
-  final NumberFormat currency;
+  final String ticker;
+  final bool skeleton;
+
+  static const skeletonHeight = 290.0;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final summary = this.summary;
-    final pnl = summary?.pnlAbsolute ?? 0;
-    final sign = pnl >= 0 ? '+' : '';
+    return _Card(
+      title: 'position_detail_price'.tr(),
+      child:
+          skeleton
+              ? const SkeletonBlock(height: skeletonHeight, radius: 12)
+              : QaPriceChart(
+                ticker: ticker,
+                initialRange: PriceChartRange.month,
+                // El ticker ya está en el título de la pantalla.
+                showHeader: false,
+                // Sin datos de precio, la card queda con un aviso corto en
+                // vez de un gráfico vacío.
+                fallback: Text(
+                  'position_detail_price_unavailable'.tr(),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.customColors.textSecondary,
+                  ),
+                ),
+              ),
+    );
+  }
+}
 
-    return SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'position_detail_summary'.tr(),
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: colors.textSecondary),
-          ),
-          const SizedBox(height: AppDimens.sp12),
-          LabeledValueRow(
-            label: 'position_preview_shares'.tr(),
-            value: summary?.position.quantity.toStringAsFixed(4),
-            animateValue: true,
-          ),
-          const SizedBox(height: AppDimens.sp8),
-          LabeledValueRow(
-            label: 'position_preview_current_price'.tr(),
-            value:
-                summary == null ? null : currency.format(summary.currentPrice),
-            animateValue: true,
-          ),
-          const SizedBox(height: AppDimens.sp8),
-          LabeledValueRow(
-            label: 'position_preview_market_value'.tr(),
-            value:
-                summary == null ? null : currency.format(summary.marketValue),
-            animateValue: true,
-          ),
-          const SizedBox(height: AppDimens.sp8),
-          LabeledValueRow(
-            label: 'position_preview_pnl'.tr(),
-            value:
-                summary == null
-                    ? null
-                    : '$sign${currency.format(pnl)} (${summary.pnlPercent.toStringAsFixed(2)}%)',
-            valueColor: summary == null ? null : colors.pnlColor(pnl),
-            animateValue: true,
-          ),
-        ],
+/// Tus compras: una fila por compra (fecha, cuántas acciones y a cuánto;
+/// lo que ganó cada una), separadas solo por espacio.
+class _PurchasesCard extends StatelessWidget {
+  const _PurchasesCard({required this.lots, required this.onCloseLot});
+
+  final List<PositionValuation?> lots;
+  final void Function(PositionValuation lot)? onCloseLot;
+
+  @override
+  Widget build(BuildContext context) {
+    final skeleton = lots.any((l) => l == null);
+    final count = lots.length;
+    return _Card(
+      title: 'position_detail_purchases'.tr(),
+      subtitle:
+          skeleton
+              ? null
+              : count == 1
+              ? 'position_detail_purchases_one'.tr()
+              : 'position_detail_purchases_count'.tr(
+                namedArgs: {'count': '$count'},
+              ),
+      child: MotionAwareSize(
+        duration: PositionDetailScreen.swapDuration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < lots.length; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              _PurchaseRow(
+                key: ValueKey(lots[i]?.position.id ?? 'skeleton_$i'),
+                lot: lots[i],
+                onClose:
+                    lots[i] == null || onCloseLot == null
+                        ? null
+                        : () => onCloseLot!(lots[i]!),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PurchaseLotCard extends StatelessWidget {
-  const _PurchaseLotCard({
-    super.key,
-    required this.lot,
-    required this.currency,
-    required this.dateFormat,
-    required this.onClose,
-  });
+class _PurchaseRow extends StatelessWidget {
+  const _PurchaseRow({super.key, required this.lot, required this.onClose});
 
   final PositionValuation? lot;
-  final NumberFormat currency;
-  final DateFormat dateFormat;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
     final lot = this.lot;
     final pnl = lot?.pnlAbsolute ?? 0;
-    final sign = pnl >= 0 ? '+' : '';
-    final titleStyle = Theme.of(
-      context,
-    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700);
+    const tabular = [FontFeature.tabularFigures()];
 
-    return SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SkeletonText(
-                    lot == null
-                        ? null
-                        : dateFormat.format(lot.position.purchaseDate),
-                    style: titleStyle?.copyWith(color: colors.textPrimary),
-                    placeholder: 'Sep 30, 2026',
-                  ),
+              SkeletonText(
+                lot == null
+                    ? null
+                    : DateFormat.yMMMd().format(lot.position.purchaseDate),
+                placeholder: '30 sept 2026',
+                style: tt.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
+              const SizedBox(height: 2),
               SkeletonText(
-                lot == null ? null : '$sign${currency.format(pnl)}',
-                animate: true,
-                style: titleStyle?.copyWith(
-                  color: colors.pnlColor(pnl),
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-                placeholder: '+\$000.00',
+                lot == null
+                    ? null
+                    : 'position_detail_lot_detail'.tr(
+                      namedArgs: {
+                        'shares':
+                            lot.position.quantity == 1
+                                ? 'position_shares_one'.tr()
+                                : 'position_shares'.tr(
+                                  namedArgs: {
+                                    'count': formatShares(
+                                      lot.position.quantity,
+                                    ),
+                                  },
+                                ),
+                        'price': AppNumberFormat.money(
+                          lot.position.purchasePrice,
+                        ),
+                      },
+                    ),
+                placeholder: '0 acciones a \$000.00',
+                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
               ),
             ],
           ),
-          const SizedBox(height: AppDimens.sp12),
-          LabeledValueRow(
-            label: 'position_quantity'.tr(),
-            value: lot?.position.quantity.toStringAsFixed(4),
-          ),
-          const SizedBox(height: AppDimens.sp6),
-          LabeledValueRow(
-            label: 'position_purchase_price'.tr(),
-            value:
-                lot == null
-                    ? null
-                    : currency.format(lot.position.purchasePrice),
-          ),
-          const SizedBox(height: AppDimens.sp6),
-          LabeledValueRow(
-            label: 'position_preview_market_value'.tr(),
-            value: lot == null ? null : currency.format(lot.marketValue),
-            animateValue: true,
-          ),
-          const SizedBox(height: AppDimens.sp16),
-          SizedBox(
-            width: double.infinity,
-            height: AppDimens.touchTarget,
-            child: OutlinedButton.icon(
-              onPressed: onClose,
-              icon: const Icon(Icons.sell_outlined, size: 18),
-              label: Text('position_detail_close_lot'.tr()),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colors.accentBlue,
-                side: BorderSide(color: colors.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                ),
+        ),
+        const SizedBox(width: AppDimens.sp12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SkeletonText(
+              lot == null ? null : AppNumberFormat.signedMoney(pnl),
+              animate: true,
+              placeholder: '+\$000.00',
+              style: tt.titleSmall?.copyWith(
+                color: colors.pnlColor(pnl),
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                fontFeatures: tabular,
               ),
             ),
+            const SizedBox(height: 2),
+            SkeletonText(
+              lot == null ? null : AppNumberFormat.percent(lot.pnlPercent),
+              animate: true,
+              placeholder: '+00.0%',
+              style: tt.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                fontFeatures: tabular,
+              ),
+            ),
+          ],
+        ),
+        if (onClose != null) ...[
+          const SizedBox(width: AppDimens.sp8),
+          TextButton(
+            onPressed: onClose,
+            style: TextButton.styleFrom(
+              foregroundColor: colors.textPrimary,
+              minimumSize: const Size(AppDimens.touchTarget, AppDimens.touchTarget),
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp8),
+              textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            child: Text('position_detail_close_lot'.tr()),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Cerrar toda la posición: al final y secundario (borde, sin relleno). Es
+/// lo único de la pantalla que no se deshace.
+class _CloseAllButton extends StatelessWidget {
+  const _CloseAllButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colors.textPrimary,
+          side: BorderSide(color: colors.border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+          ),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        child: Text('position_detail_close_all'.tr()),
       ),
     );
   }
 }
+
+/// "2.0434" en vez de "2.0434492300000002" o "1.0000": hasta 4 decimales,
+/// sin ceros de más.
+String formatShares(double quantity) =>
+    NumberFormat('#,##0.####').format(quantity);
 
 class _ErrorBody extends StatelessWidget {
   const _ErrorBody({required this.message, required this.onRetry});

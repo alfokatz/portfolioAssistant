@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 
 /// Entrada a Porty desde Insights: su avatar, qué le podés preguntar y
 /// algunas preguntas listas que abren el chat ya enviadas (las mismas
@@ -105,65 +106,11 @@ class PortfolioQaEntryCard extends StatelessWidget {
                   runSpacing: AppDimens.sp8,
                   children: [
                     for (final q in suggestions)
-                      _SuggestionPill(question: q, onTap: () => onAsk(q)),
+                      PortyQuestionPill(question: q, onTap: () => onAsk(q)),
                   ],
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SuggestionPill extends StatelessWidget {
-  const _SuggestionPill({required this.question, required this.onTap});
-
-  final String question;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Semantics(
-      button: true,
-      child: Material(
-        color: colors.surfaceCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-          side: BorderSide(color: colors.accentBlue.withValues(alpha: 0.45)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            PortyHapticsService.maybeOf(context)?.selectionTap();
-            onTap();
-          },
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.sp16,
-                vertical: AppDimens.sp8,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PortySpark(size: 12, color: colors.accentBlue),
-                  const SizedBox(width: AppDimens.sp6),
-                  Flexible(
-                    child: Text(
-                      question,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),

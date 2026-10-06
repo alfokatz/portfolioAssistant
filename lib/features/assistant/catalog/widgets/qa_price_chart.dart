@@ -36,6 +36,7 @@ class QaPriceChart extends StatefulWidget {
     required this.initialRange,
     required this.fallback,
     this.weightPct = 0,
+    this.showHeader = true,
     this.active = true,
     this.onFinished,
   });
@@ -44,6 +45,10 @@ class QaPriceChart extends StatefulWidget {
   final PriceChartRange initialRange;
   final Widget fallback;
   final double weightPct;
+
+  /// Sin el encabezado del ticker: para pantallas que ya lo muestran (el
+  /// detalle de una posición).
+  final bool showHeader;
   final bool active;
   final VoidCallback? onFinished;
 
@@ -210,11 +215,13 @@ class _QaPriceChartState extends State<QaPriceChart>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        QaTickerHeader(
-          ticker: widget.ticker,
-          trailing: QaMarketParts.weightTag(widget.weightPct),
-        ),
-        const SizedBox(height: QaSpace.sectionGap),
+        if (widget.showHeader) ...[
+          QaTickerHeader(
+            ticker: widget.ticker,
+            trailing: QaMarketParts.weightTag(widget.weightPct),
+          ),
+          const SizedBox(height: QaSpace.sectionGap),
+        ],
         _Hero(
           candles: shown,
           range: _range,

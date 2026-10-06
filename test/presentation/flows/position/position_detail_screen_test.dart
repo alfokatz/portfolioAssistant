@@ -74,7 +74,7 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('\$600.00'), findsOneWidget); // valor de mercado total
-    expect(find.text('+\$120.00 (25.00%)'), findsOneWidget);
+    expect(find.text('+\$120.00 · +25.0%'), findsOneWidget);
     expect(find.text('+\$100.00'), findsOneWidget); // lote a
     expect(find.text('+\$20.00'), findsOneWidget); // lote b
     // La red sigue pendiente: lo de arriba no dependió de ella.
@@ -147,6 +147,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('\$600.00'), findsOneWidget);
+    // Un frame más para lo que resuelve async (el gráfico de precio y el
+    // logo): llega dato, no animación. Después, nada queda animando.
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
@@ -195,7 +199,13 @@ void main() {
     // la ruta ya está construida y llena. Nada espera la red.
     expect(frames, lessThanOrEqualTo(2));
     expect(find.byType(PositionDetailScreen), findsOneWidget);
-    expect(find.text('+\$120.00 (25.00%)'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PositionDetailScreen),
+        matching: find.text('+\$120.00 · +25.0%'),
+      ),
+      findsOneWidget,
+    );
     expect(lots.completer.isCompleted, isFalse);
     await tester.pumpAndSettle();
   });
