@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
+/// Carga de pantalla completa de `ContentStateWidget`: Porty pensando (ver
+/// [PortyLoader]), nunca un spinner.
 class Loading extends StatelessWidget {
-  const Loading({
-    super.key,
-  });
+  const Loading({super.key, this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -12,11 +14,7 @@ class Loading extends StatelessWidget {
     return SizedBox(
       width: size.width,
       height: size.height,
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: PortfolioColors.accentBlue,
-        ),
-      ),
+      child: PortyLoader(message: message),
     );
   }
 }

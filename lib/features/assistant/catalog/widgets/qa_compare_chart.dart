@@ -347,7 +347,7 @@ class _QaCompareChartState extends State<QaCompareChart>
   Widget _buildChartArea(CompareSeries? shown, bool loading) {
     if (shown == null) {
       if (loading || !_cache.containsKey(_range)) {
-        return const QaChartSpinner();
+        return const QaChartSkeleton();
       }
       return Center(
         child: Text('Sin datos para este período', style: QaText.label),

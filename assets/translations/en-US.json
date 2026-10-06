@@ -456,5 +456,8 @@
   "assistant_daily_limit_body": "You'll have queries again tomorrow.",
   "app_update_required_title": "Update the app",
   "app_update_required_body": "This version is no longer supported. Update Porty to keep using the app.",
-  "app_update_required_action": "Update"
+  "app_update_required_action": "Update",
+  "loading": "Loading",
+  "loader_preparing_portfolio": "Getting your portfolio ready…",
+  "loader_one_moment": "One moment…"
 }

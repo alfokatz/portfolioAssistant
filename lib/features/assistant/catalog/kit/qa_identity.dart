@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 /// Resuelve el [CompanyBrand] de un ticker vía [CompanyBrandLoader] y
 /// reconstruye cuando llega. Sin `ProviderScope` (tests aislados) queda en
@@ -448,11 +449,7 @@ class QaFollowUpBar extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 13,
-                            color: QaColors.accentBlue,
-                          ),
+                          PortySpark(size: 11, color: QaColors.accentBlue),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(

@@ -129,6 +129,8 @@ void main() {
     revenueCat.prices.complete({SubscriptionTier.gold: 'US\$19.99'});
     await tester.pump();
     await tester.pump();
+    // Una vez visible, el skeleton se queda al menos 400 ms (no parpadea).
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(QaSkeleton), findsNothing);
   });
 }

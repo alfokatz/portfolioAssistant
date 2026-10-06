@@ -3,6 +3,7 @@ import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/advice_widgets.dart';
@@ -43,7 +44,11 @@ abstract final class PortfolioQaCatalogWidgets {
                   text: data.text,
                   style: style,
                   play: active,
-                  onComplete: onFinished,
+                  onComplete: () {
+                    onFinished();
+                    // El avatar del header deja de hablar (ver PortyMood).
+                    PortyVoiceScope.maybeOf(context)?.onDoneSpeaking?.call();
+                  },
                   onWordRevealed:
                       PortyHapticsService.maybeOf(context)?.streamTick,
                 ),

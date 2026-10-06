@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_generator.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_input_builder.dart';
@@ -237,6 +238,41 @@ void main() {
       expect(find.textContaining('pts'), findsNothing);
       // Porty terminó con la Home en pantalla: un toque.
       expect(haptics, [PortyHapticPattern.light]);
+    });
+
+    testWidgets('Porty thinks (animated) on the card only while it writes', (
+      tester,
+    ) async {
+      final controller = FixedWeeklyReportController(
+        const WeeklyReportState(
+          status: WeeklyReportStatus.loading,
+          generating: true,
+        ),
+      );
+      await tester.pumpWidget(reportApp(controller));
+      await tester.pump();
+      PortyFrame avatar() =>
+          (tester
+                      .widget<CustomPaint>(
+                        find.descendant(
+                          of: find.byType(PortyAvatar),
+                          matching: find.byType(CustomPaint),
+                        ),
+                      )
+                      .painter!
+                  as PortyAvatarPainter)
+              .frame;
+      expect(avatar().state, PortyAvatarState.thinking);
+      final floats = <double>{};
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        floats.add(avatar().dy);
+      }
+      expect(floats.length, greaterThan(1));
+
+      controller.emit(ready(fullReport(), fresh: true));
+      await tester.pumpAndSettle();
+      expect(avatar(), const PortyFrame.still(PortyAvatarState.idle));
     });
 
     testWidgets('Free with the tasting used: numbers, no S&P, Gold line', (

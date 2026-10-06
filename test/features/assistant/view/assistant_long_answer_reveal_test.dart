@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dartz/dartz.dart';
@@ -31,7 +32,11 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/assistant_screen.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -400,6 +405,195 @@ void main() {
     expect(_top(answer), inInclusiveRange(viewport.top, viewport.bottom - 20));
     expect(tester.takeException(), isNull);
   });
+
+  group('message avatar', () {
+    /// Recorre un turno guardando, por frame, lo que pinta el avatar del
+    /// mensaje en curso (si ya está en pantalla), su caja en coordenadas del
+    /// contenido de la lista (sin el scroll) y lo que pinta el del header.
+    Future<
+      ({
+        List<PortyFrame> frames,
+        Set<Rect> boxes,
+        Set<PortyAvatarState> header,
+      })
+    >
+    recordTurn(WidgetTester tester, _Screen screen, String text) async {
+      final frames = <PortyFrame>[];
+      final boxes = <Rect>{};
+      final header = <PortyAvatarState>{};
+      void record() {
+        header.add(_headerAvatar(tester).state);
+        final avatar = _turnAvatar(tester);
+        if (avatar == null) return;
+        frames.add(_frameOf(tester, avatar));
+        boxes.add(
+          tester.getRect(avatar).translate(0, _scrollPixels(tester)),
+        );
+      }
+
+      await tester.enterText(find.byType(TextField), text);
+      await tester.pump();
+      await tester.tap(find.byType(AssistantSendButton));
+      await tester.pump();
+      record();
+      // Como runTurn, pero el turno también cierra con un aviso, un error o
+      // la fila quitada (que nunca terminan un reveal).
+      var settled = -1;
+      for (var frame = 0; frame < 3000 && settled < 50; frame++) {
+        await tester.runAsync(() async {});
+        await tester.pump(const Duration(milliseconds: 16));
+        record();
+        final state = screen.state;
+        final last = state.messages.last;
+        final closed =
+            !state.isWaiting &&
+            !last.isStreaming &&
+            (last.surfaceId == null ||
+                last.notice != null ||
+                last.hasRevealed ||
+                state.error != null);
+        if (closed || settled >= 0) settled++;
+      }
+      // La sonrisa dura 3 s y vuelve a reposo.
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        record();
+      }
+      return (frames: frames, boxes: boxes, header: header);
+    }
+
+    List<PortyAvatarState> statesOf(List<PortyFrame> frames) {
+      final seen = <PortyAvatarState>[];
+      for (final f in frames) {
+        if (seen.isEmpty || seen.last != f.state) seen.add(f.state);
+      }
+      return seen;
+    }
+
+    testWidgets('one turn: the message avatar thinks (chat pulse) → answers '
+        '→ smiles → stays still in idle, in the same place and box; the '
+        'header avatar stays idle', (tester) async {
+      final screen = await pumpScreen(tester);
+      final turn = await recordTurn(tester, screen, previousQuestion);
+      expect(statesOf(turn.frames), [
+        PortyAvatarState.thinking,
+        PortyAvatarState.answering,
+        PortyAvatarState.answered,
+        PortyAvatarState.idle,
+      ]);
+      // Sin saltos: misma posición y tamaño de caja de punta a punta.
+      expect(turn.boxes, hasLength(1));
+      expect(turn.boxes.single.size, const Size.square(28));
+      // Un solo Porty actuando: el del header no pasa por ningún estado.
+      expect(turn.header, {PortyAvatarState.idle});
+
+      final thinking = turn.frames.where(
+        (f) => f.state == PortyAvatarState.thinking && f.from == null,
+      );
+      // El pulso del orbe sobre el cuerpo, el eco y sin destello.
+      expect(thinking.map((f) => f.scale).toSet().length, greaterThan(1));
+      expect(thinking.every((f) => f.scale >= 0.9 && f.scale <= 1.06), isTrue);
+      expect(thinking.any((f) => f.echoOpacity > 0.05), isTrue);
+      expect(
+        turn.frames.any((f) => f.visibleParts.contains(PortyPart.spark)),
+        isFalse,
+      );
+      // Antes de hablar, el pulso se asentó en escala 1 y el eco se apagó.
+      final firstAnswering = turn.frames.firstWhere(
+        (f) => f.state == PortyAvatarState.answering,
+      );
+      expect(firstAnswering.scale, closeTo(1, 0.02));
+      expect(firstAnswering.echoOpacity, 0);
+
+      // Al final, quieto como el resto del historial.
+      expect(
+        turn.frames.last,
+        const PortyFrame.still(PortyAvatarState.idle, spark: false),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a bad-news answer goes straight back to idle, no smile', (
+      tester,
+    ) async {
+      const badNews = 'Tu cartera bajó 3,2 % esta semana, sobre todo por NVDA.';
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final screen = _Screen([_answer(badNews)]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(app(screen));
+      await tester.pump();
+      await tester.pump();
+
+      final turn = await recordTurn(tester, screen, previousQuestion);
+      expect(statesOf(turn.frames), [
+        PortyAvatarState.thinking,
+        PortyAvatarState.answering,
+        PortyAvatarState.idle,
+      ]);
+      expect(turn.header, {PortyAvatarState.idle});
+    });
+
+    testWidgets('the daily limit notice replaces the wait next to the same '
+        'avatar, which turns to error', (tester) async {
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final screen = _Screen([(_) => proxyRejection(429, 'daily_limit')]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(app(screen));
+      await tester.pump();
+      await tester.pump();
+
+      final turn = await recordTurn(tester, screen, previousQuestion);
+      expect(find.byType(AssistantQuietNotice), findsOneWidget);
+      // Según cuánto tarde el rechazo, la fila aparece pensando o ya en
+      // error (si llega antes de que se termine de tipear la pregunta).
+      final states = statesOf(turn.frames);
+      expect(states.last, PortyAvatarState.error);
+      expect(
+        states,
+        anyOf([
+          [PortyAvatarState.thinking, PortyAvatarState.error],
+          [PortyAvatarState.error],
+        ]),
+      );
+      expect(turn.boxes, hasLength(1));
+      expect(turn.header, {PortyAvatarState.idle});
+    });
+
+    testWidgets('a connection error takes the whole row (avatar included) '
+        'and shows the banner', (tester) async {
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final screen = _Screen([(_) => throw const SocketException('offline')]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(app(screen));
+      await tester.pump();
+      await tester.pump();
+
+      final turn = await recordTurn(tester, screen, previousQuestion);
+      // Si la fila llegó a verse, fue pensando; después se va entera.
+      expect(
+        turn.frames.every((f) => f.state == PortyAvatarState.thinking),
+        isTrue,
+      );
+      expect(_turnAvatar(tester), isNull);
+      expect(find.byType(AssistantErrorBanner), findsOneWidget);
+      expect(turn.header, {PortyAvatarState.idle});
+    });
+
+    testWidgets('with reduce motion: no pulse, no echo, no movement; only '
+        'the expression changes', (tester) async {
+      final screen = await pumpScreen(tester, reduceMotion: true);
+      final turn = await recordTurn(tester, screen, previousQuestion);
+      final states = turn.frames.map((f) => f.state).toSet();
+      expect(states, contains(PortyAvatarState.thinking));
+      expect(states, contains(PortyAvatarState.answered));
+      for (final frame in turn.frames) {
+        expect(frame, PortyFrame.still(frame.state, spark: false));
+      }
+    });
+  });
 }
 
 // ------------------------------------------------------------ render helpers
@@ -477,6 +671,38 @@ RenderParagraph? _tickerParagraph(WidgetTester tester, String ticker) {
 }
 
 // ------------------------------------------------------------------ harness
+
+PortyFrame _frameOf(WidgetTester tester, Finder avatar) {
+  final paint = tester.widget<CustomPaint>(
+    find.descendant(of: avatar, matching: find.byType(CustomPaint)),
+  );
+  return (paint.painter! as PortyAvatarPainter).frame;
+}
+
+/// El avatar del turno en curso: el último de la lista, si hay más que el
+/// del saludo.
+Finder? _turnAvatar(WidgetTester tester) {
+  final inList = find.descendant(
+    of: find.byType(ListView),
+    matching: find.byType(PortyAvatar),
+  );
+  if (inList.evaluate().length < 2) return null;
+  return inList.last;
+}
+
+/// Lo que pinta el avatar del header en este frame.
+PortyFrame _headerAvatar(WidgetTester tester) {
+  final paint = tester.widget<CustomPaint>(
+    find.descendant(
+      of: find.descendant(
+        of: find.byType(PortyHeader),
+        matching: find.byType(PortyAvatar),
+      ),
+      matching: find.byType(CustomPaint),
+    ),
+  );
+  return (paint.painter! as PortyAvatarPainter).frame;
+}
 
 typedef _Step = Map<String, Object?> Function(Map<String, dynamic>);
 

@@ -13,9 +13,9 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 /// la pantalla y las cards marcan su propio borde, como una respuesta de
 /// "lenguaje plano" en vez de un bloque de chat encerrado.
 ///
-/// Aparece con un fade + slide-up sutil al montarse: reemplaza al orbe de
-/// espera ([AssistantThinkingOrb]) y ese salto merece una transición, no un
-/// swap instantáneo.
+/// Aparece con un fade + slide-up sutil al montarse: reemplaza la espera
+/// (Porty pensando al lado, ver `AssistantScreen`) y ese salto merece una
+/// transición, no un swap instantáneo.
 class PortfolioQaAssistantSurface extends StatefulWidget {
   const PortfolioQaAssistantSurface({
     super.key,

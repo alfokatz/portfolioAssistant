@@ -14,6 +14,8 @@ import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/posit
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 
 class ClosePositionScreen extends StatefulHookConsumerWidget {
   final String positionId;
@@ -351,23 +353,21 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'close_position_price'.tr(),
-                suffixIcon: state.loadingPrice
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colors.accentBlue,
-                          ),
+                suffixIcon: DelayedLoaderVisibility(
+                  loading: state.loadingPrice,
+                  builder: (context, showSpinner) => showSpinner
+                      ? Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: ButtonSpinner.small(color: colors.accentBlue),
+                        )
+                      : IconButton(
+                          tooltip: 'retry'.tr(),
+                          onPressed: state.loadingPrice
+                              ? null
+                              : notifier.fetchPriceForDate,
+                          icon: const Icon(Icons.refresh_rounded),
                         ),
-                      )
-                    : IconButton(
-                        tooltip: 'retry'.tr(),
-                        onPressed: notifier.fetchPriceForDate,
-                        icon: const Icon(Icons.refresh_rounded),
-                      ),
+                ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,

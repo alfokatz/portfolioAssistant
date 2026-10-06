@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/subscription/ui/subscription_paywal
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 class SettingsSubscriptionCard extends ConsumerWidget {
   const SettingsSubscriptionCard({super.key});
@@ -50,10 +51,14 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                 children: [
                   _PlanBadge(tier: tier),
                   const Spacer(),
-                  Icon(
-                    Icons.auto_awesome_rounded,
-                    color: isGold ? SubscriptionGoldTheme.accent : colors.accentBlue,
-                    size: 22,
+                  PortyAvatar(
+                    size: 30,
+                    palette: isGold
+                        ? const PortyAvatarPalette(
+                            body: SubscriptionGoldTheme.accent,
+                            features: SubscriptionGoldTheme.ink,
+                          )
+                        : PortyAvatarPalette.brand,
                   ),
                 ],
               ),

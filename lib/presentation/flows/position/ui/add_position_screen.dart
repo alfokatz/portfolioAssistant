@@ -14,6 +14,9 @@ import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/posit
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 
 class AddPositionScreen extends StatefulHookConsumerWidget {
   final String? prefilledTicker;
@@ -133,22 +136,55 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     );
   }
 
-  Widget _preview(BuildContext context, AddPositionProvider notifier) {
+  Widget _preview(
+    BuildContext context,
+    AddPositionProvider notifier, {
+    bool skeleton = false,
+  }) {
     final colors = context.customColors;
     final state = ref.watch(addPositionProvider(_args));
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final shares = notifier.shares();
     final price = notifier.purchasePrice();
-    if (shares == null || price == null || state.currentPrice == null) {
+    final current = state.currentPrice;
+    if (shares == null || price == null || (current == null && !skeleton)) {
       return const SizedBox.shrink();
     }
+    if (current == null) {
+      return SkeletonScope(child: _previewCard(context, values: null));
+    }
 
-    final marketValue = shares * state.currentPrice!;
+    final marketValue = shares * current;
     final costBasis = shares * price;
     final pnlAbs = marketValue - costBasis;
     final pnlPct = costBasis > 0 ? (pnlAbs / costBasis) * 100 : 0.0;
     final sign = pnlAbs >= 0 ? '+' : '';
+    return _previewCard(
+      context,
+      values: (
+        current: currency.format(current),
+        shares: shares.toStringAsFixed(6),
+        marketValue: currency.format(marketValue),
+        pnl: '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
+        pnlColor: colors.pnlColor(pnlAbs),
+      ),
+    );
+  }
 
+  /// La vista previa; con [values] en `null`, los valores van en skeleton
+  /// (mismos labels y alturas).
+  Widget _previewCard(
+    BuildContext context, {
+    required ({
+      String current,
+      String shares,
+      String marketValue,
+      String pnl,
+      Color pnlColor,
+    })?
+    values,
+  }) {
+    final colors = context.customColors;
     return SurfaceCard(
       margin: const EdgeInsets.only(top: AppDimens.sp16),
       child: Column(
@@ -164,24 +200,23 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
           const SizedBox(height: AppDimens.sp12),
           LabeledValueRow(
             label: 'position_preview_current_price'.tr(),
-            value: currency.format(state.currentPrice),
+            value: values?.current,
             dense: true,
           ),
           LabeledValueRow(
             label: 'position_preview_shares'.tr(),
-            value: shares.toStringAsFixed(6),
+            value: values?.shares,
             dense: true,
           ),
           LabeledValueRow(
             label: 'position_preview_market_value'.tr(),
-            value: currency.format(marketValue),
+            value: values?.marketValue,
             dense: true,
           ),
           LabeledValueRow(
             label: 'position_preview_pnl'.tr(),
-            value:
-                '$sign${currency.format(pnlAbs)} (${pnlPct.toStringAsFixed(2)}%)',
-            valueColor: colors.pnlColor(pnlAbs),
+            value: values?.pnl,
+            valueColor: values?.pnlColor,
             dense: true,
           ),
         ],
@@ -256,23 +291,21 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               controller: _priceController,
               decoration: InputDecoration(
                 labelText: 'position_purchase_price'.tr(),
-                suffixIcon: state.loadingPrice
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colors.accentBlue,
-                          ),
+                suffixIcon: DelayedLoaderVisibility(
+                  loading: state.loadingPrice,
+                  builder: (context, showSpinner) => showSpinner
+                      ? Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: ButtonSpinner.small(color: colors.accentBlue),
+                        )
+                      : IconButton(
+                          tooltip: 'retry'.tr(),
+                          onPressed: state.loadingPrice
+                              ? null
+                              : notifier.fetchPriceForDate,
+                          icon: const Icon(Icons.refresh_rounded),
                         ),
-                      )
-                    : IconButton(
-                        tooltip: 'retry'.tr(),
-                        onPressed: notifier.fetchPriceForDate,
-                        icon: const Icon(Icons.refresh_rounded),
-                      ),
+                ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -307,16 +340,26 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
             ),
             if (_sharesEquivalentHint(context, notifier) != null)
               _sharesEquivalentHint(context, notifier)!,
-            if (state.loadingCurrent)
-              Padding(
-                padding: const EdgeInsets.only(top: AppDimens.sp12),
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  color: colors.accentBlue,
-                  backgroundColor: colors.border,
-                ),
-              ),
-            _preview(context, notifier),
+            // Mientras llega el precio actual, la vista previa misma con los
+            // valores en skeleton (no una barra de progreso aparte).
+            DelayedLoaderVisibility(
+              loading: state.loadingCurrent && state.currentPrice == null,
+              builder:
+                  (context, showSkeleton) => AnimatedSwitcher(
+                    duration:
+                        MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : LoaderTiming.swap,
+                    child: KeyedSubtree(
+                      key: ValueKey(showSkeleton),
+                      child: _preview(
+                        context,
+                        notifier,
+                        skeleton: showSkeleton,
+                      ),
+                    ),
+                  ),
+            ),
             const SizedBox(height: AppDimens.sp32),
             PositionPrimaryButton(
               label: 'save'.tr(),

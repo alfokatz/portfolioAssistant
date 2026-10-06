@@ -1,10 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_activity_copy.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_breath.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -27,6 +29,11 @@ class PortyQuota {
 /// de estado que sigue al turno en curso ([activity]) y, a la derecha, las
 /// consultas restantes.
 ///
+/// El avatar respira y parpadea en reposo; durante un turno no actúa (lo
+/// hace el avatar del mensaje, ver `AssistantScreen`): lo que cambia es la
+/// línea de estado. [mood], si se pasa, fija su expresión. Tocarlo lo hace
+/// mirar hacia el toque, con un haptic leve.
+///
 /// El header es transparente sobre `AppBackgroundGradient`; el borde contra
 /// el chat lo resuelve el fade de la lista (ver `AssistantScreen`), no una
 /// línea ni una superficie propia.
@@ -34,11 +41,18 @@ class PortyHeader extends StatefulWidget {
   const PortyHeader({
     super.key,
     required this.activity,
+    this.mood,
+    this.entrance = false,
     this.quota,
     this.onQuotaTap,
   });
 
   final ValueListenable<TurnActivity> activity;
+
+  final ValueListenable<PortyAvatarState>? mood;
+
+  /// El avatar aparece con su entrada (primera vez del chat en la sesión).
+  final bool entrance;
 
   /// `null` oculta el chip.
   final PortyQuota? quota;
@@ -52,44 +66,34 @@ class PortyHeader extends StatefulWidget {
   State<PortyHeader> createState() => _PortyHeaderState();
 }
 
-class _PortyHeaderState extends State<PortyHeader>
-    with TickerProviderStateMixin {
+class _PortyHeaderState extends State<PortyHeader> {
   static const _statusFade = Duration(milliseconds: 200);
-  static const _topPadding = AppDimens.sp12;
+  static const _topPadding = AppDimens.sp8;
   static const _nameFontSize = 17.0;
   static const _nameHeight = 1.2;
   static const _nameLineHeight = _nameFontSize * _nameHeight;
-  static const _presenceDuration = Duration(milliseconds: 220);
+  static const _statusFontSize = 13.0;
+  static const _statusHeight = 1.3;
+  static const _nameStatusGap = 3.0;
 
-  /// Cuánto crece el avatar en el pico de la respiración.
-  static const _pulseAmplitude = 0.05;
-
-  // [_breath] es el ciclo (en fase con el orbe del chat, ver PortyBreath);
-  // [_presence] lo mezcla de 0 a 1 al empezar un turno y de vuelta a 0 al
-  // terminar, así el pulso entra y sale suave en vez de cortarse a mitad.
-  late final AnimationController _breath = AnimationController(
-    vsync: this,
-    duration: PortyBreath.period,
+  /// Alto del bloque nombre + estado, para alinear el chip con el nombre
+  /// (el avatar es más alto y la fila centra el texto).
+  static const _textHeight =
+      _nameLineHeight + _nameStatusGap + _statusFontSize * _statusHeight;
+  static final _textTop = math.max(
+    0.0,
+    (PortyHeader.avatarSize - _textHeight) / 2,
   );
-  late final AnimationController _presence = AnimationController(
-    vsync: this,
-    duration: _presenceDuration,
-  )..addStatusListener((status) {
-    if (status == AnimationStatus.dismissed) _breath.stop();
-  });
 
-  late bool _busy = !widget.activity.value.isIdle;
+  // Se fija en initState (no lazy): si se leyera recién en el primer cambio
+  // de actividad, ya valdría el estado nuevo y el anuncio no saldría.
+  late bool _busy;
 
   @override
   void initState() {
     super.initState();
+    _busy = !widget.activity.value.isIdle;
     widget.activity.addListener(_onActivity);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncPulse();
   }
 
   @override
@@ -105,8 +109,6 @@ class _PortyHeaderState extends State<PortyHeader>
   @override
   void dispose() {
     widget.activity.removeListener(_onActivity);
-    _breath.dispose();
-    _presence.dispose();
     super.dispose();
   }
 
@@ -115,21 +117,6 @@ class _PortyHeaderState extends State<PortyHeader>
     if (busy == _busy) return;
     _busy = busy;
     if (busy) _announceStart();
-    _syncPulse();
-  }
-
-  void _syncPulse() {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _breath.stop();
-      _presence.value = 0;
-      return;
-    }
-    if (_busy) {
-      if (!_breath.isAnimating) PortyBreath.start(_breath);
-      _presence.forward();
-    } else {
-      _presence.reverse();
-    }
   }
 
   /// Una sola vez por turno: los cambios de tool actualizan el label del
@@ -161,7 +148,7 @@ class _PortyHeaderState extends State<PortyHeader>
             AppDimens.pageHorizontal,
             _topPadding,
             AppDimens.pageHorizontal,
-            AppDimens.sp8,
+            AppDimens.sp4,
           ),
           child: ValueListenableBuilder<TurnActivity>(
             valueListenable: widget.activity,
@@ -175,18 +162,9 @@ class _PortyHeaderState extends State<PortyHeader>
                 excludeSemantics: true,
                 child: Row(
                   children: [
-                    AnimatedBuilder(
-                      animation: Listenable.merge([_breath, _presence]),
-                      builder: (context, child) {
-                        final pulse =
-                            PortyBreath.wave(_breath.value) *
-                            Curves.easeOutCubic.transform(_presence.value);
-                        return Transform.scale(
-                          scale: 1 + _pulseAmplitude * pulse,
-                          child: child,
-                        );
-                      },
-                      child: const PortyAvatar(),
+                    _HeaderAvatar(
+                      mood: widget.mood,
+                      entrance: widget.entrance,
                     ),
                     const SizedBox(width: AppDimens.sp12),
                     Expanded(
@@ -204,7 +182,7 @@ class _PortyHeaderState extends State<PortyHeader>
                               color: colors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: _nameStatusGap),
                           AnimatedSwitcher(
                             duration:
                                 reduceMotion ? Duration.zero : _statusFade,
@@ -224,9 +202,9 @@ class _PortyHeaderState extends State<PortyHeader>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: textTheme.bodySmall?.copyWith(
-                                fontSize: 13,
+                                fontSize: _statusFontSize,
                                 fontWeight: FontWeight.w500,
-                                height: 1.3,
+                                height: _statusHeight,
                                 color: colors.textSecondary,
                               ),
                             ),
@@ -242,11 +220,39 @@ class _PortyHeaderState extends State<PortyHeader>
         ),
         if (quota != null)
           Positioned(
-            top: _topPadding + _nameLineHeight / 2 - AppDimens.touchTarget / 2,
+            top:
+                _topPadding +
+                _textTop +
+                _nameLineHeight / 2 -
+                AppDimens.touchTarget / 2,
             right: AppDimens.pageHorizontal,
             child: _QuotaChip(quota: quota, onTap: widget.onQuotaTap),
           ),
       ],
+    );
+  }
+}
+
+class _HeaderAvatar extends StatelessWidget {
+  const _HeaderAvatar({required this.mood, required this.entrance});
+
+  final ValueListenable<PortyAvatarState>? mood;
+  final bool entrance;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget avatar(PortyAvatarState state) => PortyAvatar(
+      state: state,
+      size: PortyHeader.avatarSize,
+      animated: true,
+      entrance: entrance,
+      onTap: () => PortyHapticsService.maybeOf(context)?.selectionTap(),
+    );
+    final mood = this.mood;
+    if (mood == null) return avatar(PortyAvatarState.idle);
+    return ValueListenableBuilder<PortyAvatarState>(
+      valueListenable: mood,
+      builder: (context, state, _) => avatar(state),
     );
   }
 }

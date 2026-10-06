@@ -12,9 +12,12 @@ class SparklineChart extends StatelessWidget {
     super.key,
     required this.values,
     required this.isPositive,
-    this.height = 36,
-    this.width = 72,
+    this.height = defaultHeight,
+    this.width = defaultWidth,
   });
+
+  static const defaultHeight = 36.0;
+  static const defaultWidth = 72.0;
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +31,12 @@ class SparklineChart extends StatelessWidget {
     final maxY = values.reduce((a, b) => a > b ? a : b);
     final padding = (maxY - minY) * 0.15;
 
-    final spots = values
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value))
-        .toList();
+    final spots =
+        values
+            .asMap()
+            .entries
+            .map((e) => FlSpot(e.key.toDouble(), e.value))
+            .toList();
 
     return SizedBox(
       width: width,

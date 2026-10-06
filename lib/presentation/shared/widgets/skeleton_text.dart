@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 
-/// Texto que puede no estar todavía. Sin [text] muestra una barra quieta
-/// (sin shimmer: nada que compita con el resto) del tamaño exacto que
-/// ocupa [placeholder] con el mismo [style], así el skeleton tiene la
-/// altura final y el cambio a datos no mueve el layout.
+/// Texto que puede no estar todavía. Sin [text] muestra una barra
+/// (`SkeletonBlock`: quieta, o con el pulso lento si hay un
+/// `SkeletonScope` arriba) del tamaño exacto que ocupa [placeholder] con el
+/// mismo [style], así el skeleton tiene la altura final y el cambio a datos
+/// no mueve el layout.
 ///
 /// Con [animate], cada cambio de valor (barra → texto, o un número que se
 /// refresca en el lugar) hace un crossfade corto en vez de saltar.
@@ -65,15 +66,10 @@ class _Bar extends StatelessWidget {
         children: [
           // Invisible: solo da el tamaño.
           Opacity(opacity: 0, child: Text(placeholder, style: style)),
-          Positioned.fill(
+          const Positioned.fill(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: context.customColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
+              padding: EdgeInsets.symmetric(vertical: 3),
+              child: SkeletonBlock(radius: 4),
             ),
           ),
         ],

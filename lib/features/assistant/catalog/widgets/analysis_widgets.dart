@@ -21,6 +21,7 @@ import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_chec
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 /// Análisis de una empresa para un inversor casual: una sola card, leída de
 /// arriba a abajo en ~20 segundos.
@@ -587,7 +588,7 @@ class _CourtesyLine extends StatelessWidget {
     final plan = QaPlanScope.maybeOf(context);
     return Row(
       children: [
-        Icon(Icons.auto_awesome_rounded, size: 13, color: QaColors.accentBlue),
+        PortySpark(size: 11, color: QaColors.accentBlue),
         const SizedBox(width: 6),
         Expanded(
           child: Text('Análisis Gold de cortesía', style: QaText.caption),

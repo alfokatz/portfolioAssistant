@@ -458,5 +458,8 @@
   "assistant_daily_limit_body": "Volvés a tener consultas mañana.",
   "app_update_required_title": "Actualizá la app",
   "app_update_required_body": "Esta versión ya no es compatible. Actualizá Porty para seguir usando la app.",
-  "app_update_required_action": "Actualizar"
+  "app_update_required_action": "Actualizar",
+  "loading": "Cargando",
+  "loader_preparing_portfolio": "Preparando tu cartera…",
+  "loader_one_moment": "Un momento…"
 }

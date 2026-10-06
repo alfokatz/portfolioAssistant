@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 enum AppNavDestination { home, assistant, settings }
 
@@ -20,16 +21,20 @@ class AppBottomNavBar extends StatelessWidget {
     (
       destination: AppNavDestination.home,
       icon: Icons.home_rounded,
+      porty: false,
       labelKey: 'nav_home',
     ),
     (
       destination: AppNavDestination.assistant,
-      icon: Icons.auto_awesome_rounded,
+      // Porty en una sola tinta, con el color de la pestaña.
+      icon: null,
+      porty: true,
       labelKey: 'nav_assistant',
     ),
     (
       destination: AppNavDestination.settings,
       icon: Icons.person_outline_rounded,
+      porty: false,
       labelKey: 'nav_settings',
     ),
   ];
@@ -56,6 +61,7 @@ class AppBottomNavBar extends StatelessWidget {
               for (final item in _items)
                 _NavItem(
                   icon: item.icon,
+                  porty: item.porty,
                   label: item.labelKey.tr(),
                   selected: current == item.destination,
                   onTap: () => onSelect(item.destination),
@@ -72,13 +78,15 @@ class AppBottomNavBar extends StatelessWidget {
 class _NavItem extends StatefulWidget {
   const _NavItem({
     required this.icon,
+    required this.porty,
     required this.label,
     required this.selected,
     required this.onTap,
     required this.colors,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final bool porty;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -90,6 +98,9 @@ class _NavItem extends StatefulWidget {
 
 class _NavItemState extends State<_NavItem> {
   bool _pressed = false;
+
+  /// Caja del avatar: el cuerpo (~70 %) mide lo mismo que los íconos.
+  static const _portySize = 28.0;
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
@@ -117,18 +128,32 @@ class _NavItemState extends State<_NavItem> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder:
-                    (child, animation) => ScaleTransition(
-                      scale: animation,
-                      child: FadeTransition(opacity: animation, child: child),
-                    ),
-                child: Icon(
-                  widget.icon,
-                  key: ValueKey(widget.selected),
-                  size: AppDimens.iconMd,
-                  color: color,
+              // Misma altura para todos: los labels quedan alineados.
+              SizedBox(
+                height: _portySize,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder:
+                      (child, animation) => ScaleTransition(
+                        scale: animation,
+                        child: FadeTransition(opacity: animation, child: child),
+                      ),
+                  child:
+                      widget.porty
+                          ? PortyAvatar(
+                            key: ValueKey(widget.selected),
+                            size: _portySize,
+                            palette: PortyAvatarPalette(
+                              body: color,
+                              features: widget.colors.surfaceCard,
+                            ),
+                          )
+                          : Icon(
+                            widget.icon,
+                            key: ValueKey(widget.selected),
+                            size: AppDimens.iconMd,
+                            color: color,
+                          ),
                 ),
               ),
               const SizedBox(height: 3),

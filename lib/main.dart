@@ -22,30 +22,37 @@ import 'package:portfolio_assistant/infraestructure/managers/preferences_manager
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataDarkProvider, themeDataLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/app_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _translationsPath = 'assets/translations';
 const _dotenvBaseFolder = 'assets/env/';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   GenUiDebugLog.installLoggerBridge();
+  // El primer frame es Porty (el mismo del splash nativo) mientras se
+  // inicializa todo; después, la app (ver AppBootstrap).
+  runApp(const AppBootstrap(initialize: _initialize));
+}
+
+/// Entorno, Supabase (restaura la sesión guardada), RevenueCat, idioma y
+/// preferencias; devuelve la app lista para montar.
+Future<Widget> _initialize() async {
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
   final revenueCatService = await RevenueCatInitializer.initialize();
   await EasyLocalization.ensureInitialized();
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  runApp(
-    _setupRiverpod(
-      revenueCatService: revenueCatService,
-      easyLocalization: _setupEasyLocalization(app: const MyApp()),
-      sharedPreferences: sharedPreferences,
-      secureStorage: const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
-        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-      ),
+  return _setupRiverpod(
+    revenueCatService: revenueCatService,
+    easyLocalization: _setupEasyLocalization(app: const MyApp()),
+    sharedPreferences: sharedPreferences,
+    secureStorage: const FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
     ),
   );
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/navigator.dart';
@@ -13,6 +15,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_c
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
+import 'package:portfolio_assistant/presentation/flows/home/data/home_portfolio_cache.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
@@ -27,6 +30,7 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   final GetBenchmarkComparisonUseCase getBenchmarkComparisonUseCase;
   final DeletePositionsByTickerUseCase deletePositionsByTickerUseCase;
   final GetClosedPositionsUseCase getClosedPositionsUseCase;
+  final HomePortfolioCache? cache;
 
   HomeProvider({
     required super.ref,
@@ -35,14 +39,36 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     required this.getBenchmarkComparisonUseCase,
     required this.deletePositionsByTickerUseCase,
     required this.getClosedPositionsUseCase,
-  }) : super(state: HomeState());
+    this.cache,
+  }) : super(state: _initialState(cache));
+
+  /// Con caché, la Home arranca con lo último que mostró (desde el primer
+  /// frame, sin skeleton) y [init] lo actualiza en el lugar.
+  static HomeState _initialState(HomePortfolioCache? cache) {
+    final snapshot = cache?.read();
+    if (snapshot == null) return HomeState();
+    return HomeState(
+      summary: snapshot.summary,
+      history: snapshot.history,
+      benchmark: snapshot.benchmark,
+      closedPositionsCount: snapshot.closedPositionsCount,
+      loading: false,
+      fromCache: true,
+    );
+  }
 
   Future<void> init() async {
     await refresh();
   }
 
+  /// Trae la cartera. Nunca vacía la pantalla: sin nada que mostrar, la
+  /// Home pone su skeleton ([HomeState.loading]); con datos (caché o carga
+  /// anterior) quedan en pantalla y se reemplazan en el lugar. [silent] se
+  /// conserva por compatibilidad: ya no hay loader de pantalla completa.
   Future<void> refresh({bool silent = false}) async {
-    if (!silent) showLoading();
+    if (state.summary == null && !state.loading) {
+      state = state.copyWith(loading: true);
+    }
     String? quoteError;
 
     final summaryResult = await getPortfolioSummaryUseCase();
@@ -54,10 +80,15 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
       valuations: [],
     );
 
-    summaryResult.fold(
-      (error) => quoteError = error.message,
-      (value) => summary = value,
-    );
+    var summaryOk = false;
+    summaryResult.fold((error) => quoteError = error.message, (value) {
+      summary = value;
+      summaryOk = true;
+    });
+    // Si falló pero ya había algo en pantalla (caché o una carga anterior),
+    // se queda eso con el aviso de error, en vez de ceros.
+    final previous = state.summary;
+    if (!summaryOk && previous != null) summary = previous;
 
     final historyResult = await getPortfolioHistoryUseCase();
     final benchmarkResult = await getBenchmarkComparisonUseCase();
@@ -70,6 +101,7 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final benchmark = benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
     final closedCount = closedResult.fold((_) => 0, (list) => list.length);
 
+    if (!mounted) return;
     reducer(
       action: LoadPortfolioAction(
         summary: summary,
@@ -79,15 +111,28 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
         closedPositionsCount: closedCount,
       ),
     );
-    if (!silent) showContent();
+    if (summaryOk) {
+      unawaited(
+        cache
+            ?.write(
+              HomeSnapshot(
+                summary: summary,
+                history: history,
+                benchmark: benchmark,
+                closedPositionsCount: closedCount,
+              ),
+            )
+            .catchError((_) {}),
+      );
+    }
   }
 
+  /// Borra todas las compras de [ticker]. La fila ya salió de la lista con
+  /// el swipe: la Home no se vacía ni muestra un loader mientras tanto.
   Future<bool> deletePositionsForTicker(String ticker) async {
-    showLoading();
     final result = await deletePositionsByTickerUseCase(params: ticker);
     return result.fold(
       (error) async {
-        showContent();
         ref
             .read(alertProvider.notifier)
             .showError(title: 'error'.tr(), message: error.message);
@@ -95,7 +140,6 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
       },
       (_) async {
         await refresh(silent: true);
-        showContent();
         return true;
       },
     );
@@ -177,6 +221,8 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
           quoteError: action.quoteError,
           closedPositionsCount: action.closedPositionsCount,
           clearQuoteError: action.quoteError == null,
+          loading: false,
+          fromCache: false,
         );
       case SelectTimeRangeAction():
         state = state.copyWith(selectedRange: action.range);
@@ -198,5 +244,6 @@ final homeProvider = StateNotifierProvider<HomeProvider, HomeState>(
       deletePositionsByTickerUseCaseProvider,
     ),
     getClosedPositionsUseCase: ref.watch(getClosedPositionsUseCaseProvider),
+    cache: ref.watch(homePortfolioCacheProvider),
   ),
 );

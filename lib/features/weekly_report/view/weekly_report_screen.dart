@@ -15,6 +15,8 @@ import 'package:portfolio_assistant/features/weekly_report/providers/weekly_repo
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_format.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -54,40 +56,54 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
   Widget build(BuildContext context) {
     // Los logos de las filas usan la paleta del kit de Porty.
     QaColors.resolve(Theme.of(context).brightness);
-    final report = ref.watch(weeklyReportControllerProvider).report;
+    final reportState = ref.watch(weeklyReportControllerProvider);
+    final report = reportState.report;
     final benchmark = ref.watch(weeklyReportBenchmarkAllowedProvider);
     return Scaffold(
       appBar: AppBar(title: Text('weekly_report_screen_title'.tr())),
-      body:
-          report == null
-              ? const SizedBox.shrink()
-              : SafeArea(
-                top: false,
-                // Column y no ListView: son pocas secciones y así se
-                // construyen todas al abrir (la entrada escalonada pasa una
-                // vez; un ListView las armaba al scrollear y las re-animaba).
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppDimens.pageHorizontal,
-                    AppDimens.sp8,
-                    AppDimens.pageHorizontal,
-                    AppDimens.sp40,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (i, section)
-                          in _sections(context, report, benchmark).indexed)
-                        FadeSlideIn(
-                          delay: WeeklyReportScreen.stagger * i,
-                          duration: WeeklyReportScreen.entrance,
-                          skipAnimation: !_animate,
-                          child: section,
+      // Sin informe todavía (se abrió antes de que Porty terminara): Porty
+      // pensando en vez de una pantalla en blanco.
+      body: LoadingSwitcher(
+        loading: report == null,
+        placeholder:
+            (_) => PortyLoader(
+              message:
+                  reportState.generating
+                      ? 'weekly_report_preparing'.tr()
+                      : 'loader_one_moment'.tr(),
+            ),
+        child:
+            (_) =>
+                report == null
+                    ? const SizedBox.shrink()
+                    : SafeArea(
+                        top: false,
+                        // Column y no ListView: son pocas secciones y así se
+                        // construyen todas al abrir (la entrada escalonada pasa una
+                        // vez; un ListView las armaba al scrollear y las re-animaba).
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppDimens.pageHorizontal,
+                            AppDimens.sp8,
+                            AppDimens.pageHorizontal,
+                            AppDimens.sp40,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final (i, section)
+                                  in _sections(context, report, benchmark).indexed)
+                                FadeSlideIn(
+                                  delay: WeeklyReportScreen.stagger * i,
+                                  duration: WeeklyReportScreen.entrance,
+                                  skipAnimation: !_animate,
+                                  child: section,
+                                ),
+                            ],
+                          ),
                         ),
-                    ],
-                  ),
-                ),
-              ),
+                      ),
+      ),
     );
   }
 
@@ -143,7 +159,7 @@ class _Header extends StatelessWidget {
       children: [
         Row(
           children: [
-            const PortyAvatar(size: 40),
+            const PortyAvatar(size: 56),
             const SizedBox(width: AppDimens.sp12),
             Expanded(
               child: Column(
@@ -182,8 +198,7 @@ class _Header extends StatelessWidget {
           const SizedBox(height: AppDimens.sp12),
           _Meta(
             'weekly_report_courtesy'.tr(),
-            icon: Icons.auto_awesome_rounded,
-            iconColor: colors.accentBlue,
+            leading: PortySpark(size: 12, color: colors.accentBlue),
           ),
         ],
       ],
@@ -630,11 +645,7 @@ class _Questions extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 14,
-                            color: colors.accentBlue,
-                          ),
+                          PortySpark(size: 12, color: colors.accentBlue),
                           const SizedBox(width: AppDimens.sp6),
                           Flexible(
                             child: Text(
@@ -739,10 +750,11 @@ class _Prose extends StatelessWidget {
 
 /// Nivel 4: metadata (etiquetas, fuentes, notas).
 class _Meta extends StatelessWidget {
-  const _Meta(this.text, {this.icon, this.iconColor});
+  const _Meta(this.text, {this.leading});
   final String text;
-  final IconData? icon;
-  final Color? iconColor;
+
+  /// Glifo a la izquierda, alineado con la primera línea.
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -753,11 +765,12 @@ class _Meta extends StatelessWidget {
         context,
       ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.4),
     );
-    if (icon == null) return label;
+    final leading = this.leading;
+    if (leading == null) return label;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: iconColor ?? colors.textSecondary),
+        Padding(padding: const EdgeInsets.only(top: 3), child: leading),
         const SizedBox(width: AppDimens.sp6),
         Expanded(child: label),
       ],

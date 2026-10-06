@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 /// Starter-prompt row shown on the empty state. Flat surface, no heavy
 /// outline — a quiet invitation to tap rather than a form control.
@@ -34,11 +35,7 @@ class AssistantSuggestionChip extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 14,
-                  color: colors.accentWarm,
-                ),
+                PortySpark(size: 12, color: colors.accentWarm),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

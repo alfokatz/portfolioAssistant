@@ -105,9 +105,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     state = state.copyWith(bootstrapped: true);
 
+    // Mientras prepara la conversación (puede tener que traer la cartera),
+    // Porty piensa en el header: no hay un loader aparte en el chat.
     final summary = ref.read(homeProvider).summary;
     if (summary == null) {
-      await ref.read(homeProvider.notifier).refresh();
+      _setActivity(TurnActivity.thinking);
+      try {
+        await ref.read(homeProvider.notifier).refresh();
+      } finally {
+        _setActivity(TurnActivity.idle);
+      }
     }
 
     _ensureService();

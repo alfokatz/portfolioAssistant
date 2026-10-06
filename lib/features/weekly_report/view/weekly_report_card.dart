@@ -136,7 +136,15 @@ class _CardBody extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const PortyAvatar(size: 28),
+              // Piensa (animado) mientras Porty escribe el informe.
+              PortyAvatar(
+                size: 40,
+                state:
+                    generating
+                        ? PortyAvatarState.thinking
+                        : PortyAvatarState.idle,
+                animated: generating,
+              ),
               const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Column(

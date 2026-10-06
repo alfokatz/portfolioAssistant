@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboa
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_dots.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 class OnboardingScreen extends StatefulHookConsumerWidget {
   const OnboardingScreen({super.key});
@@ -108,15 +109,11 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                     Semantics(
                       label: 'app_name'.tr(),
                       child: ExcludeSemantics(
-                        child: Icon(
-                          Icons.auto_awesome_rounded,
-                          color: colors.accentBlue,
-                          size: 22,
-                        ),
+                        child: const PortyAvatar(size: 32),
                       ),
                     )
                   else
-                    const SizedBox(width: 22),
+                    const SizedBox(width: 32),
                   const Spacer(),
                   if (!_isLastPage)
                     TextButton(

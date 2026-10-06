@@ -8,6 +8,7 @@ import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_activity_copy.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -21,8 +22,8 @@ void _loadSpanish() {
   Localization.load(const Locale('es', 'ES'), translations: Translations(map));
 }
 
-/// Deja terminar el crossfade de la línea de estado (el pulso del avatar
-/// sigue en loop mientras Porty trabaja, así que no hay `pumpAndSettle`).
+/// Deja terminar el crossfade de la línea de estado (el avatar sigue en loop
+/// mientras Porty trabaja, así que no hay `pumpAndSettle`).
 Future<void> settleStatus(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 250));
@@ -33,7 +34,13 @@ TurnActivity _tools(List<(String, Map<String, Object?>)> calls) =>
 
 // `genuiTestApp` usa el tema dark (colores de `CustomColors.dark`).
 void main() {
-  setUpAll(_loadSpanish);
+  setUpAll(() {
+    _loadSpanish();
+    // Sin respiración en reposo, para poder usar `pumpAndSettle`; el
+    // movimiento del avatar se prueba en porty_avatar_test.
+    PortyAvatar.ambientMotion = false;
+  });
+  tearDownAll(() => PortyAvatar.ambientMotion = true);
 
   late ValueNotifier<TurnActivity> activity;
   setUp(() => activity = ValueNotifier(TurnActivity.idle));
@@ -64,15 +71,15 @@ void main() {
     );
   }
 
-  /// Escala actual del avatar (el único `Transform` dentro del header).
-  double avatarScale(WidgetTester tester) {
-    final transform = tester.widget<Transform>(
+  /// Lo que pinta el avatar del header en este frame.
+  PortyFrame avatarFrame(WidgetTester tester) {
+    final paint = tester.widget<CustomPaint>(
       find.descendant(
-        of: find.byType(PortyHeader),
-        matching: find.byType(Transform),
+        of: find.byType(PortyAvatar),
+        matching: find.byType(CustomPaint),
       ),
     );
-    return transform.transform.getMaxScaleOnAxis();
+    return (paint.painter! as PortyAvatarPainter).frame;
   }
 
   group('status line', () {
@@ -170,25 +177,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Listo para ayudarte'), findsOneWidget);
       expect(find.text('Armando tu respuesta…'), findsNothing);
-      expect(avatarScale(tester), 1.0);
+      expect(avatarFrame(tester).state, PortyAvatarState.idle);
+      expect(avatarFrame(tester).bodyAtRest, isTrue);
     });
 
-    testWidgets('pulses the avatar only while Porty works', (tester) async {
+    testWidgets('during a turn the header avatar stays idle: only the '
+        'status line changes (the message avatar is the one that acts)', (
+      tester,
+    ) async {
       await pumpHeader(tester);
-      expect(avatarScale(tester), 1.0);
+      expect(avatarFrame(tester).state, PortyAvatarState.idle);
 
-      activity.value = TurnActivity.thinking;
-      final scales = <double>{};
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-        scales.add(avatarScale(tester));
+      for (final next in [
+        TurnActivity.thinking,
+        _tools([
+          (
+            'get_quote',
+            {
+              'tickers': ['NVDA'],
+            },
+          ),
+        ]),
+        TurnActivity.composing,
+      ]) {
+        activity.value = next;
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(avatarFrame(tester).state, PortyAvatarState.idle);
+          expect(avatarFrame(tester).bodyAtRest, isTrue);
+        }
       }
-      expect(scales.length, greaterThan(1));
-      expect(scales.reduce((a, b) => a > b ? a : b), lessThanOrEqualTo(1.05));
-
-      activity.value = TurnActivity.idle;
-      await tester.pumpAndSettle();
-      expect(avatarScale(tester), 1.0);
+      expect(find.text('Armando tu respuesta…'), findsOneWidget);
     });
 
     testWidgets('with disableAnimations nothing animates, the text swaps', (
@@ -207,11 +226,11 @@ void main() {
       await tester.pump();
       expect(find.text('Revisando noticias de AAPL…'), findsOneWidget);
       expect(find.text('Listo para ayudarte'), findsNothing);
-      expect(avatarScale(tester), 1.0);
+      expect(avatarFrame(tester), const PortyFrame.still(PortyAvatarState.idle));
       expect(tester.binding.hasScheduledFrame, isFalse);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(avatarScale(tester), 1.0);
+      expect(avatarFrame(tester), const PortyFrame.still(PortyAvatarState.idle));
     });
   });
 

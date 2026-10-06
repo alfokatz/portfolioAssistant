@@ -14,9 +14,10 @@ import 'package:portfolio_assistant/presentation/shared/widgets/fade_through_swi
 /// Global (no autoDispose) a propósito: tiene que sobrevivir a la pantalla.
 final authGreetingPlayedProvider = StateProvider<bool>((ref) => false);
 
-/// Porty arriba del login: el mismo avatar del header del chat, más grande,
-/// con su nombre, una línea de qué es y un saludo con la forma de una
-/// respuesta suya en el chat (texto suelto, sin burbuja).
+/// Porty arriba del login: el mismo avatar del header del chat, más grande
+/// y animado (respira y parpadea; la primera vez en la sesión hace su
+/// entrada), con su nombre, una línea de qué es y un saludo con la forma de
+/// una respuesta suya en el chat (texto suelto, sin burbuja).
 ///
 /// [compact] (teclado abierto) achica el avatar y esconde la línea y el
 /// saludo, para que los campos y el botón entren sin scroll en un iPhone
@@ -31,8 +32,9 @@ class AuthPortyHeader extends ConsumerStatefulWidget {
   final bool isSignUpMode;
   final bool compact;
 
-  static const avatarSize = 60.0;
-  static const compactAvatarSize = 32.0;
+  /// Caja del avatar (el cuerpo mide ~70 %, ver `PortyAvatar.size`).
+  static const avatarSize = 84.0;
+  static const compactAvatarSize = 46.0;
 
   static const entranceDuration = Duration(milliseconds: 240);
   static const compactDuration = Duration(milliseconds: 220);
@@ -113,53 +115,59 @@ class _AuthPortyHeaderState extends ConsumerState<AuthPortyHeader>
 
     final identity = Row(
       children: [
-        ScaleTransition(
-          scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(
-              end:
-                  compact
-                      ? AuthPortyHeader.compactAvatarSize
-                      : AuthPortyHeader.avatarSize,
-            ),
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            builder: (context, size, _) => PortyAvatar(size: size),
+        // La entrada del avatar (fade + escala + parpadeo) es suya.
+        TweenAnimationBuilder<double>(
+          tween: Tween(
+            end:
+                compact
+                    ? AuthPortyHeader.compactAvatarSize
+                    : AuthPortyHeader.avatarSize,
           ),
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          builder:
+              (context, size, _) => PortyAvatar(
+                size: size,
+                animated: true,
+                entrance: _typeGreeting,
+              ),
         ),
         const SizedBox(width: AppDimens.sp12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedDefaultTextStyle(
-                duration: duration,
-                curve: Curves.easeOutCubic,
-                style: (tt.titleLarge ?? const TextStyle()).copyWith(
-                  fontSize: compact ? 17 : 24,
-                  fontWeight: compact ? FontWeight.w600 : FontWeight.w700,
-                  height: 1.2,
-                  letterSpacing: compact ? -0.25 : -0.5,
-                  color: colors.textPrimary,
+          child: FadeTransition(
+            opacity: curved,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedDefaultTextStyle(
+                  duration: duration,
+                  curve: Curves.easeOutCubic,
+                  style: (tt.titleLarge ?? const TextStyle()).copyWith(
+                    fontSize: compact ? 17 : 24,
+                    fontWeight: compact ? FontWeight.w600 : FontWeight.w700,
+                    height: 1.2,
+                    letterSpacing: compact ? -0.25 : -0.5,
+                    color: colors.textPrimary,
+                  ),
+                  child: Text('portfolio_qa_title'.tr()),
                 ),
-                child: Text('portfolio_qa_title'.tr()),
-              ),
-              _Collapsible(
-                collapsed: compact,
-                duration: duration,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AppDimens.sp2),
-                  child: Text(
-                    'auth_porty_tagline'.tr(),
-                    style: tt.bodyMedium?.copyWith(
-                      color: colors.textSecondary,
-                      height: 1.35,
+                _Collapsible(
+                  collapsed: compact,
+                  duration: duration,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppDimens.sp2),
+                    child: Text(
+                      'auth_porty_tagline'.tr(),
+                      style: tt.bodyMedium?.copyWith(
+                        color: colors.textSecondary,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -202,7 +210,7 @@ class _AuthPortyHeaderState extends ConsumerState<AuthPortyHeader>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FadeTransition(opacity: curved, child: identity),
+        identity,
         _Collapsible(
           collapsed: compact,
           duration: duration,

@@ -14,6 +14,9 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 
 class SubscriptionPaywallSheet extends ConsumerWidget {
   const SubscriptionPaywallSheet({
@@ -280,17 +283,11 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: colors.accentBlue,
                   ),
-                  child:
-                      subscription.isRestoring
-                          ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.accentBlue,
-                            ),
-                          )
-                          : Text('settings_restore_purchases'.tr()),
+                  child: LoadingButtonContent(
+                    loading: subscription.isRestoring,
+                    spinnerColor: colors.accentBlue,
+                    label: Text('settings_restore_purchases'.tr()),
+                  ),
                 ),
               ),
             ],
@@ -452,13 +449,16 @@ class _PaywallPlanCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  Icon(
-                    Icons.auto_awesome_rounded,
-                    size: AppDimens.iconMd,
-                    color:
+                  // Porty en el color del plan: dorado en el destacado.
+                  PortyAvatar(
+                    size: 28,
+                    palette:
                         featured
-                            ? SubscriptionGoldTheme.accent
-                            : colors.accentBlue,
+                            ? const PortyAvatarPalette(
+                              body: SubscriptionGoldTheme.accent,
+                              features: SubscriptionGoldTheme.ink,
+                            )
+                            : PortyAvatarPalette.brand,
                   ),
                 ],
               ),
@@ -475,10 +475,21 @@ class _PaywallPlanCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppDimens.sp4),
-              _PaywallPriceLine(
-                featured: featured,
-                priceLabel: priceLabel,
-                isLoading: isPriceLoading,
+              // El skeleton del precio sigue las reglas de todos los
+              // loaders: aparece si tarda más de 300 ms y dura al menos 400.
+              DelayedLoaderVisibility(
+                loading: isPriceLoading,
+                builder:
+                    (context, showSkeleton) =>
+                        isPriceLoading && !showSkeleton
+                            ? const SizedBox(
+                              height: _PaywallPriceLine.height,
+                            )
+                            : _PaywallPriceLine(
+                              featured: featured,
+                              priceLabel: priceLabel,
+                              isLoading: showSkeleton,
+                            ),
               ),
               if (features.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.sp12),
@@ -513,6 +524,9 @@ class _PaywallPlanCard extends StatelessWidget {
 }
 
 class _PaywallPriceLine extends StatelessWidget {
+  /// Alto de la línea mientras el precio no está (skeleton o espera).
+  static const height = 20.0;
+
   const _PaywallPriceLine({
     required this.featured,
     required this.priceLabel,
@@ -536,7 +550,7 @@ class _PaywallPriceLine extends StatelessWidget {
         label: 'paywall_price_loading'.tr(),
         child: SizedBox(
           width: 96,
-          height: 20,
+          height: height,
           child: Align(
             alignment: Alignment.centerLeft,
             child: QaSkeleton(lines: 1, widths: const [1]),
@@ -617,39 +631,39 @@ class _GoldPlanButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 52,
-      child: FilledButton(
-        onPressed: loading ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: SubscriptionGoldTheme.accent,
-          foregroundColor: SubscriptionGoldTheme.ink,
-          disabledBackgroundColor: SubscriptionGoldTheme.accent.withValues(
-            alpha: 0.45,
-          ),
-          disabledForegroundColor: SubscriptionGoldTheme.ink.withValues(
-            alpha: 0.6,
-          ),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+      child: LoadingButtonContent(
+        loading: loading,
+        spinnerColor: SubscriptionGoldTheme.ink,
+        label: Text(
+          label,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: SubscriptionGoldTheme.ink,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        child:
-            loading
-                ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: SubscriptionGoldTheme.ink,
-                  ),
-                )
-                : Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: SubscriptionGoldTheme.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
+        builder:
+            (context, showSpinner, child) => FilledButton(
+              onPressed:
+                  showSpinner || onPressed == null
+                      ? null
+                      : loading
+                      ? () {}
+                      : onPressed,
+              style: FilledButton.styleFrom(
+                backgroundColor: SubscriptionGoldTheme.accent,
+                foregroundColor: SubscriptionGoldTheme.ink,
+                disabledBackgroundColor: SubscriptionGoldTheme.accent
+                    .withValues(alpha: 0.45),
+                disabledForegroundColor: SubscriptionGoldTheme.ink.withValues(
+                  alpha: 0.6,
                 ),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                ),
+              ),
+              child: child,
+            ),
       ),
     );
   }

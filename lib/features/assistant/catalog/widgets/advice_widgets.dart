@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_projec
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_fit_scorer.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 /// Widgets del catálogo de inversión y planificación: opciones de
 /// inversión, reparto de presupuesto, metas, proyecciones y tips.
@@ -537,10 +538,11 @@ class _TipBanner extends StatelessWidget {
             color: color.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            warning ? Icons.warning_amber_rounded : Icons.auto_awesome_outlined,
-            size: 16,
-            color: color,
+          child: Center(
+            child:
+                warning
+                    ? Icon(Icons.warning_amber_rounded, size: 16, color: color)
+                    : PortySpark(size: 14, color: color),
           ),
         ),
         const SizedBox(width: 10),

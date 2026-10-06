@@ -1,28 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
-/// Cuerpo de carga para pantallas GenUI.
+/// Cuerpo de carga para pantallas GenUI: Porty pensando, con [message]
+/// debajo si la espera se alarga (ver [PortyLoader]).
 class GenUiFlowLoadingBody extends StatelessWidget {
   const GenUiFlowLoadingBody({super.key, required this.message});
 
   final String message;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: PortfolioColors.accentBlue),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(color: PortfolioColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PortyLoader(message: message);
 }
 
 /// Cuerpo de error con botón de reintento para pantallas GenUI.

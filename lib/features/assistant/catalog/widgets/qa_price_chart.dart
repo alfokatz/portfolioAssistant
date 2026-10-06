@@ -265,7 +265,7 @@ class _QaPriceChartState extends State<QaPriceChart>
   Widget _buildChartArea(List<PriceCandle>? shown, bool loading, Color color) {
     if (shown == null) {
       if (loading || !_cache.containsKey(_range)) {
-        return const QaChartSpinner();
+        return const QaChartSkeleton();
       }
       return Center(
         child: Text('Sin datos para este período', style: QaText.label),

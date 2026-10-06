@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onbo
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_action_card.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_entrance.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 class OnboardingGetStartedPage extends StatelessWidget {
   const OnboardingGetStartedPage({
@@ -40,20 +41,7 @@ class OnboardingGetStartedPage extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: AppDimens.touchTarget,
-                  height: AppDimens.touchTarget,
-                  decoration: BoxDecoration(
-                    color: colors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: Icon(
-                    Icons.auto_awesome_rounded,
-                    color: colors.accentBlue,
-                    size: AppDimens.iconMd,
-                  ),
-                ),
+                const PortyAvatar(size: AppDimens.touchTarget),
                 const SizedBox(width: AppDimens.sp12),
                 Text(
                   'app_name'.tr(),

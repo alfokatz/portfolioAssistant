@@ -117,6 +117,16 @@ String _typedGreeting(WidgetTester tester) {
 double _avatarSize(WidgetTester tester) =>
     tester.getSize(find.byType(PortyAvatar)).width;
 
+PortyFrame _avatarFrame(WidgetTester tester) {
+  final paint = tester.widget<CustomPaint>(
+    find.descendant(
+      of: find.byType(PortyAvatar),
+      matching: find.byType(CustomPaint),
+    ),
+  );
+  return (paint.painter! as PortyAvatarPainter).frame;
+}
+
 Finder get _form => find.byType(Form);
 Finder get _button => find.byKey(LoginScreen.primaryButtonKey);
 
@@ -126,6 +136,10 @@ Future<void> _fillValidCredentials(WidgetTester tester) async {
 }
 
 void main() {
+  // Porty respira en el login sin parar: sin esto `pumpAndSettle` no
+  // terminaría nunca. Su movimiento se prueba en porty_avatar_test.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
+  tearDownAll(() => PortyAvatar.ambientMotion = true);
   setUp(_Harness.haptics.clear);
 
   testWidgets('shows Porty (the chat avatar, bigger) and its greeting, '
@@ -252,13 +266,15 @@ void main() {
     await tester.pump(); // post-frame del tap
     await tester.pump();
 
-    expect(
-      find.descendant(
-        of: _button,
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsOneWidget,
+    // El spinner aparece recién si la espera pasa de 300 ms (una acción
+    // rápida no titila).
+    Finder spinner() => find.descendant(
+      of: _button,
+      matching: find.byType(CircularProgressIndicator),
     );
+    expect(spinner(), findsNothing);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(spinner(), findsOneWidget);
     expect(tester.getSize(_button), idleSize);
 
     _Harness.auth.pendingSignIn!.completeError(
@@ -382,13 +398,8 @@ void main() {
     expect(_typedGreeting(tester), _signInGreeting);
     expect(_avatarSize(tester), AuthPortyHeader.avatarSize);
     expect(find.byType(AnimatedSize), findsNothing);
-    final avatarScale = tester.widget<ScaleTransition>(
-      find.ancestor(
-        of: find.byType(PortyAvatar),
-        matching: find.byType(ScaleTransition),
-      ),
-    );
-    expect(avatarScale.scale.value, 1);
+    // Sin entrada ni movimiento: Porty quieto, entero, desde el primer frame.
+    expect(_avatarFrame(tester), const PortyFrame.still(PortyAvatarState.idle));
 
     await tester.tap(find.text('auth_sign_up_tab'));
     await tester.pump();
@@ -417,13 +428,10 @@ void main() {
 
     expect(find.byType(TypewriterText), findsNothing);
     expect(find.text(_signInGreeting), findsOneWidget);
-    final avatarScale = tester.widget<ScaleTransition>(
-      find.ancestor(
-        of: find.byType(PortyAvatar),
-        matching: find.byType(ScaleTransition),
-      ),
-    );
-    expect(avatarScale.scale.value, 1);
+    // La entrada del avatar tampoco se repite: entero desde el primer frame.
+    final frame = _avatarFrame(tester);
+    expect(frame.opacity, 1);
+    expect(frame.scale, 1);
   });
 
   testWidgets('no Apple button while Sign in with Apple is not set up', (

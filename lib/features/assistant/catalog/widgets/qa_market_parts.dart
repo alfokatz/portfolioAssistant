@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 
 /// Piezas compartidas por las cards de mercado (gráfico de precio,
 /// comparativo, snapshot/movimiento): selector de período, tag de peso en
@@ -175,21 +177,23 @@ class QaRangeTabs extends StatelessWidget {
   }
 }
 
-/// Spinner chico y neutro para el área de un gráfico mientras carga.
-class QaChartSpinner extends StatelessWidget {
-  const QaChartSpinner({super.key});
+/// El área de un gráfico mientras cargan las velas: un bloque de skeleton
+/// del tamaño del gráfico (no un spinner), que aparece recién si la espera
+/// pasa de 300 ms.
+class QaChartSkeleton extends StatelessWidget {
+  const QaChartSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(
-          strokeWidth: 1.5,
-          color: QaColors.textSecondary,
-        ),
-      ),
+    return DelayedLoaderVisibility(
+      loading: true,
+      builder:
+          (context, show) =>
+              show
+                  ? SkeletonScope(
+                    child: SkeletonBlock(color: QaPalette.inset, radius: 8),
+                  )
+                  : const SizedBox.expand(),
     );
   }
 }

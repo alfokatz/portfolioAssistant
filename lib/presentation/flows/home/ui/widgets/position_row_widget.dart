@@ -5,27 +5,34 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/sparkline_chart.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
+/// Una posición de la Home. Con [PositionRowWidget.skeleton] es su propio
+/// skeleton: mismos paddings y alturas, valores en barras.
 class PositionRowWidget extends StatelessWidget {
-  final PositionValuation valuation;
+  final PositionValuation? valuation;
   final VoidCallback? onDetailTap;
 
   const PositionRowWidget({
     super.key,
-    required this.valuation,
+    required PositionValuation this.valuation,
     this.onDetailTap,
   });
+
+  const PositionRowWidget.skeleton({super.key})
+    : valuation = null,
+      onDetailTap = null;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final textTheme = Theme.of(context).textTheme;
     final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final pnl = valuation.pnlAbsolute;
+    final valuation = this.valuation;
+    final skeleton = valuation == null;
+    final pnl = valuation?.pnlAbsolute ?? 0;
     final sign = pnl >= 0 ? '+' : '';
-    final sparkline = HomeChartUtils.sparklineFromPrices(
-      purchasePrice: valuation.position.purchasePrice,
-      currentPrice: valuation.currentPrice,
-    );
 
     final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -36,53 +43,73 @@ class PositionRowWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  valuation.position.ticker,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colors.textPrimary,
-                      ),
+                SkeletonText(
+                  valuation?.position.ticker,
+                  placeholder: 'AAPL',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'position_shares'.tr(
-                    namedArgs: {
-                      'count': valuation.position.quantity.toString(),
-                    },
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.textSecondary,
+                SkeletonText(
+                  skeleton
+                      ? null
+                      : 'position_shares'.tr(
+                        namedArgs: {
+                          'count': valuation.position.quantity.toString(),
+                        },
                       ),
+                  placeholder: '00 acciones',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
-          SparklineChart(
-            values: sparkline,
-            isPositive: pnl >= 0,
-          ),
+          if (skeleton)
+            const SkeletonBlock(
+              width: SparklineChart.defaultWidth,
+              height: SparklineChart.defaultHeight,
+              radius: 8,
+            )
+          else
+            SparklineChart(
+              values: HomeChartUtils.sparklineFromPrices(
+                purchasePrice: valuation.position.purchasePrice,
+                currentPrice: valuation.currentPrice,
+              ),
+              isPositive: pnl >= 0,
+            ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                currency.format(valuation.marketValue),
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colors.textPrimary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+              SkeletonText(
+                skeleton ? null : currency.format(valuation.marketValue),
+                animate: true,
+                placeholder: '\$0,000.00',
+                style: textTheme.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
               const SizedBox(height: 2),
-              Text(
-                '$sign${currency.format(pnl)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.pnlColor(pnl),
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+              SkeletonText(
+                skeleton ? null : '$sign${currency.format(pnl)}',
+                animate: true,
+                placeholder: '+\$000.00',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colors.pnlColor(pnl),
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ],
           ),
-          if (onDetailTap != null) ...[
+          // El chevron es de la fila, no un dato: el skeleton lo lleva
+          // igual, así las columnas quedan alineadas con las filas reales.
+          if (onDetailTap != null || skeleton) ...[
             const SizedBox(width: 8),
             Icon(
               Icons.arrow_forward_ios_rounded,

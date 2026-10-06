@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -15,16 +16,19 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/assistant/utils/porty_answer_tone.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_thinking_orb.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/top_edge_fade.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
@@ -32,6 +36,10 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
+
+/// `true` una vez que el avatar del header hizo su entrada en esta sesión de
+/// la app: volver al chat no la repite. Global (no autoDispose) a propósito.
+final portyChatEntrancePlayedProvider = StateProvider<bool>((ref) => false);
 
 class AssistantScreen extends StatefulHookConsumerWidget {
   const AssistantScreen({super.key, this.initialQuestion});
@@ -62,7 +70,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   static const _autoTypeCharDelay = Duration(milliseconds: 22);
 
   // Scroll durante un turno: la vista se ancla a la PREGUNTA del usuario.
-  // Mientras el turno crece (burbuja del usuario, orbe, typewriter, widgets
+  // Mientras el turno crece (burbuja del usuario, espera, typewriter, widgets
   // que abren su espacio) la vista acompaña el fondo, pero nunca más allá
   // del punto en que la pregunta toca el borde superior: la pregunta queda
   // visible arriba y la respuesta de Porty empieza justo debajo. Si la
@@ -103,14 +111,34 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   // layout; la lista lo usa como padding inferior. Ver `_SizeReporter`.
   double _composerInset = 0;
 
-  // El orbe de "pensando" (placeholder del asistente) se agrega al estado
+  // La espera de Porty (placeholder del asistente) se agrega al estado
   // en el mismo instante que el mensaje del usuario — pero visualmente debe
   // esperar a que la burbuja del usuario termine su propio typewriter antes
-  // de aparecer. `_orbGateOpen` arranca en `false` en cada envío y se abre
+  // de aparecer. `_waitGateOpen` arranca en `false` en cada envío y se abre
   // desde `PortfolioQaChatBubble.onTypingComplete` de esa burbuja. Como los
   // envíos están serializados (guard de UI + `_sendGuard` del provider),
   // nunca hay más de un turno "pendiente de gate" a la vez.
-  bool _orbGateOpen = true;
+  bool _waitGateOpen = true;
+
+  // Expresión del avatar del header a lo largo del turno (ver PortyMood):
+  // thinking mientras corre el turno, answering desde que la respuesta
+  // empieza a tipearse hasta que termina el texto, y después answered o
+  // idle según si muestra pérdidas; error si el turno no dio respuesta.
+  final _mood = PortyMood();
+  late final ValueListenable<TurnActivity> _activity;
+
+  /// Surface (placeholder → respuesta) del turno en curso.
+  String? _turnSurfaceId;
+
+  /// Surface del turno en curso que está tipeándose (la única cuyo fin de
+  /// texto mueve al avatar).
+  String? _speakingSurfaceId;
+
+  /// La respuesta del turno ya apareció (o el turno falló): un cambio
+  /// tardío de actividad no vuelve a poner a Porty a pensar.
+  bool _answerShown = false;
+
+  late final bool _playEntrance = !ref.read(portyChatEntrancePlayedProvider);
 
   // See HomeScreen: this tab stays mounted alongside Home and Settings in
   // the shell's IndexedStack, so AppShell owns the single subscription.
@@ -142,6 +170,15 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     ]).animate(_pulseController);
     _textController.addListener(_handleTextChanged);
     super.initState();
+    _activity = ref.read(assistantProvider(_args).notifier).activity
+      ..addListener(_handleActivity);
+    if (_playEntrance) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(portyChatEntrancePlayedProvider.notifier).state = true;
+        }
+      });
+    }
     runAfterPostFrameCallback(
       () => ref.read(assistantProvider(_args).notifier).bootstrap(),
     );
@@ -149,12 +186,84 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void dispose() {
+    _activity.removeListener(_handleActivity);
+    _mood.dispose();
     _finishFollowTimer?.cancel();
     _textController.removeListener(_handleTextChanged);
     _pulseController.dispose();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleActivity() {
+    if (!_activity.value.isIdle && !_answerShown) _mood.working();
+  }
+
+  /// La respuesta del turno empezó a revelarse (la surface dejó de estar en
+  /// streaming): Porty habla hasta que termina el texto.
+  void _startSpeaking(String surfaceId) {
+    _answerShown = true;
+    _speakingSurfaceId = surfaceId;
+    _mood.speaking();
+  }
+
+  /// Terminó el texto de [surfaceId] (o, si no tenía texto, su reveal).
+  void _finishSpeaking(AssistantOpenAiService service, String surfaceId) {
+    if (surfaceId != _speakingSurfaceId) return;
+    _speakingSurfaceId = null;
+    final definition = service.controller.contextFor(surfaceId).definition;
+    _mood.doneSpeaking(goodNews: !PortyAnswerTone.showsLoss(definition.value));
+  }
+
+  /// Sigue el turno en el estado del chat para el avatar del header. El
+  /// orden de los cambios no es fijo (el turno puede cerrarse un instante
+  /// antes o después de que su respuesta deje de estar en streaming), así
+  /// que se sigue la surface del turno por id:
+  /// - aparece la respuesta → answering (hasta que termina el texto);
+  /// - cae a texto, aviso de tope diario, error o tope de consultas → error;
+  /// - el turno cierra sin respuesta ni error (p. ej. paywall de un pedido
+  ///   fuera del plan) → idle.
+  void _updateMood(AssistantState? previous, AssistantState next) {
+    if (previous?.isWaiting != true && next.isWaiting) {
+      _answerShown = false;
+      _turnSurfaceId = null;
+      _speakingSurfaceId = null;
+    }
+    final last = next.messages.lastOrNull;
+    if (next.isWaiting &&
+        _turnSurfaceId == null &&
+        last != null &&
+        last.isStreaming) {
+      _turnSurfaceId = last.surfaceId;
+    }
+    if (_answerShown) return;
+
+    final turn =
+        _turnSurfaceId == null
+            ? null
+            : next.messages
+                .where((m) => m.surfaceId == _turnSurfaceId)
+                .lastOrNull;
+    final failed =
+        (next.error != null && previous?.error == null) ||
+        (next.paywallReason == PaywallReason.quotaExceeded &&
+            previous?.paywallReason != PaywallReason.quotaExceeded) ||
+        (turn != null && (turn.isFallback || turn.notice != null));
+    if (failed) {
+      _answerShown = true;
+      _speakingSurfaceId = null;
+      _mood.failed();
+    } else if (turn != null &&
+        turn.isGenUiSurface &&
+        !turn.isStreaming &&
+        !turn.hasRevealed) {
+      _startSpeaking(turn.surfaceId!);
+    } else if (!next.isWaiting && (turn == null || !turn.isStreaming)) {
+      // Cerró sin nada que mostrar.
+      _answerShown = true;
+      _mood.rest();
+    }
   }
 
   void _handleTextChanged() {
@@ -286,8 +395,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   /// se encarga del fade corto de entrada. Ambos triggers (sugerencia
   /// auto-tipeada y envío manual) pasan por acá, así se ven consistentes.
   /// La burbuja del usuario se revela con su propio typewriter (ver
-  /// `PortfolioQaChatBubble`) — el orbe de "pensando" queda cerrado
-  /// (`_orbGateOpen = false`) hasta que ese typewriter avisa que terminó.
+  /// `PortfolioQaChatBubble`) — la espera de Porty queda cerrada
+  /// (`_waitGateOpen = false`) hasta que ese typewriter avisa que terminó.
   /// Paywall de Gold pedido desde una card (bloque bloqueado, chip con
   /// candado, "Conocer Gold" del análisis de cortesía). Cerrarlo deja el
   /// chat donde estaba (la hoja no toca el scroll). Si compra, la card de
@@ -312,7 +421,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     _textController.clear();
-    setState(() => _orbGateOpen = false);
+    setState(() => _waitGateOpen = false);
     await notifier.submitMessage(trimmed);
   }
 
@@ -364,9 +473,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     await _pulseController.forward(from: 0);
   }
 
-  void _openOrbGate() {
-    if (!mounted || _orbGateOpen) return;
-    setState(() => _orbGateOpen = true);
+  void _openWaitGate() {
+    if (!mounted || _waitGateOpen) return;
+    setState(() => _waitGateOpen = true);
   }
 
   // Guard para no re-programar el post-frame callback de abajo en cada
@@ -396,6 +505,15 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     ref.listen(assistantProvider(_args), (previous, next) {
       final prevLast = previous?.messages.lastOrNull;
       final nextLast = next.messages.lastOrNull;
+
+      _updateMood(previous, next);
+      // Terminó de preparar la conversación (ver AssistantProvider.bootstrap,
+      // que pone a Porty a pensar mientras tanto).
+      if (previous?.isServiceReady == false &&
+          next.isServiceReady &&
+          !next.isWaiting) {
+        _mood.rest();
+      }
 
       // Turno nuevo (envío manual, sugerencia o pregunta inicial): aparece
       // el placeholder en streaming, justo después de la pregunta.
@@ -449,6 +567,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             bottom: false,
             child: PortyHeader(
               activity: notifier.activity,
+              // Durante el turno actúa el avatar del mensaje; el del header
+              // queda en reposo y lo que cambia es su línea de estado.
+              entrance: _playEntrance,
               quota: PortyQuota(
                 remaining: subscription.queriesRemaining,
                 limit: subscription.queriesLimit,
@@ -512,15 +633,15 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                       service,
                                       m,
                                       index: i,
-                                      orbGateOpen: _orbGateOpen,
+                                      waitGateOpen: _waitGateOpen,
                                       onUserTypingComplete: () {
-                                        _openOrbGate();
+                                        _openWaitGate();
                                         notifier.markUserMessageRevealed(i);
                                       },
                                     )
                                     : PortfolioQaChatBubble(
                                       message: m,
-                                      onTypingComplete: _openOrbGate,
+                                      onTypingComplete: _openWaitGate,
                                     ),
                           ),
                         if (state.messages.length <= 1) ...[
@@ -559,10 +680,6 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     ),
                   ),
                 ),
-                if (!state.isServiceReady)
-                  const Center(
-                    child: AssistantThinkingOrb(size: AppDimens.sp32),
-                  ),
                 // El composer flota sobre la lista (no debajo de ella) para
                 // que los mensajes scrolleen por detrás: solo la píldora y el
                 // send son opacos, sin franja de fondo alrededor. La lista
@@ -639,11 +756,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     AssistantOpenAiService service,
     PortfolioQaMessage message, {
     required int index,
-    required bool orbGateOpen,
+    required bool waitGateOpen,
     required VoidCallback onUserTypingComplete,
   }) {
     // Key estable: identifica la fila para el ListView a través de todo su
-    // ciclo de vida (orbe → respuesta), así el AnimatedSwitcher de abajo
+    // ciclo de vida (espera → respuesta), así el AnimatedSwitcher de abajo
     // conserva su estado entre rebuilds en vez de perder la animación. Es
     // una GlobalKey para que el scroll pueda medir la fila (ver
     // `_tileOffset`).
@@ -661,26 +778,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       content = AssistantQuietNotice(notice: notice);
     } else if (message.isGenUiSurface &&
         message.isStreaming &&
-        !orbGateOpen) {
+        !waitGateOpen) {
       // El placeholder ya existe en el estado (se agrega junto con el
       // mensaje del usuario), pero visualmente espera a que la burbuja del
-      // usuario termine su propio typewriter antes de mostrar el orbe.
+      // usuario termine su propio typewriter antes de mostrar a Porty esperando.
       contentKey = const ValueKey('gated');
       content = const SizedBox.shrink();
     } else if (message.isGenUiSurface && message.isStreaming) {
-      // Sin chrome de burbuja: el orbe flota suelto en el lugar donde va a
-      // aparecer la respuesta, en vez de quedar encerrado en un contenedor.
-      // Sin deriva vertical: acá el orbe marca un punto exacto — dónde va
-      // a aparecer la respuesta — y alejarse de ese punto contradice esa
-      // promesa espacial.
+      // Mientras Porty piensa, la fila es solo su avatar (pulsando, ver
+      // _MessageAvatar): el lugar exacto donde va a empezar la respuesta.
       contentKey = const ValueKey('thinking');
-      content = Padding(
-        padding: const EdgeInsets.only(bottom: AppDimens.sp12),
-        child: const Align(
-          alignment: Alignment.centerLeft,
-          child: AssistantThinkingOrb(size: AppDimens.iconLg),
-        ),
-      );
+      content = const SizedBox(height: _MessageAvatar.size);
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
       final surface = QaPlanScope(
@@ -698,14 +806,26 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           onFollowUp: (question) => _startAutoType(notifier, question),
           child: QaEvidenceScope(
             lookup: service.evidenceListenable,
-            child: PortfolioQaAssistantSurface(
-              surfaceId: message.surfaceId!,
-              surfaceContext: service.controller.contextFor(message.surfaceId!),
-              startFullyRevealed: message.hasRevealed,
-              onFullyRevealed: () {
-                if (message.surfaceId == _followSurfaceId) _finishFollowing();
-                notifier.markRevealed(message.surfaceId!);
-              },
+            child: PortyVoiceScope(
+              onDoneSpeaking:
+                  message.surfaceId == _speakingSurfaceId
+                      ? () => _finishSpeaking(service, message.surfaceId!)
+                      : null,
+              child: PortfolioQaAssistantSurface(
+                surfaceId: message.surfaceId!,
+                surfaceContext: service.controller.contextFor(
+                  message.surfaceId!,
+                ),
+                startFullyRevealed: message.hasRevealed,
+                onFullyRevealed: () {
+                  if (message.surfaceId == _followSurfaceId) {
+                    _finishFollowing();
+                  }
+                  // Respuesta sin texto: deja de hablar al terminar las cards.
+                  _finishSpeaking(service, message.surfaceId!);
+                  notifier.markRevealed(message.surfaceId!);
+                },
+              ),
             ),
           ),
         ),
@@ -728,24 +848,135 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
     }
 
-    // El orbe no tenía salida propia: al llegar la respuesta, desaparecía de
-    // golpe reemplazado por la card. El crossfade acá hace que se desvanezca
-    // mientras la card entra, en vez de un swap instantáneo y desconectado.
-    // Con reduce motion el swap es instantáneo (duración cero).
-    return AnimatedSwitcher(
-      key: stableKey,
+    // Crossfade entre lo que ocupa el lugar de la respuesta (espera →
+    // respuesta, aviso o fallback), en vez de un swap instantáneo. Con
+    // reduce motion el swap es instantáneo (duración cero).
+    Widget fade(Key key, Widget child, {Key? switcherKey}) => AnimatedSwitcher(
+      key: switcherKey,
       duration:
           MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
+      layoutBuilder:
+          (current, previous) => Stack(
+            alignment: Alignment.topLeft,
+            children: [...previous, if (current != null) current],
+          ),
       transitionBuilder:
           (child, animation) =>
               FadeTransition(opacity: animation, child: child),
-      child: KeyedSubtree(key: contentKey, child: content),
+      child: KeyedSubtree(key: key, child: child),
+    );
+
+    if (message.role == PortfolioQaRole.user ||
+        contentKey == const ValueKey('gated')) {
+      return fade(contentKey, content, switcherKey: stableKey);
+    }
+
+    // Porty: su avatar a la izquierda, fijo desde que aparece la fila (el
+    // mismo lugar y tamaño que en el mensaje final), y el contenido al lado.
+    // El avatar del turno en curso actúa (piensa, habla, sonríe); el resto
+    // del historial queda quieto.
+    final live = message.surfaceId != null && message.surfaceId == _turnSurfaceId;
+    final avatar =
+        live
+            ? ValueListenableBuilder<PortyAvatarState>(
+              valueListenable: _mood,
+              builder:
+                  (context, state, _) =>
+                      _MessageAvatar(state: state, animated: true),
+            )
+            : _MessageAvatar(
+              state:
+                  message.isFallback || message.notice != null
+                      ? PortyAvatarState.error
+                      : PortyAvatarState.idle,
+            );
+    return fade(
+      const ValueKey('row'),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          avatar,
+          const SizedBox(width: _MessageAvatar.gap),
+          Expanded(
+            child: Padding(
+              // Centra la primera línea del texto con el avatar.
+              padding: const EdgeInsets.only(top: _MessageAvatar.textInset),
+              child: fade(contentKey, content),
+            ),
+          ),
+        ],
+      ),
+      switcherKey: stableKey,
     );
   }
+}
+
+/// El avatar de Porty al lado de cada respuesta. Quieto en el historial; en
+/// el turno en curso piensa con el pulso del chat ([PortyThinkingStyle.pulse])
+/// donde va a empezar la respuesta, habla mientras se tipea y sonríe al
+/// terminar (o queda en reposo si es una mala noticia).
+class _MessageAvatar extends StatefulWidget {
+  const _MessageAvatar({required this.state, this.animated = false});
+
+  final PortyAvatarState state;
+  final bool animated;
+
+  static const size = 28.0;
+  static const gap = 10.0;
+
+  /// La primera línea del texto (15 px × 1,45) queda centrada con el cuerpo.
+  static const textInset = 3.0;
+
+  @override
+  State<_MessageAvatar> createState() => _MessageAvatarState();
+}
+
+class _MessageAvatarState extends State<_MessageAvatar> {
+  /// Vuelto a reposo, sigue animado lo que tarda en asentarse (crossfade y
+  /// pose) y después queda quieto, como el resto del historial.
+  static const _settle = Duration(milliseconds: 500);
+
+  late bool _animating = widget.animated && widget.state != PortyAvatarState.idle;
+  Timer? _settleTimer;
+
+  @override
+  void didUpdateWidget(_MessageAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final active = widget.animated && widget.state != PortyAvatarState.idle;
+    if (active) {
+      _settleTimer?.cancel();
+      _animating = true;
+    } else if (_animating && widget.animated) {
+      _settleTimer ??= Timer(_settle, () {
+        _settleTimer = null;
+        if (mounted) setState(() => _animating = false);
+      });
+    } else {
+      _settleTimer?.cancel();
+      _settleTimer = null;
+      _animating = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: PortyAvatar(
+      state: widget.state,
+      size: _MessageAvatar.size,
+      animated: _animating,
+      thinkingStyle: PortyThinkingStyle.pulse,
+    ),
+  );
 }
 
 /// El footer de avisos entra último, cuando la respuesta terminó su reveal:

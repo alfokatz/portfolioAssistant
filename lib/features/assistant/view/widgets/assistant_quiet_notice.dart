@@ -6,7 +6,7 @@ import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dar
 
 /// Aviso de la app en el lugar de una respuesta ([AssistantNotice]): texto
 /// secundario, sin card ni color de alerta — no es un error ni una venta.
-/// Entra con el mismo crossfade de fila que reemplaza al orbe (ver
+/// Entra con el mismo crossfade que reemplaza a la espera de Porty (ver
 /// `_buildMessageTile`), así que no tiene animación propia.
 class AssistantQuietNotice extends StatelessWidget {
   const AssistantQuietNotice({super.key, required this.notice});

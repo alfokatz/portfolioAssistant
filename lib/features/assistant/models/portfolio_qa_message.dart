@@ -39,7 +39,7 @@ class PortfolioQaMessage {
   final InvestorProfileNudge? profileNudge;
 
   /// Si no es `null`, la fila muestra este aviso en vez de la respuesta.
-  /// Conserva [surfaceId] (misma fila que el orbe, que se funde en el
+  /// Conserva [surfaceId] (misma fila que la espera, que se funde en el
   /// aviso sin saltos de layout).
   final AssistantNotice? notice;
 
