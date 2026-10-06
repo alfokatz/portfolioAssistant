@@ -22,6 +22,7 @@ import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report_
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
+import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
@@ -307,7 +308,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('weekly_report_title'));
       await tester.pumpAndSettle();
-      expect(find.text('weekly_report_screen_title'), findsOneWidget);
+      expect(find.byType(WeeklyReportScreen), findsOneWidget);
       expect(find.text('weekly_report_movers_section'), findsOneWidget);
     });
   });
@@ -315,6 +316,50 @@ void main() {
   group('Report screen', () {
     Future<void> scrollTo(WidgetTester tester, Finder f) => tester
         .scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
+
+    testWidgets('large title on top; the small one shows in the bar only '
+        'after scrolling past it', (tester) async {
+      await tester.pumpWidget(
+        reportApp(FixedWeeklyReportController(ready(fullReport())),
+            openScreen: true),
+      );
+      await tester.pumpAndSettle();
+      final barTitle = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byType(AnimatedOpacity),
+      );
+      double opacity() => tester.widget<AnimatedOpacity>(barTitle).opacity;
+      expect(opacity(), 0);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text('weekly_report_title'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(opacity(), 1);
+    });
+
+    testWidgets('sections are grouped by question, each group with its '
+        'eyebrow', (tester) async {
+      await tester.pumpWidget(
+        reportApp(FixedWeeklyReportController(ready(fullReport())),
+            openScreen: true),
+      );
+      await tester.pumpAndSettle();
+      for (final key in [
+        'weekly_report_group_how',
+        'weekly_report_group_why',
+        'weekly_report_group_next',
+        'weekly_report_group_deeper',
+      ]) {
+        await scrollTo(tester, find.text(key.toUpperCase()));
+        expect(find.text(key.toUpperCase()), findsOneWidget, reason: key);
+      }
+    });
 
     testWidgets('full report: the three questions, then only the sections '
         'that have something; sources are gray and tappable', (tester) async {

@@ -256,10 +256,10 @@ void main() {
       expect(find.text('Technology'), findsOneWidget);
       expect(find.text('38,6x'), findsOneWidget);
       expect(find.text('\$4,98T'), findsOneWidget);
-      expect(find.text('VALUACIÓN'), findsOneWidget);
-      expect(find.text('RENTABILIDAD'), findsOneWidget);
-      expect(find.text('DIVIDENDO'), findsOneWidget);
-      expect(find.text('RANGO 52 SEMANAS'), findsOneWidget);
+      expect(find.text('Valuación'), findsOneWidget);
+      expect(find.text('Rentabilidad'), findsOneWidget);
+      expect(find.text('Dividendo'), findsOneWidget);
+      expect(find.text('Rango 52 semanas'), findsOneWidget);
       // Barras solo en márgenes/ROE, no en el dividend yield.
       expect(find.byType(QaProgressBar), findsNWidgets(2));
     });
@@ -278,9 +278,9 @@ void main() {
         'week52High': 500,
         'currentPrice': 450,
       });
-      expect(find.text('VALUACIÓN'), findsOneWidget);
-      expect(find.text('RENTABILIDAD'), findsOneWidget);
-      expect(find.text('OTROS'), findsOneWidget);
+      expect(find.text('Valuación'), findsOneWidget);
+      expect(find.text('Rentabilidad'), findsOneWidget);
+      expect(find.text('Otros'), findsOneWidget);
       expect(find.byType(QaRangeBar), findsOneWidget);
       expect(find.text('A 10.0% del máximo'), findsOneWidget);
     });

@@ -101,6 +101,11 @@ void main() {
         PortyPart.eyes,
         PortyPart.mouth,
       },
+      PortyAvatarState.concerned: {
+        PortyPart.body,
+        PortyPart.eyes,
+        PortyPart.mouth,
+      },
       PortyAvatarState.error: {PortyPart.body, PortyPart.eyes, PortyPart.mouth},
     };
 
@@ -120,9 +125,10 @@ void main() {
         final pixels = await _Pixels.of(tester, key);
         Color at(double x, double y) => pixels.at(x + 4, y + 4);
 
-        // Boca (centro de la boca de cada estado).
+        // Boca (centro de la boca de cada estado; el arco de concerned
+        // queda más arriba en el centro).
         expect(
-          at(33.5, 41.5),
+          state == PortyAvatarState.concerned ? at(33.5, 40.5) : at(33.5, 41.5),
           expected.contains(PortyPart.mouth)
               ? _isColor(_brand.features)
               : _isColor(_brand.body),
@@ -238,6 +244,30 @@ void main() {
       expect(smile[19], 1); // 320 ms
     });
 
+    testWidgets('concerned draws the frown (300 ms) and sighs once: the '
+        'body dips ~1.5 units and comes back, no hop', (tester) async {
+      final state = ValueNotifier(PortyAvatarState.answering);
+      addTearDown(state.dispose);
+      PortyAvatar.ambientMotion = false;
+      await _pump(tester, state);
+      state.value = PortyAvatarState.concerned;
+
+      final frames = await _record(tester, const Duration(milliseconds: 800));
+      final dys = frames.map((f) => f.dy);
+      expect(_max(dys), closeTo(PortyAvatarMotion.sighDepth, 0.05));
+      expect(_min(dys), greaterThanOrEqualTo(0)); // nunca sube: no hay saltito
+      expect(frames.last.dy, 0);
+      expect(frames.first.smile, lessThan(0.3));
+      expect(frames[19].smile, 1); // 320 ms
+      expect(frames.last.visibleParts, contains(PortyPart.mouth));
+
+      await tester.pumpAndSettle();
+      expect(
+        _frame(tester),
+        const PortyFrame.still(PortyAvatarState.concerned),
+      );
+    });
+
     testWidgets('error shakes "no" (±3°, twice, 400 ms) and then stays still '
         'without breathing', (tester) async {
       final state = ValueNotifier(PortyAvatarState.idle);
@@ -347,17 +377,17 @@ void main() {
   group('chat thinking (pulse)', () {
     const pulse = PortyThinkingStyle.pulse;
 
-    testWidgets('the orb pulse on the body: scale 0.9 → 1.06 and opacity '
-        '0.8 → 1 every 3.6 s, an echo of the outline (≤ 0.3, up to 1.35), '
-        'eyes up and no spark; the body never moves', (tester) async {
+    testWidgets('the orb pulse on the body: scale 0.86 → 1.08 and opacity '
+        '0.8 → 1 every 3.6 s, the orb drift and halo, an echo of the outline '
+        '(≤ 0.3, up to 1.35), eyes up and no spark', (tester) async {
       final state = ValueNotifier(PortyAvatarState.thinking);
       addTearDown(state.dispose);
       await _pump(tester, state, size: 28, thinkingStyle: pulse);
 
       final frames = await _record(tester, const Duration(milliseconds: 3600));
       final scales = frames.map((f) => f.scale);
-      expect(_min(scales), closeTo(0.9, 0.002));
-      expect(_max(scales), closeTo(1.06, 0.002));
+      expect(_min(scales), closeTo(0.86, 0.002));
+      expect(_max(scales), closeTo(1.08, 0.002));
       final opacity = frames.map((f) => f.bodyOpacity);
       expect(_min(opacity), closeTo(0.8, 0.002));
       expect(_max(opacity), closeTo(1, 0.002));
@@ -368,7 +398,14 @@ void main() {
       expect(_max(frames.map((f) => f.echoOpacity)), lessThanOrEqualTo(0.3));
       expect(_max(frames.map((f) => f.echoOpacity)), greaterThan(0.2));
       expect(_max(frames.map((f) => f.echoScale)), greaterThan(1.3));
-      expect(frames.every((f) => f.dy == 0 && f.rotation == 0), isTrue);
+      // Deriva del orbe (2,6 s, ±3,5 u) y halo que respira (0,55 → 0,9).
+      final dys = frames.map((f) => f.dy);
+      expect(_min(dys), closeTo(-3.5, 0.05));
+      expect(_max(dys), closeTo(3.5, 0.05));
+      expect(frames.every((f) => f.rotation == 0), isTrue);
+      final halos = frames.skip(30).map((f) => f.haloOpacity);
+      expect(_min(halos), closeTo(0.55, 0.01));
+      expect(_max(halos), closeTo(0.9, 0.01));
       expect(
         frames.every((f) => !f.visibleParts.contains(PortyPart.spark)),
         isTrue,
@@ -402,6 +439,8 @@ void main() {
       expect(handoff.scale, closeTo(1, 0.005));
       expect(handoff.bodyOpacity, closeTo(1, 0.005));
       expect(handoff.echoOpacity, 0);
+      expect(handoff.haloOpacity, 0);
+      expect(handoff.dy, closeTo(0, 0.01));
     });
 
     testWidgets('with reduce motion: eyes up, no pulse, no echo', (

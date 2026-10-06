@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -59,12 +60,17 @@ class WeeklyReportState {
 /// - claimed → se calculan los datos, Porty escribe, se guarda.
 /// - in_progress → números ahora y se vuelve a preguntar en un rato.
 /// - numbers_only / failed / unavailable → solo números (sin LLM).
+///
+/// El último informe de la semana queda guardado en el dispositivo: al abrir
+/// la app se muestra al instante. El completo (con Porty) ya no cambia en
+/// la semana y no se vuelve a pedir; las variantes de solo números se
+/// revalidan en segundo plano, sin loader.
 class WeeklyReportController extends StateNotifier<WeeklyReportState> {
   WeeklyReportController({
     required WeeklyReportStore store,
     required WeeklyReportInputBuilder builder,
     required WeeklyReportGenerator generator,
-    required SubscriptionTier Function() tier,
+    required FutureOr<SubscriptionTier> Function() tier,
     required String? Function() userId,
     SharedPreferences? preferences,
     DateTime Function()? clock,
@@ -76,12 +82,16 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
        _userId = userId,
        _prefs = preferences,
        _clock = clock ?? DateTime.now,
-       super(const WeeklyReportState());
+       super(const WeeklyReportState()) {
+    _hydrate();
+  }
 
   final WeeklyReportStore _store;
   final WeeklyReportInputBuilder _builder;
   final WeeklyReportGenerator _generator;
-  final SubscriptionTier Function() _tier;
+  /// El plan del usuario, ya cargado (no el `free` por defecto mientras
+  /// carga la suscripción: con ese, un Gold veía el teaser de Gold).
+  final FutureOr<SubscriptionTier> Function() _tier;
   final String? Function() _userId;
   final SharedPreferences? _prefs;
   final DateTime Function() _clock;
@@ -94,6 +104,11 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
   Timer? _retry;
   int _inProgressRetries = 0;
   ReportWeek? _disabledWeek;
+
+  /// Semana que ya se resolvió en esta sesión (con el servidor, o porque el
+  /// guardado es el completo). Un informe recién leído del dispositivo no
+  /// cuenta: se revalida una vez.
+  ReportWeek? _settledWeek;
 
   /// Para quién es el estado actual. Al cambiar de cuenta (cerrar sesión y
   /// entrar con otra) se descarta todo: el informe de A nunca se muestra a B.
@@ -123,10 +138,9 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     final week = ReportWeek.coveredAt(_clock());
     final current = state.report;
     final sameWeek = current != null && current.week == week;
-    // Listo, o con un reintento ya agendado (otro dispositivo generando):
+    // Resuelto, o con un reintento ya agendado (otro dispositivo generando):
     // la Home llama esto en cada rebuild y no tiene que adelantar nada.
-    if (sameWeek &&
-        (state.status == WeeklyReportStatus.ready || _retry != null)) {
+    if (sameWeek && (_settledWeek == week || _retry != null)) {
       return Future.value();
     }
     // Apagado desde el servidor: no volver a preguntar en cada rebuild de la
@@ -138,6 +152,31 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     ).whenComplete(() => _inFlight = null);
   }
 
+  /// El informe guardado de esta semana, antes del primer frame de la Home.
+  void _hydrate() {
+    final uid = _userId();
+    if (uid == null) return;
+    _loadedFor = uid;
+    final cached = _readCache(ReportWeek.coveredAt(_clock()));
+    if (cached != null) _show(cached, persist: false);
+  }
+
+  /// Cambió el plan (compra, vencimiento): un informe de solo números puede
+  /// pasar a otra variante. El completo se queda como está.
+  void tierChanged() {
+    final report = state.report;
+    if (report == null || report.variant == WeeklyReportVariant.full) return;
+    if (_lots.isEmpty || _userId() != _loadedFor) return;
+    _retry?.cancel();
+    _retry = null;
+    _inProgressRetries = 0;
+    _inFlight ??= _load(
+      report.week,
+      _epoch,
+      useCache: false,
+    ).whenComplete(() => _inFlight = null);
+  }
+
   void _resetFor(String? uid) {
     _epoch++;
     _loadedFor = uid;
@@ -146,6 +185,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     _inFlight = null;
     _inProgressRetries = 0;
     _disabledWeek = null;
+    _settledWeek = null;
     state = const WeeklyReportState();
   }
 
@@ -166,12 +206,28 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
   }
 
-  Future<void> _load(ReportWeek week, int epoch) async {
+  Future<void> _load(
+    ReportWeek week,
+    int epoch, {
+    bool useCache = true,
+  }) async {
+    if (useCache && state.report?.week != week) {
+      final cached = _readCache(week);
+      if (cached != null) _show(cached, persist: false);
+    }
+    // El completo ya está guardado y no cambia en la semana.
+    if (useCache &&
+        state.report?.week == week &&
+        state.report?.variant == WeeklyReportVariant.full) {
+      _settledWeek = week;
+      return;
+    }
     if (state.report?.week != week) {
       state = const WeeklyReportState(status: WeeklyReportStatus.loading);
     }
     final claim = await _store.claim(week);
     if (_stale(epoch)) return;
+    if (claim is! ClaimUnavailable) _settledWeek = week;
     switch (claim) {
       case ClaimReady(:final payload):
         _retry?.cancel();
@@ -196,14 +252,17 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
         _retry?.cancel();
         _retry = null;
         _disabledWeek = week;
+        _clearCache();
         state = const WeeklyReportState();
       case ClaimFailed():
-        await _numbers(week, _locked(), epoch);
+        final variant = await _locked();
+        if (_stale(epoch)) return;
+        await _numbers(week, variant, epoch);
       case ClaimUnavailable():
         // Sin respuesta del servidor no se sabe si el informe está prendido
-        // (ni si el backend existe): no hay tarjeta. Se reintenta en la
-        // próxima apertura de la Home.
-        state = const WeeklyReportState();
+        // (ni si el backend existe): no hay tarjeta, salvo que ya hubiera uno
+        // guardado de esta semana. Se reintenta en la próxima apertura.
+        if (state.report?.week != week) state = const WeeklyReportState();
     }
   }
 
@@ -258,6 +317,12 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     WeeklyReportVariant variant,
     int epoch,
   ) async {
+    // Revalidación que confirma lo que ya se muestra: no se vuelven a pedir
+    // las cotizaciones de la semana.
+    final current = state.report;
+    if (current != null && current.week == week && current.variant == variant) {
+      return;
+    }
     final input = await _builder.build(
       week: week,
       lots: _lots,
@@ -292,7 +357,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     });
   }
 
-  void _show(WeeklyReport report, {bool fresh = false}) {
+  void _show(WeeklyReport report, {bool fresh = false, bool persist = true}) {
+    if (persist) _writeCache(report);
     state = WeeklyReportState(
       status: WeeklyReportStatus.ready,
       report: report,
@@ -301,10 +367,49 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
   }
 
-  WeeklyReportVariant _locked() =>
-      _tier() == SubscriptionTier.gold
+  Future<WeeklyReportVariant> _locked() async =>
+      await _tier() == SubscriptionTier.gold
           ? WeeklyReportVariant.numbersUnavailable
           : WeeklyReportVariant.numbersLocked;
+
+  String get _cachePrefix => 'weekly_report_cache_${_loadedFor ?? 'anon'}_';
+
+  WeeklyReport? _readCache(ReportWeek week) {
+    try {
+      final raw = _prefs?.getString('$_cachePrefix${week.key}');
+      if (raw == null) return null;
+      final json = jsonDecode(raw);
+      if (json is! Map) return null;
+      final report = WeeklyReport.tryParse(json.cast<String, Object?>());
+      return report?.week == week ? report : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Solo se guarda la semana actual: las anteriores se borran.
+  void _writeCache(WeeklyReport report) {
+    final prefs = _prefs;
+    if (prefs == null || _loadedFor == null) return;
+    try {
+      _clearCache(except: report.week);
+      prefs.setString(
+        '$_cachePrefix${report.week.key}',
+        jsonEncode(report.toJson()),
+      );
+    } catch (_) {}
+  }
+
+  void _clearCache({ReportWeek? except}) {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    try {
+      final keep = except == null ? null : '$_cachePrefix${except.key}';
+      for (final key in prefs.getKeys().toList()) {
+        if (key.startsWith(_cachePrefix) && key != keep) prefs.remove(key);
+      }
+    } catch (_) {}
+  }
 
   bool _wasSeen(ReportWeek week) {
     try {
@@ -331,17 +436,41 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
 final weeklyReportControllerProvider =
     StateNotifierProvider<WeeklyReportController, WeeklyReportState>((ref) {
       ref.watch(authSessionProvider.select((s) => s.valueOrNull?.user.id));
-      return WeeklyReportController(
+      final controller = WeeklyReportController(
         store: ref.watch(weeklyReportRepositoryProvider),
         builder: WeeklyReportInputBuilder(
           quotes: ref.watch(quoteRepositoryProvider),
         ),
         generator: WeeklyReportGenerator(),
-        tier: () => ref.read(subscriptionProvider).tier,
+        tier: () => _loadedTier(ref),
         userId: () => ref.read(supabaseAuthServiceProvider).currentUser?.id,
         preferences: ref.watch(sharedPreferencesProvider),
       );
+      SubscriptionTier? lastTier;
+      ref.listen<SubscriptionState>(subscriptionProvider, (_, s) {
+        if (s.isLoading) return;
+        if (lastTier != null && lastTier != s.tier) controller.tierChanged();
+        lastTier = s.tier;
+      }, fireImmediately: true);
+      return controller;
     });
+
+/// El plan una vez cargada la suscripción. Mientras carga, el estado dice
+/// `free` aunque el usuario sea Gold.
+Future<SubscriptionTier> _loadedTier(Ref ref) async {
+  final current = ref.read(subscriptionProvider);
+  if (!current.isLoading) return current.tier;
+  try {
+    final loaded = await ref
+        .read(subscriptionProvider.notifier)
+        .stream
+        .firstWhere((s) => !s.isLoading)
+        .timeout(const Duration(seconds: 8));
+    return loaded.tier;
+  } catch (_) {
+    return ref.read(subscriptionProvider).tier;
+  }
+}
 
 /// Si el plan ve la comparación con el S&P 500 (Premium y Gold). Aparte,
 /// para que la tarjeta y la pantalla no dependan de todo el estado de la

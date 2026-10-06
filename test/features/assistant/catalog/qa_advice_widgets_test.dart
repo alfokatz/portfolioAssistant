@@ -251,7 +251,7 @@ void main() {
       await pumpCatalogItemExample(tester, catalog, item('QaMilestoneList'));
       await tester.pumpAndSettle();
 
-      expect(find.text('HITOS DE LA META'), findsOneWidget);
+      expect(find.text('Hitos de la meta'), findsOneWidget);
       expect(find.text('Alcanzado'), findsOneWidget);
       expect(find.text('Próximo'), findsOneWidget);
       expect(find.text('\$50,000'), findsOneWidget);
@@ -265,7 +265,7 @@ void main() {
       });
       expect(find.text('Alcanzado'), findsNothing);
       expect(find.text('Próximo'), findsNothing);
-      expect(find.text('Hitos de la meta'.toUpperCase()), findsOneWidget);
+      expect(find.text('Hitos de la meta'), findsOneWidget);
     });
   });
 

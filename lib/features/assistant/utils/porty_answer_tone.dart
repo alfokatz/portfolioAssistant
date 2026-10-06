@@ -1,64 +1,68 @@
 import 'package:genui/genui.dart';
 
-/// Si una respuesta de Porty muestra una mala noticia, para que el avatar
-/// no sonría al terminarla (ver `PortyMood.doneSpeaking`).
+/// Si una respuesta de Porty trae una mala noticia sobre la cartera, para
+/// que el avatar no sonría al terminarla (ver `PortyMood.doneSpeaking`).
 ///
-/// No hay una señal explícita del modelo, así que se mira lo que la
-/// respuesta MUESTRA: cualquier variación negativa en las cards (cambio,
-/// P&L, ganancia/pérdida), un aviso de advertencia, o un texto que habla
-/// de caídas o con un porcentaje negativo. Ante la duda cuenta como mala
-/// noticia: el costo de no sonreír es nulo, el de sonreír ante una pérdida
-/// no.
+/// Solo cuenta la cartera entera: su variación en el período, su P&L total
+/// o lo realizado con las ventas, en negativo; o un texto que dice que la
+/// cartera bajó o que el usuario perdió. Una posición en rojo o el día
+/// negativo de una acción no cuentan: si no, Porty casi nunca sonreiría.
+///
+/// Si una card trae el resultado de la cartera, decide ese número: el texto
+/// no lo contradice ("cuánto ganaste o perdiste" sobre una cartera en verde
+/// dejaba a Porty triste, bug 2026-10-06).
 abstract final class PortyAnswerTone {
-  /// Campos numéricos de las cards que son una variación (ver los schemas
-  /// del catálogo: `changePct`, `dayChangePct`, `pnlAbs`, `gainLoss`,
-  /// `totalPnlPct`, `changeAbs`…).
-  static final _deltaKey = RegExp(
-    r'change|pnl|gainloss|delta',
+  /// Campos de cada card que son el resultado de la cartera entera (ver los
+  /// schemas del catálogo). Solo se miran en el nivel de la card, no en sus
+  /// listas de posiciones.
+  static const _portfolioResultFields = {
+    'QaPeriodChange': ['changeAbs', 'changePct'],
+    'QaPositionsSnapshot': ['pnlAbs', 'pnlPct'],
+    'QaPnLBreakdown': ['gainLoss', 'gainLossPercent'],
+    'QaClosedPositionList': ['totalPnlAbs', 'totalPnlPct'],
+  };
+
+  /// "Tu cartera bajó 3 %", "el portfolio cayó", "perdiste 40 dólares",
+  /// "tus inversiones están en rojo".
+  static final _portfolioLoss = RegExp(
+    r'\b(cartera|portfolio|portafolio|inversiones)\b[^.!?]{0,40}?'
+    r'\b(baj[oó]|bajaron|cay[oó]|cayeron|perdi[oó]|perdieron|retroced|'
+    r'en rojo|en negativo)',
+    caseSensitive: false,
+  );
+  static final _youLost = RegExp(
+    r'\b(perdiste|est[aá]s perdiendo|vas perdiendo)\b',
     caseSensitive: false,
   );
 
-  /// "-3,2 %", "−1.5%", "(-4 %)".
-  static final _negativePercent = RegExp(r'(^|[\s(])[-−]\s?\d+([.,]\d+)?\s?%');
-
-  static final _lossWords = RegExp(
-    r'\b(baj[oó]|bajaron|cay[oó]|cayeron|ca[ií]da|perd[ií]|perdi[oó]|'
-    r'perdiste|p[eé]rdidas?|retroced|en rojo|fell|dropped|lost|losses?)',
+  /// Lo que nombra la pérdida sin afirmarla: "cuánto ganaste o perdiste",
+  /// "si perdiste o ganaste", "no perdiste". Se saca antes de buscar.
+  static final _notALoss = RegExp(
+    r'\b(gan\w*\s+o\s+perd\w*|perd\w*\s+o\s+gan\w*|no\s+perd\w*)',
     caseSensitive: false,
   );
 
   static bool showsLoss(SurfaceDefinition? definition) {
     if (definition == null) return false;
+    // null: ninguna card trae el resultado de la cartera.
+    bool? cardsLoss;
+    var textLoss = false;
     for (final component in definition.components.values) {
       final props = component.properties;
-      if (_hasNegativeDelta(props)) return true;
-      if (component.type == 'QaTipBanner' && props['warning'] == true) {
-        return true;
+      for (final field in _portfolioResultFields[component.type] ?? const []) {
+        final value = props[field];
+        if (value is num) cardsLoss = (cardsLoss ?? false) || value < 0;
       }
       if (component.type == 'QaAnswerText' && textShowsLoss(props['text'])) {
-        return true;
+        textLoss = true;
       }
     }
-    return false;
+    return cardsLoss ?? textLoss;
   }
 
-  static bool textShowsLoss(Object? text) =>
-      text is String &&
-      (_negativePercent.hasMatch(text) || _lossWords.hasMatch(text));
-
-  static bool _hasNegativeDelta(Object? node) {
-    if (node is Map) {
-      for (final MapEntry(:key, :value) in node.entries) {
-        if (value is num && value < 0 && _deltaKey.hasMatch('$key')) {
-          return true;
-        }
-        if (_hasNegativeDelta(value)) return true;
-      }
-    } else if (node is List) {
-      for (final item in node) {
-        if (_hasNegativeDelta(item)) return true;
-      }
-    }
-    return false;
+  static bool textShowsLoss(Object? text) {
+    if (text is! String) return false;
+    final claim = text.replaceAll(_notALoss, '');
+    return _portfolioLoss.hasMatch(claim) || _youLost.hasMatch(claim);
   }
 }

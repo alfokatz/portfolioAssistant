@@ -71,11 +71,11 @@ abstract final class AdviceWidgets {
                   QaSegment(value: items[i].pct, color: QaPalette.series(i)),
               ],
             ),
-            const SizedBox(height: 8),
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const QaDivider(indent: 0),
+            // Las filas se agrupan por proximidad, sin líneas: el alto
+            // mínimo de cada fila (área tocable) ya les da el aire.
+            const SizedBox(height: QaSpace.gap),
+            for (var i = 0; i < items.length; i++)
               _BudgetRow(item: items[i], color: QaPalette.series(i)),
-            ],
           ],
           QaFollowUpBar(
             items: [
@@ -144,24 +144,28 @@ abstract final class AdviceWidgets {
             const SizedBox(height: QaSpace.gap),
             Text(data.summary, style: QaText.body),
           ],
-          if (data.disclaimer.isNotEmpty) ...[
-            const SizedBox(height: QaSpace.gap),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(
-                    Icons.info_outline_rounded,
-                    size: 13,
-                    color: QaColors.textSecondary,
+          // El disclaimer es el pie de la card: su propia sección, con
+          // línea y aire, para que no se lea como parte del resumen.
+          if (data.disclaimer.isNotEmpty)
+            QaSection(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.info_outline_rounded,
+                      size: 13,
+                      color: QaColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(child: Text(data.disclaimer, style: QaText.caption)),
-              ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(data.disclaimer, style: QaText.caption),
+                  ),
+                ],
+              ),
             ),
-          ],
           QaFollowUpBar(
             items: [
               if (budget != null)
@@ -346,7 +350,7 @@ abstract final class AdviceWidgets {
             Text(heroLabel, style: QaText.label),
           ],
           if (secondary.isNotEmpty) ...[
-            const SizedBox(height: QaSpace.gap),
+            const SizedBox(height: QaSpace.sectionGap),
             QaInset(
               child: QaStatGrid(stats: secondary, columns: secondary.length),
             ),
@@ -427,8 +431,13 @@ abstract final class AdviceWidgets {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          QaSectionLabel(data.title.isEmpty ? 'Hitos de la meta' : data.title),
-          const SizedBox(height: QaSpace.gap),
+          // El rótulo es el título de la card (no hay un número héroe al
+          // que contextualizar): va con el encabezado de card.
+          QaCardTitle(
+            title: data.title.isEmpty ? 'Hitos de la meta' : data.title,
+            icon: Icons.flag_outlined,
+          ),
+          const SizedBox(height: QaSpace.sectionGap),
           if (items.isEmpty)
             Text('Sin hitos para mostrar', style: QaText.label)
           else
@@ -638,7 +647,7 @@ class _InvestOptionCard extends StatelessWidget {
             _ExpandableText(text: data.thesis),
           ],
           if (data.pro.isNotEmpty || data.con.isNotEmpty) ...[
-            const SizedBox(height: QaSpace.gap),
+            const SizedBox(height: QaSpace.sectionGap),
             _ProsCons(pro: data.pro, con: data.con),
           ],
           if (ticker.isNotEmpty)
@@ -889,7 +898,7 @@ class _ProConBlock extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label.toUpperCase(), style: QaText.eyebrow),
+                Text(label.toUpperCase(), style: QaText.insetLabel),
                 const SizedBox(height: 3),
                 Text(text, style: QaText.body.copyWith(fontSize: 13)),
               ],

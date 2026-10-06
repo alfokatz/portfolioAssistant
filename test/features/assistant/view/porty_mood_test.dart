@@ -7,7 +7,7 @@ void main() {
   setUp(() => mood = PortyMood());
   tearDown(() => mood.dispose());
 
-  testWidgets('a good answer smiles for 3 s and goes back to idle', (
+  testWidgets('a good answer keeps smiling (the answer\'s avatar)', (
     tester,
   ) async {
     mood
@@ -15,18 +15,28 @@ void main() {
       ..speaking()
       ..doneSpeaking(goodNews: true);
     expect(mood.value, PortyAvatarState.answered);
-    await tester.pump(const Duration(milliseconds: 2900));
+    await tester.pump(const Duration(seconds: 30));
     expect(mood.value, PortyAvatarState.answered);
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(mood.value, PortyAvatarState.idle);
   });
 
-  testWidgets('bad news goes straight to idle', (tester) async {
+  testWidgets('with answeredHold, the smile goes back to idle', (tester) async {
+    final held = PortyMood(answeredHold: const Duration(seconds: 3));
+    addTearDown(held.dispose);
+    held
+      ..speaking()
+      ..doneSpeaking(goodNews: true);
+    await tester.pump(const Duration(milliseconds: 2900));
+    expect(held.value, PortyAvatarState.answered);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(held.value, PortyAvatarState.idle);
+  });
+
+  testWidgets('bad news ends barely sad (concerned)', (tester) async {
     mood
       ..working()
       ..speaking()
       ..doneSpeaking(goodNews: false);
-    expect(mood.value, PortyAvatarState.idle);
+    expect(mood.value, PortyAvatarState.concerned);
   });
 
   testWidgets('finishing text when not speaking changes nothing', (
@@ -40,8 +50,8 @@ void main() {
     expect(mood.value, PortyAvatarState.error);
   });
 
-  testWidgets('error stays until the next turn, which cancels a pending '
-      'return to idle', (tester) async {
+  testWidgets('error stays until the next turn; a new turn replaces the '
+      'smile', (tester) async {
     mood
       ..speaking()
       ..doneSpeaking(goodNews: true)

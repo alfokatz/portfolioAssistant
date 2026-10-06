@@ -181,7 +181,7 @@ void main() {
     expect(find.text('Bank of America Corp · Banking'), findsOneWidget);
     expect(find.text('\$47.31'), findsOneWidget);
     expect(find.text('+4.2%'), findsOneWidget); // PnlBadge
-    expect(find.text('EN RESUMEN'), findsOneWidget);
+    expect(find.text('En resumen'), findsOneWidget);
     expect(find.textContaining('gana 30 de cada 100'), findsOneWidget);
     // Valor formateado por la app (no copiado del modelo).
     expect(find.text('11,6x'), findsOneWidget);
@@ -192,7 +192,7 @@ void main() {
     expect(find.text('14 oct 2026'), findsOneWidget);
     expect(find.textContaining('raises dividend'), findsOneWidget);
     expect(find.text('Riesgo medio'), findsOneWidget);
-    expect(find.text('EN TU CARTERA'), findsNothing);
+    expect(find.text('En tu cartera'), findsNothing);
     expect(
       find.text(
         'Análisis informativo, no asesoramiento financiero personalizado.',
@@ -203,7 +203,7 @@ void main() {
 
   testWidgets('held ticker adds the "En tu cartera" row', (tester) async {
     await _pump(tester, calls: [_quote, _fundamentals], held: true);
-    expect(find.text('EN TU CARTERA'), findsOneWidget);
+    expect(find.text('En tu cartera'), findsOneWidget);
     expect(find.text('22,4%'), findsOneWidget);
     expect(find.text('+\$121'), findsOneWidget);
   });
@@ -211,10 +211,10 @@ void main() {
   testWidgets('sections without data are omitted, never "N/A"', (tester) async {
     await _pump(tester, calls: [_quote], prose: {..._prose, 'newsTake': ''});
     expect(find.text('\$47.31'), findsOneWidget);
-    expect(find.text('VALUACIÓN Y RENTABILIDAD'), findsNothing);
-    expect(find.text('RESULTADOS'), findsNothing);
-    expect(find.text('NOTICIAS'), findsNothing);
-    expect(find.text('RIESGO'), findsNothing);
+    expect(find.text('Valuación y rentabilidad'), findsNothing);
+    expect(find.text('Resultados'), findsNothing);
+    expect(find.text('Noticias'), findsNothing);
+    expect(find.text('Riesgo'), findsNothing);
     expect(find.byType(QaRangeBar), findsNothing);
     expect(find.textContaining('N/A'), findsNothing);
   });

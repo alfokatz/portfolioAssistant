@@ -380,6 +380,106 @@ void main() {
     },
   );
 
+  group('saved on the device (bug 2026-10-06: loaded on every open)', () {
+    Future<WeeklyReportController> reopen(
+      _Store store,
+      _Builder builder, {
+      FutureOr<SubscriptionTier> Function()? tier,
+    }) async => WeeklyReportController(
+      store: store,
+      builder: builder,
+      generator: _Generator(),
+      tier: tier ?? () => SubscriptionTier.gold,
+      userId: () => _currentUser,
+      preferences: await SharedPreferences.getInstance(),
+      clock: _saturday,
+    );
+
+    test('the full report shows at once on reopen, without asking the '
+        'server again', () async {
+      final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+      await s.c.ensureFor(_lots);
+
+      final next = _Store([const ClaimUnavailable()]);
+      final c = await reopen(next, s.builder);
+      expect(c.state.status, WeeklyReportStatus.ready);
+      expect(c.state.report!.reading, 'Apple empujó tu cartera');
+      await c.ensureFor(_lots);
+      expect(next.claimCalls, 0);
+      expect(s.gen.calls, 1);
+    });
+
+    test('numbers only: shown at once, revalidated quietly once', () async {
+      final s = await _setup([
+        const ClaimNumbersOnly(),
+      ], tier: SubscriptionTier.free);
+      await s.c.ensureFor(_lots);
+      expect(s.builder.calls, [true]);
+
+      final next = _Store([const ClaimNumbersOnly()]);
+      final c = await reopen(next, s.builder);
+      final states = <WeeklyReportStatus>[];
+      c.addListener((st) => states.add(st.status), fireImmediately: false);
+      await c.ensureFor(_lots);
+      await c.ensureFor(_lots);
+      expect(next.claimCalls, 1);
+      expect(states, isNot(contains(WeeklyReportStatus.loading)));
+      expect(s.builder.calls, [true], reason: 'no recalcula lo mismo');
+      expect(c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+    });
+
+    test('offline with a saved report: the card stays', () async {
+      final s = await _setup([const ClaimNumbersOnly()]);
+      await s.c.ensureFor(_lots);
+      final c = await reopen(_Store([const ClaimUnavailable()]), s.builder);
+      await c.ensureFor(_lots);
+      expect(c.state.status, WeeklyReportStatus.ready);
+    });
+
+    test('a different user never sees it', () async {
+      final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+      await s.c.ensureFor(_lots);
+      _currentUser = 'user-b';
+      final c = await reopen(_Store([const ClaimUnavailable()]), s.builder);
+      expect(c.state.report, isNull);
+    });
+
+    test('a plan change refreshes a numbers-only report', () async {
+      var tier = SubscriptionTier.free;
+      final store = _Store([const ClaimNumbersOnly(), const ClaimFailed()]);
+      SharedPreferences.setMockInitialValues({});
+      final c = await reopen(store, _Builder(), tier: () => tier);
+      await c.ensureFor(_lots);
+      expect(c.state.report!.variant, WeeklyReportVariant.numbersLocked);
+
+      tier = SubscriptionTier.gold;
+      c.tierChanged();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.claimCalls, 2);
+      expect(c.state.report!.variant, WeeklyReportVariant.numbersUnavailable);
+    });
+  });
+
+  test('a failed claim waits for the plan to load (bug 2026-10-06: Gold saw '
+      'the Gold teaser)', () async {
+    final loaded = Completer<SubscriptionTier>();
+    SharedPreferences.setMockInitialValues({});
+    final c = WeeklyReportController(
+      store: _Store([const ClaimFailed()]),
+      builder: _Builder(),
+      generator: _Generator(),
+      tier: () => loaded.future,
+      userId: () => _currentUser,
+      preferences: await SharedPreferences.getInstance(),
+      clock: _saturday,
+    );
+    final pending = c.ensureFor(_lots);
+    loaded.complete(SubscriptionTier.gold);
+    await pending;
+    expect(c.state.report!.variant, WeeklyReportVariant.numbersUnavailable);
+  });
+
   group('switching accounts (bug 2026-10-02)', () {
     test('B never sees the report of A', () async {
       final s = await _setup([

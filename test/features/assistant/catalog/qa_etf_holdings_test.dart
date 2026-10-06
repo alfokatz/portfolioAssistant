@@ -125,7 +125,7 @@ void main() {
         _holdings({'etfs': <String, Object?>{}}, status: 'failed'),
       ],
     );
-    expect(find.text('Principales posiciones'.toUpperCase()), findsNothing);
+    expect(find.text('Principales posiciones'), findsNothing);
 
     await _pump(tester, calls: [_xlf], ticker: 'VOO');
     expect(find.text('Berkshire Hathaway Inc Class B'), findsNothing);

@@ -69,7 +69,28 @@ abstract final class QaText {
     fontFeatures: _tabular,
   );
 
-  /// Título de la card: ticker, nombre de la meta.
+  /// Título de la card (encabezado con ticker o ícono): manda en la card,
+  /// por encima de cualquier título de sección o valor.
+  static TextStyle get cardTitle => TextStyle(
+    color: QaColors.textPrimary,
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
+    height: 1.2,
+  );
+
+  /// Título de una sección dentro de la card ("Puntos clave", "Valuación").
+  /// Más grande y pesado que todo lo que encabeza (cuerpo, valores, filas).
+  static TextStyle get sectionTitle => TextStyle(
+    color: QaColors.textPrimary,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.2,
+    height: 1.25,
+  );
+
+  /// Título de una fila o de un bloque chico: ticker en una lista, nombre
+  /// dentro de un inset.
   static TextStyle get title => TextStyle(
     color: QaColors.textPrimary,
     fontSize: 15,
@@ -111,8 +132,20 @@ abstract final class QaText {
   static TextStyle get label =>
       TextStyle(color: QaColors.textSecondary, fontSize: 12, height: 1.3);
 
-  /// Encabezado de sección dentro de una card ("VALUACIÓN", "HISTORIAL").
+  /// Etiqueta de contexto en mayúsculas y terracota ("ÚLTIMOS 7 DÍAS",
+  /// "TU PORTFOLIO"): dice de qué habla el número o el bloque que sigue. No
+  /// es un título de sección: para eso, [sectionTitle].
   static TextStyle get eyebrow => TextStyle(
+    color: QaColors.accentBlue,
+    fontSize: 11.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.0,
+    height: 1.2,
+  );
+
+  /// Rótulo en mayúsculas dentro de un bloque teñido ("PRÓXIMO REPORTE",
+  /// "A FAVOR"): gris, para no competir con la etiqueta de la card.
+  static TextStyle get insetLabel => TextStyle(
     color: QaColors.textSecondary,
     fontSize: 11,
     fontWeight: FontWeight.w600,
@@ -173,14 +206,27 @@ abstract final class QaPalette {
   static Color trendTint(num value) => value >= 0 ? profitTint : lossTint;
 }
 
-/// Espaciado y geometría del kit.
+/// Espaciado y geometría del kit. La regla: más aire entre secciones que
+/// entre filas, y las líneas separan secciones, nunca filas (la cercanía
+/// agrupa sola).
 abstract final class QaSpace {
-  static const cardPadding = 16.0;
+  static const cardPadding = 18.0;
   static const cardRadius = 16.0;
   static const insetRadius = 12.0;
   static const chipRadius = 8.0;
+
+  /// Entre piezas de un mismo bloque (título y su contenido, número y su
+  /// detalle).
   static const gap = 12.0;
-  static const sectionGap = 16.0;
+
+  /// Entre filas de una lista, sin divisor.
+  static const rowGap = 14.0;
+
+  /// Entre bloques de la card que no llevan línea (hero → detalle).
+  static const sectionGap = 20.0;
+
+  /// Aire a cada lado de la línea que separa dos secciones ([QaSection]).
+  static const sectionDividerGap = 20.0;
 }
 
 /// Formatos numéricos compartidos. Mantener acá los criterios (cuántos

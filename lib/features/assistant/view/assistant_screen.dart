@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:genui/genui.dart' show SurfaceDefinition;
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -888,26 +890,51 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   (context, state, _) =>
                       _MessageAvatar(state: state, animated: true),
             )
-            : _MessageAvatar(
-              state:
-                  message.isFallback || message.notice != null
-                      ? PortyAvatarState.error
-                      : PortyAvatarState.idle,
-            );
+            : _MessageAvatar(state: _restingState(service, message));
+    // El texto de Porty arranca al lado del avatar (con sangría); las cards
+    // de la respuesta van a todo el ancho, por debajo del avatar.
+    const indent = _MessageAvatar.size + _MessageAvatar.gap;
+    final Widget body;
+    if (contentKey == const ValueKey('surface')) {
+      final leading = _leadingComponentType(
+        service.controller.contextFor(message.surfaceId!).definition.value,
+      );
+      body = switch (leading) {
+        // La respuesta abre con el texto de Porty: él toma la sangría.
+        'QaAnswerText' => QaTextIndentScope(indent: indent, child: content),
+        // Respuesta de respaldo (un Text suelto del catálogo base).
+        'Text' => Padding(
+          padding: const EdgeInsets.only(left: indent),
+          child: content,
+        ),
+        // Abre con una card: arranca debajo del avatar, sin taparlo.
+        _ => QaTextIndentScope(
+          indent: indent,
+          child: Padding(
+            padding: const EdgeInsets.only(
+              top: _MessageAvatar.size + 8 - _MessageAvatar.textInset,
+            ),
+            child: content,
+          ),
+        ),
+      };
+    } else {
+      body = Padding(padding: const EdgeInsets.only(left: indent), child: content);
+    }
     return fade(
       const ValueKey('row'),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      Stack(
+        clipBehavior: Clip.none,
         children: [
-          avatar,
-          const SizedBox(width: _MessageAvatar.gap),
-          Expanded(
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: _MessageAvatar.size),
             child: Padding(
               // Centra la primera línea del texto con el avatar.
               padding: const EdgeInsets.only(top: _MessageAvatar.textInset),
-              child: fade(contentKey, content),
+              child: fade(contentKey, body),
             ),
           ),
+          Positioned(left: 0, top: 0, child: avatar),
         ],
       ),
       switcherKey: stableKey,
@@ -915,38 +942,73 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   }
 }
 
+/// El tipo del primer componente de la respuesta (el primer hijo de la
+/// `Column` raíz, o la raíz si es un componente suelto).
+String? _leadingComponentType(SurfaceDefinition? definition) {
+  final root = definition?.components['root'];
+  if (root == null) return null;
+  if (root.type != 'Column') return root.type;
+  final children = root.properties['children'];
+  if (children is! List || children.isEmpty) return null;
+  return definition!.components['${children.first}']?.type;
+}
+
+/// Cómo queda quieto el avatar de una respuesta del historial: sonriendo si
+/// respondió bien, apenas triste si trae una mala noticia sobre la cartera,
+/// en error si no hubo respuesta (aviso, fallback), en reposo el saludo.
+PortyAvatarState _restingState(
+  AssistantOpenAiService service,
+  PortfolioQaMessage message,
+) {
+  if (message.isFallback || message.notice != null) {
+    return PortyAvatarState.error;
+  }
+  final surfaceId = message.surfaceId;
+  if (surfaceId == null || message.isStreaming) return PortyAvatarState.idle;
+  final definition = service.controller.contextFor(surfaceId).definition.value;
+  return PortyAnswerTone.showsLoss(definition)
+      ? PortyAvatarState.concerned
+      : PortyAvatarState.answered;
+}
+
 /// El avatar de Porty al lado de cada respuesta. Quieto en el historial; en
 /// el turno en curso piensa con el pulso del chat ([PortyThinkingStyle.pulse])
 /// donde va a empezar la respuesta, habla mientras se tipea y sonríe al
-/// terminar (o queda en reposo si es una mala noticia).
+/// terminar (o queda apenas triste si es una mala noticia). La expresión
+/// final queda.
 class _MessageAvatar extends StatefulWidget {
   const _MessageAvatar({required this.state, this.animated = false});
 
   final PortyAvatarState state;
   final bool animated;
 
-  static const size = 28.0;
+  static const size = 36.0;
   static const gap = 10.0;
 
-  /// La primera línea del texto (15 px × 1,45) queda centrada con el cuerpo.
-  static const textInset = 3.0;
+  /// La primera línea del texto (15 px × 1,45 ≈ 22 px) queda centrada con
+  /// el cuerpo (centro de la caja, a 18 px).
+  static const textInset = 7.0;
 
   @override
   State<_MessageAvatar> createState() => _MessageAvatarState();
 }
 
 class _MessageAvatarState extends State<_MessageAvatar> {
-  /// Vuelto a reposo, sigue animado lo que tarda en asentarse (crossfade y
-  /// pose) y después queda quieto, como el resto del historial.
-  static const _settle = Duration(milliseconds: 500);
+  /// Al terminar (sonrisa, reposo o error), sigue animado lo que tarda en
+  /// asentarse (crossfade, saltito, sonrisa, "no") y después queda quieto,
+  /// como el resto del historial.
+  static const _settle = Duration(milliseconds: 800);
 
-  late bool _animating = widget.animated && widget.state != PortyAvatarState.idle;
+  static bool _acting(PortyAvatarState state) =>
+      state == PortyAvatarState.thinking || state == PortyAvatarState.answering;
+
+  late bool _animating = widget.animated && _acting(widget.state);
   Timer? _settleTimer;
 
   @override
   void didUpdateWidget(_MessageAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final active = widget.animated && widget.state != PortyAvatarState.idle;
+    final active = widget.animated && _acting(widget.state);
     if (active) {
       _settleTimer?.cancel();
       _animating = true;

@@ -85,7 +85,7 @@ abstract final class AnalysisWidgets {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     QaTickerHeader(ticker: ticker),
-                    const SizedBox(height: QaSpace.gap),
+                    const SizedBox(height: QaSpace.sectionGap),
                     _GoldArea(
                       data: data,
                       prose: _AnalysisProse.empty(ticker),
@@ -397,11 +397,7 @@ class _AnalysisBodyState extends State<_AnalysisBody>
     final sections = _sections();
     final children = <Widget>[];
     for (var i = 0; i < sections.length; i++) {
-      if (i > 0 && sections[i].divided) {
-        children.add(const QaDivider(vertical: 14));
-      } else if (i > 0) {
-        children.add(const SizedBox(height: QaSpace.gap));
-      }
+      if (i > 0) children.add(_separator(sections[i].sep));
       children.add(
         _Staggered(
           animation: _entrance,
@@ -417,16 +413,28 @@ class _AnalysisBodyState extends State<_AnalysisBody>
     );
   }
 
-  List<({Widget child, bool divided})> _sections() {
+  /// Lo que va antes de cada bloque: línea entre secciones (con aire), solo
+  /// aire bajo el encabezado, o el gap chico dentro del pie.
+  static Widget _separator(_Sep sep) => switch (sep) {
+    _Sep.line => const QaDivider(vertical: QaSpace.sectionDividerGap),
+    _Sep.air => const SizedBox(height: QaSpace.sectionGap),
+    _Sep.gap => const SizedBox(height: QaSpace.gap),
+    _Sep.tight => const SizedBox(height: 4),
+  };
+
+  List<({Widget child, _Sep sep})> _sections() {
     final d = widget.data;
     final p = widget.prose;
-    final out = <({Widget child, bool divided})>[];
-    void add(Widget? w, {bool divided = true}) {
-      if (w != null) out.add((child: w, divided: divided));
+    final out = <({Widget child, _Sep sep})>[];
+    void add(Widget? w, {_Sep sep = _Sep.line}) {
+      if (w == null) return;
+      // La primera sección bajo el encabezado va sin línea: solo aire.
+      final first = out.length == 1 && sep == _Sep.line;
+      out.add((child: w, sep: first ? _Sep.air : sep));
     }
 
-    add(_Header(data: d), divided: false);
-    if (p.summary.isNotEmpty) add(_Summary(text: p.summary), divided: false);
+    add(_Header(data: d), sep: _Sep.air);
+    if (p.summary.isNotEmpty) add(_Summary(text: p.summary));
     add(_KeyPoints.maybe(p.keyPoints));
     add(
       _GoldArea.maybe(
@@ -437,8 +445,9 @@ class _AnalysisBodyState extends State<_AnalysisBody>
       ),
     );
     add(_Holding.maybe(d));
-    if (d.isCourtesy) add(_CourtesyLine(ticker: d.ticker), divided: false);
-    add(const _Disclaimer(), divided: !d.isCourtesy);
+    // Pie: cortesía (si aplica) y disclaimer, juntos bajo una línea.
+    if (d.isCourtesy) add(_CourtesyLine(ticker: d.ticker));
+    add(const _Disclaimer(), sep: d.isCourtesy ? _Sep.tight : _Sep.line);
     add(
       QaFollowUpBar(
         items: QaTickerFollowUps.of(
@@ -449,11 +458,13 @@ class _AnalysisBodyState extends State<_AnalysisBody>
         // La card ya tiene su bloque de Gold: ningún chip con candado más.
         allowLockedChip: d.lockedGoldFeatures.isEmpty,
       ),
-      divided: false,
+      sep: _Sep.gap,
     );
     return out;
   }
 }
+
+enum _Sep { line, air, gap, tight }
 
 enum _GoldPhase { open, loading, locked }
 
@@ -555,9 +566,10 @@ class _GoldArea extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final f in locked) ...[
-            if (f != locked.first) const SizedBox(height: QaSpace.sectionGap),
-            QaSectionLabel(titleFor([f])),
-            const SizedBox(height: 10),
+            if (f != locked.first)
+              const QaDivider(vertical: QaSpace.sectionDividerGap),
+            QaSectionTitle(titleFor([f])),
+            const SizedBox(height: QaSpace.gap),
             const QaSkeleton(lines: 2),
           ],
         ],
@@ -567,7 +579,7 @@ class _GoldArea extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (i, section) in _openSections().indexed) ...[
-            if (i > 0) const QaDivider(vertical: 14),
+            if (i > 0) const QaDivider(vertical: QaSpace.sectionDividerGap),
             section,
           ],
         ],
@@ -656,7 +668,7 @@ class _PaywallPreview extends StatelessWidget {
           children: [
             _Header(data: data),
             if (summary.isNotEmpty) ...[
-              const SizedBox(height: QaSpace.gap),
+              const SizedBox(height: QaSpace.sectionGap),
               Text(
                 summary,
                 style: QaText.body,
@@ -664,21 +676,16 @@ class _PaywallPreview extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
-            for (final f in titles) ...[
-              const QaDivider(vertical: 14),
-              Row(
-                children: [
-                  Expanded(child: QaSectionLabel(_GoldArea.titleFor([f]))),
-                  Icon(
-                    Icons.lock_outline_rounded,
-                    size: 13,
-                    color: QaColors.textSecondary,
-                  ),
-                ],
+            for (final f in titles)
+              QaSection(
+                title: _GoldArea.titleFor([f]),
+                trailing: Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: QaColors.textSecondary,
+                ),
+                child: const QaSkeleton(lines: 2),
               ),
-              const SizedBox(height: 10),
-              const QaSkeleton(lines: 2),
-            ],
           ],
         ),
       ),
@@ -787,9 +794,8 @@ class _Summary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 4),
-        const QaSectionLabel('En resumen'),
-        const SizedBox(height: 6),
+        const QaSectionTitle('En resumen'),
+        const SizedBox(height: QaSpace.gap),
         Text(text, style: QaText.body.copyWith(fontSize: 15, height: 1.45)),
       ],
     );
@@ -810,10 +816,10 @@ class _KeyPoints extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionLabel('Puntos clave'),
-        const SizedBox(height: 8),
+        const QaSectionTitle('Puntos clave'),
+        const SizedBox(height: QaSpace.gap),
         for (var i = 0; i < points.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
+          if (i > 0) const SizedBox(height: QaSpace.rowGap),
           _KeyPointRow(point: points[i]),
         ],
       ],
@@ -909,9 +915,9 @@ class _Metrics extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionLabel('Valuación y rentabilidad'),
-        for (final row in rows) ...[
-          const SizedBox(height: 10),
+        const QaSectionTitle('Valuación y rentabilidad'),
+        for (final (i, row) in rows.indexed) ...[
+          SizedBox(height: i == 0 ? QaSpace.gap : QaSpace.rowGap),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -963,8 +969,8 @@ class _PriceRange extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        QaSectionLabel('Precio', trailing: _MonthSparkline(ticker: ticker)),
-        const SizedBox(height: 10),
+        QaSectionTitle('Precio', trailing: _MonthSparkline(ticker: ticker)),
+        const SizedBox(height: QaSpace.gap),
         QaRangeBar(
           min: low,
           max: high,
@@ -1057,9 +1063,15 @@ class _Results extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionLabel('Resultados'),
-        if (l != null) ...[const SizedBox(height: 10), _LatestRow(result: l)],
-        if (n != null) ...[const SizedBox(height: 10), _NextRow(report: n)],
+        const QaSectionTitle('Resultados'),
+        if (l != null) ...[
+          const SizedBox(height: QaSpace.gap),
+          _LatestRow(result: l),
+        ],
+        if (n != null) ...[
+          SizedBox(height: l == null ? QaSpace.gap : QaSpace.rowGap),
+          _NextRow(report: n),
+        ],
       ],
     );
   }
@@ -1167,13 +1179,14 @@ class _News extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionLabel('Noticias'),
+        const QaSectionTitle('Noticias'),
+        const SizedBox(height: QaSpace.gap),
         if (take.isNotEmpty) ...[
-          const SizedBox(height: 6),
           Text(take, style: QaText.body),
+          const SizedBox(height: QaSpace.rowGap),
         ],
-        for (final item in items) ...[
-          const SizedBox(height: 10),
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) const SizedBox(height: QaSpace.rowGap),
           _Headline(item: item),
         ],
       ],
@@ -1258,11 +1271,11 @@ class _Risk extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        QaSectionLabel(
+        QaSectionTitle(
           'Riesgo',
           trailing: QaTag(tag, icon: Icons.speed_rounded),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: QaSpace.gap),
         Text('$line (beta ${_decimal(beta, 2)})', style: QaText.label),
       ],
     );
@@ -1290,9 +1303,10 @@ class _Holding extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionLabel('En tu cartera'),
-        const SizedBox(height: 10),
+        const QaSectionTitle('En tu cartera'),
+        const SizedBox(height: QaSpace.gap),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: QaStat(label: 'Peso', value: '${_decimal(weight, 1)}%'),

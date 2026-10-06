@@ -179,7 +179,10 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
               children: [
                 _Gap(compact ? AppDimens.sp12 : AppDimens.sp32),
                 AuthPortyHeader(isSignUpMode: isSignUp, compact: compact),
-                _Gap(compact ? AppDimens.sp16 : AppDimens.sp32),
+                // 28 y no 32: al abrir el teclado el campo enfocado se lleva a
+                // la vista antes de que Porty se compacte, y con 32 quedaba
+                // justo debajo del margen (scrolleaba 3 px en un SE).
+                _Gap(compact ? AppDimens.sp16 : AppDimens.sp28),
                 Form(
                   key: _formKey,
                   autovalidateMode: AutovalidateMode.onUserInteraction,

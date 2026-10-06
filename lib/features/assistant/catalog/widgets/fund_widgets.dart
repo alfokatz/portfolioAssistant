@@ -77,20 +77,26 @@ class _EtfHoldingsBody extends StatelessWidget {
           const SizedBox(height: QaSpace.sectionGap),
           QaStatGrid(stats: stats, columns: stats.length),
         ],
-        if (holdings.isNotEmpty) ...[
-          const SizedBox(height: QaSpace.sectionGap),
-          const QaSectionLabel('Principales posiciones'),
-          const SizedBox(height: 6),
-          for (final h in holdings)
-            _HoldingRow(holding: h, maxWeight: maxWeight),
-        ],
-        if (data.sectors.isNotEmpty) ...[
-          const SizedBox(height: QaSpace.sectionGap),
-          const QaSectionLabel('Sectores'),
-          const SizedBox(height: 10),
-          _SectorBlock(sectors: data.sectors),
-        ],
-        const SizedBox(height: QaSpace.gap),
+        if (holdings.isNotEmpty)
+          QaSection(
+            title: 'Principales posiciones',
+            first: stats.isEmpty,
+            // Cada fila ya trae su aire (alto mínimo tocable): sin líneas.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final h in holdings)
+                  _HoldingRow(holding: h, maxWeight: maxWeight),
+              ],
+            ),
+          ),
+        if (data.sectors.isNotEmpty)
+          QaSection(
+            title: 'Sectores',
+            first: stats.isEmpty && holdings.isEmpty,
+            child: _SectorBlock(sectors: data.sectors),
+          ),
+        const SizedBox(height: QaSpace.sectionGap),
         Text(
           holdings.isEmpty
               ? 'Según Yahoo Finance.'

@@ -436,8 +436,9 @@ class CompareHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 32.0;
-    const overlap = 12.0;
+    // Mismo avatar que `QaTickerHeader`: todas las cards abren igual.
+    const size = 36.0;
+    const overlap = 13.0;
     final shown = tickers.take(3).toList();
     final stackWidth =
         shown.isEmpty ? 0.0 : size + (shown.length - 1) * (size - overlap);
@@ -473,7 +474,7 @@ class CompareHeader extends StatelessWidget {
             children: [
               Text(
                 shown.join(' vs '),
-                style: QaText.title,
+                style: QaText.cardTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -539,6 +540,9 @@ class _Legend extends StatelessWidget {
                 },
                 loaded: series != null,
                 leading: leader == tickers[i],
+                // Con 3 celdas no entra el avatar sin cortar el ticker: la
+                // marca de color ya dice qué línea es (y el header, quién).
+                showAvatar: tickers.length < 3,
               ),
             ),
           ),
@@ -555,6 +559,7 @@ class _LegendCell extends StatelessWidget {
     required this.value,
     required this.loaded,
     required this.leading,
+    this.showAvatar = true,
   });
 
   final String ticker;
@@ -562,6 +567,7 @@ class _LegendCell extends StatelessWidget {
   final double? value;
   final bool loaded;
   final bool leading;
+  final bool showAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -591,8 +597,10 @@ class _LegendCell extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              QaTickerAvatar(ticker: ticker, size: 18),
-              const SizedBox(width: 6),
+              if (showAvatar) ...[
+                QaTickerAvatar(ticker: ticker, size: 18),
+                const SizedBox(width: 6),
+              ],
               Flexible(
                 child: Text(
                   ticker,
@@ -608,9 +616,14 @@ class _LegendCell extends StatelessWidget {
             height: 24,
             child: Align(
               alignment: Alignment.centerLeft,
+              // "+124.50%" en una celda de tres: se achica, no desborda.
               child:
                   value != null
-                      ? QaDeltaChip(value: value)
+                      ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: QaDeltaChip(value: value),
+                      )
                       : Text(loaded ? 'Sin datos' : '—', style: QaText.caption),
             ),
           ),

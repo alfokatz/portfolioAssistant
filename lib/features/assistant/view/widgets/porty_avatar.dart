@@ -21,6 +21,11 @@ enum PortyAvatarState {
   /// Terminó una respuesta sin malas noticias: saltito y sonrisa.
   answered,
 
+  /// Terminó una respuesta con una mala noticia sobre la cartera: apenas
+  /// triste (boca en arco suave hacia abajo y un suspiro corto). Más leve
+  /// que [error].
+  concerned,
+
   /// Error, sin datos o tope de consultas: un "no" corto y queda quieto.
   error,
 }
@@ -35,8 +40,8 @@ enum PortyThinkingStyle {
 
   /// El de un mensaje del chat, en el lugar donde va a empezar la
   /// respuesta: el pulso de escala y opacidad del orbe que había antes
-  /// (mismo ciclo y curva), un eco del contorno que se expande, ojos arriba
-  /// y sin destello.
+  /// (mismo ciclo y curva), su deriva vertical y su halo, un eco del
+  /// contorno que se expande, ojos arriba y sin destello.
   pulse,
 }
 
@@ -138,6 +143,11 @@ abstract final class PortyAvatarMotion {
   static const hopHeight = 4.3;
   static const hopCurve = Curves.easeOutCubic;
 
+  // concerned: la boca se traza como la sonrisa ([smile]) y el cuerpo baja
+  // apenas y vuelve, como un suspiro.
+  static const sigh = Duration(milliseconds: 700);
+  static const sighDepth = 1.5;
+
   // error: "no" con la cabeza.
   static const shake = Duration(milliseconds: 400);
   static const shakeDegrees = 3.0;
@@ -150,9 +160,24 @@ abstract final class PortyAvatarMotion {
   // thinking del chat ([PortyThinkingStyle.pulse]): el ritmo del orbe.
   /// Ciclo del pulso: el del orbe (`PortyBreath.period`).
   static const pulsePeriod = PortyBreath.period;
-  static const pulseScaleMin = 0.9;
-  static const pulseScaleMax = 1.06;
+  static const pulseScaleMin = 0.86;
+  static const pulseScaleMax = 1.08;
   static const pulseOpacityMin = 0.8;
+
+  /// Deriva vertical del orbe: ciclo distinto del pulso (no múltiplo), así
+  /// la combinación no se repite igual. ≈ 1,75 px a 36 px.
+  static const pulseDriftPeriod = Duration(milliseconds: 2600);
+  static const pulseDrift = 3.5;
+
+  /// Halo del orbe: dos capas difusas de terracota detrás del cuerpo, que
+  /// respiran con el pulso (opacidad 0,55 → 0,9 × su alfa). Blur en
+  /// unidades (cuerpo = 50), con las proporciones de las sombras del orbe.
+  static const haloOpacityMin = 0.55;
+  static const haloOpacityMax = 0.9;
+  static const haloInnerAlpha = 0.45;
+  static const haloInnerBlur = 0.6 * 50;
+  static const haloOuterAlpha = 0.35;
+  static const haloOuterBlur = 0.95 * 50;
 
   /// Eco: contorno del cuerpo que crece y se desvanece en cada ciclo.
   static const echoScaleTo = 1.35;
@@ -191,6 +216,7 @@ class PortyFrame {
     this.bodyOpacity = 1,
     this.echoScale = 1,
     this.echoOpacity = 0,
+    this.haloOpacity = 0,
   });
 
   /// Cómo se ve [state] en reposo (sin animación). [spark] en `false` para
@@ -209,7 +235,8 @@ class PortyFrame {
       sparkGlow = 1,
       bodyOpacity = 1,
       echoScale = 1,
-      echoOpacity = 0;
+      echoOpacity = 0,
+      haloOpacity = 0;
 
   final PortyAvatarState state;
 
@@ -237,7 +264,8 @@ class PortyFrame {
   /// Alto de la boca de [PortyAvatarState.answering] relativo al SVG.
   final double mouthScale;
 
-  /// 0 → 1: cuánto de la sonrisa de [PortyAvatarState.answered] está trazado.
+  /// 0 → 1: cuánto de la boca de [PortyAvatarState.answered] (sonrisa) o
+  /// [PortyAvatarState.concerned] (arco hacia abajo) está trazado.
   final double smile;
 
   /// 0 → 1: opacidad del destello.
@@ -252,6 +280,9 @@ class PortyFrame {
   /// Eco del contorno detrás del cuerpo ([PortyThinkingStyle.pulse]).
   final double echoScale;
   final double echoOpacity;
+
+  /// Halo difuso detrás del cuerpo ([PortyThinkingStyle.pulse]).
+  final double haloOpacity;
 
   /// `true` si el cuerpo está en su pose de reposo.
   bool get bodyAtRest =>
@@ -277,7 +308,8 @@ class PortyFrame {
           continue;
         }
         if (part == PortyPart.mouth &&
-            s == PortyAvatarState.answered &&
+            (s == PortyAvatarState.answered ||
+                s == PortyAvatarState.concerned) &&
             smile <= 0) {
           continue;
         }
@@ -308,7 +340,8 @@ class PortyFrame {
       other.spark == spark &&
       other.bodyOpacity == bodyOpacity &&
       other.echoScale == echoScale &&
-      other.echoOpacity == echoOpacity;
+      other.echoOpacity == echoOpacity &&
+      other.haloOpacity == haloOpacity;
 
   @override
   int get hashCode => Object.hash(
@@ -328,6 +361,7 @@ class PortyFrame {
     bodyOpacity,
     echoScale,
     echoOpacity,
+    haloOpacity,
   );
 }
 
@@ -420,6 +454,7 @@ class _PortyAvatarState extends State<PortyAvatar>
   double _hopAt = _never;
   double _hopHeight = 0;
   double _shakeAt = _never;
+  double _sighAt = _never;
   double _entranceAt = _never;
   bool _entrancePending = false;
 
@@ -538,6 +573,8 @@ class _PortyAvatarState extends State<PortyAvatar>
             );
       case PortyAvatarState.answered:
         if (!initial) _startHop(PortyAvatarMotion.hopHeight);
+      case PortyAvatarState.concerned:
+        if (!initial) _sighAt = _now;
       case PortyAvatarState.error:
         if (!initial) _shakeAt = _now;
       case PortyAvatarState.thinking:
@@ -621,10 +658,12 @@ class _PortyAvatarState extends State<PortyAvatar>
         done(_poseAt, PortyAvatarMotion.poseBlend) &&
         done(_hopAt, PortyAvatarMotion.hop) &&
         done(_shakeAt, PortyAvatarMotion.shake) &&
+        done(_sighAt, PortyAvatarMotion.sigh) &&
         done(_entranceAt, PortyAvatarMotion.entrance) &&
         done(_lookAt, PortyAvatarMotion.tapLook) &&
         done(_blinkAt, PortyAvatarMotion.blink) &&
-        (state != PortyAvatarState.answered ||
+        (state != PortyAvatarState.answered &&
+                state != PortyAvatarState.concerned ||
             done(_stateAt, PortyAvatarMotion.smile));
   }
 
@@ -707,7 +746,8 @@ class _PortyAvatarState extends State<PortyAvatar>
     return switch (state) {
       PortyAvatarState.idle ||
       PortyAvatarState.answering ||
-      PortyAvatarState.answered => _Pose(scale: breath),
+      PortyAvatarState.answered ||
+      PortyAvatarState.concerned => _Pose(scale: breath),
       PortyAvatarState.thinking when _pulse => _pulsePose(t),
       PortyAvatarState.thinking => _Pose(
         rotation: PortyAvatarMotion.thinkLeanDegrees * math.pi / 180,
@@ -729,7 +769,10 @@ class _PortyAvatarState extends State<PortyAvatar>
   /// ease in-out sinusoidal en cada mitad), rangos acotados al personaje.
   _Pose _pulsePose(double t) {
     final w = PortyBreath.wave(_pulsePhase(t));
+    final drift =
+        (t - _thinkingAt) / _seconds(PortyAvatarMotion.pulseDriftPeriod);
     return _Pose(
+      dy: -PortyAvatarMotion.pulseDrift * math.sin(2 * math.pi * drift),
       scale:
           lerpDouble(
             PortyAvatarMotion.pulseScaleMin,
@@ -748,26 +791,36 @@ class _PortyAvatarState extends State<PortyAvatar>
 
   /// Eco del contorno: nace en cada ciclo, crece y se desvanece a 0. Al
   /// asentarse el pulso, se apaga con él.
-  ({double scale, double opacity}) _echo(double t) {
+  ({double scale, double opacity, double halo}) _echo(double t) {
     if (!_pulse || _shown != PortyAvatarState.thinking) {
-      return (scale: 1, opacity: 0);
+      return (scale: 1, opacity: 0, halo: 0);
     }
     final p = _pulsePhase(t);
-    var opacity =
-        PortyAvatarMotion.echoOpacity * (1 - p) * (p / 0.08).clamp(0.0, 1.0);
-    // Mientras entra (desde otra pose) y mientras se asienta, atenuado.
-    opacity *= _progress(
+    // Mientras entra (desde otra pose) y mientras se asienta, atenuados.
+    var presence = _progress(
       t,
       _poseAt,
       PortyAvatarMotion.poseBlend,
     ).clamp(0.0, 1.0);
-    if (_pending != null) opacity *= 1 - _settleProgress(t);
+    if (_pending != null) presence *= 1 - _settleProgress(t);
     return (
       scale:
           1 +
           (PortyAvatarMotion.echoScaleTo - 1) *
               Curves.easeOutCubic.transform(p),
-      opacity: opacity,
+      opacity:
+          presence *
+          PortyAvatarMotion.echoOpacity *
+          (1 - p) *
+          (p / 0.08).clamp(0.0, 1.0),
+      // El halo respira con el cuerpo, como el del orbe.
+      halo:
+          presence *
+          lerpDouble(
+            PortyAvatarMotion.haloOpacityMin,
+            PortyAvatarMotion.haloOpacityMax,
+            PortyBreath.wave(p),
+          )!,
     );
   }
 
@@ -785,6 +838,14 @@ class _PortyAvatarState extends State<PortyAvatar>
       target,
       PortyAvatarMotion.poseBlendCurve.transform(p.clamp(0.0, 1.0)),
     );
+  }
+
+  /// Suspiro de [PortyAvatarState.concerned]: baja apenas y vuelve, lento.
+  double _sighOffset(double t) {
+    final p = _progress(t, _sighAt, PortyAvatarMotion.sigh);
+    if (p <= 0 || p >= 1) return 0;
+    return PortyAvatarMotion.sighDepth *
+        math.sin(math.pi * Curves.easeInOutSine.transform(p));
   }
 
   /// Sube rápido y baja suave, una vez: `sin(π·easeOutCubic(p))`.
@@ -861,13 +922,14 @@ class _PortyAvatarState extends State<PortyAvatar>
       from: from,
       crossfade:
           from == null ? 1 : PortyAvatarMotion.crossfadeCurve.transform(face),
-      dy: pose.dy + _hopOffset(t),
+      dy: pose.dy + _hopOffset(t) + _sighOffset(t),
       rotation: pose.rotation + _shakeRotation(t),
       scale: pose.scale * entranceScale,
       opacity: hasEntrance ? entering : 1,
       bodyOpacity: pose.opacity,
       echoScale: echo.scale,
       echoOpacity: echo.opacity,
+      haloOpacity: echo.halo,
       spark: !_pulse,
       eyeOffset: eyeOffset,
       blink: blink,
@@ -973,6 +1035,14 @@ class PortyAvatarPainter extends CustomPainter {
           .computeMetrics()
           .first;
 
+  /// Arco suave hacia abajo, centrado como las otras bocas: apenas triste.
+  static final PathMetric _frown =
+      (Path()
+            ..moveTo(29, 42.5)
+            ..quadraticBezierTo(33.5, 38.5, 38, 42.5))
+          .computeMetrics()
+          .first;
+
   static final Path _flatMouth =
       Path()
         ..moveTo(30, 41.5)
@@ -985,6 +1055,7 @@ class PortyAvatarPainter extends CustomPainter {
         PortyAvatarState.idle || PortyAvatarState.answering => (28, 30, 3.6),
         PortyAvatarState.thinking => (32, 26, 3.4),
         PortyAvatarState.answered => (28, 29, 3.6),
+        PortyAvatarState.concerned => (28, 30.5, 3.4),
         PortyAvatarState.error => (28, 31, 3.1),
       };
 
@@ -1002,6 +1073,33 @@ class PortyAvatarPainter extends CustomPainter {
       ..save()
       ..scale(size.width / boxUnits)
       ..translate(-_boxOrigin, -_boxOrigin);
+
+    // Halo (pulso del chat): el glow del orbe, detrás de todo.
+    if (frame.haloOpacity > 0) {
+      canvas
+        ..save()
+        ..translate(_center.dx, _center.dy + frame.dy)
+        ..scale(frame.scale)
+        ..translate(-_center.dx, -_center.dy);
+      for (final (alpha, blur) in const [
+        (PortyAvatarMotion.haloOuterAlpha, PortyAvatarMotion.haloOuterBlur),
+        (PortyAvatarMotion.haloInnerAlpha, PortyAvatarMotion.haloInnerBlur),
+      ]) {
+        canvas.drawPath(
+          _body,
+          Paint()
+            ..color = palette.body.withValues(
+              alpha: palette.body.a * alpha * frame.haloOpacity,
+            )
+            // Mismo blur que el BoxShadow del orbe (radio → sigma).
+            ..maskFilter = MaskFilter.blur(
+              BlurStyle.normal,
+              blur * 0.57735 + 0.5,
+            ),
+        );
+      }
+      canvas.restore();
+    }
 
     // Eco (pulso del chat): el contorno del cuerpo, plano, por detrás.
     if (frame.echoOpacity > 0) {
@@ -1102,6 +1200,13 @@ class PortyAvatarPainter extends CustomPainter {
           canvas.drawPath(
             _smile.extractPath(0, _smile.length * frame.smile),
             stroke,
+          );
+        }
+      case PortyAvatarState.concerned:
+        if (frame.smile > 0) {
+          canvas.drawPath(
+            _frown.extractPath(0, _frown.length * frame.smile),
+            stroke..strokeWidth = 2.8,
           );
         }
       case PortyAvatarState.error:

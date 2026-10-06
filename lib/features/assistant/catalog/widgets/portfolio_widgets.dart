@@ -63,7 +63,7 @@ abstract final class PortfolioWidgets {
             ],
           ),
           if (allocation.isNotEmpty) ...[
-            const SizedBox(height: QaSpace.sectionGap + 4),
+            const SizedBox(height: QaSpace.sectionGap),
             QaSegmentedBar(
               segments: [
                 for (final s in allocation)
@@ -72,8 +72,8 @@ abstract final class PortfolioWidgets {
             ),
             const SizedBox(height: QaSpace.gap),
             Wrap(
-              spacing: 14,
-              runSpacing: 10,
+              spacing: QaSpace.rowGap,
+              runSpacing: QaSpace.gap,
               children: [for (final s in allocation) _AllocationLegend(s)],
             ),
           ],
@@ -166,7 +166,7 @@ abstract final class PortfolioWidgets {
           color: QaPalette.trend(data.changeAbs),
         ),
         if (hasRange) ...[
-          const SizedBox(height: QaSpace.gap),
+          const SizedBox(height: QaSpace.sectionGap),
           QaInset(
             child: Row(
               children: [
@@ -399,7 +399,7 @@ abstract final class PortfolioWidgets {
               QaDeltaChip(value: data.gainLossPercent),
             ],
           ),
-          const SizedBox(height: QaSpace.sectionGap + 2),
+          const SizedBox(height: QaSpace.sectionGap),
           QaSegmentedBar(
             height: 12,
             segments: [
@@ -569,17 +569,21 @@ abstract final class PortfolioWidgets {
                       QaFormat.plural(items.length, 'posición', 'posiciones'),
                     ),
           ),
-          const SizedBox(height: 6),
-          if (items.isEmpty)
+          if (items.isEmpty) ...[
+            const SizedBox(height: QaSpace.sectionGap),
             const _EmptyState(
               icon: Icons.inbox_outlined,
               title: 'No tenés posiciones abiertas',
               body: 'Cuando cargues una compra, la vas a ver acá.',
-            )
-          else
+            ),
+          ] else ...[
+            const SizedBox(
+              height: QaSpace.sectionGap - _ExpandableRows.rowPadding,
+            ),
             _ExpandableRows(
               rows: [for (final item in items) _PositionRow(item)],
             ),
+          ],
           if (items.isNotEmpty)
             QaFollowUpBar(
               items: [
@@ -626,7 +630,7 @@ abstract final class PortfolioWidgets {
                     ),
           ),
           if (total != null && items.isNotEmpty) ...[
-            const SizedBox(height: QaSpace.gap),
+            const SizedBox(height: QaSpace.sectionGap),
             QaInset(
               child: Row(
                 children: [
@@ -644,19 +648,23 @@ abstract final class PortfolioWidgets {
               ),
             ),
           ],
-          const SizedBox(height: 6),
-          if (items.isEmpty)
+          if (items.isEmpty) ...[
+            const SizedBox(height: QaSpace.sectionGap),
             const _EmptyState(
               icon: Icons.history_rounded,
               title: 'Todavía no cerraste posiciones',
               body:
                   'Cuando vendas una posición, vas a ver acá cuánto ganaste '
                   'o perdiste.',
-            )
-          else
+            ),
+          ] else ...[
+            const SizedBox(
+              height: QaSpace.sectionGap - _ExpandableRows.rowPadding,
+            ),
             _ExpandableRows(
               rows: [for (final item in items) _ClosedPositionRow(item)],
             ),
+          ],
           if (items.isNotEmpty)
             const QaFollowUpBar(
               items: [
@@ -890,7 +898,6 @@ class _MoverTile extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: QaDeltaChip(value: mover.value, digits: 1),
             ),
-            const SizedBox(height: 10),
             _TickerSparkline(
               ticker: mover.ticker,
               range: range,
@@ -920,7 +927,9 @@ class _PositionRow extends StatelessWidget {
         builder: (context, brand) {
           final name = brand.name;
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              vertical: _ExpandableRows.rowPadding,
+            ),
             child: Row(
               children: [
                 QaTickerAvatar(ticker: item.ticker, brand: brand, size: 32),
@@ -975,7 +984,9 @@ class _ClosedPositionRow extends StatelessWidget {
     return QaTappable(
       question: '¿Cómo me fue con ${item.ticker}?',
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          vertical: _ExpandableRows.rowPadding,
+        ),
         child: Row(
           children: [
             QaTickerAvatar(ticker: item.ticker, size: 32),
@@ -1035,39 +1046,41 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: QaSpace.gap),
-      child: QaInset(
-        padding: const EdgeInsets.all(QaSpace.cardPadding),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: QaColors.textSecondary),
-            const SizedBox(width: QaSpace.gap),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title, style: QaText.bodyStrong),
-                  const SizedBox(height: 2),
-                  Text(body, style: QaText.label),
-                ],
-              ),
+    return QaInset(
+      padding: const EdgeInsets.all(QaSpace.cardPadding),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: QaColors.textSecondary),
+          const SizedBox(width: QaSpace.gap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title, style: QaText.bodyStrong),
+                const SizedBox(height: 2),
+                Text(body, style: QaText.label),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Filas con divisores; más de [limit] + 1 → muestra [limit] y un toggle
-/// local "Ver todas (n)". (Con exactamente una de más no vale la pena
-/// esconderla detrás de un tap.)
+/// Filas separadas solo por espacio (los avatares ya anclan cada fila; las
+/// líneas quedan para separar secciones); más de [limit] + 1 → muestra
+/// [limit] y un toggle local "Ver todas (n)". (Con exactamente una de más
+/// no vale la pena esconderla detrás de un tap.)
 class _ExpandableRows extends StatefulWidget {
   const _ExpandableRows({required this.rows});
 
   static const limit = 5;
+
+  /// Aire vertical de cada fila: entre dos filas suma [QaSpace.rowGap] y
+  /// el área tocable de cada una queda en ≥ 44.
+  static const rowPadding = QaSpace.rowGap / 2;
   final List<Widget> rows;
 
   @override
@@ -1086,12 +1099,8 @@ class _ExpandableRowsState extends State<_ExpandableRows> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (i, row) in visible.indexed) ...[
-          if (i > 0) const QaDivider(),
-          row,
-        ],
+        ...visible,
         if (collapsible) ...[
-          const QaDivider(),
           QaTappable(
             onTap: () => setState(() => _expanded = !_expanded),
             child: SizedBox(
@@ -1125,9 +1134,10 @@ class _ExpandableRowsState extends State<_ExpandableRows> {
 }
 
 /// Curva de precio de un ticker para un tile, cargada con el mismo loader
-/// que `QaPriceChart`. Reserva siempre su alto: los dos tiles de
-/// `QaTopMovers` quedan parejos haya o no datos. Sin loader o sin datos,
-/// queda el hueco en blanco (degrada en silencio).
+/// que `QaPriceChart`. Con loader reserva siempre su alto: los dos tiles de
+/// `QaTopMovers` quedan parejos haya o no datos (sin datos queda el hueco
+/// en blanco, degrada en silencio). Sin loader no hay curva posible y no
+/// ocupa lugar, así el tile no queda con un hueco vacío abajo.
 class _TickerSparkline extends StatefulWidget {
   const _TickerSparkline({
     required this.ticker,
@@ -1152,6 +1162,7 @@ class _TickerSparkline extends StatefulWidget {
 class _TickerSparklineState extends State<_TickerSparkline> {
   List<double>? _values;
   bool _requested = false;
+  bool _reserve = false;
 
   String get _key => '${widget.ticker}|${widget.range.wireValue}';
 
@@ -1161,11 +1172,13 @@ class _TickerSparklineState extends State<_TickerSparkline> {
     if (_requested || widget.ticker.isEmpty) return;
     _requested = true;
     if (_TickerSparkline._cache.containsKey(_key)) {
+      _reserve = true;
       _values = _TickerSparkline._cache[_key];
       return;
     }
     final loader = readProviderOrNull(context, priceChartDataLoaderProvider);
     if (loader == null) return;
+    _reserve = true;
     unawaited(_load(loader));
   }
 
@@ -1183,21 +1196,25 @@ class _TickerSparklineState extends State<_TickerSparkline> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_reserve) return const SizedBox.shrink();
     final values = _values;
-    return SizedBox(
-      height: _TickerSparkline.height,
-      child:
-          values == null || values.length < 2
-              ? null
-              : LayoutBuilder(
-                builder:
-                    (context, c) => QaSparkline(
-                      values: values,
-                      width: c.maxWidth,
-                      height: _TickerSparkline.height,
-                      color: widget.color,
-                    ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: SizedBox(
+        height: _TickerSparkline.height,
+        child:
+            values == null || values.length < 2
+                ? null
+                : LayoutBuilder(
+                  builder:
+                      (context, c) => QaSparkline(
+                        values: values,
+                        width: c.maxWidth,
+                        height: _TickerSparkline.height,
+                        color: widget.color,
+                      ),
+                ),
+      ),
     );
   }
 }
@@ -1279,7 +1296,7 @@ class _PortfolioPeriodSparklineState extends State<_PortfolioPeriodSparkline> {
     final values = _values;
     if (values == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: QaSpace.sectionGap),
+      padding: const EdgeInsets.only(top: QaSpace.gap),
       child: LayoutBuilder(
         builder:
             (context, c) => QaSparkline(

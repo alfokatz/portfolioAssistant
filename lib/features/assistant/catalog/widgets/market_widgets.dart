@@ -43,8 +43,9 @@ abstract final class MarketWidgets {
         ),
         const SizedBox(height: 4),
         Text('Precio actual', style: QaText.label),
+        // Del número protagonista al detalle: salto de sección, sin línea.
         if (data.periods.isNotEmpty) ...[
-          const SizedBox(height: QaSpace.gap),
+          const SizedBox(height: QaSpace.sectionGap),
           _PeriodChips(periods: data.periods),
         ],
         // Sin histórico, "Gráfico" volvería a esta misma card.
@@ -117,8 +118,10 @@ abstract final class MarketWidgets {
             ],
           ],
         ),
+        // Del número protagonista al detalle: salto de sección, sin línea;
+        // entre los bloques de detalle, el aire chico de un mismo grupo.
         if (hasPrices) ...[
-          const SizedBox(height: QaSpace.gap),
+          const SizedBox(height: QaSpace.sectionGap),
           QaInset(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: QaStatGrid(
@@ -136,7 +139,7 @@ abstract final class MarketWidgets {
           ),
         ],
         if (periods.isNotEmpty) ...[
-          const SizedBox(height: QaSpace.gap),
+          SizedBox(height: hasPrices ? QaSpace.gap : QaSpace.sectionGap),
           _PeriodChips(periods: periods),
         ],
         QaFollowUpBar(
@@ -395,9 +398,17 @@ class _TickerComparisonList extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         CompareHeader(tickers: tickers, subtitle: subtitle),
-        const SizedBox(height: QaSpace.gap),
+        // Cada fila trae su propio padding (para el bloque teñido del que
+        // lidera): se descuenta para que el aire visible sea el del kit —
+        // salto de sección bajo el encabezado, solo espacio entre filas.
+        const SizedBox(
+          height: QaSpace.sectionGap - _TickerCompareRow.verticalPadding,
+        ),
         for (var k = 0; k < items.length; k++) ...[
-          if (k > 0) const SizedBox(height: 6),
+          if (k > 0)
+            const SizedBox(
+              height: QaSpace.rowGap - 2 * _TickerCompareRow.verticalPadding,
+            ),
           QaTappable(
             question: '¿Cómo viene ${items[k].label}?',
             child: _TickerCompareRow(
@@ -438,6 +449,9 @@ class _TickerCompareRow extends StatelessWidget {
   final double share;
   final bool isLeader;
 
+  /// Padding vertical de la fila; la lista lo descuenta de sus gaps.
+  static const verticalPadding = 6.0;
+
   @override
   Widget build(BuildContext context) {
     final direction = switch (item.trend) {
@@ -448,7 +462,12 @@ class _TickerCompareRow extends StatelessWidget {
     final magnitude = item.value.replaceAll(RegExp(r'^\s*[+\-−]'), '');
     return Container(
       constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(
+        10,
+        verticalPadding,
+        12,
+        verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: isLeader ? QaPalette.inset : Colors.transparent,
         borderRadius: BorderRadius.circular(QaSpace.insetRadius),

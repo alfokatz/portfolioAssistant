@@ -209,7 +209,7 @@ class QaTickerHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(ticker, style: QaText.title),
+                  Text(ticker, style: QaText.cardTitle),
                   if (sub != null && sub.isNotEmpty)
                     Text(
                       sub,
@@ -253,7 +253,10 @@ class QaCardTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = iconColor ?? QaColors.accentBlue;
-    return Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return Row(
       children: [
         if (icon != null) ...[
           Container(
@@ -274,7 +277,7 @@ class QaCardTitle extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: QaText.title,
+                style: QaText.cardTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -288,8 +291,18 @@ class QaCardTitle extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          // El título manda: el trailing (un tag largo como "Concentración
+          // moderada") nunca le saca más del 45% y se corta él, no el título.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: width * 0.45),
+            child: trailing!,
+          ),
+        ],
       ],
+    );
+      },
     );
   }
 }

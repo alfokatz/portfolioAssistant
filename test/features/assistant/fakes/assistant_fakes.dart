@@ -362,7 +362,11 @@ Map<String, Object?> proxyRejection(int status, String type) => {
 };
 
 class ScriptedOpenAi {
-  ScriptedOpenAi(this.script);
+  ScriptedOpenAi(this.script, {this.responseDelay = Duration.zero});
+
+  /// Demora antes de cada respuesta (en el tiempo del test), para que se
+  /// vea la espera de Porty sin depender de la velocidad de la máquina.
+  final Duration responseDelay;
 
   final List<Map<String, Object?> Function(Map<String, dynamic> request)>
   script;
@@ -371,6 +375,7 @@ class ScriptedOpenAi {
   late final http.Client client = MockClient((req) async {
     final body = jsonDecode(req.body) as Map<String, dynamic>;
     requests.add(body);
+    if (responseDelay > Duration.zero) await Future<void>.delayed(responseDelay);
     final index = requests.length - 1;
     if (index >= script.length) {
       return http.Response(

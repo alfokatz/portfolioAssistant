@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -29,8 +30,14 @@ abstract final class PortfolioQaCatalogWidgets {
     // (slot 0, reclamado automáticamente al montar) — recién cuando termina
     // de tipearse se habilita la próxima card. Fuera de una surface (sin
     // SurfaceRevealScope ancestro) se muestra directo, sin typewriter.
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    // En el chat arranca al lado del avatar de Porty (QaTextIndentScope);
+    // las cards de abajo van a todo el ancho.
+    return Builder(
+      builder: (context) => Padding(
+      padding: EdgeInsets.only(
+        left: QaTextIndentScope.of(context),
+        bottom: 8,
+      ),
       child: Builder(
         builder: (context) {
           final revealController = SurfaceRevealScope.maybeOf(context);
@@ -54,6 +61,7 @@ abstract final class PortfolioQaCatalogWidgets {
                 ),
           );
         },
+      ),
       ),
     );
   }

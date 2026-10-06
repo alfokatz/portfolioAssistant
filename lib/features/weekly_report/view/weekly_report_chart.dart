@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_portfolio_numbers.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/charts/diverging_bar.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
 /// La semana en un gráfico chico: tu cartera contra el S&P 500, las dos en
@@ -189,53 +190,6 @@ class WeeklyImpactBar extends StatelessWidget {
   static const height = 6.0;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final share =
-        maxAbs <= 0 ? 0.0 : (contribution.abs() / maxAbs).clamp(0.0, 1.0);
-    final color = colors.pnlColor(contribution).withValues(alpha: 0.8);
-    return ExcludeSemantics(
-      child: SizedBox(
-        height: height,
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final half = c.maxWidth / 2;
-            // Aunque el impacto sea mínimo, que se vea para qué lado fue.
-            final width = math.max(half * share, share > 0 ? 3.0 : 0.0);
-            return Stack(
-              children: [
-                // El eje: una línea fina de lado a lado y una marca en 0.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: height / 2 - 0.5,
-                  height: 1,
-                  child: ColoredBox(color: colors.border),
-                ),
-                Positioned(
-                  left: half - 0.5,
-                  width: 1,
-                  top: 0,
-                  bottom: 0,
-                  child: ColoredBox(color: colors.border),
-                ),
-                Positioned(
-                  left: contribution >= 0 ? half : half - width,
-                  width: width,
-                  top: 0,
-                  bottom: 0,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(height / 2),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      DivergingBar(value: contribution, maxAbs: maxAbs, height: height);
 }

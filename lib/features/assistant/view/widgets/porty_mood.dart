@@ -7,19 +7,20 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 /// respuesta, ver `AssistantScreen`) a lo largo de un turno:
 ///
 /// idle → thinking (corre el turno: modelo y tools) → answering (typewriter
-/// de la respuesta) → answered (3 s) → idle. Si la respuesta muestra una
-/// mala noticia, de answering va directo a idle. Error, sin datos o tope de
-/// consultas → error, hasta el próximo turno.
+/// de la respuesta) → answered: la sonrisa queda, como avatar de esa
+/// respuesta. Si la respuesta trae una mala noticia sobre la cartera (ver
+/// `PortyAnswerTone`), de answering va a concerned: apenas triste. Error,
+/// sin datos o tope de consultas → error, hasta el próximo turno.
 ///
 /// Lo maneja la pantalla del chat: [working] sigue a `TurnActivity`, y el
 /// resto lo decide al cerrar el turno y cuando termina el typewriter (ver
 /// [PortyVoiceScope]).
 class PortyMood extends ValueNotifier<PortyAvatarState> {
-  PortyMood({this.answeredHold = const Duration(seconds: 3)})
-    : super(PortyAvatarState.idle);
+  PortyMood({this.answeredHold}) : super(PortyAvatarState.idle);
 
-  /// Cuánto dura la sonrisa antes de volver a idle.
-  final Duration answeredHold;
+  /// Si no es `null`, la sonrisa vuelve a idle después de esto; por defecto
+  /// queda.
+  final Duration? answeredHold;
 
   Timer? _rest;
 
@@ -33,11 +34,14 @@ class PortyMood extends ValueNotifier<PortyAvatarState> {
   void doneSpeaking({required bool goodNews}) {
     if (value != PortyAvatarState.answering) return;
     if (!goodNews) {
-      _set(PortyAvatarState.idle);
+      _set(PortyAvatarState.concerned);
       return;
     }
     _set(PortyAvatarState.answered);
-    _rest = Timer(answeredHold, () => _set(PortyAvatarState.idle));
+    final hold = answeredHold;
+    if (hold != null) {
+      _rest = Timer(hold, () => _set(PortyAvatarState.idle));
+    }
   }
 
   void failed() => _set(PortyAvatarState.error);

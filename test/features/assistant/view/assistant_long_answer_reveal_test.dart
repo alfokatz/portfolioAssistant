@@ -43,6 +43,7 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
@@ -66,11 +67,24 @@ void main() {
       'globales con demanda estable y buena caja.';
   const tickers = ['NKE', 'MCD', 'SBUX'];
 
-  Widget app(_Screen screen, {bool reduceMotion = false, Widget? home}) {
+  Widget app(
+    _Screen screen, {
+    bool reduceMotion = false,
+    Widget? home,
+    Brightness brightness = Brightness.dark,
+  }) {
     return UncontrolledProviderScope(
       container: screen.container,
       child: MaterialApp(
-        theme: genuiTestTheme(),
+        theme:
+            brightness == Brightness.dark
+                ? genuiTestTheme()
+                : ThemeData(
+                  useMaterial3: true,
+                  brightness: Brightness.light,
+                  scaffoldBackgroundColor: CustomColors.light.background,
+                  extensions: [CustomColors.light],
+                ),
         builder:
             (context, child) => MediaQuery(
               data: MediaQuery.of(
@@ -364,6 +378,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the answer text starts next to Porty; the cards take the '
+      'full width, under the avatar', (tester) async {
+    final screen = await pumpScreen(tester, reduceMotion: true);
+    await send(tester, previousQuestion);
+    await runTurn(tester, screen);
+    await send(tester, question);
+    await runTurn(tester, screen);
+
+    final avatar = tester.getRect(find.byType(PortyAvatar).last);
+    final text = _paragraphStartingWith(tester, answerText)!;
+    final textLeft = text.localToGlobal(Offset.zero).dx;
+    final card = tester.getRect(find.byType(QaCardShell).first);
+    expect(textLeft, greaterThan(avatar.right), reason: 'sangría del texto');
+    expect(card.left, moreOrLessEquals(avatar.left, epsilon: 1));
+    expect(card.top, greaterThan(avatar.bottom));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('reduced motion: no blank frame, everything shows at once and '
       'the view anchors to the start of the answer', (tester) async {
     final screen = await pumpScreen(tester, reduceMotion: true);
@@ -470,20 +502,30 @@ void main() {
       return seen;
     }
 
-    testWidgets('one turn: the message avatar thinks (chat pulse) → answers '
-        '→ smiles → stays still in idle, in the same place and box; the '
+    // Lo mismo en tema claro y oscuro.
+    for (final brightness in Brightness.values) {
+    testWidgets('[${brightness.name}] one turn: the message avatar thinks (chat pulse) → answers '
+        '→ smiles and keeps the smile, still, in the same place and box; the '
         'header avatar stays idle', (tester) async {
-      final screen = await pumpScreen(tester);
+      // La respuesta tarda 1,5 s: Porty llega a pensar, con cualquier carga.
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final screen = _Screen([
+        _answer(previousAnswer),
+      ], responseDelay: const Duration(milliseconds: 1500));
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(app(screen, brightness: brightness));
+      await tester.pump();
+      await tester.pump();
       final turn = await recordTurn(tester, screen, previousQuestion);
       expect(statesOf(turn.frames), [
         PortyAvatarState.thinking,
         PortyAvatarState.answering,
         PortyAvatarState.answered,
-        PortyAvatarState.idle,
       ]);
       // Sin saltos: misma posición y tamaño de caja de punta a punta.
       expect(turn.boxes, hasLength(1));
-      expect(turn.boxes.single.size, const Size.square(28));
+      expect(turn.boxes.single.size, const Size.square(36));
       // Un solo Porty actuando: el del header no pasa por ningún estado.
       expect(turn.header, {PortyAvatarState.idle});
 
@@ -492,8 +534,13 @@ void main() {
       );
       // El pulso del orbe sobre el cuerpo, el eco y sin destello.
       expect(thinking.map((f) => f.scale).toSet().length, greaterThan(1));
-      expect(thinking.every((f) => f.scale >= 0.9 && f.scale <= 1.06), isTrue);
+      expect(
+        thinking.every((f) => f.scale >= 0.86 && f.scale <= 1.08),
+        isTrue,
+      );
       expect(thinking.any((f) => f.echoOpacity > 0.05), isTrue);
+      expect(thinking.any((f) => f.haloOpacity > 0.5), isTrue);
+      expect(thinking.map((f) => f.dy).toSet().length, greaterThan(1));
       expect(
         turn.frames.any((f) => f.visibleParts.contains(PortyPart.spark)),
         isFalse,
@@ -505,23 +552,26 @@ void main() {
       expect(firstAnswering.scale, closeTo(1, 0.02));
       expect(firstAnswering.echoOpacity, 0);
 
-      // Al final, quieto como el resto del historial.
+      // Al final, sonriendo y quieto, como el resto del historial.
       expect(
         turn.frames.last,
-        const PortyFrame.still(PortyAvatarState.idle, spark: false),
+        const PortyFrame.still(PortyAvatarState.answered, spark: false),
       );
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a bad-news answer goes straight back to idle, no smile', (
+    testWidgets('[${brightness.name}] a bad-news answer ends barely sad '
+        '(concerned), not smiling', (
       tester,
     ) async {
       const badNews = 'Tu cartera bajó 3,2 % esta semana, sobre todo por NVDA.';
       await tester.binding.setSurfaceSize(genuiTestViewportSize);
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final screen = _Screen([_answer(badNews)]);
+      final screen = _Screen([
+        _answer(badNews),
+      ], responseDelay: const Duration(milliseconds: 1500));
       addTearDown(screen.dispose);
-      await tester.pumpWidget(app(screen));
+      await tester.pumpWidget(app(screen, brightness: brightness));
       await tester.pump();
       await tester.pump();
 
@@ -529,10 +579,15 @@ void main() {
       expect(statesOf(turn.frames), [
         PortyAvatarState.thinking,
         PortyAvatarState.answering,
-        PortyAvatarState.idle,
+        PortyAvatarState.concerned,
       ]);
+      expect(
+        turn.frames.last,
+        const PortyFrame.still(PortyAvatarState.concerned, spark: false),
+      );
       expect(turn.header, {PortyAvatarState.idle});
     });
+    }
 
     testWidgets('the daily limit notice replaces the wait next to the same '
         'avatar, which turns to error', (tester) async {
@@ -743,8 +798,8 @@ _Step _investAnswer(String text, List<String> tickers) => (body) {
 };
 
 class _Screen {
-  _Screen(List<_Step> script)
-    : api = ScriptedOpenAi(script),
+  _Screen(List<_Step> script, {Duration responseDelay = Duration.zero})
+    : api = ScriptedOpenAi(script, responseDelay: responseDelay),
       _subscriptions = _FakeSubscriptionRepository() {
     final tracker = AiUsageTracker(repository: _subscriptions);
     container = ProviderContainer(

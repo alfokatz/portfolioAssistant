@@ -133,12 +133,14 @@ class _QaProjectionChartState extends State<QaProjectionChart>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (widget.label.isNotEmpty)
-                Text(
-                  widget.label,
-                  style: QaText.label.copyWith(fontWeight: FontWeight.w600),
+              // Es el título del chart (la card no trae otro encabezado).
+              if (widget.label.isNotEmpty) ...[
+                Semantics(
+                  header: true,
+                  child: Text(widget.label, style: QaText.cardTitle),
                 ),
-              const SizedBox(height: 6),
+                const SizedBox(height: QaSpace.gap),
+              ],
               Text(QaFormat.money(last.value), style: QaText.displaySm),
               const SizedBox(height: 2),
               Text(
@@ -151,7 +153,7 @@ class _QaProjectionChartState extends State<QaProjectionChart>
             ],
           ),
         ),
-        const SizedBox(height: QaSpace.gap),
+        const SizedBox(height: QaSpace.sectionGap),
         SizedBox(
           height: 140,
           child: AnimatedBuilder(

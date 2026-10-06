@@ -27,8 +27,11 @@ import 'package:url_launcher/url_launcher.dart';
 /// valga la pena: noticias, grandes inversores y un concepto. Una sección
 /// sin nada relevante no aparece.
 ///
-/// Secciones editoriales planas (título, filas, divisores finos), sin cajas
-/// por ítem. Los números los pone la app; el texto es de Porty.
+/// Título grande arriba ("Tu semana"), que pasa a la barra al scrollear.
+/// Después, grupos por pregunta: una línea fina, una etiqueta terracota
+/// ("POR QUÉ") y secciones con título propio. Entre grupos hay más aire que
+/// entre filas, y las filas no llevan divisores: la cercanía agrupa. Sin
+/// cajas por ítem. Los números los pone la app; el texto es de Porty.
 class WeeklyReportScreen extends ConsumerStatefulWidget {
   const WeeklyReportScreen({super.key});
 
@@ -43,6 +46,16 @@ class WeeklyReportScreen extends ConsumerStatefulWidget {
 class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
   /// Se decide al abrir: si ya se vio, entra sin animación.
   late final bool _animate = !ref.read(weeklyReportControllerProvider).seen;
+
+  /// El título grande ya salió de pantalla: la barra muestra el chico.
+  bool _titleInBar = false;
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
+    final inBar = n.metrics.pixels > _Header.largeTitleHeight;
+    if (inBar != _titleInBar) setState(() => _titleInBar = inBar);
+    return false;
+  }
 
   @override
   void initState() {
@@ -60,7 +73,19 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     final report = reportState.report;
     final benchmark = ref.watch(weeklyReportBenchmarkAllowedProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('weekly_report_screen_title'.tr())),
+      appBar: AppBar(
+        title: AnimatedOpacity(
+          opacity: _titleInBar ? 1 : 0,
+          duration:
+              MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 160),
+          child: ExcludeSemantics(
+            excluding: !_titleInBar,
+            child: Text('weekly_report_title'.tr()),
+          ),
+        ),
+      ),
       // Sin informe todavía (se abrió antes de que Porty terminara): Porty
       // pensando en vez de una pantalla en blanco.
       body: LoadingSwitcher(
@@ -81,10 +106,12 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                         // Column y no ListView: son pocas secciones y así se
                         // construyen todas al abrir (la entrada escalonada pasa una
                         // vez; un ListView las armaba al scrollear y las re-animaba).
+                        child: NotificationListener<ScrollNotification>(
+                        onNotification: _onScroll,
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(
                             AppDimens.pageHorizontal,
-                            AppDimens.sp8,
+                            0,
                             AppDimens.pageHorizontal,
                             AppDimens.sp40,
                           ),
@@ -102,6 +129,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                             ],
                           ),
                         ),
+                        ),
                       ),
       ),
     );
@@ -109,18 +137,13 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
 
   List<Widget> _sections(BuildContext context, WeeklyReport r, bool benchmark) {
     final questions = r.hasProse ? WeeklyReportFormat.questions(r) : const <String>[];
-    return [
-      _Header(report: r),
-      _Week(report: r, benchmark: benchmark),
+    final why = [
       if (r.movers.isNotEmpty) _Movers(report: r),
       if (r.variant == WeeklyReportVariant.numbersLocked) const _GoldTeaser(),
       if (r.variant == WeeklyReportVariant.numbersUnavailable)
-        _Section(child: _Prose('weekly_report_unavailable'.tr(), muted: true)),
-      if (r.upcomingEarnings.isNotEmpty)
-        _Section(
-          title: 'weekly_report_upcoming_section'.tr(),
-          rows: [for (final e in r.upcomingEarnings) _EarningsRow(e)],
-        ),
+        _Prose('weekly_report_unavailable'.tr(), muted: true),
+    ];
+    final deeper = [
       if (r.news.isNotEmpty)
         _Section(
           title: 'weekly_report_news_section'.tr(),
@@ -136,7 +159,29 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
           title: 'weekly_report_learn_section'.tr(),
           child: _Learn(r.learn!),
         ),
-      if (questions.isNotEmpty) _Questions(questions),
+    ];
+    return [
+      _Header(report: r),
+      _Group(
+        eyebrow: 'weekly_report_group_how'.tr(),
+        first: true,
+        children: [_Week(report: r, benchmark: benchmark)],
+      ),
+      if (why.isNotEmpty)
+        _Group(eyebrow: 'weekly_report_group_why'.tr(), children: why),
+      if (r.upcomingEarnings.isNotEmpty)
+        _Group(
+          eyebrow: 'weekly_report_group_next'.tr(),
+          children: [
+            _Section(
+              title: 'weekly_report_upcoming_section'.tr(),
+              rows: [for (final e in r.upcomingEarnings) _EarningsRow(e)],
+            ),
+          ],
+        ),
+      if (deeper.isNotEmpty)
+        _Group(eyebrow: 'weekly_report_group_deeper'.tr(), children: deeper),
+      if (questions.isNotEmpty) _Group(children: [_Questions(questions)]),
       const _Disclaimer(),
     ];
   }
@@ -150,6 +195,10 @@ class _Header extends StatelessWidget {
   const _Header({required this.report});
   final WeeklyReport report;
 
+  /// Scroll a partir del cual el título grande ya no se ve y pasa a la
+  /// barra (alto del título más la fecha, aproximado).
+  static const largeTitleHeight = 56.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
@@ -157,31 +206,43 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Título grande al estilo iOS: manda en la pantalla; al scrollear
+        // queda la versión chica en la barra.
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const PortyAvatar(size: 56),
-            const SizedBox(width: AppDimens.sp12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'weekly_report_title'.tr(),
-                    style: tt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'weekly_report_title'.tr(),
+                      style: tt.displaySmall?.copyWith(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.8,
+                        height: 1.1,
+                        color: colors.textPrimary,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: AppDimens.sp4),
                   Text(
                     WeeklyReportFormat.range(context, report),
-                    style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+                    style: tt.bodyMedium?.copyWith(
+                      color: colors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: AppDimens.sp12),
+            const PortyAvatar(size: 48),
           ],
         ),
-        const SizedBox(height: AppDimens.sp20),
+        const SizedBox(height: AppDimens.sp24),
         // Nivel 1: la frase de lectura. La misma voz que el saludo del
         // login: texto suelto, sin burbuja.
         Text(
@@ -222,8 +283,7 @@ class _Week extends ConsumerWidget {
     final r = report;
     final tabular = const [FontFeature.tabularFigures()];
     final comparison = benchmark ? WeeklyReportFormat.comparison(r) : null;
-    return _Section(
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Meta('weekly_report_this_week_label'.tr()),
@@ -297,7 +357,6 @@ class _Week extends ConsumerWidget {
             ),
           ],
         ],
-      ),
     );
   }
 }
@@ -403,8 +462,7 @@ class _GoldTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    return _Section(
-      child: Semantics(
+    return Semantics(
         button: true,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppDimens.radiusLg),
@@ -466,7 +524,6 @@ class _GoldTeaser extends ConsumerWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -674,7 +731,7 @@ class _Disclaimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppDimens.sectionGap),
+    padding: const EdgeInsets.only(top: _Group.gap),
     child: _Meta('weekly_report_disclaimer'.tr()),
   );
 }
@@ -683,8 +740,64 @@ class _Disclaimer extends StatelessWidget {
 // Piezas
 // ---------------------------------------------------------------------------
 
-/// Una sección: espacio de `section-gap` arriba, un divisor fino, título
-/// (nivel 2) y filas separadas por divisores. Sin cajas.
+/// Un grupo por pregunta del informe ("Cómo te fue", "Por qué"…): mucho
+/// aire arriba, una línea fina de lado a lado y la etiqueta en terracota.
+/// Es el único divisor de la pantalla: separa grupos, nunca filas.
+class _Group extends StatelessWidget {
+  const _Group({this.eyebrow, required this.children, this.first = false});
+
+  /// Sin etiqueta (p. ej. "Seguí con Porty"): solo la línea y el aire.
+  final String? eyebrow;
+  final List<Widget> children;
+
+  /// El primero va pegado al encabezado, sin línea.
+  final bool first;
+
+  static const gap = 48.0;
+
+  /// Entre secciones de un mismo grupo.
+  static const sectionGap = 36.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final eyebrow = this.eyebrow;
+    return Padding(
+      padding: EdgeInsets.only(top: first ? AppDimens.sp32 : gap),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!first) ...[
+            Divider(height: 1, thickness: 1, color: colors.border),
+            const SizedBox(height: AppDimens.sp24),
+          ],
+          if (eyebrow != null) ...[
+            Semantics(
+              header: true,
+              child: Text(
+                eyebrow.toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.accentBlue,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppDimens.sp12),
+          ],
+          for (final (i, child) in children.indexed) ...[
+            if (i > 0) const SizedBox(height: sectionGap),
+            child,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Una sección dentro de un grupo: título (nivel 2, más grande que todo lo
+/// que tiene adentro) y filas separadas solo por espacio.
 class _Section extends StatelessWidget {
   const _Section({this.title, this.rows, this.child})
     : assert(rows != null || child != null);
@@ -692,41 +805,46 @@ class _Section extends StatelessWidget {
   final List<Widget>? rows;
   final Widget? child;
 
+  static const rowGap = AppDimens.sp16;
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
     final items = rows ?? [child!];
-    return Padding(
-      padding: const EdgeInsets.only(top: AppDimens.sectionGap),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (title != null) ...[
-            Text(
-              title!,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppDimens.sp16),
-          ],
-          for (final (i, item) in items.indexed) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppDimens.sp16),
-                child: Divider(
-                  height: 0.5,
-                  thickness: 0.5,
-                  color: colors.border,
-                ),
-              ),
-            item,
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (title != null) ...[
+          _SectionTitle(title!),
+          const SizedBox(height: AppDimens.sp16),
         ],
-      ),
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) const SizedBox(height: rowGap),
+          item,
+        ],
+      ],
     );
   }
+}
+
+/// Nivel 2: título de sección.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        height: 1.25,
+        color: context.customColors.textPrimary,
+      ),
+    ),
+  );
 }
 
 /// Nivel 3: cuerpo.

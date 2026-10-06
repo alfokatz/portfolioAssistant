@@ -22,18 +22,24 @@ class AuthTabSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Flexibles: con texto grande (accesibilidad) o traducciones largas,
+    // las pestañas se achican y cortan el texto en vez de desbordar.
     return Row(
       children: [
-        _FlatTab(
-          label: signInLabel,
-          isActive: !isSignUpMode,
-          onTap: enabled ? onSignInTap : null,
+        Flexible(
+          child: _FlatTab(
+            label: signInLabel,
+            isActive: !isSignUpMode,
+            onTap: enabled ? onSignInTap : null,
+          ),
         ),
         const SizedBox(width: AppDimens.sp24),
-        _FlatTab(
-          label: signUpLabel,
-          isActive: isSignUpMode,
-          onTap: enabled ? onSignUpTap : null,
+        Flexible(
+          child: _FlatTab(
+            label: signUpLabel,
+            isActive: isSignUpMode,
+            onTap: enabled ? onSignUpTap : null,
+          ),
         ),
       ],
     );
@@ -78,7 +84,12 @@ class _FlatTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: style),
+              Text(
+                label,
+                style: style,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: AppDimens.sp6),
               AnimatedContainer(
                 duration: duration,

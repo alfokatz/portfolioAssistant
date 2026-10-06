@@ -91,11 +91,15 @@ class QaTag extends StatelessWidget {
             Icon(icon, size: 12, color: fg),
             const SizedBox(width: 4),
           ],
-          Text(
-            text,
-            style: QaText.caption.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: QaText.caption.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -185,8 +189,8 @@ class QaStat extends StatelessWidget {
   }
 }
 
-/// Grilla de [QaStat] en N columnas de ancho igual, con separadores
-/// horizontales entre filas. Ocupa siempre el ancho completo de la card.
+/// Grilla de [QaStat] en N columnas de ancho igual, filas separadas solo
+/// por espacio. Ocupa siempre el ancho completo de la card.
 class QaStatGrid extends StatelessWidget {
   const QaStatGrid({super.key, required this.stats, this.columns = 2});
 
@@ -203,7 +207,7 @@ class QaStatGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var r = 0; r < rows.length; r++) ...[
-          if (r > 0) const QaDivider(vertical: 12),
+          if (r > 0) const SizedBox(height: QaSpace.rowGap),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -240,7 +244,9 @@ class QaDivider extends StatelessWidget {
   }
 }
 
-/// Encabezado de sección interna ("VALUACIÓN") con un trailing opcional.
+/// Etiqueta de contexto en mayúsculas y terracota ("ÚLTIMOS 7 DÍAS"), con
+/// un trailing opcional. Va arriba del número o bloque que contextualiza.
+/// Para encabezar una sección de la card, [QaSectionTitle] / [QaSection].
 class QaSectionLabel extends StatelessWidget {
   const QaSectionLabel(this.text, {super.key, this.trailing});
 
@@ -253,6 +259,71 @@ class QaSectionLabel extends StatelessWidget {
       children: [
         Expanded(child: Text(text.toUpperCase(), style: QaText.eyebrow)),
         if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+/// Título de una sección de la card ("Puntos clave"), en minúsculas y con
+/// un trailing opcional (leyenda, sparkline, tag).
+class QaSectionTitle extends StatelessWidget {
+  const QaSectionTitle(this.text, {super.key, this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(text, style: QaText.sectionTitle),
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+/// Una sección de la card: una línea fina arriba (salvo [first]), el título
+/// y el contenido. Es la única forma de separar con línea dentro de una
+/// card: las filas de adentro van separadas solo por espacio.
+class QaSection extends StatelessWidget {
+  const QaSection({
+    super.key,
+    this.title,
+    this.trailing,
+    required this.child,
+    this.first = false,
+  });
+
+  /// Sin título: solo la línea y el aire (p. ej. un disclaimer al pie).
+  final String? title;
+  final Widget? trailing;
+  final Widget child;
+
+  /// La primera sección después del encabezado: sin línea, solo aire.
+  final bool first;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = this.title;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (first)
+          const SizedBox(height: QaSpace.sectionGap)
+        else
+          const QaDivider(vertical: QaSpace.sectionDividerGap),
+        if (title != null) ...[
+          QaSectionTitle(title, trailing: trailing),
+          const SizedBox(height: QaSpace.gap),
+        ],
+        child,
       ],
     );
   }

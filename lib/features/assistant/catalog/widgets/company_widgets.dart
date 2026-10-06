@@ -40,20 +40,24 @@ abstract final class CompanyWidgets {
           ],
           // Con un solo trimestre el "gráfico" no compara nada: la fila de
           // último reporte ya lo cuenta.
-          if (data.history.length >= 2) ...[
-            const SizedBox(height: QaSpace.sectionGap),
-            const QaSectionLabel('Historial de EPS', trailing: QaEpsLegend()),
-            const SizedBox(height: 10),
-            QaEpsHistoryChart(quarters: data.history),
-          ],
-          if (latest != null) ...[
-            const SizedBox(height: QaSpace.sectionGap),
-            if (data.hasNext || data.history.length >= 2) ...[
-              const QaDivider(),
-              const SizedBox(height: QaSpace.gap),
-            ],
-            _LatestResultRow(result: latest),
-          ],
+          // Historial y último reporte son secciones: línea entre bloques,
+          // salvo la primera debajo del encabezado (solo aire).
+          if (data.history.length >= 2)
+            QaSection(
+              title: 'Historial de EPS',
+              trailing: const QaEpsLegend(),
+              first: !data.hasNext,
+              child: QaEpsHistoryChart(quarters: data.history),
+            ),
+          if (latest != null)
+            QaSection(
+              title:
+                  latest.dateLabel.isEmpty
+                      ? 'Último reporte'
+                      : 'Último reporte · ${latest.dateLabel}',
+              first: !data.hasNext && data.history.length < 2,
+              child: _LatestResultRow(result: latest),
+            ),
           if (!hasAnything) ...[
             const SizedBox(height: QaSpace.gap),
             Text(
@@ -111,8 +115,9 @@ abstract final class CompanyWidgets {
               media: media.lookup(data.items.first.url),
               showTicker: multi,
             ),
+            // Filas separadas solo por aire: la línea queda para las secciones.
             for (final item in data.items.skip(1)) ...[
-              const QaDivider(),
+              const SizedBox(height: QaSpace.rowGap),
               _NewsRow(
                 item: item,
                 media: media.lookup(item.url),
@@ -147,6 +152,7 @@ abstract final class CompanyWidgets {
             (group, rest.where((i) => i.group == group).toList()),
         ].where((s) => s.$2.isNotEmpty).toList();
     final range = data.week52;
+    final rangePrice = range?.current;
 
     return QaCardShell(
       child: Column(
@@ -161,16 +167,24 @@ abstract final class CompanyWidgets {
               large: true,
             ),
           ],
-          for (final (group, items) in sections) ...[
-            const SizedBox(height: QaSpace.sectionGap),
-            QaSectionLabel(group.label),
-            const SizedBox(height: 10),
-            _MetricGrid(items: items),
-          ],
-          if (range != null) ...[
-            const SizedBox(height: QaSpace.sectionGap),
-            _Week52Block(range: range),
-          ],
+          // Cada grupo es una sección con título y línea arriba; la primera
+          // debajo del encabezado (sin market cap) va solo con aire.
+          for (final (i, (group, items)) in sections.indexed)
+            QaSection(
+              title: group.label,
+              first: marketCap == null && i == 0,
+              child: _MetricGrid(items: items),
+            ),
+          if (range != null)
+            QaSection(
+              title: 'Rango 52 semanas',
+              trailing:
+                  rangePrice == null
+                      ? null
+                      : Text(QaFormat.price(rangePrice), style: QaText.value),
+              first: marketCap == null && sections.isEmpty,
+              child: _Week52Block(range: range),
+            ),
           QaFollowUpBar(
             items: QaTickerFollowUps.of(
               data.ticker,
@@ -214,7 +228,7 @@ class _NextReportBlock extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('PRÓXIMO REPORTE', style: QaText.eyebrow),
+                    Text('PRÓXIMO REPORTE', style: QaText.insetLabel),
                     const SizedBox(height: 6),
                     Text(
                       data.nextReportDateLabel,
@@ -277,38 +291,25 @@ class _LatestResultRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final beat = result.beat;
     final surprise = result.surprisePct;
-    final when = result.dateLabel;
+    // El título ("Último reporte · T2 FY26") lo pone la sección.
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                when.isEmpty ? 'Último reporte' : 'Último reporte · $when',
-                style: QaText.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text.rich(
+          child: Text.rich(
+            TextSpan(
+              children: [
                 TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'EPS ${QaFormat.price(result.actual)}',
-                      style: QaText.value,
-                    ),
-                    TextSpan(
-                      text: '  vs. ${QaFormat.price(result.estimate)} est.',
-                      style: QaText.label,
-                    ),
-                  ],
+                  text: 'EPS ${QaFormat.price(result.actual)}',
+                  style: QaText.value,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                TextSpan(
+                  text: '  vs. ${QaFormat.price(result.estimate)} est.',
+                  style: QaText.label,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 8),
@@ -431,46 +432,40 @@ class _NewsHero extends StatelessWidget {
     final meta = _newsMeta(item, media, showTicker: showTicker);
     return QaTappable(
       onTap: _tapFor(item),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (image != null)
-              _NewsImage(
-                url: image,
-                radius: QaSpace.insetRadius,
-                aspectRatio: 16 / 9,
-                bottomGap: 12,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (image != null)
+            _NewsImage(
+              url: image,
+              radius: QaSpace.insetRadius,
+              aspectRatio: 16 / 9,
+              bottomGap: QaSpace.gap,
+            ),
+          Text(
+            item.headline,
+            style: QaText.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (item.summaryLine.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(
-              item.headline,
-              style: QaText.bodyStrong.copyWith(fontSize: 15),
+              item.summaryLine,
+              style: QaText.body.copyWith(color: QaColors.textSecondary),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            if (item.summaryLine.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                item.summaryLine,
-                style: QaText.body.copyWith(
-                  color: QaColors.textSecondary,
-                  fontSize: 13,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (meta.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _MetaLine(
-                meta: meta,
-                linked: item.url.isNotEmpty,
-                sourceDomain: media?.sourceDomain,
-              ),
-            ],
           ],
-        ),
+          if (meta.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _MetaLine(
+              meta: meta,
+              linked: item.url.isNotEmpty,
+              sourceDomain: media?.sourceDomain,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -494,40 +489,37 @@ class _NewsRow extends StatelessWidget {
     return QaTappable(
       onTap: _tapFor(item),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 56),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item.headline,
-                      style: QaText.bodyStrong,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.headline,
+                    style: QaText.bodyStrong,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _MetaLine(
+                      meta: meta,
+                      linked: item.url.isNotEmpty,
+                      sourceDomain: media?.sourceDomain,
                     ),
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _MetaLine(
-                        meta: meta,
-                        linked: item.url.isNotEmpty,
-                        sourceDomain: media?.sourceDomain,
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
-              if (image != null) ...[
-                const SizedBox(width: QaSpace.gap),
-                _NewsImage(url: image, radius: QaSpace.chipRadius, size: 56),
-              ],
+            ),
+            if (image != null) ...[
+              const SizedBox(width: QaSpace.gap),
+              _NewsImage(url: image, radius: QaSpace.chipRadius, size: 56),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -675,7 +667,7 @@ class _MetricGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var r = 0; r < rows.length; r++) ...[
-          if (r > 0) const SizedBox(height: 14),
+          if (r > 0) const SizedBox(height: QaSpace.rowGap),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -744,54 +736,45 @@ class _Week52Block extends StatelessWidget {
   Widget build(BuildContext context) {
     final price = range.current;
     final fromHigh = price == null ? null : (price / range.high - 1) * 100;
-    return QaInset(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          QaSectionLabel(
-            'Rango 52 semanas',
-            trailing:
-                price == null
-                    ? null
-                    : Text(QaFormat.price(price), style: QaText.valueSm),
+    // El título y el precio actual los pone la sección que lo envuelve.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (price != null)
+          QaRangeBar(
+            min: range.low,
+            max: range.high,
+            value: price,
+            minLabel: QaFormat.price(range.low),
+            maxLabel: QaFormat.price(range.high),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: QaStat(
+                  label: 'Mínimo',
+                  value: QaFormat.price(range.low),
+                ),
+              ),
+              Expanded(
+                child: QaStat(
+                  label: 'Máximo',
+                  value: QaFormat.price(range.high),
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          if (price != null)
-            QaRangeBar(
-              min: range.low,
-              max: range.high,
-              value: price,
-              minLabel: QaFormat.price(range.low),
-              maxLabel: QaFormat.price(range.high),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: QaStat(
-                    label: 'Mínimo',
-                    value: QaFormat.price(range.low),
-                  ),
-                ),
-                Expanded(
-                  child: QaStat(
-                    label: 'Máximo',
-                    value: QaFormat.price(range.high),
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                  ),
-                ),
-              ],
-            ),
-          if (fromHigh != null && fromHigh < -0.05) ...[
-            const SizedBox(height: 8),
-            Text(
-              'A ${QaFormat.pct(fromHigh.abs())} del máximo',
-              style: QaText.caption,
-            ),
-          ],
+        if (fromHigh != null && fromHigh < -0.05) ...[
+          const SizedBox(height: 8),
+          Text(
+            'A ${QaFormat.pct(fromHigh.abs())} del máximo',
+            style: QaText.caption,
+          ),
         ],
-      ),
+      ],
     );
   }
 }
