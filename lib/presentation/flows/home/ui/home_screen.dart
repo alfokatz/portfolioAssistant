@@ -160,34 +160,40 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       assets:
                           (_) => PositionsSection(
                             valuations: displayValuations,
+                            totalCount: valuations.length,
+                            portfolioValue: valuations.fold<double>(
+                              0,
+                              (sum, v) => sum + v.marketValue,
+                            ),
+                            expanded: state.showAllPositions,
+                            onToggleExpanded:
+                                hasMorePositions
+                                    ? notifier.togglePositionsExpanded
+                                    : null,
                             onPositionTap: notifier.openPositionDetail,
                             onDeletePosition:
                                 (valuation) =>
                                     notifier.deletePositionsForTicker(
                                       valuation.position.ticker,
                                     ),
-                            actionLabel:
-                                hasMorePositions
-                                    ? (state.showAllPositions
-                                        ? 'view_less'.tr()
-                                        : 'view_all'.tr())
-                                    : null,
-                            onAction:
-                                hasMorePositions
-                                    ? notifier.togglePositionsExpanded
-                                    : null,
                           ),
                       insights:
                           (_) => Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               PortfolioQaEntryCard(
-                                onTap: notifier.openAssistant,
+                                onOpen: notifier.openAssistant,
+                                onAsk:
+                                    (question) => notifier.openAssistant(
+                                      initialQuestion: question,
+                                    ),
+                                suggestions: _portySuggestions(valuations),
                               ),
                               if (isBenchmarkAllowed)
                                 BenchmarkComparisonCard(
                                   portfolioPercent: periodPnl.percent,
                                   benchmarkPoints: filteredBenchmark,
+                                  range: state.selectedRange,
                                 )
                               else
                                 const BenchmarkLockedCard(),
@@ -262,4 +268,21 @@ class _HomeSectionsState extends State<_HomeSections> {
       ],
     );
   }
+}
+
+/// Preguntas listas para Porty en Insights. La del ticker sale de la
+/// posición más grande de la cartera (dato real, nunca una lista fija).
+List<String> _portySuggestions(List<PositionValuation> valuations) {
+  final biggest =
+      valuations.isEmpty
+          ? null
+          : valuations.reduce((a, b) => a.marketValue >= b.marketValue ? a : b);
+  return [
+    'home_porty_suggestion_week'.tr(),
+    if (biggest != null)
+      'home_porty_suggestion_ticker'.tr(
+        namedArgs: {'ticker': biggest.position.ticker},
+      ),
+    'home_porty_suggestion_concentration'.tr(),
+  ];
 }

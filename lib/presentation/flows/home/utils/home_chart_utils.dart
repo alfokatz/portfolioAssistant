@@ -108,17 +108,4 @@ abstract final class HomeChartUtils {
       differencePercent: portfolioPercent - sp500Percent,
     );
   }
-
-  /// Lightweight sparkline when per-ticker history is unavailable.
-  static List<double> sparklineFromPrices({
-    required double purchasePrice,
-    required double currentPrice,
-    int pointCount = 12,
-  }) {
-    if (pointCount < 2) return [currentPrice];
-    return List<double>.generate(pointCount, (i) {
-      final t = i / (pointCount - 1);
-      return purchasePrice + (currentPrice - purchasePrice) * t;
-    });
-  }
 }

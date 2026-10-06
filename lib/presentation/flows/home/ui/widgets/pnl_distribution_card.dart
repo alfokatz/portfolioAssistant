@@ -48,7 +48,7 @@ class _PnlDistributionCardState extends State<PnlDistributionCard> {
         AppDimens.pageHorizontal,
         0,
         AppDimens.pageHorizontal,
-        AppDimens.sectionGap,
+        AppDimens.sp16,
       ),
       child: HomeChartCard(
         title: 'chart_pnl_by_asset'.tr(),

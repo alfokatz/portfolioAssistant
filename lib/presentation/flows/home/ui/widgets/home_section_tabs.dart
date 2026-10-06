@@ -9,6 +9,10 @@ enum HomeSection { assets, insights }
 /// Selector Activos / Insights: un único indicador que se desliza de una
 /// opción a la otra. Antes cada opción animaba su propio fondo por
 /// separado, así que a mitad de camino las dos quedaban grises a la vez.
+///
+/// Control segmentado sobrio: riel gris, indicador del color de las cards
+/// con una sombra apenas visible (no un relleno de acento, que competía con
+/// la tarjeta del informe y los botones), y la opción activa en negrita.
 class HomeSectionTabs extends StatelessWidget {
   const HomeSectionTabs({
     super.key,
@@ -42,7 +46,7 @@ class HomeSectionTabs extends StatelessWidget {
         padding: const EdgeInsets.all(_inset),
         decoration: BoxDecoration(
           color: colors.surfaceElevated,
-          borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
         ),
         child: Stack(
           children: [
@@ -59,14 +63,26 @@ class HomeSectionTabs extends StatelessWidget {
                 heightFactor: 1,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color.lerp(
-                      colors.surfaceCard,
-                      colors.accentWarm,
-                      0.30,
-                    ),
+                    // En oscuro la card es más oscura que el riel: el
+                    // indicador se aclara un poco para despegarse.
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Color.lerp(
+                              colors.surfaceElevated,
+                              Colors.white,
+                              0.10,
+                            )
+                            : colors.surfaceCard,
                     borderRadius: BorderRadius.circular(
-                      AppDimens.radiusXl - _inset,
+                      AppDimens.radiusPill - _inset,
                     ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -127,9 +143,11 @@ class _TabLabel extends StatelessWidget {
             curve: Curves.easeOutCubic,
             style: base.copyWith(
               color: active ? colors.textPrimary : colors.textSecondary,
+              fontSize: 14,
               // Peso fijo: interpolar el peso hace "respirar" el ancho del
-              // texto durante el cambio.
-              fontWeight: FontWeight.w600,
+              // texto durante el cambio. La activa se distingue por color y
+              // por el indicador.
+              fontWeight: FontWeight.w700,
             ),
             child: Text(label),
           ),

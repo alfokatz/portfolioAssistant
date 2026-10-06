@@ -25,7 +25,7 @@ class ClosedPositionsEntryCard extends StatelessWidget {
         AppDimens.pageHorizontal,
         0,
         AppDimens.pageHorizontal,
-        AppDimens.sp12,
+        AppDimens.sp16,
       ),
       child: Material(
         color: colors.surfaceCard,
@@ -37,34 +37,35 @@ class ClosedPositionsEntryCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.cardPadding,
-              vertical: 14,
-            ),
+            padding: const EdgeInsets.all(AppDimens.cardPadding),
             child: Row(
               children: [
+                // El mismo encabezado con ícono en círculo teñido que las
+                // cards de Porty (QaCardTitle).
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: colors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                    color: colors.textSecondary.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.archive_outlined,
+                    Icons.inventory_2_outlined,
                     color: colors.textSecondary,
                     size: AppDimens.iconMd,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppDimens.sp12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'closed_positions_entry_title'.tr(),
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: colors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
                             ),
                       ),
                       const SizedBox(height: 2),
@@ -77,9 +78,10 @@ class ClosedPositionsEntryCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: AppDimens.sp8),
                 Icon(
                   Icons.chevron_right_rounded,
-                  size: 20,
+                  size: AppDimens.iconMd,
                   color: colors.textSecondary,
                 ),
               ],

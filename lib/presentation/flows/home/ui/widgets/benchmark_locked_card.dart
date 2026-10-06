@@ -1,11 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/home_chart_card.dart';
 
+/// "Contra el mercado" para quien no tiene Premium: la misma card que la
+/// comparación, con una sola fila bloqueada que abre el paywall.
 class BenchmarkLockedCard extends ConsumerWidget {
   const BenchmarkLockedCard({super.key});
 
@@ -13,51 +17,59 @@ class BenchmarkLockedCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
 
-    return InkWell(
-      onTap: () => SubscriptionPaywallSheet.show(
-        context,
-        ref,
-        reason: PaywallReason.modeLocked,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.pageHorizontal,
+        0,
+        AppDimens.pageHorizontal,
+        AppDimens.sp16,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'benchmark_locked_title'.tr(),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      child: HomeChartCard(
+        title: 'home_benchmark_title'.tr(),
+        child: Semantics(
+          button: true,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+            onTap: () {
+              PortyHapticsService.maybeOf(context)?.lockedTap();
+              SubscriptionPaywallSheet.show(
+                context,
+                ref,
+                reason: PaywallReason.modeLocked,
+                source: 'home_benchmark',
+              );
+            },
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: AppDimens.touchTarget,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    color: colors.textSecondary,
+                    size: AppDimens.iconSm + 2,
+                  ),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(
+                    child: Text(
+                      'home_benchmark_locked'.tr(),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.sp8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: AppDimens.iconMd,
                     color: colors.textSecondary,
                   ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  color: colors.textSecondary,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'benchmark_locked_subtitle'.tr(),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                          height: 1.3,
-                        ),
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: colors.textSecondary,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimens.sectionGap),
-            Divider(height: 1, color: colors.border),
-          ],
+          ),
         ),
       ),
     );
