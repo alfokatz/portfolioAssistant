@@ -50,8 +50,8 @@ Widget _avatar(String ticker, double size) => QaTickerAvatar(
   brand: CompanyBrand(ticker: ticker),
 );
 
-/// La Home en chico: el total con su variación del período, el gráfico con
-/// la línea de inicio y dos posiciones como en "Mis posiciones".
+/// La card del total de la Home en chico: el valor, la variación del
+/// período y el gráfico con la línea de inicio.
 class OnboardingPortfolioPreview extends StatelessWidget {
   const OnboardingPortfolioPreview({super.key});
 
@@ -59,7 +59,6 @@ class OnboardingPortfolioPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    QaColors.resolve(Theme.of(context).brightness);
     const tabular = [FontFeature.tabularFigures()];
 
     return ExcludeSemantics(
@@ -125,107 +124,6 @@ class OnboardingPortfolioPreview extends StatelessWidget {
                 const SizedBox(height: AppDimens.sp12),
               ],
             ),
-          ),
-          const SizedBox(height: AppDimens.sp12),
-          _MockCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: AppDimens.sp8,
-            ),
-            child: Column(
-              children: [
-                _PositionRow(
-                  ticker: 'NVDA',
-                  shares: 'position_shares'.tr(namedArgs: {'count': '12'}),
-                  value: r'$1,446.00',
-                  pct: '+18.4%',
-                ),
-                _PositionRow(
-                  ticker: 'KO',
-                  shares: 'position_shares'.tr(namedArgs: {'count': '8'}),
-                  value: r'$494.40',
-                  pct: '-2.1%',
-                  positive: false,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PositionRow extends StatelessWidget {
-  const _PositionRow({
-    required this.ticker,
-    required this.shares,
-    required this.value,
-    required this.pct,
-    this.positive = true,
-  });
-
-  final String ticker;
-  final String shares;
-  final String value;
-  final String pct;
-  final bool positive;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    const tabular = [FontFeature.tabularFigures()];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp8),
-      child: Row(
-        children: [
-          _avatar(ticker, 32),
-          const SizedBox(width: AppDimens.sp12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ticker,
-                  style: tt.titleSmall?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  shares,
-                  style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: tt.titleSmall?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: tabular,
-                ),
-              ),
-              Text(
-                pct,
-                style: tt.bodySmall?.copyWith(
-                  color: colors.pnlColor(positive ? 1 : -1),
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: tabular,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: AppDimens.sp4),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: AppDimens.iconMd,
-            color: colors.textSecondary,
           ),
         ],
       ),
@@ -302,7 +200,6 @@ class OnboardingChatPreview extends StatelessWidget {
                 const SizedBox(height: AppDimens.sp12),
                 for (final (ticker, pct, impact) in const [
                   ('NVDA', '+4.5%', 1.8),
-                  ('KO', '-0.6%', -0.2),
                 ]) ...[
                   Row(
                     children: [
@@ -329,7 +226,6 @@ class OnboardingChatPreview extends StatelessWidget {
                   ),
                   const SizedBox(height: AppDimens.sp8),
                   DivergingBar(value: impact, maxAbs: 1.8),
-                  if (ticker != 'KO') const SizedBox(height: AppDimens.sp12),
                 ],
               ],
             ),

@@ -15,7 +15,6 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboa
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_dots.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 class OnboardingScreen extends StatefulHookConsumerWidget {
   const OnboardingScreen({super.key});
@@ -51,7 +50,8 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
 
   void _goNext() {
     if (_isLastPage) {
-      _finish(OnboardingExit.home);
+      // El primer paso concreto: cargar la cartera.
+      _finish(OnboardingExit.addPosition);
       return;
     }
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -105,15 +105,6 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
               ),
               child: Row(
                 children: [
-                  if (_currentPage == 0)
-                    Semantics(
-                      label: 'app_name'.tr(),
-                      child: ExcludeSemantics(
-                        child: const PortyAvatar(size: 32),
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 32),
                   const Spacer(),
                   if (!_isLastPage)
                     TextButton(
@@ -151,11 +142,7 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                     OnboardingWelcomePage(activePage: _currentPage),
                     OnboardingDashboardPage(activePage: _currentPage),
                     OnboardingAssistantPage(activePage: _currentPage),
-                    OnboardingGetStartedPage(
-                      activePage: _currentPage,
-                      onExit: _finish,
-                      isFinishing: _isFinishing,
-                    ),
+                    OnboardingGetStartedPage(activePage: _currentPage),
                   ],
                 ),
               ),
@@ -177,7 +164,7 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                   PositionPrimaryButton(
                     label:
                         _isLastPage
-                            ? 'onboarding_start'.tr()
+                            ? 'onboarding_finish_add_title'.tr()
                             : 'onboarding_next'.tr(),
                     loading: _isFinishing,
                     onPressed: _isFinishing ? null : _goNext,
