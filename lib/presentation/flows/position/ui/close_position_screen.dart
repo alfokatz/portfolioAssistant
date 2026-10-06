@@ -2,13 +2,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/close_position_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
@@ -44,6 +48,11 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
   late final ClosePositionArgs _args;
   late final TextEditingController _priceController;
   late final TextEditingController _sellAmountController;
+
+  /// La venta ya guardada: la pantalla pasa a la confirmación (y de ahí,
+  /// a la Home). Antes volvía al detalle, que seguía mostrando la posición
+  /// como abierta.
+  ClosedPosition? _closed;
 
   @override
   void initState() {
@@ -108,10 +117,14 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
               title: 'error'.tr(),
               message: error.message,
             );
-      case ClosePositionSuccessResult():
-        await ref.read(homeProvider.notifier).refresh(silent: true);
-        if (!mounted) return;
-        context.pop(true);
+      case ClosePositionSuccessResult(:final closed):
+        PortyHapticsService.maybeOf(context)?.answerRevealCompleted();
+        setState(() => _closed = closed);
+        // La Home se actualiza mientras se ve la confirmación. Si falla, la
+        // venta igual quedó guardada: la confirmación no depende de esto.
+        try {
+          await ref.read(homeProvider.notifier).refresh(silent: true);
+        } catch (_) {}
     }
   }
 
@@ -237,8 +250,20 @@ class _ClosePositionScreenState extends BaseStatefulWidget<ClosePositionScreen> 
     return null;
   }
 
+  /// A la Home, reemplazando la pila: "atrás" no puede volver al detalle de
+  /// una posición que ya no existe.
+  void _goHome() => context.goNamed(HomeRouter.homeRouteName);
+
   @override
   Widget buildView(BuildContext context) {
+    final closed = _closed;
+    if (closed != null) {
+      return _CloseSuccess(
+        closed: closed,
+        closedEverything: closed.quantity >= widget.quantity - 1e-6,
+        onDone: _goHome,
+      );
+    }
     final colors = context.customColors;
     final state = ref.watch(closePositionProvider(_args));
     final notifier = ref.read(closePositionProvider(_args).notifier);
@@ -520,6 +545,164 @@ class _Stat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// La confirmación de la venta: Porty (contento, o apenas triste si fue a
+/// pérdida), el resultado y de dónde sale. El botón y el gesto de "atrás"
+/// llevan a la Home.
+class _CloseSuccess extends StatelessWidget {
+  const _CloseSuccess({
+    required this.closed,
+    required this.closedEverything,
+    required this.onDone,
+  });
+
+  final ClosedPosition closed;
+
+  /// Se vendió toda la posición (y no solo una parte).
+  final bool closedEverything;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final pnl = closed.pnlAbsolute;
+    const tabular = [FontFeature.tabularFigures()];
+    final shares =
+        closed.quantity == 1
+            ? 'position_shares_one'.tr()
+            : 'position_shares'.tr(
+              namedArgs: {'count': AppNumberFormat.shares(closed.quantity)},
+            );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) onDone();
+      },
+      child: Scaffold(
+        appBar: AppBar(automaticallyImplyLeading: false),
+        body: SafeArea(
+          top: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.pageHorizontal,
+              AppDimens.sp24,
+              AppDimens.pageHorizontal,
+              AppDimens.sp32,
+            ),
+            children: [
+              Center(
+                child: ExcludeSemantics(
+                  child: PortyAvatar(
+                    size: 72,
+                    state:
+                        pnl >= 0
+                            ? PortyAvatarState.answered
+                            : PortyAvatarState.concerned,
+                    animated: true,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppDimens.sp20),
+              Semantics(
+                header: true,
+                child: Text(
+                  (closedEverything
+                          ? 'close_position_success_all'
+                          : 'close_position_success_partial')
+                      .tr(namedArgs: {'ticker': closed.ticker}),
+                  textAlign: TextAlign.center,
+                  style: tt.titleLarge?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppDimens.sp8),
+              Text(
+                'close_position_success_body'.tr(),
+                textAlign: TextAlign.center,
+                style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+              ),
+              const SizedBox(height: AppDimens.sp24),
+              _Card(
+                title: 'close_position_preview_title'.tr(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppNumberFormat.signedMoney(pnl),
+                      style: tt.displaySmall?.copyWith(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.8,
+                        height: 1.1,
+                        color: colors.pnlColor(pnl),
+                        fontFeatures: tabular,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimens.sp6),
+                    Text(
+                      'close_position_preview_pnl_detail'.tr(
+                        namedArgs: {
+                          'pct': AppNumberFormat.percent(closed.pnlPercent),
+                        },
+                      ),
+                      style: tt.bodyMedium?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimens.sp20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Stat(
+                            label: 'close_position_preview_shares'.tr(),
+                            value: shares,
+                          ),
+                        ),
+                        Expanded(
+                          child: _Stat(
+                            label: 'close_position_preview_proceeds'.tr(),
+                            value: AppNumberFormat.money(closed.proceeds),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Stat(
+                            label: 'close_position_price'.tr(),
+                            value: AppNumberFormat.money(closed.closePrice),
+                          ),
+                        ),
+                        Expanded(
+                          child: _Stat(
+                            label: 'close_position_date'.tr(),
+                            value: DateFormat.yMMMd().format(closed.closeDate),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppDimens.sp32),
+              PositionPrimaryButton(
+                label: 'close_position_success_done'.tr(),
+                onPressed: onDone,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

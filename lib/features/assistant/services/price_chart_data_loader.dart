@@ -7,10 +7,10 @@ import 'package:portfolio_assistant/infraestructure/repositories/quote_repositor
 /// modelo en `initialRange`.
 enum PriceChartRange {
   day('1D', '1D', null),
-  week('1W', '1W', Duration(days: 7)),
+  week('1W', '1S', Duration(days: 7)),
   month('1M', '1M', Duration(days: 30)),
   quarter('3M', '3M', Duration(days: 90)),
-  year('1Y', '1Y', Duration(days: 365)),
+  year('1Y', '1A', Duration(days: 365)),
   all('ALL', 'Todo', null);
 
   const PriceChartRange(this.wireValue, this.label, this.lookback);

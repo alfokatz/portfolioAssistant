@@ -76,7 +76,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       state.benchmark,
       state.selectedRange,
     );
-    final chartValues = filteredHistory.map((p) => p.totalValue).toList();
     final periodPnl =
         state.selectedRange == ChartTimeRange.all && summary != null
             ? PeriodPnl(
@@ -138,7 +137,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     0,
                     PortfolioHeroSection(
                       summary: summary,
-                      chartValues: chartValues,
+                      history: filteredHistory,
                       periodPnlAbsolute: periodPnl.absolute,
                       periodPnlPercent: periodPnl.percent,
                       selectedRange: state.selectedRange,

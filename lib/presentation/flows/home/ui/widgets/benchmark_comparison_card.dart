@@ -94,14 +94,7 @@ class BenchmarkComparisonCard extends StatelessWidget {
   }
 
   /// "Último mes", "Desde tu primera compra"…
-  static String rangeLabel(ChartTimeRange range) => switch (range) {
-    ChartTimeRange.w1 => 'home_range_w1'.tr(),
-    ChartTimeRange.m1 => 'home_range_m1'.tr(),
-    ChartTimeRange.m3 => 'home_range_m3'.tr(),
-    ChartTimeRange.m6 => 'home_range_m6'.tr(),
-    ChartTimeRange.y1 => 'home_range_y1'.tr(),
-    ChartTimeRange.all => 'home_range_all'.tr(),
-  };
+  static String rangeLabel(ChartTimeRange range) => range.periodLabel;
 }
 
 class _ReturnRow extends StatelessWidget {

@@ -176,7 +176,7 @@ void main() {
     await pump(tester, repo);
     expect(repo.calls, ['AAPL', 'MSFT']);
 
-    await tester.tap(find.text('1W'));
+    await tester.tap(find.text('1S'));
     await tester.pumpAndSettle();
     expect(repo.calls, hasLength(4));
     expect(find.textContaining('Última semana'), findsOneWidget);

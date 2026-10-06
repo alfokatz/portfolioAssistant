@@ -59,7 +59,13 @@ class _PnlDistributionCardState extends State<PnlDistributionCard> {
             children: [
               for (var i = 0; i < visible.length; i++) ...[
                 if (i > 0) const SizedBox(height: AppDimens.sp16),
-                _PnlRow(valuation: visible[i], maxAbs: maxAbs),
+                _PnlRow(
+                  // Por ticker: si la lista se reordena, cada fila conserva
+                  // su logo.
+                  key: ValueKey(visible[i].position.ticker),
+                  valuation: visible[i],
+                  maxAbs: maxAbs,
+                ),
               ],
               if (collapsible)
                 _ToggleButton(
@@ -76,7 +82,7 @@ class _PnlDistributionCardState extends State<PnlDistributionCard> {
 }
 
 class _PnlRow extends StatelessWidget {
-  const _PnlRow({required this.valuation, required this.maxAbs});
+  const _PnlRow({super.key, required this.valuation, required this.maxAbs});
 
   final PositionValuation valuation;
   final double maxAbs;

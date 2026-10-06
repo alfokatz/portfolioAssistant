@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_price_on_date_use_case.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
@@ -106,7 +107,7 @@ class ClosePositionProvider extends StateNotifier<ClosePositionState> {
 
     return result.fold(
       ClosePositionSaveResult.failure,
-      (_) => const ClosePositionSaveResult.success(),
+      ClosePositionSaveResult.success,
     );
   }
 }
@@ -116,7 +117,8 @@ sealed class ClosePositionSaveResult {
 
   const factory ClosePositionSaveResult.invalidInput() =
       ClosePositionInvalidInputResult;
-  const factory ClosePositionSaveResult.success() = ClosePositionSuccessResult;
+  const factory ClosePositionSaveResult.success(ClosedPosition closed) =
+      ClosePositionSuccessResult;
   const factory ClosePositionSaveResult.failure(HttpError error) =
       ClosePositionFailureResult;
 }
@@ -126,7 +128,10 @@ final class ClosePositionInvalidInputResult extends ClosePositionSaveResult {
 }
 
 final class ClosePositionSuccessResult extends ClosePositionSaveResult {
-  const ClosePositionSuccessResult();
+  const ClosePositionSuccessResult(this.closed);
+
+  /// La venta guardada (para la pantalla de éxito).
+  final ClosedPosition closed;
 }
 
 final class ClosePositionFailureResult extends ClosePositionSaveResult {

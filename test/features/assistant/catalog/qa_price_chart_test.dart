@@ -168,7 +168,7 @@ void main() {
     expect(painter(tester).values, [for (final c in _intraday) c.close]);
     expect(find.textContaining('Hoy'), findsOneWidget);
 
-    await tester.tap(find.text('1W'));
+    await tester.tap(find.text('1S'));
     await tester.pumpAndSettle();
     expect(repo.dailyCalls, 2);
 

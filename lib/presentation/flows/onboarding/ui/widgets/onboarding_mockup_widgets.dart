@@ -1,251 +1,156 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/domain/entities/company_brand.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
+import 'package:portfolio_assistant/presentation/shared/charts/diverging_bar.dart';
+import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/surface_card.dart';
 
-/// Gráfico decorativo estático para mockups del onboarding.
-class OnboardingMiniLineChart extends StatelessWidget {
-  const OnboardingMiniLineChart({
-    super.key,
-    required this.values,
-    this.height = 100,
-    this.showArea = true,
-    this.lineColor,
-  });
-
-  final List<double> values;
-  final double height;
-  final bool showArea;
-  final Color? lineColor;
-
-  static const _defaultValues = [
-    0.72,
-    0.68,
-    0.74,
-    0.71,
-    0.78,
-    0.82,
-    0.79,
-    0.88,
-    0.92,
-    1.0,
+/// Datos de ejemplo de los mockups del onboarding: una cartera inventada
+/// (y así se presenta, nunca como dato real del usuario).
+abstract final class _Sample {
+  static const values = <double>[
+    12130, 12090, 12160, 12210, 12180, 12150, 12240, 12300, 12270, 12330,
+    12380, 12350, 12410, 12450,
   ];
+}
 
-  factory OnboardingMiniLineChart.upward({double height = 100}) {
-    return OnboardingMiniLineChart(
-      values: _defaultValues,
-      height: height,
-    );
-  }
+/// Card base de los mockups: la misma superficie que las cards de la app.
+class _MockCard extends StatelessWidget {
+  const _MockCard({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final effectiveLineColor = lineColor ?? colors.chartLine;
-
-    if (values.length < 2) return SizedBox(height: height);
-
-    final minY = values.reduce((a, b) => a < b ? a : b);
-    final maxY = values.reduce((a, b) => a > b ? a : b);
-    final padding = (maxY - minY) * 0.12;
-    final spots =
-        values.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList();
-
-    return SizedBox(
-      height: height,
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          minY: minY - padding,
-          maxY: maxY + padding,
-          lineTouchData: const LineTouchData(enabled: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: effectiveLineColor,
-              barWidth: 2.5,
-              dotData: const FlDotData(show: false),
-              belowBarData: showArea
-                  ? BarAreaData(
-                      show: true,
-                      color: effectiveLineColor.withValues(alpha: 0.1),
-                    )
-                  : BarAreaData(show: false),
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        border: Border.all(color: colors.border),
       ),
+      child: child,
     );
   }
 }
 
-/// Vista previa editorial del snapshot del home (sin mockup de teléfono).
-class OnboardingSnapshotPreview extends StatelessWidget {
-  const OnboardingSnapshotPreview({super.key});
+/// Avatar con monograma, sin pedir el logo (el onboarding no sale a la red).
+Widget _avatar(String ticker, double size) => QaTickerAvatar(
+  ticker: ticker,
+  size: size,
+  brand: CompanyBrand(ticker: ticker),
+);
+
+/// La Home en chico: el total con su variación del período, el gráfico con
+/// la línea de inicio y dos posiciones como en "Mis posiciones".
+class OnboardingPortfolioPreview extends StatelessWidget {
+  const OnboardingPortfolioPreview({super.key});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    const currency = r'$12,450';
-    const pnlAbs = r'+$320';
-    const pnlPct = 3.2;
+    final tt = Theme.of(context).textTheme;
+    QaColors.resolve(Theme.of(context).brightness);
+    const tabular = [FontFeature.tabularFigures()];
 
     return ExcludeSemantics(
-      child: SurfaceCard(
-      padding: const EdgeInsets.fromLTRB(
-        AppDimens.cardPadding,
-        AppDimens.sp20,
-        AppDimens.cardPadding,
-        AppDimens.sp16,
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'portfolio_total_label'.tr(),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colors.textSecondary,
-                ),
-          ),
-          const SizedBox(height: AppDimens.sp4),
-          Text(
-            currency,
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -1.2,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-          ),
-          const SizedBox(height: AppDimens.sp8),
-          Row(
-            children: [
-              Text(
-                pnlAbs,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colors.pnlColor(1),
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-              ),
-              const SizedBox(width: AppDimens.sp8),
-              const PnlBadge(percent: pnlPct),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sp16),
-          OnboardingMiniLineChart.upward(height: 88),
-          const SizedBox(height: AppDimens.sp12),
-          Divider(height: 1, color: colors.border),
-          const SizedBox(height: AppDimens.sp12),
-          Row(
-            children: [
-              Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 18,
-                color: colors.accentBlue,
-              ),
-              const SizedBox(width: AppDimens.sp8),
-              Expanded(
-                child: Text(
-                  'onboarding_mock_insight_body'.tr(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.textSecondary,
-                        height: 1.35,
+          _MockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'portfolio_total_label'.tr(),
+                        style: tt.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        r'$12,450.00',
+                        style: tt.displaySmall?.copyWith(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.8,
+                          color: colors.textPrimary,
+                          fontFeatures: tabular,
+                        ),
+                      ),
+                      const SizedBox(height: AppDimens.sp6),
+                      Wrap(
+                        spacing: AppDimens.sp8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            r'+$320.00',
+                            style: tt.bodyMedium?.copyWith(
+                              color: colors.pnlColor(1),
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: tabular,
+                            ),
+                          ),
+                          const PnlBadge(percent: 2.6),
+                          Text(
+                            'home_range_m1'.tr(),
+                            style: tt.bodySmall?.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const PortfolioAreaLineChart(
+                  values: _Sample.values,
+                  showYAxisLabels: false,
+                  showStartReference: true,
+                  height: 84,
+                ),
+                const SizedBox(height: AppDimens.sp12),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp12),
+          _MockCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: AppDimens.sp8,
+            ),
+            child: Column(
+              children: [
+                _PositionRow(
+                  ticker: 'NVDA',
+                  shares: 'position_shares'.tr(namedArgs: {'count': '12'}),
+                  value: r'$1,446.00',
+                  pct: '+18.4%',
+                ),
+                _PositionRow(
+                  ticker: 'KO',
+                  shares: 'position_shares'.tr(namedArgs: {'count': '8'}),
+                  value: r'$494.40',
+                  pct: '-2.1%',
+                  positive: false,
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      ),
-    );
-  }
-}
-
-/// Mock compacto del hero del dashboard para la página 2.
-class OnboardingDashboardPreview extends StatelessWidget {
-  const OnboardingDashboardPreview({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    const selectedRange = ChartTimeRange.m1;
-
-    return ExcludeSemantics(
-      child: SurfaceCard(
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'portfolio_total_label'.tr(),
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colors.textSecondary,
-                ),
-          ),
-          const SizedBox(height: AppDimens.sp6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                r'$42,190.50',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-              ),
-              const SizedBox(width: AppDimens.sp8),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 2),
-                child: PnlBadge(percent: 12.4),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sp16),
-          OnboardingMiniLineChart.upward(height: 88),
-          const SizedBox(height: AppDimens.sp12),
-          Row(
-            children: ChartTimeRange.values.map((range) {
-              final isActive = range == selectedRange;
-              return Expanded(
-                child: Text(
-                  range.label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: isActive
-                            ? colors.textPrimary
-                            : colors.textSecondary,
-                        fontWeight:
-                            isActive ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: AppDimens.sp16),
-          _PositionRow(
-            ticker: 'AAPL',
-            shares: '12',
-            pnl: r'+$840',
-            pnlColor: colors.pnlColor(1),
-          ),
-          Divider(height: 1, indent: 0, endIndent: 0, color: colors.border),
-          _PositionRow(
-            ticker: 'NVDA',
-            shares: '5',
-            pnl: r'+$1,240',
-            pnlColor: colors.pnlColor(1),
-          ),
-        ],
-        ),
       ),
     );
   }
@@ -255,44 +160,179 @@ class _PositionRow extends StatelessWidget {
   const _PositionRow({
     required this.ticker,
     required this.shares,
-    required this.pnl,
-    required this.pnlColor,
+    required this.value,
+    required this.pct,
+    this.positive = true,
   });
 
   final String ticker;
   final String shares;
-  final String pnl;
-  final Color pnlColor;
+  final String value;
+  final String pct;
+  final bool positive;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-
+    final tt = Theme.of(context).textTheme;
+    const tabular = [FontFeature.tabularFigures()];
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
+      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp8),
       child: Row(
         children: [
-          Text(
-            ticker,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          _avatar(ticker, 32),
+          const SizedBox(width: AppDimens.sp12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ticker,
+                  style: tt.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  shares,
+                  style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: tt.titleSmall?.copyWith(
                   color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: tabular,
                 ),
-          ),
-          const SizedBox(width: AppDimens.sp8),
-          Text(
-            shares,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textSecondary,
-                ),
-          ),
-          const Spacer(),
-          Text(
-            pnl,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: pnlColor,
+              ),
+              Text(
+                pct,
+                style: tt.bodySmall?.copyWith(
+                  color: colors.pnlColor(positive ? 1 : -1),
                   fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                  fontFeatures: tabular,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(width: AppDimens.sp4),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: AppDimens.iconMd,
+            color: colors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una conversación de ejemplo con Porty: la pregunta del usuario, la
+/// respuesta al lado del avatar y una card como las del chat.
+class OnboardingChatPreview extends StatelessWidget {
+  const OnboardingChatPreview({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    QaColors.resolve(Theme.of(context).brightness);
+    const tabular = [FontFeature.tabularFigures()];
+
+    return ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.sp16,
+                vertical: AppDimens.sp12,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+              ),
+              child: Text(
+                'onboarding_chat_question'.tr(),
+                style: tt.bodyMedium?.copyWith(color: colors.textPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const PortyAvatar(size: 32, state: PortyAvatarState.answered),
+              const SizedBox(width: AppDimens.sp12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Text(
+                    'onboarding_chat_answer'.tr(),
+                    style: tt.bodyMedium?.copyWith(
+                      color: colors.textPrimary,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sp12),
+          _MockCard(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'weekly_report_movers_section'.tr(),
+                  style: tt.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppDimens.sp12),
+                for (final (ticker, pct, impact) in const [
+                  ('NVDA', '+4.5%', 1.8),
+                  ('KO', '-0.6%', -0.2),
+                ]) ...[
+                  Row(
+                    children: [
+                      _avatar(ticker, 28),
+                      const SizedBox(width: AppDimens.sp12),
+                      Expanded(
+                        child: Text(
+                          ticker,
+                          style: tt.titleSmall?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        pct,
+                        style: tt.titleSmall?.copyWith(
+                          color: colors.pnlColor(impact),
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: tabular,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimens.sp8),
+                  DivergingBar(value: impact, maxAbs: 1.8),
+                  if (ticker != 'KO') const SizedBox(height: AppDimens.sp12),
+                ],
+              ],
+            ),
           ),
         ],
       ),

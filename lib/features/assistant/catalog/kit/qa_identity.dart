@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
@@ -31,22 +33,67 @@ class QaBrandBuilder extends StatefulWidget {
 class _QaBrandBuilderState extends State<QaBrandBuilder> {
   late CompanyBrand _brand = CompanyBrand(ticker: widget.ticker);
   bool _requested = false;
+  CompanyBrandLoader? _loader;
+  Timer? _retry;
+  int _retries = 0;
+
+  /// Si la respuesta fue una falla pasajera (sin red, token todavía no
+  /// listo, rate limit del proxy: el loader no la cachea), se reintenta
+  /// unas veces. Antes se pedía una sola vez y la fila quedaba con el
+  /// monograma para siempre (bug 2026-10-06, logos de "P&L por activo").
+  static const _retryDelays = [
+    Duration(seconds: 2),
+    Duration(seconds: 6),
+    Duration(seconds: 15),
+  ];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_requested || widget.ticker.isEmpty) return;
+    if (_requested) return;
     _requested = true;
-    final loader = readProviderOrNull(context, companyBrandLoaderProvider);
-    if (loader == null) return;
-    final cached = loader.peek(widget.ticker);
+    _loader = readProviderOrNull(context, companyBrandLoaderProvider);
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(QaBrandBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // La misma fila con otro ticker (una lista que se reordena sin keys):
+    // la marca anterior no sirve, se pide la nueva.
+    if (oldWidget.ticker != widget.ticker) {
+      _retry?.cancel();
+      _retries = 0;
+      _brand = CompanyBrand(ticker: widget.ticker);
+      _load();
+    }
+  }
+
+  void _load() {
+    final loader = _loader;
+    final ticker = widget.ticker;
+    if (loader == null || ticker.isEmpty) return;
+    final cached = loader.peek(ticker);
     if (cached != null) {
       _brand = cached;
       return;
     }
-    loader.load(widget.ticker).then((brand) {
-      if (mounted) setState(() => _brand = brand);
+    loader.load(ticker).then((brand) {
+      if (!mounted || widget.ticker != ticker) return;
+      setState(() => _brand = brand);
+      final transient = loader.peek(ticker) == null;
+      if (transient && _retries < _retryDelays.length) {
+        _retry = Timer(_retryDelays[_retries++], () {
+          if (mounted && widget.ticker == ticker) _load();
+        });
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _retry?.cancel();
+    super.dispose();
   }
 
   @override

@@ -1,22 +1,30 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
-import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/time_range_selector.dart';
+import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
-/// La card del total: valor, variación del período, gráfico y selector de
-/// rango. Con `summary` en `null` ([PortfolioHeroSection.skeleton]) es su
-/// propio skeleton: misma card y alturas, valores en barras.
-class PortfolioHeroSection extends StatelessWidget {
+/// La card del total: valor, variación del período (diciendo de qué
+/// período), gráfico y selector de rango. Arrastrando el dedo sobre el
+/// gráfico se ve el valor de cada día y la variación desde el inicio del
+/// período hasta ese día. Con `summary` en `null`
+/// ([PortfolioHeroSection.skeleton]) es su propio skeleton: misma card y
+/// alturas, valores en barras.
+class PortfolioHeroSection extends StatefulWidget {
   final PortfolioSummary? summary;
-  final List<double> chartValues;
+
+  /// Los puntos del período elegido (valor y costo de cada día).
+  final List<PortfolioHistoryPoint> history;
   final double periodPnlAbsolute;
   final double periodPnlPercent;
   final ChartTimeRange selectedRange;
@@ -25,7 +33,7 @@ class PortfolioHeroSection extends StatelessWidget {
   const PortfolioHeroSection({
     super.key,
     required this.summary,
-    required this.chartValues,
+    required this.history,
     required this.periodPnlAbsolute,
     required this.periodPnlPercent,
     required this.selectedRange,
@@ -36,7 +44,7 @@ class PortfolioHeroSection extends StatelessWidget {
     super.key,
     this.selectedRange = ChartTimeRange.m1,
   }) : summary = null,
-       chartValues = const [],
+       history = const [],
        periodPnlAbsolute = 0,
        periodPnlPercent = 0,
        onRangeSelected = _ignoreRange;
@@ -47,14 +55,62 @@ class PortfolioHeroSection extends StatelessWidget {
   static const chartHeight = 130.0;
 
   @override
+  State<PortfolioHeroSection> createState() => _PortfolioHeroSectionState();
+}
+
+class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
+  /// El día que se está recorriendo en el gráfico, o `null`.
+  int? _scrubIndex;
+
+  void _onScrub(int? index) {
+    if (index == _scrubIndex) return;
+    if (index != null) PortyHapticsService.maybeOf(context)?.scrubTick();
+    setState(() => _scrubIndex = index);
+  }
+
+  @override
+  void didUpdateWidget(PortfolioHeroSection old) {
+    super.didUpdateWidget(old);
+    // Otro rango (u otros datos): el índice ya no apunta al mismo día.
+    if (!identical(old.history, widget.history)) _scrubIndex = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currency = AppNumberFormat.currency();
     final colors = context.customColors;
-    final pnl = periodPnlAbsolute;
-    final sign = pnl >= 0 ? '+' : '';
-    final summary = this.summary;
+    final summary = widget.summary;
     final skeleton = summary == null;
     final badgeStyle = Theme.of(context).textTheme.labelMedium;
+    final history = widget.history;
+    final chartValues = [for (final p in history) p.totalValue];
+    final scrub =
+        _scrubIndex != null && _scrubIndex! < history.length
+            ? _scrubIndex
+            : null;
+
+    // Recorriendo: el valor de ese día y la variación desde el inicio del
+    // período hasta él (misma cuenta que la del período: la plata nueva no
+    // cuenta como ganancia). Si no, el total de hoy y la del período.
+    final double value;
+    final double pnl;
+    final double pnlPercent;
+    final String periodText;
+    if (scrub != null) {
+      final upTo = HomeChartUtils.periodPnlFromHistory(
+        history.sublist(0, scrub + 1),
+      );
+      value = history[scrub].totalValue;
+      pnl = upTo.absolute;
+      pnlPercent = upTo.percent;
+      periodText = DateFormat.yMMMd().format(history[scrub].date);
+    } else {
+      value = summary?.totalValue ?? 0;
+      pnl = widget.periodPnlAbsolute;
+      pnlPercent = widget.periodPnlPercent;
+      periodText = widget.selectedRange.periodLabel;
+    }
+    final sign = pnl >= 0 ? '+' : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
@@ -92,8 +148,9 @@ class PortfolioHeroSection extends StatelessWidget {
                   // Los valores cambian en el lugar con un crossfade corto
                   // (caché → datos nuevos, o al refrescar).
                   SkeletonText(
-                    skeleton ? null : currency.format(summary.totalValue),
-                    animate: true,
+                    skeleton ? null : currency.format(value),
+                    // Recorriendo, el valor sigue al dedo sin crossfade.
+                    animate: scrub == null,
                     placeholder: '\$00,000.00',
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
                       color: colors.textPrimary,
@@ -104,11 +161,14 @@ class PortfolioHeroSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 10,
+                    runSpacing: 4,
                     children: [
                       SkeletonText(
                         skeleton ? null : '$sign${currency.format(pnl)}',
-                        animate: true,
+                        animate: scrub == null,
                         placeholder: '+\$000.00',
                         style: Theme.of(
                           context,
@@ -118,7 +178,6 @@ class PortfolioHeroSection extends StatelessWidget {
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                      const SizedBox(width: 10),
                       if (skeleton)
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -131,8 +190,16 @@ class PortfolioHeroSection extends StatelessWidget {
                             style: badgeStyle,
                           ),
                         )
-                      else
-                        PnlBadge(percent: periodPnlPercent),
+                      else ...[
+                        PnlBadge(percent: pnlPercent),
+                        // De qué período es la variación (o qué día se
+                        // está recorriendo).
+                        Text(
+                          periodText,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -141,7 +208,7 @@ class PortfolioHeroSection extends StatelessWidget {
             ),
             if (skeleton)
               const SizedBox(
-                height: chartHeight,
+                height: PortfolioHeroSection.chartHeight,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: SkeletonBlock(radius: 12),
@@ -156,12 +223,21 @@ class PortfolioHeroSection extends StatelessWidget {
                 ),
                 values: chartValues,
                 showYAxisLabels: false,
-                height: chartHeight,
+                height: PortfolioHeroSection.chartHeight,
+                onScrub: chartValues.length < 2 ? null : _onScrub,
+                scrubIndex: scrub,
+                showStartReference: true,
               ),
-            const SizedBox(height: 4),
-            TimeRangeSelector(
-              selected: selectedRange,
-              onSelected: onRangeSelected,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: SegmentedChoice<ChartTimeRange>(
+                selected: widget.selectedRange,
+                onChanged: widget.onRangeSelected,
+                options: [
+                  for (final range in ChartTimeRange.values)
+                    (value: range, label: range.label),
+                ],
+              ),
             ),
           ],
         ),

@@ -14,14 +14,14 @@ import 'package:uuid/uuid.dart';
 
 const _quantityEpsilon = 1e-6;
 
-class _FifoCloseResult {
-  const _FifoCloseResult({
-    required this.avgPurchasePrice,
-    required this.sourcePositionId,
-  });
+/// Cuánto se vende de un lote.
+class _LotSale {
+  const _LotSale(this.lot, this.quantity);
 
-  final double avgPurchasePrice;
-  final String? sourcePositionId;
+  final Position lot;
+  final double quantity;
+
+  bool get sellsWholeLot => (lot.quantity - quantity).abs() <= _quantityEpsilon;
 }
 
 class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
@@ -59,8 +59,10 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       );
       if (validationError != null) return Left(validationError);
 
+      // `await`: sin él, un error de Supabase dentro del cierre se escapaba
+      // del catch como excepción en vez de volver como Left.
       if (Uuid.isValidUUID(fromString: positionId)) {
-        return _closeSingleLot(
+        return await _closeSingleLot(
           positionId: positionId,
           quantity: quantity,
           closePrice: closePrice,
@@ -68,7 +70,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
         );
       }
 
-      return _closeByTicker(
+      return await _closeByTicker(
         ticker: positionId,
         quantity: quantity,
         closePrice: closePrice,
@@ -121,31 +123,13 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       );
     }
 
-    final fifoResult = await _applyFifoClose(
+    return _close(
+      ticker: position.ticker,
       lots: [position],
       quantity: quantity,
-    );
-    final fifoError = fifoResult.fold((error) => error, (_) => null);
-    if (fifoError != null) return Left(fifoError);
-
-    final closeMeta = fifoResult.getOrElse(
-      () => throw StateError('FIFO close result missing'),
-    );
-
-    final closed = ClosedPosition(
-      id: _uuid.v4(),
-      ticker: position.ticker,
-      quantity: quantity,
-      avgPurchasePrice: closeMeta.avgPurchasePrice,
       closePrice: closePrice,
       closeDate: closeDate,
-      closedAt: DateTime.now(),
     );
-    await remoteDataSource.save(
-      closed,
-      sourcePositionId: closeMeta.sourcePositionId,
-    );
-    return Right(closed);
   }
 
   Future<Either<HttpError, ClosedPosition>> _closeByTicker({
@@ -194,66 +178,36 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       );
     }
 
-    final fifoResult = await _applyFifoClose(lots: lots, quantity: quantity);
-    final fifoError = fifoResult.fold((error) => error, (_) => null);
-    if (fifoError != null) return Left(fifoError);
-
-    final closeMeta = fifoResult.getOrElse(
-      () => throw StateError('FIFO close result missing'),
-    );
-
-    final closed = ClosedPosition(
-      id: _uuid.v4(),
+    return _close(
       ticker: normalizedTicker,
+      lots: lots,
       quantity: quantity,
-      avgPurchasePrice: closeMeta.avgPurchasePrice,
       closePrice: closePrice,
       closeDate: closeDate,
-      closedAt: DateTime.now(),
     );
-    await remoteDataSource.save(
-      closed,
-      sourcePositionId: closeMeta.sourcePositionId,
-    );
-    return Right(closed);
   }
 
-  Future<Either<HttpError, _FifoCloseResult>> _applyFifoClose({
+  /// Vende [quantity] de [lots] (ya ordenados por fecha: FIFO). El orden
+  /// importa para no perder datos: primero se calcula qué se vende de cada
+  /// lote (sin tocar nada), después se guarda la venta y recién entonces se
+  /// borran o achican los lotes. Si eso falla, se deshace la venta. Antes se
+  /// borraban los lotes primero: si después fallaba el guardado, la posición
+  /// desaparecía sin quedar registrada la venta (bug 2026-10-06).
+  Future<Either<HttpError, ClosedPosition>> _close({
+    required String ticker,
     required List<Position> lots,
     required double quantity,
+    required double closePrice,
+    required DateTime closeDate,
   }) async {
+    final sales = <_LotSale>[];
     var remaining = quantity;
-    var costBasisSold = 0.0;
-    String? sourcePositionId;
-    var lotsTouched = 0;
-
     for (final lot in lots) {
       if (remaining <= _quantityEpsilon) break;
-
-      final sellFromLot = remaining < lot.quantity ? remaining : lot.quantity;
-      costBasisSold += sellFromLot * lot.purchasePrice;
-      remaining -= sellFromLot;
-      lotsTouched++;
-
-      if ((lot.quantity - sellFromLot).abs() <= _quantityEpsilon) {
-        final deleteResult = await positionRepository.deletePosition(lot.id);
-        final deleteError = deleteResult.fold((error) => error, (_) => null);
-        if (deleteError != null) return Left(deleteError);
-      } else {
-        final updateResult = await positionRepository.updatePositionQuantity(
-          id: lot.id,
-          quantity: lot.quantity - sellFromLot,
-        );
-        final updateError = updateResult.fold((error) => error, (_) => null);
-        if (updateError != null) return Left(updateError);
-      }
-
-      sourcePositionId ??= lot.id;
-      if (lotsTouched > 1) {
-        sourcePositionId = null;
-      }
+      final sell = remaining < lot.quantity ? remaining : lot.quantity;
+      sales.add(_LotSale(lot, sell));
+      remaining -= sell;
     }
-
     if (remaining > _quantityEpsilon) {
       return Left(
         HttpError(
@@ -263,12 +217,39 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       );
     }
 
-    return Right(
-      _FifoCloseResult(
-        avgPurchasePrice: costBasisSold / quantity,
-        sourcePositionId: sourcePositionId,
-      ),
+    final costBasisSold = sales.fold<double>(
+      0,
+      (sum, s) => sum + s.quantity * s.lot.purchasePrice,
     );
+    final closed = ClosedPosition(
+      id: _uuid.v4(),
+      ticker: ticker,
+      quantity: quantity,
+      avgPurchasePrice: costBasisSold / quantity,
+      closePrice: closePrice,
+      closeDate: closeDate,
+      closedAt: DateTime.now(),
+    );
+    await remoteDataSource.save(closed);
+
+    for (final sale in sales) {
+      final result =
+          sale.sellsWholeLot
+              ? await positionRepository.deletePosition(sale.lot.id)
+              : await positionRepository.updatePositionQuantity(
+                id: sale.lot.id,
+                quantity: sale.lot.quantity - sale.quantity,
+              );
+      final error = result.fold((error) => error, (_) => null);
+      if (error != null) {
+        // Sin los lotes ajustados, la venta no puede quedar registrada.
+        try {
+          await remoteDataSource.delete(closed.id);
+        } catch (_) {}
+        return Left(error);
+      }
+    }
+    return Right(closed);
   }
 }
 

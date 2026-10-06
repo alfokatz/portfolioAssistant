@@ -48,12 +48,13 @@ class SupabasePortfolioMapper {
   static Map<String, dynamic> closedPositionToRow({
     required ClosedPosition position,
     required String userId,
-    String? sourcePositionId,
   }) {
+    // Sin `source_position_id`: apuntaba al lote vendido, que al venderse
+    // entero se borra, y la clave foránea rechazaba la venta (bug
+    // 2026-10-06). Nadie lo leía.
     return {
       'id': position.id,
       'user_id': userId,
-      'source_position_id': sourcePositionId,
       'ticker': position.ticker,
       'quantity': position.quantity,
       'avg_purchase_price': position.avgPurchasePrice,
