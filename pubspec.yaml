@@ -85,6 +85,38 @@ dev_dependencies:
   json_serializable: ^6.8.0
   lint: ^2.3.0
   retrofit_generator: ^9.1.3
+  flutter_native_splash: ^2.4.8
+
+# Splash nativo: Porty en reposo sobre el fondo de la app, del mismo
+# tamaño y en el mismo lugar que el `PortyLoader` del arranque (64 dp,
+# centrado). Las imágenes salen de
+# test/screenshots/porty_splash_assets_test.dart; después:
+# `dart run flutter_native_splash:create`.
+flutter_native_splash:
+  color: "#FBFBFA"
+  color_dark: "#0F0F0F"
+  image: assets/porty-avatar/splash/porty_splash.png
+  image_dark: assets/porty-avatar/splash/porty_splash.png
+  android_12:
+    color: "#FBFBFA"
+    color_dark: "#0F0F0F"
+    image: assets/porty-avatar/splash/porty_splash_android12.png
+    image_dark: assets/porty-avatar/splash/porty_splash_android12.png
+  web: false
+
+# Ícono de la app (Porty): `dart run flutter_launcher_icons`. iOS usa el
+# ícono terracota entero (sin alpha); Android, el adaptativo (Porty claro
+# sobre terracota) y el mismo PNG como ícono legacy.
+flutter_launcher_icons:
+  ios: true
+  image_path_ios: "assets/porty-avatar/icon/app_icon_terracotta_1024.png"
+  remove_alpha_ios: true
+  android: true
+  image_path_android: "assets/porty-avatar/icon/app_icon_terracotta_1024.png"
+  adaptive_icon_background: "#D98E5D"
+  adaptive_icon_foreground: "assets/porty-avatar/icon/adaptive_foreground_on_terracotta_1024.png"
+  # El PNG ya trae el margen de la zona segura: sin inset extra.
+  adaptive_icon_foreground_inset: 0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
