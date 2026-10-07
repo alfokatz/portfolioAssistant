@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
+/// Una fila de Ajustes. La etiqueta va siempre en una línea. Un [value]
+/// corto ("Español", "Claro") va a la derecha; uno largo ("Agresivo ·
+/// Mediano plazo…") va como [subtitle], debajo de la etiqueta, para que
+/// ninguno de los dos se corte.
 class SettingsNavRow extends StatelessWidget {
   const SettingsNavRow({
     super.key,
     required this.icon,
     required this.label,
     this.value,
+    this.subtitle,
     this.onTap,
     this.showChevron = true,
   });
@@ -15,6 +20,7 @@ class SettingsNavRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String? value;
+  final String? subtitle;
   final VoidCallback? onTap;
   final bool showChevron;
 
@@ -36,24 +42,40 @@ class SettingsNavRow extends StatelessWidget {
               _SettingsIconBox(icon: icon),
               const SizedBox(width: AppDimens.sp12),
               Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w500,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colors.textSecondary,
+                              height: 1.35,
+                            ),
                       ),
+                  ],
                 ),
               ),
               if (value != null) ...[
-                Flexible(
-                  child: Text(
-                    value!,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                  ),
+                const SizedBox(width: AppDimens.sp8),
+                Text(
+                  value!,
+                  maxLines: 1,
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.textSecondary,
+                      ),
                 ),
                 const SizedBox(width: AppDimens.sp4),
               ],
@@ -101,6 +123,8 @@ class SettingsToggleRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w500,
@@ -119,6 +143,7 @@ class SettingsToggleRow extends StatelessWidget {
   }
 }
 
+/// El ícono en un círculo teñido, como los encabezados de las cards.
 class _SettingsIconBox extends StatelessWidget {
   const _SettingsIconBox({required this.icon});
 
@@ -132,9 +157,8 @@ class _SettingsIconBox extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: colors.surfaceElevated,
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        border: Border.all(color: colors.border),
+        color: colors.accentBlue.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
       ),
       child: Icon(
         icon,

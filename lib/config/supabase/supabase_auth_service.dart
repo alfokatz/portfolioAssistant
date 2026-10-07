@@ -78,6 +78,15 @@ class SupabaseAuthService {
     );
   }
 
+  /// Cambia el nombre que se muestra (el mismo `full_name` de la metadata
+  /// que se guarda al registrarse). Devuelve el usuario actualizado.
+  Future<User?> updateFullName(String fullName) async {
+    final response = await _client.auth.updateUser(
+      UserAttributes(data: {'full_name': fullName.trim()}),
+    );
+    return response.user;
+  }
+
   Future<void> resetPassword({required String email}) async {
     await _client.auth.resetPasswordForEmail(
       email.trim(),

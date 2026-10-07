@@ -15,11 +15,11 @@ import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
-import 'package:portfolio_assistant/presentation/flows/settings/providers/settings_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_appearance_picker.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_danger_zone.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_profile_card.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_subscription_card.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -42,7 +42,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   @override
   void initState() {
     runAfterPostFrameCallback(() {
-      ref.read(settingsProvider.notifier).init();
       ref.read(investorProfileProvider.notifier).refresh();
     });
     super.initState();
@@ -81,47 +80,22 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
   }
 
-  Future<void> _showProfileSheet({
-    required String title,
-    required String value,
-  }) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) {
-        final colors = ctx.customColors;
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppDimens.sp24,
-              AppDimens.sp20,
-              AppDimens.sp24,
-              AppDimens.sp28,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: AppDimens.sp12),
-                Text(
-                  value,
-                  style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
-                    color: colors.textSecondary,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  /// Guarda el nombre en la metadata del usuario (`full_name`). `false` si
+  /// falló (la hoja queda abierta y se avisa).
+  Future<bool> _saveName(String name) async {
+    try {
+      await ref.read(supabaseAuthServiceProvider).updateFullName(name);
+      if (!mounted) return false;
+      setState(() {}); // currentUser ya trae el nombre nuevo.
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(alertProvider.notifier)
+            .showError(message: 'settings_profile_name_error'.tr());
+      }
+      return false;
+    }
   }
 
   String? _investorProfileLabel(InvestorProfileState state) {
@@ -229,8 +203,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   @override
   Widget buildView(BuildContext context) {
     final user = ref.watch(supabaseAuthServiceProvider).currentUser;
-    final settings = ref.watch(settingsProvider);
-    final settingsNotifier = ref.read(settingsProvider.notifier);
     final themeMode = ref.watch(themeModeProvider);
     final hapticsEnabled = ref.watch(hapticsEnabledProvider);
     final investorProfile = ref.watch(investorProfileProvider);
@@ -238,58 +210,49 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
     final fullName = (metadata?['full_name'] as String?)?.trim();
-    final displayName =
-        fullName?.isNotEmpty == true
-            ? fullName!
-            : 'settings_profile_name_placeholder'.tr();
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppDimens.pageHorizontal,
             AppDimens.sp8,
             AppDimens.pageHorizontal,
-            AppDimens.sp32,
+            // La barra de pestañas flota encima del final de la lista (el
+            // shell usa `extendBody`, así que su alto viene en el padding de
+            // abajo): sin esto, "Eliminar cuenta" quedaba tapado.
+            AppDimens.sp32 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
-              child: Text(
-                'settings_title'.tr(),
-                style: Theme.of(context).textTheme.headlineSmall,
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, AppDimens.sp20),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  'settings_title'.tr(),
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.8,
+                    color: context.customColors.textPrimary,
+                  ),
+                ),
               ),
             ),
+            SettingsProfileCard(
+              name: fullName,
+              email: email,
+              onSaveName: _saveName,
+            ),
+            const SizedBox(height: AppDimens.sp16),
             SettingsSectionCard(
               title: 'settings_section_profile'.tr(),
               children: [
                 SettingsNavRow(
-                  icon: Icons.person_outline_rounded,
-                  label: 'settings_full_name'.tr(),
-                  value: displayName,
-                  onTap:
-                      () => _showProfileSheet(
-                        title: 'settings_full_name'.tr(),
-                        value: displayName,
-                      ),
-                ),
-                const SettingsDivider(),
-                SettingsNavRow(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'auth_email'.tr(),
-                  value: email,
-                  onTap:
-                      () => _showProfileSheet(
-                        title: 'auth_email'.tr(),
-                        value: email,
-                      ),
-                ),
-                const SettingsDivider(),
-                SettingsNavRow(
                   icon: Icons.tune_rounded,
                   label: 'settings_investor_profile'.tr(),
-                  value: _investorProfileLabel(investorProfile),
+                  subtitle: _investorProfileLabel(investorProfile),
                   onTap:
                       () => context.pushNamed(InvestorProfileRouter.routeName),
                 ),
@@ -312,34 +275,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   value: settingsAppearanceLabel(themeMode),
                   onTap: () => showSettingsAppearancePicker(context, ref),
                 ),
-                const SettingsDivider(),
-                SettingsNavRow(
-                  icon: Icons.payments_outlined,
-                  label: 'settings_currency'.tr(),
-                  value: 'settings_currency_usd'.tr(),
-                  showChevron: false,
-                  onTap: null,
-                ),
-                const SettingsDivider(),
-                SettingsToggleRow(
-                  icon: Icons.notifications_outlined,
-                  label: 'settings_notifications'.tr(),
-                  value: settings.notificationsEnabled,
-                  onChanged:
-                      settings.isLoading
-                          ? null
-                          : settingsNotifier.setNotificationsEnabled,
-                ),
-                const SettingsDivider(),
-                SettingsToggleRow(
-                  icon: Icons.campaign_outlined,
-                  label: 'settings_price_alerts'.tr(),
-                  value: settings.priceAlertsEnabled,
-                  onChanged:
-                      settings.isLoading
-                          ? null
-                          : settingsNotifier.setPriceAlertsEnabled,
-                ),
+                // Notificaciones y alertas de precio: se sacaron porque no
+                // hacían nada; ver docs/backlog/notificaciones-y-alertas-de-precio.md.
                 const SettingsDivider(),
                 SettingsToggleRow(
                   icon: Icons.vibration_rounded,

@@ -25,13 +25,16 @@ class SettingsDangerZone extends StatelessWidget {
             left: AppDimens.sp4,
             bottom: AppDimens.sp8,
           ),
-          child: Text(
-            'settings_danger_zone'.tr(),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.8,
-                ),
+          child: Semantics(
+            header: true,
+            child: Text(
+              'settings_danger_zone'.tr(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+            ),
           ),
         ),
         _DangerButton(

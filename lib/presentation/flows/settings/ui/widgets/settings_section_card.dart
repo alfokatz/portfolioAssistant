@@ -24,13 +24,18 @@ class SettingsSectionCard extends StatelessWidget {
             left: AppDimens.sp4,
             bottom: AppDimens.sp8,
           ),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.8,
-                ),
+          child: Semantics(
+            header: true,
+            // Título de grupo como los de las cards de la app (sin
+            // mayúsculas grises).
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+            ),
           ),
         ),
         Container(
