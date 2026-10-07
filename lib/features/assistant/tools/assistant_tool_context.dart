@@ -68,6 +68,7 @@ class AssistantToolContext {
     this.history = const [],
     this.closedPositions = const [],
     this.loadInvestorProfile,
+    this.investorProfile,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -81,6 +82,10 @@ class AssistantToolContext {
   final List<PortfolioHistoryPoint> history;
   final List<ClosedPosition> closedPositions;
   final Future<InvestorProfile?> Function()? loadInvestorProfile;
+
+  /// El perfil ya cargado al empezar el turno (para PORTFOLIO_BRIEF); `null`
+  /// si no lo completó o no se pudo leer.
+  final InvestorProfile? investorProfile;
   final DateTime now;
   final Set<String> heldTickers;
 

@@ -18,8 +18,16 @@ class InvestorProfileRepositoryImpl implements InvestorProfileRepository {
     required RiskTolerance risk,
     required InvestmentHorizon horizon,
     required InvestmentObjective objective,
+    InvestmentExperience? experience,
+    DrawdownReaction? drawdownReaction,
   }) =>
-      _dataSource.save(risk: risk, horizon: horizon, objective: objective);
+      _dataSource.save(
+        risk: risk,
+        horizon: horizon,
+        objective: objective,
+        experience: experience,
+        drawdownReaction: drawdownReaction,
+      );
 }
 
 final investorProfileRepositoryProvider = Provider<InvestorProfileRepository>(

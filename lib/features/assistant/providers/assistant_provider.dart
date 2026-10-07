@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -220,6 +221,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         closedPositions: await _fetchClosedPositions(),
         loadInvestorProfile:
             () => ref.read(investorProfileProvider.notifier).refresh(),
+        investorProfile: await _profileForTurn(),
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -465,6 +467,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final index = messages.lastIndexWhere((m) => m.surfaceId == surfaceId);
     if (index < 1) return messages;
     return [...messages.sublist(0, index - 1), ...messages.sublist(index + 1)];
+  }
+
+  /// El perfil de inversor para PORTFOLIO_BRIEF: el que ya está en memoria
+  /// (Ajustes lo carga); si todavía no se leyó, una sola lectura. Nunca
+  /// frena el turno: si falla, el turno sigue sin perfil.
+  Future<InvestorProfile?> _profileForTurn() async {
+    final current = ref.read(investorProfileProvider);
+    if (current.hasLoaded) return current.profile;
+    try {
+      return await ref.read(investorProfileProvider.notifier).refresh();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<ClosedPosition>> _fetchClosedPositions() async {

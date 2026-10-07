@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
@@ -12,6 +13,10 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.d
 abstract final class PortfolioBrief {
   static const label = 'PORTFOLIO_BRIEF';
 
+  /// El perfil de inversor dentro del brief (ver
+  /// [InvestorProfileContext.brief]).
+  static const userProfileKey = 'user_profile';
+
   static Map<String, Object?> build(AssistantToolContext ctx) {
     final map = PortfolioContextBuilder.buildMap(
       ctx.summary,
@@ -23,6 +28,8 @@ abstract final class PortfolioBrief {
       ..remove('position_periods')
       ..remove('closed_positions')
       ..['closed_positions_count'] = ctx.closedPositions.length;
+    final profile = InvestorProfileContext.brief(ctx.investorProfile, ctx.now);
+    if (profile != null) map[userProfileKey] = profile;
     return map;
   }
 }

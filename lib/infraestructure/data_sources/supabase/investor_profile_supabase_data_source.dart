@@ -34,18 +34,33 @@ class InvestorProfileSupabaseDataSource {
     required RiskTolerance risk,
     required InvestmentHorizon horizon,
     required InvestmentObjective objective,
+    InvestmentExperience? experience,
+    DrawdownReaction? drawdownReaction,
   }) async {
     final userId = _authService.requireUserId();
-    final row = await _client
-        .from(_table)
-        .upsert({
-          'user_id': userId,
-          'risk_tolerance': risk.storageValue,
-          'horizon': horizon.storageValue,
-          'objective': objective.storageValue,
-        })
-        .select()
-        .single();
+    final core = {
+      'user_id': userId,
+      'risk_tolerance': risk.storageValue,
+      'horizon': horizon.storageValue,
+      'objective': objective.storageValue,
+    };
+    final optional = {
+      'experience': experience?.storageValue,
+      'drawdown_reaction': drawdownReaction?.storageValue,
+    };
+    Map<String, dynamic> row;
+    try {
+      row = await _client
+          .from(_table)
+          .upsert({...core, ...optional})
+          .select()
+          .single();
+    } on PostgrestException catch (e) {
+      // Sin la migración 20261007000000 las columnas opcionales no existen
+      // (PGRST204): se guarda lo esencial en vez de perder todo el perfil.
+      if (e.code != 'PGRST204') rethrow;
+      row = await _client.from(_table).upsert(core).select().single();
+    }
     final profile = fromRow(Map<String, dynamic>.from(row));
     if (profile == null) {
       throw StateError('investor_profiles returned an unreadable row');
@@ -72,6 +87,13 @@ class InvestorProfileSupabaseDataSource {
       horizon: horizon,
       objective: objective,
       updatedAt: updatedAt,
+      // Opcionales: ausentes (perfil viejo, o sin la migración) = null.
+      experience: InvestmentExperience.fromStorage(
+        row['experience'] as String?,
+      ),
+      drawdownReaction: DrawdownReaction.fromStorage(
+        row['drawdown_reaction'] as String?,
+      ),
     );
   }
 }

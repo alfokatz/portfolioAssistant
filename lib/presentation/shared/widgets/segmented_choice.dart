@@ -16,7 +16,9 @@ class SegmentedChoice<T> extends StatelessWidget {
   });
 
   final List<({T value, String label})> options;
-  final T selected;
+
+  /// `null`: todavía no se eligió nada (sin indicador).
+  final T? selected;
   final ValueChanged<T> onChanged;
 
   /// Key del indicador (para tests).
@@ -43,6 +45,7 @@ class SegmentedChoice<T> extends StatelessWidget {
       ),
       child: Stack(
         children: [
+          if (index >= 0)
           AnimatedAlign(
             duration: duration,
             curve: Curves.easeOutCubic,

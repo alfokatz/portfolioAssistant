@@ -11,6 +11,8 @@ class InvestorProfile {
     required this.horizon,
     required this.objective,
     required this.updatedAt,
+    this.experience,
+    this.drawdownReaction,
   });
 
   /// Un perfil con más de 12 meses se considera vencido: se sigue usando
@@ -22,6 +24,13 @@ class InvestorProfile {
   final InvestmentHorizon horizon;
   final InvestmentObjective objective;
   final DateTime updatedAt;
+
+  /// Opcional: cuánto sabe de inversiones (ajusta el nivel de explicación).
+  final InvestmentExperience? experience;
+
+  /// Opcional: qué haría ante una caída fuerte (el riesgo por
+  /// comportamiento, más confiable que la etiqueta que cada uno se pone).
+  final DrawdownReaction? drawdownReaction;
 
   bool isStaleAt(DateTime now) {
     final cutoff = DateTime(
@@ -69,5 +78,30 @@ enum InvestmentObjective {
   final String storageValue;
 
   static InvestmentObjective? fromStorage(String? value) =>
+      values.where((v) => v.storageValue == value).firstOrNull;
+}
+
+enum InvestmentExperience {
+  beginner('beginner'),
+  intermediate('intermediate'),
+  advanced('advanced');
+
+  const InvestmentExperience(this.storageValue);
+  final String storageValue;
+
+  static InvestmentExperience? fromStorage(String? value) =>
+      values.where((v) => v.storageValue == value).firstOrNull;
+}
+
+/// "Si tu cartera cae 20% en un mes, ¿qué hacés?"
+enum DrawdownReaction {
+  sell('sell'),
+  hold('hold'),
+  buyMore('buy_more');
+
+  const DrawdownReaction(this.storageValue);
+  final String storageValue;
+
+  static DrawdownReaction? fromStorage(String? value) =>
       values.where((v) => v.storageValue == value).firstOrNull;
 }

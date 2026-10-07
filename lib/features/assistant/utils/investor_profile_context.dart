@@ -16,9 +16,45 @@ abstract final class InvestorProfileContext {
       'risk_tolerance': riskLabel(profile.risk),
       'horizon': horizonLabel(profile.horizon),
       'objective': objectiveLabel(profile.objective),
+      ..._optional(profile),
       'updated_at': _formatDate(profile.updatedAt),
     };
   }
+
+  /// El perfil compacto que va en PORTFOLIO_BRIEF de cada turno (las
+  /// instrucciones de cuándo usarlo van en el texto que lo presenta, ver
+  /// `AssistantOpenAiService.ask`). Sin perfil, no hay bloque: Porty no
+  /// asume nada.
+  static Map<String, Object?>? brief(InvestorProfile? profile, DateTime now) {
+    if (profile == null) return null;
+    return {
+      'risk_tolerance': riskLabel(profile.risk),
+      'horizon': horizonLabel(profile.horizon),
+      'objective': objectiveLabel(profile.objective),
+      ..._optional(profile),
+      if (profile.isStaleAt(now)) 'stale': true,
+    };
+  }
+
+  static Map<String, Object?> _optional(InvestorProfile profile) => {
+    if (profile.experience != null)
+      'experience': experienceLabel(profile.experience!),
+    if (profile.drawdownReaction != null)
+      'drawdown_reaction': drawdownLabel(profile.drawdownReaction!),
+  };
+
+  static String experienceLabel(InvestmentExperience experience) =>
+      switch (experience) {
+        InvestmentExperience.beginner => 'principiante',
+        InvestmentExperience.intermediate => 'intermedia',
+        InvestmentExperience.advanced => 'avanzada',
+      };
+
+  static String drawdownLabel(DrawdownReaction reaction) => switch (reaction) {
+    DrawdownReaction.sell => 'vendería para no perder más',
+    DrawdownReaction.hold => 'esperaría a que se recupere',
+    DrawdownReaction.buyMore => 'compraría más aprovechando la baja',
+  };
 
   static String riskLabel(RiskTolerance risk) => switch (risk) {
     RiskTolerance.conservative => 'conservador',

@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
-/// Una opción de respuesta del perfil de inversor: superficie plana con
-/// borde sutil; seleccionada = borde terracota + check (el acento queda
-/// reservado para la selección, como pide DESIGN.md).
+/// Una respuesta del perfil de inversor, como fila dentro de la card de su
+/// pregunta (igual que las filas de Ajustes). Elegida = fondo apenas
+/// teñido y un check terracota; sin bordes por fila.
 class InvestorProfileOptionRow extends StatelessWidget {
   const InvestorProfileOptionRow({
     super.key,
     required this.label,
-    required this.description,
+    this.description,
     required this.isSelected,
     required this.onTap,
   });
 
   final String label;
-  final String description;
+  final String? description;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -23,34 +23,27 @@ class InvestorProfileOptionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final textTheme = Theme.of(context).textTheme;
-    final radius = BorderRadius.circular(AppDimens.radiusLg);
+    final description = this.description;
 
     return Semantics(
       button: true,
       selected: isSelected,
       inMutuallyExclusiveGroup: true,
       child: Material(
-        color: colors.surfaceCard,
-        borderRadius: radius,
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: radius,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(
-              minHeight: AppDimens.touchTarget,
-            ),
+            color:
+                isSelected
+                    ? colors.accentBlue.withValues(alpha: 0.08)
+                    : Colors.transparent,
+            constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
             padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.sp16,
+              horizontal: AppDimens.cardPadding,
               vertical: AppDimens.sp12,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: isSelected ? colors.accentBlue : colors.border,
-                width: isSelected ? 1.5 : 1,
-              ),
             ),
             child: Row(
               children: [
@@ -62,16 +55,20 @@ class InvestorProfileOptionRow extends StatelessWidget {
                         label,
                         style: textTheme.bodyLarge?.copyWith(
                           color: colors.textPrimary,
-                          fontWeight: FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: AppDimens.sp2),
-                      Text(
-                        description,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
+                      if (description != null) ...[
+                        const SizedBox(height: AppDimens.sp2),
+                        Text(
+                          description,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colors.textSecondary,
+                            height: 1.35,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

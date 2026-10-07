@@ -51,6 +51,37 @@ class AssistantOpenAiService extends OpenAIGenUiService {
         ),
       ).systemPromptJoined();
 
+  /// Cómo usar `user_profile` sin volverse repetitivo: solo cuando cambia
+  /// la respuesta, y la experiencia se nota en el tono, no se nombra.
+  static const userProfileGuidance =
+      'Sobre user_profile (el perfil de inversor que completó el usuario):\n'
+      '- Usalo SOLO cuando cambia la respuesta: concentración o '
+      'diversificación, caídas o volatilidad, el riesgo de una acción, ideas '
+      'de inversión y metas. Para todo lo demás (precios, noticias, '
+      'resultados, datos de la cartera) ignoralo.\n'
+      '- No lo nombres salvo que sea la razón concreta de lo que decís; nunca '
+      'abras la respuesta con él ni lo repitas de un mensaje a otro.\n'
+      '- experience ajusta el nivel en silencio: principiante = sin jerga y '
+      'con una línea de contexto; avanzada = directo. Nunca digas "como sos '
+      'principiante".\n'
+      '- drawdown_reaction "vendería" y la cartera o una acción cae fuerte → '
+      'contexto calmo, sin alarmismo.\n'
+      '- stale true → el perfil tiene más de un año; usalo igual, sin '
+      'mencionarlo.\n'
+      '- Nunca cambia un número.\n';
+
+  /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
+  /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
+  /// el análisis de empresa lee la posición parseando desde la primera "{".
+  /// Van acá y no en las reglas fijas para no cambiar el hash del prompt
+  /// (que exigiría desplegar `ai-chat`).
+  static String pinnedContextFor(Map<String, Object?> portfolioBrief) =>
+      '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
+      'referencia, se actualiza en cada turno; no es parte de ninguna '
+      'pregunta):\n'
+      '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
+      '${jsonEncode(portfolioBrief)}';
+
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.
   Future<TurnOutcome> ask({
     required String question,
@@ -68,10 +99,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       abortCheck: abortCheck,
       onActivity: onActivity,
       beforeRound: beforeRound,
-      pinnedContext:
-          '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
-          'referencia, se actualiza en cada turno; no es parte de ninguna '
-          'pregunta):\n${jsonEncode(portfolioBrief)}',
+      pinnedContext: pinnedContextFor(portfolioBrief),
       context:
           'SURFACE_ID (usar exactamente en createSurface y '
           'updateComponents): $surfaceId\n\n'

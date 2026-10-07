@@ -74,11 +74,15 @@ class InvestorProfileNotifier extends StateNotifier<InvestorProfileState> {
     required RiskTolerance risk,
     required InvestmentHorizon horizon,
     required InvestmentObjective objective,
+    InvestmentExperience? experience,
+    DrawdownReaction? drawdownReaction,
   }) async {
     final saved = await _repository.save(
       risk: risk,
       horizon: horizon,
       objective: objective,
+      experience: experience,
+      drawdownReaction: drawdownReaction,
     );
     state = InvestorProfileState(profile: saved, hasLoaded: true);
   }

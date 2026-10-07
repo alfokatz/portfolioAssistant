@@ -9,5 +9,7 @@ abstract class InvestorProfileRepository {
     required RiskTolerance risk,
     required InvestmentHorizon horizon,
     required InvestmentObjective objective,
+    InvestmentExperience? experience,
+    DrawdownReaction? drawdownReaction,
   });
 }
