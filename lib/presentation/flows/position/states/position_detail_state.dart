@@ -58,6 +58,10 @@ class PositionDetailState {
   final List<PositionValuation> lots;
   final bool isLoading;
   final String? errorMessage;
+
+  /// Código del error de carga (`position_not_found` si ya no hay compras
+  /// de ese ticker: se vendió o se borró).
+  final String? errorCode;
   final PositionValuation? summary;
   final PositionDetailCloseRequest? closeRequest;
   final bool shouldPop;
@@ -66,15 +70,20 @@ class PositionDetailState {
     this.lots = const [],
     this.isLoading = true,
     this.errorMessage,
+    this.errorCode,
     this.summary,
     this.closeRequest,
     this.shouldPop = false,
   });
 
+  /// La posición ya no está en la cartera.
+  bool get notFound => errorCode == 'position_not_found';
+
   PositionDetailState copyWith({
     List<PositionValuation>? lots,
     bool? isLoading,
     String? errorMessage,
+    String? errorCode,
     PositionValuation? summary,
     PositionDetailCloseRequest? closeRequest,
     bool? shouldPop,
@@ -86,6 +95,7 @@ class PositionDetailState {
       lots: lots ?? this.lots,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      errorCode: clearError ? null : (errorCode ?? this.errorCode),
       summary: clearSummary ? null : (summary ?? this.summary),
       closeRequest:
           clearCloseRequest ? null : (closeRequest ?? this.closeRequest),

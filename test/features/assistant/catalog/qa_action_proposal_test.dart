@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
@@ -66,6 +67,7 @@ class _Host {
   final confirmed = <ActionDraft>[];
   final cancelled = <String>[];
   final opened = <String>[];
+  final openedClosed = <ClosedPosition>[];
   final priceRequests = <DateTime>[];
   final forms = <String, ActionForm>{};
   double? nextPrice = 199;
@@ -78,6 +80,7 @@ class _Host {
     onConfirm: (draft) async => confirmed.add(draft),
     onCancel: (draft) => cancelled.add(draft.proposalId),
     onOpenPosition: opened.add,
+    onOpenClosedPosition: openedClosed.add,
     formOf: (id) => forms[id],
     onFormChanged: (id, form) => forms[id] = form,
     priceOn: (ticker, date) async {
@@ -477,6 +480,62 @@ void main() {
 
       await tester.tap(find.text('Ver en cartera'));
       expect(host.opened, ['AAPL']);
+    });
+
+    ActionProposalProgress soldShares(double shares, ClosedPosition sale) =>
+        ActionProposalProgress(
+          ActionProposalStatus.done,
+          draft: ActionDraft(
+            proposalId: 'sell-1',
+            kind: ActionKind.sell,
+            ticker: 'TSLA',
+            shares: shares,
+            price: 210,
+            date: DateTime(2026, 9, 28),
+          ),
+          closedPosition: sale,
+        );
+
+    final sale = ClosedPosition(
+      id: 'closed-1',
+      ticker: 'TSLA',
+      quantity: 15,
+      avgPurchasePrice: 133.33,
+      closePrice: 210,
+      closeDate: DateTime(2026, 9, 28),
+      closedAt: DateTime(2026, 9, 28, 12),
+    );
+
+    testWidgets('a sale of every share links to the closed position, not '
+        'to the portfolio (it is no longer there)', (tester) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_sell', _sell)],
+        proposalId: 'sell-1',
+        host: host,
+        proposals: {'sell-1': soldShares(15, sale)},
+      );
+      expect(find.text('Ver en cartera'), findsNothing);
+      await tester.tap(find.text('Ver posición cerrada'));
+      expect(host.openedClosed, [sale]);
+      expect(host.opened, isEmpty);
+    });
+
+    testWidgets('a partial sale still links to the portfolio', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_sell', _sell)],
+        proposalId: 'sell-1',
+        host: host,
+        proposals: {'sell-1': soldShares(12, sale)},
+      );
+      expect(find.text('Ver posición cerrada'), findsNothing);
+      await tester.tap(find.text('Ver en cartera'));
+      expect(host.opened, ['TSLA']);
     });
 
     testWidgets('saving: fields locked and no Cancel', (tester) async {

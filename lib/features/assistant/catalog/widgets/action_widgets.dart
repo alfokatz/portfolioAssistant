@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/utils/position_draft_math.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
@@ -262,6 +263,14 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final settled =
         progress.status == ActionProposalStatus.done ||
         progress.status == ActionProposalStatus.cancelled;
+    // Una venta que se llevó todas las acciones: ya no hay nada en cartera,
+    // así que el link va a la posición cerrada. Una parcial sigue en cartera.
+    final sold = progress.draft?.shares;
+    final held = _p.heldShares;
+    final closed =
+        sold != null && (held == null || sold >= held - _epsilon)
+            ? progress.closedPosition
+            : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,9 +295,12 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
                           progress.status == ActionProposalStatus.cancelled,
                       onOpenPosition:
                           progress.status == ActionProposalStatus.done &&
-                                  _p.kind != ActionKind.delete
+                                  _p.kind != ActionKind.delete &&
+                                  closed == null
                               ? scope?.onOpenPosition
                               : null,
+                      closedPosition: closed,
+                      onOpenClosedPosition: scope?.onOpenClosedPosition,
                     )
                     : _form(scope, progress),
           ),
@@ -661,12 +673,18 @@ class _Summary extends StatelessWidget {
     required this.draft,
     required this.cancelled,
     this.onOpenPosition,
+    this.closedPosition,
+    this.onOpenClosedPosition,
   });
 
   final ActionProposal proposal;
   final ActionDraft draft;
   final bool cancelled;
   final ValueChanged<String>? onOpenPosition;
+
+  /// Venta que cerró toda la posición: el link va a su detalle.
+  final ClosedPosition? closedPosition;
+  final ValueChanged<ClosedPosition>? onOpenClosedPosition;
 
   @override
   Widget build(BuildContext context) {
@@ -702,18 +720,33 @@ class _Summary extends StatelessWidget {
       );
     }
 
+    final closed = closedPosition;
+    final openClosed = onOpenClosedPosition;
+    final VoidCallback? onLink;
+    final String linkLabel;
+    if (closed != null && openClosed != null) {
+      onLink = () => openClosed(closed);
+      linkLabel = 'Ver posición cerrada';
+    } else if (onOpenPosition != null) {
+      onLink = () => onOpenPosition!(proposal.ticker);
+      linkLabel = 'Ver en cartera';
+    } else {
+      onLink = null;
+      linkLabel = '';
+    }
+
     return Opacity(
       opacity: cancelled ? 0.55 : 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           body,
-          if (onOpenPosition != null) ...[
+          if (onLink != null) ...[
             const SizedBox(height: QaSpace.gap),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: () => onOpenPosition!(proposal.ticker),
+                onPressed: onLink,
                 // Alineado con el texto de la card, no con el padding del
                 // botón.
                 style: TextButton.styleFrom(
@@ -722,7 +755,7 @@ class _Summary extends StatelessWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'Ver en cartera',
+                  linkLabel,
                   style: QaText.bodyStrong.copyWith(
                     color: QaColors.accentBlue,
                   ),

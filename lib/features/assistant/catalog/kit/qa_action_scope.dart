@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 
 /// Canal entre la card `QaActionProposal` y la pantalla del asistente: en
@@ -18,6 +19,7 @@ class QaActionScope extends InheritedWidget {
     this.formOf,
     this.onFormChanged,
     this.onOpenPosition,
+    this.onOpenClosedPosition,
     required super.child,
   });
 
@@ -45,6 +47,10 @@ class QaActionScope extends InheritedWidget {
   /// "Ver en cartera" después de guardar; sin él, el link no se muestra.
   final ValueChanged<String>? onOpenPosition;
 
+  /// "Ver posición cerrada" después de una venta que cerró todo (ya no hay
+  /// nada que ver en cartera); sin él, el link no se muestra.
+  final ValueChanged<ClosedPosition>? onOpenClosedPosition;
+
   static QaActionScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<QaActionScope>();
 
@@ -54,5 +60,7 @@ class QaActionScope extends InheritedWidget {
   @override
   bool updateShouldNotify(QaActionScope oldWidget) =>
       oldWidget.proposals != proposals ||
-      (oldWidget.onOpenPosition == null) != (onOpenPosition == null);
+      (oldWidget.onOpenPosition == null) != (onOpenPosition == null) ||
+      (oldWidget.onOpenClosedPosition == null) !=
+          (onOpenClosedPosition == null);
 }

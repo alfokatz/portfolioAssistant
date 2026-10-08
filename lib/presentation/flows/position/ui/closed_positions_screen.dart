@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/closed_positions_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
@@ -109,7 +110,7 @@ class _ClosedPositionsList extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = 0; i < (positions?.length ?? skeletonRows); i++) ...[
-                if (i > 0) const SizedBox(height: 14),
+                if (i > 0) const SizedBox(height: 6),
                 _SaleRow(position: positions?[i]),
               ],
             ],
@@ -225,7 +226,7 @@ class _SaleRow extends StatelessWidget {
       );
     }
 
-    return Row(
+    final row = Row(
       children: [
         if (p == null)
           const SkeletonBlock(
@@ -306,7 +307,21 @@ class _SaleRow extends StatelessWidget {
         ),
       ],
     );
+    if (p == null) return Padding(padding: _rowPadding, child: row);
+    // Abre el detalle de la venta.
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () => GotoClosedPositionDetail.of(p).navigate(context: context),
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        child: Padding(padding: _rowPadding, child: row),
+      ),
+    );
   }
+
+  /// Aire vertical de cada fila: con él, el toque cubre la fila entera y
+  /// las filas quedan a 14 de distancia (6 entre filas + 4 + 4).
+  static const _rowPadding = EdgeInsets.symmetric(vertical: 4);
 }
 
 /// Sin ventas: Porty cuenta qué va a aparecer acá y cómo se llega.

@@ -1,3 +1,5 @@
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+
 /// Qué operación propone Porty (ver `docs/superpowers/plans/
 /// 2026-10-08-acciones-de-porty.md`).
 enum ActionKind { buy, sell, delete }
@@ -233,6 +235,7 @@ class ActionProposalProgress {
     this.status, {
     this.errorMessage,
     this.draft,
+    this.closedPosition,
   });
 
   static const pending = ActionProposalProgress(ActionProposalStatus.pending);
@@ -246,6 +249,10 @@ class ActionProposalProgress {
   /// que había al cancelar. La card resuelta lo muestra aunque se haya
   /// desmontado y perdido las ediciones del formulario.
   final ActionDraft? draft;
+
+  /// Venta guardada: la posición cerrada que registró, para "Ver posición
+  /// cerrada" en la card.
+  final ClosedPosition? closedPosition;
 
   /// Se puede (re)intentar confirmar: nunca mientras guarda ni después.
   bool get canConfirm =>

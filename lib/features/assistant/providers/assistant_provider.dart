@@ -416,8 +416,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
 
     String? error;
+    ClosedPosition? closed;
     try {
-      error = _invalidDraft(draft) ?? await _runAction(draft);
+      error = _invalidDraft(draft);
+      if (error == null) {
+        final result = await _runAction(draft);
+        error = result.error;
+        closed = result.closed;
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('[Assistant/action] failed: $e');
       error = _actionFailedMessage;
@@ -435,7 +441,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       return;
     }
 
-    _setAction(id, ActionProposalProgress(ActionProposalStatus.done, draft: draft));
+    _setAction(
+      id,
+      ActionProposalProgress(
+        ActionProposalStatus.done,
+        draft: draft,
+        closedPosition: closed,
+      ),
+    );
     ref
         .read(alertProvider.notifier)
         .showSuccess(
@@ -515,7 +528,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// Ejecuta [draft] con los use cases de siempre (los mismos que las
   /// pantallas de alta, cierre y detalle). Devuelve el error para el
   /// usuario, o `null` si salió bien.
-  Future<String?> _runAction(ActionDraft draft) async {
+  /// Guarda [draft]. `error`: el mensaje para el usuario si falló; `closed`:
+  /// en una venta, la posición cerrada que quedó registrada.
+  Future<({String? error, ClosedPosition? closed})> _runAction(
+    ActionDraft draft,
+  ) async {
     String? message(Either<HttpError, Object?> result) => result.fold(
       (e) =>
           e.message?.trim().isNotEmpty == true
@@ -526,7 +543,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     switch (draft.kind) {
       case ActionKind.buy:
-        return message(
+        final error = message(
           await ref
               .read(addPositionUseCaseProvider)
               .call(
@@ -538,28 +555,31 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                 ),
               ),
         );
+        return (error: error, closed: null);
       case ActionKind.sell:
         // Con el ticker (no un id de lote) el repositorio vende FIFO entre
         // todas las compras, como estimó la card.
-        return message(
-          await ref
-              .read(closePositionUseCaseProvider)
-              .call(
-                params: ClosePositionParams(
-                  positionId: draft.ticker,
-                  quantity: draft.shares!,
-                  closePrice: draft.price!,
-                  closeDate: draft.date!,
-                ),
+        final result = await ref
+            .read(closePositionUseCaseProvider)
+            .call(
+              params: ClosePositionParams(
+                positionId: draft.ticker,
+                quantity: draft.shares!,
+                closePrice: draft.price!,
+                closeDate: draft.date!,
               ),
+            );
+        return (
+          error: message(result),
+          closed: result.fold((_) => null, (closed) => closed),
         );
       case ActionKind.delete:
         final delete = ref.read(deletePositionUseCaseProvider);
         for (final lotId in draft.lotIds) {
           final error = message(await delete.call(params: lotId));
-          if (error != null) return error;
+          if (error != null) return (error: error, closed: null);
         }
-        return null;
+        return (error: null, closed: null);
     }
   }
 

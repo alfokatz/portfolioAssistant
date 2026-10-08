@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -14,10 +14,12 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/position_detail_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_ticker_header.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
@@ -56,7 +58,7 @@ class _PositionDetailScreenState
 
   bool _onScroll(ScrollNotification n) {
     if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
-    final inBar = n.metrics.pixels > _Header.height;
+    final inBar = n.metrics.pixels > PositionTickerHeader.height;
     if (inBar != _titleInBar) setState(() => _titleInBar = inBar);
     return false;
   }
@@ -147,7 +149,28 @@ class _PositionDetailScreenState
       );
     } else if (state.errorMessage != null) {
       bodyKey = 'error';
-      body = _ErrorBody(message: state.errorMessage!, onRetry: notifier.load);
+      body =
+          state.notFound
+              // Se vendió o se borró (p. ej. "Ver en cartera" de una venta
+              // de Porty que cerró todo): la venta está en las cerradas.
+              ? PortyStatusMessage(
+                title: 'position_detail_not_found_title'.tr(),
+                body: 'position_detail_not_found_body'.tr(),
+                actionLabel: 'position_detail_not_found_action'.tr(),
+                // Reemplaza este detalle: volver no tiene que traer de
+                // nuevo una posición que no existe.
+                onAction:
+                    () => context.pushReplacementNamed(
+                      PositionRouter.closedListRouteName,
+                    ),
+              )
+              : PortyStatusMessage(
+                mood: PortyAvatarState.error,
+                title: 'position_detail_error_title'.tr(),
+                body: 'position_detail_error_body'.tr(),
+                actionLabel: 'retry'.tr(),
+                onAction: notifier.load,
+              );
     } else {
       // Skeleton: la misma lista con los valores vacíos, así tiene la altura
       // final y el cambio a datos no mueve nada.
@@ -254,7 +277,7 @@ class _DetailList extends StatelessWidget {
         AppDimens.sp48,
       ),
       children: [
-        _Header(ticker: ticker),
+        PositionTickerHeader(ticker: ticker),
         const SizedBox(height: AppDimens.sp24),
         enter(_PositionCard(summary: summary)),
         const SizedBox(height: AppDimens.sp16),
@@ -278,62 +301,6 @@ class _DetailList extends StatelessWidget {
           enter(_CloseAllButton(onPressed: onCloseAll)),
         ],
       ],
-    );
-  }
-}
-
-/// Título grande: logo, ticker y nombre de la compañía. Al scrollear pasa a
-/// la barra (ver [_PositionDetailScreenState]).
-class _Header extends StatelessWidget {
-  const _Header({required this.ticker});
-
-  final String ticker;
-
-  /// Scroll a partir del cual el título grande ya no se ve.
-  static const height = 56.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return QaBrandBuilder(
-      ticker: ticker,
-      builder:
-          (context, brand) => Row(
-            children: [
-              QaTickerAvatar(ticker: ticker, brand: brand, size: 48),
-              const SizedBox(width: AppDimens.sp12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        ticker,
-                        style: tt.displaySmall?.copyWith(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.7,
-                          height: 1.1,
-                          color: colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    if (brand.name != null && brand.name!.isNotEmpty)
-                      Text(
-                        brand.name!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: tt.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
     );
   }
 }
@@ -728,49 +695,6 @@ class _CloseAllButton extends StatelessWidget {
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         child: Text('position_detail_close_all'.tr()),
-      ),
-    );
-  }
-}
-
-class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.sp32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline_rounded, color: colors.loss, size: 48),
-            const SizedBox(height: AppDimens.sp16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: AppDimens.sp24),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text('retry'.tr()),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colors.accentBlue,
-                side: BorderSide(color: colors.border),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

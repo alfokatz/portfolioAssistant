@@ -823,6 +823,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   (ticker) => GotoPositionDetail(
                     ticker: ticker,
                   ).navigate(context: context),
+              onOpenClosedPosition:
+                  (sale) => GotoClosedPositionDetail.of(
+                    sale,
+                  ).navigate(context: context),
               child: PortyVoiceScope(
                 onDoneSpeaking:
                     message.surfaceId == _speakingSurfaceId

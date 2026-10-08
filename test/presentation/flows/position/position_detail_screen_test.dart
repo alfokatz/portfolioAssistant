@@ -6,17 +6,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_position_lots_by_ticker_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/closed_positions_screen.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/position_detail_screen.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 
 /// Use case de lotes controlado por el test: no responde hasta que se
 /// completa [completer], así se prueba que nada espera la red.
@@ -66,7 +71,90 @@ Widget _detail(_PendingLots lots, {PositionDetailSeed? seed}) => ProviderScope(
   ),
 );
 
+class _NoSales implements GetClosedPositionsUseCase {
+  @override
+  Future<Either<HttpError, List<ClosedPosition>>> call({void params}) async =>
+      const Right([]);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  setUp(() => PortyAvatar.ambientMotion = false);
+  tearDown(() => PortyAvatar.ambientMotion = true);
+
+  testWidgets('a position that is no longer in the portfolio: Porty says so '
+      'and leads to the closed positions, replacing the detail', (
+    tester,
+  ) async {
+    final lots = _PendingLots();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder:
+              (context, _) => Scaffold(
+                body: TextButton(
+                  onPressed:
+                      () => GotoPositionDetail(
+                        ticker: 'AMZN',
+                      ).navigate(context: context),
+                  child: const Text('open'),
+                ),
+              ),
+        ),
+        ...PositionRouter.getRoutes(),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          getPositionLotsByTickerUseCaseProvider.overrideWithValue(lots),
+          getClosedPositionsUseCaseProvider.overrideWithValue(_NoSales()),
+        ],
+        child: MaterialApp.router(theme: _theme, routerConfig: router),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    lots.completer.complete(
+      Left(
+        HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final message = tester.widget<PortyStatusMessage>(
+      find.byType(PortyStatusMessage),
+    );
+    expect(message.title, 'position_detail_not_found_title');
+    expect(message.mood, PortyAvatarState.concerned);
+    expect(find.text('Posición no encontrada'), findsNothing);
+
+    await tester.tap(find.text('position_detail_not_found_action'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ClosedPositionsScreen), findsOneWidget);
+    expect(find.byType(PositionDetailScreen), findsNothing);
+  });
+
+  testWidgets('any other load error: Porty with a retry', (tester) async {
+    final lots = _PendingLots();
+    await tester.pumpWidget(_detail(lots));
+    lots.completer.complete(
+      Left(HttpError(code: 'network', message: 'SocketException: boom')),
+    );
+    await tester.pumpAndSettle();
+    final message = tester.widget<PortyStatusMessage>(
+      find.byType(PortyStatusMessage),
+    );
+    expect(message.title, 'position_detail_error_title');
+    expect(message.mood, PortyAvatarState.error);
+    expect(find.text('retry'), findsOneWidget);
+    // El mensaje técnico no llega al usuario.
+    expect(find.textContaining('SocketException'), findsNothing);
+  });
+
   testWidgets('with the home data, the summary and every purchase are on '
       'screen from the first frame — no spinner, no wait', (tester) async {
     final lots = _PendingLots();

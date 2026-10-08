@@ -40,7 +40,12 @@ class PositionDetailProvider
     result.fold(
       (error) {
         if (hasData) return;
-        reducer(action: LoadLotsErrorAction(error.message ?? error.code));
+        reducer(
+          action: LoadLotsErrorAction(
+            error.message ?? error.code,
+            code: error.code,
+          ),
+        );
       },
       (lots) {
         reducer(
@@ -99,12 +104,13 @@ class PositionDetailProvider
           summary: summary,
           clearError: true,
         );
-      case LoadLotsErrorAction(:final message):
+      case LoadLotsErrorAction(:final message, :final code):
         state = state.copyWith(
           isLoading: false,
           lots: const [],
           clearSummary: true,
           errorMessage: message,
+          errorCode: code,
         );
       case RequestCloseLotAction(:final lot):
         state = state.copyWith(

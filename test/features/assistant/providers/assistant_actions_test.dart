@@ -270,6 +270,9 @@ void main() {
       expect(params.quantity, 1.5);
       expect(params.closePrice, 180);
       expect(h.progress('p2').status, ActionProposalStatus.done);
+      // La venta registrada, para "Ver posición cerrada" en la card.
+      expect(h.progress('p2').closedPosition?.id, 'c');
+      expect(h.progress('p2').closedPosition?.quantity, 1.5);
     });
 
     test('a delete removes exactly the chosen purchases', () async {

@@ -15,9 +15,10 @@ class LoadLotsSuccessAction extends PositionDetailAction {
 }
 
 class LoadLotsErrorAction extends PositionDetailAction {
-  LoadLotsErrorAction(this.message);
+  LoadLotsErrorAction(this.message, {this.code});
 
   final String message;
+  final String? code;
 }
 
 class RequestCloseLotAction extends PositionDetailAction {
