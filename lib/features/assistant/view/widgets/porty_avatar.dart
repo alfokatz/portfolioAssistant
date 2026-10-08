@@ -9,10 +9,12 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_breath
 /// (ver `assets/porty-avatar/states/`) y, si el avatar es animado, un
 /// movimiento del cuerpo (ver [PortyAvatarMotion]).
 enum PortyAvatarState {
-  /// Sin turno en curso: respira, parpadea y cada tanto mira a un costado.
+  /// Sin turno en curso: sonrisa leve; respira, parpadea y cada tanto mira
+  /// a un costado.
   idle,
 
-  /// Corren las tools: ojos arriba, se inclina y flota, el destello titila.
+  /// Corren las tools: ojos arriba y boca chica hacia un costado; se inclina
+  /// y flota, el destello titila.
   thinking,
 
   /// Corre el typewriter de la respuesta: la boca habla, el cuerpo respira.
@@ -291,8 +293,7 @@ class PortyFrame {
   static Set<PortyPart> partsOf(PortyAvatarState state) => {
     PortyPart.body,
     PortyPart.eyes,
-    if (state != PortyAvatarState.idle && state != PortyAvatarState.thinking)
-      PortyPart.mouth,
+    PortyPart.mouth,
     if (state == PortyAvatarState.thinking) PortyPart.spark,
   };
 
@@ -307,7 +308,9 @@ class PortyFrame {
             (!spark || alpha * sparkGlow <= minAlpha)) {
           continue;
         }
+        // La boca que se va ya estaba trazada entera (ver PortyAvatarPainter).
         if (part == PortyPart.mouth &&
+            s == state &&
             (s == PortyAvatarState.answered ||
                 s == PortyAvatarState.concerned) &&
             smile <= 0) {
@@ -1010,6 +1013,11 @@ class PortyAvatarPainter extends CustomPainter {
   static const _center = Offset(32, 32);
   static const _sparkCenter = Offset(60, 2);
 
+  /// Compensación óptica: a [smallSize] px lógicos o menos, el trazo de las
+  /// bocas engorda [smallStrokeBoost] unidades para que no se pierda.
+  static const smallSize = 24.0;
+  static const smallStrokeBoost = 0.6;
+
   static final Path _body =
       Path()
         ..moveTo(33, 7)
@@ -1042,6 +1050,18 @@ class PortyAvatarPainter extends CustomPainter {
             ..quadraticBezierTo(33.5, 38.5, 38, 42.5))
           .computeMetrics()
           .first;
+
+  /// Sonrisa leve de reposo.
+  static final Path _restSmile =
+      Path()
+        ..moveTo(29.6, 40)
+        ..quadraticBezierTo(33.6, 43, 38.6, 38.6);
+
+  /// Boca chica, corrida hacia donde miran los ojos al pensar.
+  static final Path _thinkMouth =
+      Path()
+        ..moveTo(33.4, 40.2)
+        ..quadraticBezierTo(36.4, 41.8, 39.4, 40);
 
   static final Path _flatMouth =
       Path()
@@ -1135,8 +1155,19 @@ class PortyAvatarPainter extends CustomPainter {
           ),
       );
     final from = frame.from;
-    if (from != null) _layer(canvas, from, 1 - frame.crossfade);
-    _layer(canvas, frame.state, from == null ? 1 : frame.crossfade);
+    final boost = size.width <= smallSize ? smallStrokeBoost : 0.0;
+    // [PortyFrame.smile] es el trazado del estado nuevo: la boca que se va
+    // ya estaba entera y se funde así, sin desaparecer de golpe.
+    if (from != null) {
+      _layer(canvas, from, 1 - frame.crossfade, smile: 1, boost: boost);
+    }
+    _layer(
+      canvas,
+      frame.state,
+      from == null ? 1 : frame.crossfade,
+      smile: frame.smile,
+      boost: boost,
+    );
     canvas.restore();
 
     // El destello no se mueve con el cuerpo: titila en su lugar.
@@ -1150,20 +1181,31 @@ class PortyAvatarPainter extends CustomPainter {
     if (fade) canvas.restore();
   }
 
-  void _layer(Canvas canvas, PortyAvatarState state, double alpha) {
+  void _layer(
+    Canvas canvas,
+    PortyAvatarState state,
+    double alpha, {
+    required double smile,
+    required double boost,
+  }) {
     if (alpha <= 0) return;
     if (alpha >= 1) {
-      _features(canvas, state);
+      _features(canvas, state, smile: smile, boost: boost);
       return;
     }
     // Capa propia: los ojos de los dos estados se funden sin oscurecerse
     // donde se superponen.
     canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
-    _features(canvas, state);
+    _features(canvas, state, smile: smile, boost: boost);
     canvas.restore();
   }
 
-  void _features(Canvas canvas, PortyAvatarState state) {
+  void _features(
+    Canvas canvas,
+    PortyAvatarState state, {
+    required double smile,
+    required double boost,
+  }) {
     final fill = Paint()..color = palette.features;
     final (cx, cy, r) = _eyes(state);
     final eyeHeight = 2 * r * (1 - 0.9 * frame.blink);
@@ -1183,7 +1225,7 @@ class PortyAvatarPainter extends CustomPainter {
         Paint()
           ..color = palette.features
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.2
+          ..strokeWidth = 3.2 + boost
           ..strokeCap = StrokeCap.round;
     switch (state) {
       case PortyAvatarState.answering:
@@ -1196,24 +1238,22 @@ class PortyAvatarPainter extends CustomPainter {
           fill,
         );
       case PortyAvatarState.answered:
-        if (frame.smile > 0) {
-          canvas.drawPath(
-            _smile.extractPath(0, _smile.length * frame.smile),
-            stroke,
-          );
+        if (smile > 0) {
+          canvas.drawPath(_smile.extractPath(0, _smile.length * smile), stroke);
         }
       case PortyAvatarState.concerned:
-        if (frame.smile > 0) {
+        if (smile > 0) {
           canvas.drawPath(
-            _frown.extractPath(0, _frown.length * frame.smile),
-            stroke..strokeWidth = 2.8,
+            _frown.extractPath(0, _frown.length * smile),
+            stroke..strokeWidth = 2.8 + boost,
           );
         }
       case PortyAvatarState.error:
         canvas.drawPath(_flatMouth, stroke);
       case PortyAvatarState.idle:
+        canvas.drawPath(_restSmile, stroke);
       case PortyAvatarState.thinking:
-        break;
+        canvas.drawPath(_thinkMouth, stroke);
     }
   }
 

@@ -85,10 +85,11 @@ void main() {
 
   group('drawing (each state shows its own parts)', () {
     final parts = {
-      PortyAvatarState.idle: {PortyPart.body, PortyPart.eyes},
+      PortyAvatarState.idle: {PortyPart.body, PortyPart.eyes, PortyPart.mouth},
       PortyAvatarState.thinking: {
         PortyPart.body,
         PortyPart.eyes,
+        PortyPart.mouth,
         PortyPart.spark,
       },
       PortyAvatarState.answering: {
@@ -126,9 +127,14 @@ void main() {
         Color at(double x, double y) => pixels.at(x + 4, y + 4);
 
         // Boca (centro de la boca de cada estado; el arco de concerned
-        // queda más arriba en el centro).
+        // queda más arriba en el centro y la de thinking, corrida a la
+        // derecha).
         expect(
-          state == PortyAvatarState.concerned ? at(33.5, 40.5) : at(33.5, 41.5),
+          switch (state) {
+            PortyAvatarState.concerned => at(33.5, 40.5),
+            PortyAvatarState.thinking => at(36.4, 41),
+            _ => at(33.5, 41.5),
+          },
           expected.contains(PortyPart.mouth)
               ? _isColor(_brand.features)
               : _isColor(_brand.body),
@@ -311,6 +317,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 140));
       expect(_frame(tester).from, isNull);
       expect(_frame(tester).visibleParts, isNot(contains(PortyPart.spark)));
+    });
+
+    testWidgets('the smile of answered fades out whole into idle instead of '
+        'vanishing', (tester) async {
+      final state = ValueNotifier(PortyAvatarState.answered);
+      addTearDown(state.dispose);
+      PortyAvatar.ambientMotion = false;
+      const key = Key('avatar');
+      await _pump(tester, state, boundaryKey: key);
+      await tester.pumpAndSettle();
+      state.value = PortyAvatarState.idle;
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      final mid = _frame(tester);
+      expect(mid.from, PortyAvatarState.answered);
+      expect(mid.smile, lessThan(0.3));
+      // El extremo derecho de la sonrisa de answered (fuera de la de idle)
+      // sigue pintado mientras se funde.
+      final pixels = await _Pixels.of(tester, key);
+      expect(pixels.at(41.5 + 4, 37.5 + 4), isNot(_isColor(_brand.body)));
     });
 
     testWidgets('the body chains from wherever it was, never jumping', (
