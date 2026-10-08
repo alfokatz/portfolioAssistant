@@ -35,41 +35,46 @@ void main() {
       expect(fired, [streamTickPattern, streamTickPattern]);
     });
 
-    test('widget entries tick lightly, the close is a distinct pattern and '
-        'a text-only answer keeps its single light tap', () {
-      service.widgetEntryStarted(index: 0, total: 2);
-      service.widgetEntryStarted(index: 1, total: 2);
+    test('the user bubble ticks lighter than Porty, each with its own '
+        'throttle', () {
+      service.userTypeTick();
+      service.streamTick();
+      now = now.add(const Duration(milliseconds: 40));
+      service.userTypeTick();
+      expect(fired, [userTypeTickPattern, streamTickPattern]);
+      expect(userTypeTickPattern, PortyHapticPattern.selection);
+      expect(streamTickPattern, PortyHapticPattern.light);
+
+      now = now.add(streamTickCooldown);
+      service.userTypeTick();
+      expect(fired.last, userTypeTickPattern);
+    });
+
+    test('widgets: a firm tap as each one starts, a click as it settles; '
+        'the close is firmer still and text-only answers end with a tap '
+        'above the word ticks', () {
+      service.widgetEntryStarted();
+      service.widgetEntrySettled();
       service.answerRevealCompleted();
       service.textAnswerRevealed();
       expect(fired, [
         widgetEntryPattern,
-        widgetEntryPattern,
+        widgetSettlePattern,
         answerCompletePattern,
         textAnswerPattern,
       ]);
-      expect(widgetEntryPattern, PortyHapticPattern.light);
-      expect(answerCompletePattern, isNot(widgetEntryPattern));
-      expect([
-        widgetEntryPattern,
-        answerCompletePattern,
-        textAnswerPattern,
-      ], isNot(contains(PortyHapticPattern.heavy)));
-    });
-
-    test('caps widget ticks per answer, keeping the first and the last', () {
-      for (var i = 0; i < 8; i++) {
-        service.widgetEntryStarted(index: i, total: 8);
-      }
-      expect(fired, hasLength(maxWidgetEntryTicks));
-      expect(PortyHapticsService.ticksOnWidget(0, 8), isTrue);
-      expect(PortyHapticsService.ticksOnWidget(7, 8), isTrue);
-      expect(PortyHapticsService.ticksOnWidget(1, 8), isFalse);
+      expect(widgetEntryPattern, PortyHapticPattern.medium);
+      expect(widgetSettlePattern, PortyHapticPattern.selection);
+      expect(answerCompletePattern, PortyHapticPattern.heavy);
+      expect(textAnswerPattern, PortyHapticPattern.medium);
     });
 
     test('does nothing while disabled', () {
       service.enabled = false;
       service.streamTick();
-      service.widgetEntryStarted(index: 0, total: 1);
+      service.userTypeTick();
+      service.widgetEntryStarted();
+      service.widgetEntrySettled();
       service.answerRevealCompleted();
       service.textAnswerRevealed();
       expect(fired, isEmpty);
@@ -152,8 +157,8 @@ void main() {
       }
     }
 
-    testWidgets('3 widgets: a light tap as each one STARTS entering, then '
-        'the close once the last finished', (tester) async {
+    testWidgets('3 widgets: a tap as each one STARTS entering, a click as '
+        'it settles, and the close instead of the last click', (tester) async {
       final controller = SurfaceRevealController(haptics: service);
       await tester.pumpWidget(answer(controller, 3));
 
@@ -164,25 +169,28 @@ void main() {
       expect(fired, [widgetEntryPattern]);
 
       await settle(tester);
+      // Escalonadas (160 ms) y cada entrada dura 460 ms: las tres arrancan
+      // antes de que la primera se asiente.
       expect(fired, [
         widgetEntryPattern,
         widgetEntryPattern,
         widgetEntryPattern,
+        widgetSettlePattern,
+        widgetSettlePattern,
         answerCompletePattern,
       ]);
     });
 
-    testWidgets('many widgets: never more than 4 taps per answer', (
-      tester,
-    ) async {
+    testWidgets('many widgets: every one taps and settles', (tester) async {
       final controller = SurfaceRevealController(haptics: service);
       await tester.pumpWidget(answer(controller, 7));
       await settle(tester);
-      expect(fired, hasLength(maxWidgetEntryTicks + 1));
+      expect(fired.where((p) => p == widgetEntryPattern), hasLength(7));
+      expect(fired.where((p) => p == widgetSettlePattern), hasLength(6));
       expect(fired.last, answerCompletePattern);
     });
 
-    testWidgets('text-only answer: only the usual light tap at the end', (
+    testWidgets('text-only answer: only the tap at the end', (
       tester,
     ) async {
       final controller = SurfaceRevealController(haptics: service);

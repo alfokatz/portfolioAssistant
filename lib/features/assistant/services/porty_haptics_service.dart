@@ -12,12 +12,16 @@ const settingsHapticsEnabledKey = 'settings_haptics_enabled';
 enum PortyHapticPattern { selection, light, medium, heavy, doubleLight }
 
 /// Vibración que acompaña cada palabra del texto de Porty mientras se tipea.
-/// `selectionClick` es el "tick" más seco y corto de los dos candidatos
-/// (`lightImpact` tiene más cuerpo): en ráfagas de ~10/s se siente como
-/// textura en vez de golpes. Cambiar acá si en device se prefiere el otro.
-const streamTickPattern = PortyHapticPattern.selection;
+/// `lightImpact`: un escalón más de cuerpo que el tick de la burbuja del
+/// usuario, así se nota que habla Porty.
+const streamTickPattern = PortyHapticPattern.light;
 
-/// Cooldown mínimo entre ticks de streaming — el typewriter completa una
+/// Cada palabra del mensaje del usuario mientras se escribe en su burbuja
+/// (después de enviar): el tick más seco y leve, textura y no golpes.
+const userTypeTickPattern = PortyHapticPattern.selection;
+
+/// Cooldown mínimo entre ticks de tipeo (Porty o usuario) — el typewriter
+/// completa una
 /// palabra cada ~100-150ms a 40 chars/s, pero palabras cortas ("a", "el")
 /// pueden caer más juntas; esto evita saturar.
 const streamTickCooldown = Duration(milliseconds: 100);
@@ -27,18 +31,23 @@ const streamTickCooldown = Duration(milliseconds: 100);
 const scrubTickCooldown = Duration(milliseconds: 35);
 
 /// Toque que acompaña la entrada de cada widget de una respuesta, en el
-/// mismo frame en que empieza a moverse. `lightImpact`: con cuerpo
-/// suficiente para sentirse como "llegó algo", sin llegar a golpe.
-const widgetEntryPattern = PortyHapticPattern.light;
+/// mismo frame en que empieza a moverse (se abre su espacio y sube):
+/// `mediumImpact`, claramente "llegó algo".
+const widgetEntryPattern = PortyHapticPattern.medium;
 
-/// Cierre al terminar de entrar el último widget: `mediumImpact`, un
-/// escalón más firme que los toques de entrada, como un punto final. La
-/// alternativa probada en papel es `selection` (más seco y liviano que los
-/// toques): cambiar acá si en device se siente mejor.
-const answerCompletePattern = PortyHapticPattern.medium;
+/// El widget terminó de asentarse en su lugar: un tick seco y leve, como
+/// el "clic" de algo que encaja. Golpe al arrancar + clic al llegar: la
+/// vibración sigue el movimiento de la entrada.
+const widgetSettlePattern = PortyHapticPattern.selection;
 
-/// Respuesta de solo texto: el toque leve de siempre al terminar de tipear.
-const textAnswerPattern = PortyHapticPattern.light;
+/// Cierre al terminar de entrar el último widget (en lugar de su clic de
+/// asentamiento): `heavyImpact`, un escalón más firme que las entradas,
+/// como un punto final.
+const answerCompletePattern = PortyHapticPattern.heavy;
+
+/// Respuesta de solo texto: un toque al terminar de tipear, un escalón más
+/// que cada palabra.
+const textAnswerPattern = PortyHapticPattern.medium;
 
 /// Tocar algo bloqueado por plan: el "tick" seco de selección, en el mismo
 /// frame del toque — confirma que se registró aunque la hoja tarde.
@@ -60,10 +69,6 @@ const authSucceededPattern = PortyHapticPattern.light;
 /// el "no" más suave que permite `HapticFeedback` sin ir a lo nativo.
 const authFailedPattern = PortyHapticPattern.doubleLight;
 
-/// Tope de toques por widget en una respuesta. Con el cierre, una
-/// respuesta nunca pasa de 4 vibraciones.
-const maxWidgetEntryTicks = 3;
-
 /// Único punto que dispara haptics de Porty: chequea el setting del usuario
 /// antes de cada llamada, así ningún widget tiene que conocer el flag. Si el
 /// usuario apagó las vibraciones a nivel sistema, `HapticFeedback` ya es un
@@ -83,6 +88,7 @@ class PortyHapticsService {
   final DateTime Function() _clock;
   final Future<void> Function(PortyHapticPattern) _performer;
   DateTime? _lastStreamTick;
+  DateTime? _lastUserTypeTick;
   DateTime? _lastScrubTick;
 
   /// Busca el servicio en el `ProviderScope` ancestro sin crashear si no
@@ -101,6 +107,16 @@ class PortyHapticsService {
     _performer(streamTickPattern);
   }
 
+  /// Una palabra nueva apareció en la burbuja del mensaje del usuario.
+  void userTypeTick() {
+    if (!enabled) return;
+    final now = _clock();
+    final last = _lastUserTypeTick;
+    if (last != null && now.difference(last) < streamTickCooldown) return;
+    _lastUserTypeTick = now;
+    _performer(userTypeTickPattern);
+  }
+
   /// El dedo cruzó de un punto al siguiente scrubeando un gráfico.
   void scrubTick() {
     if (!enabled) return;
@@ -111,12 +127,18 @@ class PortyHapticsService {
     _performer(PortyHapticPattern.selection);
   }
 
-  /// El widget [index] (de [total]) de una respuesta arrancó su entrada.
-  /// Con más widgets que [maxWidgetEntryTicks], vibran solo algunos,
-  /// repartidos parejo (el primero y el último siempre).
-  void widgetEntryStarted({required int index, required int total}) {
-    if (!enabled || !ticksOnWidget(index, total)) return;
+  /// Un widget de una respuesta arrancó su entrada. Vibran todos: las
+  /// entradas van escalonadas (ver `RevealTiming.stagger`), así que nunca
+  /// caen encima.
+  void widgetEntryStarted() {
+    if (!enabled) return;
     _performer(widgetEntryPattern);
+  }
+
+  /// Un widget (que no es el último) terminó de asentarse en su lugar.
+  void widgetEntrySettled() {
+    if (!enabled) return;
+    _performer(widgetSettlePattern);
   }
 
   /// El último widget de la respuesta terminó de entrar.
@@ -166,19 +188,6 @@ class PortyHapticsService {
   void authFailed() {
     if (!enabled) return;
     _performer(authFailedPattern);
-  }
-
-  /// Si el widget [index] de [total] vibra al entrar, respetando
-  /// [maxWidgetEntryTicks].
-  @visibleForTesting
-  static bool ticksOnWidget(int index, int total) {
-    if (index < 0 || index >= total) return false;
-    if (total <= maxWidgetEntryTicks) return true;
-    for (var tick = 0; tick < maxWidgetEntryTicks; tick++) {
-      final chosen = (tick * (total - 1) / (maxWidgetEntryTicks - 1)).round();
-      if (chosen == index) return true;
-    }
-    return false;
   }
 
   static Future<void> _perform(PortyHapticPattern pattern) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -59,6 +60,10 @@ class PortfolioQaChatBubble extends StatelessWidget {
               ),
               skipAnimation: message.hasRevealed,
               onComplete: onTypingComplete,
+              // Ticks leves mientras se escribe (solo al animar: un mensaje
+              // ya revelado no vibra).
+              onWordRevealed:
+                  PortyHapticsService.maybeOf(context)?.userTypeTick,
             ),
           ),
         ),

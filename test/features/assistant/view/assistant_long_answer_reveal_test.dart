@@ -854,9 +854,18 @@ class _Screen {
   /// Cada vibración que pidió la app, en orden.
   final haptics = <PortyHapticPattern>[];
 
-  /// Vibraciones de la respuesta en sí (sin los ticks del typewriter).
+  /// Golpes de la respuesta en sí: sin los ticks de tipeo (Porty y la
+  /// burbuja del usuario) ni los clics de asentamiento de cada card, que
+  /// prueba porty_haptics_service_test.
   List<PortyHapticPattern> get revealHaptics =>
-      haptics.where((p) => p != streamTickPattern).toList();
+      haptics
+          .where(
+            (p) =>
+                p != streamTickPattern &&
+                p != userTypeTickPattern &&
+                p != widgetSettlePattern,
+          )
+          .toList();
 
   ProviderElementBase<Object?> get _element => container
       .getAllProviderElements()

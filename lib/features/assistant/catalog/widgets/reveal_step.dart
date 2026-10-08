@@ -44,7 +44,8 @@ abstract final class RevealTiming {
 
 /// Qué vibraciones acompañan el reveal de una surface.
 enum RevealHaptics {
-  /// Mensaje nuevo con animaciones: toque por widget + cierre.
+  /// Mensaje nuevo con animaciones: golpe al arrancar cada widget, clic al
+  /// asentarse y el cierre.
   full,
 
   /// Mensaje nuevo con reduce motion: solo el cierre ("respuesta lista").
@@ -119,11 +120,8 @@ class SurfaceRevealController extends ChangeNotifier {
   /// moverse): vibra, y programa el turno del siguiente con el desfase.
   /// Puede llamarse durante el build: no notifica sincrónicamente.
   void stepStarted(int slot) {
-    if (hapticsMode == RevealHaptics.full) {
-      final index = _widgetSlots.indexOf(slot);
-      if (index >= 0) {
-        haptics?.widgetEntryStarted(index: index, total: _widgetSlots.length);
-      }
+    if (hapticsMode == RevealHaptics.full && _widgetSlots.contains(slot)) {
+      haptics?.widgetEntryStarted();
     }
     if (!reduceMotion && slot == _readyIndex) {
       _unlockAfter(slot + 1, RevealTiming.stagger);
@@ -134,16 +132,20 @@ class SurfaceRevealController extends ChangeNotifier {
   /// lo desbloquea (al instante para un widget; con pausa tras el texto).
   void advance(int slot) {
     if (_disposed || !_finished.add(slot)) return;
+    final isWidget = _widgetSlots.contains(slot);
     if (!reduceMotion && slot == _readyIndex) {
-      final isWidget = _widgetSlots.contains(slot);
       _unlockAfter(
         slot + 1,
         isWidget ? Duration.zero : RevealTiming.gapAfterText,
       );
     }
     if (isFullyRevealed && !_completed) {
+      // El último en asentarse cierra la respuesta: el cierre reemplaza su
+      // clic (dos vibraciones juntas se sentirían como una sola, borrosa).
       _completed = true;
       _announceComplete();
+    } else if (isWidget && hapticsMode == RevealHaptics.full) {
+      haptics?.widgetEntrySettled();
     }
     notifyListeners();
   }

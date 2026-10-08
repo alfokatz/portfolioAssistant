@@ -238,7 +238,7 @@ void main() {
       // Nada de "pts" ni de la comparación en rojo.
       expect(find.textContaining('pts'), findsNothing);
       // Porty terminó con la Home en pantalla: un toque.
-      expect(haptics, [PortyHapticPattern.light]);
+      expect(haptics, [textAnswerPattern]);
     });
 
     testWidgets('Porty thinks (animated) on the card only while it writes', (
