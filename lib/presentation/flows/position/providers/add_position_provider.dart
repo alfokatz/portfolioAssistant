@@ -3,6 +3,7 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_price_on_date_use_case.dart';
+import 'package:portfolio_assistant/domain/utils/position_draft_math.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/add_position_state.dart';
 
 class AddPositionProvider extends StateNotifier<AddPositionState> {
@@ -70,7 +71,11 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
         // Con la fecha de hoy (sin elegir otra), el precio de compra es el
         // actual, salvo que el usuario lo haya escrito él.
         priceText:
-            !state.datePicked && !_priceEditedByUser && price > 0
+            !state.datePicked &&
+                    PositionDraftMath.acceptsFetchedPrice(
+                      fetched: price,
+                      editedByUser: _priceEditedByUser,
+                    )
                 ? price.toStringAsFixed(2)
                 : null,
       ),
@@ -97,15 +102,11 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
 
   double? purchasePrice() => double.tryParse(state.priceText);
 
-  double? shares() {
-    final price = purchasePrice();
-    if (price == null || price <= 0) return null;
-
-    final raw = double.tryParse(state.quantityText);
-    if (raw == null || raw <= 0) return null;
-
-    return state.mode == BuyInputMode.shares ? raw : (raw / price);
-  }
+  double? shares() => PositionDraftMath.shares(
+    amountText: state.quantityText,
+    isUsd: state.mode == BuyInputMode.usd,
+    price: purchasePrice(),
+  );
 
   Future<AddPositionSaveResult> save({
     required AddPositionUseCase addPositionUseCase,

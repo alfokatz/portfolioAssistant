@@ -45,6 +45,38 @@ void main() {
     );
   });
 
+  test('an action card needs the ok proposal with that exact id', () {
+    final widget = [
+      {'id': 'p', 'component': 'QaActionProposal', 'proposalId': 'p-1'},
+    ];
+    ToolCallRecord proposal(String id, [String status = 'ok']) =>
+        ToolCallRecord(
+          name: 'propose_buy',
+          args: const {'ticker': 'AAPL'},
+          result: {'status': status, 'proposal_id': id},
+        );
+
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), const []),
+      contains('QaActionProposal needs propose_buy'),
+    );
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), [proposal('p-2')]),
+      isNotNull,
+      reason: 'an invented id',
+    );
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), [
+        proposal('p-1', 'needs_input'),
+      ]),
+      isNotNull,
+    );
+    expect(
+      AssistantGroundingCheck.check(_answer(widget), [proposal('p-1')]),
+      isNull,
+    );
+  });
+
   test('ETF holdings need an ok get_etf_holdings for that ticker', () {
     final widget = [
       {'id': 'h', 'component': 'QaEtfHoldings', 'ticker': 'XLF'},

@@ -368,6 +368,8 @@ abstract final class AssistantAnswerReview {
         'Este gráfico muestra cómo crecería tu ahorro hasta la fecha de la '
             'meta.',
       'QaMilestoneList' => 'Estos son los hitos en el camino a tu meta.',
+      'QaActionProposal' =>
+        'Revisá los datos y confirmá para guardarlo en tu cartera.',
       _ => null,
     };
   }

@@ -25,6 +25,7 @@ const _expected = <PlanFeature, Set<SubscriptionTier>>{
   PlanFeature.unlimitedPositions: {_premium, _gold},
   PlanFeature.investSimulation: {_premium, _gold},
   PlanFeature.goals: {_premium, _gold},
+  PlanFeature.portfolioActions: {_premium, _gold},
   PlanFeature.companyAnalysis: {_gold},
   PlanFeature.news: {_gold},
   PlanFeature.earnings: {_gold},

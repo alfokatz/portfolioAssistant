@@ -34,6 +34,11 @@ abstract final class QaTime {
     return local.year == current.year ? base : '$base ${local.year}';
   }
 
+  /// Fecha de calendario completa ("5 oct 2026"): la de una operación, que
+  /// se lee como fecha y no como antigüedad.
+  static String day(DateTime date) =>
+      '${date.day} ${_months[date.month - 1]} ${date.year}';
+
   /// Cuenta regresiva a una fecha futura ("hoy", "mañana", "en 21 días").
   /// `null` si la fecha ya pasó.
   static String? countdown(DateTime date, {DateTime? now}) {

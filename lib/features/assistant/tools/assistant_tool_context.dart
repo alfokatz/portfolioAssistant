@@ -69,6 +69,7 @@ class AssistantToolContext {
     this.closedPositions = const [],
     this.loadInvestorProfile,
     this.investorProfile,
+    this.actionsThisConversation = const [],
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -86,6 +87,10 @@ class AssistantToolContext {
   /// El perfil ya cargado al empezar el turno (para PORTFOLIO_BRIEF); `null`
   /// si no lo completó o no se pudo leer.
   final InvestorProfile? investorProfile;
+
+  /// Operaciones propuestas en esta conversación que el usuario ya confirmó,
+  /// canceló o está guardando (ver `ActionProposalProgress.toBrief`).
+  final List<Map<String, Object?>> actionsThisConversation;
   final DateTime now;
   final Set<String> heldTickers;
 

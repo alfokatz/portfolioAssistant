@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
@@ -63,6 +64,10 @@ abstract final class PortyActivityCopy {
         return 'porty_status_goal_projection'.tr();
       case 'save_goal':
         return 'porty_status_save_goal'.tr();
+      case ActionTools.proposeBuy:
+      case ActionTools.proposeSell:
+      case ActionTools.proposeDelete:
+        return 'porty_status_action'.tr();
       default:
         return 'porty_status_gathering'.tr();
     }

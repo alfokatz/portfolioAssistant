@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
@@ -24,6 +25,8 @@ abstract final class AssistantToolset {
     GetInvestCandidatesTool(ctx),
     GetGoalProjectionTool(ctx),
     SaveGoalTool(ctx),
+    // Al final: proponen operaciones, nunca escriben (ver ActionTools).
+    ...ActionTools.build(ctx),
   ];
 }
 

@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
@@ -27,6 +28,10 @@ class AssistantState {
   /// arriba del todo reproduce la cascada de nuevo.
   final bool introRevealed;
 
+  /// En qué quedó cada operación que propuso Porty, por `proposal_id`. Una
+  /// propuesta que no está acá sigue pendiente (ver [actionProgress]).
+  final Map<String, ActionProposalProgress> actionProposals;
+
   const AssistantState({
     this.messages = const [],
     this.error,
@@ -37,7 +42,11 @@ class AssistantState {
     this.isServiceReady = false,
     this.paywallReason,
     this.introRevealed = false,
+    this.actionProposals = const {},
   });
+
+  ActionProposalProgress actionProgress(String proposalId) =>
+      actionProposals[proposalId] ?? ActionProposalProgress.pending;
 
   AssistantState copyWith({
     List<PortfolioQaMessage>? messages,
@@ -49,6 +58,7 @@ class AssistantState {
     bool? isServiceReady,
     PaywallReason? paywallReason,
     bool? introRevealed,
+    Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
     bool clearPaywallReason = false,
   }) {
@@ -63,6 +73,7 @@ class AssistantState {
       paywallReason:
           clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
       introRevealed: introRevealed ?? this.introRevealed,
+      actionProposals: actionProposals ?? this.actionProposals,
     );
   }
 }

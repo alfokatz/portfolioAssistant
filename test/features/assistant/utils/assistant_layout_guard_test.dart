@@ -62,6 +62,25 @@ void main() {
     ]);
   });
 
+  test('one action card per operation, up to 4, nothing else', () {
+    final out = AssistantLayoutGuard.enforce(
+      _update([
+        ('a', 'QaAnswerText'),
+        ('p1', 'QaActionProposal'),
+        ('p2', 'QaActionProposal'),
+        ('c', 'QaPriceChart'),
+        ('p3', 'QaActionProposal'),
+        ('p4', 'QaActionProposal'),
+        ('p5', 'QaActionProposal'),
+      ]),
+    );
+    expect(_rootTypes(out), [
+      'QaAnswerText',
+      ...List.filled(4, 'QaActionProposal'),
+    ]);
+    expect(out, isNot(contains('"p5"')));
+  });
+
   test('a strip that leads keeps the other projection widgets out', () {
     final out = AssistantLayoutGuard.enforce(
       _update([

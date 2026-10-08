@@ -17,6 +17,10 @@ abstract final class PortfolioBrief {
   /// [InvestorProfileContext.brief]).
   static const userProfileKey = 'user_profile';
 
+  /// Qué pasó con las operaciones que propuso Porty (confirmadas,
+  /// canceladas…): la cartera del brief ya refleja las confirmadas.
+  static const actionsKey = 'actions_this_conversation';
+
   static Map<String, Object?> build(AssistantToolContext ctx) {
     final map = PortfolioContextBuilder.buildMap(
       ctx.summary,
@@ -30,6 +34,9 @@ abstract final class PortfolioBrief {
       ..['closed_positions_count'] = ctx.closedPositions.length;
     final profile = InvestorProfileContext.brief(ctx.investorProfile, ctx.now);
     if (profile != null) map[userProfileKey] = profile;
+    if (ctx.actionsThisConversation.isNotEmpty) {
+      map[actionsKey] = ctx.actionsThisConversation;
+    }
     return map;
   }
 }

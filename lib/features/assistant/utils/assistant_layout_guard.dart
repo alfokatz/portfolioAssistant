@@ -9,6 +9,8 @@ import 'dart:convert';
 ///   solo el primero, aunque el texto hablara de tres).
 /// - QaGoalCard + un QaProjectionStrip: la meta sin el ahorro mensual
 ///   necesario deja la respuesta a medias.
+/// - Hasta [maxActionProposals] QaActionProposal: "compré AAPL y vendí
+///   TSLA" es una card por operación, cada una con su Confirmar.
 ///
 /// Está en el prompt, pero gpt-4.1-mini a veces igual suma un gráfico por
 /// ticker a una comparación, o tres widgets de proyección juntos (medido en
@@ -24,6 +26,7 @@ abstract final class AssistantLayoutGuard {
   };
 
   static const maxInvestOptions = 3;
+  static const maxActionProposals = 4;
 
   static String enforce(String normalized) {
     final lines = normalized.split('\n');
@@ -84,6 +87,10 @@ abstract final class AssistantLayoutGuard {
       } else if (type == 'QaInvestOption' &&
           primary == 'QaInvestOption' &&
           count('QaInvestOption') < maxInvestOptions) {
+        kept.add(id);
+      } else if (type == 'QaActionProposal' &&
+          primary == 'QaActionProposal' &&
+          count('QaActionProposal') < maxActionProposals) {
         kept.add(id);
       } else if (type == 'QaProjectionStrip' &&
           primary == 'QaGoalCard' &&

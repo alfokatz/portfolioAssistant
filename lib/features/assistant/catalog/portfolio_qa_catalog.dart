@@ -1224,6 +1224,37 @@ final CatalogItem qaInvestConfirmItem = CatalogItem(
   ],
 );
 
+/// Operación propuesta por Porty para que el usuario la confirme (ver
+/// docs/superpowers/plans/2026-10-08-acciones-de-porty.md).
+final CatalogItem qaActionProposalItem = CatalogItem(
+  name: 'QaActionProposal',
+  dataSchema: S.object(
+    description:
+        'Operación para que el usuario revise y confirme: UNA por cada '
+        'resultado ok de propose_*. Solo proposalId; la app pone los datos.',
+    properties: {
+      'proposalId': S.string(
+        description: 'proposal_id del resultado de la tool propose_*.',
+      ),
+    },
+    required: ['proposalId'],
+  ),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaActionProposal),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "action_1",
+    "component": "QaActionProposal",
+    "proposalId": "3f1c2a9e-0b7d-4e55-9a51-6c2f0d8e7a10"
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaGoalCardItem = CatalogItem(
   name: 'QaGoalCard',
   dataSchema: S.object(

@@ -1,19 +1,26 @@
 import 'dart:async';
 
+import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/delete_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
@@ -29,6 +36,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
+import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
@@ -222,6 +230,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadInvestorProfile:
             () => ref.read(investorProfileProvider.notifier).refresh(),
         investorProfile: await _profileForTurn(),
+        actionsThisConversation: [
+          for (final MapEntry(key: id, value: progress)
+              in state.actionProposals.entries)
+            progress.toBrief(id),
+        ],
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -367,6 +380,187 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       error: genUiErrorMessage(e),
       messages: _removeStreamingPlaceholder(current.messages),
     );
+  }
+
+  // ------------------------------------------------------------ acciones
+
+  /// Guarda una operación que el usuario confirmó en una card
+  /// `QaActionProposal`. No pasa por el modelo (no consume cuota): el
+  /// modelo solo propuso (ver `ActionTools`).
+  ///
+  /// Una sola vez por propuesta: el estado pasa a `saving` de forma
+  /// sincrónica, antes de cualquier `await`, así un doble toque no guarda
+  /// dos veces. Si falla, queda `failed` y se puede reintentar.
+  Future<void> executeAction(ActionDraft draft) async {
+    final id = draft.proposalId;
+    if (!state.actionProgress(id).canConfirm) return;
+    _setAction(
+      id,
+      ActionProposalProgress(ActionProposalStatus.saving, draft: draft),
+    );
+
+    // El plan con el que se propuso pudo cambiar (venció, o lo bajó el
+    // webhook): se vuelve a mirar antes de escribir.
+    try {
+      await ref.read(subscriptionProvider.notifier).refresh();
+    } catch (_) {}
+    if (!mounted) return;
+    final tier = ref.read(subscriptionProvider).tier;
+    if (!PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
+      _setAction(id, ActionProposalProgress.pending);
+      state = state.copyWith(
+        paywallReason: PaywallReason.modeLocked,
+        clearPaywallReason: false,
+      );
+      return;
+    }
+
+    String? error;
+    try {
+      error = _invalidDraft(draft) ?? await _runAction(draft);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Assistant/action] failed: $e');
+      error = _actionFailedMessage;
+    }
+    if (!mounted) return;
+    if (error != null) {
+      _setAction(
+        id,
+        ActionProposalProgress(
+          ActionProposalStatus.failed,
+          errorMessage: error,
+          draft: draft,
+        ),
+      );
+      return;
+    }
+
+    _setAction(id, ActionProposalProgress(ActionProposalStatus.done, draft: draft));
+    ref
+        .read(alertProvider.notifier)
+        .showSuccess(
+          message: switch (draft.kind) {
+            ActionKind.buy => 'assistant_action_saved_buy',
+            ActionKind.sell => 'assistant_action_saved_sell',
+            ActionKind.delete => 'assistant_action_saved_delete',
+          }.tr(namedArgs: {'ticker': draft.ticker}),
+        );
+    // La Home y el PORTFOLIO_BRIEF del próximo turno ya con la operación.
+    try {
+      await ref.read(homeProvider.notifier).refresh(silent: true);
+    } catch (_) {}
+  }
+
+  /// El usuario descartó la propuesta: no se guarda nada. [draft] es lo que
+  /// había en la card, para mostrarla resuelta.
+  void cancelAction(ActionDraft draft) {
+    final id = draft.proposalId;
+    if (!state.actionProgress(id).canConfirm) return;
+    _setAction(
+      id,
+      ActionProposalProgress(ActionProposalStatus.cancelled, draft: draft),
+    );
+  }
+
+  // Fuera de [AssistantState] a propósito, como [_activity]: cambia con cada
+  // tecla y no tiene por qué reconstruir el chat. Vive lo que la
+  // conversación.
+  final _actionForms = <String, ActionForm>{};
+
+  /// Lo que el usuario lleva editado en la card [proposalId], para que
+  /// vuelva igual si se desmonta al scrollear (ver `QaActionScope.formOf`).
+  ActionForm? actionFormOf(String proposalId) => _actionForms[proposalId];
+
+  void saveActionForm(String proposalId, ActionForm form) {
+    _actionForms[proposalId] = form;
+  }
+
+  /// Cierre de [ticker] en [date], para la card cuando el usuario cambia la
+  /// fecha (misma regla que las tools: ver `ActionPrices.closeOn`).
+  Future<double?> actionPriceOn(String ticker, DateTime date) async {
+    try {
+      final data = _data ??= ref.read(assistantDepsProvider).createData();
+      return (await ActionPrices.closeOn(data.quoteRepository, ticker, date))
+          .close;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static const _actionFailedMessage = 'No se pudo guardar. Probá de nuevo.';
+
+  void _setAction(String id, ActionProposalProgress progress) {
+    state = state.copyWith(
+      actionProposals: {...state.actionProposals, id: progress},
+    );
+  }
+
+  /// La card ya valida, pero esto es lo último antes de escribir.
+  String? _invalidDraft(ActionDraft draft) {
+    if (draft.kind == ActionKind.delete) {
+      return draft.lotIds.isEmpty ? 'Elegí qué compra borrar.' : null;
+    }
+    final shares = draft.shares;
+    final price = draft.price;
+    final date = draft.date;
+    if (shares == null || shares <= 0 || price == null || price <= 0) {
+      return 'Revisá la cantidad y el precio.';
+    }
+    if (date == null || date.isAfter(DateTime.now())) {
+      return 'Revisá la fecha.';
+    }
+    return null;
+  }
+
+  /// Ejecuta [draft] con los use cases de siempre (los mismos que las
+  /// pantallas de alta, cierre y detalle). Devuelve el error para el
+  /// usuario, o `null` si salió bien.
+  Future<String?> _runAction(ActionDraft draft) async {
+    String? message(Either<HttpError, Object?> result) => result.fold(
+      (e) =>
+          e.message?.trim().isNotEmpty == true
+              ? e.message
+              : _actionFailedMessage,
+      (_) => null,
+    );
+
+    switch (draft.kind) {
+      case ActionKind.buy:
+        return message(
+          await ref
+              .read(addPositionUseCaseProvider)
+              .call(
+                params: AddPositionParams(
+                  ticker: draft.ticker,
+                  quantity: draft.shares!,
+                  purchasePrice: draft.price!,
+                  purchaseDate: draft.date!,
+                ),
+              ),
+        );
+      case ActionKind.sell:
+        // Con el ticker (no un id de lote) el repositorio vende FIFO entre
+        // todas las compras, como estimó la card.
+        return message(
+          await ref
+              .read(closePositionUseCaseProvider)
+              .call(
+                params: ClosePositionParams(
+                  positionId: draft.ticker,
+                  quantity: draft.shares!,
+                  closePrice: draft.price!,
+                  closeDate: draft.date!,
+                ),
+              ),
+        );
+      case ActionKind.delete:
+        final delete = ref.read(deletePositionUseCaseProvider);
+        for (final lotId in draft.lotIds) {
+          final error = message(await delete.call(params: lotId));
+          if (error != null) return error;
+        }
+        return null;
+    }
   }
 
   void clearPaywall() {

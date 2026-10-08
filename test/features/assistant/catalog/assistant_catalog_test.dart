@@ -67,7 +67,10 @@ void main() {
   // 2026-10-05: subido a 103.000 para get_etf_holdings + QaEtfHoldings y
   // el grounding con conocimiento general: de 99.989 a 101.992 caracteres
   // (+2K ≈ +500 tokens, casi todo cacheado).
+  // 2026-10-08: subido a 106.000 para las acciones de Porty (propose_* +
+  // QaActionProposal + [W:ACTION]): de 101.992 a 104.432 caracteres
+  // (+2,4K ≈ +600 tokens, casi todo cacheado).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(103000));
+    expect(prompt.length, lessThan(106000));
   });
 }

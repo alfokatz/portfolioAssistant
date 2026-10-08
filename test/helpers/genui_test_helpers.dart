@@ -37,6 +37,7 @@ const portfolioQaCustomComponentNames = {
   'QaGoalCard',
   'QaProjectionStrip',
   'QaMilestoneList',
+  'QaActionProposal',
 };
 
 List<JsonMap> parseExampleComponents(String exampleJson) {

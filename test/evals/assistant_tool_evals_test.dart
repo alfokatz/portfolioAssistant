@@ -21,6 +21,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
+import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:dartz/dartz.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
@@ -65,6 +68,14 @@ class _UsageRecorder extends http.BaseClient {
     statuses.add(response.statusCode);
     try {
       final body = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+      if (Platform.environment['EVAL_DEBUG'] == '1' && body['id'] == null) {
+        final raw = utf8.decode(bytes);
+        // ignore: avoid_print
+        print(
+          '!!! response ${response.statusCode} without id: '
+          '${raw.substring(0, raw.length > 600 ? 600 : raw.length)}',
+        );
+      }
       if (body['usage'] is Map) {
         usages.add(body['usage'] as Map<String, dynamic>);
       }
@@ -185,6 +196,69 @@ List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
   ..._expect(t.proseProblems.isEmpty, 'texto: ${t.proseProblems}'),
   // (g) un análisis cuesta 1 consulta
   ..._expect(t.quotaWeight == 1, 'cuota ${t.quotaWeight}, no 1'),
+];
+
+/// Búsqueda de símbolos fija para los casos de acciones: "Apple" → AAPL;
+/// "Alphabet" es ambigua a propósito (GOOGL / GOOG, dos clases de acción).
+class _Symbols extends FakeSymbolSearchRepository {
+  static const _byName = <String, List<SymbolSearchResult>>{
+    'apple': [
+      SymbolSearchResult(symbol: 'AAPL', description: 'APPLE INC', type: 'Common Stock'),
+    ],
+    'microsoft': [
+      SymbolSearchResult(symbol: 'MSFT', description: 'MICROSOFT CORP', type: 'Common Stock'),
+    ],
+    'nvidia': [
+      SymbolSearchResult(symbol: 'NVDA', description: 'NVIDIA CORP', type: 'Common Stock'),
+    ],
+    'alphabet': [
+      SymbolSearchResult(symbol: 'GOOGL', description: 'ALPHABET INC-CL A', type: 'Common Stock'),
+      SymbolSearchResult(symbol: 'GOOG', description: 'ALPHABET INC-CL C', type: 'Common Stock'),
+    ],
+  };
+
+  @override
+  Future<Either<HttpError, List<SymbolSearchResult>>> search(String query) async {
+    final q = query.toLowerCase();
+    for (final entry in _byName.entries) {
+      if (q.contains(entry.key)) return Right(entry.value);
+    }
+    return const Right([]);
+  }
+}
+
+const _actionTools = {'propose_buy', 'propose_sell', 'propose_delete_position'};
+
+String _day(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+DateTime get _today => DateTime.now();
+
+/// Propuestas ok del turno, de una tool en particular o de cualquiera.
+List<ToolCallRecord> _proposals(_TurnLog t, [String? tool]) => [
+  for (final c in t.calls)
+    if (_actionTools.contains(c.name) &&
+        (tool == null || c.name == tool) &&
+        c.status == 'ok')
+      c,
+];
+
+int _cards(_TurnLog t) =>
+    t.components.where((c) => c == 'QaActionProposal').length;
+
+/// El texto nunca dice que la operación ya quedó guardada: la confirma el
+/// usuario en la card.
+List<String> _notClaimedSaved(_TurnLog t) {
+  final text = t.text.toLowerCase();
+  const claims = ['ya quedó', 'guardé', 'registré', 'agregué', 'ya está registrad'];
+  final hit = claims.where(text.contains).toList();
+  return _expect(hit.isEmpty, 'dice que ya guardó: $hit');
+}
+
+/// Pide datos o aclara: ni propuesta ok ni card.
+List<String> _asksInstead(_TurnLog t) => [
+  ..._expect(_proposals(t).isEmpty, 'propuso con datos faltantes/ambiguos'),
+  ..._expect(_cards(t) == 0, 'mostró una card: ${t.components}'),
 ];
 
 final _cases = <_Case>[
@@ -642,6 +716,161 @@ final _cases = <_Case>[
       ),
     ],
   ),
+  // ---------------------------------------------------- acciones (F6)
+  _Case(
+    'action-buy-complete',
+    ['Compré 10 acciones de Apple el 25 de septiembre'],
+    (t, _) {
+      final p = _proposals(t, 'propose_buy');
+      return [
+        ..._expect(p.length == 1, 'esperaba 1 propose_buy ok: $t'),
+        if (p.isNotEmpty) ...[
+          ..._expect(p.first.args['ticker'] == 'AAPL', 'ticker ${p.first.args}'),
+          ..._expect(p.first.args['shares'] == 10, 'shares ${p.first.args}'),
+          ..._expect(
+            p.first.args['date'] == '${_today.year}-09-25',
+            'fecha ${p.first.args['date']}',
+          ),
+          ..._expect(!p.first.args.containsKey('price_usd'), 'inventó el precio'),
+        ],
+        ..._expect(_cards(t) == 1, 'esperaba 1 QaActionProposal: ${t.components}'),
+        ..._notClaimedSaved(t),
+      ];
+    },
+  ),
+  _Case(
+    'action-buy-missing',
+    ['Compré Apple'],
+    (t, _) {
+      final text = t.text.toLowerCase();
+      return [
+        ..._asksInstead(t),
+        // Pide cantidad y fecha, juntas (con o sin signo de pregunta).
+        ..._expect(
+          text.contains('fecha') &&
+              (text.contains('cuántas') ||
+                  text.contains('cantidad') ||
+                  text.contains('monto')),
+          'no pidió cantidad y fecha juntas',
+        ),
+      ];
+    },
+  ),
+  _Case(
+    'action-buy-usd-yesterday',
+    ['Ayer metí 500 dólares en NVDA'],
+    (t, _) {
+      final p = _proposals(t, 'propose_buy');
+      return [
+        ..._notClaimedSaved(t),
+        ..._expect(p.length == 1, 'esperaba 1 propose_buy ok: $t'),
+        if (p.isNotEmpty) ...[
+          ..._expect(p.first.args['amount_usd'] == 500, 'monto ${p.first.args}'),
+          ..._expect(!p.first.args.containsKey('shares'), 'convirtió a acciones'),
+          ..._expect(
+            p.first.args['date'] ==
+                _day(_today.subtract(const Duration(days: 1))),
+            'fecha ${p.first.args['date']}',
+          ),
+        ],
+        ..._expect(_cards(t) == 1, 'esperaba 1 QaActionProposal'),
+      ];
+    },
+  ),
+  _Case(
+    'action-ambiguous-company',
+    ['Compré 5 acciones de Alphabet el 25 de septiembre'],
+    (t, _) => [
+      ..._asksInstead(t),
+      ..._expect(
+        t.text.contains('GOOGL') && t.text.contains('GOOG'),
+        'no nombró las dos clases',
+      ),
+    ],
+  ),
+  _Case(
+    'action-sell-all',
+    ['Vendí todas mis AAPL hoy'],
+    (t, _) {
+      final p = _proposals(t, 'propose_sell');
+      return [
+        ..._expect(p.length == 1, 'esperaba 1 propose_sell ok: $t'),
+        if (p.isNotEmpty) ...[
+          ..._expect(p.first.args['ticker'] == 'AAPL', 'ticker'),
+          ..._expect(
+            p.first.args['all'] == true || p.first.args['shares'] == 2,
+            'no vendió todo: ${p.first.args}',
+          ),
+          ..._expect(p.first.args['date'] == _day(_today), 'fecha'),
+        ],
+        ..._expect(_cards(t) == 1, 'esperaba 1 QaActionProposal'),
+        ..._notClaimedSaved(t),
+      ];
+    },
+  ),
+  _Case(
+    'action-two-operations',
+    ['Ayer compré 3 acciones de Microsoft y vendí todas mis NVDA'],
+    (t, _) => [
+      ..._expect(_proposals(t, 'propose_buy').length == 1, 'compra: $t'),
+      ..._expect(_proposals(t, 'propose_sell').length == 1, 'venta: $t'),
+      ..._expect(_cards(t) == 2, 'esperaba 2 cards: ${t.components}'),
+      ..._notClaimedSaved(t),
+    ],
+  ),
+  _Case(
+    'action-sell-exceeds',
+    ['Ayer vendí 10 acciones de NVDA'],
+    // Puede verlo en PORTFOLIO_BRIEF (tiene 2) o por exceeds_holdings de la
+    // tool: lo que importa es que no proponga y diga cuántas tiene.
+    (t, _) => [
+      ..._asksInstead(t),
+      ..._expect(t.text.contains('2'), 'no dijo cuántas tiene'),
+    ],
+  ),
+  _Case(
+    'action-delete',
+    ['Borrá NVDA de mi cartera, la cargué mal'],
+    (t, _) => [
+      ..._expect(
+        _proposals(t, 'propose_delete_position').length == 1,
+        'esperaba propose_delete_position: $t',
+      ),
+      ..._expect(!t.called('propose_sell'), 'lo trató como venta'),
+      ..._expect(_cards(t) == 1, 'esperaba 1 QaActionProposal'),
+      ..._notClaimedSaved(t),
+    ],
+  ),
+  _Case(
+    'action-not-advice',
+    ['¿Debería comprar AAPL?'],
+    (t, _) => [
+      ..._expect(
+        !t.calls.any((c) => _actionTools.contains(c.name)),
+        'propuso una operación ante un pedido de consejo',
+      ),
+      ..._expect(_cards(t) == 0, 'mostró una card'),
+    ],
+  ),
+  _Case(
+    'action-not-hypothetical',
+    ['Si compro 10 MSFT, ¿cuánto pesaría en mi cartera?'],
+    (t, _) => [
+      ..._expect(
+        !t.calls.any((c) => _actionTools.contains(c.name)),
+        'propuso una operación ante una hipótesis',
+      ),
+      ..._expect(_cards(t) == 0, 'mostró una card'),
+    ],
+  ),
+  _Case(
+    'action-free',
+    ['Ayer compré 10 acciones de AAPL'],
+    tier: SubscriptionTier.free,
+    (t, _) => [
+      ..._expect(t.aborted != null, 'esperaba paywall (short-circuit): $t'),
+    ],
+  ),
   _Case(
     'free-not-held',
     ['¿A cuánto está AMZN?'],
@@ -724,6 +953,7 @@ void main() {
             data:
                 realData ??
                 fakeDataSources(
+                  symbols: _Symbols(),
                   fundamentals: FakeCompanyFundamentalsRepository(
                     data: const CompanyFundamentals(
                       ticker: 'X',
@@ -806,8 +1036,12 @@ void main() {
             }
           } on TurnAbortedException catch (e) {
             log.aborted = e.reason;
-          } catch (e) {
+          } catch (e, st) {
             log.aborted = 'error: $e';
+            if (Platform.environment['EVAL_DEBUG'] == '1') {
+              // ignore: avoid_print
+              print('!!! ${c.id} turn $i: $e\n$st');
+            }
           }
           log.ms = stopwatch.elapsedMilliseconds;
           logs.add(log);
@@ -820,7 +1054,13 @@ void main() {
             );
           }
         }
-        final problems = c.check(logs.last, logs);
+        final problems = [
+          // Un turno que se rompió nunca cuenta como aprobado (los casos
+          // negativos — "no propuso nada" — pasaban con el turno caído).
+          for (final l in logs)
+            if (l.aborted is String) '${l.aborted}',
+          ...c.check(logs.last, logs),
+        ];
         // Regla de LAYOUT: como máximo un widget de datos (QaNewsSummary puede
         // acompañar en un "por qué"). Se reporta aparte, no hace fallar.
         const nonData = {'Column', 'Text', 'QaAnswerText', 'QaTipBanner'};
@@ -828,7 +1068,9 @@ void main() {
             logs.last.components.where((w) => !nonData.contains(w)).toList();
         final layoutOk =
             data.length <= 1 ||
-            (data.length == 2 && data.contains('QaNewsSummary'));
+            (data.length == 2 && data.contains('QaNewsSummary')) ||
+            // Una card por operación ([W:ACTION]).
+            data.every((w) => w == 'QaActionProposal');
         if (problems.isNotEmpty) failures++;
         final usage = recorder.usages;
         report.add({

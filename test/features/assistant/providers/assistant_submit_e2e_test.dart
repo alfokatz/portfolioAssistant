@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
@@ -553,6 +554,113 @@ void main() {
       await h.notifier.submitMessage('Hola');
 
       expect(seen, ['thinking', 'idle']);
+    });
+  });
+
+  group('portfolio actions', () {
+    /// La respuesta con una card por cada propuesta ok que devolvió la tool.
+    Map<String, Object?> answerWithProposals(Map<String, dynamic> body) {
+      final messages = (body['messages'] as List).cast<Map>();
+      final ids = [
+        for (final m in messages.where((m) => m['role'] == 'tool'))
+          (jsonDecode(_textOf(m)) as Map)['proposal_id'],
+      ].whereType<String>().toList();
+      final lastUser = messages.lastWhere((m) => m['role'] == 'user');
+      final surfaceId =
+          RegExp(
+            r'SURFACE_ID[^:]*: (\S+)',
+          ).firstMatch(_textOf(lastUser))!.group(1)!;
+      final update = jsonEncode({
+        'version': 'v0.9',
+        'updateComponents': {
+          'surfaceId': surfaceId,
+          'components': [
+            {
+              'id': 'root',
+              'component': 'Column',
+              'children': ['a', for (var i = 0; i < ids.length; i++) 'p$i'],
+            },
+            {
+              'id': 'a',
+              'component': 'QaAnswerText',
+              'text': 'Revisá los datos y confirmá.',
+            },
+            for (var i = 0; i < ids.length; i++)
+              {'id': 'p$i', 'component': 'QaActionProposal', 'proposalId': ids[i]},
+          ],
+        },
+      });
+      return textReply(
+        '{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId",'
+        '"catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}\n'
+        '$update',
+      );
+    }
+
+    test('premium: the proposal reaches the card evidence without saving, '
+        'and the next turn knows it was cancelled', () async {
+      final h = harness(SubscriptionTier.premium, [
+        _call('propose_buy', {
+          'ticker': 'AAPL',
+          'shares': 10,
+          'date': '2026-09-25',
+        }),
+        answerWithProposals,
+        _answer('Listo.'),
+      ]);
+
+      await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
+
+      // Sin ronda de corrección: la card tiene su propuesta detrás.
+      expect(h.api.requests, hasLength(2));
+      expect(h.lastAnswer.isFallback, isFalse);
+      final surfaceId = h.lastAnswer.surfaceId!;
+      final calls =
+          h.notifier.service!.evidenceListenable(surfaceId).value.calls;
+      final proposal = ActionProposal.fromToolResult(
+        calls.singleWhere((c) => c.name == 'propose_buy').result,
+      )!;
+      expect(proposal.ticker, 'AAPL');
+      expect(proposal.shares, 10);
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(h.state.actionProgress(proposal.id).status,
+          ActionProposalStatus.pending);
+
+      h.notifier.cancelAction(
+        ActionDraft(
+          proposalId: proposal.id,
+          kind: ActionKind.buy,
+          ticker: 'AAPL',
+          shares: 10,
+          price: proposal.price,
+          date: proposal.date,
+        ),
+      );
+      await h.notifier.submitMessage('Gracias');
+
+      final brief = _textOf(
+        (h.api.requests.last['messages'] as List).cast<Map>()[1],
+      );
+      expect(brief, contains('"actions_this_conversation"'));
+      expect(brief, contains('"status":"cancelled"'));
+      expect(brief, contains(proposal.id));
+    });
+
+    test('free: proposing is locked and the Premium paywall replaces the '
+        'turn', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('propose_buy', {
+          'ticker': 'AAPL',
+          'shares': 10,
+          'date': '2026-09-25',
+        }),
+      ]);
+
+      await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
+
+      expect(h.state.paywallReason, PaywallReason.modeLocked);
+      expect(h.state.messages, hasLength(1));
+      expect(h.quotes.dailyCalls, isEmpty);
     });
   });
 }

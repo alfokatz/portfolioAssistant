@@ -22,6 +22,11 @@ enum PlanFeature {
   /// Metas de ahorro y proyecciones (get_goal_projection, save_goal).
   goals,
 
+  /// Registrar operaciones desde el chat (compras, ventas, borrados) con
+  /// confirmación del usuario (propose_buy, propose_sell,
+  /// propose_delete_position).
+  portfolioActions,
+
   /// El análisis completo de una empresa (QaCompanyAnalysis).
   companyAnalysis,
 
@@ -78,6 +83,7 @@ abstract final class PlanMatrix {
     PlanFeature.unlimitedPositions,
     PlanFeature.investSimulation,
     PlanFeature.goals,
+    PlanFeature.portfolioActions,
   };
 
   static const _gold = {
@@ -148,6 +154,7 @@ abstract final class PlanMatrix {
     PlanFeature.unlimitedPositions => 'plan_feature_unlimited_positions',
     PlanFeature.investSimulation => 'plan_feature_invest_simulation',
     PlanFeature.goals => 'plan_feature_goals',
+    PlanFeature.portfolioActions => 'plan_feature_portfolio_actions',
     PlanFeature.companyAnalysis => 'plan_feature_company_analysis',
     PlanFeature.news => 'plan_feature_news',
     PlanFeature.earnings => 'plan_feature_earnings',

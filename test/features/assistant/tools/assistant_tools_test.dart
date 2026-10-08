@@ -442,6 +442,9 @@ void main() {
       'get_invest_candidates',
       'get_goal_projection',
       'save_goal',
+      'propose_buy',
+      'propose_sell',
+      'propose_delete_position',
     ]);
   });
 }

@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/action_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/advice_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/company_widgets.dart';
@@ -132,6 +133,9 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaInvestConfirm(CatalogItemContext ctx) =>
       AdviceWidgets.qaInvestConfirm(ctx);
+
+  static Widget qaActionProposal(CatalogItemContext ctx) =>
+      ActionWidgets.qaActionProposal(ctx);
 
   static Widget qaGoalCard(CatalogItemContext ctx) =>
       AdviceWidgets.qaGoalCard(ctx);

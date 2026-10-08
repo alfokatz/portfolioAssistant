@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
@@ -38,6 +40,7 @@ abstract final class AssistantGroundingCheck {
     'QaProjectionStrip': {'get_goal_projection'},
     'QaProjectionChart': {'get_goal_projection'},
     'QaMilestoneList': {'get_goal_projection'},
+    'QaActionProposal': ActionTools.names,
   };
 
   /// Widgets cuyo `ticker` tiene que haber sido pedido a la tool.
@@ -60,8 +63,14 @@ abstract final class AssistantGroundingCheck {
         (c) => tools.contains(c.name) && c.status == 'ok',
       );
       final ticker = component['ticker'];
+      final proposalId = component['proposalId'];
       final missing =
-          _perTicker.contains(type) && ticker is String
+          type == 'QaActionProposal'
+              // La propuesta exacta: un id inventado no muestra nada.
+              ? !backing.any(
+                (c) => c.result[ActionProposal.toolResultIdKey] == proposalId,
+              )
+              : _perTicker.contains(type) && ticker is String
               ? !backing.any(
                 (c) => _tickersOf(c).contains(ticker.toUpperCase()),
               )

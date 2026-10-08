@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:genui/genui.dart' show SurfaceDefinition;
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -36,6 +37,7 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
@@ -808,25 +810,39 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           onFollowUp: (question) => _startAutoType(notifier, question),
           child: QaEvidenceScope(
             lookup: service.evidenceListenable,
-            child: PortyVoiceScope(
-              onDoneSpeaking:
-                  message.surfaceId == _speakingSurfaceId
-                      ? () => _finishSpeaking(service, message.surfaceId!)
-                      : null,
-              child: PortfolioQaAssistantSurface(
-                surfaceId: message.surfaceId!,
-                surfaceContext: service.controller.contextFor(
-                  message.surfaceId!,
+            // Confirmar una operación propuesta guarda directo, sin pasar
+            // por el modelo (ver `AssistantProvider.executeAction`).
+            child: QaActionScope(
+              proposals: ref.watch(assistantProvider(_args)).actionProposals,
+              onConfirm: notifier.executeAction,
+              onCancel: notifier.cancelAction,
+              priceOn: notifier.actionPriceOn,
+              formOf: notifier.actionFormOf,
+              onFormChanged: notifier.saveActionForm,
+              onOpenPosition:
+                  (ticker) => GotoPositionDetail(
+                    ticker: ticker,
+                  ).navigate(context: context),
+              child: PortyVoiceScope(
+                onDoneSpeaking:
+                    message.surfaceId == _speakingSurfaceId
+                        ? () => _finishSpeaking(service, message.surfaceId!)
+                        : null,
+                child: PortfolioQaAssistantSurface(
+                  surfaceId: message.surfaceId!,
+                  surfaceContext: service.controller.contextFor(
+                    message.surfaceId!,
+                  ),
+                  startFullyRevealed: message.hasRevealed,
+                  onFullyRevealed: () {
+                    if (message.surfaceId == _followSurfaceId) {
+                      _finishFollowing();
+                    }
+                    // Respuesta sin texto: deja de hablar al terminar las cards.
+                    _finishSpeaking(service, message.surfaceId!);
+                    notifier.markRevealed(message.surfaceId!);
+                  },
                 ),
-                startFullyRevealed: message.hasRevealed,
-                onFullyRevealed: () {
-                  if (message.surfaceId == _followSurfaceId) {
-                    _finishFollowing();
-                  }
-                  // Respuesta sin texto: deja de hablar al terminar las cards.
-                  _finishSpeaking(service, message.surfaceId!);
-                  notifier.markRevealed(message.surfaceId!);
-                },
               ),
             ),
           ),

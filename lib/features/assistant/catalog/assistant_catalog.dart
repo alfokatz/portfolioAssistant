@@ -41,6 +41,7 @@ abstract final class AssistantCatalog {
     'QaProjectionStrip',
     'QaProjectionChart',
     'QaMilestoneList',
+    'QaActionProposal',
   };
 
   static const basicComponentNames = {'Column', 'Text'};
@@ -74,6 +75,7 @@ abstract final class AssistantCatalog {
     qaProjectionStripItem,
     qaProjectionChartItem,
     qaMilestoneListItem,
+    qaActionProposalItem,
   ];
 
   static Catalog build() {

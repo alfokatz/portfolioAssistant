@@ -421,6 +421,9 @@ void main() {
         'save_goal': of([
           ('save_goal', {'target_amount': 1}),
         ]),
+        'propose_buy': of([
+          ('propose_buy', {'ticker': 'AAPL', 'shares': 10}),
+        ]),
       };
       expect(byTool, {
         'get_quote': 'Buscando el precio de NVDA…',
@@ -432,6 +435,7 @@ void main() {
         'get_invest_candidates': 'Evaluando opciones para invertir…',
         'get_goal_projection': 'Calculando tu proyección…',
         'save_goal': 'Guardando tu meta…',
+        'propose_buy': 'Preparando la operación…',
       });
       for (final text in byTool.values) {
         expect(text, isNot(contains('_')));

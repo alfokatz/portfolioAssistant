@@ -231,6 +231,7 @@ class QaTickerHeader extends StatelessWidget {
     this.trailing,
     this.tapQuestion,
     this.avatarSize = 36,
+    this.tappable = true,
   });
 
   final String ticker;
@@ -240,6 +241,10 @@ class QaTickerHeader extends StatelessWidget {
   final Widget? trailing;
   final String? tapQuestion;
   final double avatarSize;
+
+  /// `false` en cards donde tocar el encabezado no debería preguntar nada
+  /// (p. ej. una operación a confirmar).
+  final bool tappable;
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +275,7 @@ class QaTickerHeader extends StatelessWidget {
             if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           ],
         );
+        if (!tappable) return row;
         return QaTappable(
           question: tapQuestion ?? '¿Cómo viene $ticker?',
           child: row,

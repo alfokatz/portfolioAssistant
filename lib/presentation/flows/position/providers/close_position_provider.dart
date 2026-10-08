@@ -3,6 +3,7 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_price_on_date_use_case.dart';
+import 'package:portfolio_assistant/domain/utils/position_draft_math.dart';
 import 'package:portfolio_assistant/presentation/flows/position/states/close_position_state.dart';
 
 class ClosePositionProvider extends StateNotifier<ClosePositionState> {
@@ -74,13 +75,11 @@ class ClosePositionProvider extends StateNotifier<ClosePositionState> {
   double? sharesToSell() {
     if (state.scope == CloseScope.all) return args.quantity;
 
-    final price = closePrice();
-    if (price == null || price <= 0) return null;
-
-    final raw = double.tryParse(state.sellAmountText);
-    if (raw == null || raw <= 0) return null;
-
-    return state.sellMode == SellInputMode.shares ? raw : (raw / price);
+    return PositionDraftMath.shares(
+      amountText: state.sellAmountText,
+      isUsd: state.sellMode == SellInputMode.usd,
+      price: closePrice(),
+    );
   }
 
   Future<ClosePositionSaveResult> save({
