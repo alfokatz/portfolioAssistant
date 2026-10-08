@@ -8,8 +8,9 @@ import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.da
 
 /// Espera sin estructura conocida (arranque, Porty escribiendo el informe,
 /// una pantalla que todavía no tiene nada que mostrar): Porty pensando,
-/// centrado, y si la espera pasa de [LoaderTiming.messageDelay], una línea
-/// debajo con fade. Nada de spinner.
+/// centrado, y si la espera pasa de [messageDelay], una línea debajo con
+/// fade. Con [messages], la línea va rotando cada [messageInterval]. Nada de
+/// spinner.
 ///
 /// El avatar queda en el centro exacto del espacio que le dan (la línea se
 /// dibuja debajo sin moverlo): es el mismo lugar y tamaño que el splash
@@ -22,16 +23,31 @@ class PortyLoader extends StatefulWidget {
   const PortyLoader({
     super.key,
     this.message,
+    this.messages,
     this.size = defaultSize,
     this.messageDelay = LoaderTiming.messageDelay,
+    this.messageInterval = defaultMessageInterval,
+    this.thinkingStyle = PortyThinkingStyle.standard,
     this.textColor,
     this.semanticsLabel,
-  });
+  }) : assert(
+         message == null || messages == null,
+         'message o messages, no los dos',
+       );
 
   /// La línea que aparece si la espera se alarga. `null`: solo Porty.
   final String? message;
+
+  /// Varias líneas que se turnan (en orden, en loop) cada
+  /// [messageInterval], con fade. Reemplaza a [message].
+  final List<String>? messages;
   final double size;
   final Duration messageDelay;
+  final Duration messageInterval;
+
+  /// Cómo piensa Porty mientras espera. [PortyThinkingStyle.pulse] (se
+  /// achica y se agranda) en el arranque.
+  final PortyThinkingStyle thinkingStyle;
 
   /// Por defecto `textSecondary`. Hace falta fuera de un `MaterialApp` con
   /// el tema de la app (el arranque).
@@ -48,6 +64,12 @@ class PortyLoader extends StatefulWidget {
   /// Aire entre Porty y la línea.
   static const messageGap = 16.0;
 
+  /// Cuánto queda cada línea de [messages] antes de dar paso a la próxima.
+  static const defaultMessageInterval = Duration(milliseconds: 2800);
+
+  /// Fundido entre una línea y la siguiente.
+  static const messageSwap = Duration(milliseconds: 450);
+
   @override
   State<PortyLoader> createState() => _PortyLoaderState();
 }
@@ -58,7 +80,12 @@ class _PortyLoaderState extends State<PortyLoader> {
   // aparecer de golpe.
   PortyAvatarState _state = PortyAvatarState.idle;
   bool _showMessage = false;
+  int _index = 0;
   Timer? _messageTimer;
+  Timer? _rotateTimer;
+
+  List<String> get _lines =>
+      widget.messages ?? [if (widget.message case final m?) m];
 
   @override
   void initState() {
@@ -67,24 +94,33 @@ class _PortyLoaderState extends State<PortyLoader> {
       if (mounted) setState(() => _state = PortyAvatarState.thinking);
     });
     _messageTimer = Timer(widget.messageDelay, () {
-      if (mounted) setState(() => _showMessage = true);
+      if (!mounted) return;
+      setState(() => _showMessage = true);
+      _rotateTimer = Timer.periodic(widget.messageInterval, (_) {
+        final count = _lines.length;
+        if (mounted && count > 1) setState(() => _index = (_index + 1) % count);
+      });
     });
   }
 
   @override
   void dispose() {
     _messageTimer?.cancel();
+    _rotateTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final message = widget.message;
+    final lines = _lines;
+    final message = lines.isEmpty ? null : lines[_index % lines.length];
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final showMessage = _showMessage && message != null;
+    // Solo la primera línea: si cada cambio se anunciara, el lector de
+    // pantalla hablaría cada pocos segundos.
     final label = [
       widget.semanticsLabel ?? 'loading'.tr(),
-      if (showMessage) message,
+      if (showMessage) lines.first,
     ].join(', ');
 
     return Semantics(
@@ -95,7 +131,12 @@ class _PortyLoaderState extends State<PortyLoader> {
       child: Column(
         children: [
           const Spacer(),
-          PortyAvatar(state: _state, size: widget.size, animated: true),
+          PortyAvatar(
+            state: _state,
+            size: widget.size,
+            animated: true,
+            thinkingStyle: widget.thinkingStyle,
+          ),
           Expanded(
             child: Align(
               alignment: Alignment.topCenter,
@@ -111,16 +152,44 @@ class _PortyLoaderState extends State<PortyLoader> {
                   duration:
                       reduceMotion ? Duration.zero : LoaderTiming.swap * 2,
                   curve: Curves.easeOut,
-                  child: Text(
-                    message ?? '',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.4,
-                      fontWeight: FontWeight.w500,
-                      color:
-                          widget.textColor ??
-                          context.customColors.textSecondary,
+                  // Cada línea nueva entra subiendo apenas mientras la
+                  // anterior se desvanece.
+                  child: AnimatedSwitcher(
+                    duration:
+                        reduceMotion ? Duration.zero : PortyLoader.messageSwap,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder:
+                        (current, previous) => Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previous,
+                            if (current != null) current,
+                          ],
+                        ),
+                    transitionBuilder:
+                        (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween(
+                              begin: const Offset(0, 0.35),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                    child: Text(
+                      message ?? '',
+                      key: ValueKey(_index),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                        color:
+                            widget.textColor ??
+                            context.customColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),

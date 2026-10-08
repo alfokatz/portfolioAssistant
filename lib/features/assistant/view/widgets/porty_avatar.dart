@@ -41,7 +41,7 @@ enum PortyThinkingStyle {
   standard,
 
   /// El de un mensaje del chat, en el lugar donde va a empezar la
-  /// respuesta: el pulso de escala y opacidad del orbe que había antes
+  /// respuesta, y el del arranque de la app: el pulso de escala y opacidad del orbe que había antes
   /// (mismo ciclo y curva), su deriva vertical y su halo, un eco del
   /// contorno que se expande, ojos arriba y sin destello.
   pulse,

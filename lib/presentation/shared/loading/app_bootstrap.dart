@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
@@ -77,16 +78,37 @@ class _AppBootstrapState extends State<AppBootstrap> {
 }
 
 /// [PortyLoader] fuera del `MaterialApp` (todavía no existe): fondo, colores
-/// y textos según el sistema, como el splash nativo.
+/// y textos según el sistema, como el splash nativo. Porty pasa de reposo
+/// (el splash) a pensar con el pulso, y debajo se turnan frases de carga.
 class _BootLoader extends StatelessWidget {
   const _BootLoader({super.key});
 
+  /// El arranque suele durar poco: la primera frase entra antes que en los
+  /// otros loaders.
+  static const messageDelay = Duration(milliseconds: 800);
+
   /// Sin traducciones cargadas todavía: el idioma del sistema, español por
   /// defecto (como la app).
-  static ({String loading, String message}) _copy(Locale locale) =>
+  static ({String loading, List<String> messages}) _copy(Locale locale) =>
       locale.languageCode == 'en'
-          ? (loading: 'Loading', message: 'Getting your portfolio ready…')
-          : (loading: 'Cargando', message: 'Preparando tu cartera…');
+          ? (
+            loading: 'Loading',
+            messages: const [
+              'Getting your portfolio ready…',
+              'Connecting to your account…',
+              'Putting everything in order…',
+              'Almost there…',
+            ],
+          )
+          : (
+            loading: 'Cargando',
+            messages: const [
+              'Preparando tu cartera…',
+              'Conectando con tu cuenta…',
+              'Poniendo todo en orden…',
+              'Ya casi está…',
+            ],
+          );
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +127,9 @@ class _BootLoader extends StatelessWidget {
           child: DefaultTextStyle(
             style: const TextStyle(fontFamily: 'Plus Jakarta Sans'),
             child: PortyLoader(
-              message: copy.message,
+              messages: copy.messages,
+              messageDelay: messageDelay,
+              thinkingStyle: PortyThinkingStyle.pulse,
               semanticsLabel: copy.loading,
               textColor:
                   dark

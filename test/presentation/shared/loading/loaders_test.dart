@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/app_bootstrap.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
@@ -150,6 +151,42 @@ void main() {
       );
     });
 
+    testWidgets('several lines take turns with a fade, while the screen '
+        'reader only hears the first one', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const PortyLoader(
+            messages: ['uno', 'dos', 'tres'],
+            messageDelay: Duration(milliseconds: 500),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(PortyLoader.messageSwap);
+      expect(find.text('uno'), findsOneWidget);
+      expect(find.text('dos'), findsNothing);
+
+      await tester.pump(PortyLoader.defaultMessageInterval);
+      await tester.pump(PortyLoader.messageSwap ~/ 2);
+      // A mitad del fundido conviven la que se va y la que entra.
+      expect(find.text('uno'), findsOneWidget);
+      expect(find.text('dos'), findsOneWidget);
+      await tester.pump(PortyLoader.messageSwap);
+      expect(find.text('uno'), findsNothing);
+      expect(find.text('dos'), findsOneWidget);
+
+      // Después de la última vuelve a la primera.
+      await tester.pump(PortyLoader.defaultMessageInterval);
+      await tester.pump(PortyLoader.defaultMessageInterval);
+      await tester.pump(PortyLoader.messageSwap);
+      expect(find.text('uno'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(PortyLoader)).label,
+        allOf(contains('uno'), isNot(contains('dos'))),
+      );
+    });
+
     testWidgets('with reduce motion Porty does not move', (tester) async {
       await tester.pumpWidget(
         _app(const PortyLoader(message: 'x'), reduceMotion: true),
@@ -239,6 +276,8 @@ void main() {
   group('app bootstrap', () {
     testWidgets('the first frame is Porty on the splash background, then a '
         'crossfade to the app', (tester) async {
+      tester.platformDispatcher.localeTestValue = const Locale('es');
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
       final ready = Completer<Widget>();
       await tester.pumpWidget(AppBootstrap(initialize: () => ready.future));
       expect(find.byType(PortyLoader), findsOneWidget);
@@ -249,6 +288,16 @@ void main() {
         ),
       );
       expect(background.color, AppBootstrap.lightBackground);
+
+      // Porty se achica y se agranda (el pulso) y entran las frases.
+      await tester.pump();
+      final avatar = tester.widget<PortyAvatar>(find.byType(PortyAvatar));
+      expect(avatar.thinkingStyle, PortyThinkingStyle.pulse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Preparando tu cartera…'), findsOneWidget);
+      await tester.pump(PortyLoader.defaultMessageInterval);
+      await tester.pump(PortyLoader.messageSwap);
+      expect(find.text('Conectando con tu cuenta…'), findsOneWidget);
 
       ready.complete(
         const Directionality(
@@ -262,6 +311,27 @@ void main() {
       expect(find.byType(PortyLoader), findsOneWidget);
       await tester.pumpAndSettle();
       expect(find.byType(PortyLoader), findsNothing);
+    });
+
+    testWidgets('with the system in dark mode the background and text are '
+        'dark, like the native splash', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      final ready = Completer<Widget>();
+      await tester.pumpWidget(AppBootstrap(initialize: () => ready.future));
+      final background = tester.widget<ColoredBox>(
+        find.ancestor(
+          of: find.byType(PortyLoader),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      expect(background.color, AppBootstrap.darkBackground);
+      expect(
+        tester.widget<PortyLoader>(find.byType(PortyLoader)).textColor,
+        CustomColors.dark.textSecondary,
+      );
+      // Desmontar el loader cancela sus timers.
+      await tester.pumpWidget(const SizedBox());
     });
   });
 }

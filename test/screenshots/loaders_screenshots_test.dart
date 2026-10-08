@@ -262,5 +262,25 @@ void main() {
       // El primer frame: Porty en reposo, igual que el splash nativo.
       await _capture(tester, boundary, 'boot_first_frame_$b');
     }, skip: !_enabled);
+
+    testWidgets('boot_loading_$b', (tester) async {
+      await setUp(tester, brightness);
+      final boundary = GlobalKey();
+      final never = Completer<Widget>();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundary,
+          child: AppBootstrap(initialize: () => never.future),
+        ),
+      );
+      await fonts(tester);
+      // Ya pensando con el pulso y con la primera frase de carga.
+      for (var i = 0; i < 90; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await _capture(tester, boundary, 'boot_loading_$b');
+      // Desmontar cancela los timers de las frases.
+      await tester.pumpWidget(const SizedBox());
+    }, skip: !_enabled);
   }
 }
