@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart'
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/etoro_messages.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect_sheet.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -208,6 +209,7 @@ class _EtoroConnectionScreenState
           enter(
             3,
             _SecondaryButton(
+              icon: Icons.sync_rounded,
               label:
                   state.isSyncing
                       ? 'etoro_syncing'.tr()
@@ -228,6 +230,9 @@ class _EtoroConnectionScreenState
                   AppDimens.touchTarget,
                   AppDimens.touchTarget,
                 ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               child: Text(
                 state.activity == EtoroActivity.disconnecting
@@ -241,13 +246,14 @@ class _EtoroConnectionScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('etoro_title'.tr())),
+      // El logo de eToro ya está en el encabezado: la barra va sin título.
+      appBar: AppBar(),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             AppDimens.pageHorizontal,
-            AppDimens.sp8,
+            0,
             AppDimens.pageHorizontal,
             AppDimens.sp48,
           ),
@@ -258,6 +264,8 @@ class _EtoroConnectionScreenState
   }
 }
 
+/// Porty ↔ eToro, el título y una línea que explica. El enlace del medio y
+/// la cara de Porty cuentan el estado antes de leer.
 class _Header extends StatelessWidget {
   const _Header({required this.connection, required this.loading});
 
@@ -268,16 +276,16 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    final (title, body, icon) = switch (connection.status) {
+    final (title, body, link) = switch (connection.status) {
       EtoroConnectionStatus.notConnected => (
         'etoro_intro_title'.tr(),
         'etoro_intro_body'.tr(),
-        Icons.link_rounded,
+        EtoroLinkState.idle,
       ),
       EtoroConnectionStatus.connected => (
         'etoro_connected_title'.tr(),
         'etoro_connected_body'.tr(),
-        Icons.link_rounded,
+        EtoroLinkState.linked,
       ),
       EtoroConnectionStatus.reconnectRequired => (
         'etoro_reconnect_title'.tr(),
@@ -289,32 +297,27 @@ class _Header extends StatelessWidget {
                     : EtoroSyncTime.relative(connection.lastSyncAt!),
           },
         ),
-        Icons.sync_problem_rounded,
+        EtoroLinkState.broken,
       ),
     };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: colors.surfaceElevated,
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          ),
-          child: Icon(icon, size: 28, color: colors.textSecondary),
-        ),
-        const SizedBox(height: AppDimens.sp20),
+        // Mientras carga, Porty espera en reposo (sin adelantar el estado).
+        EtoroPortyLockup(state: loading ? EtoroLinkState.idle : link),
+        const SizedBox(height: AppDimens.sp24),
         Semantics(
           header: true,
           child: SkeletonText(
             loading ? null : title,
             placeholder: 'Conectá tu cuenta de eToro',
-            style: tt.headlineSmall?.copyWith(
-              color: colors.textPrimary,
+            style: tt.displaySmall?.copyWith(
+              fontSize: 24,
               fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
+              letterSpacing: -0.5,
+              height: 1.2,
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -322,7 +325,7 @@ class _Header extends StatelessWidget {
         SkeletonText(
           loading ? null : body,
           placeholder: 'Porty trae tus posiciones y las mantiene al día.',
-          style: tt.bodyLarge?.copyWith(
+          style: tt.bodyMedium?.copyWith(
             color: colors.textSecondary,
             height: 1.5,
           ),
@@ -332,33 +335,40 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Las tres promesas, en filas planas: solo lectura, se actualiza sola, se
-/// desconecta cuando quieras.
+/// Las tres promesas en una card, como las filas de Ajustes: solo lectura,
+/// se actualiza sola, se desconecta cuando quieras.
 class _ReadOnlyPoints extends StatelessWidget {
   const _ReadOnlyPoints();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _Point(
-          icon: Icons.lock_outline_rounded,
-          title: 'etoro_point_read_only_title'.tr(),
-          body: 'etoro_point_read_only_body'.tr(),
-        ),
-        const SizedBox(height: AppDimens.sp16),
-        _Point(
-          icon: Icons.sync_rounded,
-          title: 'etoro_point_sync_title'.tr(),
-          body: 'etoro_point_sync_body'.tr(),
-        ),
-        const SizedBox(height: AppDimens.sp16),
-        _Point(
-          icon: Icons.link_off_rounded,
-          title: 'etoro_point_disconnect_title'.tr(),
-          body: 'etoro_point_disconnect_body'.tr(),
-        ),
-      ],
+    final colors = context.customColors;
+    final points = [
+      (
+        Icons.lock_outline_rounded,
+        'etoro_point_read_only_title'.tr(),
+        'etoro_point_read_only_body'.tr(),
+      ),
+      (
+        Icons.sync_rounded,
+        'etoro_point_sync_title'.tr(),
+        'etoro_point_sync_body'.tr(),
+      ),
+      (
+        Icons.link_off_rounded,
+        'etoro_point_disconnect_title'.tr(),
+        'etoro_point_disconnect_body'.tr(),
+      ),
+    ];
+    return _Card(
+      child: Column(
+        children: [
+          for (final (i, (icon, title, body)) in points.indexed) ...[
+            if (i > 0) _CardDivider(indent: 64, color: colors.border),
+            _Point(icon: icon, title: title, body: body),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -376,43 +386,59 @@ class _Point extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     return Semantics(
       container: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colors.surfaceElevated,
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            ),
-            child: Icon(icon, size: AppDimens.iconMd, color: colors.textPrimary),
-          ),
-          const SizedBox(width: AppDimens.sp12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: tt.titleSmall?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.sp16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _IconBubble(icon: icon),
+            const SizedBox(width: AppDimens.sp12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: tt.titleSmall?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  body,
-                  style: tt.bodyMedium?.copyWith(
-                    color: colors.textSecondary,
-                    height: 1.45,
+                  const SizedBox(height: 2),
+                  Text(
+                    body,
+                    style: tt.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                      height: 1.45,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// El ícono en un círculo teñido de acento, como en Ajustes.
+class _IconBubble extends StatelessWidget {
+  const _IconBubble({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: colors.accentBlue.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 18, color: colors.accentBlue),
     );
   }
 }
@@ -433,6 +459,10 @@ class _ConnectBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: colors.textSecondary,
+      height: 1.45,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -448,13 +478,25 @@ class _ConnectBlock extends StatelessWidget {
                   ),
         ),
         const SizedBox(height: AppDimens.sp12),
-        Text(
-          'etoro_connect_footnote'.tr(),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colors.textSecondary,
-            height: 1.45,
+        Text.rich(
+          TextSpan(
+            children: [
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppDimens.sp4),
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    size: 13,
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ),
+              TextSpan(text: 'etoro_connect_footnote'.tr()),
+            ],
           ),
+          textAlign: TextAlign.center,
+          style: style,
         ),
       ],
     );
@@ -481,8 +523,10 @@ class _InlineError extends StatelessWidget {
   }
 }
 
-/// Estado de una cuenta conectada, en filas de label + valor. Mientras
-/// sincroniza, los valores van en skeleton (el pulso lento de la app).
+/// Estado de una cuenta conectada: arriba "Conectada" (o "Sin acceso") y
+/// la cifra de posiciones importadas en grande; abajo, filas de label +
+/// valor. Mientras sincroniza, los valores van en skeleton (el pulso lento
+/// de la app).
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required EtoroConnection this.connection,
@@ -502,6 +546,7 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
     final c = connection;
     final result = c?.lastResult;
     final showValues = c != null && !syncing;
@@ -518,10 +563,6 @@ class _StatusCard extends StatelessWidget {
         warning: showValues && c.lastSyncFailed,
       ),
       _StatusRow(
-        label: 'etoro_status_imported'.tr(),
-        value: !showValues ? null : '${result?.imported ?? 0}',
-      ),
-      _StatusRow(
         label: 'etoro_status_closed_imported'.tr(),
         value: !showValues ? null : '${result?.closedImported ?? 0}',
       ),
@@ -532,25 +573,55 @@ class _StatusCard extends StatelessWidget {
       ),
     ];
 
-    final card = Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
+    final card = _Card(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                indent: AppDimens.sp16,
-                endIndent: AppDimens.sp16,
-                color: colors.border,
-              ),
-            rows[i],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.sp16,
+              AppDimens.sp16,
+              AppDimens.sp16,
+              AppDimens.sp12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (c != null) _StatusPill(reconnect: c.needsReconnect),
+                if (c != null) const SizedBox(height: AppDimens.sp16),
+                Semantics(
+                  container: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonText(
+                        !showValues ? null : '${result?.imported ?? 0}',
+                        placeholder: '00',
+                        style: tt.displaySmall?.copyWith(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -1,
+                          height: 1.1,
+                          color: colors.textPrimary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(height: AppDimens.sp2),
+                      Text(
+                        'etoro_status_imported'.tr(),
+                        style: tt.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final row in rows) ...[
+            _CardDivider(indent: AppDimens.sp16, color: colors.border),
+            row,
           ],
         ],
       ),
@@ -563,6 +634,57 @@ class _StatusCard extends StatelessWidget {
       );
     }
     return card;
+  }
+}
+
+/// "● Conectada" en verde, o "● Sin acceso" en rojo si eToro cerró el
+/// acceso.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.reconnect});
+
+  final bool reconnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final (fg, bg, label) =
+        reconnect
+            ? (colors.loss, colors.lossContainer, 'etoro_status_no_access'.tr())
+            : (
+              colors.profit,
+              colors.profitContainer,
+              'etoro_settings_connected'.tr(),
+            );
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.sp8,
+        vertical: AppDimens.sp4,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: AppDimens.sp6),
+          Flexible(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -596,7 +718,7 @@ class _StatusRow extends StatelessWidget {
             flex: 3,
             child: Text(
               label,
-              style: tt.bodyLarge?.copyWith(
+              style: tt.bodyMedium?.copyWith(
                 color: colors.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
@@ -621,6 +743,7 @@ class _StatusRow extends StatelessWidget {
                         textAlign: TextAlign.end,
                         style: tt.bodyMedium?.copyWith(
                           color: warning ? colors.loss : colors.textSecondary,
+                          fontWeight: FontWeight.w500,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -654,10 +777,52 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
+/// La card de la app: blanca, borde fino, radio grande.
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        border: Border.all(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+class _CardDivider extends StatelessWidget {
+  const _CardDivider({required this.indent, required this.color});
+
+  final double indent;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Divider(
+    height: 1,
+    thickness: 1,
+    indent: indent,
+    endIndent: AppDimens.sp16,
+    color: color,
+  );
+}
+
 /// Secundario: borde, sin relleno (como "Cerrar posición").
 class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({required this.label, required this.onPressed});
+  const _SecondaryButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
 
+  final IconData icon;
   final String label;
   final VoidCallback? onPressed;
 
@@ -666,10 +831,13 @@ class _SecondaryButton extends StatelessWidget {
     final colors = context.customColors;
     return SizedBox(
       height: 52,
-      child: OutlinedButton(
+      child: OutlinedButton.icon(
         onPressed: onPressed,
+        icon: Icon(icon, size: AppDimens.iconMd),
+        label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: colors.textPrimary,
+          backgroundColor: colors.surfaceCard,
           side: BorderSide(color: colors.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppDimens.radiusLg),
@@ -678,7 +846,6 @@ class _SecondaryButton extends StatelessWidget {
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
-        child: Text(label),
       ),
     );
   }

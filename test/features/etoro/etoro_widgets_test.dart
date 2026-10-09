@@ -320,7 +320,8 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('etoro_disconnect_keep_title'), findsOneWidget);
-      await tester.tap(find.text('etoro_disconnect_confirm'));
+      // El botón dice lo que va a pasar.
+      await tester.tap(find.text('etoro_disconnect_confirm_keep'));
       await tester.pumpAndSettle();
       expect(choice, isTrue);
 
@@ -328,7 +329,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('etoro_disconnect_delete_title'));
       await tester.pump();
-      await tester.tap(find.text('etoro_disconnect_confirm'));
+      expect(find.text('etoro_disconnect_confirm_keep'), findsNothing);
+      await tester.tap(find.text('etoro_disconnect_confirm_delete'));
       await tester.pumpAndSettle();
       expect(choice, isFalse);
 
