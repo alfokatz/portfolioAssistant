@@ -654,5 +654,12 @@
   "onboarding_finish_connect_etoro": "Import my eToro portfolio",
   "plan_feature_broker_sync": "Your eToro portfolio, updated on its own",
   "paywall_title_broker_sync": "Connect eToro with Premium",
-  "paywall_subtitle_broker_sync": "Bring in your eToro portfolio and keep it updated on its own. Read-only: Porty never trades for you."
+  "paywall_subtitle_broker_sync": "Bring in your eToro portfolio and keep it updated on its own. Read-only: Porty never trades for you.",
+  "etoro_extras_title": "Also on eToro",
+  "etoro_extras_subtitle": "eToro values. Not included in your Porty total.",
+  "etoro_extras_subtitle_synced": "eToro values, {time}. Not included in your Porty total.",
+  "etoro_extras_cash": "Available cash",
+  "etoro_extras_cash_hint": "Ready to invest on eToro",
+  "etoro_extras_show_more": "Show {count} more",
+  "etoro_extras_show_less": "Show less"
 }

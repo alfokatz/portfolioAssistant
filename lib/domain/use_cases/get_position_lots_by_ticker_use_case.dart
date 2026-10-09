@@ -50,8 +50,13 @@ class GetPositionLotsByTickerUseCase
       }
 
       final priceResult = await quoteRepository.getCurrentPrice(ticker);
+      // Sin cotización: el precio de eToro de cualquier lote importado (es
+      // el mismo para todo el ticker); si no hay, el de compra del último.
+      final brokerPrice = lots
+          .map((l) => l.brokerPrice)
+          .firstWhere((p) => p != null, orElse: () => null);
       final currentPrice = priceResult.fold(
-        (_) => lots.first.purchasePrice,
+        (_) => brokerPrice ?? lots.first.purchasePrice,
         (price) => price,
       );
 

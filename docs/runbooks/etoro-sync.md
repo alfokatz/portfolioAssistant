@@ -105,6 +105,25 @@ Verificación rápida (no toca eToro):
 curl -s -X POST https://<ref>.supabase.co/functions/v1/etoro-sync/sync   # → 401 unauthorized
 ```
 
+### 4.1 Segunda parte: precio de eToro, otros activos, efectivo y logos
+
+Migración `20261010000000_etoro_holdings.sql`:
+- `positions.broker_price`: el precio actual de eToro, que se usa solo si Porty no tiene cotización. Antes, en ese caso, se valuaba al precio de compra y el P&L daba 0.
+- `etoro_instruments.logo_url`;
+- vacía del caché de instrumentos lo guardado sin logo;
+- recrea `etoro_apply_sync` y `etoro_disconnect`.
+
+El efectivo (`cashUsd`) y los otros activos (`otherHoldings`: cripto, CFD, fuera de EE.UU., apalancados, en corto, con valor y P&L de eToro) viajan en `etoro_connections.last_result`. La app los muestra en la card "Además en eToro" de Inicio, **sin sumarlos** al total de Porty. El copy trading sigue sin mostrarse (decisión 6). No se piden permisos nuevos: todo viene de `/trading/info/real/pnl` y `/market-data/instruments`, que ya se usaban.
+
+```sh
+supabase migration list            # solo debe faltar 20261010000000_etoro_holdings
+supabase db push
+supabase functions deploy etoro-sync --no-verify-jwt
+```
+
+- **Orden:** primero la migración y después la función. La función nueva manda `broker_price`, y la vieja `etoro_apply_sync` lo ignora sin fallar. Al revés, el sync fallaría al buscar `logo_url`.
+- **Precios y logos:** aparecen en el próximo sync de cada usuario (abrir la app pasados 15 minutos, o pull-to-refresh en Inicio).
+
 ## 5. App
 
 - La dependencia nueva es `flutter_web_auth_2`.

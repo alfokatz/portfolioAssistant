@@ -108,7 +108,7 @@ class MemoryStore implements EtoroStore {
     const manual = (this.positions.get(u) ?? []).filter((r) => r.source === "manual");
     this.positions.set(u, [
       ...manual,
-      ...d.open.map((r) => ({ id: r.id, ticker: r.ticker, quantity: r.quantity, purchase_price: r.purchasePrice, source: "etoro" as const, external_id: r.externalId })),
+      ...d.open.map((r) => ({ id: r.id, ticker: r.ticker, quantity: r.quantity, purchase_price: r.purchasePrice, broker_price: r.brokerPrice, source: "etoro" as const, external_id: r.externalId })),
     ]);
     const closed = this.closed.get(u) ?? [];
     for (const r of d.closed) {
@@ -272,6 +272,23 @@ Deno.test("callback ok: guarda tokens, importa y vuelve a la app sin tokens en e
   assert(fake.apiCalls().every((c) => c.headers.get("x-request-id")));
   // El state es de un solo uso.
   assertEquals(store.states.size, 0);
+});
+
+Deno.test("sync: precio de eToro por posición, efectivo, otros activos y logos", async () => {
+  const { store, fake, deps } = setup();
+  await connect(store, fake, deps);
+  const rows = store.positions.get("u1")!;
+  // Solo la posición que trajo unrealizedPnL tiene precio de eToro.
+  assertEquals(rows.map((x) => [x.external_id, x.broker_price]), [["11", 230], ["12", null], ["13", null]]);
+  const result = store.connections.get("u1")!.lastResult!;
+  assertEquals(result.cashUsd, 100);
+  // La apalancada (CFD x5) va a "otros activos" con su valor; la de copy no.
+  assertEquals(result.otherHoldings, [
+    { ticker: "AAPL", name: "Apple", reason: "leveraged", count: 1, units: 3, investedUsd: 120, pnlUsd: 90, valueUsd: 210 },
+  ]);
+  assertEquals(result.logos, { AAPL: "https://etoro-cdn.etorostatic.com/aapl/150x150.png" });
+  // El logo queda en el caché de instrumentos.
+  assertEquals(store.instruments.get(1001)!.logoUrl, "https://etoro-cdn.etorostatic.com/aapl/150x150.png");
 });
 
 Deno.test("callback: si eToro concede un scope de escritura, se revoca todo y no se guarda nada", async () => {

@@ -76,6 +76,50 @@ class EtoroNotImportedItem {
       );
 }
 
+/// Algo que el usuario tiene en eToro y Porty no importa como posición
+/// (cripto, CFD, fuera de EE.UU., apalancado, en corto), con el valor y el
+/// P&L que calcula eToro. Se muestra aparte, sin sumarlo al total de Porty.
+class EtoroOtherHolding {
+  const EtoroOtherHolding({
+    required this.ticker,
+    required this.reason,
+    required this.count,
+    required this.units,
+    required this.investedUsd,
+    required this.valueUsd,
+    required this.pnlUsd,
+    this.name,
+  });
+
+  final String ticker;
+  final String? name;
+  final EtoroSkipReason reason;
+
+  /// Cuántas posiciones de eToro se agruparon.
+  final int count;
+  final double units;
+  final double investedUsd;
+  final double valueUsd;
+  final double pnlUsd;
+
+  /// P&L sobre lo invertido, en porcentaje. `null` si no hay inversión.
+  double? get pnlPercent => investedUsd > 0 ? pnlUsd / investedUsd * 100 : null;
+
+  static double _n(Object? v) => v is num ? v.toDouble() : 0;
+
+  factory EtoroOtherHolding.fromJson(Map<String, dynamic> json) =>
+      EtoroOtherHolding(
+        ticker: (json['ticker'] as String?) ?? '?',
+        name: json['name'] as String?,
+        reason: EtoroSkipReason.fromWire(json['reason'] as String?),
+        count: (json['count'] as num?)?.toInt() ?? 1,
+        units: _n(json['units']),
+        investedUsd: _n(json['investedUsd']),
+        valueUsd: _n(json['valueUsd']),
+        pnlUsd: _n(json['pnlUsd']),
+      );
+}
+
 /// Resumen de la última importación (lo arma el servidor en cada sync).
 class EtoroImportResult {
   const EtoroImportResult({
@@ -85,6 +129,9 @@ class EtoroImportResult {
     required this.closedNotImported,
     required this.possibleDuplicates,
     required this.syncedAt,
+    this.cashUsd,
+    this.otherHoldings = const [],
+    this.logos = const {},
   });
 
   /// Posiciones abiertas importadas (cada compra cuenta por separado).
@@ -98,13 +145,33 @@ class EtoroImportResult {
   final List<String> possibleDuplicates;
   final DateTime? syncedAt;
 
+  /// Efectivo disponible en eToro, en USD. `null` si eToro no lo informó
+  /// (o el resultado es de antes de que el servidor lo guardara).
+  final double? cashUsd;
+
+  /// Lo que no se importa como posición, ordenado por valor.
+  final List<EtoroOtherHolding> otherHoldings;
+
+  /// Logo de eToro por ticker (en mayúsculas). Respaldo de Finnhub.
+  final Map<String, String> logos;
+
+  double get otherHoldingsValueUsd =>
+      otherHoldings.fold(0, (sum, h) => sum + h.valueUsd);
+  double get otherHoldingsPnlUsd =>
+      otherHoldings.fold(0, (sum, h) => sum + h.pnlUsd);
+
+  /// Hay algo para la card "Además en eToro".
+  bool get hasExtras =>
+      otherHoldings.isNotEmpty || (cashUsd != null && cashUsd! > 0);
+
   int get notImportedCount =>
       notImported.fold(0, (sum, item) => sum + item.count);
 
   static List<EtoroNotImportedItem> _items(Object? raw) => [
     if (raw is List)
       for (final e in raw)
-        if (e is Map) EtoroNotImportedItem.fromJson(Map<String, dynamic>.from(e)),
+        if (e is Map)
+          EtoroNotImportedItem.fromJson(Map<String, dynamic>.from(e)),
   ];
 
   factory EtoroImportResult.fromJson(Map<String, dynamic> json) =>
@@ -121,6 +188,21 @@ class EtoroImportResult {
             json['syncedAt'] is String
                 ? DateTime.tryParse(json['syncedAt'] as String)?.toLocal()
                 : null,
+        cashUsd: (json['cashUsd'] as num?)?.toDouble(),
+        otherHoldings: [
+          if (json['otherHoldings'] is List)
+            for (final e in json['otherHoldings'] as List)
+              if (e is Map)
+                EtoroOtherHolding.fromJson(Map<String, dynamic>.from(e)),
+        ],
+        logos: {
+          if (json['logos'] is Map)
+            for (final e in (json['logos'] as Map).entries)
+              if (e.key is String &&
+                  e.value is String &&
+                  (e.value as String).startsWith('https://'))
+                (e.key as String).toUpperCase(): e.value as String,
+        },
       );
 }
 

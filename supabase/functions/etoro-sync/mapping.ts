@@ -22,6 +22,8 @@ export type InstrumentMeta = {
   displayName?: string | null;
   instrumentType?: string | null;
   exchange?: string | null;
+  /// Logo que publica eToro (`images[]` de `/market-data/instruments`).
+  logoUrl?: string | null;
 };
 
 export type NotImportedReason =
@@ -40,6 +42,9 @@ export type PortyOpenRow = {
   quantity: number;
   purchasePrice: number;
   purchaseDate: string;
+  /// Precio actual según eToro (`unrealizedPnL.closeRate`). La app lo usa
+  /// solo si no tiene cotización propia.
+  brokerPrice: number | null;
 };
 
 export type PortyClosedRow = {
@@ -50,6 +55,24 @@ export type PortyClosedRow = {
   closePrice: number;
   closeDate: string;
   realizedPnl: number | null;
+};
+
+/// Lo que el usuario tiene en eToro y Porty no importa como posición
+/// (cripto, CFD, fuera de EE.UU., apalancadas, cortos), con el valor y el
+/// P&L que calcula eToro, para mostrarlo aparte. Copy trading no entra
+/// (decisión 6 de la investigación: por ahora no se muestra).
+export type OtherHolding = {
+  ticker: string;
+  name: string | null;
+  reason: NotImportedReason;
+  /// Cuántas posiciones de eToro se agruparon.
+  count: number;
+  units: number;
+  /// Lo invertido (`amount`), en USD.
+  investedUsd: number;
+  /// Valor actual en USD: invertido + P&L no realizado.
+  valueUsd: number;
+  pnlUsd: number;
 };
 
 export type NotImportedItem = {
@@ -156,8 +179,34 @@ export function classifyOpen(
       // coincide con amount/units en la prueba en vivo).
       purchasePrice: openRate,
       purchaseDate: new Date(openDate).toISOString(),
+      brokerPrice: currentRate(position),
     },
   };
+}
+
+function unrealized(position: EtoroOpenPosition): Record<string, unknown> | null {
+  const u = pick(position, "unrealizedPnL", "unrealizedPnl");
+  return u && typeof u === "object" ? u as Record<string, unknown> : null;
+}
+
+/// Precio actual de eToro para la posición, o null si no vino.
+export function currentRate(position: EtoroOpenPosition): number | null {
+  const u = unrealized(position);
+  const rate = u ? num(pick(u, "closeRate")) : null;
+  return rate !== null && rate > 0 ? rate : null;
+}
+
+/// P&L no realizado en USD. eToro lo da en la moneda del activo y en la de la
+/// cuenta; con la conversión a USD del momento (`closeConversionRate`, la
+/// misma que usa para `openConversionRate`) no depende de la moneda de la
+/// cuenta. Si falta la conversión, se usa el de la cuenta.
+export function unrealizedPnlUsd(position: EtoroOpenPosition): number | null {
+  const u = unrealized(position);
+  if (!u) return null;
+  const asset = num(pick(u, "pnlAssetCurrency"));
+  const conversion = num(pick(u, "closeConversionRate"));
+  if (asset !== null && conversion !== null && conversion > 0) return asset * conversion;
+  return num(pick(u, "pnL", "pnl"));
 }
 
 export type ClosedDecision =
@@ -211,7 +260,46 @@ export type MappedPortfolio = {
   closed: PortyClosedRow[];
   notImported: NotImportedItem[];
   closedNotImported: NotImportedItem[];
+  otherHoldings: OtherHolding[];
+  /// Logo de eToro por ticker, para todo lo abierto (importado o no).
+  logos: Record<string, string>;
 };
+
+function addOther(
+  acc: Map<string, OtherHolding>,
+  meta: InstrumentMeta | undefined,
+  instrumentId: unknown,
+  reason: NotImportedReason,
+  position: EtoroOpenPosition,
+) {
+  if (reason === "copy_trading") return;
+  const invested = num(pick(position, "amount"));
+  const pnl = unrealizedPnlUsd(position);
+  // Sin lo invertido o sin P&L no hay valor que mostrar sin inventarlo.
+  if (invested === null || pnl === null) return;
+  const ticker = meta ? portyTicker(meta.symbolFull) : `#${instrumentId ?? "?"}`;
+  const key = `${ticker}|${reason}`;
+  const units = num(pick(position, "units")) ?? 0;
+  const prev = acc.get(key);
+  if (prev) {
+    prev.count += 1;
+    prev.units += units;
+    prev.investedUsd += invested;
+    prev.pnlUsd += pnl;
+    prev.valueUsd = prev.investedUsd + prev.pnlUsd;
+  } else {
+    acc.set(key, {
+      ticker,
+      name: meta?.displayName ?? null,
+      reason,
+      count: 1,
+      units,
+      investedUsd: invested,
+      pnlUsd: pnl,
+      valueUsd: invested + pnl,
+    });
+  }
+}
 
 function addSkip(
   acc: Map<string, NotImportedItem>,
@@ -236,12 +324,19 @@ export function mapPortfolio(
 ): MappedPortfolio {
   const open: PortyOpenRow[] = [];
   const skipped = new Map<string, NotImportedItem>();
+  const others = new Map<string, OtherHolding>();
+  const logos: Record<string, string> = {};
   for (const p of positions) {
     const id = num(pick(p, "instrumentID", "instrumentId"));
     const meta = id === null ? undefined : instruments.get(id);
     const decision = classifyOpen(p, meta);
-    if (decision.kind === "import") open.push(decision.row);
-    else addSkip(skipped, meta, id, decision.reason);
+    if (decision.kind === "import") {
+      open.push(decision.row);
+    } else {
+      addSkip(skipped, meta, id, decision.reason);
+      addOther(others, meta, id, decision.reason, p);
+    }
+    if (meta?.logoUrl) logos[portyTicker(meta.symbolFull)] = meta.logoUrl;
   }
 
   const closed: PortyClosedRow[] = [];
@@ -267,7 +362,38 @@ export function mapPortfolio(
     closed,
     notImported: [...skipped.values()],
     closedNotImported: [...closedSkipped.values()],
+    otherHoldings: [...others.values()]
+      .map((o) => ({
+        ...o,
+        investedUsd: round2(o.investedUsd),
+        pnlUsd: round2(o.pnlUsd),
+        valueUsd: round2(o.valueUsd),
+      }))
+      .sort((a, b) => b.valueUsd - a.valueUsd),
+    logos,
   };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/// El logo de eToro más adecuado para un avatar chico: el cuadrado más
+/// cercano a 150 px (eToro publica varios tamaños). Solo URLs HTTPS.
+export function pickLogo(images: unknown): string | null {
+  if (!Array.isArray(images)) return null;
+  let best: { uri: string; score: number } | null = null;
+  for (const raw of images) {
+    if (!raw || typeof raw !== "object") continue;
+    const img = raw as Record<string, unknown>;
+    const uri = typeof img.uri === "string" ? img.uri.trim() : "";
+    if (!uri.startsWith("https://")) continue;
+    const w = num(img.width) ?? 0;
+    const h = num(img.height) ?? w;
+    const score = Math.abs(w - 150) + Math.abs(w - h) * 2;
+    if (!best || score < best.score) best = { uri, score };
+  }
+  return best?.uri ?? null;
 }
 
 /// Tickers que el usuario ya tenía cargados a mano y también vienen de

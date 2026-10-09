@@ -95,6 +95,12 @@ Deno.test("punta a punta: conectar, importar, convivir con lo manual, token venc
     rows.filter((r) => r.source === "etoro").map((r) => [r.ticker, Number(r.quantity)]),
     [["AAPL", 10], ["AAPL", 5], ["VOO", 0.5]],
   );
+  // Precio de eToro: solo en la posición que lo trajo; la app lo lee.
+  const prices = (await app.from("positions").select("external_id, broker_price").eq("source", "etoro").order("external_id")).data!;
+  assertEquals(prices.map((r) => [r.external_id, r.broker_price === null ? null : Number(r.broker_price)]), [["11", 230], ["12", null], ["13", null]]);
+  assertEquals(conn.data!.last_result.cashUsd, 100);
+  assertEquals(conn.data!.last_result.otherHoldings.map((o: { ticker: string; valueUsd: number }) => [o.ticker, o.valueUsd]), [["AAPL", 210]]);
+  assertEquals(conn.data!.last_result.logos.AAPL, "https://etoro-cdn.etorostatic.com/aapl/150x150.png");
   const closed = (await app.from("closed_positions").select("ticker, realized_pnl, source")).data!;
   assertEquals(closed.map((c) => [c.ticker, Number(c.realized_pnl), c.source]), [["VOO", 38.5, "etoro"]]);
 
@@ -128,9 +134,11 @@ Deno.test("punta a punta: conectar, importar, convivir con lo manual, token venc
   // ── desconectar conservando como manuales ─────────────────────────────────
   const disc = await handle(post("/disconnect", user.jwt, { keepAsManual: true }), d);
   assertEquals(disc.status, 200);
-  const finalRows = (await app.from("positions").select("source, quantity")).data!;
+  const finalRows = (await app.from("positions").select("source, quantity, broker_price")).data!;
   assertEquals(finalRows.length, 2);
   assert(finalRows.every((r) => r.source === "manual"));
+  // Ya manuales: sin precio de eToro (se valúan solo con cotización propia).
+  assert(finalRows.every((r) => r.broker_price === null));
   // Ya manuales, la app las edita.
   const editNow = await app.from("positions").update({ quantity: 1 }).eq("user_id", user.id);
   assertEquals(editNow.error, null);

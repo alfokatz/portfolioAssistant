@@ -18,6 +18,7 @@ class SupabasePortfolioMapper {
       purchaseDate: DateTime.parse(row['purchase_date'] as String).toLocal(),
       source: PositionSource.fromWire(row['source'] as String?),
       syncedAt: _optionalDate(row['synced_at']),
+      brokerPrice: _optionalDouble(row['broker_price']),
     );
   }
 
@@ -27,8 +28,9 @@ class SupabasePortfolioMapper {
   static double? _optionalDouble(Object? value) =>
       value == null ? null : _toDouble(value);
 
-  /// Sin `source`: la base pone 'manual' al insertar y no lo cambia al
-  /// actualizar. Las filas de eToro solo las escribe la edge function.
+  /// Sin `source` ni `broker_price`: la base pone 'manual' al insertar y no
+  /// lo cambia al actualizar. Las filas de eToro solo las escribe la edge
+  /// function.
   static Map<String, dynamic> positionToRow({
     required Position position,
     required String userId,

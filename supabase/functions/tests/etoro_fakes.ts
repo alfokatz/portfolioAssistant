@@ -23,10 +23,10 @@ export class FakeEtoro {
   apiStatus: number | null = null;
   apiStatusOnce = false;
   positions: Record<string, unknown>[] = [
-    { positionID: 11, instrumentID: 1001, mirrorID: 0, settlementTypeID: 1, isBuy: true, leverage: 1, units: 10, openRate: 180, amount: 1800, openDateTime: "2025-03-10T14:31:00Z" },
+    { positionID: 11, instrumentID: 1001, mirrorID: 0, settlementTypeID: 1, isBuy: true, leverage: 1, units: 10, openRate: 180, amount: 1800, openDateTime: "2025-03-10T14:31:00Z", unrealizedPnL: { closeRate: 230, pnlAssetCurrency: 500, closeConversionRate: 1 } },
     { positionID: 12, instrumentID: 1001, mirrorID: 0, settlementTypeID: 1, isBuy: true, leverage: 1, units: 5, openRate: 210, amount: 1050, openDateTime: "2026-01-05T15:00:00Z" },
     { positionID: 13, instrumentID: 1002, mirrorID: 0, settlementTypeID: 1, isBuy: true, leverage: 1, units: 0.5, openRate: 500, amount: 250, openDateTime: "2026-02-01T15:00:00Z" },
-    { positionID: 14, instrumentID: 1001, mirrorID: 0, settlementTypeID: 0, isBuy: true, leverage: 5, units: 3, openRate: 200, amount: 120, openDateTime: "2026-02-01T15:00:00Z" },
+    { positionID: 14, instrumentID: 1001, mirrorID: 0, settlementTypeID: 0, isBuy: true, leverage: 5, units: 3, openRate: 200, amount: 120, openDateTime: "2026-02-01T15:00:00Z", unrealizedPnL: { pnlAssetCurrency: 90, closeConversionRate: 1 } },
     { positionID: 15, instrumentID: 1001, mirrorID: 99, settlementTypeID: 1, isBuy: true, leverage: 1, units: 1, openRate: 200, amount: 200, openDateTime: "2026-02-01T15:00:00Z" },
   ];
   history: Record<string, unknown>[] = [
@@ -114,7 +114,7 @@ export class FakeEtoro {
         case "/api/v1/market-data/instruments": {
           const ids = (u.searchParams.get("instrumentIds") ?? "").split(",").map(Number);
           const all = [
-            { instrumentID: 1001, symbolFull: "AAPL", instrumentDisplayName: "Apple", instrumentTypeID: 5, exchangeID: 4 },
+            { instrumentID: 1001, symbolFull: "AAPL", instrumentDisplayName: "Apple", instrumentTypeID: 5, exchangeID: 4, images: [{ width: 50, height: 50, uri: "https://etoro-cdn.etorostatic.com/aapl/50x50.png" }, { width: 150, height: 150, uri: "https://etoro-cdn.etorostatic.com/aapl/150x150.png" }] },
             { instrumentID: 1002, symbolFull: "VOO", instrumentDisplayName: "Vanguard S&P 500", instrumentTypeID: 6, exchangeID: 5 },
           ];
           return Response.json({ instrumentDisplayDatas: all.filter((i) => ids.includes(i.instrumentID)) });

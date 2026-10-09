@@ -2,7 +2,7 @@
 // metadata de instrumentos, mapeo y escritura atómica. No sabe nada de HTTP.
 
 import { EtoroClient, EtoroError, type EtoroTokens } from "./etoro.ts";
-import { instrumentIds, type InstrumentMeta, mapPortfolio, possibleDuplicates } from "./mapping.ts";
+import { instrumentIds, type InstrumentMeta, mapPortfolio, pickLogo, possibleDuplicates } from "./mapping.ts";
 import type { EtoroStore, SyncResult } from "./store.ts";
 
 export const syncConfig = {
@@ -119,7 +119,7 @@ export async function runSync(ctx: SyncContext): Promise<SyncOutcome> {
       }
     };
 
-    const { positions } = await call((t) => client.portfolio(t));
+    const { positions, creditUsd } = await call((t) => client.portfolio(t));
 
     const today = now();
     const firstImport = !connection.historySyncedUntil;
@@ -158,6 +158,7 @@ export async function runSync(ctx: SyncContext): Promise<SyncOutcome> {
           displayName: typeof r.instrumentDisplayName === "string" ? r.instrumentDisplayName : null,
           instrumentType: types.get(Number(r.instrumentTypeID)) ?? null,
           exchange: exchanges.get(Number(r.exchangeID)) ?? null,
+          logoUrl: pickLogo(r.images),
         };
         instruments.set(id, meta);
         fresh.push(meta);
@@ -174,6 +175,9 @@ export async function runSync(ctx: SyncContext): Promise<SyncOutcome> {
       closedNotImported: mapped.closedNotImported,
       possibleDuplicates: possibleDuplicates(manual, mapped.open),
       syncedAt: new Date(today).toISOString(),
+      cashUsd: creditUsd === null ? null : Math.round(creditUsd * 100) / 100,
+      otherHoldings: mapped.otherHoldings,
+      logos: mapped.logos,
     };
 
     await store.applySync(userId, {

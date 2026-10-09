@@ -656,5 +656,12 @@
   "onboarding_finish_connect_etoro": "Importar mi cartera de eToro",
   "plan_feature_broker_sync": "Tu cartera de eToro, actualizada sola",
   "paywall_title_broker_sync": "Conectá eToro con Premium",
-  "paywall_subtitle_broker_sync": "Traé tu cartera de eToro y que se actualice sola. Solo lectura: Porty nunca opera por vos."
+  "paywall_subtitle_broker_sync": "Traé tu cartera de eToro y que se actualice sola. Solo lectura: Porty nunca opera por vos.",
+  "etoro_extras_title": "Además en eToro",
+  "etoro_extras_subtitle": "Valores de eToro. No suman a tu total en Porty.",
+  "etoro_extras_subtitle_synced": "Valores de eToro, {time}. No suman a tu total en Porty.",
+  "etoro_extras_cash": "Efectivo disponible",
+  "etoro_extras_cash_hint": "Para invertir en eToro",
+  "etoro_extras_show_more": "Ver {count} más",
+  "etoro_extras_show_less": "Ver menos"
 }

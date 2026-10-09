@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_extras_card.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
@@ -202,24 +203,33 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                   ? const SkeletonScope(
                                     child: PositionsSection.skeleton(rows: 3),
                                   )
-                                  : PositionsSection(
-                                    showConnectEtoro:
-                                        etoro.loaded &&
-                                        etoro.connection.status ==
-                                            EtoroConnectionStatus.notConnected,
-                                    valuations: displayValuations,
-                                    totalCount: valuations.length,
-                                    expanded: state.showAllPositions,
-                                    onToggleExpanded:
-                                        hasMorePositions
-                                            ? notifier.togglePositionsExpanded
-                                            : null,
-                                    onPositionTap: notifier.openPositionDetail,
-                                    onDeletePosition:
-                                        (valuation) =>
-                                            notifier.deletePositionsForTicker(
-                                              valuation.position.ticker,
-                                            ),
+                                  : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      PositionsSection(
+                                        showConnectEtoro:
+                                            etoro.loaded &&
+                                            etoro.connection.status ==
+                                                EtoroConnectionStatus.notConnected,
+                                        valuations: displayValuations,
+                                        totalCount: valuations.length,
+                                        expanded: state.showAllPositions,
+                                        onToggleExpanded:
+                                            hasMorePositions
+                                                ? notifier.togglePositionsExpanded
+                                                : null,
+                                        onPositionTap: notifier.openPositionDetail,
+                                        onDeletePosition:
+                                            (valuation) =>
+                                                notifier.deletePositionsForTicker(
+                                                  valuation.position.ticker,
+                                                ),
+                                      ),
+                                      // Cripto, CFD, efectivo…: aparte, sin
+                                      // sumar al total (se oculta si no hay).
+                                      const EtoroExtrasCard(),
+                                    ],
                                   ),
                       insights:
                           (_) => Column(
