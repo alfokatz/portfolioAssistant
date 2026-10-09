@@ -502,6 +502,61 @@ void main() {
     expect(h.state.error, isNull);
   });
 
+  // Regresión: la pestaña de Porty queda montada en el shell, así que un
+  // chip tocado fuera del chat (Home, una posición, el informe) con la
+  // conversación ya abierta llega por `askFromOutside`, no por `bootstrap`.
+  group('questions from outside the chat', () {
+    List<String> userMessages(_Harness h) => [
+      for (final m in h.state.messages)
+        if (m.role == PortfolioQaRole.user) m.content,
+    ];
+
+    // El envío de afuera no se espera (sale en un microtask): se espera a
+    // que el turno arranque y cierre.
+    Future<void> untilTurnsDone(_Harness h, int turns) async {
+      for (var i = 0; i < 2000; i++) {
+        if (h.state.turnCounter >= turns && !h.state.isWaiting) return;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    test('with the chat already open, the question is sent', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+      await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await untilTurnsDone(h, 2);
+
+      expect(userMessages(h), ['¿Cómo está mi cartera?', '¿Cómo viene AAPL?']);
+      expect(h.api.requests, hasLength(2));
+      expect(h.state.isWaiting, isFalse);
+    });
+
+    test('during a running turn, it goes out right after it ends', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside('¿Cómo viene NVDA?');
+      await running;
+      await untilTurnsDone(h, 2);
+
+      expect(userMessages(h), ['¿Cómo está mi cartera?', '¿Cómo viene NVDA?']);
+      expect(h.api.requests, hasLength(2));
+    });
+
+    test('before the chat is ready, bootstrap sends it once', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await h.notifier.bootstrap();
+
+      expect(userMessages(h), ['¿Cómo viene AAPL?']);
+      expect(h.api.requests, hasLength(1));
+    });
+  });
+
   group('turn activity (Porty header status)', () {
     List<String> record(_Harness h) {
       final seen = <String>[];
