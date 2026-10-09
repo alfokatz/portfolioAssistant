@@ -75,25 +75,6 @@ final _budgetSplitItemSchema = S.object(
   required: ['ticker', 'amount', 'pct'],
 );
 
-final _milestoneItemSchema = S.object(
-  properties: {
-    'label': S.string(),
-    'amount': S.number(),
-    'dateLabel': S.string(description: 'Fecha legible, ej. "1 ene 2030".'),
-  },
-  required: ['label', 'amount', 'dateLabel'],
-);
-
-final _projectionChartPointSchema = S.object(
-  properties: {
-    'label': S.string(
-      description: 'Etiqueta del punto en el eje X, ej. "Ene 2027".',
-    ),
-    'value': S.number(description: 'Monto proyectado en ese punto.'),
-  },
-  required: ['label', 'value'],
-);
-
 final CatalogItem qaAnswerTextItem = CatalogItem(
   name: 'QaAnswerText',
   dataSchema: S.object(
@@ -1255,168 +1236,30 @@ final CatalogItem qaActionProposalItem = CatalogItem(
   ],
 );
 
-final CatalogItem qaGoalCardItem = CatalogItem(
-  name: 'QaGoalCard',
-  dataSchema: S.object(
-    description: 'Tarjeta de meta financiera con monto objetivo y fecha.',
-    properties: {
-      'label': S.string(
-        description: 'Nombre de la meta (desde active_goal.label).',
-      ),
-      'targetAmount': S.number(
-        description: 'Monto objetivo en USD (desde active_goal.target_amount).',
-      ),
-      'targetDateLabel': S.string(
-        description: 'Fecha objetivo legible (desde active_goal.target_date).',
-      ),
-      'currentAmount': S.number(
-        description:
-            'Monto actual en USD (opcional, desde current_portfolio_value).',
-      ),
-      'monthsRemaining': S.number(description: 'projection.months_remaining'),
-    },
-    required: ['label', 'targetAmount', 'targetDateLabel'],
-  ),
-  widgetBuilder:
-      (ctx) => guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoalCard),
-  exampleData: [
-    () => '''
-[
-  {
-    "id": "goal",
-    "component": "QaGoalCard",
-    "label": "Casa",
-    "targetAmount": 50000,
-    "targetDateLabel": "1 ene 2030",
-    "currentAmount": 12000,
-    "monthsRemaining": 39
-  }
-]
-''',
-  ],
-);
-
-final CatalogItem qaProjectionStripItem = CatalogItem(
-  name: 'QaProjectionStrip',
+final CatalogItem qaSavingsPlanItem = CatalogItem(
+  name: 'QaSavingsPlan',
   dataSchema: S.object(
     description:
-        'Fila de 2-3 métricas de proyección (desde get_goal_projection.projection).',
+        'El plan de ahorro de una meta o jubilación (ahorro mensual por '
+        'escenario, curva con intereses, cartera sugerida, retiro). Solo '
+        'planId; la app pone todos los datos.',
     properties: {
-      'requiredMonthlySavings': S.number(
-        description:
-            'Ahorro mensual requerido (projection.required_monthly_savings).',
-      ),
-      'monthlyContributionUsed': S.number(
-        description:
-            'Aporte mensual usado (projection.monthly_contribution_used).',
-      ),
-      'monthsRemaining': S.number(
-        description: 'Meses restantes (projection.months_remaining).',
-      ),
-      'projectedAmountAtDate': S.number(
-        description:
-            'Monto proyectado a la fecha (projection.projected_amount_at_date).',
-      ),
-      'onTrack': S.boolean(
-        description:
-            'Si el aporte actual alcanza la meta (projection.on_track).',
+      'planId': S.string(
+        description: 'plan_id del resultado de get_goal_projection.',
       ),
     },
-    required: ['monthsRemaining'],
-  ),
-  widgetBuilder:
-      (ctx) => guardedCatalogWidget(
-        ctx,
-        PortfolioQaCatalogWidgets.qaProjectionStrip,
-      ),
-  exampleData: [
-    () => '''
-[
-  {
-    "id": "projection",
-    "component": "QaProjectionStrip",
-    "requiredMonthlySavings": 883.72,
-    "monthlyContributionUsed": 200,
-    "monthsRemaining": 43,
-    "projectedAmountAtDate": 20600,
-    "onTrack": false
-  }
-]
-''',
-  ],
-);
-
-final CatalogItem qaProjectionChartItem = CatalogItem(
-  name: 'QaProjectionChart',
-  dataSchema: S.object(
-    description:
-        'Chart de líneas de una proyección en el tiempo (ej. evolución '
-        'proyectada de una meta financiera). Requiere al menos 2 puntos.',
-    properties: {
-      'label': S.string(description: 'Título corto del chart.'),
-      'points': S.list(
-        items: _projectionChartPointSchema,
-        minItems: 2,
-        maxItems: 12,
-      ),
-      'targetAmount': S.number(description: 'active_goal.target_amount'),
-    },
-    required: ['label', 'points'],
-  ),
-  widgetBuilder:
-      (ctx) => guardedCatalogWidget(
-        ctx,
-        PortfolioQaCatalogWidgets.qaProjectionChart,
-      ),
-  exampleData: [
-    () => '''
-[
-  {
-    "id": "projection_chart",
-    "component": "QaProjectionChart",
-    "label": "Proyección de tu meta",
-    "points": [
-      {"label": "Hoy", "value": 5000},
-      {"label": "Año 1", "value": 9800},
-      {"label": "Año 2", "value": 14900},
-      {"label": "Año 3", "value": 20600}
-    ],
-    "targetAmount": 25000
-  }
-]
-''',
-  ],
-);
-
-final CatalogItem qaMilestoneListItem = CatalogItem(
-  name: 'QaMilestoneList',
-  dataSchema: S.object(
-    description:
-        'Lista compacta de hitos de la meta (desde get_goal_projection.milestones).',
-    properties: {
-      'title': S.string(),
-      'items': S.list(items: _milestoneItemSchema, minItems: 1, maxItems: 4),
-      'currentAmount': S.number(description: 'current_portfolio_value'),
-    },
-    required: ['items'],
+    required: ['planId'],
   ),
   widgetBuilder:
       (ctx) =>
-          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaMilestoneList),
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaSavingsPlan),
   exampleData: [
     () => '''
 [
   {
-    "id": "milestones",
-    "component": "QaMilestoneList",
-    "title": "Hitos de la meta",
-    "currentAmount": 14000,
-    "items": [
-      {"label": "25%", "amount": 12500, "dateLabel": "10 jun 2027"},
-      {"label": "50%", "amount": 25000, "dateLabel": "10 jun 2028"},
-      {"label": "75%", "amount": 37500, "dateLabel": "10 jun 2029"},
-      {"label": "100%", "amount": 50000, "dateLabel": "1 ene 2030"}
-    ]
+    "id": "plan",
+    "component": "QaSavingsPlan",
+    "planId": "plan-1a2b3c4d"
   }
 ]
 ''',

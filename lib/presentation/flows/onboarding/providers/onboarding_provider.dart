@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
-enum OnboardingExit { home, addPosition, assistant }
+enum OnboardingExit { home, addPosition, connectEtoro, assistant }
 
 class OnboardingNotifier {
   OnboardingNotifier(this._ref);

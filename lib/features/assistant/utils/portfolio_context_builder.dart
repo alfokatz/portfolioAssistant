@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_period_utils.dart';
@@ -72,6 +73,10 @@ abstract final class PortfolioContextBuilder {
           'pnl_abs': v.pnlAbsolute,
           'pnl_pct': v.pnlPercent,
           'weight_pct': double.parse(weightPct.toStringAsFixed(2)),
+          // Solo si no es manual: viene de eToro (o mezcla compras de los
+          // dos orígenes). Porty no puede venderla ni editarla.
+          if (v.position.source != PositionSource.manual)
+            'source': v.position.source.name,
         });
       }
     }
@@ -116,6 +121,10 @@ abstract final class PortfolioContextBuilder {
           'pnl_pct': _round2(p.pnlPercent),
           'close_date': p.closeDate.toUtc().toIso8601String(),
           'closed_at': p.closedAt.toUtc().toIso8601String(),
+          if (p.source != PositionSource.manual) 'source': p.source.name,
+          // pnl_abs es la ganancia neta del bróker (con comisiones), no
+          // (close − compra) × cantidad.
+          if (p.hasBrokerPnl) 'pnl_includes_fees': true,
         },
     ];
   }

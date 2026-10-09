@@ -18,7 +18,36 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+
 import '../helpers/genui_test_helpers.dart';
+
+/// Tool calls detrás de las cards que leen sus datos de la evidencia del
+/// turno (el ejemplo del catálogo solo trae el id).
+final _evidence = <String, List<ToolCallRecord>>{
+  'QaSavingsPlan': [
+    ToolCallRecord(
+      name: GetGoalProjectionTool.toolName,
+      args: const {},
+      result: {
+        'status': 'ok',
+        ...GoalProjectionBuilder.build(
+          currentPortfolioValue: 12000,
+          targetAmount: 500000,
+          targetDate: DateTime(2046, 10, 9),
+          label: 'Jubilación',
+          monthlyContribution: 800,
+          asOf: DateTime(2026, 10, 9),
+        ),
+        GoalProjectionBuilder.planIdKey: 'plan-1a2b3c4d',
+      },
+    ),
+  ],
+};
 
 final _out = Platform.environment['SCREENSHOTS_OUT'] ?? 'build/screenshots';
 final _enabled = Platform.environment['RUN_SCREENSHOTS'] == '1';
@@ -85,27 +114,35 @@ void main() {
                 theme: theme,
                 home: Scaffold(
                   body: SingleChildScrollView(
-                    child: RepaintBoundary(
-                      key: boundary,
-                      child: ColoredBox(
-                        color: theme.extension<CustomColors>()!.background,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final component in targets)
-                                Builder(
-                                  builder:
-                                      (context) => item.widgetBuilder(
-                                        catalogContextFor(
-                                          buildContext: context,
-                                          component: component,
-                                          catalog: catalog,
+                    child: QaEvidenceScope(
+                      lookup:
+                          (_) => ValueNotifier(
+                            TurnEvidence(
+                              calls: _evidence[item.name] ?? const [],
+                            ),
+                          ),
+                      child: RepaintBoundary(
+                        key: boundary,
+                        child: ColoredBox(
+                          color: theme.extension<CustomColors>()!.background,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final component in targets)
+                                  Builder(
+                                    builder:
+                                        (context) => item.widgetBuilder(
+                                          catalogContextFor(
+                                            buildContext: context,
+                                            component: component,
+                                            catalog: catalog,
+                                          ),
                                         ),
-                                      ),
-                                ),
-                            ],
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

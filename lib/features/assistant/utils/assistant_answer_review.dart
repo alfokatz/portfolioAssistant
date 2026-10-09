@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
@@ -360,14 +361,9 @@ abstract final class AssistantAnswerReview {
       'QaInvestConfirm' =>
         'Este es el resumen de la simulación; no se hace ninguna operación '
             'real.',
-      'QaGoalCard' =>
-        'Esta es tu meta: cuánto querés juntar, para cuándo y cuánto llevás.',
-      'QaProjectionStrip' =>
-        'Esto proyecta tu meta con el ahorro mensual que venís haciendo.',
-      'QaProjectionChart' =>
-        'Este gráfico muestra cómo crecería tu ahorro hasta la fecha de la '
-            'meta.',
-      'QaMilestoneList' => 'Estos son los hitos en el camino a tu meta.',
+      'QaSavingsPlan' =>
+        'Este es tu plan: cuánto ahorrar por mes, cómo crecería con los '
+            'intereses y en qué invertir según tu perfil.',
       'QaActionProposal' =>
         'Revisá los datos y confirmá para guardarlo en tu cartera.',
       _ => null,
@@ -409,6 +405,10 @@ abstract final class AssistantAnswerReview {
           final v = d.metric(m.key);
           if (v != null) out.add(v);
         }
+      } else if (c['component'] == 'QaSavingsPlan') {
+        // Los números del plan los calcula la app (el JSON solo trae el id).
+        final d = SavingsPlanCardData.from(evidence.calls, '${c['planId']}');
+        if (d != null) out.addAll(d.backingNumbers);
       } else if (c['component'] == 'QaEtfHoldings') {
         // Como el análisis: los pesos los pone la app, no están en el JSON.
         final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');

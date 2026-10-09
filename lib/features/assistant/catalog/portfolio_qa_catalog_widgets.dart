@@ -14,6 +14,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/company_w
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/fund_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/market_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/portfolio_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
 
 /// Punto de entrada único que usan los `CatalogItem`. La implementación vive
 /// por dominio en `widgets/market_widgets.dart`, `portfolio_widgets.dart`,
@@ -137,17 +138,8 @@ abstract final class PortfolioQaCatalogWidgets {
   static Widget qaActionProposal(CatalogItemContext ctx) =>
       ActionWidgets.qaActionProposal(ctx);
 
-  static Widget qaGoalCard(CatalogItemContext ctx) =>
-      AdviceWidgets.qaGoalCard(ctx);
-
-  static Widget qaProjectionStrip(CatalogItemContext ctx) =>
-      AdviceWidgets.qaProjectionStrip(ctx);
-
-  static Widget qaProjectionChart(CatalogItemContext ctx) =>
-      AdviceWidgets.qaProjectionChart(ctx);
-
-  static Widget qaMilestoneList(CatalogItemContext ctx) =>
-      AdviceWidgets.qaMilestoneList(ctx);
+  static Widget qaSavingsPlan(CatalogItemContext ctx) =>
+      SavingsPlanWidgets.qaSavingsPlan(ctx);
 }
 
 final class _AnswerTextData {

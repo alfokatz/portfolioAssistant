@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/closed_position_detail_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_ticker_header.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
@@ -234,6 +235,23 @@ class _ResultCard extends StatelessWidget {
               fontFeatures: tabular,
             ),
           ),
+          // Venta importada: el resultado es el neto que informó eToro
+          // (comisiones y dividendos incluidos), no precio × cantidad.
+          if (s?.hasBrokerPnl ?? false) ...[
+            const SizedBox(height: AppDimens.sp8),
+            Row(
+              children: [
+                const EtoroSourceBadge(),
+                const SizedBox(width: AppDimens.sp8),
+                Expanded(
+                  child: Text(
+                    'closed_position_broker_pnl_note'.tr(),
+                    style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: AppDimens.sp20),
           Row(
             children: [

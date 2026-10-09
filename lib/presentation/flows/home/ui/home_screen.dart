@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
+import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_extras_card.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -22,6 +26,7 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_through_switcher.dart';
 
@@ -49,12 +54,30 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     child: child,
   );
 
+  /// Pull-to-refresh en curso: la recarga de la Home la hace él (y no el
+  /// listener de eToro), así el indicador espera a los datos nuevos.
+  bool _pullRefreshing = false;
+
   @override
   void initState() {
     runAfterPostFrameCallback(() {
       ref.read(homeProvider.notifier).init();
     });
     super.initState();
+  }
+
+  /// Pull-to-refresh: primero eToro (si está conectada; el servidor limita
+  /// a una sincronización cada 5 min), después la Home con lo que haya.
+  Future<void> _onPullToRefresh() async {
+    _pullRefreshing = true;
+    try {
+      await ref
+          .read(etoroConnectionProvider.notifier)
+          .sync(userInitiated: true);
+      await ref.read(homeProvider.notifier).refresh();
+    } finally {
+      _pullRefreshing = false;
+    }
   }
 
   @override
@@ -64,6 +87,17 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     final notifier = ref.read(homeProvider.notifier);
     final subscription = ref.watch(subscriptionProvider);
     final summary = state.summary;
+    final etoro = ref.watch(etoroConnectionProvider);
+    // Lo importado cambió (sincronización, conexión, desconexión): recargar
+    // en el lugar, sin skeleton.
+    ref.listen<int>(etoroConnectionProvider.select((s) => s.importRevision), (
+      previous,
+      next,
+    ) {
+      if (previous != null && previous != next && !_pullRefreshing) {
+        notifier.refresh(silent: true);
+      }
+    });
     final isBenchmarkAllowed = SubscriptionPolicy.isBenchmarkAllowed(
       subscription.tier,
     );
@@ -96,7 +130,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     final content = RefreshIndicator(
       color: colors.accentBlue,
       backgroundColor: colors.surfaceCard,
-      onRefresh: notifier.refresh,
+      onRefresh: _onPullToRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -105,6 +139,8 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 //const HomeAppBar(),
+                if (etoro.connection.needsReconnect)
+                  const EtoroReconnectBanner(),
                 if (state.quoteError != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
@@ -157,21 +193,44 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     2,
                     _HomeSections(
                       assets:
-                          (_) => PositionsSection(
-                            valuations: displayValuations,
-                            totalCount: valuations.length,
-                            expanded: state.showAllPositions,
-                            onToggleExpanded:
-                                hasMorePositions
-                                    ? notifier.togglePositionsExpanded
-                                    : null,
-                            onPositionTap: notifier.openPositionDetail,
-                            onDeletePosition:
-                                (valuation) =>
-                                    notifier.deletePositionsForTicker(
-                                      valuation.position.ticker,
-                                    ),
-                          ),
+                          (_) =>
+                              // Primera importación de eToro en curso: las
+                              // filas en skeleton, no "no tenés posiciones".
+                              valuations.isEmpty &&
+                                      (etoro.isSyncing ||
+                                          etoro.activity ==
+                                              EtoroActivity.connecting)
+                                  ? const SkeletonScope(
+                                    child: PositionsSection.skeleton(rows: 3),
+                                  )
+                                  : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      PositionsSection(
+                                        showConnectEtoro:
+                                            etoro.loaded &&
+                                            etoro.connection.status ==
+                                                EtoroConnectionStatus.notConnected,
+                                        valuations: displayValuations,
+                                        totalCount: valuations.length,
+                                        expanded: state.showAllPositions,
+                                        onToggleExpanded:
+                                            hasMorePositions
+                                                ? notifier.togglePositionsExpanded
+                                                : null,
+                                        onPositionTap: notifier.openPositionDetail,
+                                        onDeletePosition:
+                                            (valuation) =>
+                                                notifier.deletePositionsForTicker(
+                                                  valuation.position.ticker,
+                                                ),
+                                      ),
+                                      // Cripto, CFD, efectivo…: aparte, sin
+                                      // sumar al total (se oculta si no hay).
+                                      const EtoroExtrasCard(),
+                                    ],
+                                  ),
                       insights:
                           (_) => Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,

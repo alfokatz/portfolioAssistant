@@ -37,10 +37,7 @@ abstract final class AssistantCatalog {
     'QaBudgetSplit',
     'QaInvestOption',
     'QaInvestConfirm',
-    'QaGoalCard',
-    'QaProjectionStrip',
-    'QaProjectionChart',
-    'QaMilestoneList',
+    'QaSavingsPlan',
     'QaActionProposal',
   };
 
@@ -71,10 +68,7 @@ abstract final class AssistantCatalog {
     qaBudgetSplitItem,
     qaInvestOptionItem,
     qaInvestConfirmItem,
-    qaGoalCardItem,
-    qaProjectionStripItem,
-    qaProjectionChartItem,
-    qaMilestoneListItem,
+    qaSavingsPlanItem,
     qaActionProposalItem,
   ];
 

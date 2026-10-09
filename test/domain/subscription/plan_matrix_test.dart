@@ -30,6 +30,7 @@ const _expected = <PlanFeature, Set<SubscriptionTier>>{
   PlanFeature.news: {_gold},
   PlanFeature.earnings: {_gold},
   PlanFeature.fundamentals: {_gold},
+  PlanFeature.brokerSync: {_premium, _gold},
 };
 
 void main() {

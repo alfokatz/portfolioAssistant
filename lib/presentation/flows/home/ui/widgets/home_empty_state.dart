@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -66,6 +67,9 @@ class HomeEmptyState extends StatelessWidget {
               ),
             ),
           ),
+          // Alternativa a cargar a mano: traer la cartera de eToro.
+          const SizedBox(height: AppDimens.sp12),
+          const EtoroConnectButton(),
         ],
       ),
     );
