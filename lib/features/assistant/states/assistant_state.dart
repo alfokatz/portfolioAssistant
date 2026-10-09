@@ -8,6 +8,17 @@ class AssistantArgs {
   final String? initialQuestion;
 }
 
+/// Una pregunta para Porty que llega desde fuera del chat (chips de Home,
+/// detalle de una posición, informe semanal). Es un objeto nuevo en cada
+/// toque a propósito, sin `==` por valor: la pestaña de Porty queda montada
+/// en el shell, así que la pantalla se entera por `didUpdateWidget` y tiene
+/// que distinguir un toque nuevo aunque repita la misma pregunta.
+class AssistantQuestionRequest {
+  AssistantQuestionRequest(this.question);
+
+  final String question;
+}
+
 /// Estado del asistente: un único hilo de conversación con Porty.
 class AssistantState {
   final List<PortfolioQaMessage> messages;

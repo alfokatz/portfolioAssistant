@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
@@ -334,6 +335,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               children: [
                 SettingsNavRow(
                   icon: Icons.link_rounded,
+                  leading: const ExcludeSemantics(child: EtoroAppIcon()),
                   label: 'etoro_title'.tr(),
                   subtitle: _etoroLabel(etoro),
                   onTap:

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -77,10 +78,9 @@ class EtoroReconnectBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.sync_problem_rounded,
-                size: AppDimens.iconMd,
-                color: colors.textSecondary,
+              // Porty preocupado: lo importado sigue, pero no se actualiza.
+              const ExcludeSemantics(
+                child: PortyAvatar(size: 32, state: PortyAvatarState.concerned),
               ),
               const SizedBox(width: AppDimens.sp12),
               Expanded(

@@ -68,6 +68,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   String? _initialQuestion;
 
+  /// Pregunta llegada de afuera mientras corría un turno: sale apenas
+  /// termina (ver [askFromOutside]).
+  String? _queuedQuestion;
+
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
   bool _profileNudgeShown = false;
@@ -143,8 +147,25 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {}
 
     final question = _initialQuestion?.trim();
+    _initialQuestion = null;
     if (question != null && question.isNotEmpty) {
       await submitMessage(question);
+    }
+  }
+
+  /// Pregunta tocada fuera del chat (chips de Home, de una posición, del
+  /// informe) con la pantalla de Porty ya montada. Si la conversación
+  /// todavía se está preparando, la toma `bootstrap`; si hay un turno en
+  /// curso, sale cuando termina (la última tocada gana).
+  void askFromOutside(String question) {
+    final trimmed = question.trim();
+    if (trimmed.isEmpty) return;
+    if (!state.isServiceReady) {
+      _initialQuestion = trimmed;
+    } else if (state.isWaiting) {
+      _queuedQuestion = trimmed;
+    } else {
+      unawaited(submitMessage(trimmed));
     }
   }
 
@@ -345,6 +366,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _sendGuard.release();
       _setActivity(TurnActivity.idle);
       state = state.copyWith(isWaiting: false);
+      final queued = _queuedQuestion;
+      _queuedQuestion = null;
+      if (queued != null && mounted) {
+        unawaited(Future.microtask(() => submitMessage(queued)));
+      }
     }
   }
 

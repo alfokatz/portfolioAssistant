@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
@@ -179,24 +180,13 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                   if (_isLastPage) ...[
                     const SizedBox(height: AppDimens.sp8),
                     // Alternativa a cargar a mano: traer la cartera de eToro.
-                    TextButton(
+                    _ImportEtoroButton(
                       onPressed:
                           _isFinishing
                               ? null
                               : () => _finish(OnboardingExit.connectEtoro),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size.fromHeight(
-                          AppDimens.touchTarget,
-                        ),
-                      ),
-                      child: Text(
-                        'onboarding_finish_connect_etoro'.tr(),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                     ),
+                    const SizedBox(height: AppDimens.sp4),
                     TextButton(
                       onPressed:
                           _isFinishing
@@ -214,6 +204,62 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Importar desde" + el logo de eToro: secundario (borde, sin relleno), al
+/// lado de cargar a mano. Para lectores de pantalla, el texto completo.
+class _ImportEtoroButton extends StatelessWidget {
+  const _ImportEtoroButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Semantics(
+      button: true,
+      label: 'onboarding_finish_connect_etoro'.tr(),
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: double.infinity,
+          minHeight: 52,
+        ),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colors.textPrimary,
+            backgroundColor: colors.surfaceCard,
+            side: BorderSide(color: colors.border),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.sp16,
+              vertical: AppDimens.sp12,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            ),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppDimens.sp8,
+            runSpacing: AppDimens.sp4,
+            children: [
+              Text(
+                'onboarding_finish_import_from'.tr(),
+                style: tt.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              AppImages.etoroLogo(height: 14),
+            ],
+          ),
         ),
       ),
     );

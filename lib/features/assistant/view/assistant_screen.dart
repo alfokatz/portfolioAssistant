@@ -46,9 +46,11 @@ import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.da
 final portyChatEntrancePlayedProvider = StateProvider<bool>((ref) => false);
 
 class AssistantScreen extends StatefulHookConsumerWidget {
-  const AssistantScreen({super.key, this.initialQuestion});
+  const AssistantScreen({super.key, this.question});
 
-  final String? initialQuestion;
+  /// Pregunta a enviar apenas se abre el chat (o, si la pestaña ya estaba
+  /// montada, cuando llega una nueva — ver [didUpdateWidget]).
+  final AssistantQuestionRequest? question;
 
   @override
   ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
@@ -151,7 +153,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void initState() {
-    _args = AssistantArgs(initialQuestion: widget.initialQuestion);
+    _args = AssistantArgs(initialQuestion: widget.question?.question);
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -186,6 +188,22 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     runAfterPostFrameCallback(
       () => ref.read(assistantProvider(_args).notifier).bootstrap(),
     );
+  }
+
+  // La pestaña de Porty queda montada en el shell: una pregunta tocada desde
+  // otra pantalla con el chat ya abierto llega acá, no a `initState`.
+  @override
+  void didUpdateWidget(AssistantScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final request = widget.question;
+    if (request == null || identical(request, oldWidget.question)) return;
+    // Fuera del build: enviar cambia el estado del provider en el acto.
+    runAfterPostFrameCallback(() {
+      if (!mounted) return;
+      ref
+          .read(assistantProvider(_args).notifier)
+          .askFromOutside(request.question);
+    });
   }
 
   @override

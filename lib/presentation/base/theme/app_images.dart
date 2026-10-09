@@ -10,6 +10,11 @@ class AppImages {
   static const String _warningIconPath = 'assets/images/warning.svg';
   static const String _errorIconPath = 'assets/images/error.svg';
   static const String _googleIconPath = 'assets/images/google_icon.svg';
+  static const String _etoroLogoPath = 'assets/images/etoro_logo.svg';
+  static const String _etoroMarkPath = 'assets/images/etoro_mark.svg';
+
+  /// Proporción del wordmark de eToro (ancho / alto).
+  static const double etoroLogoAspect = 107 / 20;
 
   static Image notPhoto({
     Key? key,
@@ -85,4 +90,31 @@ class AppImages {
     height: height,
     fit: fit,
   );
+
+  /// Wordmark de eToro, en su verde. Con [color], monocromo.
+  static SvgPicture etoroLogo({
+    Key? key,
+    double height = 16,
+    Color? color,
+    String? semanticsLabel,
+  }) => SvgPicture.asset(
+    _etoroLogoPath,
+    key: key,
+    height: height,
+    width: height * etoroLogoAspect,
+    colorFilter:
+        color == null ? null : ColorFilter.mode(color, BlendMode.srcIn),
+    semanticsLabel: semanticsLabel,
+    excludeFromSemantics: semanticsLabel == null,
+  );
+
+  /// El ícono de eToro ("‹e›" en verde), sin fondo. Proporción 40,5 × 20.
+  static SvgPicture etoroMark({Key? key, double width = 20}) =>
+      SvgPicture.asset(
+        _etoroMarkPath,
+        key: key,
+        width: width,
+        height: width * 20 / 40.5,
+        excludeFromSemantics: true,
+      );
 }
