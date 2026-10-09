@@ -1,6 +1,10 @@
 # Borrador: contacto con eToro
 
-**Para:** `apisupport@etoro.com`
+**Para:** ticket en https://www.etoro.com/customer-service/ (canal oficial según los términos,
+Parte I §7 "Contacting us"), con la misma cuenta de eToro que creó la app OAuth. Como complemento,
+un DM a @etorobuilders en X.
+`apisupport@etoro.com` **rebota** (2026-10-09): reenvía a un grupo interno (`cs-shiftleaders`) que
+solo acepta remitentes de eToro.
 **Firma:** Alfonso Katzenstein, Founder de Porty
 **Estado:** BORRADOR. No se envió. Lo revisa y lo manda Alfonso.
 
