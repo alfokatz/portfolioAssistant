@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { EtoroTokens } from "./etoro.ts";
-import type { InstrumentMeta, PortyClosedRow, PortyOpenRow } from "./mapping.ts";
+import type { InstrumentMeta, OtherHolding, PortyClosedRow, PortyOpenRow } from "./mapping.ts";
 
 export type ConnectionStatus = "connected" | "reconnect_required" | "disconnected";
 
@@ -33,6 +33,12 @@ export type SyncResult = {
   closedNotImported: { ticker: string; name: string | null; reason: string; count: number }[];
   possibleDuplicates: string[];
   syncedAt: string;
+  /// Efectivo disponible en eToro (USD). Null si eToro no lo informó.
+  cashUsd?: number | null;
+  /// Lo que no se importa como posición, con valor y P&L de eToro.
+  otherHoldings?: OtherHolding[];
+  /// Logo de eToro por ticker.
+  logos?: Record<string, string>;
 };
 
 export type ApplySync = {
@@ -210,7 +216,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
       if (ids.length === 0) return out;
       const { data, error } = await db
         .from("etoro_instruments")
-        .select("instrument_id, symbol_full, display_name, instrument_type, exchange, updated_at")
+        .select("instrument_id, symbol_full, display_name, instrument_type, exchange, logo_url, updated_at")
         .in("instrument_id", ids);
       fail("getInstruments", error);
       const maxAgeMs = 24 * 60 * 60 * 1000;
@@ -222,6 +228,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
           displayName: row.display_name,
           instrumentType: row.instrument_type,
           exchange: row.exchange,
+          logoUrl: row.logo_url,
         });
       }
       return out;
@@ -237,6 +244,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
           display_name: i.displayName ?? null,
           instrument_type: i.instrumentType ?? null,
           exchange: i.exchange ?? null,
+          logo_url: i.logoUrl ?? null,
           updated_at: now,
         })),
       );
@@ -263,6 +271,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
           quantity: r.quantity,
           purchase_price: r.purchasePrice,
           purchase_date: r.purchaseDate,
+          broker_price: r.brokerPrice,
         })),
         p_closed: d.closed.map((r) => ({
           id: r.id,

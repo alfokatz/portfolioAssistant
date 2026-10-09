@@ -31,6 +31,11 @@ class Position {
   /// Última vez que eToro confirmó esta posición. `null` en las manuales.
   final DateTime? syncedAt;
 
+  /// Precio que informó eToro en [syncedAt]. Solo es respaldo: se usa si
+  /// Porty no consigue cotización propia (antes se valuaba al precio de
+  /// compra y el P&L daba 0). `null` en las manuales.
+  final double? brokerPrice;
+
   const Position({
     required this.id,
     required this.ticker,
@@ -39,6 +44,7 @@ class Position {
     required this.purchaseDate,
     this.source = PositionSource.manual,
     this.syncedAt,
+    this.brokerPrice,
   });
 
   double get costBasis => quantity * purchasePrice;
@@ -54,6 +60,7 @@ class Position {
     DateTime? purchaseDate,
     PositionSource? source,
     DateTime? syncedAt,
+    double? brokerPrice,
   }) {
     return Position(
       id: id ?? this.id,
@@ -63,6 +70,7 @@ class Position {
       purchaseDate: purchaseDate ?? this.purchaseDate,
       source: source ?? this.source,
       syncedAt: syncedAt ?? this.syncedAt,
+      brokerPrice: brokerPrice ?? this.brokerPrice,
     );
   }
 }

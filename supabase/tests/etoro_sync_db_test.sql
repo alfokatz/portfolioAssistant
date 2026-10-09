@@ -1,4 +1,4 @@
--- Test de la migración 20261009000000_etoro_sync.sql.
+-- Test de las migraciones 20261009000000_etoro_sync.sql y 20261010000000_etoro_holdings.sql.
 --
 -- Corre contra una base con la migración aplicada (supabase start, o un
 -- Postgres con los stubs de auth/vault/roles). Cada chequeo que falla corta
@@ -9,6 +9,15 @@
 -- Todo corre dentro de una transacción que se deshace al final.
 
 begin;
+
+-- Base limpia dentro de la transacción: los conteos de abajo son globales y
+-- una base local reusada trae filas de otras corridas (tests de integración).
+delete from public.positions;
+delete from public.closed_positions;
+delete from public.etoro_tokens;
+delete from public.etoro_oauth_states;
+delete from public.etoro_connections;
+delete from vault.secrets;
 
 -- Dos usuarios.
 insert into auth.users (id, email) values
@@ -23,7 +32,7 @@ set local role service_role;
 
 select public.etoro_apply_sync(
   '00000000-0000-0000-0000-00000000000a',
-  '[{"id":"10000000-0000-0000-0000-000000000001","external_id":"111","ticker":"AAPL","quantity":1.5,"purchase_price":180,"purchase_date":"2025-03-10T14:31:00Z"},
+  '[{"id":"10000000-0000-0000-0000-000000000001","external_id":"111","ticker":"AAPL","quantity":1.5,"purchase_price":180,"purchase_date":"2025-03-10T14:31:00Z","broker_price":231.5},
     {"id":"10000000-0000-0000-0000-000000000002","external_id":"222","ticker":"VOO","quantity":0.25,"purchase_price":500,"purchase_date":"2026-01-05T15:00:00Z"}]',
   '[{"id":"20000000-0000-0000-0000-000000000001","external_id":"900","ticker":"UNH","quantity":2,"avg_purchase_price":300,"close_price":320,"close_date":"2026-06-24T15:00:00Z","realized_pnl":38.5}]',
   '{"imported":2}', 'USD', '2026-10-09'
@@ -33,6 +42,12 @@ do $$
 begin
   if (select count(*) from public.positions where source = 'etoro') <> 2 then
     raise exception 'apply_sync: esperaba 2 posiciones etoro';
+  end if;
+  if (select broker_price from public.positions where external_id = '111') is distinct from 231.5 then
+    raise exception 'apply_sync: broker_price no guardado';
+  end if;
+  if (select broker_price from public.positions where external_id = '222') is not null then
+    raise exception 'apply_sync: broker_price debía quedar null si no vino';
   end if;
   if (select realized_pnl from public.closed_positions where external_id = '900') <> 38.5 then
     raise exception 'apply_sync: realized_pnl no guardado';
@@ -46,7 +61,7 @@ end $$;
 -- la cerrada 900 vuelve a venir (no se duplica).
 select public.etoro_apply_sync(
   '00000000-0000-0000-0000-00000000000a',
-  '[{"id":"10000000-0000-0000-0000-000000000001","external_id":"111","ticker":"AAPL","quantity":1,"purchase_price":180,"purchase_date":"2025-03-10T14:31:00Z"}]',
+  '[{"id":"10000000-0000-0000-0000-000000000001","external_id":"111","ticker":"AAPL","quantity":1,"purchase_price":180,"purchase_date":"2025-03-10T14:31:00Z","broker_price":240}]',
   '[{"id":"20000000-0000-0000-0000-000000000001","external_id":"900","ticker":"UNH","quantity":2,"avg_purchase_price":300,"close_price":320,"close_date":"2026-06-24T15:00:00Z","realized_pnl":38.5}]',
   '{"imported":1}', null, null
 );
@@ -216,6 +231,9 @@ begin
   end if;
   if (select count(*) from public.positions where user_id = '00000000-0000-0000-0000-00000000000a') <> 1 then
     raise exception 'disconnect(keep): se perdió la posición';
+  end if;
+  if exists (select 1 from public.positions where user_id = '00000000-0000-0000-0000-00000000000a' and broker_price is not null) then
+    raise exception 'disconnect(keep): la manual conservó el precio de eToro';
   end if;
   if (select count(*) from public.closed_positions where source = 'manual' and realized_pnl = 38.5) <> 1 then
     raise exception 'disconnect(keep): la cerrada debía quedar como manual con su P&L';

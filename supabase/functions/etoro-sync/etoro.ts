@@ -223,11 +223,15 @@ export class EtoroClient {
 
   // ── Public API (solo GET) ────────────────────────────────────────────────
 
-  async portfolio(accessToken: string): Promise<{ positions: Record<string, unknown>[] }> {
+  async portfolio(
+    accessToken: string,
+  ): Promise<{ positions: Record<string, unknown>[]; creditUsd: number | null }> {
     const data = await this.get(accessToken, apiPaths[this.environment].pnl);
-    const cp = (data as { clientPortfolio?: { positions?: unknown } })?.clientPortfolio;
+    const cp = (data as { clientPortfolio?: { positions?: unknown; credit?: unknown } })?.clientPortfolio;
     if (!cp || !Array.isArray(cp.positions)) throw new EtoroError("bad_response", "pnl without positions");
-    return { positions: cp.positions as Record<string, unknown>[] };
+    // `credit`: saldo disponible para operar, en USD.
+    const credit = typeof cp.credit === "number" && Number.isFinite(cp.credit) ? cp.credit : null;
+    return { positions: cp.positions as Record<string, unknown>[], creditUsd: credit };
   }
 
   /// Operaciones cerradas desde [minDate] (YYYY-MM-DD), paginadas.

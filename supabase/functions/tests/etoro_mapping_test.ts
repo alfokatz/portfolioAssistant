@@ -8,7 +8,9 @@ import {
   classifyOpen,
   type InstrumentMeta,
   instrumentIds,
+  currentRate,
   mapPortfolio,
+  pickLogo,
   portyTicker,
   possibleDuplicates,
 } from "../etoro-sync/mapping.ts";
@@ -51,6 +53,7 @@ Deno.test("acción de EE.UU. sin apalancamiento como activo real → se importa 
       quantity: 10,
       purchasePrice: 180,
       purchaseDate: "2025-03-10T14:31:00.000Z",
+      brokerPrice: null,
     },
   });
 });
@@ -223,4 +226,92 @@ Deno.test("posibles duplicados: tickers cargados a mano que también vienen de e
 
 Deno.test("instrumentIds junta abiertas e historial sin repetir", () => {
   assertEquals(instrumentIds([position(), position({ instrumentID: 1002 })], [trade(), trade()]), [1001, 1002, 1004]);
+});
+
+// ── Precio de eToro, otros activos y logos ──────────────────────────────────
+
+function withPnl(over: Record<string, unknown>, u: Record<string, unknown>): Record<string, unknown> {
+  return position({ ...over, unrealizedPnL: { closeConversionRate: 1, ...u } });
+}
+
+Deno.test("la posición importada lleva el precio actual de eToro", () => {
+  const d = classifyOpen(withPnl({}, { closeRate: 231.5, pnlAssetCurrency: 515 }), meta.aapl);
+  assertEquals(d.kind, "import");
+  if (d.kind === "import") assertEquals(d.row.brokerPrice, 231.5);
+});
+
+Deno.test("sin unrealizedPnL o con precio inválido, no hay precio de eToro", () => {
+  assertEquals(currentRate(position()), null);
+  assertEquals(currentRate(withPnl({}, { closeRate: 0 })), null);
+  assertEquals(currentRate(withPnl({}, { closeRate: "abc" })), null);
+});
+
+Deno.test("otros activos: valor = invertido + P&L de eToro, agrupado por ticker y motivo", () => {
+  const instruments = new Map(Object.values(meta).map((m) => [m.instrumentId, m]));
+  const mapped = mapPortfolio(
+    [
+      withPnl({ positionID: 1 }, { closeRate: 200, pnlAssetCurrency: 200 }), // importada
+      withPnl({ positionID: 2, instrumentID: 100000, units: 0.01, amount: 950 }, { pnlAssetCurrency: 50 }),
+      withPnl({ positionID: 3, instrumentID: 100000, units: 0.02, amount: 1000 }, { pnlAssetCurrency: -100 }),
+      // Fuera de EE.UU.: P&L en libras convertido a USD.
+      withPnl({ positionID: 4, instrumentID: 2001, units: 100, amount: 608 }, {
+        pnlAssetCurrency: 10,
+        closeConversionRate: 1.25,
+      }),
+      // Copy trading: no se muestra (decisión 6).
+      withPnl({ positionID: 5, mirrorID: 7, amount: 500 }, { pnlAssetCurrency: 20 }),
+      // Sin P&L: no se inventa un valor.
+      position({ positionID: 6, instrumentID: 18, settlementTypeID: 0, amount: 300 }),
+    ],
+    [],
+    instruments,
+  );
+  assertEquals(mapped.open.length, 1);
+  assertEquals(mapped.otherHoldings, [
+    { ticker: "BTC", name: "Bitcoin", reason: "crypto", count: 2, units: 0.03, investedUsd: 1950, pnlUsd: -50, valueUsd: 1900 },
+    { ticker: "BP.L", name: "BP", reason: "non_us", count: 1, units: 100, investedUsd: 608, pnlUsd: 12.5, valueUsd: 620.5 },
+  ]);
+  // El motivo de "no importado" sigue incluyendo todo (también copy y sin P&L).
+  assertEquals(mapped.notImported.map((n) => n.reason).sort(), ["copy_trading", "crypto", "non_us", "unsupported_type"]);
+});
+
+Deno.test("si falta la conversión se usa el P&L en la moneda de la cuenta", () => {
+  const instruments = new Map([[meta.btc.instrumentId, meta.btc]]);
+  const mapped = mapPortfolio(
+    [position({ instrumentID: 100000, amount: 100, unrealizedPnL: { pnL: 7 } })],
+    [],
+    instruments,
+  );
+  assertEquals(mapped.otherHoldings[0].valueUsd, 107);
+});
+
+Deno.test("logos: por ticker, de todo lo abierto (importado o no)", () => {
+  const withLogo = new Map<number, InstrumentMeta>([
+    [1001, { ...meta.aapl, logoUrl: "https://etoro-cdn.etorostatic.com/market-avatars/aapl/150x150.png" }],
+    [100000, { ...meta.btc, logoUrl: "https://etoro-cdn.etorostatic.com/market-avatars/btc/150x150.png" }],
+    [1002, meta.voo],
+  ]);
+  const mapped = mapPortfolio(
+    [position({ positionID: 1 }), position({ positionID: 2, instrumentID: 100000 }), position({ positionID: 3, instrumentID: 1002 })],
+    [],
+    withLogo,
+  );
+  assertEquals(mapped.logos, {
+    AAPL: "https://etoro-cdn.etorostatic.com/market-avatars/aapl/150x150.png",
+    BTC: "https://etoro-cdn.etorostatic.com/market-avatars/btc/150x150.png",
+  });
+});
+
+Deno.test("pickLogo elige el cuadrado más cercano a 150 px y solo HTTPS", () => {
+  assertEquals(
+    pickLogo([
+      { width: 35, height: 35, uri: "https://x/35.png" },
+      { width: 150, height: 150, uri: "https://x/150.png" },
+      { width: 90, height: 90, uri: "https://x/90.png" },
+    ]),
+    "https://x/150.png",
+  );
+  assertEquals(pickLogo([{ width: 150, height: 150, uri: "http://x/insecure.png" }]), null);
+  assertEquals(pickLogo(undefined), null);
+  assertEquals(pickLogo([{ uri: "https://x/sin-tamano.svg" }]), "https://x/sin-tamano.svg");
 });
