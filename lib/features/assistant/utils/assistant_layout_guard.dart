@@ -7,15 +7,13 @@ import 'dart:convert';
 /// - Hasta [maxInvestOptions] QaInvestOption: pedir ideas nombra varios
 ///   candidatos en el texto, y cada uno necesita su card (antes se veía
 ///   solo el primero, aunque el texto hablara de tres).
-/// - QaGoalCard + un QaProjectionStrip: la meta sin el ahorro mensual
-///   necesario deja la respuesta a medias.
 /// - Hasta [maxActionProposals] QaActionProposal: "compré AAPL y vendí
 ///   TSLA" es una card por operación, cada una con su Confirmar.
 ///
 /// Está en el prompt, pero gpt-4.1-mini a veces igual suma un gráfico por
-/// ticker a una comparación, o tres widgets de proyección juntos (medido en
-/// evals: ~1 de cada 3). Es una regla de producto (así está diseñada la
-/// pantalla), así que se garantiza acá en vez de depender del modelo.
+/// ticker a una comparación (medido en evals: ~1 de cada 3). Es una regla
+/// de producto (así está diseñada la pantalla), así que se garantiza acá en
+/// vez de depender del modelo.
 abstract final class AssistantLayoutGuard {
   static const _nonData = {'QaAnswerText', 'QaTipBanner', 'Text'};
   static const _priceWidgets = {
@@ -91,10 +89,6 @@ abstract final class AssistantLayoutGuard {
       } else if (type == 'QaActionProposal' &&
           primary == 'QaActionProposal' &&
           count('QaActionProposal') < maxActionProposals) {
-        kept.add(id);
-      } else if (type == 'QaProjectionStrip' &&
-          primary == 'QaGoalCard' &&
-          count('QaProjectionStrip') == 0) {
         kept.add(id);
       } else {
         dropped.add(id);

@@ -81,33 +81,38 @@ abstract final class AssistantTurnPolicy {
   }
 
   /// Disclaimer cuando hubo una sugerencia (simulación de inversión, o una
-  /// meta completa con proyección); aviso de perfil una vez por
-  /// conversación, solo junto a una simulación de inversión.
+  /// meta completa con su plan); aviso de perfil una vez por conversación,
+  /// junto a una simulación o a un plan (ambos se arman con el perfil).
   static AdviceNotice noticesFor(
     TurnOutcome outcome, {
     required bool profileNudgeAlreadyShown,
   }) {
-    ToolCallRecord? invest;
+    ToolCallRecord? advice;
     var completeGoal = false;
+    var invest = false;
     for (final call in outcome.toolCalls) {
       if (call.status != 'ok') continue;
-      if (call.name == GetInvestCandidatesTool.toolName) invest = call;
+      if (call.name == GetInvestCandidatesTool.toolName) {
+        invest = true;
+        advice = call;
+      }
       if (call.name == GetGoalProjectionTool.toolName &&
           call.result['has_complete_goal'] == true) {
         completeGoal = true;
+        advice ??= call;
       }
     }
 
     InvestorProfileNudge? nudge;
-    if (invest != null && !profileNudgeAlreadyShown) {
-      nudge = switch (GetInvestCandidatesTool.profileStatusOf(invest.result)) {
+    if (advice != null && !profileNudgeAlreadyShown) {
+      nudge = switch (GetInvestCandidatesTool.profileStatusOf(advice.result)) {
         InvestorProfileContext.statusMissing => InvestorProfileNudge.missing,
         InvestorProfileContext.statusStale => InvestorProfileNudge.stale,
         _ => null,
       };
     }
     return AdviceNotice(
-      showsDisclaimer: invest != null || completeGoal,
+      showsDisclaimer: invest || completeGoal,
       profileNudge: nudge,
     );
   }

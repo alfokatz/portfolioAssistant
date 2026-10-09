@@ -716,6 +716,38 @@ final _cases = <_Case>[
       ),
     ],
   ),
+  _Case(
+    'retirement-20y',
+    ['Quiero retirarme en 20 años con 500 mil dólares'],
+    (t, _) => [
+      ..._expect(
+        t.called(
+          'get_goal_projection',
+          (a) =>
+              a['target_amount'] == 500000 &&
+              a['is_retirement'] == true &&
+              a['risk'] == null &&
+              '${a['target_date']}'.startsWith('2046'),
+        ),
+        'argumentos del retiro (sin inventar el riesgo)',
+      ),
+    ],
+  ),
+  _Case(
+    'retirement-income',
+    ['Quiero jubilarme en 25 años cobrando 3000 dólares por mes'],
+    (t, _) => [
+      ..._expect(
+        t.called(
+          'get_goal_projection',
+          (a) =>
+              a['desired_monthly_income'] == 3000 &&
+              a['target_amount'] == null,
+        ),
+        'el ingreso deseado define la meta',
+      ),
+    ],
+  ),
   // ---------------------------------------------------- acciones (F6)
   _Case(
     'action-buy-complete',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -36,10 +37,7 @@ abstract final class AssistantGroundingCheck {
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},
     'QaInvestConfirm': {'get_invest_candidates'},
-    'QaGoalCard': {'get_goal_projection'},
-    'QaProjectionStrip': {'get_goal_projection'},
-    'QaProjectionChart': {'get_goal_projection'},
-    'QaMilestoneList': {'get_goal_projection'},
+    'QaSavingsPlan': {'get_goal_projection'},
     'QaActionProposal': ActionTools.names,
   };
 
@@ -64,11 +62,17 @@ abstract final class AssistantGroundingCheck {
       );
       final ticker = component['ticker'];
       final proposalId = component['proposalId'];
+      final planId = component['planId'];
       final missing =
           type == 'QaActionProposal'
               // La propuesta exacta: un id inventado no muestra nada.
               ? !backing.any(
                 (c) => c.result[ActionProposal.toolResultIdKey] == proposalId,
+              )
+              : type == 'QaSavingsPlan'
+              // Ídem el plan: sin el plan_id real la card queda vacía.
+              ? !backing.any(
+                (c) => c.result[GoalProjectionBuilder.planIdKey] == planId,
               )
               : _perTicker.contains(type) && ticker is String
               ? !backing.any(
