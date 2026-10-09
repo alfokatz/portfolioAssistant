@@ -73,3 +73,7 @@ app.*.map.json
 
 #IDE rules
 .antigravityrules
+
+# Secrets de edge functions (nunca al repo)
+supabase/functions/.env*
+!supabase/functions/.env.example
