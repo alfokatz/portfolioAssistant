@@ -43,6 +43,7 @@ dependencies:
   flutter_hooks: ^0.21.2
   flutter_secure_storage: ^9.2.4
   flutter_svg: ^2.0.10
+  flutter_web_auth_2: ^5.1.0
   freezed: ^3.0.0-0.0.dev
   freezed_annotation: ^3.0.0
   genui: ^0.10.4

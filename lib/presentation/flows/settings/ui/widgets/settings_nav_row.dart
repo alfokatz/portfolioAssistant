@@ -11,6 +11,7 @@ class SettingsNavRow extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
+    this.leading,
     this.value,
     this.subtitle,
     this.onTap,
@@ -19,6 +20,9 @@ class SettingsNavRow extends StatelessWidget {
 
   final IconData icon;
   final String label;
+
+  /// En lugar del ícono en círculo, p. ej. el logo de una cuenta conectada.
+  final Widget? leading;
   final String? value;
   final String? subtitle;
   final VoidCallback? onTap;
@@ -39,7 +43,7 @@ class SettingsNavRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _SettingsIconBox(icon: icon),
+              leading ?? _SettingsIconBox(icon: icon),
               const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Column(

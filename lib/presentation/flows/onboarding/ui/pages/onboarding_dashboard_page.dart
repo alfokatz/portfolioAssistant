@@ -55,8 +55,19 @@ class OnboardingDashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppDimens.sp20),
+            // La alternativa a cargar a mano: traer la cartera entera.
             enter(
               3,
+              OnboardingFeatureRow(
+                icon: Icons.sync_alt_rounded,
+                title: 'onboarding_dashboard_feature_etoro_title'.tr(),
+                subtitle: 'onboarding_dashboard_feature_etoro_subtitle'.tr(),
+                tag: 'onboarding_tag_premium'.tr(),
+              ),
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            enter(
+              4,
               OnboardingFeatureRow(
                 icon: Icons.sell_outlined,
                 title: 'onboarding_dashboard_feature_close_title'.tr(),
@@ -65,7 +76,7 @@ class OnboardingDashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: AppDimens.sp20),
             enter(
-              4,
+              5,
               OnboardingFeatureRow(
                 icon: Icons.touch_app_outlined,
                 title: 'onboarding_dashboard_feature_history_title'.tr(),

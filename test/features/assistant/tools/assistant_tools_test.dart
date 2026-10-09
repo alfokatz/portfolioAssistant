@@ -302,9 +302,69 @@ void main() {
         final stated = await tool.run({'target_amount': 250000});
         expect((stated['active_goal'] as Map)['target_amount'], 250000.0);
         expect((stated['active_goal'] as Map)['target_date'], '2036-01-01');
-        expect((stated['projection'] as Map)['months_remaining'], isPositive);
+        expect(stated['months_remaining'], isPositive);
+        expect(stated['plan_id'], startsWith('plan-'));
+        expect(stated['plan'], isA<Map>());
       },
     );
+
+    test('risk: stated beats the profile, the profile beats moderate', () async {
+      final profile = InvestorProfile(
+        risk: RiskTolerance.aggressive,
+        horizon: InvestmentHorizon.long,
+        objective: InvestmentObjective.growth,
+        updatedAt: DateTime.utc(2026, 9, 1),
+      );
+      final args = {'target_amount': 500000, 'target_date': '2046-09-29'};
+      Future<Map<String, Object?>> run(
+        Map<String, Object?> a, {
+        InvestorProfile? p,
+      }) => GetGoalProjectionTool(
+        _ctx(SubscriptionTier.premium, investorProfile: p),
+      ).run(a);
+
+      final none = await run(args);
+      expect(none['risk_source'], 'default');
+      expect((none['plan'] as Map)['risk_used'], 'moderate');
+
+      final fromProfile = await run(args, p: profile);
+      expect(fromProfile['risk_source'], 'profile');
+      expect((fromProfile['plan'] as Map)['risk_used'], 'aggressive');
+
+      final stated = await run({...args, 'risk': 'conservative'}, p: profile);
+      expect(stated['risk_source'], 'stated');
+      expect((stated['plan'] as Map)['risk_used'], 'conservative');
+    });
+
+    test('retirement income sets the target with the 4% rule', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.premium),
+      ).run({'desired_monthly_income': 3000, 'target_date': '2046-09-29'});
+      expect(result['has_complete_goal'], isTrue);
+      expect((result['active_goal'] as Map)['target_amount'], 900000.0);
+      expect((result['active_goal'] as Map)['label'], 'Jubilación');
+      final retirement = (result['plan'] as Map)['retirement'] as Map;
+      expect(retirement['sustainable_monthly_income'], 3000);
+    });
+
+    test('a short horizon goes conservative even for an aggressive profile', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.premium),
+      ).run({
+        'target_amount': 20000,
+        'target_date': '2028-06-01',
+        'risk': 'aggressive',
+      });
+      expect(result['risk_adjusted_for_short_horizon'], isTrue);
+      expect((result['plan'] as Map)['risk_used'], 'conservative');
+    });
+
+    test('goals are a Premium feature', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.free),
+      ).run({'target_amount': 1000, 'target_date': '2030-01-01'});
+      expect(result['status'], 'locked');
+    });
 
     test('an incomplete goal lists what is missing', () async {
       final result = await GetGoalProjectionTool(
@@ -421,6 +481,18 @@ void main() {
         ).showsDisclaimer,
         isFalse,
       );
+      final plan = AssistantTurnPolicy.noticesFor(
+        TurnOutcome([
+          _record(GetGoalProjectionTool.toolName, {
+            'status': 'ok',
+            'has_complete_goal': true,
+            'investor_profile': {'status': 'missing'},
+          }),
+        ]),
+        profileNudgeAlreadyShown: false,
+      );
+      expect(plan.showsDisclaimer, isTrue);
+      expect(plan.profileNudge, InvestorProfileNudge.missing);
     });
   });
 

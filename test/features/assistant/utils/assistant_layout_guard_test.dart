@@ -43,23 +43,17 @@ void main() {
     expect(out, isNot(contains('"c1"')));
   });
 
-  test('goal overview keeps the card + its projection strip, nothing more', () {
+  test('a savings plan is the only data widget of a goal answer', () {
     final out = AssistantLayoutGuard.enforce(
       _update([
         ('a', 'QaAnswerText'),
-        ('g', 'QaGoalCard'),
-        ('p', 'QaProjectionStrip'),
-        ('m', 'QaMilestoneList'),
-        ('p2', 'QaProjectionStrip'),
+        ('s', 'QaSavingsPlan'),
+        ('s2', 'QaSavingsPlan'),
+        ('c', 'QaPriceChart'),
         ('t', 'QaTipBanner'),
       ]),
     );
-    expect(_rootTypes(out), [
-      'QaAnswerText',
-      'QaGoalCard',
-      'QaProjectionStrip',
-      'QaTipBanner',
-    ]);
+    expect(_rootTypes(out), ['QaAnswerText', 'QaSavingsPlan', 'QaTipBanner']);
   });
 
   test('one action card per operation, up to 4, nothing else', () {
@@ -79,17 +73,6 @@ void main() {
       ...List.filled(4, 'QaActionProposal'),
     ]);
     expect(out, isNot(contains('"p5"')));
-  });
-
-  test('a strip that leads keeps the other projection widgets out', () {
-    final out = AssistantLayoutGuard.enforce(
-      _update([
-        ('a', 'QaAnswerText'),
-        ('p', 'QaProjectionStrip'),
-        ('m', 'QaMilestoneList'),
-      ]),
-    );
-    expect(_rootTypes(out), ['QaAnswerText', 'QaProjectionStrip']);
   });
 
   test('invest ideas keep up to 3 option cards, never mixed kinds', () {

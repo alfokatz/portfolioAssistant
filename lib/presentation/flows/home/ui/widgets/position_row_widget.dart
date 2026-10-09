@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
@@ -65,14 +66,25 @@ class PositionRowWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SkeletonText(
-                    valuation?.position.ticker,
-                    placeholder: 'AAPL',
-                    style: tt.titleSmall?.copyWith(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: SkeletonText(
+                          valuation?.position.ticker,
+                          placeholder: 'AAPL',
+                          style: tt.titleSmall?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      // Importada (toda o en parte) de eToro.
+                      if (valuation?.position.source.hasImported ?? false) ...[
+                        const SizedBox(width: AppDimens.sp6),
+                        const EtoroSourceBadge(),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   SkeletonText(

@@ -18,6 +18,9 @@ enum PaywallReason {
   /// Datos de Gold: análisis, noticias, earnings, fundamentals.
   goldRequired,
   quotaExceeded,
+
+  /// Conectar eToro (Premium y Gold).
+  brokerSync,
 }
 
 class SubscriptionState {

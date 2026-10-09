@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
+import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/presentation/base/navigation/navigation_event.dart';
 
 class GotoAssistant extends NavigationEvent {
@@ -10,6 +11,10 @@ class GotoAssistant extends NavigationEvent {
 
   @override
   void navigate({required BuildContext context}) {
-    context.goNamed(AssistantRouter.routeName, extra: initialQuestion);
+    final question = initialQuestion;
+    context.goNamed(
+      AssistantRouter.routeName,
+      extra: question == null ? null : AssistantQuestionRequest(question),
+    );
   }
 }

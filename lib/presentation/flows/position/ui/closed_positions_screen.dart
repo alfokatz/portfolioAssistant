@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -256,6 +258,10 @@ class _SaleRow extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
+                  if (p != null && p.source != PositionSource.manual) ...[
+                    const SizedBox(width: AppDimens.sp6),
+                    const EtoroSourceBadge(),
+                  ],
                   if (date != null) ...[
                     const SizedBox(width: AppDimens.sp6),
                     Flexible(

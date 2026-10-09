@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_candidates_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -130,7 +131,7 @@ class GetInvestCandidatesTool implements DataTool {
   }
 }
 
-/// Meta financiera + proyección lineal y hitos (Gold).
+/// Meta financiera + plan de ahorro con interés compuesto (Premium).
 class GetGoalProjectionTool implements DataTool {
   GetGoalProjectionTool(this.ctx);
 
@@ -143,15 +144,18 @@ class GetGoalProjectionTool implements DataTool {
 
   @override
   String get description =>
-      'The user\'s financial GOAL (target amount + date) with a pre-computed '
-      'linear projection (required_monthly_savings, months_remaining, '
-      'projected_amount_at_date, on_track) and 25/50/75/100% milestones. '
-      'Use it when the user states or asks about a savings goal ("en 40 años '
-      'quiero tener 1 millón", "¿cuánto tengo que ahorrar por mes?", "¿cómo '
-      'va mi meta?"). Pass the amount/date/label the user stated in this '
-      'conversation; omitted fields come from their saved goal. If '
-      'has_complete_goal is false, "missing" lists what to ask for. Never '
-      'recalculate the numbers.';
+      'The user\'s financial GOAL (target amount + date, e.g. retirement) '
+      'with a pre-computed SAVINGS PLAN: compound growth in today\'s dollars '
+      '(after inflation), a suggested allocation for their risk, required '
+      'monthly savings in pessimistic/base/optimistic scenarios, what they '
+      'would need without investing, what-if horizons and, for retirement, '
+      'the monthly income the capital sustains. Use it when the user states '
+      'or asks about a savings goal or retirement ("en 20 años quiero tener '
+      '500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero jubilarme '
+      'cobrando 3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
+      'stated in this conversation; omitted fields come from their saved '
+      'goal and investor profile. If has_complete_goal is false, "missing" '
+      'lists what to ask for. Never recalculate the numbers.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -171,9 +175,34 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'string',
         'description': 'Short name for the goal ("Casa", "Jubilación").',
       },
+      'is_retirement': {
+        'type': 'boolean',
+        'description': 'true when the goal is retiring (jubilarse/retirarse).',
+      },
       'monthly_contribution': {
         'type': 'number',
-        'description': 'Monthly contribution in USD, if the user stated it.',
+        'description':
+            'Monthly amount in USD the user said they can save, if stated.',
+      },
+      'current_savings': {
+        'type': 'number',
+        'description':
+            'USD the user said they already have for this goal, if stated '
+            '(default: their portfolio value).',
+      },
+      'desired_monthly_income': {
+        'type': 'number',
+        'description':
+            'Retirement only: monthly income in USD the user wants to live '
+            'on, if stated instead of a target amount.',
+      },
+      'risk': {
+        'type': 'string',
+        'enum': ['conservative', 'moderate', 'aggressive'],
+        'description':
+            'Only if the user asked for this risk in the conversation '
+            '("soy más conservador", "rehacelo agresivo"); otherwise omit '
+            'and their investor profile is used.',
       },
     },
     'additionalProperties': false,
@@ -190,24 +219,35 @@ class GetGoalProjectionTool implements DataTool {
         ToolArgs.number(args, 'monthly_contribution') ??
         await prefs.getMonthlyContribution();
     final profile = await ctx.loadInvestorProfile?.call();
+    final retirement = args['is_retirement'];
     return {
       'status': 'ok',
       'as_of': ctx.asOf,
       ...GoalProjectionBuilder.build(
         currentPortfolioValue: ctx.summary?.totalValue ?? 0,
-        targetAmount: ToolArgs.number(args, 'target_amount'),
+        targetAmount: _positive(ToolArgs.number(args, 'target_amount')),
         targetDate: ToolArgs.date(args, 'target_date'),
         label: ToolArgs.string(args, 'goal_label'),
-        monthlyContribution: monthly,
+        monthlyContribution: _nonNegative(monthly),
+        currentSavings: _nonNegative(ToolArgs.number(args, 'current_savings')),
+        desiredMonthlyIncome: _positive(
+          ToolArgs.number(args, 'desired_monthly_income'),
+        ),
+        isRetirement: retirement is bool ? retirement : null,
+        statedRisk: RiskTolerance.fromStorage(ToolArgs.string(args, 'risk')),
+        profile: profile,
         savedGoal: saved,
         asOf: ctx.now,
       ),
       'investor_profile': InvestorProfileContext.build(profile, ctx.now),
     };
   }
+
+  static double? _positive(double? v) => v != null && v > 0 ? v : null;
+  static double? _nonNegative(double? v) => v != null && v >= 0 ? v : null;
 }
 
-/// Guarda la meta (Gold). Solo cuando el usuario lo pide explícitamente.
+/// Guarda la meta (Premium). Solo cuando el usuario lo pide explícitamente.
 class SaveGoalTool implements DataTool {
   SaveGoalTool(this.ctx);
 

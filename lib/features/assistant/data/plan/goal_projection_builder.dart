@@ -1,12 +1,20 @@
-import 'package:portfolio_assistant/features/assistant/data/plan/plan_projection_calculator.dart';
+import 'dart:convert';
 
-/// Meta financiera activa + proyección lineal + hitos. El monto, la fecha y
-/// el nombre de la meta los extrae el modelo del mensaje (argumentos de la
-/// tool); acá solo se combinan con la meta guardada y se calcula — el
-/// modelo nunca hace la cuenta.
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
+
+/// Meta financiera activa + plan de ahorro con interés compuesto. El monto,
+/// la fecha y el resto de los datos los extrae el modelo del mensaje
+/// (argumentos de la tool); acá se combinan con la meta guardada y el perfil
+/// y se calcula — el modelo nunca hace la cuenta.
 abstract final class GoalProjectionBuilder {
-  static const projectionDisclaimer =
-      'Proyección lineal ilustrativa sin rendimientos de mercado.';
+  /// Clave del id del plan en el resultado: lo único que el modelo le pasa
+  /// a la card `QaSavingsPlan`.
+  static const planIdKey = 'plan_id';
+
+  static const riskStated = 'stated';
+  static const riskProfile = 'profile';
+  static const riskDefault = 'default';
 
   static Map<String, Object?> build({
     required double currentPortfolioValue,
@@ -14,11 +22,25 @@ abstract final class GoalProjectionBuilder {
     DateTime? targetDate,
     String? label,
     double? monthlyContribution,
+    double? currentSavings,
+    double? desiredMonthlyIncome,
+    bool? isRetirement,
+    RiskTolerance? statedRisk,
+    InvestorProfile? profile,
     ({String label, double targetAmount, String targetDate})? savedGoal,
     DateTime? asOf,
   }) {
     final reference = asOf ?? DateTime.now();
-    final hasStated = targetAmount != null || targetDate != null;
+    // "Quiero cobrar $3.000 por mes cuando me jubile" define la meta: el
+    // capital que sostiene ese ingreso.
+    final incomeTarget =
+        targetAmount == null &&
+                desiredMonthlyIncome != null &&
+                desiredMonthlyIncome > 0
+            ? SavingsPlanCalculator.capitalForIncome(desiredMonthlyIncome)
+            : null;
+    final statedAmount = targetAmount ?? incomeTarget;
+    final hasStated = statedAmount != null || targetDate != null;
 
     final saved =
         savedGoal == null
@@ -30,7 +52,7 @@ abstract final class GoalProjectionBuilder {
             };
     final stated = <String, Object?>{
       if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
-      if (targetAmount != null) 'target_amount': targetAmount,
+      if (statedAmount != null) 'target_amount': statedAmount,
       if (targetDate != null) 'target_date': formatDate(targetDate),
     };
 
@@ -40,7 +62,12 @@ abstract final class GoalProjectionBuilder {
         !hasStated && saved != null
             ? saved
             : <String, Object?>{
-              'label': stated['label'] ?? saved?['label'] ?? 'Mi meta',
+              'label':
+                  stated['label'] ??
+                  saved?['label'] ??
+                  (isRetirement == true || incomeTarget != null
+                      ? 'Jubilación'
+                      : 'Mi meta'),
               'target_amount':
                   stated['target_amount'] ?? saved?['target_amount'],
               'target_date': stated['target_date'] ?? saved?['target_date'],
@@ -48,13 +75,21 @@ abstract final class GoalProjectionBuilder {
     final complete =
         active['target_amount'] != null && active['target_date'] != null;
 
+    final startingCapital = currentSavings ?? currentPortfolioValue;
     final result = <String, Object?>{
       'current_portfolio_value': currentPortfolioValue,
+      'starting_capital': startingCapital,
+      'starting_capital_source':
+          currentSavings != null ? 'stated' : 'portfolio_value',
       'monthly_contribution': monthlyContribution,
       'saved_goal': saved,
       'active_goal': active,
+      if (incomeTarget != null)
+        'target_from_income': {
+          'desired_monthly_income': desiredMonthlyIncome,
+          'rule': '4% anual del capital',
+        },
       'has_complete_goal': complete,
-      'projection_disclaimer': projectionDisclaimer,
     };
     if (!complete) {
       result['missing'] = [
@@ -64,34 +99,68 @@ abstract final class GoalProjectionBuilder {
       return result;
     }
 
-    final projection = PlanProjectionCalculator.compute(
+    final date = DateTime.parse(active['target_date']! as String);
+    final months = monthsBetween(reference, date);
+    final retirement =
+        isRetirement ??
+        (incomeTarget != null || looksLikeRetirement('${active['label']}'));
+
+    final chosenRisk = statedRisk ?? profile?.risk ?? RiskTolerance.moderate;
+    final riskSource =
+        statedRisk != null
+            ? riskStated
+            : profile != null
+            ? riskProfile
+            : riskDefault;
+    // Plazo corto: la parte en acciones puede caer y no recuperarse a
+    // tiempo, así que el plan va conservador aunque el perfil no lo sea.
+    final shortHorizon =
+        months < PlanAssumptions.shortHorizonMonths &&
+        chosenRisk != RiskTolerance.conservative;
+    final risk = shortHorizon ? RiskTolerance.conservative : chosenRisk;
+
+    final inputs = SavingsPlanInputs(
       targetAmount: (active['target_amount']! as num).toDouble(),
-      currentAmount: currentPortfolioValue,
-      targetDate: DateTime.parse(active['target_date']! as String),
-      asOf: reference,
+      months: months,
+      currentAmount: startingCapital,
+      risk: risk,
+      startDate: DateTime(reference.year, reference.month, reference.day),
       monthlyContribution: monthlyContribution,
+      isRetirement: retirement,
     );
-    result['projection'] = {
-      'target_amount': projection.targetAmount,
-      'current_amount': projection.currentAmount,
-      'months_remaining': projection.monthsRemaining,
-      'required_monthly_savings': projection.requiredMonthlySavings,
-      'projected_amount_at_date': projection.projectedAmountAtDate,
-      'on_track': projection.onTrack,
-      'monthly_contribution_used': projection.monthlyContribution,
-    };
-    result['milestones'] = [
-      for (final m in PlanProjectionCalculator.milestones(
-        projection: projection,
-        asOf: reference,
-      ))
-        {
-          'label': m.label,
-          'amount': m.amount,
-          'target_date': formatDate(m.targetDate),
-        },
-    ];
+    final plan = SavingsPlan.build(inputs);
+    result[planIdKey] = planIdFor(inputs);
+    result['months_remaining'] = months;
+    result['risk_source'] = riskSource;
+    result['risk_adjusted_for_short_horizon'] = shortHorizon;
+    result['plan'] = plan.toToolResult();
     return result;
+  }
+
+  /// Id estable del plan: el mismo pedido da el mismo id.
+  static String planIdFor(SavingsPlanInputs inputs) {
+    var hash = 0x811c9dc5;
+    for (final byte in utf8.encode(jsonEncode(inputs.toJson()))) {
+      hash ^= byte;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return 'plan-${hash.toRadixString(16).padLeft(8, '0')}';
+  }
+
+  static bool looksLikeRetirement(String label) {
+    final l = label.toLowerCase();
+    return const [
+      'jubila',
+      'retiro',
+      'retirarme',
+      'pensión',
+      'pension',
+    ].any(l.contains);
+  }
+
+  static int monthsBetween(DateTime start, DateTime end) {
+    final months = (end.year - start.year) * 12 + (end.month - start.month);
+    return months < 1 ? 1 : months;
   }
 
   static String formatDate(DateTime date) {

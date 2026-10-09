@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/assistant_screen.dart';
 
 class AssistantRouter {
@@ -17,7 +18,11 @@ class AssistantRouter {
           key: state.pageKey,
           name: routeName,
           child: AssistantScreen(
-            initialQuestion: extra is String ? extra : null,
+            question: switch (extra) {
+              AssistantQuestionRequest() => extra,
+              String() => AssistantQuestionRequest(extra),
+              _ => null,
+            },
           ),
         );
       },
