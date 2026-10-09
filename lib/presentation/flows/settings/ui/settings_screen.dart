@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
+import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -43,6 +47,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   void initState() {
     runAfterPostFrameCallback(() {
       ref.read(investorProfileProvider.notifier).refresh();
+      ref.read(etoroConnectionProvider.notifier).load();
     });
     super.initState();
   }
@@ -108,6 +113,25 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
     return '${'investor_profile_risk_${profile.risk.storageValue}'.tr()} · '
         '${'investor_profile_horizon_${profile.horizon.storageValue}'.tr()}';
+  }
+
+  /// Estado de eToro en una línea (null hasta que se sepa: sin saltos).
+  String? _etoroLabel(EtoroState state) {
+    if (!state.loaded) return null;
+    final connection = state.connection;
+    return switch (connection.status) {
+      EtoroConnectionStatus.notConnected => 'etoro_settings_not_connected'.tr(),
+      EtoroConnectionStatus.reconnectRequired =>
+        'etoro_settings_reconnect'.tr(),
+      EtoroConnectionStatus.connected =>
+        connection.lastSyncAt == null
+            ? 'etoro_settings_connected'.tr()
+            : 'etoro_settings_connected_synced'.tr(
+              namedArgs: {
+                'when': EtoroSyncTime.relative(connection.lastSyncAt!),
+              },
+            ),
+    };
   }
 
   Future<void> _onReplayOnboarding() async {
@@ -206,6 +230,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final themeMode = ref.watch(themeModeProvider);
     final hapticsEnabled = ref.watch(hapticsEnabledProvider);
     final investorProfile = ref.watch(investorProfileProvider);
+    final etoro = ref.watch(etoroConnectionProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -300,6 +325,19 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   icon: Icons.lock_reset_rounded,
                   label: 'settings_change_password'.tr(),
                   onTap: () => _onChangePassword(email),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_connected_accounts'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.link_rounded,
+                  label: 'etoro_title'.tr(),
+                  subtitle: _etoroLabel(etoro),
+                  onTap:
+                      () => context.pushNamed(EtoroRouter.connectionRouteName),
                 ),
               ],
             ),

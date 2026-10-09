@@ -146,11 +146,13 @@ abstract class _ProposeTool implements DataTool {
     DateTime date,
   ) => ActionPrices.closeOn(ctx.data.quoteRepository, ticker, date);
 
-  /// Los lotes del usuario en [ticker], del más viejo al más nuevo (FIFO).
+  /// Los lotes MANUALES del usuario en [ticker], del más viejo al más nuevo
+  /// (FIFO). Los importados de eToro no se venden ni se borran desde Porty.
   List<ActionLot> _lotsOf(String ticker) {
     final lots = [
       for (final v in ctx.summary?.lots ?? const [])
-        if (v.position.ticker.toUpperCase() == ticker)
+        if (v.position.ticker.toUpperCase() == ticker &&
+            !v.position.isReadOnly)
           ActionLot(
             id: v.position.id,
             quantity: v.position.quantity,
@@ -161,12 +163,33 @@ abstract class _ProposeTool implements DataTool {
     return lots;
   }
 
-  /// Acciones que tiene hoy de [ticker], o `null` si no lo tiene.
+  /// Acciones cargadas a mano que tiene hoy de [ticker], o `null` si no
+  /// tiene ninguna (las importadas de eToro no cuentan: no se tocan desde
+  /// Porty).
   double? _heldShares(String ticker) {
-    for (final v in ctx.summary?.valuations ?? const []) {
-      if (v.position.ticker.toUpperCase() == ticker) return v.position.quantity;
+    final summary = ctx.summary;
+    // Un resumen sin lotes (armado a mano) trae solo las valuaciones.
+    final rows =
+        (summary?.lots.isNotEmpty ?? false)
+            ? summary!.lots
+            : summary?.valuations ?? const [];
+    double? held;
+    for (final v in rows) {
+      if (v.position.ticker.toUpperCase() != ticker || v.position.isReadOnly) {
+        continue;
+      }
+      held = (held ?? 0) + v.position.quantity;
     }
-    return null;
+    return held;
+  }
+
+  /// `not_held`, o `managed_by_broker` si [ticker] está en la cartera pero
+  /// solo importado de eToro (se vende en eToro y llega solo).
+  Map<String, Object?> _notHeld(String ticker) {
+    final imported = (ctx.summary?.lots ?? const []).any(
+      (v) => v.position.ticker.toUpperCase() == ticker && v.position.isReadOnly,
+    );
+    return _invalid(imported ? 'managed_by_broker' : 'not_held');
   }
 
   String? _ticker(Map<String, Object?> args) {
@@ -284,7 +307,9 @@ class ProposeSellTool extends _ProposeTool {
       'first. status: ok (show QaActionProposal with proposal_id) | '
       'needs_input (ask for everything in missing, in ONE question) | '
       'invalid (not_held, exceeds_holdings with held_shares, '
-      'sale_before_purchase, future_date…: explain it) | locked.';
+      'sale_before_purchase, future_date…: explain it; managed_by_broker = '
+      'the position is imported from eToro, read-only in Porty: it is sold '
+      'in eToro and updates by itself) | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -330,7 +355,7 @@ class ProposeSellTool extends _ProposeTool {
     if (missing.isNotEmpty) return _needsInput(missing);
 
     final held = _heldShares(ticker!);
-    if (held == null) return _invalid('not_held');
+    if (held == null) return _notHeld(ticker);
 
     final dateError = _checkDate(date!);
     if (dateError != null) return dateError;
@@ -384,7 +409,8 @@ class ProposeDeletePositionTool extends _ProposeTool {
       'recorded — if they sold it, use propose_sell. The card lists the '
       'purchases so the user picks which to delete, and nothing is deleted '
       'until they confirm. status: ok (show QaActionProposal with '
-      'proposal_id) | needs_input | invalid (not_held) | locked.';
+      'proposal_id) | needs_input | invalid (not_held; managed_by_broker = '
+      'imported from eToro, read-only in Porty) | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -402,7 +428,7 @@ class ProposeDeletePositionTool extends _ProposeTool {
     final ticker = _ticker(args);
     if (ticker == null) return _needsInput(['ticker']);
     final held = _heldShares(ticker);
-    if (held == null) return _invalid('not_held');
+    if (held == null) return _notHeld(ticker);
 
     return ActionProposal(
       id: _uuid.v4(),

@@ -434,3 +434,8 @@ verify_jwt = false
 # Valida el JWT del usuario ella misma, como finnhub.
 [functions.investor-pulse]
 verify_jwt = false
+
+# El callback OAuth de eToro llega desde el navegador sin JWT de Supabase; las
+# demás rutas validan el JWT del usuario ellas mismas, como finnhub.
+[functions.etoro-sync]
+verify_jwt = false

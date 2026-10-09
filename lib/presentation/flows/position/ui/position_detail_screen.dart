@@ -8,6 +8,8 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -261,6 +263,20 @@ class _DetailList extends StatelessWidget {
     // Cerrar una compra suelta solo tiene sentido con más de una: con una
     // sola es lo mismo que cerrar toda la posición (el botón del final).
     final closeLot = lots.length > 1 ? onCloseLot : null;
+    // Lo importado de eToro no se cierra ni se edita desde Porty: en lugar
+    // del botón de cerrar va la nota de sincronización.
+    final imported = [
+      for (final lot in lots)
+        if (lot != null && lot.position.isReadOnly) lot,
+    ];
+    final allImported = imported.isNotEmpty && imported.length == lots.length;
+    final lastSync = imported
+        .map((l) => l.position.syncedAt)
+        .whereType<DateTime>()
+        .fold<DateTime?>(
+          null,
+          (latest, d) => latest == null || d.isAfter(latest) ? d : latest,
+        );
     final question = 'position_detail_porty_question'.tr(
       namedArgs: {'ticker': ticker},
     );
@@ -298,7 +314,13 @@ class _DetailList extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppDimens.sp32),
-          enter(_CloseAllButton(onPressed: onCloseAll)),
+          if (imported.isNotEmpty) ...[
+            enter(EtoroSyncNote(syncedAt: lastSync, partial: !allImported)),
+            if (!allImported) const SizedBox(height: AppDimens.sp24),
+          ],
+          // Con alguna compra importada, "cerrar todo" no aplica: las
+          // manuales se cierran de a una desde "Tus compras".
+          if (imported.isEmpty) enter(_CloseAllButton(onPressed: onCloseAll)),
         ],
       ],
     );
@@ -555,7 +577,9 @@ class _PurchasesCard extends StatelessWidget {
                 key: ValueKey(lots[i]?.position.id ?? 'skeleton_$i'),
                 lot: lots[i],
                 onClose:
-                    lots[i] == null || onCloseLot == null
+                    lots[i] == null ||
+                            onCloseLot == null ||
+                            lots[i]!.position.isReadOnly
                         ? null
                         : () => onCloseLot!(lots[i]!),
               ),
@@ -587,16 +611,26 @@ class _PurchaseRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SkeletonText(
-                lot == null
-                    ? null
-                    : DateFormat.yMMMd().format(lot.position.purchaseDate),
-                placeholder: '30 sept 2026',
-                style: tt.titleSmall?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: SkeletonText(
+                      lot == null
+                          ? null
+                          : DateFormat.yMMMd().format(lot.position.purchaseDate),
+                      placeholder: '30 sept 2026',
+                      style: tt.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  if (lot?.position.isReadOnly ?? false) ...[
+                    const SizedBox(width: AppDimens.sp6),
+                    const EtoroSourceBadge(),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               SkeletonText(

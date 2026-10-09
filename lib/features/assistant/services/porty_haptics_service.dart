@@ -69,6 +69,13 @@ const authSucceededPattern = PortyHapticPattern.light;
 /// el "no" más suave que permite `HapticFeedback` sin ir a lo nativo.
 const authFailedPattern = PortyHapticPattern.doubleLight;
 
+/// eToro quedó conectada o terminó de sincronizar a pedido del usuario: el
+/// mismo "llegó algo" leve que entrar a la app, nunca un festejo.
+const brokerSyncedPattern = PortyHapticPattern.light;
+
+/// No se pudo conectar o sincronizar eToro: el "no" suave del login.
+const brokerFailedPattern = PortyHapticPattern.doubleLight;
+
 /// Único punto que dispara haptics de Porty: chequea el setting del usuario
 /// antes de cada llamada, así ningún widget tiene que conocer el flag. Si el
 /// usuario apagó las vibraciones a nivel sistema, `HapticFeedback` ya es un
@@ -188,6 +195,18 @@ class PortyHapticsService {
   void authFailed() {
     if (!enabled) return;
     _performer(authFailedPattern);
+  }
+
+  /// eToro se conectó, o terminó una sincronización pedida por el usuario.
+  void brokerSynced() {
+    if (!enabled) return;
+    _performer(brokerSyncedPattern);
+  }
+
+  /// Falló conectar o sincronizar eToro.
+  void brokerFailed() {
+    if (!enabled) return;
+    _performer(brokerFailedPattern);
   }
 
   static Future<void> _perform(PortyHapticPattern pattern) async {

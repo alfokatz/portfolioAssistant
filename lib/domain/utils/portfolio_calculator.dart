@@ -67,6 +67,15 @@ class PortfolioCalculator {
       final earliestPurchase = group
           .map((v) => v.position.purchaseDate)
           .reduce((a, b) => a.isBefore(b) ? a : b);
+      final sources = group.map((v) => v.position.source).toSet();
+      final source = sources.length == 1 ? sources.first : PositionSource.mixed;
+      final syncedDates = [
+        for (final v in group)
+          if (v.position.syncedAt != null) v.position.syncedAt!,
+      ];
+      final syncedAt = syncedDates.isEmpty
+          ? null
+          : syncedDates.reduce((a, b) => a.isAfter(b) ? a : b);
 
       return PositionValuation(
         position: Position(
@@ -75,6 +84,8 @@ class PortfolioCalculator {
           quantity: totalQuantity,
           purchasePrice: avgPurchasePrice,
           purchaseDate: earliestPurchase,
+          source: source,
+          syncedAt: syncedAt,
         ),
         currentPrice: group.first.currentPrice,
         marketValue: totalMarketValue,

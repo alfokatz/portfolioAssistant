@@ -38,6 +38,10 @@ enum PlanFeature {
 
   /// Valuación, márgenes, dividendo (get_fundamentals).
   fundamentals,
+
+  /// Conectar la cuenta de eToro (solo lectura) y que la cartera se
+  /// actualice sola. El servidor (etoro-sync) también lo exige.
+  brokerSync,
 }
 
 /// Un plan: qué incluye, sus límites y cómo se presenta.
@@ -84,6 +88,7 @@ abstract final class PlanMatrix {
     PlanFeature.investSimulation,
     PlanFeature.goals,
     PlanFeature.portfolioActions,
+    PlanFeature.brokerSync,
   };
 
   static const _gold = {
@@ -110,6 +115,7 @@ abstract final class PlanMatrix {
         PlanFeature.investSimulation,
         PlanFeature.goals,
         PlanFeature.benchmark,
+        PlanFeature.brokerSync,
       ],
       // Se promociona desde antes pero no está implementado (solo existe el
       // switch en Configuración). Se deja hasta que negocio decida: sacarlo
@@ -159,6 +165,7 @@ abstract final class PlanMatrix {
     PlanFeature.news => 'plan_feature_news',
     PlanFeature.earnings => 'plan_feature_earnings',
     PlanFeature.fundamentals => 'plan_feature_fundamentals',
+    PlanFeature.brokerSync => 'plan_feature_broker_sync',
   };
 
   /// Claves de marketing del plan, en el orden en que se muestran.

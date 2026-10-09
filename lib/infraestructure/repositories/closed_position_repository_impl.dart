@@ -114,6 +114,8 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       );
     }
 
+    if (position.isReadOnly) return Left(readOnlyPositionError());
+
     if (quantity > position.quantity + _quantityEpsilon) {
       return Left(
         HttpError(
@@ -148,10 +150,13 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
     final normalizedTicker = PortfolioCalculator.normalizeTicker(ticker);
     final lots = positionsResult
         .getOrElse(() => throw StateError('positions missing'))
+        // Solo las compras manuales: las importadas de eToro se cierran en
+        // eToro y llegan solas al historial.
         .where(
           (position) =>
+              !position.isReadOnly &&
               PortfolioCalculator.normalizeTicker(position.ticker) ==
-              normalizedTicker,
+                  normalizedTicker,
         )
         .toList()
       ..sort((a, b) => a.purchaseDate.compareTo(b.purchaseDate));

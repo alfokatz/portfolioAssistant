@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
@@ -25,6 +26,9 @@ class PositionsSection extends StatelessWidget {
   final void Function(PositionValuation valuation)? onPositionTap;
   final Future<bool> Function(PositionValuation valuation)? onDeletePosition;
 
+  /// Sin posiciones: ofrecer "Conectar eToro" (si no está conectada).
+  final bool showConnectEtoro;
+
   /// Filas de skeleton (ver [PositionsSection.skeleton]).
   final int _skeletonRows;
 
@@ -36,6 +40,7 @@ class PositionsSection extends StatelessWidget {
     this.onToggleExpanded,
     this.onPositionTap,
     this.onDeletePosition,
+    this.showConnectEtoro = false,
   }) : _skeletonRows = 0;
 
   /// La misma card con [rows] filas en skeleton (para el skeleton de la
@@ -47,6 +52,7 @@ class PositionsSection extends StatelessWidget {
       onToggleExpanded = null,
       onPositionTap = null,
       onDeletePosition = null,
+      showConnectEtoro = false,
       _skeletonRows = rows;
 
   Future<bool> _confirmDelete(BuildContext context, String ticker) async {
@@ -147,10 +153,22 @@ class PositionsSection extends StatelessWidget {
               else if (valuations.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(AppDimens.cardPadding),
-                  child: Text(
-                    'positions_empty'.tr(),
-                    textAlign: TextAlign.center,
-                    style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'positions_empty'.tr(),
+                        textAlign: TextAlign.center,
+                        style: tt.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      // Alternativa a cargar a mano (el + flotante).
+                      if (showConnectEtoro) ...[
+                        const SizedBox(height: AppDimens.sp16),
+                        const EtoroConnectButton(),
+                      ],
+                    ],
                   ),
                 )
               else
@@ -200,7 +218,10 @@ class _PositionDismissibleRow extends StatelessWidget {
           onPositionTap == null ? null : () => onPositionTap!(valuation),
     );
 
-    if (onDeletePosition == null) return row;
+    // Lo importado de eToro no se borra desde Porty (se actualiza solo).
+    if (onDeletePosition == null || valuation.position.source.hasImported) {
+      return row;
+    }
 
     return Dismissible(
       key: ValueKey(valuation.position.ticker),

@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_assistant_page.dart';
@@ -75,6 +76,12 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
         context.goNamed(HomeRouter.homeRouteName);
         if (!mounted) return;
         context.pushNamed(PositionRouter.addRouteName);
+      case OnboardingExit.connectEtoro:
+        // La pantalla de eToro explica qué hace Porty con la cuenta antes de
+        // pedir nada; "atrás" vuelve a la Home.
+        context.goNamed(HomeRouter.homeRouteName);
+        if (!mounted) return;
+        context.pushNamed(EtoroRouter.connectionRouteName);
       case OnboardingExit.assistant:
         // Assistant vive ahora como una pestaña del shell (junto a Home y
         // Ajustes): entrar con `goNamed` deja esa pestaña activa
@@ -170,7 +177,26 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                     onPressed: _isFinishing ? null : _goNext,
                   ),
                   if (_isLastPage) ...[
-                    const SizedBox(height: AppDimens.sp12),
+                    const SizedBox(height: AppDimens.sp8),
+                    // Alternativa a cargar a mano: traer la cartera de eToro.
+                    TextButton(
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.connectEtoro),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size.fromHeight(
+                          AppDimens.touchTarget,
+                        ),
+                      ),
+                      child: Text(
+                        'onboarding_finish_connect_etoro'.tr(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                     TextButton(
                       onPressed:
                           _isFinishing
