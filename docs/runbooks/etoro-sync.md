@@ -42,13 +42,30 @@ Sin `ETORO_CLIENT_ID`, `ETORO_CLIENT_SECRET` o `ETORO_REDIRECT_URI`, la función
 
 ## 2. Registrar el cliente OAuth en eToro
 
-En el *self-service application dashboard* de builders.etoro.com (con la cuenta de eToro de Porty), o por API con `POST /api/v1/sso/applications`:
+En **https://builders.etoro.com/dashboard** ("OAuth applications"): entrar con la cuenta de eToro de Porty y crear la aplicación. También se puede por API con `POST /api/v1/sso/applications`, pero eso exige un token con `etoro-public:sso-applications:write`, y el dashboard evita crear uno.
 
-- **Nombre:** Porty. **Descripción:** sincronización de cartera de solo lectura.
-- **Redirect URI (exacta, HTTPS):** `https://<project-ref>.supabase.co/functions/v1/etoro-sync/callback`. Una por entorno (staging y prod).
-- **Scopes:** `openid` y `etoro-public:real:read`. En staging se agrega `etoro-public:demo:read`. **Ningún `:write`.**
-- **Autenticación del cliente:** `client_secret_basic` (cliente confidencial). PKCE S256 siempre.
-- Guardar el `clientSecret` en el gestor de secretos al crearlo. Para rotarlo: `POST /api/v1/sso/applications/{clientId}/client-secret`. El anterior deja de valer en el acto, así que hay que cargar el nuevo en Supabase en la misma ventana.
+Campos (spec v1.387):
+
+- **`applicationName`** (máx. 100): `Porty`. Es lo que ve el usuario en la pantalla de consentimiento de eToro.
+- **`applicationIconUrl`** (máx. 500): una URL HTTPS **pública** del ícono, por ejemplo uno subido a `portfolioai.app` o a un bucket público de Supabase Storage. eToro no la descarga, solo valida el formato.
+- **`redirectUris`** (exactas, HTTPS, una por entorno): `https://<project-ref>.supabase.co/functions/v1/etoro-sync/callback`. **No** registrar `porty-etoro://…`: eToro vuelve a la función y la función es la que redirige a la app.
+- **Scopes** (se eligen de un catálogo con id; `GET /api/v1/sso/scopes` lo lista):
+  - `openid` y `etoro-public:real:read`, los dos obligatorios (`isMandatory: true`);
+  - en staging, además, `etoro-public:demo:read`;
+  - **ningún `:write`**, ni `trade.real:*`, ni `sso-applications:*`.
+- **`allowedGcids`:** mientras la app esté en `applicationState = InDev`, se pueden poner acá los GCID (el número de usuario de eToro) de las cuentas de prueba.
+  - Inferido de la spec, no está documentado: en `InDev` probablemente solo esas cuentas pueden autorizar.
+  - Para todo el mundo hace falta pasar a `Approved`, que es la revisión de eToro.
+- El tipo de cliente y los flujos los completa eToro. Verificar en la ficha creada:
+  - `applicationType` = `confidential`;
+  - `supportedFlows` incluye `authorization_code` y `refresh_token`;
+  - `supportedCodeChallengeMethods` = `S256`.
+
+  Porty usa `client_secret_basic`.
+- **El `clientSecret` se muestra una sola vez**, al crear la aplicación. Copiarlo en el momento a un gestor de contraseñas, nunca a un chat, mail o repo. Para rotarlo: `POST /api/v1/sso/applications/{clientId}/client-secret`. El anterior deja de valer en el acto, así que hay que cargar el nuevo en Supabase en la misma ventana.
+- Ojo con el **403** al crear: significa que la cuenta no tiene cupo para aplicaciones SSO ("allowance is zero") y que reintentar no sirve. Ahí hay que pedírselo a eToro por los formularios de partner del API Portal.
+
+No usar **Agent Portfolios** (`/api/v1|v2/agent-portfolios`): son carteras de agentes de IA que el usuario copia con dinero propio (`investmentAmountInUsd` se descuenta de su saldo), y crearlas emite tokens con permisos de operar. No sirven para leer la cartera y van contra la regla de solo lectura.
 
 ## 3. Base de datos
 
