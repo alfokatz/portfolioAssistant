@@ -5,8 +5,9 @@ builders.etoro.com/app-registration) y `apisupport@etoro.com`
 **Firma:** Alfonso Katzenstein, Founder de Porty
 **Estado:** BORRADOR. No se envió. Lo revisa y lo manda Alfonso.
 
-Antes de enviarlo, completar: el email de contacto, el país y la razón social de Porty, y el
-project ref de Supabase en la URL de redirección.
+Antes de enviarlo, completar el email de contacto al pie.
+Actualizado el 2026-10-09: la app OAuth ya está creada (client ID `6419e1a0-56b2-41e9-8ec3-ba89cacad020`)
+y la conexión se probó de punta a punta en modo demo.
 
 ---
 
@@ -25,15 +26,15 @@ carries a write scope.
 
 **What we're requesting**
 
-1. Registration of Porty as an **OAuth (SSO) client** using the authorization code flow with PKCE,
-   with a confidential backend that exchanges the code and stores tokens.
-   - Redirect URI (HTTPS, server-side): `https://<project-ref>.supabase.co/functions/v1/etoro-sync/callback`.
+1. Review and **approval for production** of Porty's OAuth (SSO) client, which we have already
+   created in the self-service dashboard (client ID `6419e1a0-56b2-41e9-8ec3-ba89cacad020`). It uses
+   the authorization code flow with PKCE and a confidential backend that exchanges the code and
+   stores the tokens. We have already tested the full flow end to end with a demo account.
+   - Redirect URI (HTTPS, server-side): `https://rungwxgkwxtekijbynkm.supabase.co/functions/v1/etoro-sync/callback`.
      Our backend then returns the user to the app. No tokens ever reach the device.
-   - Requested scopes: `openid` and `etoro-public:real:read` only (enough for `/api/v1/me`,
-     `/trading/info/real/pnl` and `/trading/info/trade/history` per your OpenAPI v1.387.0).
-     **No write scopes.**
-   - We are submitting the application through the self-service dashboard as well; this message
-     adds the context for the review.
+   - Requested scopes: `openid` and `etoro-public:real:read` (plus `etoro-public:demo:read` for
+     testing). That is enough for `/api/v1/me`, `/trading/info/real/pnl` and
+     `/trading/info/trade/history` per your OpenAPI v1.387.0. **No write scopes.**
 2. **Written authorization for commercial use**: Porty would offer this feature to its own users
    (eToro account holders who opt in), as part of a paid subscription, outside the eToro App Store.
    We understand from the Builders' Economy Terms (17 Feb 2026) that "Permitted Use" excludes
@@ -82,8 +83,8 @@ carries a write scope.
    whether it came from copy trading?
 7. Is the rate limit for these read endpoints 60 requests/minute per user, and is the trade-history
    endpoint in the 20/minute bucket?
-8. Is there a sandbox or demo OAuth setup we can use for end-to-end testing before production
-   approval?
+8. Our application is currently "InDev". What do we need to do to move it to "Approved" so that
+   any eToro user can connect, and is a demo account enough for your reviewers to test it?
 9. Any security, branding ("Connect with eToro") or disclosure requirements we should follow?
 
 Happy to share a demo video, staging access, our privacy policy and a security overview.
