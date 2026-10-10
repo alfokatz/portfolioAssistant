@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/auth_providers_config.dart';
 import 'package:portfolio_assistant/config/supabase/sign_up_result.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_error_mapper.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/utils/auth_error_messages.dart';
@@ -342,6 +343,8 @@ class AuthController extends StateNotifier<AuthUiState> {
 
   Future<HttpError?> signOut() async {
     try {
+      // Con la sesión todavía viva: después no hay con qué borrar el token.
+      await _ref.read(pushControllerProvider.notifier).unregisterBeforeSignOut();
       await _authService.signOut();
       return null;
     } catch (error) {

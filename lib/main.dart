@@ -12,6 +12,8 @@ import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_gate.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_required_screen.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
+import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_initializer.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
@@ -40,11 +42,14 @@ Future<Widget> _initialize() async {
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
   final revenueCatService = await RevenueCatInitializer.initialize();
+  // Sin la configuración nativa de Firebase, la app funciona sin push.
+  final pushMessaging = await FirebasePushMessaging.create();
   await EasyLocalization.ensureInitialized();
   final sharedPreferences = await SharedPreferences.getInstance();
 
   return _setupRiverpod(
     revenueCatService: revenueCatService,
+    pushMessaging: pushMessaging,
     easyLocalization: _setupEasyLocalization(app: const MyApp()),
     sharedPreferences: sharedPreferences,
     secureStorage: appSecureStorage,
@@ -62,6 +67,7 @@ Future<void> _setupEnviroment() async {
 
 Widget _setupRiverpod({
   required RevenueCatService revenueCatService,
+  required PushMessaging pushMessaging,
   required Widget easyLocalization,
   required SharedPreferences sharedPreferences,
   required FlutterSecureStorage secureStorage,
@@ -69,6 +75,7 @@ Widget _setupRiverpod({
   return ProviderScope(
     overrides: [
       revenueCatServiceProvider.overrideWithValue(revenueCatService),
+      pushMessagingProvider.overrideWithValue(pushMessaging),
       sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       secureStorageProvider.overrideWithValue(secureStorage),
     ],
@@ -91,6 +98,10 @@ class MyApp extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(revenueCatAuthSyncProvider);
+    ref.watch(pushAuthSyncProvider);
+    // El idioma de la app (no el del sistema) es el de las notificaciones.
+    ref.read(pushControllerProvider.notifier).localeCode =
+        context.locale.languageCode;
     final lightTheme = ref.watch(themeDataLightProvider);
     final darkTheme = ref.watch(themeDataDarkProvider);
     final themeMode = ref.watch(themeModeProvider);

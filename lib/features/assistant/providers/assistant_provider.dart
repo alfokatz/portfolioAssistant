@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dar
 import 'package:portfolio_assistant/domain/use_cases/delete_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
@@ -34,6 +35,8 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_request_tra
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_send_guard.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
+import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
+import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -256,6 +259,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
               in state.actionProposals.entries)
             progress.toBrief(id),
         ],
+        loadPriceAlerts: _priceAlertsForTool,
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -432,7 +436,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {}
     if (!mounted) return;
     final tier = ref.read(subscriptionProvider).tier;
-    if (!PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
+    // Las alertas no son una operación de cartera: Free tiene una y el tope
+    // lo controla la base al crearla.
+    if (draft.kind != ActionKind.alert &&
+        !PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
         paywallReason: PaywallReason.modeLocked,
@@ -482,8 +489,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             ActionKind.buy => 'assistant_action_saved_buy',
             ActionKind.sell => 'assistant_action_saved_sell',
             ActionKind.delete => 'assistant_action_saved_delete',
+            ActionKind.alert => 'assistant_action_saved_alert',
           }.tr(namedArgs: {'ticker': draft.ticker}),
         );
+    if (draft.kind == ActionKind.alert) return;
     // La Home y el PORTFOLIO_BRIEF del próximo turno ya con la operación.
     try {
       await ref.read(homeProvider.notifier).refresh(silent: true);
@@ -536,6 +545,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   /// La card ya valida, pero esto es lo último antes de escribir.
   String? _invalidDraft(ActionDraft draft) {
+    if (draft.kind == ActionKind.alert) {
+      final target = draft.alertTarget;
+      return target == null || target <= 0 || draft.alertCondition == null
+          ? 'Revisá el objetivo de la alerta.'
+          : null;
+    }
     if (draft.kind == ActionKind.delete) {
       return draft.lotIds.isEmpty ? 'Elegí qué compra borrar.' : null;
     }
@@ -606,7 +621,61 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           if (error != null) return (error: error, closed: null);
         }
         return (error: null, closed: null);
+      case ActionKind.alert:
+        return (error: await _createAlert(draft), closed: null);
     }
+  }
+
+  /// Crea la alerta de [draft] (la misma que la hoja de la app). Al tope
+  /// del plan, ofrece el paywall (si hay un plan con más).
+  Future<String?> _createAlert(ActionDraft draft) async {
+    try {
+      await ref
+          .read(priceAlertsProvider.notifier)
+          .create(
+            PriceAlertDraft(
+              symbol: draft.ticker,
+              condition: PriceAlertCondition.parse(draft.alertCondition),
+              target: draft.alertTarget!,
+              referencePrice: draft.price,
+              repeatDaily: draft.alertRepeatDaily,
+              source: 'porty',
+            ),
+          );
+      return null;
+    } on PriceAlertLimitReached catch (e) {
+      final tier = ref.read(subscriptionProvider).tier;
+      if (tier != SubscriptionTier.gold) {
+        state = state.copyWith(
+          paywallReason: PaywallReason.priceAlerts,
+          clearPaywallReason: false,
+        );
+      }
+      final limit = e.limit ?? PlanMatrix.of(tier).priceAlertLimit;
+      return 'Llegaste al máximo de $limit alertas activas de tu plan.';
+    } on PriceAlertInvalid {
+      return 'Revisá el ticker y el objetivo de la alerta.';
+    }
+  }
+
+  /// Para list_price_alerts: lo mínimo que necesita el modelo.
+  Future<List<Map<String, Object?>>> _priceAlertsForTool() async {
+    final notifier = ref.read(priceAlertsProvider.notifier);
+    await notifier.load();
+    return [
+      for (final a in ref.read(priceAlertsProvider).alerts)
+        {
+          'symbol': a.symbol,
+          'condition': a.condition.storage,
+          'target': a.target,
+          if (a.referencePrice != null) 'reference_price': a.referencePrice,
+          'repeat': a.repeatDaily ? 'daily' : 'once',
+          'status': a.status.name,
+          if (a.lastPrice != null) 'last_price': a.lastPrice,
+          if (a.triggeredAt != null)
+            'triggered_at': a.triggeredAt!.toUtc().toIso8601String(),
+        },
+    ];
   }
 
   void clearPaywall() {

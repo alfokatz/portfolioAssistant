@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Notificaciones push (Android 13+ pide permiso en tiempo de ejecución). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Porty"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Canal para los mensajes de FCM que no traen uno (los canales los
+             crea la app: ver push_messaging.dart). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="account" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

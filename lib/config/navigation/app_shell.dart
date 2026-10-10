@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_open_listener.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_screen.dart';
@@ -87,7 +88,8 @@ class AppShell extends ConsumerWidget with BaseScreen {
       body: _DropInTabContent(
         tabIndex: navigationShell.currentIndex,
         // Al abrir la app y al volver a ella, eToro se pone al día solo.
-        child: EtoroAutoSync(child: navigationShell),
+        // Tocar una notificación abre su pantalla (también desde cerrada).
+        child: PushOpenListener(child: EtoroAutoSync(child: navigationShell)),
       ),
     );
   }

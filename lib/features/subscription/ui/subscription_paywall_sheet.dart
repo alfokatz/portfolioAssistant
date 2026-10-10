@@ -93,6 +93,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     PaywallReason.goldRequired => 'paywall_title_gold',
     PaywallReason.quotaExceeded => 'paywall_title_quota',
     PaywallReason.brokerSync => 'paywall_title_broker_sync',
+    PaywallReason.priceAlerts => 'paywall_title_price_alerts',
   };
 
   String get _subtitleKey => switch (reason) {
@@ -101,6 +102,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     PaywallReason.goldRequired => 'paywall_subtitle_gold',
     PaywallReason.quotaExceeded => 'paywall_subtitle_quota',
     PaywallReason.brokerSync => 'paywall_subtitle_broker_sync',
+    PaywallReason.priceAlerts => 'paywall_subtitle_price_alerts',
   };
 
   List<SubscriptionTier> _visibleTiers(SubscriptionTier currentTier) {
@@ -109,6 +111,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
       PaywallReason.quotaExceeded ||
       PaywallReason.modeLocked ||
       PaywallReason.brokerSync ||
+      PaywallReason.priceAlerts ||
       PaywallReason.marketDataLocked =>
         currentTier == SubscriptionTier.premium
             ? [SubscriptionTier.gold]

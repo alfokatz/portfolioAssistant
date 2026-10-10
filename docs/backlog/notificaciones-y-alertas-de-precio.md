@@ -1,7 +1,10 @@
-# Notificaciones y alertas de precio (pendiente)
+# Notificaciones y alertas de precio (antecedente)
 
-**Estado:** sin implementar. Los interruptores se sacaron de Ajustes el
-2026-10-07 porque no hacían nada.
+**Estado:** implementado el 2026-10-10 según
+`docs/superpowers/plans/2026-10-10-notificaciones-push.md` (runbook:
+`docs/runbooks/push-notifications.md`). Lo de abajo queda como antecedente:
+los interruptores se sacaron de Ajustes el 2026-10-07 porque no hacían nada,
+y volvieron con el plan nuevo.
 
 ## Qué había
 

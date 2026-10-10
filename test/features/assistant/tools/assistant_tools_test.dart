@@ -608,6 +608,8 @@ void main() {
       'propose_buy',
       'propose_sell',
       'propose_delete_position',
+      'propose_price_alert',
+      'list_price_alerts',
     ]);
   });
 }

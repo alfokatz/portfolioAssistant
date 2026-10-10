@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -41,6 +44,31 @@ class _EtoroImportResultScreenState
   bool get subscribesToGlobalEvents => false;
 
   late Set<String> _dismissed = _readDismissed();
+
+  Timer? _pushPrompt;
+
+  @override
+  void dispose() {
+    _pushPrompt?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Recién conectada: "¿te avisamos si se corta o si tu cartera se mueve
+    // fuerte?" (plan de push §6).
+    if (!widget.syncFailed) {
+      _pushPrompt = Timer(const Duration(milliseconds: 1200), () {
+        if (!mounted) return;
+        PushPermissionSheet.maybeShow(
+          context,
+          ref,
+          reason: PushPromptReason.etoro,
+        );
+      });
+    }
+  }
 
   /// Tickers cuyas manuales se borraron en esta pantalla.
   final _resolved = <String>{};

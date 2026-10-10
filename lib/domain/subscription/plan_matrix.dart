@@ -50,6 +50,7 @@ class PlanSpec {
     required this.features,
     required this.monthlyQueries,
     required this.positionLimit,
+    required this.priceAlertLimit,
     required this.highlights,
     this.extraMarketingKeys = const [],
   });
@@ -62,6 +63,11 @@ class PlanSpec {
 
   /// `null` = sin tope.
   final int? positionLimit;
+
+  /// Alertas de precio activas a la vez. Espejo de `plan_limits.price_alerts`
+  /// en Supabase, que es el que manda (un trigger corta con
+  /// `alert_limit_reached`).
+  final int priceAlertLimit;
 
   /// Qué se destaca en el paywall y en la pantalla de suscripción, en orden.
   /// Solo lo NUEVO respecto del plan de abajo (el de arriba incluye todo).
@@ -104,12 +110,15 @@ abstract final class PlanMatrix {
       features: _free,
       monthlyQueries: 20,
       positionLimit: 10,
+      // Una, para conocer la feature (decisión D1 del plan de push).
+      priceAlertLimit: 1,
       highlights: [PlanFeature.ownPortfolio],
     ),
     SubscriptionTier.premium: PlanSpec(
       features: _premium,
       monthlyQueries: 500,
       positionLimit: null,
+      priceAlertLimit: 20,
       highlights: [
         PlanFeature.marketData,
         PlanFeature.investSimulation,
@@ -117,15 +126,15 @@ abstract final class PlanMatrix {
         PlanFeature.benchmark,
         PlanFeature.brokerSync,
       ],
-      // Se promociona desde antes pero no está implementado (solo existe el
-      // switch en Configuración). Se deja hasta que negocio decida: sacarlo
-      // es quitarle a Premium algo que se le prometió a quien ya paga.
+      // Free tiene 1 alerta; Premium, 20 (ver priceAlertLimit). No es una
+      // PlanFeature porque no se bloquea: cambia el tope.
       extraMarketingKeys: ['plan_feature_price_alerts'],
     ),
     SubscriptionTier.gold: PlanSpec(
       features: _gold,
       monthlyQueries: 1000,
       positionLimit: null,
+      priceAlertLimit: 50,
       highlights: [
         PlanFeature.companyAnalysis,
         PlanFeature.news,

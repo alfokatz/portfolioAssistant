@@ -89,17 +89,18 @@ abstract final class AssistantAnswerReview {
     );
     if (!claims) return null;
     final proposed = evidence.turnCalls.any(
-      (call) => ActionTools.names.contains(call.name),
+      (call) => ActionTools.proposalTools.contains(call.name),
     );
     if (proposed) return null;
     return 'You said you prepared an operation, but you did not call '
-        'propose_buy / propose_sell / propose_delete_position. Call it now '
+        'propose_buy / propose_sell / propose_delete_position / '
+        'propose_price_alert. Call it now '
         'with what the user reported (or ask for what is missing, without '
         'saying you prepared anything).';
   }
 
   static final _actionClaim = RegExp(
-    r'prepar[eé]\s+(la|una|tu)\s+(operaci[oó]n|compra|venta)|'
+    r'prepar[eé]\s+(la|una|tu)\s+(operaci[oó]n|compra|venta|alerta)|'
     r'revisal[ao]\s+y\s+confirmal[ao]',
     caseSensitive: false,
   );

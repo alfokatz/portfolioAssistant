@@ -1,6 +1,32 @@
 # Notificaciones push y alertas de precio
 
-**Fecha:** 2026-10-10 · **Estado:** plan, sin implementar · **Reemplaza a:** `docs/backlog/notificaciones-y-alertas-de-precio.md` (queda como antecedente) y el "Push del sábado" pendiente del informe semanal.
+**Fecha:** 2026-10-10 · **Estado:** F1–F7 implementadas y probadas en local (2026-10-10); nada desplegado. Falta F0 (Firebase/APNs, fuera del repo) · **Runbook:** `docs/runbooks/push-notifications.md` · **Reemplaza a:** `docs/backlog/notificaciones-y-alertas-de-precio.md` (queda como antecedente) y el "Push del sábado" pendiente del informe semanal.
+
+## Estado de implementación
+
+| Fase | Estado | Notas |
+|---|---|---|
+| F0 | ⏳ | Firebase, clave APNs, service account, secrets. Pasos en el runbook. **Ojo:** el bundle id de iOS en el proyecto es `uy.gub.bps.movil.bpsfuncionarios`; revisarlo antes de registrar la app en Firebase |
+| F1 | ✅ | Migración `20261011000000_push_notifications.sql`; `notify-dispatch` (FCM v1 con JWT firmado con WebCrypto, sin dependencias); app: `lib/features/notifications/` (FCM detrás de `PushMessaging`, que sin Firebase configurado es un no-op), Ajustes → Notificaciones, hoja previa al permiso, deep links desde el shell |
+| F2 | ✅ | Migración `20261011010000_price_alerts.sql` (tope por plan con trigger, pausa/reactivación al cambiar de plan); `market-watch`; hoja de crear alerta (campana en el detalle de una posición y en la lista), Ajustes → Alertas de precio, `PaywallReason.priceAlerts`, `PlanSpec.priceAlertLimit` |
+| F3 | ✅ | Migración `20261011030000_push_producers.sql` (trigger de eToro) y `daily-jobs` (sábado 9:00 local). Permiso ofrecido al leer el primer informe y al conectar eToro |
+| F4 | ✅ | Migración `20261011020000_market_moves.sql`; `market-watch/moves.ts` con los umbrales de §4.3 |
+| F5 | ✅ | `propose_price_alert` y `list_price_alerts` (`alert_tools.dart`); la card `QaActionProposal` suma `ActionKind.alert`. Prompt nuevo: hash en `allowed_system_prompts.json` → desplegar `ai-chat` antes de publicar la app |
+| F6 | ✅ | En `daily-jobs`: calendario de Finnhub (una llamada por corrida para todos), `earnings_tomorrow` 19:00 y `earnings_result` 12:00/19:00 local, solo Gold |
+| F7 | ✅ | `docs/runbooks/push-notifications.md` |
+
+### Decisiones tomadas (2026-10-10)
+
+Se tomaron las recomendaciones de §10: **D1** Free tiene 1 alerta activa (Premium 20, Gold 50, en `plan_limits.price_alerts`); **D2** movimientos fuertes para todos; **D3** Yahoo `v7/quote` en lote con Finnhub de respaldo, **a reemplazar por una fuente con licencia antes del lanzamiento**; **D4** sin cripto en v1; **D5** sin pedir el permiso al terminar el onboarding; **D6** la alerta dice el precio exacto.
+
+### Cambios respecto del plan, decididos al implementar
+
+- **Notificación con la app abierta:** se usa el banner del sistema (iOS) y una notificación local en su canal (Android), en lugar de un aviso propio dentro de la app. Así es igual que con la app cerrada, y al tocarla lleva al mismo lugar.
+- **eToro desconectado:** la sincronización corre al abrir la app, así que cuando se detecta el usuario ya está viendo el aviso adentro. La push sale **6 horas después** y solo si sigue sin reconectar (un trigger la cancela al reconectar).
+- **Alertas de precio en el horario de silencio:** se corren al final del silencio (no se descartan, a diferencia de los movimientos). Si al terminar el silencio ya pasaron más de 24 h, se descartan.
+- **Time-sensitive en iOS:** el entitlement no va en el repo. Agregarlo sin habilitarlo en el App ID rompe la firma. Está como paso opcional del runbook; sin él, las alertas llegan como notificación normal.
+- **Marcas de "ya avisé":** no hay una tabla aparte. La clave de duplicados del outbox (`big_move:NVDA:2026-10-12:down:1`) hace de marca, también para lo agrupado o combinado (queda `skipped` con `in_digest` / `in_portfolio_move`).
+- **Tope diario:** 24 h corridas (no el día calendario local).
 
 ## Resumen
 

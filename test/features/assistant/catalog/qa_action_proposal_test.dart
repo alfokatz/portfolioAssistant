@@ -62,12 +62,23 @@ final _delete = ActionProposal(
   lots: _sell.lots,
 );
 
+const _alert = ActionProposal(
+  id: 'alert-1',
+  kind: ActionKind.alert,
+  ticker: 'VOO',
+  price: 720,
+  priceSource: PriceSource.closeOnDate,
+  alertCondition: 'above',
+  alertTarget: 750,
+);
+
 /// Lo que la card le manda a la pantalla.
 class _Host {
   final confirmed = <ActionDraft>[];
   final cancelled = <String>[];
   final opened = <String>[];
   final openedClosed = <ClosedPosition>[];
+  var openedAlerts = 0;
   final priceRequests = <DateTime>[];
   final forms = <String, ActionForm>{};
   double? nextPrice = 199;
@@ -81,6 +92,7 @@ class _Host {
     onCancel: (draft) => cancelled.add(draft.proposalId),
     onOpenPosition: opened.add,
     onOpenClosedPosition: openedClosed.add,
+    onOpenAlerts: () => openedAlerts++,
     formOf: (id) => forms[id],
     onFormChanged: (id, form) => forms[id] = form,
     priceOn: (ticker, date) async {
@@ -592,6 +604,93 @@ void main() {
       expect(find.text('Cancelada'), findsOneWidget);
       expect(_confirm, findsNothing);
       expect(find.text('Ver en cartera'), findsNothing);
+    });
+  });
+
+  group('price alert', () {
+    testWidgets('shows the target and the price now; confirm sends it', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_price_alert', _alert)],
+        proposalId: 'alert-1',
+        host: host,
+      );
+      expect(find.text('ALERTA DE PRECIO'), findsOneWidget);
+      expect(_fieldText(tester, 'qa_action_alert_target'), '750');
+      expect(find.textContaining('Ahora: \$720.00'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('qa_action_alert_repeat')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Crear alerta'));
+      await tester.pumpAndSettle();
+
+      final draft = host.confirmed.single;
+      expect(draft.kind, ActionKind.alert);
+      expect(draft.alertCondition, 'above');
+      expect(draft.alertTarget, 750);
+      expect(draft.alertRepeatDaily, isTrue);
+      expect(draft.price, 720);
+    });
+
+    testWidgets('a target the price already passed cannot be confirmed', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_price_alert', _alert)],
+        proposalId: 'alert-1',
+        host: host,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('qa_action_alert_target')),
+        '700',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('El precio ya está por encima: elegí uno más alto.'),
+        findsOneWidget,
+      );
+      expect(
+        _enabled(tester, find.widgetWithText(FilledButton, 'Crear alerta')),
+        isFalse,
+      );
+    });
+
+    testWidgets('once created: summary and a link to the alerts', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_price_alert', _alert)],
+        proposalId: 'alert-1',
+        host: host,
+        proposals: {
+          'alert-1': const ActionProposalProgress(
+            ActionProposalStatus.done,
+            draft: ActionDraft(
+              proposalId: 'alert-1',
+              kind: ActionKind.alert,
+              ticker: 'VOO',
+              price: 720,
+              alertCondition: 'above',
+              alertTarget: 760,
+            ),
+          ),
+        },
+      );
+      expect(find.text('Creada'), findsOneWidget);
+      expect(
+        find.text('Te avisamos cuando VOO suba a \$760.00.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Ver mis alertas'));
+      expect(host.openedAlerts, 1);
+      expect(host.opened, isEmpty);
     });
   });
 }

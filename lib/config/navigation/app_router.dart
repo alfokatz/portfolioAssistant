@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_rout
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
+import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
@@ -106,6 +107,7 @@ class AppRouter {
         InvestorProfileRouter.getRoute(),
         ...EtoroRouter.getRoutes(),
         WeeklyReportRouter.getRoute(),
+        ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),
       ],
       errorPageBuilder:

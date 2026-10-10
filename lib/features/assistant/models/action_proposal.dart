@@ -1,8 +1,9 @@
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 
 /// Qué operación propone Porty (ver `docs/superpowers/plans/
-/// 2026-10-08-acciones-de-porty.md`).
-enum ActionKind { buy, sell, delete }
+/// 2026-10-08-acciones-de-porty.md`). `alert`: una alerta de precio (plan
+/// de notificaciones push, F5); no toca la cartera.
+enum ActionKind { buy, sell, delete, alert }
 
 /// En qué unidad dio el usuario la cantidad: acciones o un monto en USD.
 enum AmountUnit { shares, usd }
@@ -76,6 +77,9 @@ class ActionProposal {
     this.date,
     this.heldShares,
     this.lots = const [],
+    this.alertCondition,
+    this.alertTarget,
+    this.alertRepeatDaily = false,
   });
 
   /// `proposal_id`: lo único que el modelo le pasa a la card.
@@ -103,6 +107,14 @@ class ActionProposal {
   /// Venta y borrado: los lotes de [ticker], del más viejo al más nuevo
   /// (FIFO, el orden en que los vende el repositorio).
   final List<ActionLot> lots;
+
+  /// Alerta: `above`, `below`, `pct_up` o `pct_down` (columna `condition`
+  /// de `price_alerts`). [price] es el precio de ahora.
+  final String? alertCondition;
+
+  /// Alerta: precio (above/below) o porcentaje (pct_*).
+  final double? alertTarget;
+  final bool alertRepeatDaily;
 
   static const toolResultIdKey = 'proposal_id';
 
@@ -137,6 +149,9 @@ class ActionProposal {
     if (date != null) 'date': _formatDate(date!),
     if (heldShares != null) 'held_shares': heldShares,
     if (lots.isNotEmpty) 'lots': [for (final lot in lots) lot.toJson()],
+    if (alertCondition != null) 'condition': alertCondition,
+    if (alertTarget != null) 'target': alertTarget,
+    if (kind == ActionKind.alert) 'repeat': alertRepeatDaily ? 'daily' : 'once',
   };
 
   /// `null` si [result] no es una propuesta válida (otro status, o le faltan
@@ -169,6 +184,9 @@ class ActionProposal {
           for (final lot in lots.map(ActionLot.fromJson))
             if (lot != null) lot,
       ],
+      alertCondition: result['condition'] as String?,
+      alertTarget: _double(result['target']),
+      alertRepeatDaily: result['repeat'] == 'daily',
     );
   }
 }
@@ -183,6 +201,9 @@ class ActionDraft {
     this.price,
     this.date,
     this.lotIds = const [],
+    this.alertCondition,
+    this.alertTarget,
+    this.alertRepeatDaily = false,
   });
 
   final String proposalId;
@@ -191,11 +212,18 @@ class ActionDraft {
 
   /// Compra y venta: acciones (ya convertidas si el usuario dio USD).
   final double? shares;
+
+  /// Compra y venta: precio de la operación. Alerta: el precio de ahora.
   final double? price;
   final DateTime? date;
 
   /// Borrado: los lotes elegidos.
   final List<String> lotIds;
+
+  /// Alerta: ver [ActionProposal.alertCondition].
+  final String? alertCondition;
+  final double? alertTarget;
+  final bool alertRepeatDaily;
 }
 
 /// Lo que el usuario lleva editado en una card todavía sin resolver, tal
@@ -210,6 +238,7 @@ class ActionForm {
     required this.priceEdited,
     this.date,
     this.selectedLots = const {},
+    this.repeatDaily = false,
   });
 
   final String amountText;
@@ -222,6 +251,9 @@ class ActionForm {
 
   /// Borrado: los lotes marcados.
   final Set<String> selectedLots;
+
+  /// Alerta: avisar cada vez que cruce ([priceText] es el objetivo).
+  final bool repeatDaily;
 }
 
 /// En qué quedó una propuesta. Vive en `AssistantState` y no en el `State`
@@ -275,6 +307,8 @@ class ActionProposalProgress {
         if (draft.shares != null) 'shares': draft.shares,
         if (draft.price != null) 'price': draft.price,
         if (draft.date != null) 'date': _formatDate(draft.date!),
+        if (draft.alertCondition != null) 'condition': draft.alertCondition,
+        if (draft.alertTarget != null) 'target': draft.alertTarget,
       },
     };
   }

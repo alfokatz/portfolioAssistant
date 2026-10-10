@@ -21,6 +21,9 @@ enum PaywallReason {
 
   /// Conectar eToro (Premium y Gold).
   brokerSync,
+
+  /// Llegó al tope de alertas de precio activas de su plan.
+  priceAlerts,
 }
 
 class SubscriptionState {

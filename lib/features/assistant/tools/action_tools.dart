@@ -2,6 +2,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -26,6 +27,10 @@ abstract final class ActionTools {
   static const proposeDelete = 'propose_delete_position';
 
   static const names = {proposeBuy, proposeSell, proposeDelete};
+
+  /// Todas las tools cuyo resultado `ok` es una card `QaActionProposal`
+  /// (las de la cartera y la de alertas de precio).
+  static const proposalTools = {...names, AlertTools.proposePriceAlert};
 
   static List<DataTool> build(AssistantToolContext ctx) => [
     ProposeBuyTool(ctx),

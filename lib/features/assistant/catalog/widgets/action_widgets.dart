@@ -18,8 +18,8 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 
-/// La card de una operación que propuso Porty (compra, venta o borrado),
-/// para que el usuario la revise, la edite y la confirme.
+/// La card de una operación que propuso Porty (compra, venta, borrado o una
+/// alerta de precio), para que el usuario la revise, la edite y la confirme.
 ///
 /// El modelo solo pasa `proposalId`: los datos salen del resultado de la
 /// tool `propose_*` ([QaEvidenceScope]), así ningún número de la card puede
@@ -56,7 +56,7 @@ abstract final class ActionWidgets {
   ) {
     if (proposalId.isEmpty) return null;
     for (final call in calls.reversed) {
-      if (!ActionTools.names.contains(call.name)) continue;
+      if (!ActionTools.proposalTools.contains(call.name)) continue;
       if (call.result[ActionProposal.toolResultIdKey] != proposalId) continue;
       return ActionProposal.fromToolResult(call.result);
     }
@@ -86,6 +86,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
   late bool _priceEdited;
   bool _loadingPrice = false;
   late Set<String> _selectedLots;
+  late bool _repeatDaily;
   bool _initialized = false;
 
   ActionProposal get _p => widget.proposal;
@@ -110,13 +111,16 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       _date = saved.date;
       _priceEdited = saved.priceEdited;
       _selectedLots = {...saved.selectedLots};
+      _repeatDaily = saved.repeatDaily;
     } else {
       _unit = _p.unit;
       _amount.text = _plain(
         _unit == AmountUnit.usd ? _p.amountUsd : _p.shares,
       );
-      _price.text = _plain(_p.price);
+      // Alerta: el campo editable es el objetivo; el precio de ahora es fijo.
+      _price.text = _plain(_isAlert ? _p.alertTarget : _p.price);
       _date = _p.date;
+      _repeatDaily = _p.alertRepeatDaily;
       _priceEdited = _p.priceSource == PriceSource.user;
       // Con una sola compra, esa; con varias, que elija (borrar todo por
       // defecto es fácil de confirmar sin querer).
@@ -147,8 +151,33 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       priceEdited: _priceEdited,
       date: _date,
       selectedLots: {..._selectedLots},
+      repeatDaily: _repeatDaily,
     ),
   );
+
+  bool get _isAlert => _p.kind == ActionKind.alert;
+
+  bool get _alertIsPercent => _p.alertCondition?.startsWith('pct_') ?? false;
+
+  /// Por qué el objetivo de la alerta no sirve, o `null` si sirve.
+  String? get _alertError {
+    final target = _priceValue;
+    final now = _p.price;
+    if (target == null) return 'Escribí un número mayor que cero.';
+    if (_alertIsPercent) {
+      return target < 1 || target > 90
+          ? 'Elegí un porcentaje entre 1 y 90.'
+          : null;
+    }
+    if (now == null) return null;
+    if (_p.alertCondition == 'above' && target <= now) {
+      return 'El precio ya está por encima: elegí uno más alto.';
+    }
+    if (_p.alertCondition == 'below' && target >= now) {
+      return 'El precio ya está por debajo: elegí uno más bajo.';
+    }
+    return null;
+  }
 
   // ------------------------------------------------------------ cuentas
 
@@ -178,10 +207,24 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
 
   bool get _valid => switch (_p.kind) {
     ActionKind.delete => _selectedLots.isNotEmpty,
+    ActionKind.alert => _alertError == null,
     _ => _shares != null && _date != null && !_exceeds && !_loadingPrice,
   };
 
-  ActionDraft _draft() => ActionDraft(
+  ActionDraft _draft() =>
+      _isAlert
+          ? ActionDraft(
+            proposalId: _p.id,
+            kind: _p.kind,
+            ticker: _p.ticker,
+            price: _p.price,
+            alertCondition: _p.alertCondition,
+            alertTarget: _priceValue,
+            alertRepeatDaily: _repeatDaily,
+          )
+          : _tradeDraft();
+
+  ActionDraft _tradeDraft() => ActionDraft(
     proposalId: _p.id,
     kind: _p.kind,
     ticker: _p.ticker,
@@ -296,8 +339,14 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
                       onOpenPosition:
                           progress.status == ActionProposalStatus.done &&
                                   _p.kind != ActionKind.delete &&
+                                  !_isAlert &&
                                   closed == null
                               ? scope?.onOpenPosition
+                              : null,
+                      onOpenAlerts:
+                          progress.status == ActionProposalStatus.done &&
+                                  _isAlert
+                              ? scope?.onOpenAlerts
                               : null,
                       closedPosition: closed,
                       onOpenClosedPosition: scope?.onOpenClosedPosition,
@@ -313,11 +362,16 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     ActionKind.buy => 'Registrar compra',
     ActionKind.sell => 'Registrar venta',
     ActionKind.delete => 'Borrar posición',
+    ActionKind.alert => 'Alerta de precio',
   };
 
   Widget? _statusTag(ActionProposalStatus status) => switch (status) {
     ActionProposalStatus.done => QaTag(
-      _p.kind == ActionKind.delete ? 'Borrada' : 'Registrada',
+      switch (_p.kind) {
+        ActionKind.delete => 'Borrada',
+        ActionKind.alert => 'Creada',
+        _ => 'Registrada',
+      },
       color: QaColors.profit,
       icon: Icons.check_rounded,
     ),
@@ -335,6 +389,8 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       children: [
         if (_p.kind == ActionKind.delete)
           ..._deleteFields(enabled)
+        else if (_isAlert)
+          ..._alertFields(enabled)
         else
           ..._tradeFields(scope, enabled),
         if (failed) ...[
@@ -351,6 +407,8 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
                   ? 'Reintentar'
                   : _p.kind == ActionKind.delete
                   ? 'Confirmar borrado'
+                  : _isAlert
+                  ? 'Crear alerta'
                   : 'Confirmar',
           loading: saving,
           onPressed:
@@ -509,6 +567,76 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         ],
       ),
     );
+  }
+
+  List<Widget> _alertFields(bool enabled) {
+    final now = _p.price;
+    final target = _priceValue;
+    final error = _price.text.trim().isEmpty ? null : _alertError;
+    final label = switch (_p.alertCondition) {
+      'above' => 'Avisame si sube a',
+      'below' => 'Avisame si baja a',
+      'pct_up' => 'Avisame si sube',
+      _ => 'Avisame si baja',
+    };
+    final threshold =
+        target == null || now == null || !_alertIsPercent
+            ? null
+            : now *
+                (1 + (_p.alertCondition == 'pct_up' ? target : -target) / 100);
+    return [
+      TextField(
+        key: const ValueKey('qa_action_alert_target'),
+        controller: _price,
+        enabled: enabled,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: label,
+          prefixText: _alertIsPercent ? null : r'$ ',
+          suffixText: _alertIsPercent ? '%' : null,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        [
+          if (now != null) 'Ahora: ${QaFormat.price(now)}',
+          if (threshold != null) 'te avisamos en ${QaFormat.price(threshold)}',
+        ].join(' · '),
+        style: QaText.caption,
+      ),
+      if (error != null) ...[
+        const SizedBox(height: 4),
+        Text(error, style: QaText.label.copyWith(color: QaColors.loss)),
+      ],
+      const SizedBox(height: QaSpace.gap),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Avisarme cada vez que cruce',
+              style: QaText.body,
+            ),
+          ),
+          Switch.adaptive(
+            key: const ValueKey('qa_action_alert_repeat'),
+            value: _repeatDaily,
+            activeTrackColor: QaColors.accentBlue,
+            onChanged:
+                enabled
+                    ? (v) {
+                      setState(() => _repeatDaily = v);
+                      _saveForm();
+                    }
+                    : null,
+          ),
+        ],
+      ),
+      Text(
+        'Si no, te avisamos una vez. Revisamos cada 5 minutos con el '
+        'mercado abierto.',
+        style: QaText.caption,
+      ),
+    ];
   }
 
   List<Widget> _deleteFields(bool enabled) {
@@ -675,12 +803,16 @@ class _Summary extends StatelessWidget {
     this.onOpenPosition,
     this.closedPosition,
     this.onOpenClosedPosition,
+    this.onOpenAlerts,
   });
 
   final ActionProposal proposal;
   final ActionDraft draft;
   final bool cancelled;
   final ValueChanged<String>? onOpenPosition;
+
+  /// Alerta creada: "Ver mis alertas".
+  final VoidCallback? onOpenAlerts;
 
   /// Venta que cerró toda la posición: el link va a su detalle.
   final ClosedPosition? closedPosition;
@@ -693,7 +825,22 @@ class _Summary extends StatelessWidget {
     final date = draft.date;
 
     final Widget body;
-    if (proposal.kind == ActionKind.delete) {
+    if (proposal.kind == ActionKind.alert) {
+      final target = draft.alertTarget;
+      final what = switch (draft.alertCondition) {
+        'above' => 'suba a ${QaFormat.price(target ?? 0)}',
+        'below' => 'baje a ${QaFormat.price(target ?? 0)}',
+        'pct_up' => 'suba ${QaFormat.pct(target ?? 0, digits: 0)}',
+        _ => 'baje ${QaFormat.pct(target ?? 0, digits: 0)}',
+      };
+      body = Text(
+        cancelled
+            ? 'No se creó la alerta.'
+            : 'Te avisamos cuando ${proposal.ticker} $what'
+                '${draft.alertRepeatDaily ? ', cada vez que cruce' : ''}.',
+        style: QaText.body,
+      );
+    } else if (proposal.kind == ActionKind.delete) {
       final count = draft.lotIds.length;
       body = Text(
         cancelled
@@ -724,7 +871,10 @@ class _Summary extends StatelessWidget {
     final openClosed = onOpenClosedPosition;
     final VoidCallback? onLink;
     final String linkLabel;
-    if (closed != null && openClosed != null) {
+    if (onOpenAlerts != null) {
+      onLink = onOpenAlerts;
+      linkLabel = 'Ver mis alertas';
+    } else if (closed != null && openClosed != null) {
       onLink = () => openClosed(closed);
       linkLabel = 'Ver posición cerrada';
     } else if (onOpenPosition != null) {

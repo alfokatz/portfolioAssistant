@@ -11,6 +11,10 @@ import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
+import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
+import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -49,6 +53,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     runAfterPostFrameCallback(() {
       ref.read(investorProfileProvider.notifier).refresh();
       ref.read(etoroConnectionProvider.notifier).load();
+      ref.read(pushControllerProvider.notifier).refreshPermission();
+      ref.read(priceAlertsProvider.notifier).load();
     });
     super.initState();
   }
@@ -132,6 +138,16 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 'when': EtoroSyncTime.relative(connection.lastSyncAt!),
               },
             ),
+    };
+  }
+
+  /// Una línea con el estado del permiso, solo si hay algo que hacer.
+  String? _notificationsLabel(PushState push) {
+    if (!push.loaded) return null;
+    return switch (push.permission) {
+      PushPermission.denied => 'notifications_settings_denied'.tr(),
+      PushPermission.notDetermined => 'notifications_settings_off'.tr(),
+      _ => null,
     };
   }
 
@@ -232,6 +248,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final hapticsEnabled = ref.watch(hapticsEnabledProvider);
     final investorProfile = ref.watch(investorProfileProvider);
     final etoro = ref.watch(etoroConnectionProvider);
+    final push = ref.watch(pushControllerProvider);
+    final alerts = ref.watch(priceAlertsProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -301,8 +319,27 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   value: settingsAppearanceLabel(themeMode),
                   onTap: () => showSettingsAppearancePicker(context, ref),
                 ),
-                // Notificaciones y alertas de precio: se sacaron porque no
-                // hacían nada; ver docs/backlog/notificaciones-y-alertas-de-precio.md.
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.notifications_none_rounded,
+                  label: 'notifications_title'.tr(),
+                  subtitle: _notificationsLabel(push),
+                  onTap:
+                      () => context.pushNamed(
+                        NotificationsRouter.settingsRouteName,
+                      ),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.notifications_active_outlined,
+                  label: 'price_alerts_title'.tr(),
+                  value:
+                      alerts.loaded && alerts.activeCount > 0
+                          ? '${alerts.activeCount}'
+                          : null,
+                  onTap:
+                      () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                ),
                 const SettingsDivider(),
                 SettingsToggleRow(
                   icon: Icons.vibration_rounded,

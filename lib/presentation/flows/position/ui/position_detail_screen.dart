@@ -10,6 +10,9 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
+import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/notifications/view/create_price_alert_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -68,6 +71,9 @@ class _PositionDetailScreenState
   @override
   void initState() {
     super.initState();
+    runAfterPostFrameCallback(() {
+      if (mounted) ref.read(priceAlertsProvider.notifier).load();
+    });
     // Con seed, el refresh (precio fresco) espera a que termine la
     // transición: los datos ya están en pantalla y así el resultado no
     // reconstruye la lista en medio del push. Sin seed (deep link) arranca
@@ -186,8 +192,35 @@ class _PositionDetailScreenState
 
     // Los logos y el gráfico usan la paleta del kit de Porty.
     QaColors.resolve(Theme.of(context).brightness);
+    final alertCount =
+        ref
+            .watch(priceAlertsProvider)
+            .forSymbol(widget.ticker)
+            .where((a) => a.status == PriceAlertStatus.active)
+            .length;
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: 'price_alert_create_tooltip'.tr(),
+            onPressed:
+                () => CreatePriceAlertSheet.show(
+                  context,
+                  ref,
+                  symbol: widget.ticker,
+                  currentPrice: state.summary?.currentPrice,
+                ),
+            icon: Badge(
+              isLabelVisible: alertCount > 0,
+              label: Text('$alertCount'),
+              child: Icon(
+                alertCount > 0
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_none_rounded,
+              ),
+            ),
+          ),
+        ],
         title: AnimatedOpacity(
           opacity: _titleInBar ? 1 : 0,
           duration:

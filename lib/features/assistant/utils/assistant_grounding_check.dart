@@ -40,7 +40,7 @@ abstract final class AssistantGroundingCheck {
     'QaInvestConfirm': {'get_invest_candidates'},
     'QaSavingsPlan': {'get_goal_projection', 'get_monthly_buy_plan'},
     'QaBuyPlan': {'get_monthly_buy_plan'},
-    'QaActionProposal': ActionTools.names,
+    'QaActionProposal': ActionTools.proposalTools,
   };
 
   /// Widgets cuyo `ticker` tiene que haber sido pedido a la tool.

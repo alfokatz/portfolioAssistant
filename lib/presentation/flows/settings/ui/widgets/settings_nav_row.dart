@@ -104,12 +104,16 @@ class SettingsToggleRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.subtitle,
   });
 
   final IconData icon;
   final String label;
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// Una explicación corta debajo de la etiqueta (hasta 2 líneas).
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -125,14 +129,29 @@ class SettingsToggleRow extends StatelessWidget {
           _SettingsIconBox(icon: icon),
           const SizedBox(width: AppDimens.sp12),
           Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w500,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                          height: 1.35,
+                        ),
                   ),
+              ],
             ),
           ),
           Switch.adaptive(

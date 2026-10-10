@@ -33,6 +33,10 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/top_edge_fade.dart';
+import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -832,7 +836,24 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             // por el modelo (ver `AssistantProvider.executeAction`).
             child: QaActionScope(
               proposals: ref.watch(assistantProvider(_args)).actionProposals,
-              onConfirm: notifier.executeAction,
+              onConfirm: (draft) async {
+                await notifier.executeAction(draft);
+                // Recién creada una alerta: sin permiso no sirve (plan de
+                // push §6, el momento de más intención).
+                if (draft.kind != ActionKind.alert || !mounted) return;
+                final done =
+                    ref
+                        .read(assistantProvider(_args))
+                        .actionProgress(draft.proposalId)
+                        .status ==
+                    ActionProposalStatus.done;
+                if (!done) return;
+                await PushPermissionSheet.maybeShow(
+                  context,
+                  ref,
+                  reason: PushPromptReason.priceAlert,
+                );
+              },
               onCancel: notifier.cancelAction,
               priceOn: notifier.actionPriceOn,
               formOf: notifier.actionFormOf,
@@ -845,6 +866,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   (sale) => GotoClosedPositionDetail.of(
                     sale,
                   ).navigate(context: context),
+              onOpenAlerts:
+                  () => context.pushNamed(NotificationsRouter.alertsRouteName),
               child: PortyVoiceScope(
                 onDoneSpeaking:
                     message.surfaceId == _speakingSurfaceId

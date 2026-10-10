@@ -465,3 +465,14 @@ verify_jwt = false
 # demás rutas validan el JWT del usuario ellas mismas, como finnhub.
 [functions.etoro-sync]
 verify_jwt = false
+
+# Funciones internas de las notificaciones push: las llama pg_cron (o otra
+# función) con el header `x-cron-secret` (secret CRON_SECRET), sin JWT.
+[functions.notify-dispatch]
+verify_jwt = false
+
+[functions.market-watch]
+verify_jwt = false
+
+[functions.daily-jobs]
+verify_jwt = false

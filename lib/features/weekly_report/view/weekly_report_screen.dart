@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -8,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report.dart';
@@ -57,12 +60,32 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     return false;
   }
 
+  Timer? _pushPrompt;
+
+  @override
+  void dispose() {
+    _pushPrompt?.cancel();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(weeklyReportControllerProvider.notifier).markSeen();
     });
+    // La primera vez que lo lee, después de un rato (no al abrir): "¿te
+    // avisamos los sábados?" (plan de push §6).
+    if (_animate) {
+      _pushPrompt = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        PushPermissionSheet.maybeShow(
+          context,
+          ref,
+          reason: PushPromptReason.weeklyReport,
+        );
+      });
+    }
   }
 
   @override

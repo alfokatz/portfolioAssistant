@@ -11,6 +11,7 @@
 // con su JWT.
 
 import { bearer, corsHeaders, type Deps, json, sleep, typedError } from "../_shared/common.ts";
+import { getSession, resetSession, type YahooSession, yahooSessionConfig } from "../_shared/yahoo_session.ts";
 
 /// Módulos permitidos → cuánto vale la caché. La composición de un ETF y el
 /// perfil de una compañía cambian poco; un día alcanza.
@@ -25,14 +26,9 @@ export const moduleTtlSeconds: Record<string, number> = {
 
 export const config = {
   quoteSummaryUrl: "https://query2.finance.yahoo.com/v10/finance/quoteSummary",
-  cookieUrl: "https://fc.yahoo.com",
-  crumbUrl: "https://query2.finance.yahoo.com/v1/test/getcrumb",
-  userAgent:
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  /// La sesión de Yahoo dura más, pero renovarla seguido evita arrastrar un
-  /// crumb vencido en una instancia que vive mucho.
-  sessionTtlMs: 6 * 60 * 60 * 1000,
+  cookieUrl: yahooSessionConfig.cookieUrl,
+  crumbUrl: yahooSessionConfig.crumbUrl,
+  userAgent: yahooSessionConfig.userAgent,
   /// Por usuario: una simulación de inversión pide el perfil de ~10 tickers.
   ratePerMinute: 120,
   /// Backoff ante 429 de Yahoo: corto, para no trabar el turno.
@@ -41,46 +37,7 @@ export const config = {
 
 const symbolPattern = /^[A-Z0-9.\-^=]{1,15}$/;
 
-type YahooSession = { cookie: string; crumb: string; createdAt: number };
-
-/// Una sesión por instancia de la función (no por usuario: Yahoo no sabe
-/// nada del usuario, solo de la IP).
-let session: YahooSession | null = null;
-
-/// Para los tests: olvidar la sesión entre casos.
-export function resetSession() {
-  session = null;
-}
-
-async function getSession(deps: Deps, force = false): Promise<YahooSession | null> {
-  if (!force && session && deps.now() - session.createdAt < config.sessionTtlMs) return session;
-  session = null;
-  try {
-    const cookieRes = await deps.fetch(config.cookieUrl, {
-      headers: { "User-Agent": config.userAgent },
-      redirect: "manual",
-    });
-    // fc.yahoo.com responde 404 a propósito: lo que importa es la cookie.
-    const cookie = cookieRes.headers
-      .getSetCookie()
-      .map((c) => c.split(";")[0])
-      .filter((c) => c.includes("="))
-      .join("; ");
-    await cookieRes.body?.cancel();
-    if (!cookie) return null;
-
-    const crumbRes = await deps.fetch(config.crumbUrl, {
-      headers: { "User-Agent": config.userAgent, Cookie: cookie },
-    });
-    const crumb = (await crumbRes.text()).trim();
-    // Con rate limit, getcrumb devuelve 429 con el texto "Too Many Requests".
-    if (crumbRes.status !== 200 || !crumb || crumb.includes(" ") || crumb.length > 64) return null;
-    session = { cookie, crumb, createdAt: deps.now() };
-    return session;
-  } catch {
-    return null;
-  }
-}
+export { resetSession };
 
 async function fetchQuoteSummary(
   deps: Deps,

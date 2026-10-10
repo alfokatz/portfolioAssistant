@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
@@ -75,6 +76,10 @@ abstract final class PortyActivityCopy {
       case ActionTools.proposeSell:
       case ActionTools.proposeDelete:
         return 'porty_status_action'.tr();
+      case AlertTools.proposePriceAlert:
+        return 'porty_status_alert'.tr();
+      case AlertTools.listPriceAlerts:
+        return 'porty_status_alerts_list'.tr();
       default:
         return 'porty_status_gathering'.tr();
     }

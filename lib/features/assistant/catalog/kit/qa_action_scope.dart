@@ -20,6 +20,7 @@ class QaActionScope extends InheritedWidget {
     this.onFormChanged,
     this.onOpenPosition,
     this.onOpenClosedPosition,
+    this.onOpenAlerts,
     required super.child,
   });
 
@@ -51,6 +52,9 @@ class QaActionScope extends InheritedWidget {
   /// nada que ver en cartera); sin él, el link no se muestra.
   final ValueChanged<ClosedPosition>? onOpenClosedPosition;
 
+  /// "Ver mis alertas" después de crear una alerta; sin él, no se muestra.
+  final VoidCallback? onOpenAlerts;
+
   static QaActionScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<QaActionScope>();
 
@@ -62,5 +66,6 @@ class QaActionScope extends InheritedWidget {
       oldWidget.proposals != proposals ||
       (oldWidget.onOpenPosition == null) != (onOpenPosition == null) ||
       (oldWidget.onOpenClosedPosition == null) !=
-          (onOpenClosedPosition == null);
+          (onOpenClosedPosition == null) ||
+      (oldWidget.onOpenAlerts == null) != (onOpenAlerts == null);
 }

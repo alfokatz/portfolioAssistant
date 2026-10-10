@@ -79,6 +79,7 @@ class AssistantToolContext {
     this.loadInvestorProfile,
     this.investorProfile,
     this.actionsThisConversation = const [],
+    this.loadPriceAlerts,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -100,6 +101,10 @@ class AssistantToolContext {
   /// Operaciones propuestas en esta conversación que el usuario ya confirmó,
   /// canceló o está guardando (ver `ActionProposalProgress.toBrief`).
   final List<Map<String, Object?>> actionsThisConversation;
+
+  /// Las alertas de precio del usuario (list_price_alerts), ya en el
+  /// formato del resultado de la tool; `null` fuera de la app.
+  final Future<List<Map<String, Object?>>> Function()? loadPriceAlerts;
   final DateTime now;
   final Set<String> heldTickers;
 
