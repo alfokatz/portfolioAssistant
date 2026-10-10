@@ -16,9 +16,21 @@ class SupabasePortfolioMapper {
       quantity: _toDouble(row['quantity']),
       purchasePrice: _toDouble(row['purchase_price']),
       purchaseDate: DateTime.parse(row['purchase_date'] as String).toLocal(),
+      source: PositionSource.fromWire(row['source'] as String?),
+      syncedAt: _optionalDate(row['synced_at']),
+      brokerPrice: _optionalDouble(row['broker_price']),
     );
   }
 
+  static DateTime? _optionalDate(Object? value) =>
+      value is String ? DateTime.parse(value).toLocal() : null;
+
+  static double? _optionalDouble(Object? value) =>
+      value == null ? null : _toDouble(value);
+
+  /// Sin `source` ni `broker_price`: la base pone 'manual' al insertar y no
+  /// lo cambia al actualizar. Las filas de eToro solo las escribe la edge
+  /// function.
   static Map<String, dynamic> positionToRow({
     required Position position,
     required String userId,
@@ -42,18 +54,21 @@ class SupabasePortfolioMapper {
       closePrice: _toDouble(row['close_price']),
       closeDate: DateTime.parse(row['close_date'] as String).toLocal(),
       closedAt: DateTime.parse(row['closed_at'] as String).toLocal(),
+      source: PositionSource.fromWire(row['source'] as String?),
+      realizedPnl: _optionalDouble(row['realized_pnl']),
     );
   }
 
   static Map<String, dynamic> closedPositionToRow({
     required ClosedPosition position,
     required String userId,
-    String? sourcePositionId,
   }) {
+    // Sin `source_position_id`: apuntaba al lote vendido, que al venderse
+    // entero se borra, y la clave foránea rechazaba la venta (bug
+    // 2026-10-06). Nadie lo leía.
     return {
       'id': position.id,
       'user_id': userId,
-      'source_position_id': sourcePositionId,
       'ticker': position.ticker,
       'quantity': position.quantity,
       'avg_purchase_price': position.avgPurchasePrice,

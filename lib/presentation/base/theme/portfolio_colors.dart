@@ -1,18 +1,38 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens for PortfolioAI mockup.
 abstract final class PortfolioColors {
-  static const background = Color(0xFF0B0E14);
-  static const surfaceCard = Color(0xFF151B26);
-  static const surfaceElevated = Color(0xFF1C2433);
-  static const border = Color(0xFF2A3344);
-  static const accentBlue = Color(0xFF3B82F6);
-  static const accentBlueDim = Color(0xFF2563EB);
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF8B95A8);
-  static const profit = Color(0xFF22C55E);
-  static const loss = Color(0xFFEF4444);
-  static const chartLine = Color(0xFF3B82F6);
-  static const chartGrid = Color(0xFF2A3344);
-  static const benchmarkSp500 = Color(0xFF6B7280);
+  // ── Fondos ──────────────────────────────────────────────────────────────
+  static const background = Color(0xFFFBFBFA); // warm off-white
+  static const surfaceCard = Color(0xFFFFFFFF); // pure white
+  static const surfaceElevated = Color(0xFFF4F4F2); // light input bg
+
+  // ── Bordes ──────────────────────────────────────────────────────────────
+  static const border = Color(0x14000000); // 8% black alpha
+
+  // ── Acento secundario único de la app — terracota cálido ────────────────
+  // `accentBlue`/`accentBlueDim` mantienen su nombre histórico (usado en
+  // ~30 archivos) pero ya no son azules: son el mismo acento cálido que
+  // `accentWarm`, para que todo foco, selección e ícono secundario de la
+  // app comparta un solo color, sin tener que tocar cada call site.
+  static const accentBlue = Color(0xFFD98E5D);
+  static const accentBlueDim = Color(0xFFA86A46);
+
+  // ── Acento cálido — glow del asistente (Porty) ───────────────────────────
+  static const accentWarm = Color(0xFFD98E5D); // terracota editorial
+
+  // ── Borde diferenciado para tarjetas generadas por el asistente ─────────
+  static const aiCardBorder = Color(0x59D98E5D); // accentWarm @ 35% alpha
+
+  // ── Texto ────────────────────────────────────────────────────────────────
+  static const textPrimary = Color(0xFF2F3437); // off-black charcoal
+  static const textSecondary = Color(0xFF787774); // muted warm gray
+
+  // ── Semántico ────────────────────────────────────────────────────────────
+  static const profit = Color(0xFF346538); // editorial deep green
+  static const loss = Color(0xFF9F2F2D); // editorial deep red
+
+  // ── Charts ───────────────────────────────────────────────────────────────
+  static const chartLine = Color(0xFF2F3437); // charcoal
+  static const chartGrid = Color(0x08000000); // 3% black
+  static const benchmarkSp500 = Color(0xFFB0ABA8); // warm gray
 }

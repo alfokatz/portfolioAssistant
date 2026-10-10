@@ -14,48 +14,28 @@ typedef JsonMap = Map<String, dynamic>;
 /// Viewport típico de teléfono para smoke tests de catálogo GenUI.
 const genuiTestViewportSize = Size(390, 844);
 
-/// Nombres de componentes custom del flujo de análisis.
-const analysisCustomComponentNames = {
-  'PortfolioSummaryCard',
-  'AssetPerformanceCard',
-  'AlertBanner',
-  'PortfolioInsightCard',
-  'NewsHighlightCard',
-  'NewsFeedCard',
-  'QuickActionRow',
-};
-
-/// Nombres de componentes custom del flujo de inversión.
-const investmentCustomComponentNames = {
-  'InvestmentOpportunityCard',
-  'RiskProfileSlider',
-  'BudgetAllocationCard',
-  'MarketContextCard',
-  'InvestmentConfirmCard',
-  'AlertBanner',
-};
-
 /// Nombres de componentes custom del asistente Portfolio Q&A.
 const portfolioQaCustomComponentNames = {
   'QaAnswerText',
   'QaMetricStrip',
   'QaPeriodChange',
   'QaTickerMove',
+  'QaTickerSnapshot',
+  'QaPriceChart',
+  'QaEarningsCalendar',
+  'QaNewsSummary',
   'QaConcentrationBar',
   'QaPnLBreakdown',
   'QaTopMovers',
   'QaPositionList',
+  'QaClosedPositionList',
   'QaTipBanner',
   'QaComparisonRow',
-};
-
-/// Nombres de componentes custom del flujo de planificación.
-const planningCustomComponentNames = {
-  'GoalCard',
-  'ProjectionChart',
-  'MilestoneTimeline',
-  'ActionPriorityCard',
-  'GapAnalysisCard',
+  'QaInvestOption',
+  'QaBudgetSplit',
+  'QaInvestConfirm',
+  'QaSavingsPlan',
+  'QaActionProposal',
 };
 
 List<JsonMap> parseExampleComponents(String exampleJson) {
@@ -106,22 +86,11 @@ String loadGenuiFixture(String fileName) {
 }
 
 ThemeData genuiTestTheme() {
-  const customColors = CustomColors(
-    profit: PortfolioColors.profit,
-    loss: PortfolioColors.loss,
-    profitContainer: Color(0xFF14532D),
-    lossContainer: Color(0xFF3D1515),
-    chartGrid: PortfolioColors.chartGrid,
-    accentBlue: PortfolioColors.accentBlue,
-    cardBackground: PortfolioColors.surfaceCard,
-    aiCardBorder: Color(0xFF3B82F6),
-  );
-
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: PortfolioColors.background,
-    extensions: [customColors],
+    scaffoldBackgroundColor: CustomColors.dark.background,
+    extensions: [CustomColors.dark],
   );
 }
 

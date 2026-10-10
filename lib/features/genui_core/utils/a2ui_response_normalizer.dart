@@ -1,14 +1,28 @@
 import 'dart:convert';
 
+import 'package:genui/genui.dart' show basicCatalogId;
+
 /// Convierte respuestas del LLM al formato A2UI v0.9 esperado por GenUI.
 abstract final class A2uiResponseNormalizer {
-  static const defaultCatalogId =
-      'https://a2ui.org/specification/v0_9/standard_catalog.json';
+  /// La constante de genui y no un literal: en 0.10.3 cambió la URL
+  /// canónica del catálogo básico, y un id que no matchea ningún catálogo
+  /// deja las surfaces sin renderizar, sin ningún error.
+  static const defaultCatalogId = basicCatalogId;
 
+  /// [stripCreateSurface]: la surface ya existe, así que cualquier
+  /// `createSurface` de la respuesta se descarta.
+  ///
+  /// [ensureCreateSurface]: la surface todavía no existe, así que si la
+  /// respuesta trae `updateComponents` sin `createSurface` se antepone uno.
+  /// Pasa en la práctica: después de una ronda de tools, gpt-4.1-mini suele
+  /// emitir solo `updateComponents` (verificado en evals), y sin
+  /// `createSurface` genui nunca crea la surface.
   static String normalize(
     String raw, {
     required String surfaceId,
     String catalogId = defaultCatalogId,
+    bool ensureCreateSurface = false,
+    bool stripCreateSurface = false,
   }) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -24,18 +38,23 @@ abstract final class A2uiResponseNormalizer {
     for (final chunk in chunks) {
       if (chunk is Map<String, dynamic>) {
         if (_isA2uiMessage(chunk)) {
-          var fixed = _withSurfaceId(chunk, surfaceId);
-          final type = _messageType(fixed);
-          if (type == 'createSurface') {
-            hasCreateSurface = true;
-          } else if (type == 'updateComponents') {
-            final repaired = _repairUpdateComponents(fixed);
-            if (repaired != null) {
-              fixed = repaired;
-              hasUpdateComponents = true;
+          for (final part in _splitOperations(chunk)) {
+            var fixed = _withSurfaceId(part, surfaceId);
+            final type = _messageType(fixed);
+            if (type == 'createSurface') {
+              // La surface ya existe (ronda de repair): re-crearla tira
+              // "Surface already exists" y tumba el turno entero.
+              if (stripCreateSurface) continue;
+              hasCreateSurface = true;
+            } else if (type == 'updateComponents') {
+              final repaired = _repairUpdateComponents(fixed);
+              if (repaired != null) {
+                fixed = repaired;
+                hasUpdateComponents = true;
+              }
             }
+            output.add(jsonEncode(fixed));
           }
-          output.add(jsonEncode(fixed));
         } else if (_isComponent(chunk)) {
           orphanComponents.add(chunk);
         }
@@ -63,6 +82,10 @@ abstract final class A2uiResponseNormalizer {
           ),
         ),
       );
+    }
+
+    if (ensureCreateSurface && hasUpdateComponents && !hasCreateSurface) {
+      output.insert(0, jsonEncode(_createSurface(surfaceId, catalogId)));
     }
 
     return output.isEmpty ? trimmed : output.join('\n');
@@ -175,6 +198,28 @@ abstract final class A2uiResponseNormalizer {
 
   static bool _isComponent(Map<String, dynamic> obj) {
     return obj.containsKey('id') && obj.containsKey('component');
+  }
+
+  static const _operations = [
+    'createSurface',
+    'updateComponents',
+    'updateDataModel',
+    'deleteSurface',
+  ];
+
+  /// A2UI exige exactamente UNA operación por mensaje, pero el modelo a veces
+  /// junta `createSurface` + `updateComponents` en un mismo objeto (visto en
+  /// rondas de repair). `A2uiMessage.fromJson` tira `A2uiValidationError`
+  /// con eso, así que se parte en mensajes separados, en orden canónico.
+  static List<Map<String, dynamic>> _splitOperations(
+    Map<String, dynamic> chunk,
+  ) {
+    final present = _operations.where(chunk.containsKey).toList();
+    if (present.length <= 1) return [chunk];
+    final version = chunk['version'] ?? 'v0.9';
+    return [
+      for (final op in present) {'version': version, op: chunk[op]},
+    ];
   }
 
   static String? _messageType(Map<String, dynamic> obj) {

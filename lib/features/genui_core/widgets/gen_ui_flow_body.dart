@@ -1,28 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/features/analysis/catalog/analysis_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
-/// Cuerpo de carga para pantallas GenUI.
+/// Cuerpo de carga para pantallas GenUI: Porty pensando, con [message]
+/// debajo si la espera se alarga (ver [PortyLoader]).
 class GenUiFlowLoadingBody extends StatelessWidget {
   const GenUiFlowLoadingBody({super.key, required this.message});
 
   final String message;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: Color(0xFF2979FF)),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(color: AnalysisColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PortyLoader(message: message);
 }
 
 /// Cuerpo de error con botón de reintento para pantallas GenUI.
@@ -46,7 +34,7 @@ class GenUiFlowErrorBody extends StatelessWidget {
           children: [
             const Icon(
               Icons.error_outline,
-              color: AnalysisColors.loss,
+              color: PortfolioColors.loss,
               size: 48,
             ),
             const SizedBox(height: 16),
@@ -54,7 +42,7 @@ class GenUiFlowErrorBody extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: AnalysisColors.textPrimary,
+                color: PortfolioColors.textPrimary,
                 fontSize: 16,
               ),
             ),
@@ -64,8 +52,8 @@ class GenUiFlowErrorBody extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               label: const Text('Reintentar'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AnalysisColors.textPrimary,
-                side: const BorderSide(color: AnalysisColors.textSecondary),
+                foregroundColor: PortfolioColors.textPrimary,
+                side: const BorderSide(color: PortfolioColors.textSecondary),
               ),
             ),
           ],

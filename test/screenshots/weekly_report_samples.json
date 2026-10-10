@@ -1,0 +1,254 @@
+{
+  "good_week": {
+    "v": 2,
+    "week": "2026-09-21",
+    "variant": "full",
+    "courtesy": false,
+    "change_pct": 2.466666666666667,
+    "change_abs": 74.0,
+    "value_end": 3074.0,
+    "new_money": 0.0,
+    "trading_days": 5,
+    "sp500_pct": 1.0,
+    "comparison": "slightlyBetter",
+    "daily": [
+      {
+        "day": "2026-09-18",
+        "p": 0.0,
+        "s": 0.0
+      },
+      {
+        "day": "2026-09-21",
+        "p": 0.739999999999994,
+        "s": 0.3
+      },
+      {
+        "day": "2026-09-22",
+        "p": 0.2466666666666697,
+        "s": 0.1
+      },
+      {
+        "day": "2026-09-23",
+        "p": 1.480000000000003,
+        "s": 0.6
+      },
+      {
+        "day": "2026-09-24",
+        "p": 1.9733333333333425,
+        "s": 0.8
+      },
+      {
+        "day": "2026-09-25",
+        "p": 2.466666666666667,
+        "s": 1.0
+      }
+    ],
+    "movers": [
+      {
+        "ticker": "AAPL",
+        "move_pct": 6.0,
+        "contribution_pp": 2.0,
+        "bought_this_week": false,
+        "role": "addedMost",
+        "why": "Subió en una semana en la que Apple informó preórdenes récord del iPhone 18.",
+        "source": {
+          "ticker": "AAPL",
+          "title": "Apple shares rise after record iPhone 18 preorders",
+          "source": "Reuters",
+          "url": "https://news.google.com/746990544",
+          "date": "2026-09-23"
+        }
+      },
+      {
+        "ticker": "MSFT",
+        "move_pct": 1.2000000000000028,
+        "contribution_pp": 0.4,
+        "bought_this_week": false,
+        "role": null,
+        "why": "Se movió junto con el mercado, sin una noticia propia que explique el cambio.",
+        "source": null
+      }
+    ],
+    "others_count": 1,
+    "others_all_small": true,
+    "news": [
+      {
+        "ticker": "MSFT",
+        "title": "Microsoft gana contrato de nube de $10 mil millones con el Pentágono",
+        "source": "Bloomberg",
+        "url": "https://news.google.com/858749307",
+        "date": "2026-09-23"
+      },
+      {
+        "ticker": "MSFT",
+        "title": "Microsoft abre nuevo centro de datos de IA en Irlanda",
+        "source": "CNBC",
+        "url": "https://news.google.com/1035575138",
+        "date": "2026-09-23"
+      }
+    ],
+    "investors": [
+      {
+        "who": "Bill Ackman",
+        "organization": "Pershing Square",
+        "filing": false,
+        "form": null,
+        "source": "CNBC",
+        "url": "https://news.google.com/i3",
+        "date": "2026-09-24",
+        "related": [
+          "MSFT"
+        ],
+        "take": "Bill Ackman, inversor famoso, apuesta fuerte a Microsoft por IA; tenés MSFT en tu cartera"
+      }
+    ],
+    "upcoming_earnings": [
+      {
+        "ticker": "MSFT",
+        "date": "2026-09-30",
+        "timing": "Después del cierre",
+        "eps": 3.12
+      }
+    ],
+    "reading": "Tu cartera subió un poco más que el mercado, con Apple impulsando la mejora gracias a su nuevo iPhone.",
+    "learn": {
+      "concept": "Informe de ganancias",
+      "text": "Un informe de ganancias muestra cómo le fue a una empresa en un período. Puede mover el precio ese día, como pasará con Microsoft."
+    }
+  },
+  "flat_week": {
+    "v": 2,
+    "week": "2026-09-21",
+    "variant": "full",
+    "courtesy": false,
+    "change_pct": 0.06666666666666667,
+    "change_abs": 2.0,
+    "value_end": 3002.0,
+    "new_money": 0.0,
+    "trading_days": 5,
+    "sp500_pct": 0.4,
+    "comparison": "similar",
+    "daily": [
+      {
+        "day": "2026-09-18",
+        "p": 0.0,
+        "s": 0.0
+      },
+      {
+        "day": "2026-09-21",
+        "p": 0.019999999999996968,
+        "s": 0.12
+      },
+      {
+        "day": "2026-09-22",
+        "p": 0.006666666666660603,
+        "s": 0.04
+      },
+      {
+        "day": "2026-09-23",
+        "p": 0.039999999999993936,
+        "s": 0.24
+      },
+      {
+        "day": "2026-09-24",
+        "p": 0.0533333333333303,
+        "s": 0.32
+      },
+      {
+        "day": "2026-09-25",
+        "p": 0.06666666666666667,
+        "s": 0.4
+      }
+    ],
+    "movers": [
+      {
+        "ticker": "AAPL",
+        "move_pct": 0.6999999999999886,
+        "contribution_pp": 0.23333333333332953,
+        "bought_this_week": false,
+        "role": "addedMost",
+        "why": "Se movió junto con el mercado, sin una noticia propia.",
+        "source": null
+      },
+      {
+        "ticker": "MSFT",
+        "move_pct": -0.5999999999999943,
+        "contribution_pp": -0.2,
+        "bought_this_week": false,
+        "role": "subtractedMost",
+        "why": "No encontramos una noticia que lo explique.",
+        "source": null
+      }
+    ],
+    "others_count": 1,
+    "others_all_small": true,
+    "news": [],
+    "investors": [],
+    "upcoming_earnings": [],
+    "reading": "Tu cartera casi no cambió, igual que el mercado, con AAPL subiendo y MSFT bajando.",
+    "learn": null
+  },
+  "single_position": {
+    "v": 2,
+    "week": "2026-09-21",
+    "variant": "full",
+    "courtesy": false,
+    "change_pct": 3.4999999999999774,
+    "change_abs": 34.99999999999977,
+    "value_end": 1034.9999999999998,
+    "new_money": 0.0,
+    "trading_days": 5,
+    "sp500_pct": 1.0,
+    "comparison": "better",
+    "daily": [
+      {
+        "day": "2026-09-18",
+        "p": 0.0,
+        "s": 0.0
+      },
+      {
+        "day": "2026-09-21",
+        "p": 1.05,
+        "s": 0.3
+      },
+      {
+        "day": "2026-09-22",
+        "p": 0.35000000000000003,
+        "s": 0.1
+      },
+      {
+        "day": "2026-09-23",
+        "p": 2.1,
+        "s": 0.6
+      },
+      {
+        "day": "2026-09-24",
+        "p": 2.799999999999977,
+        "s": 0.8
+      },
+      {
+        "day": "2026-09-25",
+        "p": 3.4999999999999774,
+        "s": 1.0
+      }
+    ],
+    "movers": [
+      {
+        "ticker": "AAPL",
+        "move_pct": 3.499999999999986,
+        "contribution_pp": 3.4999999999999774,
+        "bought_this_week": false,
+        "role": null,
+        "why": "AAPL subió más que el mercado sin noticias propias esta semana.",
+        "source": null
+      }
+    ],
+    "others_count": 0,
+    "others_all_small": true,
+    "news": [],
+    "investors": [],
+    "upcoming_earnings": [],
+    "reading": "Tu cartera subió más que el mercado, impulsada por el buen desempeño de AAPL.",
+    "learn": null
+  }
+}

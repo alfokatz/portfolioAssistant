@@ -1,5 +1,5 @@
 name: portfolio_assistant
-description: "PortfolioAI - Dashboard de portfolio con flujos GenUI."
+description: "Porty - Dashboard de portfolio con asistente IA y flujos GenUI."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.7.0
@@ -28,40 +28,50 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  a2ui_core: ^0.1.1
   animate_do: ^4.2.0
+  clock: ^1.1.2
   cupertino_icons: ^1.0.8
+  dart_openai: ^5.1.0
   dartz: ^0.10.1
   dio: ^5.7.0
   easy_localization: ^3.0.7
   firebase_remote_config: ^5.4.3
+  fl_chart: ^0.70.2
   flutter:
     sdk: flutter
   flutter_dotenv: ^5.1.0
   flutter_hooks: ^0.21.2
   flutter_secure_storage: ^9.2.4
   flutter_svg: ^2.0.10
+  flutter_web_auth_2: ^5.1.0
   freezed: ^3.0.0-0.0.dev
   freezed_annotation: ^3.0.0
-  fl_chart: ^0.70.2
+  genui: ^0.10.4
   go_router: ^14.2.7
+  google_fonts: ^8.1.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   hooks_riverpod: ^2.5.2
+  http: ^1.6.0
   intl: ^0.20.2
-  uuid: ^4.5.1
-  yahoo_finance_data_reader: ^1.0.14
   json_annotation: ^4.9.0
+  json_schema_builder: ^0.1.7
   lottie: ^3.1.2
   path_provider: ^2.1.3
   permission_handler: ^11.3.1
+  purchases_flutter: ^10.12.0
   retrofit: ^4.4.1
   shared_preferences: ^2.3.2
+  supabase_flutter: ^2.14.2
   url_launcher: ^6.3.1
-  genui: ^0.8.0
-  dart_openai: ^5.1.0
-  json_schema_builder: ^0.1.3
+  xml: ^7.0.1
+  uuid: ^4.5.1
+  yahoo_finance_data_reader: ^1.0.14
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
+  crypto: ^3.0.7
   build_runner: ^2.4.12
   change_app_package_name: ^1.3.0
   flutter_launcher_icons: ^0.14.3
@@ -77,6 +87,38 @@ dev_dependencies:
   json_serializable: ^6.8.0
   lint: ^2.3.0
   retrofit_generator: ^9.1.3
+  flutter_native_splash: ^2.4.8
+
+# Splash nativo: Porty en reposo sobre el fondo de la app, del mismo
+# tamaño y en el mismo lugar que el `PortyLoader` del arranque (64 dp,
+# centrado). Las imágenes salen de
+# test/screenshots/porty_splash_assets_test.dart; después:
+# `dart run flutter_native_splash:create`.
+flutter_native_splash:
+  color: "#FBFBFA"
+  color_dark: "#0F0F0F"
+  image: assets/porty-avatar/splash/porty_splash.png
+  image_dark: assets/porty-avatar/splash/porty_splash.png
+  android_12:
+    color: "#FBFBFA"
+    color_dark: "#0F0F0F"
+    image: assets/porty-avatar/splash/porty_splash_android12.png
+    image_dark: assets/porty-avatar/splash/porty_splash_android12.png
+  web: false
+
+# Ícono de la app (Porty): `dart run flutter_launcher_icons`. iOS usa el
+# ícono terracota entero (sin alpha); Android, el adaptativo (Porty claro
+# sobre terracota) y el mismo PNG como ícono legacy.
+flutter_launcher_icons:
+  ios: true
+  image_path_ios: "assets/porty-avatar/icon/app_icon_terracotta_1024.png"
+  remove_alpha_ios: true
+  android: true
+  image_path_android: "assets/porty-avatar/icon/app_icon_terracotta_1024.png"
+  adaptive_icon_background: "#D98E5D"
+  adaptive_icon_foreground: "assets/porty-avatar/icon/adaptive_foreground_on_terracotta_1024.png"
+  # El PNG ya trae el margen de la zona segura: sin inset extra.
+  adaptive_icon_foreground_inset: 0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -89,10 +131,24 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/translations/
+    - assets/translations/es-ES.json
+    - assets/translations/en-US.json
     - assets/images/
     - assets/animations/
     - assets/env/
+    - assets/fonts/
+
+  fonts:
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
   # For details regarding adding assets from package dependencies, see

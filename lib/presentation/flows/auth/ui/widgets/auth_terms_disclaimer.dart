@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Texto legal con links a términos y política de privacidad.
@@ -20,13 +20,14 @@ class AuthTermsDisclaimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: PortfolioColors.textSecondary,
-          height: 1.4,
+          color: colors.textSecondary,
+          height: 1.45,
         );
     final linkStyle = baseStyle?.copyWith(
-      color: PortfolioColors.accentBlue,
-      fontWeight: FontWeight.w500,
+      color: colors.accentBlue,
+      fontWeight: FontWeight.w600,
     );
 
     return Text.rich(

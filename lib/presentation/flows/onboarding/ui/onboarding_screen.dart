@@ -1,0 +1,267 @@
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
+import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
+import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_assistant_page.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_dashboard_page.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_get_started_page.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_welcome_page.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_dots.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
+import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+
+class OnboardingScreen extends StatefulHookConsumerWidget {
+  const OnboardingScreen({super.key});
+
+  static const pageCount = 4;
+
+  @override
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+  bool _isFinishing = false;
+
+  @override
+  void initState() {
+    _pageController = PageController();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  bool get _isLastPage => _currentPage == OnboardingScreen.pageCount - 1;
+
+  void _onPageChanged(int page) {
+    setState(() => _currentPage = page);
+  }
+
+  void _goNext() {
+    if (_isLastPage) {
+      // El primer paso concreto: cargar la cartera.
+      _finish(OnboardingExit.addPosition);
+      return;
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _pageController.nextPage(
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _finish(OnboardingExit exit) async {
+    if (_isFinishing) return;
+    setState(() => _isFinishing = true);
+    await ref.read(onboardingProvider).markComplete();
+    if (!mounted) return;
+
+    switch (exit) {
+      case OnboardingExit.home:
+        context.goNamed(HomeRouter.homeRouteName);
+      case OnboardingExit.addPosition:
+        context.goNamed(HomeRouter.homeRouteName);
+        if (!mounted) return;
+        context.pushNamed(PositionRouter.addRouteName);
+      case OnboardingExit.connectEtoro:
+        // La pantalla de eToro explica qué hace Porty con la cuenta antes de
+        // pedir nada; "atrás" vuelve a la Home.
+        context.goNamed(HomeRouter.homeRouteName);
+        if (!mounted) return;
+        context.pushNamed(EtoroRouter.connectionRouteName);
+      case OnboardingExit.assistant:
+        // Assistant vive ahora como una pestaña del shell (junto a Home y
+        // Ajustes): entrar con `goNamed` deja esa pestaña activa
+        // directamente, en vez de empujarla encima de Home con `push`
+        // (que no es la forma soportada de cruzar entre pestañas de un
+        // StatefulShellRoute).
+        context.goNamed(AssistantRouter.routeName);
+    }
+  }
+
+  @override
+  Widget buildView(BuildContext context) {
+    final colors = context.customColors;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.pageHorizontal,
+                AppDimens.sp8,
+                AppDimens.pageHorizontal,
+                0,
+              ),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  if (!_isLastPage)
+                    TextButton(
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.home),
+                      child: Text(
+                        'onboarding_skip'.tr(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Semantics(
+                label: 'onboarding_page_indicator'.tr(
+                  namedArgs: {
+                    'current': '${_currentPage + 1}',
+                    'total': '${OnboardingScreen.pageCount}',
+                  },
+                ),
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  physics:
+                      reduceMotion
+                          ? const ClampingScrollPhysics()
+                          : const BouncingScrollPhysics(),
+                  children: [
+                    OnboardingWelcomePage(activePage: _currentPage),
+                    OnboardingDashboardPage(activePage: _currentPage),
+                    OnboardingAssistantPage(activePage: _currentPage),
+                    OnboardingGetStartedPage(activePage: _currentPage),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppDimens.pageHorizontal,
+                AppDimens.sp8,
+                AppDimens.pageHorizontal,
+                AppDimens.sp12 + bottomPadding,
+              ),
+              child: Column(
+                children: [
+                  OnboardingPageDots(
+                    pageCount: OnboardingScreen.pageCount,
+                    currentPage: _currentPage,
+                  ),
+                  const SizedBox(height: AppDimens.sp20),
+                  PositionPrimaryButton(
+                    label:
+                        _isLastPage
+                            ? 'onboarding_finish_add_title'.tr()
+                            : 'onboarding_next'.tr(),
+                    loading: _isFinishing,
+                    onPressed: _isFinishing ? null : _goNext,
+                  ),
+                  if (_isLastPage) ...[
+                    const SizedBox(height: AppDimens.sp8),
+                    // Alternativa a cargar a mano: traer la cartera de eToro.
+                    _ImportEtoroButton(
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.connectEtoro),
+                    ),
+                    const SizedBox(height: AppDimens.sp4),
+                    TextButton(
+                      onPressed:
+                          _isFinishing
+                              ? null
+                              : () => _finish(OnboardingExit.home),
+                      child: Text(
+                        'onboarding_skip_for_now'.tr(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Importar desde" + el logo de eToro: secundario (borde, sin relleno), al
+/// lado de cargar a mano. Para lectores de pantalla, el texto completo.
+class _ImportEtoroButton extends StatelessWidget {
+  const _ImportEtoroButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Semantics(
+      button: true,
+      label: 'onboarding_finish_connect_etoro'.tr(),
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: double.infinity,
+          minHeight: 52,
+        ),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colors.textPrimary,
+            backgroundColor: colors.surfaceCard,
+            side: BorderSide(color: colors.border),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.sp16,
+              vertical: AppDimens.sp12,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            ),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppDimens.sp8,
+            runSpacing: AppDimens.sp4,
+            children: [
+              Text(
+                'onboarding_finish_import_from'.tr(),
+                style: tt.titleSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              AppImages.etoroLogo(height: 14),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

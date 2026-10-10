@@ -1,129 +1,171 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
-import 'package:portfolio_assistant/presentation/shared/charts/sparkline_chart.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 
+/// Una posición de la Home, liviana a propósito: logo, ticker y cuántas
+/// acciones (el mismo dato en todas las filas); a la derecha, lo que vale
+/// hoy y cuánto rinde. La ganancia en dólares y el resto están en el
+/// detalle (el chevron dice que se puede tocar). Con [PositionRowWidget.skeleton] es su
+/// propio skeleton: mismos paddings y alturas, valores en barras.
 class PositionRowWidget extends StatelessWidget {
-  final PositionValuation valuation;
-  final VoidCallback? onTap;
-  final VoidCallback? onClose;
-  final VoidCallback? onDelete;
+  final PositionValuation? valuation;
+  final VoidCallback? onDetailTap;
 
   const PositionRowWidget({
     super.key,
-    required this.valuation,
-    this.onTap,
-    this.onClose,
-    this.onDelete,
+    required PositionValuation this.valuation,
+    this.onDetailTap,
   });
+
+  const PositionRowWidget.skeleton({super.key})
+    : valuation = null,
+      onDetailTap = null;
+
+  static const avatarSize = 36.0;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final currency = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final pnl = valuation.pnlAbsolute;
-    final sign = pnl >= 0 ? '+' : '';
-    final sparkline = HomeChartUtils.sparklineFromPrices(
-      purchasePrice: valuation.position.purchasePrice,
-      currentPrice: valuation.currentPrice,
-    );
+    final tt = Theme.of(context).textTheme;
+    final valuation = this.valuation;
+    const tabular = [FontFeature.tabularFigures()];
+    final secondaryStyle = tt.bodySmall?.copyWith(color: colors.textSecondary);
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.cardPadding,
+        AppDimens.sp8,
+        AppDimens.sp12,
+        AppDimens.sp8,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
         child: Row(
           children: [
+            if (valuation == null)
+              const SkeletonBlock(
+                width: avatarSize,
+                height: avatarSize,
+                radius: avatarSize / 2,
+              )
+            else
+              QaTickerAvatar(
+                ticker: valuation.position.ticker,
+                size: avatarSize,
+              ),
+            const SizedBox(width: AppDimens.sp12),
             Expanded(
-              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    valuation.position.ticker,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: PortfolioColors.textPrimary,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: SkeletonText(
+                          valuation?.position.ticker,
+                          placeholder: 'AAPL',
+                          style: tt.titleSmall?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
                         ),
+                      ),
+                      // Importada (toda o en parte) de eToro.
+                      if (valuation?.position.source.hasImported ?? false) ...[
+                        const SizedBox(width: AppDimens.sp6),
+                        const EtoroSourceBadge(),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    'position_shares'.tr(
-                      namedArgs: {
-                        'count': valuation.position.quantity.toString(),
-                      },
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: PortfolioColors.textSecondary,
-                        ),
+                  SkeletonText(
+                    valuation == null
+                        ? null
+                        : _shares(valuation.position.quantity),
+                    placeholder: '0.00 acciones',
+                    style: secondaryStyle,
                   ),
                 ],
               ),
             ),
-            SparklineChart(
-              values: sparkline,
-              isPositive: pnl >= 0,
-            ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppDimens.sp12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  currency.format(valuation.marketValue),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: PortfolioColors.textPrimary,
-                      ),
+                SkeletonText(
+                  valuation == null
+                      ? null
+                      : AppNumberFormat.money(valuation.marketValue),
+                  animate: true,
+                  placeholder: '\$0,000.00',
+                  style: tt.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontFeatures: tabular,
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '$sign${currency.format(pnl)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.pnlColor(pnl),
-                        fontWeight: FontWeight.w600,
-                      ),
+                SkeletonText(
+                  valuation == null
+                      ? null
+                      : AppNumberFormat.percent(valuation.pnlPercent),
+                  animate: true,
+                  placeholder: '+00.0%',
+                  style: tt.bodySmall?.copyWith(
+                    color: colors.pnlColor(valuation?.pnlAbsolute ?? 0),
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: tabular,
+                  ),
                 ),
               ],
             ),
-            if (onClose != null || onDelete != null) ...[
-              const SizedBox(width: 4),
-              PopupMenuButton<String>(
-                icon: const Icon(
-                  Icons.more_vert,
-                  size: 20,
-                  color: PortfolioColors.textSecondary,
-                ),
-                padding: EdgeInsets.zero,
-                onSelected: (value) {
-                  if (value == 'close') {
-                    onClose?.call();
-                  } else if (value == 'delete') {
-                    onDelete?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (onClose != null)
-                    PopupMenuItem(
-                      value: 'close',
-                      child: Text('position_close_action'.tr()),
-                    ),
-                  if (onDelete != null)
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        'delete'.tr(),
-                        style: const TextStyle(color: PortfolioColors.loss),
-                      ),
-                    ),
-                ],
+            // El chevron es de la fila, no un dato: el skeleton lo lleva
+            // igual, así las columnas quedan alineadas con las filas reales.
+            if (onDetailTap != null || valuation == null) ...[
+              const SizedBox(width: AppDimens.sp4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: AppDimens.iconMd,
+                color: colors.textSecondary,
               ),
             ],
           ],
         ),
       ),
     );
+
+    if (onDetailTap == null) return content;
+
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () {
+          // Haptic y navegación en el mismo frame del tap.
+          PortyHapticsService.maybeOf(context)?.selectionTap();
+          onDetailTap!();
+        },
+        child: content,
+      ),
+    );
+  }
+
+  /// "2.04 acciones": en la lista alcanza con 2 decimales (el detalle
+  /// muestra la cantidad exacta).
+  static String _shares(double quantity) {
+    final count = AppNumberFormat.shares(quantity, maxDecimals: 2);
+    // Por lo que se ve (1.004 se muestra "1"): nunca "1 acciones".
+    return count == '1'
+        ? 'position_shares_one'.tr()
+        : 'position_shares'.tr(namedArgs: {'count': count});
   }
 }

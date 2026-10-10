@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Separador con texto centrado para la sección de OAuth.
 class AuthOauthDivider extends StatelessWidget {
@@ -9,30 +10,22 @@ class AuthOauthDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Row(
       children: [
-        const Expanded(
-          child: Divider(
-            color: PortfolioColors.border,
-            thickness: 1,
-          ),
-        ),
+        Expanded(child: Divider(color: colors.border, height: 1)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp12),
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PortfolioColors.textSecondary,
+                  color: colors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
           ),
         ),
-        const Expanded(
-          child: Divider(
-            color: PortfolioColors.border,
-            thickness: 1,
-          ),
-        ),
+        Expanded(child: Divider(color: colors.border, height: 1)),
       ],
     );
   }

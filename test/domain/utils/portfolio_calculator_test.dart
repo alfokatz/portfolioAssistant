@@ -4,6 +4,24 @@ import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 
 void main() {
+  group('PortfolioCalculator.normalizeTicker', () {
+    test('normaliza mayúsculas y espacios', () {
+      expect(PortfolioCalculator.normalizeTicker('  aapl '), 'AAPL');
+    });
+  });
+
+  group('PortfolioCalculator.toYahooFinanceSymbol', () {
+    test('convierte clase B con punto al formato de Yahoo', () {
+      expect(PortfolioCalculator.toYahooFinanceSymbol('BRK.B'), 'BRK-B');
+      expect(PortfolioCalculator.toYahooFinanceSymbol('brk.b'), 'BRK-B');
+    });
+
+    test('mantiene tickers sin punto', () {
+      expect(PortfolioCalculator.toYahooFinanceSymbol('AAPL'), 'AAPL');
+      expect(PortfolioCalculator.toYahooFinanceSymbol('^GSPC'), '^GSPC');
+    });
+  });
+
   group('PortfolioCalculator.aggregateByTicker', () {
     test('combina varias compras del mismo ticker', () {
       final valuations = [

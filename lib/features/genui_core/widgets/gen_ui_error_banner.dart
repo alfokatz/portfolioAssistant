@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/features/analysis/catalog/analysis_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Banner compacto para errores de GenUI / OpenAI.
 class GenUiErrorBanner extends StatelessWidget {
@@ -14,10 +14,10 @@ class GenUiErrorBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AnalysisColors.loss.withValues(alpha: 0.12),
+        color: PortfolioColors.loss.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: AnalysisColors.loss.withValues(alpha: 0.35),
+          color: PortfolioColors.loss.withValues(alpha: 0.35),
         ),
       ),
       child: Row(
@@ -25,7 +25,7 @@ class GenUiErrorBanner extends StatelessWidget {
         children: [
           const Icon(
             Icons.info_outline,
-            color: AnalysisColors.loss,
+            color: PortfolioColors.loss,
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -33,7 +33,7 @@ class GenUiErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(
-                color: AnalysisColors.textPrimary,
+                color: PortfolioColors.textPrimary,
                 fontSize: 14,
                 height: 1.4,
               ),
