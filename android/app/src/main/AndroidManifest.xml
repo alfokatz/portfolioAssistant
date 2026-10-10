@@ -20,21 +20,44 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Los deep links de auth los procesa supabase_flutter (app_links),
+                 no el router: sin esto Flutter le pasaría porty://…?code= a
+                 GoRouter como si fuera una ruta. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Links de los emails de Supabase (confirmar cuenta y restablecer
+                 contraseña): porty://login-callback y porty://reset-password.
+                 Los procesa supabase_flutter (app_links). Ver
+                 lib/config/supabase/supabase_redirect_url.dart. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="porty" android:host="login-callback" />
+                <data android:scheme="porty" android:host="reset-password" />
+            </intent-filter>
         </activity>
-        <!-- Vuelta de la autorización de eToro (flutter_web_auth_2, Custom
-             Tabs): la edge function etoro-sync redirige a porty-etoro://callback. -->
+        <!-- Vueltas de flutter_web_auth_2 (Auth Tab / Custom Tabs):
+             - eToro: la edge function etoro-sync redirige a porty-etoro://callback.
+             - Login con Google / Apple (OAuth PKCE de Supabase): porty-oauth://callback.
+             Esquemas propios, distintos del de los emails (porty://), para que
+             el code de OAuth no lo consuma otro handler de deep links. -->
         <activity
             android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
-            android:exported="true">
+            android:exported="true"
+            android:taskAffinity="">
             <intent-filter android:label="flutter_web_auth_2">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="porty-etoro" />
+                <data android:scheme="porty-oauth" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

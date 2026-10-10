@@ -30,6 +30,7 @@ environment:
 dependencies:
   a2ui_core: ^0.1.1
   animate_do: ^4.2.0
+  clock: ^1.1.2
   cupertino_icons: ^1.0.8
   dart_openai: ^5.1.0
   dartz: ^0.10.1

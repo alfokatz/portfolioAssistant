@@ -12,7 +12,7 @@ Cambios a mano que acompañan el renombre de la app a **Porty** y el login nuevo
 ## Antes que nada: identificadores
 
 - [ ] **Bundle id de iOS.** Hoy es `uy.gub.bps.movil.bpsfuncionarios`, que parece copiado de otro proyecto. No lo cambié porque cambiarlo equivale a publicar otra app. Si la app todavía no está publicada con ese id, conviene registrar uno propio en Apple Developer **antes** de configurar Sign in with Apple, RevenueCat y los productos de App Store, porque todo eso queda atado al bundle id. Si ya está publicada, se queda como está.
-- [ ] **Esquema de deep link de OAuth.** El callback es `com.example.portfolioassistant://login-callback`, pero ni `ios/Runner/Info.plist` (no tiene `CFBundleURLTypes`) ni `AndroidManifest.xml` (no tiene un intent-filter con ese `scheme`) lo registran. Sin eso, en un dispositivo la vuelta del login con Google no abre la app. Hay que registrarlo en las dos plataformas y en Supabase → Auth → URL Configuration → Redirect URLs. El esquema es técnico y no lo ve el usuario, así que puede seguir siendo este o pasar a uno propio.
+- [x] **Esquemas de deep link de auth.** Ya registrados en iOS y Android (`porty-oauth://callback`, `porty://login-callback`, `porty://reset-password`). Falta agregarlos en Supabase → Auth → URL Configuration → Redirect URLs: ver `docs/runbooks/auth-google.md`.
 
 ## Google Cloud Console
 
