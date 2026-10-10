@@ -336,15 +336,29 @@ void main() {
       expect((stated['plan'] as Map)['risk_used'], 'conservative');
     });
 
-    test('retirement income sets the target with the 4% rule', () async {
-      final result = await GetGoalProjectionTool(
-        _ctx(SubscriptionTier.premium),
-      ).run({'desired_monthly_income': 3000, 'target_date': '2046-09-29'});
-      expect(result['has_complete_goal'], isTrue);
-      expect((result['active_goal'] as Map)['target_amount'], 900000.0);
-      expect((result['active_goal'] as Map)['label'], 'Jubilación');
-      final retirement = (result['plan'] as Map)['retirement'] as Map;
-      expect(retirement['sustainable_monthly_income'], 3000);
+    test('an income goal: dividends by default, 4% on request', () async {
+      final tool = GetGoalProjectionTool(_ctx(SubscriptionTier.premium));
+      final args = {'desired_monthly_income': 3000, 'target_date': '2046-09-29'};
+
+      final dividends = await tool.run(args);
+      expect(dividends['has_complete_goal'], isTrue);
+      expect((dividends['active_goal'] as Map)['label'], 'Jubilación');
+      expect(
+        (dividends['active_goal'] as Map)['target_amount'] as double,
+        closeTo(3000 * 12 / 0.035, 0.01),
+      );
+      final income = (dividends['plan'] as Map)['income'] as Map;
+      expect(income['strategy_used_for_target'], 'dividends');
+      expect((income['dividends'] as Map)['capital_needed'], 1028571);
+      expect((income['withdraw_4pct'] as Map)['capital_needed'], 900000);
+      expect((income['withdraw_4pct'] as Map)['years_lasting'], isPositive);
+
+      final withdrawal = await tool.run({
+        ...args,
+        'income_strategy': 'withdrawal',
+      });
+      expect((withdrawal['active_goal'] as Map)['target_amount'], 900000.0);
+      expect(withdrawal['plan_id'], isNot(dividends['plan_id']));
     });
 
     test('a short horizon goes conservative even for an aggressive profile', () async {
@@ -357,6 +371,81 @@ void main() {
       });
       expect(result['risk_adjusted_for_short_horizon'], isTrue);
       expect((result['plan'] as Map)['risk_used'], 'conservative');
+    });
+
+    test('dividends: stocks and ETFs; Free only for held tickers', () async {
+      final yahoo = FakeYahooProxy(
+        results: {
+          'SCHD': dividendQuoteSummary(name: 'Schwab ETF', yieldFraction: 0.036),
+        },
+      );
+      final premium = await GetDividendsTool(
+        _ctx(SubscriptionTier.premium, yahoo: yahoo),
+      ).run({
+        'tickers': ['SCHD'],
+      });
+      expect(premium['status'], 'ok');
+      expect(
+        ((premium['tickers'] as Map)['SCHD'] as Map)['dividend_yield_pct'],
+        3.6,
+      );
+
+      final free = await GetDividendsTool(
+        _ctx(SubscriptionTier.free, yahoo: yahoo),
+      ).run({
+        'tickers': ['SCHD'],
+      });
+      expect(free['status'], 'locked');
+    });
+
+    test('buy plan: needs a plan, then splits it and keeps the yield', () async {
+      final yahoo = FakeYahooProxy(
+        results: {
+          'SCHD': dividendQuoteSummary(name: 'Schwab ETF', yieldFraction: 0.04),
+          'BND': dividendQuoteSummary(name: 'Bond ETF', yieldFraction: 0.04),
+          'KO': dividendQuoteSummary(
+            name: 'Coca-Cola',
+            etf: false,
+            yieldFraction: 0.04,
+          ),
+        },
+      );
+      final ctx = _ctx(SubscriptionTier.premium, yahoo: yahoo);
+      final args = {
+        'instruments': [
+          {'ticker': 'SCHD', 'asset_class': 'equities'},
+          {'ticker': 'KO', 'asset_class': 'equities'},
+          {'ticker': 'BND', 'asset_class': 'bonds'},
+        ],
+      };
+      expect(
+        (await GetMonthlyBuyPlanTool(ctx).run(args))['status'],
+        'needs_plan',
+      );
+
+      final plan = await GetGoalProjectionTool(ctx).run({
+        'desired_monthly_income': 3000,
+        'target_date': '2051-09-29',
+      });
+      final buy = await GetMonthlyBuyPlanTool(ctx).run(args);
+      expect(buy['status'], 'ok');
+      expect(buy['yield_source'], 'real');
+      expect(buy['buy_plan_id'], startsWith('buy-'));
+      expect(
+        (buy['plan_after'] as Map)['target_amount'],
+        900000, // 3000*12/4%
+      );
+
+      // Los planes siguientes ya usan el 4% real, no el 3,5%.
+      final again = await GetGoalProjectionTool(ctx).run({
+        'desired_monthly_income': 3000,
+        'target_date': '2051-09-29',
+      });
+      expect(
+        (again['active_goal'] as Map)['target_amount'],
+        closeTo(900000, 1),
+      );
+      expect(again['plan_id'], isNot(plan['plan_id']));
     });
 
     test('goals are a Premium feature', () async {
@@ -510,10 +599,12 @@ void main() {
       'get_earnings',
       'get_news',
       'get_etf_holdings',
+      'get_dividends',
       'get_portfolio_details',
       'get_invest_candidates',
       'get_goal_projection',
       'save_goal',
+      'get_monthly_buy_plan',
       'propose_buy',
       'propose_sell',
       'propose_delete_position',

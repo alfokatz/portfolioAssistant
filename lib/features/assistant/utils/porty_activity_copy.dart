@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
@@ -64,6 +65,12 @@ abstract final class PortyActivityCopy {
         return 'porty_status_goal_projection'.tr();
       case 'save_goal':
         return 'porty_status_save_goal'.tr();
+      case GetDividendsTool.toolName:
+        return one != null
+            ? 'porty_status_dividends'.tr(namedArgs: one)
+            : 'porty_status_dividends_many'.tr();
+      case GetMonthlyBuyPlanTool.toolName:
+        return 'porty_status_buy_plan'.tr();
       case ActionTools.proposeBuy:
       case ActionTools.proposeSell:
       case ActionTools.proposeDelete:
@@ -78,5 +85,6 @@ abstract final class PortyActivityCopy {
     'get_fundamentals',
     'get_earnings',
     'get_news',
+    GetDividendsTool.toolName,
   };
 }

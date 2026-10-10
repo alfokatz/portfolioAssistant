@@ -21,10 +21,12 @@ abstract final class AssistantToolset {
     GetEarningsTool(ctx),
     GetNewsTool(ctx),
     GetEtfHoldingsTool(ctx),
+    GetDividendsTool(ctx),
     GetPortfolioDetailsTool(ctx),
     GetInvestCandidatesTool(ctx),
     GetGoalProjectionTool(ctx),
     SaveGoalTool(ctx),
+    GetMonthlyBuyPlanTool(ctx),
     // Al final: proponen operaciones, nunca escriben (ver ActionTools).
     ...ActionTools.build(ctx),
   ];
@@ -96,7 +98,8 @@ abstract final class AssistantTurnPolicy {
         invest = true;
         advice = call;
       }
-      if (call.name == GetGoalProjectionTool.toolName &&
+      if ((call.name == GetGoalProjectionTool.toolName ||
+              call.name == GetMonthlyBuyPlanTool.toolName) &&
           call.result['has_complete_goal'] == true) {
         completeGoal = true;
         advice ??= call;

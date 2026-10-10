@@ -316,3 +316,66 @@ class GetEtfHoldingsTool implements DataTool {
     };
   }
 }
+
+/// Dividendos de acciones Y ETFs (Yahoo): rendimiento, pago anual por
+/// acción, fecha ex-dividendo. Tickers en cartera: todos los planes;
+/// ajenos: Premium o Gold (como el precio).
+class GetDividendsTool implements DataTool {
+  GetDividendsTool(this.ctx);
+
+  final AssistantToolContext ctx;
+
+  static const toolName = 'get_dividends';
+
+  @override
+  String get name => toolName;
+
+  @override
+  String get description =>
+      'Dividend data for 1-6 US stocks or ETFs (Yahoo): kind (etf|stock), '
+      'name, price, dividend_yield_pct (ALREADY in %, 0 = pays none), '
+      'dividend_per_share_annual, payout_ratio_pct, five_year_avg_yield_pct, '
+      'ex_dividend_date. Use it for ANY dividend or yield question ("¿cuánto '
+      'paga de dividendos?", "¿qué rendimiento tiene SCHD?"), also for ETFs '
+      '— never say a dividend is unavailable without calling it.';
+
+  @override
+  Map<String, Object?> get parameters => const {
+    'type': 'object',
+    'properties': {
+      'tickers': {
+        'type': 'array',
+        'description': 'US stock or ETF tickers, uppercase. 1 to 6.',
+        'items': {'type': 'string'},
+        'minItems': 1,
+        'maxItems': 6,
+      },
+    },
+    'required': ['tickers'],
+    'additionalProperties': false,
+  };
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    final tickers = ToolArgs.tickers(args, max: 6);
+    if (tickers.isEmpty) return ToolArgs.invalid();
+    final allowed = [
+      for (final t in tickers)
+        if (ctx.heldTickers.contains(t) || ctx.marketDataAllowed) t,
+    ];
+    final locked = [
+      for (final t in tickers)
+        if (!allowed.contains(t)) t,
+    ];
+    if (allowed.isEmpty) {
+      ctx.lockedReasons.add(PaywallReason.marketDataLocked);
+      return {'status': 'locked', 'required_plan': 'premium'};
+    }
+    final fetched = await ctx.data.dividends.fetch(allowed);
+    return {
+      ...fetched,
+      'as_of': ctx.asOf,
+      if (locked.isNotEmpty) 'locked_tickers': locked,
+    };
+  }
+}

@@ -179,11 +179,34 @@ void main() {
       expect(later.requiredMonthly, lessThan(base));
     });
 
-    test('retirement adds the income phase', () {
-      expect(SavingsPlan.build(_inputs()).retirement, isNull);
-      final plan = SavingsPlan.build(_inputs(retirement: true));
-      expect(plan.retirement!.monthlyIncome, closeTo(500000 * 0.04 / 12, 1e-6));
-      expect(plan.retirement!.yearsLasting, isNotNull);
+    test('retirement adds the two ways to collect an income', () {
+      expect(SavingsPlan.build(_inputs()).income, isNull);
+      final income = SavingsPlan.build(_inputs(retirement: true)).income!;
+      // Sin ingreso pedido: cuánto da la meta por cada camino.
+      expect(income.withdrawalMonthly, closeTo(500000 * 0.04 / 12, 1e-6));
+      expect(income.dividendsMonthly, closeTo(500000 * 0.035 / 12, 1e-6));
+      expect(income.withdrawalYears, isNotNull);
+      expect(income.desiredMonthly, isNull);
+    });
+
+    test('an income goal: capital per way, dividends need more', () {
+      final income =
+          SavingsPlan.build(
+            SavingsPlanInputs(
+              targetAmount: 3000 * 12 / 0.035,
+              months: 300,
+              currentAmount: 0,
+              risk: RiskTolerance.moderate,
+              startDate: DateTime(2026, 10, 9),
+              isRetirement: true,
+              desiredMonthlyIncome: 3000,
+            ),
+          ).income!;
+      expect(income.desiredMonthly, 3000);
+      expect(income.strategy, IncomeStrategy.dividends);
+      expect(income.withdrawalCapital, 900000);
+      expect(income.dividendsCapital, greaterThan(income.withdrawalCapital));
+      expect(income.withdrawalYears, inInclusiveRange(30, 45));
     });
 
     test('the target in future dollars includes inflation', () {
@@ -225,7 +248,7 @@ void main() {
       expect(result['starting_capital_source'], 'stated');
     });
 
-    test('a retirement label turns on the retirement phase', () {
+    test('a retirement label turns on the income phase', () {
       final result = GoalProjectionBuilder.build(
         currentPortfolioValue: 0,
         label: 'Jubilación',
@@ -233,7 +256,7 @@ void main() {
         targetDate: DateTime(2046, 10, 9),
         asOf: now,
       );
-      expect((result['plan'] as Map)['retirement'], isA<Map>());
+      expect((result['plan'] as Map)['income'], isA<Map>());
     });
   });
 }

@@ -19,6 +19,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
@@ -135,6 +136,11 @@ Finder get _positionRow => find.byWidgetPredicate(
 );
 
 void main() {
+  // El Porty del encabezado respira en reposo: sin esto, `pumpAndSettle`
+  // nunca se asienta.
+  setUp(() => PortyAvatar.ambientMotion = false);
+  tearDown(() => PortyAvatar.ambientMotion = true);
+
   group('without anything cached', () {
     testWidgets('waits 300 ms, then the Home skeleton (never a spinner); '
         'once visible it stays 400 ms, then the content crossfades in', (

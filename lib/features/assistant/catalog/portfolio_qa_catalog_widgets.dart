@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/action_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/advice_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/company_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/fund_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/market_widgets.dart';
@@ -140,6 +141,9 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaSavingsPlan(CatalogItemContext ctx) =>
       SavingsPlanWidgets.qaSavingsPlan(ctx);
+
+  static Widget qaBuyPlan(CatalogItemContext ctx) =>
+      BuyPlanWidgets.qaBuyPlan(ctx);
 }
 
 final class _AnswerTextData {

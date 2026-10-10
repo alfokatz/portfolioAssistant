@@ -748,6 +748,74 @@ final _cases = <_Case>[
       ),
     ],
   ),
+  _Case(
+    'goal-after-retirement',
+    [
+      'Quiero jubilarme en 25 años cobrando 3000 dólares por mes',
+      'En 10 años quiero tener 100 mil dólares para una casa',
+    ],
+    (t, _) => [
+      ..._expect(
+        t.called(
+          'get_goal_projection',
+          (a) =>
+              a['target_amount'] == 100000 &&
+              '${a['target_date']}'.startsWith('2036'),
+        ),
+        'la meta nueva se calcula de nuevo (no reusa el plan del retiro)',
+      ),
+    ],
+  ),
+  _Case(
+    'dividends-etfs-and-stocks',
+    ['¿Cuánto pagan de dividendos SCHD, VYM y KO?'],
+    (t, _) => [
+      ..._expect(
+        t.called(
+          'get_dividends',
+          (a) => {
+            for (final x in (a['tickers'] as List? ?? const [])) '$x',
+          }.containsAll(const {'SCHD', 'VYM', 'KO'}),
+        ),
+        'no pidió get_dividends de los tres (ETFs incluidos)',
+      ),
+      ..._expect(!t.called('get_fundamentals'), 'usó fundamentals (Gold)'),
+    ],
+  ),
+  _Case(
+    'buy-plan-after-income-plan',
+    [
+      'Quiero jubilarme en 25 años cobrando 3000 dólares por mes',
+      'Armá mi compra mensual para este plan',
+    ],
+    (t, _) {
+      final call = t.calls.where((c) => c.name == 'get_monthly_buy_plan');
+      final items =
+          call.isEmpty ? const [] : (call.last.result['items'] as List? ?? const []);
+      return [
+        ..._expect(call.isNotEmpty, 'no armó la compra mensual'),
+        ..._expect(
+          call.isNotEmpty && call.last.status == 'ok',
+          'la compra no salió ok: ${call.isEmpty ? '-' : call.last.result}',
+        ),
+        ..._expect(items.length >= 2, 'menos de 2 instrumentos'),
+        // Plan de vivir de dividendos: ETFs de dividendos + 1-2 acciones.
+        ..._expect(
+          items.where((i) => i is Map && i['asset_class'] == 'equities').length >= 2,
+          'menos de 2 instrumentos de acciones: $items',
+        ),
+        ..._expect(
+          items.any((i) => i is Map && i['kind'] == 'stock'),
+          'ninguna acción de dividendos individual: $items',
+        ),
+        ..._expect(t.components.contains('QaBuyPlan'), 'sin QaBuyPlan'),
+        ..._expect(
+          !t.called('get_invest_candidates'),
+          'fue por la simulación de inversión en vez del plan',
+        ),
+      ];
+    },
+  ),
   // ---------------------------------------------------- acciones (F6)
   _Case(
     'action-buy-complete',
@@ -975,16 +1043,10 @@ void main() {
           model: env['OPENAI_MODEL'] ?? 'gpt-4.1-mini',
           httpClient: recorder,
         );
-        final logs = <_TurnLog>[];
-        var courtesyLeft = c.weeklyFree;
-        for (var i = 0; i < c.turns.length; i++) {
-          final log = _TurnLog();
-          final ctx = AssistantToolContext(
-            tier: c.tier,
-            summary: heldSummary,
-            data:
-                realData ??
-                fakeDataSources(
+        // Una por caso, como en la app (vive toda la conversación): los
+        // casos de varios turnos necesitan el plan del turno anterior.
+        final caseData = realData ?? fakeDataSources(
+          dividendYahoo: _AnyTickerDividends(),
                   symbols: _Symbols(),
                   fundamentals: FakeCompanyFundamentalsRepository(
                     data: const CompanyFundamentals(
@@ -1018,7 +1080,15 @@ void main() {
                         beta: 1.0,
                       ),
                   }),
-                ),
+                );
+        final logs = <_TurnLog>[];
+        var courtesyLeft = c.weeklyFree;
+        for (var i = 0; i < c.turns.length; i++) {
+          final log = _TurnLog();
+          final ctx = AssistantToolContext(
+            tier: c.tier,
+            summary: heldSummary,
+            data: caseData,
           );
           final courtesy = WeeklyFreeAnalysisGrant(
             ctx: ctx,
@@ -1152,4 +1222,23 @@ void main() {
             : 'set RUN_ASSISTANT_EVALS=1 to run against the real model',
     timeout: const Timeout(Duration(minutes: 20)),
   );
+}
+
+/// Yahoo con dividendos para cualquier ticker que elija el modelo (ETF al
+/// 3,6%; algunas acciones conocidas como acción al 2,9%).
+class _AnyTickerDividends extends FakeYahooProxy {
+  static const _stocks = {'KO', 'JNJ', 'PG', 'PEP', 'T', 'VZ', 'O', 'MO', 'ABBV', 'XOM', 'CVX', 'MCD', 'PFE'};
+
+  @override
+  Future<Map<String, dynamic>?> quoteSummary(
+    String symbol,
+    List<String> modules,
+  ) async {
+    final stock = _stocks.contains(symbol.toUpperCase());
+    return dividendQuoteSummary(
+      name: '$symbol Fund',
+      etf: !stock,
+      yieldFraction: stock ? 0.029 : 0.036,
+    );
+  }
 }

@@ -9,10 +9,12 @@ import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 /// Fuentes de datos que viven toda la conversación (sus caches TTL también).
@@ -26,7 +28,9 @@ class AssistantDataSources {
     NewsFetcher? news,
     EtfHoldingsFetcher? etfHoldings,
     YahooCompanyProfileClient? profileClient,
+    DividendFetcher? dividends,
   }) : _tickerResolver = tickerResolver,
+       _dividends = dividends,
        _earnings = earnings,
        _fundamentals = fundamentals,
        _news = news,
@@ -44,6 +48,10 @@ class AssistantDataSources {
   NewsFetcher? _news;
   EtfHoldingsFetcher? _etfHoldings;
   YahooCompanyProfileClient? _profileClient;
+  DividendFetcher? _dividends;
+
+  /// Planes de ahorro de la conversación (ver [SavingsPlanStore]).
+  final plans = SavingsPlanStore();
 
   CompanyTickerResolver get tickerResolver =>
       _tickerResolver ??= CompanyTickerResolver();
@@ -55,6 +63,7 @@ class AssistantDataSources {
       _etfHoldings ??= EtfHoldingsFetcher();
   YahooCompanyProfileClient get profileClient =>
       _profileClient ??= YahooCompanyProfileClient();
+  DividendFetcher get dividends => _dividends ??= DividendFetcher();
 }
 
 /// Lo que las tools necesitan saber del usuario en ESTE turno. El plan se

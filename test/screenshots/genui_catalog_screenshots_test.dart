@@ -19,7 +19,10 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -37,17 +40,55 @@ final _evidence = <String, List<ToolCallRecord>>{
         'status': 'ok',
         ...GoalProjectionBuilder.build(
           currentPortfolioValue: 12000,
-          targetAmount: 500000,
-          targetDate: DateTime(2046, 10, 9),
+          desiredMonthlyIncome: 3000,
+          targetDate: DateTime(2051, 10, 9),
           label: 'Jubilación',
-          monthlyContribution: 800,
           asOf: DateTime(2026, 10, 9),
         ),
         GoalProjectionBuilder.planIdKey: 'plan-1a2b3c4d',
       },
     ),
   ],
+  'QaBuyPlan': [
+    ToolCallRecord(
+      name: GetMonthlyBuyPlanTool.toolName,
+      args: const {},
+      result: {
+        ...BuyPlanBuilder.build(
+          base: GoalProjectionBuilder.build(
+            currentPortfolioValue: 12000,
+            desiredMonthlyIncome: 3000,
+            targetDate: DateTime(2051, 10, 9),
+            asOf: DateTime(2026, 10, 9),
+          ),
+          picks: const [
+            BuyPlanPick('SCHD', PlanAssetClass.equities),
+            BuyPlanPick('VYM', PlanAssetClass.equities),
+            BuyPlanPick('KO', PlanAssetClass.equities),
+            BuyPlanPick('BND', PlanAssetClass.bonds),
+            BuyPlanPick('SGOV', PlanAssetClass.cash),
+          ],
+          info: {
+            'SCHD': _div('Schwab US Dividend Equity ETF', 0.0362),
+            'VYM': _div('Vanguard High Dividend Yield ETF', 0.0281),
+            'KO': _div('The Coca-Cola Company', 0.0293, etf: false),
+            'BND': _div('Vanguard Total Bond Market ETF', 0.0376),
+            'SGOV': _div('iShares 0-3 Month Treasury Bond ETF', 0.0452),
+          },
+        ),
+        BuyPlanBuilder.buyPlanIdKey: 'buy-1a2b3c4d',
+      },
+    ),
+  ],
 };
+
+Map<String, Object?> _div(String name, double y, {bool etf = true}) =>
+    DividendFetcher.parse({
+      'quoteType': {'quoteType': etf ? 'ETF' : 'EQUITY', 'longName': name},
+      'summaryDetail': {
+        etf ? 'yield' : 'dividendYield': {'raw': y},
+      },
+    });
 
 final _out = Platform.environment['SCREENSHOTS_OUT'] ?? 'build/screenshots';
 final _enabled = Platform.environment['RUN_SCREENSHOTS'] == '1';

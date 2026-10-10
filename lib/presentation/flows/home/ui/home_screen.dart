@@ -13,10 +13,12 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_greeting_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
+import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_app_bar.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_empty_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_section_tabs.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_skeleton.dart';
@@ -127,6 +129,11 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
             ? valuations
             : valuations.take(5).toList(growable: false);
 
+    final header = HomeAppBar(
+      firstName: ref.watch(homeFirstNameProvider),
+      onOpenPorty: notifier.openAssistant,
+    );
+
     final content = RefreshIndicator(
       color: colors.accentBlue,
       backgroundColor: colors.surfaceCard,
@@ -138,7 +145,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                //const HomeAppBar(),
+                header,
                 if (etoro.connection.needsReconnect)
                   const EtoroReconnectBanner(),
                 if (state.quoteError != null)
@@ -275,12 +282,13 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
 
     // Nunca en blanco: sin nada que mostrar todavía, el skeleton (si la
     // carga pasa de 300 ms); con caché, los datos al instante.
+    // Sin fondo propio: el halo cálido de AppBackgroundGradient (detrás de
+    // todas las pantallas) se ve también acá, como en Porty y Ajustes.
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: LoadingSwitcher(
           loading: summary == null && state.loading,
-          placeholder: (_) => const HomeSkeleton(),
+          placeholder: (_) => HomeSkeleton(header: header),
           child: (_) => content,
         ),
       ),

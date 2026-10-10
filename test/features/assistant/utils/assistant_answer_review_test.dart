@@ -64,6 +64,51 @@ Map<String, Object?> _analysis(String summary) => {
 };
 
 void main() {
+  group('phantom action', () {
+    String answer(String text) =>
+        '{"version":"v0.9","updateComponents":{"surfaceId":"s","components":'
+        '[{"id":"root","component":"Column","children":["a"]},'
+        '{"id":"a","component":"QaAnswerText","text":"$text"}]}}';
+    const claim =
+        'Preparé la operación de compra de 10 acciones de Apple, revisala y '
+        'confirmala.';
+
+    test('claiming a prepared operation without propose_* is rejected', () {
+      final correction = AssistantAnswerReview.check(
+        answer(claim),
+        const TurnEvidence(calls: []),
+      );
+      expect(correction, isNotNull);
+      expect(correction!.requiresTools, isTrue);
+      expect(correction.message, contains('propose_buy'));
+    });
+
+    test('with a propose_* call this turn it passes', () {
+      const call = ToolCallRecord(
+        name: 'propose_buy',
+        args: {},
+        result: {'status': 'ok', 'proposal_id': 'p1'},
+      );
+      expect(
+        AssistantAnswerReview.check(
+          answer(claim),
+          const TurnEvidence(calls: [call], turnCalls: [call]),
+        ),
+        isNull,
+      );
+    });
+
+    test('asking for what is missing is fine', () {
+      expect(
+        AssistantAnswerReview.check(
+          answer('¿Cuántas acciones compraste y en qué fecha?'),
+          const TurnEvidence(calls: []),
+        ),
+        isNull,
+      );
+    });
+  });
+
   test('a clean analysis passes', () {
     final raw = _answer([
       _intro('Este es el análisis de BAC.'),

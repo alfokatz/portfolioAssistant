@@ -1247,6 +1247,13 @@ final CatalogItem qaSavingsPlanItem = CatalogItem(
       'planId': S.string(
         description: 'plan_id del resultado de get_goal_projection.',
       ),
+      'focus': S.string(
+        enumValues: ['income', 'savings', 'growth', 'progress'],
+        description:
+            'Qué responde arriba: income (cómo cobraría un ingreso), '
+            'savings (cuánto ahorrar), growth (cómo crece / otro aporte), '
+            'progress (cómo va la meta).',
+      ),
     },
     required: ['planId'],
   ),
@@ -1259,7 +1266,37 @@ final CatalogItem qaSavingsPlanItem = CatalogItem(
   {
     "id": "plan",
     "component": "QaSavingsPlan",
-    "planId": "plan-1a2b3c4d"
+    "planId": "plan-1a2b3c4d",
+    "focus": "income"
+  }
+]
+''',
+  ],
+);
+
+final CatalogItem qaBuyPlanItem = CatalogItem(
+  name: 'QaBuyPlan',
+  dataSchema: S.object(
+    description:
+        'La compra mensual de un plan: qué comprar cada mes y cuánto a cada '
+        'instrumento, con su rendimiento. Solo buyPlanId; la app pone los '
+        'datos.',
+    properties: {
+      'buyPlanId': S.string(
+        description: 'buy_plan_id del resultado de get_monthly_buy_plan.',
+      ),
+    },
+    required: ['buyPlanId'],
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaBuyPlan),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "buy",
+    "component": "QaBuyPlan",
+    "buyPlanId": "buy-1a2b3c4d"
   }
 ]
 ''',

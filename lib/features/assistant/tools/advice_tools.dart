@@ -1,6 +1,8 @@
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_candidates_builder.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
@@ -148,8 +150,9 @@ class GetGoalProjectionTool implements DataTool {
       'with a pre-computed SAVINGS PLAN: compound growth in today\'s dollars '
       '(after inflation), a suggested allocation for their risk, required '
       'monthly savings in pessimistic/base/optimistic scenarios, what they '
-      'would need without investing, what-if horizons and, for retirement, '
-      'the monthly income the capital sustains. Use it when the user states '
+      'would need without investing, what-if horizons and, for retirement or '
+      'an income goal, the two ways to collect it (living off dividends vs. '
+      'withdrawing 4% a year) with the capital each needs. Use it when the user states '
       'or asks about a savings goal or retirement ("en 20 años quiero tener '
       '500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero jubilarme '
       'cobrando 3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
@@ -196,6 +199,14 @@ class GetGoalProjectionTool implements DataTool {
             'Retirement only: monthly income in USD the user wants to live '
             'on, if stated instead of a target amount.',
       },
+      'income_strategy': {
+        'type': 'string',
+        'enum': ['dividends', 'withdrawal'],
+        'description':
+            'With desired_monthly_income: how they would collect it. Only '
+            'if the user chose one ("rehacelo retirando el 4%"); default '
+            'dividends (living off dividends, capital untouched).',
+      },
       'risk': {
         'type': 'string',
         'enum': ['conservative', 'moderate', 'aggressive'],
@@ -220,7 +231,7 @@ class GetGoalProjectionTool implements DataTool {
         await prefs.getMonthlyContribution();
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
-    return {
+    final result = <String, Object?>{
       'status': 'ok',
       'as_of': ctx.asOf,
       ...GoalProjectionBuilder.build(
@@ -234,6 +245,10 @@ class GetGoalProjectionTool implements DataTool {
           ToolArgs.number(args, 'desired_monthly_income'),
         ),
         isRetirement: retirement is bool ? retirement : null,
+        incomeStrategy: IncomeStrategy.fromKey(
+          ToolArgs.string(args, 'income_strategy'),
+        ),
+        dividendYield: ctx.data.plans.dividendYield,
         statedRisk: RiskTolerance.fromStorage(ToolArgs.string(args, 'risk')),
         profile: profile,
         savedGoal: saved,
@@ -241,6 +256,9 @@ class GetGoalProjectionTool implements DataTool {
       ),
       'investor_profile': InvestorProfileContext.build(profile, ctx.now),
     };
+    final planId = result[GoalProjectionBuilder.planIdKey];
+    if (planId is String) ctx.data.plans.record(planId, result);
+    return result;
   }
 
   static double? _positive(double? v) => v != null && v > 0 ? v : null;
@@ -291,5 +309,110 @@ class SaveGoalTool implements DataTool {
       targetDate: GoalProjectionBuilder.formatDate(date),
     );
     return {'status': 'ok', 'saved': true};
+  }
+}
+
+/// La compra mensual de un plan: qué comprar cada mes y cuánto a cada uno,
+/// con el rendimiento real de cada instrumento (Premium, como las metas).
+class GetMonthlyBuyPlanTool implements DataTool {
+  GetMonthlyBuyPlanTool(this.ctx);
+
+  final AssistantToolContext ctx;
+
+  static const toolName = 'get_monthly_buy_plan';
+
+  @override
+  String get name => toolName;
+
+  @override
+  String get description =>
+      'Turns a savings plan from get_goal_projection into a MONTHLY BUY PLAN: '
+      'you pick 2-6 instruments, each for an asset class of the plan\'s '
+      'suggested_allocation; the app splits the monthly savings among them '
+      '(ETFs as the base, at most 15% per individual stock), fetches their '
+      'real dividend yields and recomputes the plan with the weighted yield. '
+      'For a plan that lives off dividends, equities = 2 dividend-focused '
+      'ETFs + 1-2 dividend stocks (it returns needs_retry otherwise). '
+      'Use it ONLY for a savings/retirement plan, when the user asks what '
+      'to buy each month or which stocks/ETFs to use for it ("armá mi '
+      'compra mensual", "¿en qué invierto cada mes?"). NOT for registering '
+      'an operation the user already did ("compré 10 AAPL" → propose_buy). '
+      'Never compute the amounts yourself.';
+
+  @override
+  Map<String, Object?> get parameters => const {
+    'type': 'object',
+    'properties': {
+      'plan_id': {
+        'type': 'string',
+        'description': 'plan_id of the plan (default: the latest one).',
+      },
+      'instruments': {
+        'type': 'array',
+        'minItems': 2,
+        'maxItems': 6,
+        'items': {
+          'type': 'object',
+          'properties': {
+            'ticker': {'type': 'string'},
+            'asset_class': {
+              'type': 'string',
+              'enum': ['equities', 'bonds', 'cash'],
+            },
+          },
+          'required': ['ticker', 'asset_class'],
+          'additionalProperties': false,
+        },
+      },
+    },
+    'required': ['instruments'],
+    'additionalProperties': false,
+  };
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    if (!ctx.allows(PlanFeature.goals)) {
+      return ctx.lockedFeature(PlanFeature.goals);
+    }
+    final base = ctx.data.plans.lookup(ToolArgs.string(args, 'plan_id'));
+    if (base == null) {
+      return {
+        'status': 'needs_plan',
+        'reason': 'Call get_goal_projection first: there is no plan yet.',
+      };
+    }
+    final picks = <BuyPlanPick>[];
+    final raw = args['instruments'];
+    for (final item in raw is List ? raw : const []) {
+      if (item is! Map) continue;
+      final tickers = ToolArgs.tickers({
+        'tickers': [item['ticker']],
+      });
+      final cls = PlanAssetClass.values.where(
+        (c) => c.key == item['asset_class'],
+      );
+      if (tickers.isEmpty || cls.isEmpty) continue;
+      picks.add(BuyPlanPick(tickers.first, cls.first));
+      if (picks.length == 6) break;
+    }
+    if (picks.length < 2) return ToolArgs.invalid();
+
+    final fetched = await ctx.data.dividends.fetch([
+      for (final p in picks) p.ticker,
+    ]);
+    final result = BuyPlanBuilder.build(
+      base: base,
+      picks: picks,
+      info: (fetched['tickers'] as Map?)?.cast<String, Object?>() ?? const {},
+    );
+    if (result['status'] != 'ok') return result;
+
+    // Los planes siguientes usan el rendimiento real de esta compra.
+    final yieldPct = result['weighted_dividend_yield_pct'];
+    if (yieldPct is num) ctx.data.plans.dividendYield = yieldPct / 100;
+    final planId = result[GoalProjectionBuilder.planIdKey];
+    final stored = {...result, 'investor_profile': base['investor_profile']};
+    if (planId is String) ctx.data.plans.record(planId, stored);
+    return {...stored, 'as_of': ctx.asOf};
   }
 }

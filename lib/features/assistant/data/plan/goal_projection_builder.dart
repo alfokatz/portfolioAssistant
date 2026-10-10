@@ -25,6 +25,8 @@ abstract final class GoalProjectionBuilder {
     double? currentSavings,
     double? desiredMonthlyIncome,
     bool? isRetirement,
+    IncomeStrategy? incomeStrategy,
+    double? dividendYield,
     RiskTolerance? statedRisk,
     InvestorProfile? profile,
     ({String label, double targetAmount, String targetDate})? savedGoal,
@@ -32,12 +34,22 @@ abstract final class GoalProjectionBuilder {
   }) {
     final reference = asOf ?? DateTime.now();
     // "Quiero cobrar $3.000 por mes cuando me jubile" define la meta: el
-    // capital que sostiene ese ingreso.
+    // capital que sostiene ese ingreso — de dividendos (sin tocar el
+    // capital, por defecto) o retirando el 4% por año.
+    final strategy = incomeStrategy ?? IncomeStrategy.dividends;
     final incomeTarget =
         targetAmount == null &&
                 desiredMonthlyIncome != null &&
                 desiredMonthlyIncome > 0
-            ? SavingsPlanCalculator.capitalForIncome(desiredMonthlyIncome)
+            ? switch (strategy) {
+              IncomeStrategy.dividends =>
+                SavingsPlanCalculator.capitalForDividends(
+                  desiredMonthlyIncome,
+                  dividendYield ?? PlanAssumptions.dividendYield,
+                ),
+              IncomeStrategy.withdrawal =>
+                SavingsPlanCalculator.capitalForIncome(desiredMonthlyIncome),
+            }
             : null;
     final statedAmount = targetAmount ?? incomeTarget;
     final hasStated = statedAmount != null || targetDate != null;
@@ -87,7 +99,7 @@ abstract final class GoalProjectionBuilder {
       if (incomeTarget != null)
         'target_from_income': {
           'desired_monthly_income': desiredMonthlyIncome,
-          'rule': '4% anual del capital',
+          'strategy': strategy.key,
         },
       'has_complete_goal': complete,
     };
@@ -127,6 +139,9 @@ abstract final class GoalProjectionBuilder {
       startDate: DateTime(reference.year, reference.month, reference.day),
       monthlyContribution: monthlyContribution,
       isRetirement: retirement,
+      desiredMonthlyIncome: incomeTarget != null ? desiredMonthlyIncome : null,
+      incomeStrategy: strategy,
+      dividendYield: dividendYield,
     );
     final plan = SavingsPlan.build(inputs);
     result[planIdKey] = planIdFor(inputs);

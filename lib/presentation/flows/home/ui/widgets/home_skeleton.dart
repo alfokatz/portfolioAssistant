@@ -11,26 +11,40 @@ import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 /// modo skeleton, así el cambio a datos no mueve nada. Un solo pulso lento
 /// para todo; estático con reduce motion.
 class HomeSkeleton extends StatelessWidget {
-  const HomeSkeleton({super.key});
+  const HomeSkeleton({super.key, this.header});
+
+  /// El encabezado de la Home, real (no depende de la cartera): va fuera
+  /// del pulso, igual que con datos.
+  final Widget? header;
 
   /// Filas de posiciones del skeleton (las que entran sin "Ver todas").
   static const rows = 5;
 
   @override
   Widget build(BuildContext context) {
-    return SkeletonScope(
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const PortfolioHeroSection.skeleton(),
-            const SizedBox(height: AppDimens.sectionGap),
-            HomeSectionTabs(selected: HomeSection.assets, onSelected: (_) {}),
-            const SizedBox(height: AppDimens.sp16),
-            const PositionsSection.skeleton(rows: rows),
-          ],
-        ),
+    final header = this.header;
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (header != null) header,
+          SkeletonScope(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const PortfolioHeroSection.skeleton(),
+                const SizedBox(height: AppDimens.sectionGap),
+                HomeSectionTabs(
+                  selected: HomeSection.assets,
+                  onSelected: (_) {},
+                ),
+                const SizedBox(height: AppDimens.sp16),
+                const PositionsSection.skeleton(rows: rows),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

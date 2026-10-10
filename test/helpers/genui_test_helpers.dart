@@ -35,6 +35,7 @@ const portfolioQaCustomComponentNames = {
   'QaBudgetSplit',
   'QaInvestConfirm',
   'QaSavingsPlan',
+  'QaBuyPlan',
   'QaActionProposal',
 };
 

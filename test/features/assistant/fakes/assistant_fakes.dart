@@ -22,6 +22,7 @@ import 'package:portfolio_assistant/domain/repositories/symbol_search_repository
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
@@ -278,6 +279,7 @@ AssistantDataSources fakeDataSources({
   FakeCompanyFundamentalsRepository? fundamentals,
   FakeProfileClient? profiles,
   FakeYahooProxy? yahoo,
+  FakeYahooProxy? dividendYahoo,
 }) => AssistantDataSources(
   quoteRepository: quotes ?? CountingQuoteRepository(),
   preferences: preferences ?? FakePreferences(),
@@ -292,8 +294,30 @@ AssistantDataSources fakeDataSources({
     repository: fundamentals ?? FakeCompanyFundamentalsRepository(),
   ),
   etfHoldings: EtfHoldingsFetcher(proxy: yahoo ?? FakeYahooProxy()),
+  dividends: DividendFetcher(
+    proxy: dividendYahoo ?? yahoo ?? FakeYahooProxy(),
+  ),
   profileClient: profiles ?? FakeProfileClient(),
 );
+
+/// Un `quoteSummary` con dividendos como lo manda Yahoo: ETFs con `yield`,
+/// acciones con `dividendYield` (fracciones, {raw, fmt}).
+Map<String, dynamic> dividendQuoteSummary({
+  required String name,
+  bool etf = true,
+  double? yieldFraction,
+  double? dividendRate,
+  double price = 100,
+}) => {
+  'quoteType': {'quoteType': etf ? 'ETF' : 'EQUITY', 'longName': name},
+  'summaryDetail': {
+    'previousClose': {'raw': price},
+    if (yieldFraction != null)
+      etf ? 'yield' : 'dividendYield': {'raw': yieldFraction},
+    if (dividendRate != null) 'dividendRate': {'raw': dividendRate},
+    'exDividendDate': {'raw': 1790000000},
+  },
+};
 
 PositionValuation valuation(String ticker, {double qty = 2}) =>
     PositionValuation(

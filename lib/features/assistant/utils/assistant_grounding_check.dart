@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
@@ -37,7 +38,8 @@ abstract final class AssistantGroundingCheck {
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},
     'QaInvestConfirm': {'get_invest_candidates'},
-    'QaSavingsPlan': {'get_goal_projection'},
+    'QaSavingsPlan': {'get_goal_projection', 'get_monthly_buy_plan'},
+    'QaBuyPlan': {'get_monthly_buy_plan'},
     'QaActionProposal': ActionTools.names,
   };
 
@@ -63,11 +65,16 @@ abstract final class AssistantGroundingCheck {
       final ticker = component['ticker'];
       final proposalId = component['proposalId'];
       final planId = component['planId'];
+      final buyPlanId = component['buyPlanId'];
       final missing =
           type == 'QaActionProposal'
               // La propuesta exacta: un id inventado no muestra nada.
               ? !backing.any(
                 (c) => c.result[ActionProposal.toolResultIdKey] == proposalId,
+              )
+              : type == 'QaBuyPlan'
+              ? !backing.any(
+                (c) => c.result[BuyPlanBuilder.buyPlanIdKey] == buyPlanId,
               )
               : type == 'QaSavingsPlan'
               // Ídem el plan: sin el plan_id real la card queda vacía.

@@ -53,6 +53,13 @@ abstract final class PlanAssumptions {
   /// Retiro anual sostenible sobre el capital (la "regla del 4%").
   static const safeWithdrawalRate = 0.04;
 
+  /// Rendimiento por dividendos de una cartera de acciones/ETFs de
+  /// dividendos amplia (antes de impuestos). Los dividendos suelen crecer
+  /// con la inflación, así que se usa como rendimiento real. Supuesto fijo
+  /// para que el plan siempre salga; los ejemplos con su rendimiento actual
+  /// los trae Porty con datos.
+  static const dividendYield = 0.035;
+
   /// Con menos que esto, la parte en acciones puede caer y no recuperarse a
   /// tiempo: el plan pasa a conservador.
   static const shortHorizonMonths = 36;
@@ -88,6 +95,21 @@ abstract final class PlanAssumptions {
   }
 }
 
+/// Cómo se cobra un ingreso mensual con el capital juntado.
+enum IncomeStrategy {
+  /// Vivir de los dividendos: el capital no se toca.
+  dividends('dividends'),
+
+  /// Retirar el 4% por año: hace falta menos capital, pero se consume.
+  withdrawal('withdrawal');
+
+  const IncomeStrategy(this.key);
+  final String key;
+
+  static IncomeStrategy? fromKey(String? key) =>
+      values.where((v) => v.key == key).firstOrNull;
+}
+
 /// Los datos de los que sale un plan. Es lo que viaja en el resultado de la
 /// tool: la card lo vuelve a calcular con [SavingsPlan.build] (mismo código,
 /// mismos números) en vez de copiar una serie larga del modelo.
@@ -100,6 +122,9 @@ class SavingsPlanInputs {
     required this.startDate,
     this.monthlyContribution,
     this.isRetirement = false,
+    this.desiredMonthlyIncome,
+    this.incomeStrategy = IncomeStrategy.dividends,
+    this.dividendYield,
   });
 
   /// En dólares de hoy.
@@ -116,6 +141,32 @@ class SavingsPlanInputs {
   final double? monthlyContribution;
   final bool isRetirement;
 
+  /// El ingreso que pidió el usuario ("cobrar 3000 por mes"), si lo pidió:
+  /// la meta es el capital que lo genera con [incomeStrategy].
+  final double? desiredMonthlyIncome;
+  final IncomeStrategy incomeStrategy;
+
+  /// Rendimiento por dividendos real de la compra mensual (fracción); `null`
+  /// = el supuesto [PlanAssumptions.dividendYield].
+  final double? dividendYield;
+
+  double get effectiveDividendYield =>
+      dividendYield ?? PlanAssumptions.dividendYield;
+
+  SavingsPlanInputs copyWith({double? targetAmount, double? dividendYield}) =>
+      SavingsPlanInputs(
+        targetAmount: targetAmount ?? this.targetAmount,
+        months: months,
+        currentAmount: currentAmount,
+        risk: risk,
+        startDate: startDate,
+        monthlyContribution: monthlyContribution,
+        isRetirement: isRetirement,
+        desiredMonthlyIncome: desiredMonthlyIncome,
+        incomeStrategy: incomeStrategy,
+        dividendYield: dividendYield ?? this.dividendYield,
+      );
+
   Map<String, Object?> toJson() => {
     'target_amount': targetAmount,
     'months': months,
@@ -124,6 +175,9 @@ class SavingsPlanInputs {
     'start_date': _date(startDate),
     'monthly_contribution': monthlyContribution,
     'is_retirement': isRetirement,
+    'desired_monthly_income': desiredMonthlyIncome,
+    'income_strategy': incomeStrategy.key,
+    if (dividendYield != null) 'dividend_yield': dividendYield,
   };
 
   static SavingsPlanInputs? fromJson(Object? json) {
@@ -137,6 +191,8 @@ class SavingsPlanInputs {
       return null;
     }
     final monthly = json['monthly_contribution'];
+    final income = json['desired_monthly_income'];
+    final yieldOverride = json['dividend_yield'];
     return SavingsPlanInputs(
       targetAmount: target.toDouble(),
       months: months.toInt(),
@@ -145,6 +201,11 @@ class SavingsPlanInputs {
       startDate: start,
       monthlyContribution: monthly is num ? monthly.toDouble() : null,
       isRetirement: json['is_retirement'] == true,
+      desiredMonthlyIncome: income is num ? income.toDouble() : null,
+      incomeStrategy:
+          IncomeStrategy.fromKey(json['income_strategy'] as String?) ??
+          IncomeStrategy.dividends,
+      dividendYield: yieldOverride is num ? yieldOverride.toDouble() : null,
     );
   }
 
@@ -171,19 +232,77 @@ class PlanCurvePoint {
   double get base => values[PlanScenario.base]!;
 }
 
-/// La fase de retiro: cuánto ingreso da el capital y cuánto dura.
-class RetirementPhase {
-  const RetirementPhase({
-    required this.monthlyIncome,
-    required this.yearsLasting,
+/// La fase de retiro: los dos caminos para cobrar un ingreso mensual.
+///
+/// Con ingreso pedido ([desiredMonthly]): cuánto capital necesita cada
+/// camino. Sin él: cuánto ingreso da la meta por cada camino.
+class IncomePlan {
+  const IncomePlan({
+    required this.strategy,
+    required this.dividendsCapital,
+    required this.withdrawalCapital,
+    required this.dividendsMonthly,
+    required this.withdrawalMonthly,
+    required this.withdrawalYears,
+    this.desiredMonthly,
   });
 
-  /// Ingreso mensual sostenible (regla del 4%), en dólares de hoy.
-  final double monthlyIncome;
+  final double? desiredMonthly;
 
-  /// Años que dura retirando [monthlyIncome] con una cartera conservadora;
-  /// `null` = el rendimiento lo cubre y no se agota.
-  final int? yearsLasting;
+  /// El camino con el que se fijó la meta del plan.
+  final IncomeStrategy strategy;
+
+  /// Capital para cobrar el ingreso pedido (o el de la meta) por cada
+  /// camino.
+  final double dividendsCapital;
+  final double withdrawalCapital;
+
+  /// Ingreso mensual que da la meta por cada camino.
+  final double dividendsMonthly;
+  final double withdrawalMonthly;
+
+  /// Años que dura el capital retirando el 4% con una cartera
+  /// conservadora; `null` = no se agota.
+  final int? withdrawalYears;
+
+  static IncomePlan build(SavingsPlanInputs inputs) {
+    final target = inputs.targetAmount;
+    final desired = inputs.desiredMonthlyIncome;
+    final withdrawalMonthly =
+        desired ?? SavingsPlanCalculator.sustainableMonthlyIncome(target);
+    final withdrawalCapital =
+        desired == null
+            ? target
+            : SavingsPlanCalculator.capitalForIncome(desired);
+    final lasting = SavingsPlanCalculator.monthsCapitalLasts(
+      capital: withdrawalCapital,
+      monthlyWithdrawal: withdrawalMonthly,
+      annualReturn: PlanAssumptions.realReturn(
+        RiskTolerance.conservative,
+        PlanScenario.base,
+      ),
+    );
+    return IncomePlan(
+      desiredMonthly: desired,
+      strategy: inputs.incomeStrategy,
+      dividendsCapital:
+          desired == null
+              ? target
+              : SavingsPlanCalculator.capitalForDividends(
+                desired,
+                inputs.effectiveDividendYield,
+              ),
+      withdrawalCapital: withdrawalCapital,
+      dividendsMonthly:
+          desired ??
+          SavingsPlanCalculator.dividendMonthlyIncome(
+            target,
+            inputs.effectiveDividendYield,
+          ),
+      withdrawalMonthly: withdrawalMonthly,
+      withdrawalYears: lasting == null ? null : lasting ~/ 12,
+    );
+  }
 }
 
 /// Un "¿qué pasa si…?": la misma meta con otro plazo.
@@ -217,7 +336,7 @@ class SavingsPlan {
     required this.allocation,
     required this.nominalTarget,
     required this.sensitivities,
-    this.retirement,
+    this.income,
   });
 
   final SavingsPlanInputs inputs;
@@ -244,7 +363,7 @@ class SavingsPlan {
   /// La meta expresada en dólares de la fecha objetivo.
   final double nominalTarget;
   final List<PlanSensitivity> sensitivities;
-  final RetirementPhase? retirement;
+  final IncomePlan? income;
 
   double get projectedBase => projected[PlanScenario.base]!;
   double get growth => math.max(0, projectedBase - contributed);
@@ -301,24 +420,10 @@ class SavingsPlan {
       ),
     ];
 
-    RetirementPhase? retirement;
-    if (inputs.isRetirement) {
-      final income = SavingsPlanCalculator.sustainableMonthlyIncome(
-        inputs.targetAmount,
-      );
-      final lasting = SavingsPlanCalculator.monthsCapitalLasts(
-        capital: inputs.targetAmount,
-        monthlyWithdrawal: income,
-        annualReturn: PlanAssumptions.realReturn(
-          RiskTolerance.conservative,
-          PlanScenario.base,
-        ),
-      );
-      retirement = RetirementPhase(
-        monthlyIncome: income,
-        yearsLasting: lasting == null ? null : lasting ~/ 12,
-      );
-    }
+    final income =
+        inputs.isRetirement || inputs.desiredMonthlyIncome != null
+            ? IncomePlan.build(inputs)
+            : null;
 
     return SavingsPlan._(
       inputs: inputs,
@@ -338,7 +443,7 @@ class SavingsPlan {
           inputs.targetAmount *
           math.pow(1 + PlanAssumptions.inflation, months / 12),
       sensitivities: sensitivities,
-      retirement: retirement,
+      income: income,
     );
   }
 
@@ -392,7 +497,9 @@ class SavingsPlan {
       },
       'total_contributed': r(contributed),
       'total_growth': r(growth),
-      'on_track': onTrack,
+      // Solo con un aporte que dijo el usuario: sin él, el plan usa el
+      // necesario y "llega" por definición.
+      'on_track': inputs.monthlyContribution != null ? onTrack : null,
       'target_in_future_dollars': r(nominalTarget),
       'suggested_allocation': [
         for (final e in allocation.entries)
@@ -405,10 +512,24 @@ class SavingsPlan {
             'required_monthly_savings': r(s.requiredMonthly),
           },
       ],
-      if (retirement != null)
-        'retirement': {
-          'sustainable_monthly_income': r(retirement!.monthlyIncome),
-          'years_lasting': retirement!.yearsLasting,
+      if (income != null)
+        'income': {
+          if (income!.desiredMonthly != null)
+            'desired_monthly_income': r(income!.desiredMonthly!),
+          'strategy_used_for_target': income!.strategy.key,
+          'dividend_yield': pct(inputs.effectiveDividendYield),
+          'dividend_yield_source':
+              inputs.dividendYield != null ? 'buy_plan' : 'assumption',
+          'dividends': {
+            'capital_needed': r(income!.dividendsCapital),
+            'monthly_income': r(income!.dividendsMonthly),
+            'capital_is_preserved': true,
+          },
+          'withdraw_4pct': {
+            'capital_needed': r(income!.withdrawalCapital),
+            'monthly_income': r(income!.withdrawalMonthly),
+            'years_lasting': income!.withdrawalYears,
+          },
         },
     };
   }
@@ -469,6 +590,18 @@ abstract final class SavingsPlanCalculator {
     if (ratio >= 1) return null;
     return (-math.log(1 - ratio) / math.log(1 + r)).floor();
   }
+
+  /// Ingreso mensual por dividendos de un capital.
+  static double dividendMonthlyIncome(
+    double capital, [
+    double yield = PlanAssumptions.dividendYield,
+  ]) => capital * yield / 12;
+
+  /// Capital que hace falta para cobrar [monthlyIncome] de dividendos.
+  static double capitalForDividends(
+    double monthlyIncome, [
+    double yield = PlanAssumptions.dividendYield,
+  ]) => monthlyIncome * 12 / yield;
 
   /// Capital que hace falta para cobrar [monthlyIncome] con la regla del 4%.
   static double capitalForIncome(double monthlyIncome) =>

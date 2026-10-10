@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_layout_guard.dart';
@@ -30,13 +34,17 @@ abstract final class AssistantAnswerReview {
     if (grounding != null) return AnswerCorrection(grounding);
 
     final components = AssistantGroundingCheck.components(raw).toList();
+    final stalePlan = _stalePlan(components, evidence);
+    if (stalePlan != null) return AnswerCorrection(stalePlan);
+    final phantom = _phantomAction(components, evidence);
+    if (phantom != null) return AnswerCorrection(phantom);
     final missing = _missingAnalysisTools(components, evidence);
     if (missing != null) return AnswerCorrection(missing);
     final skipped = _analysisNotShown(components, evidence);
     if (skipped != null) {
       return AnswerCorrection(skipped, requiresTools: false);
     }
-    final problems = <String>[];
+    final problems = <String>[..._planProseProblems(components, evidence)];
     for (final c in components) {
       if (c['component'] != 'QaCompanyAnalysis') continue;
       final data = CompanyAnalysisData.from(evidence, '${c['ticker'] ?? ''}');
@@ -64,6 +72,115 @@ abstract final class AssistantAnswerReview {
                 AssistantGroundingCheck.components(rewritten).toList(),
               ).containsAll(original),
     );
+  }
+
+  /// "Preparé la operación, revisala y confirmala" sin haber llamado a
+  /// `propose_*`: no hay ninguna card que revisar (visto en evals: "Compré
+  /// 10 acciones de Apple…" respondido solo con texto).
+  static String? _phantomAction(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) {
+    final claims = components.any(
+      (c) =>
+          c['component'] == 'QaAnswerText' &&
+          c['text'] is String &&
+          _actionClaim.hasMatch(c['text'] as String),
+    );
+    if (!claims) return null;
+    final proposed = evidence.turnCalls.any(
+      (call) => ActionTools.names.contains(call.name),
+    );
+    if (proposed) return null;
+    return 'You said you prepared an operation, but you did not call '
+        'propose_buy / propose_sell / propose_delete_position. Call it now '
+        'with what the user reported (or ask for what is missing, without '
+        'saying you prepared anything).';
+  }
+
+  static final _actionClaim = RegExp(
+    r'prepar[eé]\s+(la|una|tu)\s+(operaci[oó]n|compra|venta)|'
+    r'revisal[ao]\s+y\s+confirmal[ao]',
+    caseSensitive: false,
+  );
+
+  /// Un plan de un turno anterior: el modelo reusó el `plan_id` de la meta
+  /// de antes en vez de calcular la que el usuario acaba de pedir (visto:
+  /// "100 mil en 10 años para una casa" mostró el plan de jubilación). El
+  /// plan es un cálculo local, sin costo: se rehace siempre.
+  static String? _stalePlan(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) {
+    for (final c in components) {
+      if (c['component'] == 'QaBuyPlan') {
+        final fresh = evidence.turnCalls.any(
+          (call) =>
+              call.status == 'ok' &&
+              call.result[BuyPlanBuilder.buyPlanIdKey] == c['buyPlanId'],
+        );
+        if (!fresh) {
+          return 'QaBuyPlan must show a buy plan computed in THIS turn. Call '
+              'get_monthly_buy_plan now, then answer again with its '
+              'buy_plan_id.';
+        }
+        continue;
+      }
+      if (c['component'] != 'QaSavingsPlan') continue;
+      final fresh = evidence.turnCalls.any(
+        (call) =>
+            SavingsPlanCardData.toolNames.contains(call.name) &&
+            call.status == 'ok' &&
+            call.result[GoalProjectionBuilder.planIdKey] == c['planId'],
+      );
+      if (!fresh) {
+        return 'QaSavingsPlan must show a plan computed in THIS turn. Call '
+            'get_goal_projection now with the goal of the user\'s LAST '
+            'message, then answer again with its plan_id.';
+      }
+    }
+    return null;
+  }
+
+  /// Los números del texto que acompaña al plan: tienen que salir del
+  /// cálculo (Porty explica el plan con sus números, pero no inventa).
+  static Iterable<String> _planProseProblems(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) sync* {
+    final backing = _planBacking(components, evidence);
+    if (backing == null) return;
+    for (final c in components) {
+      if (c['component'] != 'QaAnswerText' || c['text'] is! String) continue;
+      for (final s in AnalysisProseCheck.sentences(c['text'] as String)) {
+        yield* AnalysisProseCheck.problemsIn(s, backing);
+      }
+    }
+  }
+
+  static List<double>? _planBacking(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) {
+    List<double>? out;
+    for (final c in components) {
+      if (c['component'] == 'QaSavingsPlan') {
+        final d = SavingsPlanCardData.from(evidence.calls, '${c['planId']}');
+        if (d != null) (out ??= []).addAll(d.backingNumbers);
+      } else if (c['component'] == 'QaBuyPlan') {
+        final d = BuyPlanCardData.from(evidence.calls, '${c['buyPlanId']}');
+        if (d != null) (out ??= []).addAll(d.backingNumbers);
+        // El plan recalculado que trae la compra también se puede citar.
+        for (final call in evidence.calls) {
+          if (call.result[BuyPlanBuilder.buyPlanIdKey] != c['buyPlanId']) {
+            continue;
+          }
+          final p = SavingsPlanCardData.fromToolResult(call.result);
+          if (p != null) (out ??= []).addAll(p.backingNumbers);
+        }
+      }
+    }
+    return out;
   }
 
   static String postProcess(String normalized, TurnEvidence evidence) {
@@ -152,6 +269,20 @@ abstract final class AssistantAnswerReview {
 
     if (_withGoldTeaser(list, components, root, evidence)) {
       changed = true;
+    }
+
+    final planBacking = _planBacking(components, evidence);
+    if (planBacking != null) {
+      for (final c in components) {
+        if (c['component'] != 'QaAnswerText' || c['text'] is! String) continue;
+        final text = c['text'] as String;
+        final cleaned = AnalysisProseCheck.clean(text, planBacking);
+        final next = cleaned.isNotEmpty ? cleaned : _fallbackIntro(components);
+        if (next != text) {
+          c['text'] = next;
+          changed = true;
+        }
+      }
     }
 
     final widgetNumbers = _widgetNumbers(components, evidence);
@@ -361,6 +492,9 @@ abstract final class AssistantAnswerReview {
       'QaInvestConfirm' =>
         'Este es el resumen de la simulación; no se hace ninguna operación '
             'real.',
+      'QaBuyPlan' =>
+        'Esta es una compra mensual de ejemplo: cuánto iría a cada '
+            'instrumento y cuánto rinde cada uno.',
       'QaSavingsPlan' =>
         'Este es tu plan: cuánto ahorrar por mes, cómo crecería con los '
             'intereses y en qué invertir según tu perfil.',
@@ -405,10 +539,11 @@ abstract final class AssistantAnswerReview {
           final v = d.metric(m.key);
           if (v != null) out.add(v);
         }
-      } else if (c['component'] == 'QaSavingsPlan') {
-        // Los números del plan los calcula la app (el JSON solo trae el id).
-        final d = SavingsPlanCardData.from(evidence.calls, '${c['planId']}');
-        if (d != null) out.addAll(d.backingNumbers);
+      } else if (c['component'] == 'QaSavingsPlan' ||
+          c['component'] == 'QaBuyPlan') {
+        // El texto del plan SÍ explica con sus números (ver
+        // [_planProseProblems]): no se sacan por repetir la card.
+        continue;
       } else if (c['component'] == 'QaEtfHoldings') {
         // Como el análisis: los pesos los pone la app, no están en el JSON.
         final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');
