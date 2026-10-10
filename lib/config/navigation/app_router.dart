@@ -27,6 +27,10 @@ class AppRouter {
       ref.read(supabaseClientProvider).auth.onAuthStateChange,
     );
     ref.onDispose(refresh.dispose);
+    // El evento de recovery y el refresh del router llegan por el mismo
+    // stream, sin orden garantizado: se reevalúa también cuando cambia el
+    // provider que lee el redirect.
+    ref.listen<bool>(passwordRecoveryProvider, (_, __) => refresh.refresh());
 
     return GoRouter(
       debugLogDiagnostics: true,
@@ -35,6 +39,7 @@ class AppRouter {
         final isAuthenticated = ref.read(isAuthenticatedProvider);
         final location = state.matchedLocation;
         final isLoginRoute = location == AuthRouter.loginPath;
+        final isResetPasswordRoute = location == AuthRouter.resetPasswordPath;
         final isOnboardingRoute = location == OnboardingRouter.path;
         final onboardingDone =
             ref.read(preferenceManagerProvider).hasCompletedOnboarding();
@@ -42,6 +47,17 @@ class AppRouter {
         if (!isAuthenticated) {
           if (!isLoginRoute) return AuthRouter.loginPath;
           return null;
+        }
+
+        // Entró con el link de "restablecer contraseña": primero elige una
+        // nueva. La sesión de recovery no habilita el resto de la app.
+        if (ref.read(passwordRecoveryProvider)) {
+          return isResetPasswordRoute ? null : AuthRouter.resetPasswordPath;
+        }
+
+        if (isResetPasswordRoute) {
+          if (!onboardingDone) return OnboardingRouter.path;
+          return state.namedLocation(HomeRouter.homeRouteName);
         }
 
         if (isLoginRoute) {
@@ -71,7 +87,7 @@ class AppRouter {
             return state.namedLocation(HomeRouter.homeRouteName);
           },
         ),
-        AuthRouter.getRoute(),
+        ...AuthRouter.getRoutes(),
         OnboardingRouter.getRoute(),
         StatefulShellRoute.indexedStack(
           // Se entra al shell solo desde login u onboarding: fade, no slide.
