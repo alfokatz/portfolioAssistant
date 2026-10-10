@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -20,6 +21,9 @@ class AuthTextField extends StatelessWidget {
     this.autofillHints,
     this.forceErrorText,
     this.onChanged,
+    this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
+    this.enableSuggestions = true,
   });
 
   final TextEditingController controller;
@@ -40,6 +44,14 @@ class AuthTextField extends StatelessWidget {
   final String? forceErrorText;
   final ValueChanged<String>? onChanged;
 
+  /// Tope duro de caracteres (sin contador visible): corta el pegado de
+  /// textos enormes antes de que lleguen a la validación o al servidor.
+  final int? maxLength;
+  final TextCapitalization textCapitalization;
+
+  /// `false` en contraseñas: el teclado no las aprende ni las sugiere.
+  final bool enableSuggestions;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
@@ -49,11 +61,19 @@ class AuthTextField extends StatelessWidget {
       focusNode: focusNode,
       autofillHints: autofillHints,
       forceErrorText: forceErrorText,
+      // Por campo y no por Form: tocar un campo no marca en rojo los que
+      // el usuario todavía no llenó.
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       onChanged: onChanged,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       obscureText: obscureText,
       autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions && !obscureText,
+      textCapitalization: textCapitalization,
+      inputFormatters: [
+        if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+      ],
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
       style: Theme.of(context).textTheme.bodyLarge?.copyWith(

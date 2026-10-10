@@ -9,7 +9,10 @@ import 'package:portfolio_assistant/presentation/base/theme/app_images.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/apple_sign_in_button.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_check_email_panel.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_countdown.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_oauth_divider.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_password_requirements.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_password_strength_indicator.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_porty_header.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_primary_button.dart';
@@ -17,6 +20,7 @@ import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_tab_
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_terms_disclaimer.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/auth_text_field.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/social_sign_in_button.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/utils/auth_validators.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 class LoginScreen extends StatefulHookConsumerWidget {
@@ -24,6 +28,7 @@ class LoginScreen extends StatefulHookConsumerWidget {
 
   static const primaryButtonKey = ValueKey('auth_primary_button');
   static const formErrorKey = ValueKey('auth_form_error');
+  static const forgotPasswordKey = ValueKey('auth_forgot_password');
 
   /// Cambios de layout de la pantalla: alto del formulario al cambiar de
   /// pestaña y compactado del bloque de Porty con el teclado.
@@ -84,7 +89,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     // el usuario sigue escribiendo donde estaba. (El AutofillGroup confirma
     // la contraseña para el llavero de iOS al desmontarse.)
     await ref.read(authControllerProvider.notifier).submitEmail(
-          email: _emailController.text.trim(),
+          email: _emailController.text,
           password: _passwordController.text,
           fullName: ref.read(authControllerProvider).isSignUpMode
               ? _fullNameController.text.trim()
@@ -154,6 +159,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
     final showApple = ref.watch(appleSignInAvailableProvider);
     final isLoading = authState.isLoading;
     final isSignUp = authState.isSignUpMode;
+    final pendingEmail = authState.pendingConfirmationEmail;
     final authNotifier = ref.read(authControllerProvider.notifier);
     // Teclado abierto: Porty se compacta para que los campos y el botón
     // entren sin scroll en un iPhone SE. Se lee acá, arriba del Scaffold,
@@ -183,9 +189,25 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                 // la vista antes de que Porty se compacte, y con 32 quedaba
                 // justo debajo del margen (scrolleaba 3 px en un SE).
                 _Gap(compact ? AppDimens.sp16 : AppDimens.sp28),
+                if (pendingEmail != null)
+                  _FadeIn(
+                    child: AuthCheckEmailPanel(
+                      email: pendingEmail,
+                      reason: authState.pendingConfirmationReason,
+                      resendAvailableAt: authState.resendAvailableAt,
+                      isResending: authState.activeAction == AuthAction.resend,
+                      enabled: !isLoading,
+                      onResend: authNotifier.resendConfirmation,
+                      onBackToSignIn: () {
+                        _passwordController.clear();
+                        _confirmPasswordController.clear();
+                        authNotifier.leavePendingConfirmation();
+                      },
+                    ),
+                  )
+                else
                 Form(
                   key: _formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: MotionAwareSize(
                     duration: LoginScreen.motionDuration,
                     child: Column(
@@ -211,17 +233,15 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               textInputAction: TextInputAction.next,
                               autofillHints: const [AutofillHints.name],
                               autocorrect: false,
+                              textCapitalization: TextCapitalization.words,
+                              maxLength: AuthValidators.fullNameMaxLength,
                               hintText: 'auth_full_name_placeholder'.tr(),
                               prefixIcon: Icons.person_outline_rounded,
                               onChanged: _onFieldChanged,
                               onFieldSubmitted: (_) =>
                                   _emailFocus.requestFocus(),
-                              validator: (value) {
-                                if ((value?.trim() ?? '').isEmpty) {
-                                  return 'auth_full_name_required'.tr();
-                                }
-                                return null;
-                              },
+                              validator: (value) =>
+                                  AuthValidators.fullName(value)?.tr(),
                             ),
                           ),
                           const SizedBox(height: AppDimens.sp12),
@@ -233,6 +253,8 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                           textInputAction: TextInputAction.next,
                           autofillHints: const [AutofillHints.email],
                           autocorrect: false,
+                          enableSuggestions: false,
+                          maxLength: AuthValidators.emailMaxLength,
                           hintText: isSignUp
                               ? 'auth_email_placeholder_sign_up'.tr()
                               : 'auth_email_placeholder'.tr(),
@@ -241,22 +263,19 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                           onChanged: _onFieldChanged,
                           onFieldSubmitted: (_) =>
                               _passwordFocus.requestFocus(),
-                          validator: (value) {
-                            final email = value?.trim() ?? '';
-                            if (email.isEmpty) {
-                              return 'auth_email_required'.tr();
-                            }
-                            if (!email.contains('@')) {
-                              return 'auth_email_invalid'.tr();
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              AuthValidators.email(value)?.tr(),
                         ),
                         const SizedBox(height: AppDimens.sp12),
                         AuthTextField(
                           controller: _passwordController,
                           focusNode: _passwordFocus,
                           obscureText: authState.obscurePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          // Holgado: la validación (72 bytes) da el error
+                          // claro; esto solo frena un pegado enorme.
+                          maxLength: 128,
                           textInputAction: isSignUp
                               ? TextInputAction.next
                               : TextInputAction.done,
@@ -277,23 +296,29 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             obscure: authState.obscurePassword,
                             onToggle: authNotifier.toggleObscurePassword,
                           ),
-                          validator: (value) {
-                            final password = value ?? '';
-                            if (password.isEmpty) {
-                              return 'auth_password_required'.tr();
-                            }
-                            if (password.length < 6) {
-                              return 'auth_password_min_length'.tr();
-                            }
-                            return null;
-                          },
+                          validator: (value) => (isSignUp
+                                  ? AuthValidators.newPassword(value)
+                                  : AuthValidators.signInPassword(value))
+                              ?.tr(
+                                namedArgs: {
+                                  'min': '${AuthValidators.passwordMinLength}',
+                                },
+                              ),
                         ),
                         if (isSignUp) ...[
                           ValueListenableBuilder<TextEditingValue>(
                             valueListenable: _passwordController,
                             builder: (context, value, _) {
-                              return AuthPasswordStrengthIndicator(
-                                password: value.text,
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  AuthPasswordStrengthIndicator(
+                                    password: value.text,
+                                  ),
+                                  AuthPasswordRequirements(
+                                    password: value.text,
+                                  ),
+                                ],
                               );
                             },
                           ),
@@ -303,6 +328,9 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                               controller: _confirmPasswordController,
                               focusNode: _confirmPasswordFocus,
                               obscureText: authState.obscureConfirmPassword,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              maxLength: 128,
                               textInputAction: TextInputAction.done,
                               autofillHints: const [
                                 AutofillHints.newPassword,
@@ -317,17 +345,11 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                 onToggle:
                                     authNotifier.toggleObscureConfirmPassword,
                               ),
-                              validator: (value) {
-                                final confirm = value ?? '';
-                                if (confirm.isEmpty) {
-                                  return 'auth_confirm_password_required'
-                                      .tr();
-                                }
-                                if (confirm != _passwordController.text) {
-                                  return 'auth_password_mismatch'.tr();
-                                }
-                                return null;
-                              },
+                              validator: (value) =>
+                                  AuthValidators.confirmPassword(
+                                    value,
+                                    _passwordController.text,
+                                  )?.tr(),
                             ),
                           ),
                           const SizedBox(height: AppDimens.sp20),
@@ -337,8 +359,11 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                         if (!isSignUp) ...[
                           Align(
                             alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: isLoading
+                            child: AuthCountdown(
+                              until: authState.passwordResetAvailableAt,
+                              builder: (context, remaining) => TextButton(
+                              key: LoginScreen.forgotPasswordKey,
+                              onPressed: isLoading || remaining != null
                                   ? null
                                   : () async {
                                       await authNotifier.requestPasswordReset(
@@ -356,27 +381,52 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                                 ),
                               ),
                               child: Text(
-                                'auth_forgot_password'.tr(),
+                                remaining == null
+                                    ? 'auth_forgot_password'.tr()
+                                    : 'auth_reset_again_in'.tr(
+                                        namedArgs: {
+                                          'time':
+                                              AuthCountdown.format(remaining),
+                                        },
+                                      ),
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
                                     ?.copyWith(
-                                      color: colors.accentBlue,
+                                      color: remaining == null
+                                          ? colors.accentBlue
+                                          : colors.textSecondary,
                                       fontWeight: FontWeight.w600,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                               ),
+                            ),
                             ),
                           ),
                           const SizedBox(height: AppDimens.sp8),
                         ],
-                        AuthPrimaryButton(
-                          key: LoginScreen.primaryButtonKey,
-                          label: isSignUp
-                              ? 'auth_sign_up'.tr()
-                              : 'auth_sign_in'.tr(),
-                          isLoading: isLoading,
-                          onPressed:
-                              isLoading ? null : _onPrimaryButtonPressed,
+                        AuthCountdown(
+                          // El bloqueo por intentos solo aplica a entrar.
+                          until: isSignUp ? null : authState.lockedUntil,
+                          builder: (context, locked) => AuthPrimaryButton(
+                            key: LoginScreen.primaryButtonKey,
+                            label: locked != null
+                                ? 'auth_locked_retry_in'.tr(
+                                    namedArgs: {
+                                      'time': AuthCountdown.format(locked),
+                                    },
+                                  )
+                                : isSignUp
+                                ? 'auth_sign_up'.tr()
+                                : 'auth_sign_in'.tr(),
+                            isLoading:
+                                authState.activeAction == AuthAction.email,
+                            onPressed: isLoading || locked != null
+                                ? null
+                                : _onPrimaryButtonPressed,
+                          ),
                         ),
                         if (authState.formError case final error?)
                           _FadeIn(
@@ -390,7 +440,9 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                         // Android y mientras no esté configurado.
                         if (showApple) ...[
                           AppleSignInButton(
-                            label: 'auth_continue_apple'.tr(),
+                            label: authState.activeAction == AuthAction.apple
+                                ? 'auth_oauth_in_progress'.tr()
+                                : 'auth_continue_apple'.tr(),
                             onPressed: isLoading
                                 ? null
                                 : authNotifier.submitAppleSignIn,
@@ -403,6 +455,7 @@ class _LoginScreenState extends BaseStatefulWidget<LoginScreen> {
                             width: AppDimens.iconMd,
                             height: AppDimens.iconMd,
                           ),
+                          loading: authState.activeAction == AuthAction.google,
                           onPressed: isLoading
                               ? null
                               : authNotifier.submitGoogleSignIn,

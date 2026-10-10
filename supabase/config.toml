@@ -160,7 +160,16 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# App móvil: OAuth (Google/Apple) vuelve a porty-oauth://callback; los links de
+# los emails, a porty://login-callback (confirmar cuenta) y porty://reset-password.
+# Ver lib/config/supabase/supabase_redirect_url.dart. En el proyecto hosteado van
+# en Dashboard → Authentication → URL Configuration → Redirect URLs.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "porty-oauth://callback",
+  "porty://login-callback",
+  "porty://reset-password",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -179,10 +188,11 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+# Igual que AuthValidators / PasswordRequirement en la app.
+password_requirements = "lower_upper_letters_digits"
 
 # Configure passkey sign-ins.
 # [auth.passkey]
@@ -223,11 +233,14 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Además de verificar el email, hace que el registro responda igual exista o no
+# la cuenta (no revela qué emails están registrados).
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+# La app espera lo mismo antes de dejar reenviar (AuthController.emailCooldown).
+max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
@@ -315,6 +328,19 @@ max_frequency = "5s"
 # [auth.mfa.web_authn]
 # enroll_enabled = true
 # verify_enabled = true
+
+# Login con Google (OAuth web + PKCE desde la app). Credenciales del OAuth client
+# "Web application" de Google Cloud; nunca al repo: van en supabase/.env (local) o
+# en Dashboard → Authentication → Providers → Google (hosteado).
+# Ver docs/runbooks/auth-google.md.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
+email_optional = false
 
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,

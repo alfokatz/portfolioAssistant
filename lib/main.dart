@@ -4,13 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
-    show
-        AndroidOptions,
-        FlutterSecureStorage,
-        IOSOptions,
-        KeychainAccessibility;
+    show FlutterSecureStorage;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
+import 'package:portfolio_assistant/config/supabase/secure_auth_storage.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_gate.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_required_screen.dart';
@@ -50,10 +47,7 @@ Future<Widget> _initialize() async {
     revenueCatService: revenueCatService,
     easyLocalization: _setupEasyLocalization(app: const MyApp()),
     sharedPreferences: sharedPreferences,
-    secureStorage: const FlutterSecureStorage(
-      aOptions: AndroidOptions(encryptedSharedPreferences: true),
-      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-    ),
+    secureStorage: appSecureStorage,
   );
 }
 
