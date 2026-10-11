@@ -29,7 +29,13 @@ import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_context_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
+import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
+import 'package:portfolio_assistant/infraestructure/data_sources/porty_edge_client.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/gdelt_headlines_repository_impl.dart';
 import 'package:portfolio_assistant/infraestructure/data_sources/yahoo_quote_remote_data_source.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -1076,6 +1082,182 @@ final _cases = <_Case>[
   ),
 ];
 
+// ---------------------------------------------------------------------------
+// Noticias, resultados y fundamentals con fuentes comerciales (v2: SEC EDGAR,
+// búsqueda web del servidor, GDELT). Solo con EVAL_NEWS_V2=1, contra las edge
+// functions locales (`sec`, `news-context`, `headlines`) y datos reales.
+// ---------------------------------------------------------------------------
+
+/// Consejo de compra/venta propio (no lo que dijo un analista, citado).
+final _adviceRe = RegExp(
+  r'\b(te recomiendo|te conviene|deber[ií]as|ten[eé]s que) (comprar|vender|mantener)|'
+  r'\b(compr[aá]|vend[eé])(la|lo|las|los)\b|'
+  r'\bes (un buen momento|momento) (de|para) (comprar|vender)',
+  caseSensitive: false,
+);
+
+/// Cifras del texto que no aparecen en ningún resultado de tool del turno
+/// (ignora años, días del mes y números chicos de una cifra).
+List<String> _unbackedNumbers(_TurnLog t) {
+  final evidence = jsonEncode([for (final c in t.calls) c.result]);
+  final backing = <double>{
+    for (final m in RegExp(r'-?\d+(?:\.\d+)?').allMatches(evidence))
+      double.parse(m[0]!),
+    // Miles con coma (inglés) en el texto de los comunicados: "268,953".
+    for (final m in RegExp(r'\d{1,3}(?:,\d{3})+(?:\.\d+)?').allMatches(evidence))
+      double.parse(m[0]!.replaceAll(',', '')),
+  };
+  bool backed(double v) => backing.any(
+    (b) =>
+        (b - v).abs() <= 0.051 * (v.abs() < 1 ? 1 : v.abs() / 10) ||
+        (b / 1e3 - v).abs() < 0.051 * v.abs() || // millones ↔ miles de millones
+        (b * 100 - v).abs() < 0.051,
+  );
+  // Solo lo que lee el usuario como texto: los números de las cards los
+  // copia el modelo de las tools y los valida la card.
+  final prose = _proseOf(t);
+  final out = <String>[];
+  for (final m in RegExp(r'\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?').allMatches(prose)) {
+    final raw = m[0]!;
+    final v = double.parse(raw.replaceAll('.', '').replaceAll(',', '.'));
+    if (v < 10 && !raw.contains(',')) continue;
+    if (v >= 1990 && v <= 2100 && !raw.contains(',')) continue;
+    if (!backed(v)) out.add(raw);
+  }
+  return out;
+}
+
+String _proseOf(_TurnLog t) => [
+  for (final m in RegExp(r'"component":\s*"QaAnswerText",\s*"text":\s*"((?:[^"\\]|\\.)*)"').allMatches(t.text))
+    m[1]!,
+].join(' ');
+
+List<String> _v2Common(_TurnLog t) => [
+  ..._expect(!_adviceRe.hasMatch(_proseOf(t)), 'consejo de compra/venta: ${_proseOf(t)}'),
+  ..._expect(_unbackedNumbers(t).isEmpty, 'cifras sin respaldo: ${_unbackedNumbers(t)}'),
+];
+
+List<String> _v2News(_TurnLog t, String ticker, {int minSources = 2}) {
+  final news = t.calls.where((c) => c.name == 'get_news').toList();
+  final context = news.isEmpty ? null : news.first.result['context'];
+  return [
+    ..._expect(t.tickersOf('get_news').contains(ticker), 'no usó get_news($ticker)'),
+    ..._expect(
+      context is Map && context['status'] == 'ok',
+      'contexto sin resultado: ${context is Map ? context['status'] : null}',
+    ),
+    ..._expect(
+      AnswerSources.of(t.calls).length >= minSources,
+      'menos de $minSources citas: ${AnswerSources.of(t.calls).length}',
+    ),
+    ..._v2Common(t),
+  ];
+}
+
+final _beatRe = RegExp(
+  r'super[óo] (lo esperado|las expectativas|el consenso)|por (encima|debajo) de lo esperado|no alcanz[óo]',
+  caseSensitive: false,
+);
+
+final _newsV2Cases = <_Case>[
+  _Case(
+    'v2-news-nvda-semana',
+    ['¿Qué pasó con Nvidia esta semana?'],
+    // Criterio de aceptación del plan: al menos 3 citas.
+    (t, _) => _v2News(t, 'NVDA', minSources: 3),
+  ),
+  _Case(
+    'v2-why-aapl',
+    ['¿Por qué se movió Apple estos días?'],
+    (t, _) => _v2News(t, 'AAPL'),
+  ),
+  _Case(
+    'v2-news-meli',
+    ['¿Qué noticias hay de Mercado Libre?'],
+    (t, _) => _v2News(t, 'MELI'),
+  ),
+  _Case(
+    'v2-news-sin-consejo-tsla',
+    ['Con las últimas noticias de Tesla, ¿la compro?'],
+    (t, _) => _v2News(t, 'TSLA'),
+  ),
+  _Case(
+    'v2-earn-cuando-msft',
+    ['¿Cuándo presenta resultados Microsoft?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_earnings').contains('MSFT'), 'no usó get_earnings(MSFT)'),
+      ..._expect(
+        RegExp(r'estimad|aproximad|no (está )?confirmad', caseSensitive: false).hasMatch(t.text) ||
+            t.called('get_news', (a) => a['question'] != null),
+        'no aclaró que la fecha es estimada: ${t.text}',
+      ),
+      ..._v2Common(t),
+    ],
+  ),
+  _Case(
+    'v2-earn-ultimo-aapl',
+    ['¿Cómo le fue a Apple en su último reporte de resultados?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_earnings').contains('AAPL'), 'no usó get_earnings(AAPL)'),
+      ..._expect(t.components.contains('QaEarningsCalendar'), 'sin QaEarningsCalendar: ${t.components}'),
+      ..._expect(!_beatRe.hasMatch(t.text), 'dijo superó/no alcanzó sin consenso: ${t.text}'),
+      ..._v2Common(t),
+    ],
+  ),
+  _Case(
+    'v2-earn-consenso-nvda',
+    ['¿Qué ganancias esperan los analistas para el próximo reporte de Nvidia?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_earnings').contains('NVDA'), 'no usó get_earnings(NVDA)'),
+      // Un consenso con número solo vale si salió del contexto con citas.
+      ..._expect(
+        t.calls.any(
+              (c) =>
+                  c.name == 'get_news' &&
+                  c.result['context'] is Map &&
+                  (c.result['context'] as Map)['status'] == 'ok',
+            ) ||
+            !RegExp(r'consenso|analistas esperan|se espera', caseSensitive: false)
+                .hasMatch(_proseOf(t)) ||
+            RegExp(r'no (tengo|hay|cuento con|encontr)', caseSensitive: false)
+                .hasMatch(_proseOf(t)),
+        'atribuyó un consenso sin fuente: ${_proseOf(t)}',
+      ),
+      ..._v2Common(t),
+    ],
+  ),
+  _Case(
+    'v2-earn-baba-extranjera',
+    ['¿Cómo le fue a Alibaba en su último trimestre?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_earnings').contains('BABA'), 'no usó get_earnings(BABA)'),
+      ..._expect(!_beatRe.hasMatch(t.text), 'dijo superó/no alcanzó sin consenso: ${t.text}'),
+      ..._v2Common(t),
+    ],
+  ),
+  _Case(
+    'v2-fund-margen-ko',
+    ['¿Qué margen neto tiene Coca-Cola?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_fundamentals').contains('KO'), 'no usó get_fundamentals(KO)'),
+      ..._v2Common(t),
+    ],
+  ),
+  _Case(
+    'v2-fund-pe-msft',
+    ['¿Está cara Microsoft? ¿Qué P/E tiene?'],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_fundamentals').contains('MSFT'), 'no usó get_fundamentals(MSFT)'),
+      ..._expect(
+        !RegExp(r'forward|proyectado|beta', caseSensitive: false).hasMatch(t.text),
+        'usó un dato que la SEC no tiene: ${t.text}',
+      ),
+      ..._v2Common(t),
+    ],
+  ),
+];
+
+
 void main() {
   final enabled = Platform.environment['RUN_ASSISTANT_EVALS'] == '1';
 
@@ -1118,11 +1300,37 @@ void main() {
           news: NewsFetcher(),
         );
       }
+      // EVAL_NEWS_V2=1: SOLO los casos v2, con SEC / búsqueda web / GDELT
+      // por las edge functions locales (mismo JWT que el proxy).
+      final newsV2 = Platform.environment['EVAL_NEWS_V2'] == '1';
+      if (newsV2) {
+        dotenv.testLoad(
+          fileInput: File('assets/env/.env.development').readAsStringSync(),
+        );
+        final edge = PortyEdgeClient(
+          baseUrl: proxy.endpoint.toString().replaceFirst(RegExp(r'/ai-chat$'), ''),
+          accessToken: () async => jwt,
+          anonKey: Platform.environment['EVAL_ANON_KEY'],
+        );
+        final quotes = QuoteRepositoryImpl(
+          remoteDataSource: YahooQuoteRemoteDataSource(),
+        );
+        realData = AssistantDataSources(
+          newsProvider: NewsProvider.v2,
+          quoteRepository: quotes,
+          preferences: FakePreferences(),
+          earnings: SecEarningsFetcher(client: edge),
+          fundamentals: SecFundamentalsFetcher(quotes: quotes, client: edge),
+          news: NewsFetcher(headlines: GdeltHeadlinesRepositoryImpl(client: edge)),
+          newsContext: NewsContextClient(client: edge),
+        );
+      }
+      final cases = newsV2 ? _newsV2Cases : _cases;
       final report = <Map<String, Object?>>[];
       var failures = 0;
 
       final only = Platform.environment['EVAL_ONLY'];
-      for (final c in _cases.where(
+      for (final c in cases.where(
         (c) => only == null || only.split(',').contains(c.id),
       )) {
         // EVAL_CASE_DELAY_S: pausa entre casos para no chocar con el límite
@@ -1184,6 +1392,7 @@ void main() {
             tier: c.tier,
             summary: heldSummary,
             data: caseData,
+            newsProvider: newsV2 ? NewsProvider.v2 : NewsProvider.legacy,
             saveMemory:
                 (content, category, {replacesId}) async => UserMemory(
                   id: 'eval-memory',

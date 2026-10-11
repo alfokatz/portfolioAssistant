@@ -9,6 +9,13 @@ import 'package:portfolio_assistant/infraestructure/repositories/finnhub_earning
 
 const _fiscalQuarterLabels = ['T1', 'T2', 'T3', 'T4'];
 
+/// Lo que devuelve `get_earnings`: `{status, earnings: {TICKER: {...}}}`.
+/// Lo implementan [EarningsFetcher] (Finnhub, `news_provider = legacy`) y
+/// `SecEarningsFetcher` (SEC EDGAR, v2).
+abstract interface class EarningsSource {
+  Future<Map<String, Object?>> fetch(List<String> tickers);
+}
+
 /// Próximo reporte (fecha, momento del día, período fiscal, EPS esperado),
 /// último resultado e historial de EPS de los últimos trimestres por
 /// ticker — Finnhub `/calendar/earnings` + `/stock/earnings`.
@@ -16,7 +23,7 @@ const _fiscalQuarterLabels = ['T1', 'T2', 'T3', 'T4'];
 /// El calendario muchas veces no trae el `epsActual` del último reporte;
 /// `/stock/earnings` sí, así que `latest_result` cae al trimestre más
 /// reciente del historial cuando el calendario no lo tiene.
-class EarningsFetcher {
+class EarningsFetcher implements EarningsSource {
   EarningsFetcher({
     EarningsCalendarRepository? repository,
     EarningsHistoryRepository? historyRepository,
@@ -38,6 +45,7 @@ class EarningsFetcher {
 
   /// `{status: ok|empty|failed, earnings: {TICKER: {next_report?,
   /// latest_result?, history?}}}`.
+  @override
   Future<Map<String, Object?>> fetch(List<String> tickers) async {
     final calendar = <String, Object?>{};
     var anyFailed = false;
@@ -192,8 +200,13 @@ class EarningsFetcher {
     'dic',
   ];
 
-  String _dateLabel(DateTime date) =>
+  String _dateLabel(DateTime date) => dateLabel(date);
+
+  /// "29 oct 2026": el formato de fechas de las cards de resultados.
+  static String dateLabel(DateTime date) =>
       '${date.day} ${_months[date.month - 1]} ${date.year}';
+
+  static String isoDate(DateTime d) => _isoDate(d);
 
   static String _isoDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

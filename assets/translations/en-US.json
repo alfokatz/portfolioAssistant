@@ -960,5 +960,13 @@
   "goal_outside_subtitle": "Bank, cash or another broker",
   "goal_outside_body": "How much do you have in total for this goal outside the app? Update it when it changes, or tell Porty.",
   "goal_outside_saved": "Done, updated",
-  "porty_status_goal_savings": "Updating your goal…"
+  "porty_status_goal_savings": "Updating your goal…",
+  "data_sources_title": "Data sources",
+  "data_sources_intro": "Where the news, earnings and company data Porty shows you come from.",
+  "data_sources_sec_title": "SEC EDGAR",
+  "data_sources_sec_body": "Earnings, filings and financial data that companies file with the U.S. SEC.",
+  "data_sources_web_title": "OpenAI web search",
+  "data_sources_web_body": "The summary of what is happening with a company, with links to the news articles that report it.",
+  "data_sources_gdelt_title": "GDELT Project",
+  "data_sources_gdelt_body": "Headlines from reputable outlets, linking to the original article."
 }

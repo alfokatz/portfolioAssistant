@@ -61,7 +61,7 @@ Deno.test("fuera de tema no se cachea como respuesta", async () => {
 });
 
 Deno.test("tope diario del plan (free = 3)", async () => {
-  const user = await createUser();
+  const user = await createUser("free");
   const f = fakeFetch(() => openAiAnswer("ok"));
   const d = deps(f.fetch, env);
   const statuses: number[] = [];

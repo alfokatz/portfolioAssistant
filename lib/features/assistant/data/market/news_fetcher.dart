@@ -16,8 +16,11 @@ import 'package:portfolio_assistant/infraestructure/repositories/google_news_rss
 /// intercalan, para que ninguno se quede sin titulares.
 class NewsFetcher {
   /// [repository] reemplaza a AMBAS fuentes (tests): una sola, sin fallback.
+  /// [headlines] (v2, `news_provider = v2`): titulares de GDELT por la edge
+  /// function `headlines` como única fuente, con el mismo ranker.
   NewsFetcher({
     CompanyNewsRepository? repository,
+    CompanyNewsRepository? headlines,
     CompanyBrandRepository? brandRepository,
     Duration? cacheTtl,
     NewsMediaIndex? mediaIndex,
@@ -27,7 +30,11 @@ class NewsFetcher {
        _cache = TtlCache(cacheTtl ?? const Duration(minutes: 10)),
        _names = TtlCache(const Duration(hours: 24)),
        _media = mediaIndex ?? NewsMediaIndex.instance {
-    if (repository != null) {
+    if (headlines != null) {
+      _primary = headlines;
+      _fallback = null;
+      _primaryIsRanked = false;
+    } else if (repository != null) {
       _primary = repository;
       _fallback = null;
       _primaryIsRanked = false;

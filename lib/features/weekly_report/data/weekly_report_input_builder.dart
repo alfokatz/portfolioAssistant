@@ -5,6 +5,9 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/gdelt_headlines_repository_impl.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/investor_pulse_item.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/investor_pulse_client.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/investor_pulse_relevance.dart';
@@ -13,8 +16,9 @@ import 'package:portfolio_assistant/features/weekly_report/domain/weekly_portfol
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report_input.dart';
 
 /// Junta los datos del informe de una semana: precios (Yahoo), titulares de
-/// la semana (Google News, fallback Finnhub) y earnings de la semana
-/// siguiente (Finnhub). Todo determinístico: el LLM recién entra después.
+/// la semana y earnings de la semana siguiente. Fuente según
+/// `app_config.news_provider`: legacy = Google News (fallback Finnhub) y
+/// Finnhub; v2 = GDELT (medios permitidos) y SEC EDGAR (fecha estimada). Todo determinístico: el LLM recién entra después.
 ///
 /// Nunca lanza. Si falla una fuente, ese bloque llega vacío con su flag de
 /// falla; si fallan los precios de un ticker, queda en `missingPrices`.
@@ -22,16 +26,34 @@ class WeeklyReportInputBuilder {
   WeeklyReportInputBuilder({
     required QuoteRepository quotes,
     NewsFetcher? news,
-    EarningsFetcher? earnings,
+    EarningsSource? earnings,
     InvestorPulseClient? investorPulse,
+    NewsProviderConfig? newsProvider,
   }) : _quotes = quotes,
-       _news = news ?? NewsFetcher(),
-       _earnings = earnings ?? EarningsFetcher(),
+       _injectedNews = news,
+       _injectedEarnings = earnings,
+       _providerConfig = newsProvider ?? NewsProviderConfig.instance,
        _pulse = investorPulse ?? InvestorPulseClient();
 
   final QuoteRepository _quotes;
-  final NewsFetcher _news;
-  final EarningsFetcher _earnings;
+  final NewsFetcher? _injectedNews;
+  final EarningsSource? _injectedEarnings;
+  final NewsProviderConfig _providerConfig;
+  NewsProvider? _builtFor;
+  late NewsFetcher _news;
+  late EarningsSource _earnings;
+
+  /// Fuentes del informe según el interruptor (lo inyectado, tests, manda).
+  Future<void> _ensureSources() async {
+    final provider = await _providerConfig.load();
+    if (_builtFor == provider) return;
+    _builtFor = provider;
+    final v2 = provider == NewsProvider.v2;
+    _news =
+        _injectedNews ??
+        (v2 ? NewsFetcher(headlines: GdeltHeadlinesRepositoryImpl()) : NewsFetcher());
+    _earnings = _injectedEarnings ?? (v2 ? SecEarningsFetcher() : EarningsFetcher());
+  }
   final InvestorPulseClient _pulse;
 
   static const sp500Ticker = '^GSPC';
@@ -52,6 +74,7 @@ class WeeklyReportInputBuilder {
     List<ClosedPosition> closed = const [],
     bool numbersOnly = false,
   }) async {
+    await _ensureSources();
     final tickers =
         {
           for (final lot in lots)
@@ -254,7 +277,11 @@ class WeeklyReportInputBuilder {
           UpcomingEarnings(
             ticker: ticker,
             date: day,
-            timingLabel: report?['timing_label'] as String?,
+            // SEC (v2): fecha estimada, no confirmada — se dice en la fila.
+            timingLabel:
+                report?['estimated'] == true
+                    ? 'Fecha estimada'
+                    : report?['timing_label'] as String?,
             epsEstimate: (report?['eps_estimate'] as num?)?.toDouble(),
           ),
         );

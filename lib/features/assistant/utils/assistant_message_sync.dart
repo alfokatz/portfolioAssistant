@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 
 /// Mantiene `state.messages` sincronizado con lo que la conversación GenUI
@@ -49,6 +50,7 @@ abstract final class AssistantMessageSync {
     bool showsAdviceDisclaimer = false,
     InvestorProfileNudge? profileNudge,
     List<String> rememberedFacts = const [],
+    List<MessageSource> sources = const [],
   }) {
     for (var i = messages.length - 1; i >= 0; i--) {
       final message = messages[i];
@@ -61,6 +63,7 @@ abstract final class AssistantMessageSync {
         showsAdviceDisclaimer: showsAdviceDisclaimer,
         profileNudge: profileNudge,
         rememberedFacts: rememberedFacts,
+        sources: sources,
       );
       return updated;
     }

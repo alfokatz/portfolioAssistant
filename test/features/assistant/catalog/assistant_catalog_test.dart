@@ -73,7 +73,10 @@ void main() {
   // 2026-10-11: subido a 110.000 para la personalización (alcance solo
   // finanzas, continuidad, metas de compra, memoria + sus dos tools): de
   // ~104.400 a 108.343 caracteres (+3,9K ≈ +1K tokens, casi todo cacheado).
+  // 2026-10-11: 110.000 → 112.000 por las reglas de datos de la SEC y del
+  // contexto de noticias (fuentes con uso comercial, ~830 caracteres). Al
+  // borrar la fuente legacy (Finnhub) se pueden recortar las de consenso.
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(110000));
+    expect(prompt.length, lessThan(112000));
   });
 }

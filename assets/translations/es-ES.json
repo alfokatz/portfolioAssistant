@@ -962,5 +962,13 @@
   "goal_outside_subtitle": "Banco, efectivo u otro broker",
   "goal_outside_body": "¿Cuánto tenés en total para esta meta fuera de la app? Actualizalo cuando cambie, o contáselo a Porty.",
   "goal_outside_saved": "Listo, lo actualicé",
-  "porty_status_goal_savings": "Actualizando tu meta…"
+  "porty_status_goal_savings": "Actualizando tu meta…",
+  "data_sources_title": "Fuentes de datos",
+  "data_sources_intro": "De dónde salen las noticias, los resultados y los datos de empresas que te muestra Porty.",
+  "data_sources_sec_title": "SEC EDGAR",
+  "data_sources_sec_body": "Resultados, presentaciones y datos contables que las empresas presentan a la SEC de Estados Unidos.",
+  "data_sources_web_title": "Búsqueda web de OpenAI",
+  "data_sources_web_body": "El resumen de qué está pasando con una empresa, con links a las notas de los medios que lo cuentan.",
+  "data_sources_gdelt_title": "GDELT Project",
+  "data_sources_gdelt_body": "Titulares de medios reconocidos, con link a la nota original."
 }

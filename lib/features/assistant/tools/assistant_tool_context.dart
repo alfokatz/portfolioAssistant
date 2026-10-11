@@ -13,12 +13,16 @@ import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetc
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_context_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/gdelt_headlines_repository_impl.dart';
 
 /// Fuentes de datos que viven toda la conversación (sus caches TTL también).
 class AssistantDataSources {
@@ -26,21 +30,27 @@ class AssistantDataSources {
     required this.quoteRepository,
     required this.preferences,
     CompanyTickerResolver? tickerResolver,
-    EarningsFetcher? earnings,
-    FundamentalsFetcher? fundamentals,
+    EarningsSource? earnings,
+    FundamentalsSource? fundamentals,
     NewsFetcher? news,
+    NewsContextClient? newsContext,
     EtfHoldingsFetcher? etfHoldings,
     YahooCompanyProfileClient? profileClient,
     DividendFetcher? dividends,
     WebSearchClient? webSearch,
+    NewsProvider? newsProvider,
+    NewsProviderConfig? newsProviderConfig,
   }) : _tickerResolver = tickerResolver,
        _webSearch = webSearch,
        _dividends = dividends,
        _earnings = earnings,
        _fundamentals = fundamentals,
        _news = news,
+       _newsContext = newsContext,
        _etfHoldings = etfHoldings,
-       _profileClient = profileClient;
+       _profileClient = profileClient,
+       _fixedProvider = newsProvider,
+       _providerConfig = newsProviderConfig ?? NewsProviderConfig.instance;
 
   final QuoteRepository quoteRepository;
   final PreferencesManager preferences;
@@ -48,9 +58,13 @@ class AssistantDataSources {
   // Lazy: los clientes de Finnhub y Yahoo leen `dotenv` al construirse, y un turno
   // que no pide esos datos no debería tocarlo.
   CompanyTickerResolver? _tickerResolver;
-  EarningsFetcher? _earnings;
-  FundamentalsFetcher? _fundamentals;
+  EarningsSource? _earnings;
+  FundamentalsSource? _fundamentals;
   NewsFetcher? _news;
+  NewsContextClient? _newsContext;
+  final NewsProvider? _fixedProvider;
+  final NewsProviderConfig _providerConfig;
+  NewsProvider? _provider;
   EtfHoldingsFetcher? _etfHoldings;
   YahooCompanyProfileClient? _profileClient;
   DividendFetcher? _dividends;
@@ -61,10 +75,32 @@ class AssistantDataSources {
 
   CompanyTickerResolver get tickerResolver =>
       _tickerResolver ??= CompanyTickerResolver();
-  EarningsFetcher get earnings => _earnings ??= EarningsFetcher();
-  FundamentalsFetcher get fundamentals =>
-      _fundamentals ??= FundamentalsFetcher();
-  NewsFetcher get news => _news ??= NewsFetcher();
+  /// De dónde salen noticias, resultados y fundamentals en esta
+  /// conversación (`app_config.news_provider`, leído al primer uso y fijo
+  /// desde ahí: una conversación no mezcla fuentes).
+  Future<NewsProvider> newsProvider() async =>
+      _provider ??= _fixedProvider ?? await _providerConfig.load();
+
+  Future<EarningsSource> earnings() async =>
+      _earnings ??=
+          await newsProvider() == NewsProvider.v2
+              ? SecEarningsFetcher()
+              : EarningsFetcher();
+
+  Future<FundamentalsSource> fundamentals() async =>
+      _fundamentals ??=
+          await newsProvider() == NewsProvider.v2
+              ? SecFundamentalsFetcher(quotes: quoteRepository)
+              : FundamentalsFetcher();
+
+  Future<NewsFetcher> news() async =>
+      _news ??=
+          await newsProvider() == NewsProvider.v2
+              ? NewsFetcher(headlines: GdeltHeadlinesRepositoryImpl())
+              : NewsFetcher();
+
+  /// Contexto con citas (búsqueda web en el servidor). Solo v2.
+  NewsContextClient get newsContext => _newsContext ??= NewsContextClient();
   EtfHoldingsFetcher get etfHoldings =>
       _etfHoldings ??= EtfHoldingsFetcher();
   YahooCompanyProfileClient get profileClient =>
@@ -93,6 +129,7 @@ class AssistantToolContext {
     this.savedGoals = const [],
     this.saveGoal,
     this.updateGoalSavings,
+    this.newsProvider = NewsProvider.legacy,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -102,6 +139,15 @@ class AssistantToolContext {
 
   final SubscriptionTier tier;
   final AssistantDataSources data;
+
+  /// Fuente de noticias/resultados/fundamentals de este turno (decide las
+  /// descripciones de las tools, que viajan en la primera ronda).
+  final NewsProvider newsProvider;
+
+  bool get secData => newsProvider == NewsProvider.v2;
+
+  /// Búsquedas de contexto de noticias en el turno (el servidor admite una).
+  int newsContextCalls = 0;
   final PortfolioSummary? summary;
   final List<PortfolioHistoryPoint> history;
   final List<ClosedPosition> closedPositions;

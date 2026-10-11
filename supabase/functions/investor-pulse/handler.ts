@@ -6,6 +6,7 @@
 // la semana cubierta) con su JWT.
 
 import { bearer, corsHeaders, type Deps, json, sleep, typedError } from "../_shared/common.ts";
+import { gdeltFetch, gdeltUrl, newsAllowlist, parseArticles } from "../_shared/gdelt.ts";
 import {
   documentUrl,
   type FilingAction,
@@ -19,6 +20,7 @@ import {
   parseGoogleRss,
   parseSchedule13,
   type PulseItem,
+  type RawHeadline,
   recentFilings,
   selectNews,
   submissionsUrl,
@@ -43,6 +45,9 @@ export const config = {
   maxFilingsPerInvestor: 3,
   maxItems: 30,
   googleConcurrency: 4,
+  /// v2 (GDELT): inversores por consulta y espera máxima por el turno global.
+  gdeltInvestorsPerQuery: 6,
+  gdeltMaxWaitMs: 40_000,
 };
 
 type Built = { items: PulseItem[]; anySourceOk: boolean };
@@ -155,6 +160,8 @@ async function newsFor(
   week: Week,
   investors: Investor[],
 ): Promise<{ items: NewsItem[]; ok: boolean }> {
+  const { data: flag } = await deps.db.from("app_config").select("value").eq("key", "news_provider").maybeSingle();
+  if ((flag?.value as { provider?: string } | null)?.provider === "v2") return await gdeltNewsFor(deps, week, investors);
   let ok = false;
   const results = await mapLimit(investors, config.googleConcurrency, async (investor) => {
     try {
@@ -181,6 +188,44 @@ async function newsFor(
     }
   });
   return { items: results.flat(), ok };
+}
+
+/// v2: GDELT en lugar de Google News RSS (sin uso comercial). Pocas
+/// consultas (grupos de inversores, por el límite de 1 pedido cada 5 s de
+/// GDELT) sobre los medios permitidos; cada inversor se queda con los
+/// titulares que lo nombran (`selectNews`, igual que antes).
+async function gdeltNewsFor(
+  deps: Deps,
+  week: Week,
+  investors: Investor[],
+): Promise<{ items: NewsItem[]; ok: boolean }> {
+  const allow = await newsAllowlist(deps);
+  const window = { from: new Date(`${week.monday}T00:00:00Z`), to: new Date(`${week.saturday}T06:00:00Z`) };
+  const pool: RawHeadline[] = [];
+  let ok = false;
+  for (let i = 0; i < investors.length; i += config.gdeltInvestorsPerQuery) {
+    const terms = investors.slice(i, i + config.gdeltInvestorsPerQuery).flatMap((inv) => inv.search_terms);
+    try {
+      const json = await gdeltFetch(deps, gdeltUrl(terms, [...allow.keys()], window), config.gdeltMaxWaitMs);
+      for (const h of parseArticles(json, allow)) {
+        pool.push({ headline: h.title, source: h.source, url: h.url, published: new Date(h.published_at) });
+      }
+      ok = true;
+    } catch (e) {
+      console.error("[investor-pulse] gdelt", e);
+    }
+  }
+  const items = investors.flatMap((investor) =>
+    selectNews(pool, investor, week).map((h): NewsItem => ({
+      ...base(investor),
+      type: "news",
+      headline: h.headline,
+      source: h.source,
+      url: h.url,
+      date: h.published.toISOString().slice(0, 10),
+    }))
+  );
+  return { items, ok };
 }
 
 async function filingsFor(

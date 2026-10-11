@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
 
 import 'package:dartz/dartz.dart';
 import 'package:http/http.dart' as http;
@@ -283,6 +284,7 @@ AssistantDataSources fakeDataSources({
   FakeYahooProxy? dividendYahoo,
   WebSearchClient? webSearch,
 }) => AssistantDataSources(
+  newsProvider: NewsProvider.legacy,
   quoteRepository: quotes ?? CountingQuoteRepository(),
   preferences: preferences ?? FakePreferences(),
   tickerResolver: CompanyTickerResolver(

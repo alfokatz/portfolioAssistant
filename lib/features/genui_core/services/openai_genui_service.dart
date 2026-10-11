@@ -827,7 +827,11 @@ class _ToolExecutor {
     }
     Map<String, Object?> result;
     try {
-      result = await tool.run(args).timeout(OpenAIGenUiService._toolTimeout);
+      result = await tool
+          .run(args)
+          .timeout(
+            tool is SlowDataTool ? tool.timeout : OpenAIGenUiService._toolTimeout,
+          );
     } on TimeoutException {
       result = const {'status': 'failed', 'reason': 'timeout'};
     } catch (_) {

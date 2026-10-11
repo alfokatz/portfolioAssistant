@@ -3,9 +3,16 @@ import 'package:portfolio_assistant/domain/repositories/company_fundamentals_rep
 import 'package:portfolio_assistant/features/assistant/data/market/ttl_cache.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/finnhub_company_fundamentals_repository_impl.dart';
 
+/// Lo que devuelve `get_fundamentals`: `{status, fundamentals: {TICKER:
+/// {...}}}`. Lo implementan [FundamentalsFetcher] (Finnhub, legacy) y
+/// `SecFundamentalsFetcher` (SEC EDGAR + precio, v2).
+abstract interface class FundamentalsSource {
+  Future<Map<String, Object?>> fetch(List<String> tickers);
+}
+
 /// Valuación, rentabilidad y dividendo por ticker — Finnhub `/stock/profile2`
 /// + `/stock/metric`.
-class FundamentalsFetcher {
+class FundamentalsFetcher implements FundamentalsSource {
   FundamentalsFetcher({
     CompanyFundamentalsRepository? repository,
     Duration? cacheTtl,
@@ -16,6 +23,7 @@ class FundamentalsFetcher {
   final TtlCache<Map<String, Object?>> _cache;
 
   /// `{status: ok|empty|failed, fundamentals: {TICKER: {...}}}`.
+  @override
   Future<Map<String, Object?>> fetch(List<String> tickers) async {
     final fundamentals = <String, Object?>{};
     var anyFailed = false;

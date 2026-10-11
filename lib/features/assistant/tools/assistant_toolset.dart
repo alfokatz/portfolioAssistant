@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/web_tools.dart';
+import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -46,6 +47,7 @@ class AdviceNotice {
     this.showsDisclaimer = false,
     this.profileNudge,
     this.rememberedFacts = const [],
+    this.sources = const [],
   });
 
   final bool showsDisclaimer;
@@ -53,6 +55,9 @@ class AdviceNotice {
 
   /// Lo que Porty anotó en su memoria en este turno.
   final List<String> rememberedFacts;
+
+  /// Fuentes con link del turno (ver [AnswerSources]).
+  final List<MessageSource> sources;
 }
 
 /// Decisiones de la app sobre un turno, a partir de las tools que corrieron.
@@ -133,6 +138,7 @@ abstract final class AssistantTurnPolicy {
       showsDisclaimer: invest || completeGoal,
       profileNudge: nudge,
       rememberedFacts: List.unmodifiable(rememberedFacts),
+      sources: AnswerSources.of(outcome.toolCalls),
     );
   }
 }

@@ -200,9 +200,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (!PlanMatrix.allows(tier, PlanFeature.companyAnalysis)) return;
     service.setEvidenceLoading(surfaceId, loading: true);
     try {
+      final data = _data ??= ref.read(assistantDepsProvider).createData();
       final ctx = AssistantToolContext(
         tier: tier,
-        data: _data ??= ref.read(assistantDepsProvider).createData(),
+        data: data,
+        newsProvider: await data.newsProvider(),
         summary: ref.read(homeProvider).summary,
       );
       final args = <String, Object?>{
@@ -249,9 +251,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       // que ser el actual (p. ej. recién cambiado por el webhook).
       await subscription.refresh();
 
+      final data = _data ??= ref.read(assistantDepsProvider).createData();
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
-        data: _data ??= ref.read(assistantDepsProvider).createData(),
+        data: data,
+        newsProvider: await data.newsProvider(),
         summary: ref.read(homeProvider).summary,
         history: ref.read(homeProvider).history,
         closedPositions: await _fetchClosedPositions(),
@@ -335,6 +339,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             showsAdviceDisclaimer: notices.showsDisclaimer,
             profileNudge: notices.profileNudge,
             rememberedFacts: notices.rememberedFacts,
+            sources: notices.sources,
           ),
         );
         // El contador del header refleja lo que cobró el servidor.

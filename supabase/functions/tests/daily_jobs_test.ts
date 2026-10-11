@@ -74,6 +74,7 @@ class MemoryJobsStore implements JobsStore {
   users = new Map<number, LocalUser[]>();
   enqueued: OutboxInsert[] = [];
   reportOn = true;
+  provider = "legacy";
   purges = 0;
 
   constructor(private readonly dispatch: MemoryDispatchStore) {}
@@ -89,6 +90,9 @@ class MemoryJobsStore implements JobsStore {
   }
   weeklyReportEnabled() {
     return Promise.resolve(this.reportOn);
+  }
+  newsProvider() {
+    return Promise.resolve(this.provider);
   }
   purge() {
     this.purges++;
@@ -160,4 +164,42 @@ Deno.test("corrida: limpieza a las 4 UTC, y el handler exige el secreto", async 
   assertEquals(only.hours, [9]);
   // Con horas puntuales (prueba manual) no limpia.
   assertEquals(only.purged, false);
+});
+
+Deno.test("v2 (SEC): sin consenso, la push dice que presentó y no inventa la sorpresa", () => {
+  const rows = earningsResultRows(
+    [user({ symbols: ["NVDA", "KO"] })],
+    [
+      { symbol: "NVDA", date: "2026-10-17", hour: null, epsActual: null, epsEstimate: null, reported: true },
+      { symbol: "KO", date: "2026-10-10", hour: null, epsActual: null, epsEstimate: null, reported: true },
+    ],
+  );
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].data, {
+    symbol: "NVDA",
+    date: "2026-10-17",
+    eps_actual: null,
+    eps_estimate: null,
+    surprise: "reported",
+  });
+});
+
+Deno.test("corrida v2: no avisa 'mañana' (fecha estimada) y los resultados salen de la SEC", async () => {
+  // Viernes 22:00Z = 19:00 en Buenos Aires: hora de "mañana" y de resultados.
+  const { deps, store, sender, finnhubCalls } = jobsDeps("2026-10-16T22:00:00Z");
+  store.provider = "v2";
+  const asked: { symbols: string[]; since: string }[] = [];
+  deps.secReleases = (symbols, since) => {
+    asked.push({ symbols, since });
+    return Promise.resolve([
+      { symbol: "AAPL", date: "2026-10-16", hour: null, epsActual: null, epsEstimate: null, reported: true },
+    ]);
+  };
+  store.users.set(19, [user({ local_date: "2026-10-16", local_dow: 5, symbols: ["AAPL"] })]);
+  const r = await runDailyJobs(deps);
+  assertEquals(finnhubCalls.length, 0);
+  assertEquals(asked, [{ symbols: ["AAPL"], since: "2026-10-14" }]);
+  assertEquals(r.queued, { earnings_result: 1 });
+  assertEquals(sender.sent[0].title, "AAPL presentó resultados");
+  assertEquals(sender.sent[0].body, "Ya publicó sus resultados del trimestre. Tocá para ver cómo le fue.");
 });
