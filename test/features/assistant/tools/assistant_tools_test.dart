@@ -608,7 +608,7 @@ void main() {
       'get_goal_projection',
       'save_goal',
       'get_monthly_buy_plan',
-      'add_goal_contribution',
+      'update_goal_savings',
       'propose_buy',
       'propose_sell',
       'propose_delete_position',

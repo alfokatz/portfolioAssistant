@@ -92,7 +92,7 @@ class AssistantToolContext {
     this.deleteMemory,
     this.savedGoals = const [],
     this.saveGoal,
-    this.addGoalContribution,
+    this.updateGoalSavings,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -144,9 +144,21 @@ class AssistantToolContext {
   /// Guarda la meta en la pestaña Metas. `null` fuera de la app.
   final Future<UserGoal> Function(GoalDraft draft)? saveGoal;
 
-  /// Registra un aporte (negativo = retiro) y devuelve la meta al día.
-  final Future<UserGoal?> Function(String goalId, double amount, String? note)?
-  addGoalContribution;
+  /// Fija lo que el usuario tiene para la meta fuera de la app y devuelve
+  /// la meta al día.
+  final Future<UserGoal?> Function(String goalId, double amount)?
+  updateGoalSavings;
+
+  /// Valor de mercado por ticker de la cartera: lo que cuenta solo para las
+  /// metas (ver `UserGoal.linkedTickers`).
+  Map<String, double> get holdingsByTicker {
+    final map = <String, double>{};
+    for (final v in summary?.valuations ?? const []) {
+      final t = v.position.ticker.toUpperCase();
+      map[t] = (map[t] ?? 0) + v.marketValue;
+    }
+    return map;
+  }
   final DateTime now;
   final Set<String> heldTickers;
 

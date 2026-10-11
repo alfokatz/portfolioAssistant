@@ -12,7 +12,8 @@ import '../assistant/fakes/assistant_fakes.dart';
 
 /// Una meta de 1.200 en 12 meses, empezando de cero el 1/1/2026.
 UserGoal _goal({
-  List<GoalContribution> contributions = const [],
+  Set<String> linked = const {'BIL', 'SHV'},
+  double outside = 0,
   GoalStatus status = GoalStatus.active,
 }) {
   final inputs = SavingsPlanInputs(
@@ -32,12 +33,10 @@ UserGoal _goal({
     snapshot: GoalPlanSnapshot(inputs: inputs),
     status: status,
     createdAt: DateTime(2026, 1, 1),
-    contributions: contributions,
+    linkedTickers: linked,
+    externalSavings: outside,
   );
 }
-
-GoalContribution _c(double amount, DateTime date) =>
-    GoalContribution(id: '$amount-$date', amount: amount, date: date);
 
 void main() {
   group('GoalProgress', () {
@@ -48,45 +47,54 @@ void main() {
       expect(p.plannedMonthly, greaterThan(90));
     });
 
-    test('contributing what the plan says: on track', () {
-      final monthly = GoalProgress.of(_goal(), DateTime(2026, 1, 10))
-          .plannedMonthly;
-      final goal = _goal(
-        contributions: [
-          for (var m = 1; m <= 6; m++) _c(monthly, DateTime(2026, m, 28)),
-        ],
+    test('what the plan expected by now, from the holdings: on track', () {
+      final p0 = GoalProgress.of(_goal(), DateTime(2026, 7, 2));
+      final p = GoalProgress.of(
+        _goal(),
+        DateTime(2026, 7, 2),
+        holdings: {'BIL': p0.expected * 0.7, 'SHV': p0.expected * 0.3},
       );
-      final p = GoalProgress.of(goal, DateTime(2026, 7, 2));
       expect(p.monthsElapsed, 6);
       expect(p.status, GoalProgressStatus.onTrack);
+      expect(p.linkedValues.keys, unorderedEquals(['BIL', 'SHV']));
     });
 
-    test('contributing less: behind, and it says how much per month now', () {
-      final goal = _goal(contributions: [_c(100, DateTime(2026, 2, 1))]);
-      final p = GoalProgress.of(goal, DateTime(2026, 7, 2));
+    test('holdings that do not count for the goal are ignored', () {
+      final p = GoalProgress.of(
+        _goal(),
+        DateTime(2026, 7, 2),
+        holdings: {'BIL': 100, 'AAPL': 5000},
+      );
+      expect(p.saved, 100);
       expect(p.status, GoalProgressStatus.behind);
-      expect(p.difference, lessThan(0));
       expect(p.requiredMonthlyNow, greaterThan(p.plannedMonthly));
-      expect(p.toBrief()['status'], 'behind');
+      expect(p.toBrief()['counted_holdings'], {'BIL': 100});
     });
 
-    test('more than planned: ahead; the full amount: achieved', () {
-      final ahead = GoalProgress.of(
-        _goal(contributions: [_c(900, DateTime(2026, 2, 1))]),
+    test('having the money (in the app or outside) is achieved, never '
+        'behind', () {
+      final inApp = GoalProgress.of(
+        _goal(),
+        DateTime(2026, 3, 2),
+        holdings: {'BIL': 1300},
+      );
+      expect(inApp.status, GoalProgressStatus.achieved);
+      final outside = GoalProgress.of(_goal(outside: 1200), DateTime(2026, 3, 2));
+      expect(outside.status, GoalProgressStatus.achieved);
+      expect(outside.fraction, 1);
+    });
+
+    test('a bit ahead of plan: ahead', () {
+      final p = GoalProgress.of(
+        _goal(outside: 600),
         DateTime(2026, 3, 2),
       );
-      expect(ahead.status, GoalProgressStatus.ahead);
-      final done = GoalProgress.of(
-        _goal(contributions: [_c(1200, DateTime(2026, 5, 1))]),
-        DateTime(2026, 5, 2),
-      );
-      expect(done.status, GoalProgressStatus.achieved);
-      expect(done.fraction, 1);
+      expect(p.status, GoalProgressStatus.ahead);
     });
 
     test('past the date without the amount: overdue', () {
       final p = GoalProgress.of(
-        _goal(contributions: [_c(300, DateTime(2026, 3, 1))]),
+        _goal(outside: 300),
         DateTime(2027, 2, 1),
       );
       expect(p.status, GoalProgressStatus.overdue);
@@ -106,9 +114,7 @@ void main() {
         saved?.add(draft);
         return _goal();
       },
-      addGoalContribution:
-          (id, amount, note) async =>
-              _goal(contributions: [_c(amount, DateTime(2026, 2, 1))]),
+      updateGoalSavings: (id, amount) async => _goal(outside: amount),
       now: DateTime(2026, 2, 2),
     );
 
@@ -147,7 +153,7 @@ void main() {
     });
 
     test('saved goals travel in the brief with their progress, and a '
-        'contribution comes back with the updated progress', () async {
+        'outside-savings update comes back with the updated progress', () async {
       final c = ctx(goals: [_goal()]);
       final brief = PortfolioBrief.build(c)[PortfolioBrief.savedGoalsKey]!;
       final first = (brief as List).single as Map;
@@ -155,16 +161,18 @@ void main() {
       expect(first['label'], 'MacBook');
       expect(first.containsKey('required_monthly_from_now'), isTrue);
 
-      final result = await AddGoalContributionTool(c).run({
+      final result = await UpdateGoalSavingsTool(c).run({
         'goal_id': 'g1',
-        'amount_usd': 200,
+        'outside_savings_usd': 1500,
       });
       expect(result['status'], 'ok');
-      expect((result['progress']! as Map)['saved'], 200);
+      // 1.500 afuera ≥ 1.200 de la meta: ya la tiene.
+      expect((result['progress']! as Map)['status'], 'achieved');
+      expect((result['progress']! as Map)['outside_savings'], 1500);
       expect(
-        (await AddGoalContributionTool(c).run({
+        (await UpdateGoalSavingsTool(c).run({
           'goal_id': 'g7',
-          'amount_usd': 1,
+          'outside_savings_usd': 1,
         }))['reason'],
         'unknown_goal_id',
       );

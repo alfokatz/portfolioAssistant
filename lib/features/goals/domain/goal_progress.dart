@@ -19,7 +19,9 @@ enum GoalProgressStatus {
   final String key;
 }
 
-/// ¿Va en camino? Compara lo que lleva juntado con lo que el plan esperaba
+/// ¿Va en camino? Compara lo que lleva juntado (sus inversiones asignadas a
+/// la meta + lo que tiene afuera; ver [UserGoal.savedWith]) con lo que el
+/// plan esperaba
 /// a esta altura (mismo cálculo que el plan: aportes mensuales con el
 /// rendimiento del escenario base) y calcula cuánto tendría que aportar
 /// desde hoy para llegar en fecha. Todo determinístico: el análisis no lo
@@ -34,6 +36,8 @@ class GoalProgress {
     required this.requiredMonthlyNow,
     required this.monthsElapsed,
     required this.monthsRemaining,
+    this.linkedValues = const {},
+    this.externalSavings = 0,
   });
 
   final GoalProgressStatus status;
@@ -51,12 +55,22 @@ class GoalProgress {
   final int monthsElapsed;
   final int monthsRemaining;
 
+  /// Cuánto aporta hoy cada inversión asignada que tiene.
+  final Map<String, double> linkedValues;
+  final double externalSavings;
+
   double get fraction => target <= 0 ? 0 : (saved / target).clamp(0.0, 1.0);
 
   /// Positivo = adelantado, negativo = atrasado.
   double get difference => saved - expected;
 
-  static GoalProgress of(UserGoal goal, DateTime now) {
+  /// [holdings] = valor de mercado por ticker de la cartera (en
+  /// mayúsculas).
+  static GoalProgress of(
+    UserGoal goal,
+    DateTime now, {
+    Map<String, double> holdings = const {},
+  }) {
     final inputs = goal.snapshot.inputs;
     final plan = goal.snapshot.plan;
     final baseReturn = plan.returns[PlanScenario.base]!;
@@ -64,7 +78,8 @@ class GoalProgress {
     final elapsed = _wholeMonths(inputs.startDate, now).clamp(0, total);
     final remaining = math.max(0, total - elapsed);
     final monthly = plan.monthlyUsed;
-    final saved = goal.saved;
+    final linkedValues = goal.linkedValues(holdings);
+    final saved = goal.savedWith(holdings);
     final expected = SavingsPlanCalculator.futureValue(
       current: inputs.currentAmount,
       monthly: monthly,
@@ -86,7 +101,7 @@ class GoalProgress {
             ? GoalProgressStatus.achieved
             : now.isAfter(goal.targetDate)
             ? GoalProgressStatus.overdue
-            : elapsed == 0 && goal.contributions.isEmpty
+            : elapsed == 0 && saved <= 0
             ? GoalProgressStatus.justStarted
             : diff >= tolerance
             ? GoalProgressStatus.ahead
@@ -102,6 +117,8 @@ class GoalProgress {
       requiredMonthlyNow: required,
       monthsElapsed: elapsed,
       monthsRemaining: remaining,
+      linkedValues: linkedValues,
+      externalSavings: goal.externalSavings,
     );
   }
 
@@ -116,6 +133,10 @@ class GoalProgress {
       'planned_monthly': r(plannedMonthly),
       'required_monthly_from_now': r(requiredMonthlyNow),
       'months_remaining': monthsRemaining,
+      'counted_holdings': {
+        for (final e in linkedValues.entries) e.key: r(e.value),
+      },
+      'outside_savings': r(externalSavings),
     };
   }
 

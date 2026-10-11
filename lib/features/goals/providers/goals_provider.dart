@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
 class GoalsState {
   const GoalsState({
@@ -27,12 +28,14 @@ class GoalsState {
 
 /// Único dueño de las metas: las leen la pestaña Metas y el chat (en cada
 /// turno), las escriben la card del plan, las tools y la pantalla de la
-/// meta. Después de escribir se vuelve a leer: los aportes y el estado
-/// salen siempre del servidor.
+/// meta. Después de escribir se vuelve a leer del servidor.
 class GoalsNotifier extends StateNotifier<GoalsState> {
-  GoalsNotifier(this._repo) : super(const GoalsState());
+  GoalsNotifier(this._repo, {Set<String> Function()? heldTickers})
+    : _heldTickers = heldTickers ?? (() => const {}),
+      super(const GoalsState());
 
   final GoalsRepository _repo;
+  final Set<String> Function() _heldTickers;
 
   Future<List<UserGoal>> load() async {
     try {
@@ -55,33 +58,50 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
   Future<List<UserGoal>> ensureLoaded() async =>
       state.loaded && !state.loadFailed ? state.goals : load();
 
-  /// Tira [GoalsFailure].
+  /// Tira [GoalsFailure]. Arranca contando lo que corresponde sin que el
+  /// usuario haga nada: las inversiones de su compra mensual (las tenga ya
+  /// o no: cuando las compre, se suman solas) o, para la jubilación (que
+  /// parte del valor de la cartera), toda su cartera. Lo que ya cuenta para
+  /// otra meta queda donde está.
   Future<UserGoal> save(GoalDraft draft) async {
-    final goal = await _repo.create(draft);
+    final taken = {
+      for (final g in state.active) ...g.linkedTickers,
+    };
+    final candidates =
+        draft.snapshot.buyPlan.isNotEmpty
+            ? {for (final e in draft.snapshot.buyPlan) e.ticker.toUpperCase()}
+            : draft.type == GoalType.retirement
+            ? _heldTickers()
+            : const <String>{};
+    final goal = await _repo.create(
+      draft,
+      linkedTickers: candidates.difference(taken),
+    );
     await load();
     return state.byId(goal.id) ?? goal;
   }
 
-  /// Tira [GoalsFailure].
-  Future<void> addContribution(
-    String goalId, {
-    required double amount,
-    DateTime? date,
-    String? note,
-    String source = 'app',
-  }) async {
-    await _repo.addContribution(
-      goalId,
-      amount: amount,
-      date: date ?? DateTime.now(),
-      note: note,
-      source: source,
-    );
+  /// Qué inversiones cuentan para [goalId]. Cada ticker cuenta para una
+  /// sola meta: si estaba en otra, se saca de ahí.
+  Future<void> setLinkedTickers(String goalId, Set<String> tickers) async {
+    final normalized = {for (final t in tickers) t.toUpperCase()};
+    for (final other in state.goals) {
+      if (other.id == goalId) continue;
+      final overlap = other.linkedTickers.intersection(normalized);
+      if (overlap.isEmpty) continue;
+      await _repo.setLinkedTickers(
+        other.id,
+        other.linkedTickers.difference(overlap),
+      );
+    }
+    await _repo.setLinkedTickers(goalId, normalized);
     await load();
   }
 
-  Future<void> removeContribution(String id) async {
-    await _repo.deleteContribution(id);
+  /// Lo que tiene para la meta fuera de la app (reemplaza el monto
+  /// anterior). Tira [GoalsFailure].
+  Future<void> setExternalSavings(String goalId, double amount) async {
+    await _repo.setExternalSavings(goalId, amount < 0 ? 0 : amount);
     await load();
   }
 
@@ -102,5 +122,21 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
 }
 
 final goalsProvider = StateNotifierProvider<GoalsNotifier, GoalsState>(
-  (ref) => GoalsNotifier(ref.watch(goalsRepositoryProvider)),
+  (ref) => GoalsNotifier(
+    ref.watch(goalsRepositoryProvider),
+    heldTickers: () => ref.read(goalHoldingsProvider).keys.toSet(),
+  ),
 );
+
+/// Valor de mercado por ticker (en mayúsculas) de la cartera: de acá sale
+/// el progreso de cada meta.
+final goalHoldingsProvider = Provider<Map<String, double>>((ref) {
+  final valuations =
+      ref.watch(homeProvider.select((s) => s.summary))?.valuations ?? const [];
+  final map = <String, double>{};
+  for (final v in valuations) {
+    final t = v.position.ticker.toUpperCase();
+    map[t] = (map[t] ?? 0) + v.marketValue;
+  }
+  return map;
+});

@@ -270,14 +270,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             (id) => ref.read(userMemoryProvider.notifier).remove(id),
         savedGoals: await _goalsForTurn(),
         saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
-        addGoalContribution: (goalId, amount, note) async {
-          final goals = ref.read(goalsProvider.notifier);
-          await goals.addContribution(
-            goalId,
-            amount: amount,
-            note: note,
-            source: 'porty',
-          );
+        updateGoalSavings: (goalId, amount) async {
+          await ref
+              .read(goalsProvider.notifier)
+              .setExternalSavings(goalId, amount);
           return ref.read(goalsProvider).byId(goalId);
         },
       );

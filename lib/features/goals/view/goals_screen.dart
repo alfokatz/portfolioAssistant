@@ -47,6 +47,7 @@ class _GoalsScreenState extends BaseStatefulWidget<GoalsScreen> {
         if (g.status == GoalStatus.achieved) g,
     ];
     final now = DateTime.now();
+    final holdings = ref.watch(goalHoldingsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -97,7 +98,10 @@ class _GoalsScreenState extends BaseStatefulWidget<GoalsScreen> {
                 const _EmptyGoals()
               else ...[
                 for (final goal in active) ...[
-                  _GoalCard(goal: goal, progress: GoalProgress.of(goal, now)),
+                  _GoalCard(
+                    goal: goal,
+                    progress: GoalProgress.of(goal, now, holdings: holdings),
+                  ),
                   const SizedBox(height: AppDimens.sp12),
                 ],
                 const SizedBox(height: AppDimens.sp8),
@@ -119,7 +123,10 @@ class _GoalsScreenState extends BaseStatefulWidget<GoalsScreen> {
                     ),
                   ),
                   for (final goal in done) ...[
-                    _GoalCard(goal: goal, progress: GoalProgress.of(goal, now)),
+                    _GoalCard(
+                    goal: goal,
+                    progress: GoalProgress.of(goal, now, holdings: holdings),
+                  ),
                     const SizedBox(height: AppDimens.sp12),
                   ],
                 ],

@@ -16,8 +16,7 @@ class GoalsUnavailable extends GoalsFailure {
   const GoalsUnavailable();
 }
 
-/// `user_goals` y `goal_contributions` en Supabase (RLS: cada usuario las
-/// suyas).
+/// `user_goals` en Supabase (RLS: cada usuario las suyas).
 class GoalsRepository {
   GoalsRepository({required SupabaseClient? Function() client})
     : _client = client;
@@ -25,10 +24,9 @@ class GoalsRepository {
   final SupabaseClient? Function() _client;
 
   static const _goals = 'user_goals';
-  static const _contributions = 'goal_contributions';
   static const _select =
       'id, label, goal_type, target_amount, target_date, plan, status, '
-      'created_at, plan_key, goal_contributions(id, amount, contributed_on, note)';
+      'created_at, plan_key, linked_tickers, external_savings';
 
   SupabaseClient? get _signedIn {
     final client = _client();
@@ -49,7 +47,10 @@ class GoalsRepository {
   }
 
   /// Guarda la meta. Si ya había una con el mismo plan, devuelve esa.
-  Future<UserGoal> create(GoalDraft draft) async {
+  Future<UserGoal> create(
+    GoalDraft draft, {
+    Set<String> linkedTickers = const {},
+  }) async {
     final client = _signedIn;
     if (client == null) throw const GoalsUnavailable();
     try {
@@ -64,6 +65,7 @@ class GoalsRepository {
                 'target_date': GoalProgress.formatDate(draft.targetDate),
                 'plan': draft.snapshot.toJson(),
                 'plan_key': draft.planKey,
+                'linked_tickers': linkedTickers.toList(),
               })
               .select(_select)
               .single();
@@ -100,33 +102,26 @@ class GoalsRepository {
     await client.from(_goals).delete().eq('id', id);
   }
 
-  Future<void> addContribution(
-    String goalId, {
-    required double amount,
-    required DateTime date,
-    String? note,
-    String source = 'app',
-  }) async {
+  Future<void> setLinkedTickers(String id, Set<String> tickers) async {
+    final client = _signedIn;
+    if (client == null) throw const GoalsUnavailable();
+    await client
+        .from(_goals)
+        .update({'linked_tickers': tickers.toList()})
+        .eq('id', id);
+  }
+
+  Future<void> setExternalSavings(String id, double amount) async {
     final client = _signedIn;
     if (client == null) throw const GoalsUnavailable();
     try {
-      await client.from(_contributions).insert({
-        'goal_id': goalId,
-        'user_id': client.auth.currentUser!.id,
-        'amount': amount,
-        'contributed_on': GoalProgress.formatDate(date),
-        'note': note,
-        'source': source,
-      });
+      await client
+          .from(_goals)
+          .update({'external_savings': amount})
+          .eq('id', id);
     } on PostgrestException {
       throw const GoalsUnavailable();
     }
-  }
-
-  Future<void> deleteContribution(String id) async {
-    final client = _signedIn;
-    if (client == null) throw const GoalsUnavailable();
-    await client.from(_contributions).delete().eq('id', id);
   }
 }
 

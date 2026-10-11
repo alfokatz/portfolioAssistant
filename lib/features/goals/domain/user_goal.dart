@@ -100,33 +100,6 @@ class GoalPlanSnapshot {
   }
 }
 
-class GoalContribution {
-  const GoalContribution({
-    required this.id,
-    required this.amount,
-    required this.date,
-    this.note,
-  });
-
-  final String id;
-  final double amount;
-  final DateTime date;
-  final String? note;
-
-  static GoalContribution? fromRow(Map<String, dynamic> row) {
-    final id = row['id'] as String?;
-    final amount = row['amount'];
-    final date = DateTime.tryParse('${row['contributed_on']}');
-    if (id == null || amount is! num || date == null) return null;
-    return GoalContribution(
-      id: id,
-      amount: amount.toDouble(),
-      date: date,
-      note: row['note'] as String?,
-    );
-  }
-}
-
 /// Una meta guardada en la pestaña Metas.
 class UserGoal {
   const UserGoal({
@@ -138,7 +111,8 @@ class UserGoal {
     required this.snapshot,
     required this.status,
     required this.createdAt,
-    this.contributions = const [],
+    this.linkedTickers = const {},
+    this.externalSavings = 0,
     this.planKey,
   });
 
@@ -157,13 +131,23 @@ class UserGoal {
   /// El `plan_id` del chat con el que se guardó.
   final String? planKey;
 
-  /// Las más viejas primero.
-  final List<GoalContribution> contributions;
+  /// Las inversiones de la cartera que cuentan para esta meta (en
+  /// mayúsculas). Su valor de mercado se suma solo.
+  final Set<String> linkedTickers;
 
-  double get contributed => contributions.fold(0.0, (sum, c) => sum + c.amount);
+  /// Lo que tiene para la meta fuera de la app (banco, efectivo).
+  final double externalSavings;
 
-  /// Lo que lleva juntado: lo que ya tenía al armar el plan + sus aportes.
-  double get saved => snapshot.inputs.currentAmount + contributed;
+  /// El valor de cada inversión asignada que el usuario tiene hoy
+  /// ([holdings] = valor de mercado por ticker de su cartera).
+  Map<String, double> linkedValues(Map<String, double> holdings) => {
+    for (final t in linkedTickers)
+      if ((holdings[t] ?? 0) > 0) t: holdings[t]!,
+  };
+
+  /// Lo que lleva juntado: sus inversiones asignadas + lo de afuera.
+  double savedWith(Map<String, double> holdings) =>
+      linkedValues(holdings).values.fold(externalSavings, (a, b) => a + b);
 
   static UserGoal? fromRow(Map<String, dynamic> row) {
     final id = row['id'] as String?;
@@ -180,13 +164,8 @@ class UserGoal {
         snapshot == null) {
       return null;
     }
-    final raw = row['goal_contributions'];
-    final contributions =
-        [
-            for (final c in raw is List ? raw : const [])
-              if (c is Map) GoalContribution.fromRow(c.cast<String, dynamic>()),
-          ].whereType<GoalContribution>().toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
+    final linked = row['linked_tickers'];
+    final external = row['external_savings'];
     return UserGoal(
       id: id,
       label: label,
@@ -196,7 +175,11 @@ class UserGoal {
       snapshot: snapshot,
       status: GoalStatus.fromStorage(row['status']),
       createdAt: created,
-      contributions: contributions,
+      linkedTickers: {
+        for (final t in linked is List ? linked : const [])
+          if (t is String && t.isNotEmpty) t.toUpperCase(),
+      },
+      externalSavings: external is num ? external.toDouble() : 0,
       planKey: row['plan_key'] as String?,
     );
   }

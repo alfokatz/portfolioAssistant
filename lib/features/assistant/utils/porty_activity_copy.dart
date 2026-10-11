@@ -76,8 +76,8 @@ abstract final class PortyActivityCopy {
         return 'porty_status_goal_projection'.tr();
       case 'save_goal':
         return 'porty_status_save_goal'.tr();
-      case AddGoalContributionTool.toolName:
-        return 'porty_status_goal_contribution'.tr();
+      case UpdateGoalSavingsTool.toolName:
+        return 'porty_status_goal_savings'.tr();
       case GetDividendsTool.toolName:
         return one != null
             ? 'porty_status_dividends'.tr(namedArgs: one)

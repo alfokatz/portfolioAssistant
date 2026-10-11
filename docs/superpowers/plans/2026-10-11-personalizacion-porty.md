@@ -91,3 +91,13 @@ Feedback de la prueba con la MacBook: (1) "¿Cuánto paga de dividendos cada uno
 - **Prompt:** ACT, DON'T ANNOUNCE; "cada uno" = los instrumentos de la respuesta anterior; WHERE THINGS ARE (nunca inventar secciones). El chip de la compra mensual ahora nombra los tickers ("¿Cuánto paga de dividendos BIL y SHV?").
 - **Datos:** migración `20261011070000_user_goals.sql` (`user_goals` + `goal_contributions`, RLS, tope de 20 activas, `plan_key` único para no duplicar).
 - **Deploy:** `supabase db push` y volver a desplegar `ai-chat` (hash nuevo del prompt en la allowlist).
+
+### Progreso automático (reemplaza los aportes manuales)
+
+Feedback: cargar aportes a mano no lo va a hacer nadie, y una meta podía decir "Atrasada" aunque el usuario ya tuviera la plata.
+
+- **Lo que cuenta para la meta se suma solo:** `linked_tickers` (inversiones de la cartera asignadas a la meta; su valor de mercado de hoy) + `external_savings` (lo que tiene fuera de la app, un solo monto que actualiza cuando quiere o contándoselo a Porty). Migración `20261011080000_goal_funding.sql` (borra `goal_contributions`, que nunca se publicó).
+- **Al guardar** se asignan solas las inversiones de su compra mensual (aunque todavía no las tenga: cuando las compre, se suman) o, para la jubilación, toda la cartera. Cada ticker cuenta para una sola meta (asignarlo a otra lo mueve).
+- **Si ya tiene el monto** (en la app o afuera), la meta dice "¡Ya la tenés!", nunca "Atrasada".
+- Detalle: sección "Qué cuenta para esta meta" (cada inversión con su valor, ahorros fuera de la app, "Elegir qué cuenta").
+- Chat: `update_goal_savings` reemplaza a `add_goal_contribution`; el brief trae `counted_holdings` y `outside_savings`.
