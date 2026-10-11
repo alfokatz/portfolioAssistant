@@ -203,6 +203,31 @@ void main() {
       expect(plan.containsKey('income'), isFalse);
     });
 
+    test('"un auto en 3 años" is still short term: no stocks', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(
+          profile: InvestorProfile(
+            risk: RiskTolerance.aggressive,
+            horizon: InvestmentHorizon.long,
+            objective: InvestmentObjective.growth,
+            updatedAt: DateTime.utc(2026, 9, 1),
+          ),
+        ),
+      ).run({
+        'target_amount': 25000,
+        'target_date': '2029-10-11',
+        'goal_label': 'Auto',
+        'goal_type': 'purchase',
+      });
+      expect(result['short_term_purchase'], isTrue);
+      final instruments = [
+        for (final i in (result['plan']! as Map)['suggested_instruments']!
+            as List)
+          (i as Map)['ticker'],
+      ];
+      expect(instruments, ['SGOV', 'VGSH']);
+    });
+
     test('stated savings for the purchase are used', () async {
       final result = await GetGoalProjectionTool(_ctx()).run({
         'target_amount': 1200,

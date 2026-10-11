@@ -468,8 +468,8 @@ GOALS ([W:GOAL]) — get_goal_projection / save_goal
 - The result's suggested_instruments say what to buy each month: name
   them in QaAnswerText with their amounts ("146 por mes en SGOV y 62 en
   VGSH"); the card shows them. Other instruments → get_monthly_buy_plan.
-- has_complete_goal true → QaAnswerText + QaSavingsPlan {planId: plan_id,
-  focus}. focus = what the question asks: income (they asked for a monthly
+- has_complete_goal true → ALWAYS QaAnswerText + QaSavingsPlan {planId:
+  plan_id, focus}, never text only. focus = what the question asks: income (they asked for a monthly
   income, or "¿cómo cobraría?"), savings ("¿cuánto ahorro?", a stated
   goal), growth ("¿cómo crece?", "¿y si aporto X?"), progress ("¿cómo va
   mi meta?").
@@ -526,11 +526,11 @@ GOALS ([W:GOAL]) — get_goal_projection / save_goal
     interest is small: say so honestly; the monthly habit gets them there.
 - SAVED GOALS (the "Metas" tab; PORTFOLIO_BRIEF saved_goals, each with
   its progress already computed):
-  - has_complete_goal true and that goal is not in saved_goals → end
-    QaAnswerText asking if they want to save it in their Metas (or update
-    the saved goal with the same name). They
-    accept ("sí", "guardala") → save_goal {plan_id of that plan} — never
-    ask the amount or date again. Then say it is saved in the Metas tab.
+  - has_complete_goal true → the card is the proposal, with a
+    "Confirmar y crear meta" button. End QaAnswerText inviting them to
+    review it and confirm there; never ask "¿la guardo?" nor say it is
+    saved. They reply "sí" / "creala" → save_goal {plan_id of that plan},
+    never ask amount or date again; then say it is in the Metas tab.
   - Progress is automatic (saved = counted_holdings + outside_savings):
     buying a plan instrument just needs propose_buy; never ask them to
     log contributions. "¿Cómo va mi meta?" → its status, saved and

@@ -2,6 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
@@ -9,11 +12,13 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_analysis.dart';
 import 'package:portfolio_assistant/features/goals/view/goals_screen.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 
 /// Una meta: cuánto lleva y si va en camino (el análisis de Porty), el plan
@@ -33,6 +38,7 @@ class GoalDetailScreen extends ConsumerWidget {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       builder: (_) => _OutsideSavingsSheet(goalId: goalId, current: current),
     );
@@ -47,44 +53,23 @@ class GoalDetailScreen extends ConsumerWidget {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         showDragHandle: true,
+        // Que no tape toda la pantalla: la manija y el fondo quedan a la
+        // vista (antes, con muchas inversiones, llegaba hasta arriba).
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
         builder: (_) => _LinkHoldingsSheet(goal: goal),
       );
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('goal_delete_title'.tr()),
-            content: Text('goal_delete_body'.tr()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('porty_memory_cancel'.tr()),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('goal_delete_confirm'.tr()),
-              ),
-            ],
-          ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    try {
-      await ref.read(goalsProvider.notifier).delete(goalId);
-      if (context.mounted) Navigator.of(context).maybePop();
-    } catch (_) {
-      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
-    }
-  }
-
-  Future<void> _setStatus(WidgetRef ref, GoalStatus status) async {
-    try {
-      await ref.read(goalsProvider.notifier).setStatus(goalId, status);
-    } catch (_) {
-      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
-    }
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    UserGoal goal,
+  ) async {
+    final deleted = await GoalActions.confirmDelete(context, ref, goal);
+    if (deleted && context.mounted) Navigator.of(context).maybePop();
   }
 
   @override
@@ -98,9 +83,9 @@ class GoalDetailScreen extends ConsumerWidget {
     final locale = Localizations.localeOf(context);
     final holdings = ref.watch(goalHoldingsProvider);
     final progress = GoalProgress.of(goal, DateTime.now(), holdings: holdings);
-    final statusColor = GoalAnalysis.statusColor(progress.status, colors);
-    final plan = goal.snapshot.plan;
-    final date = DateFormat.yMMMM(locale.toLanguageTag()).format(goal.targetDate);
+    final date = DateFormat.yMMMM(
+      locale.toLanguageTag(),
+    ).format(goal.targetDate);
     final active = goal.status == GoalStatus.active;
 
     return Scaffold(
@@ -111,11 +96,11 @@ class GoalDetailScreen extends ConsumerWidget {
             onSelected: (value) {
               switch (value) {
                 case 'achieved':
-                  _setStatus(ref, GoalStatus.achieved);
+                  GoalActions.setStatus(ref, goal, GoalStatus.achieved);
                 case 'active':
-                  _setStatus(ref, GoalStatus.active);
+                  GoalActions.setStatus(ref, goal, GoalStatus.active);
                 case 'delete':
-                  _delete(context, ref);
+                  _delete(context, ref, goal);
               }
             },
             itemBuilder:
@@ -161,258 +146,808 @@ class GoalDetailScreen extends ConsumerWidget {
           const SizedBox(height: AppDimens.sp4),
           Text(
             'goals_card_subtitle'.tr(
-              namedArgs: {'amount': QaFormat.money(goal.targetAmount), 'date': date},
+              namedArgs: {
+                'amount': QaFormat.money(goal.targetAmount),
+                'date': date,
+              },
             ),
             style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: AppDimens.sp20),
-          // Cuánto lleva.
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          _ProgressCard(goal: goal, progress: progress),
+          const SizedBox(height: AppDimens.sectionGap),
+          _SectionTitle('goal_plan_title'.tr()),
+          _PlanCard(goal: goal),
+          const SizedBox(height: AppDimens.sectionGap),
+          _SectionTitle('goal_counts_title'.tr()),
+          _CountsCard(
+            goal: goal,
+            holdings: holdings,
+            onEditOutside:
+                () => _editOutside(context, ref, goal.externalSavings),
+            onEditLinks: () => _editLinks(context, goal),
+          ),
+          const SizedBox(height: AppDimens.sp8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp4),
+            child: Text(
+              goal.linkedTickers.isEmpty
+                  ? 'goal_counts_hint_empty'.tr()
+                  : 'goal_counts_hint'.tr(),
+              style: tt.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimens.sectionGap),
+          _AskPortyButton(goal: goal),
+          const SizedBox(height: AppDimens.sp24),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cómo se ve Porty según cómo viene la meta: sonrisa leve al empezar o al
+/// día, sonrisa grande si va adelantada (o ya la tiene), preocupado si va
+/// atrasada o venció.
+PortyAvatarState goalMood(GoalProgressStatus status) => switch (status) {
+  GoalProgressStatus.justStarted ||
+  GoalProgressStatus.onTrack => PortyAvatarState.idle,
+  GoalProgressStatus.ahead ||
+  GoalProgressStatus.achieved => PortyAvatarState.answered,
+  GoalProgressStatus.behind ||
+  GoalProgressStatus.overdue => PortyAvatarState.concerned,
+};
+
+/// Cuánto lleva (monto, barra y porcentaje), tres datos rápidos y el
+/// análisis de Porty con la cara que corresponde.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.goal, required this.progress});
+
+  final UserGoal goal;
+  final GoalProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final locale = Localizations.localeOf(context);
+    final statusColor = GoalAnalysis.statusColor(progress.status, colors);
+    final missing = (progress.target - progress.saved).clamp(
+      0.0,
+      double.infinity,
+    );
+    const tabular = [FontFeature.tabularFigures()];
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  QaFormat.money(progress.saved),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.displaySmall?.copyWith(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: colors.textPrimary,
+                    fontFeatures: tabular,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppDimens.sp6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text(
+                  'goal_of_target'.tr(
+                    namedArgs: {'target': QaFormat.money(goal.targetAmount)},
+                  ),
+                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text(
+                  '${(progress.fraction * 100).round()}%',
+                  style: tt.titleSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: tabular,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sp12),
+          GoalProgressBar(
+            fraction: progress.fraction,
+            color: statusColor,
+            height: 10,
+          ),
+          const SizedBox(height: AppDimens.sp16),
+          IntrinsicHeight(
+            child: Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                // Atrasada: lo que hace falta desde hoy, no lo del plan.
+                _Stat(
+                  label:
+                      progress.status == GoalProgressStatus.behind
+                          ? 'goal_stat_monthly_now'.tr()
+                          : 'goal_stat_monthly'.tr(),
+                  value: QaFormat.money(
+                    progress.status == GoalProgressStatus.behind
+                        ? progress.requiredMonthlyNow
+                        : progress.plannedMonthly,
+                  ),
+                ),
+                VerticalDivider(width: AppDimens.sp24, color: colors.border),
+                _Stat(
+                  label: 'goal_plan_months_left'.tr(),
+                  value: 'goal_months'.plural(progress.monthsRemaining),
+                ),
+                VerticalDivider(width: AppDimens.sp24, color: colors.border),
+                _Stat(
+                  label: 'goal_stat_missing'.tr(),
+                  value: QaFormat.money(missing),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+          // El análisis de Porty, con la cara de cómo viene la meta.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppDimens.radiusMd + 2),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(AppDimens.sp12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ExcludeSemantics(
+                    child: PortyAvatar(
+                      size: 40,
+                      state: goalMood(progress.status),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          GoalAnalysis.statusLabel(progress.status),
+                          style: tt.labelLarge?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          GoalAnalysis.text(goal, progress, locale),
+                          style: tt.bodyMedium?.copyWith(
+                            color: colors.textPrimary,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: tt.titleSmall?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una inversión del plan: qué comprar cada mes y cuánto.
+typedef _PlanItem =
+    ({
+      String ticker,
+      String? name,
+      String assetClass,
+      double weight,
+      double monthly,
+    });
+
+/// El plan de Porty: cuánto invertir por mes, cómo se reparte (barra +
+/// leyenda) y en qué, con el logo y el monto de cada inversión.
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({required this.goal});
+
+  final UserGoal goal;
+
+  List<_PlanItem> _items(SavingsPlan plan) {
+    final buy = goal.snapshot.buyPlan;
+    if (buy.isNotEmpty) {
+      return [
+        for (final e in buy)
+          (
+            ticker: e.ticker,
+            name: e.name,
+            assetClass: e.assetClassLabel,
+            weight: e.pct / 100,
+            monthly: e.monthlyAmount.toDouble(),
+          ),
+      ];
+    }
+    return [
+      for (final i in plan.instruments)
+        (
+          ticker: i.instrument.ticker,
+          name: i.instrument.name,
+          assetClass: i.instrument.assetClass.label,
+          weight: i.weight,
+          monthly: plan.monthlyUsed * i.weight,
+        ),
+    ];
+  }
+
+  static String _riskName(RiskTolerance risk) => switch (risk) {
+    RiskTolerance.conservative => 'goal_risk_conservative'.tr(),
+    RiskTolerance.moderate => 'goal_risk_moderate'.tr(),
+    RiskTolerance.aggressive => 'goal_risk_aggressive'.tr(),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final plan = goal.snapshot.plan;
+    final inputs = goal.snapshot.inputs;
+    final allocation = [
+      for (final e in plan.allocation.entries)
+        if (e.value > 0) e,
+    ];
+    final items = _items(plan);
+    // Cada inversión con el color de su parte de la cartera.
+    Color colorOf(String assetClass, int fallback) {
+      final i = allocation.indexWhere((e) => e.key.label == assetClass);
+      return QaPalette.series(i < 0 ? allocation.length + fallback : i);
+    }
+
+    final subtitleStyle = tt.labelMedium?.copyWith(
+      color: colors.textSecondary,
+      fontWeight: FontWeight.w600,
+    );
+    const tabular = [FontFeature.tabularFigures()];
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      QaFormat.money(progress.saved),
-                      style: tt.displaySmall?.copyWith(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textPrimary,
+                    Text('goal_plan_invest_monthly'.tr(), style: subtitleStyle),
+                    const SizedBox(height: AppDimens.sp4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          QaFormat.money(plan.monthlyUsed),
+                          style: tt.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
+                            color: colors.textPrimary,
+                            fontFeatures: tabular,
+                          ),
+                        ),
+                        const SizedBox(width: AppDimens.sp4),
+                        Text(
+                          'goal_per_month'.tr(),
+                          style: tt.bodyMedium?.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              QaTag(
+                inputs.shortTerm
+                    ? 'goal_plan_short_term'.tr()
+                    : _riskName(inputs.risk),
+                color: colors.accentBlue,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sp20),
+          Text('goal_plan_mix'.tr(), style: subtitleStyle),
+          const SizedBox(height: AppDimens.sp8),
+          QaSegmentedBar(
+            segments: [
+              for (var i = 0; i < allocation.length; i++)
+                QaSegment(
+                  value: allocation[i].value,
+                  color: QaPalette.series(i),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppDimens.sp12),
+          Wrap(
+            spacing: AppDimens.sp16,
+            runSpacing: AppDimens.sp6,
+            children: [
+              for (var i = 0; i < allocation.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: QaPalette.series(i),
+                        shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: AppDimens.sp6),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'goal_of_target'.tr(
-                          namedArgs: {'target': QaFormat.money(goal.targetAmount)},
-                        ),
-                        style: tt.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                        ),
+                    Text(
+                      allocation[i].key.label,
+                      style: tt.bodySmall?.copyWith(color: colors.textPrimary),
+                    ),
+                    const SizedBox(width: AppDimens.sp4),
+                    Text(
+                      '${(allocation[i].value * 100).round()}%',
+                      style: tt.bodySmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppDimens.sp12),
-                GoalProgressBar(
-                  fraction: progress.fraction,
-                  color: statusColor,
-                  height: 10,
+            ],
+          ),
+          if (inputs.shortTerm) ...[
+            const SizedBox(height: AppDimens.sp12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  size: AppDimens.iconSm,
+                  color: colors.textSecondary,
                 ),
-                const SizedBox(height: AppDimens.sp16),
-                // El análisis de Porty.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: AppDimens.sp6),
+                Expanded(
+                  child: Text(
+                    'goal_plan_short_term_note'.tr(),
+                    style: tt.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: AppDimens.sp16),
+            Divider(height: 1, color: colors.border),
+            const SizedBox(height: AppDimens.sp16),
+            Text('goal_plan_where'.tr(), style: subtitleStyle),
+            for (var i = 0; i < items.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(top: AppDimens.sp12),
+                child: Row(
                   children: [
-                    const ExcludeSemantics(child: PortyAvatar(size: 36)),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        QaTickerAvatar(ticker: items[i].ticker, size: 36),
+                        Positioned(
+                          right: -1,
+                          bottom: -1,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: colorOf(items[i].assetClass, i),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.surfaceCard,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(width: AppDimens.sp12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            GoalAnalysis.statusLabel(progress.status),
-                            style: tt.labelLarge?.copyWith(
-                              color: statusColor,
+                            items[i].ticker,
+                            style: tt.titleSmall?.copyWith(
+                              color: colors.textPrimary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            GoalAnalysis.text(goal, progress, locale),
-                            style: tt.bodyMedium?.copyWith(
-                              color: colors.textPrimary,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppDimens.sp16),
-          // Qué cuenta para la meta: se suma solo.
-          _SectionTitle('goal_counts_title'.tr()),
-          _Card(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (final t in goal.linkedTickers.toList()..sort()) ...[
-                  ListTile(
-                    leading: const Icon(Icons.show_chart_rounded),
-                    title: Text(
-                      t,
-                      style: tt.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                    subtitle:
-                        (holdings[t] ?? 0) > 0
-                            ? null
-                            : Text(
-                              'goal_counts_not_held'.tr(),
+                          if (items[i].name != null)
+                            Text(
+                              items[i].name!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: tt.bodySmall?.copyWith(
                                 color: colors.textSecondary,
                               ),
                             ),
-                    trailing: Text(
-                      QaFormat.money(holdings[t] ?? 0),
-                      style: tt.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
+                        ],
                       ),
                     ),
-                  ),
-                  Divider(
-                    height: 1,
-                    indent: AppDimens.cardPadding,
-                    endIndent: AppDimens.cardPadding,
-                    color: colors.border,
-                  ),
-                ],
-                ListTile(
-                  leading: const Icon(Icons.account_balance_outlined),
-                  title: Text(
-                    'goal_outside_title'.tr(),
-                    style: tt.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
+                    const SizedBox(width: AppDimens.sp8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'goal_plan_buy_amount'.tr(
+                            namedArgs: {
+                              'amount': QaFormat.money(items[i].monthly),
+                            },
+                          ),
+                          style: tt.titleSmall?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: tabular,
+                          ),
+                        ),
+                        Text(
+                          'goal_plan_share'.tr(
+                            namedArgs: {
+                              'pct': '${(items[i].weight * 100).round()}%',
+                            },
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  subtitle: Text(
-                    'goal_outside_subtitle'.tr(),
-                    style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-                  ),
-                  trailing: Text(
-                    QaFormat.money(goal.externalSavings),
-                    style: tt.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
-                    ),
-                  ),
-                  onTap:
-                      () => _editOutside(context, ref, goal.externalSavings),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppDimens.sp8),
+              ),
+          ],
+          const SizedBox(height: AppDimens.sp16),
           Text(
-            goal.linkedTickers.isEmpty
-                ? 'goal_counts_hint_empty'.tr()
-                : 'goal_counts_hint'.tr(),
+            'goal_plan_note'.tr(
+              namedArgs: {
+                'return': QaFormat.pct(plan.returns[PlanScenario.base]! * 100),
+              },
+            ),
             style: tt.bodySmall?.copyWith(
               color: colors.textSecondary,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: AppDimens.sp8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => _editLinks(context, goal),
-              icon: Icon(Icons.tune_rounded, color: colors.accentBlue),
-              label: Text(
-                'goal_counts_edit'.tr(),
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Qué cuenta para la meta: cada inversión con su logo y lo que vale hoy
+/// (las que tiene llevan al detalle de la acción), lo que tiene fuera de la
+/// app y "Elegir qué cuenta".
+class _CountsCard extends StatelessWidget {
+  const _CountsCard({
+    required this.goal,
+    required this.holdings,
+    required this.onEditOutside,
+    required this.onEditLinks,
+  });
+
+  final UserGoal goal;
+  final Map<String, double> holdings;
+  final VoidCallback onEditOutside;
+  final VoidCallback onEditLinks;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final names = {
+      for (final e in goal.snapshot.buyPlan)
+        if (e.name != null) e.ticker.toUpperCase(): e.name!,
+    };
+    final valueStyle = tt.titleSmall?.copyWith(
+      color: colors.textPrimary,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final divider = Divider(
+      height: 1,
+      indent: AppDimens.cardPadding,
+      endIndent: AppDimens.cardPadding,
+      color: colors.border,
+    );
+
+    return _Card(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (final t in goal.linkedTickers.toList()..sort()) ...[
+            _CountRow(
+              leading: QaTickerAvatar(ticker: t, size: 36),
+              title: t,
+              subtitle:
+                  (holdings[t] ?? 0) > 0
+                      ? names[t]
+                      : 'goal_counts_not_held'.tr(),
+              trailing: Text(
+                QaFormat.money(holdings[t] ?? 0),
+                style: valueStyle,
+              ),
+              trailingIcon:
+                  (holdings[t] ?? 0) > 0 ? Icons.chevron_right_rounded : null,
+              onTap:
+                  (holdings[t] ?? 0) > 0
+                      ? () => GotoPositionDetail(
+                        ticker: t,
+                      ).navigate(context: context)
+                      : null,
+            ),
+            divider,
+          ],
+          _CountRow(
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colors.accentBlue.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.account_balance_outlined,
+                size: AppDimens.iconMd,
+                color: colors.accentBlue,
+              ),
+            ),
+            title: 'goal_outside_title'.tr(),
+            subtitle: 'goal_outside_subtitle'.tr(),
+            trailing: Text(
+              QaFormat.money(goal.externalSavings),
+              style: valueStyle,
+            ),
+            trailingIcon: Icons.edit_outlined,
+            onTap: onEditOutside,
+          ),
+          divider,
+          InkWell(
+            onTap: onEditLinks,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimens.cardPadding,
+                vertical: AppDimens.sp12,
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, color: colors.accentBlue),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(
+                    child: Text(
+                      'goal_counts_edit'.tr(),
+                      style: tt.bodyMedium?.copyWith(
+                        color: colors.accentBlue,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: AppDimens.sp16),
-          // El plan de Porty.
-          _SectionTitle('goal_plan_title'.tr()),
-          _Card(
+        ],
+      ),
+    );
+  }
+}
+
+class _CountRow extends StatelessWidget {
+  const _CountRow({
+    required this.leading,
+    required this.title,
+    required this.trailing,
+    this.subtitle,
+    this.trailingIcon,
+    this.onTap,
+  });
+
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final Widget trailing;
+  final IconData? trailingIcon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.cardPadding,
+        AppDimens.sp12,
+        AppDimens.sp12,
+        AppDimens.sp12,
+      ),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: AppDimens.sp12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Row(
-                  label: 'goal_plan_monthly'.tr(),
-                  value: QaFormat.money(plan.monthlyUsed),
-                ),
-                _Row(
-                  label: 'goal_plan_months_left'.tr(),
-                  value: 'goal_months'.plural(progress.monthsRemaining),
-                ),
-                const SizedBox(height: AppDimens.sp12),
                 Text(
-                  'goal_plan_allocation'.tr(),
-                  style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-                ),
-                const SizedBox(height: AppDimens.sp6),
-                for (final e in plan.allocation.entries)
-                  _Row(
-                    label: e.key.label,
-                    value: '${(e.value * 100).round()}%',
+                  title,
+                  style: tt.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
                   ),
-                if (goal.snapshot.buyPlan.isNotEmpty) ...[
-                  const SizedBox(height: AppDimens.sp12),
+                ),
+                if (subtitle != null)
                   Text(
-                    'goal_plan_buy'.tr(),
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: tt.bodySmall?.copyWith(color: colors.textSecondary),
                   ),
-                  const SizedBox(height: AppDimens.sp6),
-                  for (final e in goal.snapshot.buyPlan)
-                    _Row(
-                      label:
-                          e.name == null ? e.ticker : '${e.ticker} · ${e.name}',
-                      value: 'goal_plan_buy_amount'.tr(
-                        namedArgs: {'amount': QaFormat.money(e.monthlyAmount)},
-                      ),
-                    ),
-                ],
-                const SizedBox(height: AppDimens.sp8),
-                Text(
-                  'goal_plan_note'.tr(
-                    namedArgs: {
-                      'return': QaFormat.pct(
-                        plan.returns[PlanScenario.base]! * 100,
-                      ),
-                    },
-                  ),
-                  style: tt.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: AppDimens.sp16),
-          OutlinedButton.icon(
-            onPressed:
-                () => GotoAssistant(
-                  initialQuestion: 'goal_ask_porty_question'.tr(
-                    namedArgs: {'goal': goal.label},
-                  ),
-                ).navigate(context: context),
-            icon: Icon(Icons.chat_bubble_outline_rounded, color: colors.accentBlue),
-            label: Text(
-              'goal_ask_porty'.tr(),
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(AppDimens.touchTarget + 4),
-              side: BorderSide(color: colors.border),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-              ),
-            ),
+          const SizedBox(width: AppDimens.sp8),
+          trailing,
+          SizedBox(
+            width: AppDimens.iconMd + AppDimens.sp8,
+            child:
+                trailingIcon == null
+                    ? null
+                    : Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        trailingIcon,
+                        size:
+                            trailingIcon == Icons.edit_outlined
+                                ? AppDimens.iconSm + 2
+                                : AppDimens.iconMd,
+                        color: colors.textSecondary,
+                      ),
+                    ),
           ),
-          const SizedBox(height: AppDimens.sp24),
         ],
+      ),
+    );
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      child: InkWell(onTap: onTap, child: content),
+    );
+  }
+}
+
+/// "Preguntarle a Porty", con Porty (no un ícono de chat).
+class _AskPortyButton extends StatelessWidget {
+  const _AskPortyButton({required this.goal});
+
+  final UserGoal goal;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: colors.surfaceCard,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        side: BorderSide(color: colors.border),
+      ),
+      child: InkWell(
+        onTap:
+            () => GotoAssistant(
+              initialQuestion: 'goal_ask_porty_question'.tr(
+                namedArgs: {'goal': goal.label},
+              ),
+            ).navigate(context: context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimens.cardPadding,
+            vertical: AppDimens.sp12,
+          ),
+          child: Row(
+            children: [
+              const ExcludeSemantics(child: PortyAvatar(size: 40)),
+              const SizedBox(width: AppDimens.sp12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'goal_ask_porty'.tr(),
+                      style: tt.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'goal_ask_porty_subtitle'.tr(),
+                      style: tt.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: AppDimens.iconMd,
+                color: colors.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -430,8 +965,8 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    // Material (no Container con color): las filas tocables (ListTile)
-    // pintan su ripple en el Material más cercano.
+    // Material (no Container con color): las filas tocables pintan su
+    // ripple en el Material más cercano.
     return Material(
       color: colors.surfaceCard,
       clipBehavior: Clip.antiAlias,
@@ -464,42 +999,6 @@ class _SectionTitle extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: tt.bodyMedium?.copyWith(color: colors.textPrimary),
-            ),
-          ),
-          const SizedBox(width: AppDimens.sp8),
-          Text(
-            value,
-            style: tt.bodyMedium?.copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// "Ahorros fuera de la app": un solo monto total (banco, efectivo…).
@@ -645,7 +1144,8 @@ class _LinkHoldingsSheetState extends ConsumerState<_LinkHoldingsSheet> {
     final tickers =
         {
             ...holdings.keys,
-            for (final e in widget.goal.snapshot.buyPlan) e.ticker.toUpperCase(),
+            for (final e in widget.goal.snapshot.buyPlan)
+              e.ticker.toUpperCase(),
             ...widget.goal.linkedTickers,
           }.toList()
           ..sort();
@@ -692,9 +1192,13 @@ class _LinkHoldingsSheetState extends ConsumerState<_LinkHoldingsSheet> {
                       value: _selected.contains(t),
                       onChanged:
                           (on) => setState(
-                            () => on == true ? _selected.add(t) : _selected.remove(t),
+                            () =>
+                                on == true
+                                    ? _selected.add(t)
+                                    : _selected.remove(t),
                           ),
                       contentPadding: EdgeInsets.zero,
+                      secondary: QaTickerAvatar(ticker: t, size: 36),
                       title: Text(
                         t,
                         style: tt.bodyLarge?.copyWith(

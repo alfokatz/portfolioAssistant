@@ -36,8 +36,10 @@ class QaGoalScope extends InheritedWidget {
   bool updateShouldNotify(QaGoalScope oldWidget) => true;
 }
 
-/// "Guardar en Metas" → "Guardada en Metas · Ver". Al pie de la card del
-/// plan y de la compra mensual.
+/// El cierre de la card del plan (y de la compra mensual): Porty propone el
+/// plan y el usuario lo confirma para crear la meta en Metas. Si ya hay una
+/// meta activa con ese nombre, confirmar la actualiza. Una vez creada,
+/// queda "Meta creada · Ver en Metas".
 class QaSaveGoalButton extends StatefulWidget {
   const QaSaveGoalButton({super.key, required this.draft});
 
@@ -50,6 +52,20 @@ class QaSaveGoalButton extends StatefulWidget {
 class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
   bool _saving = false;
   UserGoal? _justSaved;
+  bool _updated = false;
+
+  Future<void> _confirm(QaGoalScope scope, {required bool updates}) async {
+    setState(() {
+      _saving = true;
+      _updated = updates;
+    });
+    final goal = await scope.onSave(widget.draft);
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _justSaved = goal;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,56 +77,98 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
 
     final Widget child;
     if (saved != null) {
-      child = TextButton.icon(
-        onPressed: () => scope.onOpen(saved.id),
-        icon: Icon(Icons.check_circle_rounded, color: QaColors.profit, size: 18),
-        label: Text(
-          'Guardada en Metas · Ver',
-          style: QaText.label.copyWith(color: QaColors.textPrimary),
-        ),
-      );
-    } else {
-      child = OutlinedButton.icon(
-        onPressed:
-            _saving
-                ? null
-                : () async {
-                  setState(() => _saving = true);
-                  final goal = await scope.onSave(widget.draft);
-                  if (!mounted) return;
-                  setState(() {
-                    _saving = false;
-                    _justSaved = goal;
-                  });
-                },
-        icon:
-            _saving
-                ? SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: QaColors.accentBlue,
+      child = Material(
+        color: QaColors.profit.withValues(alpha: 0.10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => scope.onOpen(saved.id),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: QaColors.profit,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _justSaved == null
+                        ? 'Meta guardada en Metas'
+                        : _updated
+                        ? 'Meta actualizada en Metas'
+                        : 'Meta creada en Metas',
+                    style: QaText.label.copyWith(
+                      color: QaColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                )
-                : Icon(
-                  Icons.bookmark_add_outlined,
+                ),
+                Text(
+                  'Ver',
+                  style: QaText.label.copyWith(
+                    color: QaColors.accentBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
                   color: QaColors.accentBlue,
                   size: 18,
                 ),
-        label: Text(
-          updates ? 'Actualizar en Metas' : 'Guardar en Metas',
-          style: QaText.label.copyWith(
-            color: QaColors.textPrimary,
-            fontWeight: FontWeight.w600,
+              ],
+            ),
           ),
         ),
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(44),
-          side: BorderSide(color: QaColors.accentBlue, width: 1.2),
-          shape: const StadiumBorder(),
-        ),
+      );
+    } else {
+      child = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            updates
+                ? '¿Te sirve? Confirmá y actualizo tu meta '
+                    '"${widget.draft.label}" en Metas.'
+                : '¿Te sirve este plan? Confirmalo y creo la meta en Metas: '
+                    'ahí vas a ver cuánto llevás y si vas al día.',
+            style: QaText.caption,
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _saving ? null : () => _confirm(scope, updates: updates),
+            icon:
+                _saving
+                    ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Icon(Icons.flag_rounded, size: 18),
+            label: Text(
+              updates ? 'Confirmar y actualizar meta' : 'Confirmar y crear meta',
+              style: QaText.label.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: QaColors.accentBlue,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: QaColors.accentBlue.withValues(
+                alpha: 0.6,
+              ),
+              minimumSize: const Size.fromHeight(48),
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ],
       );
     }
-    return Padding(padding: const EdgeInsets.only(top: 12), child: child);
+    return Padding(padding: const EdgeInsets.only(top: 14), child: child);
   }
 }
