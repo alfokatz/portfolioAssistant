@@ -4,7 +4,8 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
-enum AppNavDestination { home, assistant, settings }
+/// En el orden de las ramas del shell (app_router.dart).
+enum AppNavDestination { home, goals, assistant, settings }
 
 /// Floating pill nav bar used to move between the app's main sections.
 class AppBottomNavBar extends StatelessWidget {
@@ -23,6 +24,12 @@ class AppBottomNavBar extends StatelessWidget {
       icon: Icons.home_rounded,
       porty: false,
       labelKey: 'nav_home',
+    ),
+    (
+      destination: AppNavDestination.goals,
+      icon: Icons.flag_rounded,
+      porty: false,
+      labelKey: 'nav_goals',
     ),
     (
       destination: AppNavDestination.assistant,

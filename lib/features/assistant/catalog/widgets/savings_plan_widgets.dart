@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -13,6 +14,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 /// Qué responde la card arriba de todo; el resto del plan queda en "Ver
@@ -84,7 +86,11 @@ class SavingsPlanCardData {
     required this.riskSource,
     required this.shortHorizon,
     required this.capitalStated,
+    this.draft,
   });
+
+  /// La meta con este plan, para "Guardar en Metas".
+  final GoalDraft? draft;
 
   final SavingsPlan plan;
   final String label;
@@ -175,6 +181,7 @@ class SavingsPlanCardData {
           '${result['risk_source'] ?? GoalProjectionBuilder.riskDefault}',
       shortHorizon: result['risk_adjusted_for_short_horizon'] == true,
       capitalStated: result['starting_capital_source'] == 'stated',
+      draft: GoalDraft.fromToolResult(result),
     );
   }
 }
@@ -278,7 +285,10 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               retirementLike
                   ? Icons.beach_access_outlined
                   : Icons.flag_outlined,
-          trailing: QaTag(_riskName(_inputs.risk), color: QaColors.accentBlue),
+          trailing: QaTag(
+            _inputs.shortTerm ? 'Corto plazo' : _riskName(_inputs.risk),
+            color: QaColors.accentBlue,
+          ),
         ),
         for (var i = 0; i < top.length; i++) _section(top[i], first: i == 0),
         if (rest.isNotEmpty) ...[
@@ -300,6 +310,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           ),
         ],
         QaSection(child: Text(_assumptions(_plan), style: QaText.caption)),
+        if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
         QaFollowUpBar(items: _followUps(), limit: 4),
       ],
     );
@@ -740,6 +751,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
 
   String _riskNote() {
     final name = _riskName(_inputs.risk).toLowerCase();
+    if (_inputs.shortTerm) {
+      return 'Es plata que vas a usar en menos de 3 años: el plan la deja en '
+          'liquidez (cuentas remuneradas, money market, letras) y bonos '
+          'cortos, sin acciones, para que no dependa de cómo esté el mercado '
+          'cuando la necesites.';
+    }
     if (widget.data.shortHorizon) {
       return 'Con menos de 3 años, las acciones pueden caer y no recuperarse '
           'a tiempo: por eso el plan va conservador.';
@@ -806,17 +823,14 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             icon: Icons.pie_chart_outline_rounded,
           ),
       for (final risk in RiskTolerance.values)
-        if (risk != _inputs.risk && !widget.data.shortHorizon)
+        if (risk != _inputs.risk &&
+            !widget.data.shortHorizon &&
+            !_inputs.shortTerm)
           QaFollowUp(
             _riskName(risk),
             'Rehacé el plan con una cartera ${_riskName(risk).toLowerCase()}',
             icon: Icons.tune_rounded,
           ),
-      const QaFollowUp(
-        'Guardar meta',
-        'Guardá esta meta',
-        icon: Icons.bookmark_border_rounded,
-      ),
     ];
   }
 

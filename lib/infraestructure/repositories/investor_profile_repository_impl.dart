@@ -20,6 +20,7 @@ class InvestorProfileRepositoryImpl implements InvestorProfileRepository {
     required InvestmentObjective objective,
     InvestmentExperience? experience,
     DrawdownReaction? drawdownReaction,
+    Map<String, String> notes = const {},
   }) =>
       _dataSource.save(
         risk: risk,
@@ -27,6 +28,7 @@ class InvestorProfileRepositoryImpl implements InvestorProfileRepository {
         objective: objective,
         experience: experience,
         drawdownReaction: drawdownReaction,
+        notes: notes,
       );
 }
 

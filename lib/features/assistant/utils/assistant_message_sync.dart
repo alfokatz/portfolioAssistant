@@ -48,6 +48,7 @@ abstract final class AssistantMessageSync {
     String surfaceId, {
     bool showsAdviceDisclaimer = false,
     InvestorProfileNudge? profileNudge,
+    List<String> rememberedFacts = const [],
   }) {
     for (var i = messages.length - 1; i >= 0; i--) {
       final message = messages[i];
@@ -59,6 +60,7 @@ abstract final class AssistantMessageSync {
         content: message.isFallback ? '' : null,
         showsAdviceDisclaimer: showsAdviceDisclaimer,
         profileNudge: profileNudge,
+        rememberedFacts: rememberedFacts,
       );
       return updated;
     }

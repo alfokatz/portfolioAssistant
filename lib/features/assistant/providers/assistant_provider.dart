@@ -37,6 +37,10 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -260,6 +264,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             progress.toBrief(id),
         ],
         loadPriceAlerts: _priceAlertsForTool,
+        userMemories: await _memoriesForTurn(),
+        saveMemory: _saveMemory,
+        deleteMemory:
+            (id) => ref.read(userMemoryProvider.notifier).remove(id),
+        savedGoals: await _goalsForTurn(),
+        saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
+        updateGoalSavings: (goalId, amount) async {
+          await ref
+              .read(goalsProvider.notifier)
+              .setExternalSavings(goalId, amount);
+          return ref.read(goalsProvider).byId(goalId);
+        },
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -309,6 +325,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         final notices = AssistantTurnPolicy.noticesFor(
           outcome ?? const TurnOutcome([]),
           profileNudgeAlreadyShown: _profileNudgeShown,
+          rememberedFacts: ctx.rememberedFacts,
         );
         if (notices.profileNudge != null) _profileNudgeShown = true;
         state = state.copyWith(
@@ -317,6 +334,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             surfaceId,
             showsAdviceDisclaimer: notices.showsDisclaimer,
             profileNudge: notices.profileNudge,
+            rememberedFacts: notices.rememberedFacts,
           ),
         );
         // El contador del header refleja lo que cobró el servidor.
@@ -789,6 +807,42 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {
       return null;
     }
+  }
+
+  /// La memoria de Porty para PORTFOLIO_BRIEF: una sola lectura por
+  /// conversación (las tools la mantienen al día). Nunca frena el turno.
+  Future<List<UserMemory>> _memoriesForTurn() async {
+    try {
+      return await ref.read(userMemoryProvider.notifier).ensureLoaded();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Las metas activas para PORTFOLIO_BRIEF (una lectura por conversación;
+  /// la pestaña y las tools las mantienen al día). Nunca frena el turno.
+  Future<List<UserGoal>> _goalsForTurn() async {
+    try {
+      await ref.read(goalsProvider.notifier).ensureLoaded();
+      return ref.read(goalsProvider).active;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<UserMemory> _saveMemory(
+    String content,
+    UserMemoryCategory category, {
+    String? replacesId,
+  }) {
+    final notifier = ref.read(userMemoryProvider.notifier);
+    return replacesId == null
+        ? notifier.add(
+          content,
+          category: category,
+          source: UserMemorySource.porty,
+        )
+        : notifier.replace(replacesId, content, category: category);
   }
 
   Future<List<ClosedPosition>> _fetchClosedPositions() async {

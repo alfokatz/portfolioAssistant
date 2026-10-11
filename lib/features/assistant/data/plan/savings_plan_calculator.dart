@@ -67,8 +67,22 @@ abstract final class PlanAssumptions {
   /// Cuánto se adelanta/posterga la meta en "¿Qué pasa si…?".
   static const sensitivityMonths = 60;
 
-  static Map<PlanAssetClass, double> allocationFor(RiskTolerance risk) =>
-      switch (risk) {
+  /// Cartera de una compra a menos de [shortHorizonMonths]: la plata se
+  /// necesita en meses, así que va casi toda a liquidez (cuentas
+  /// remuneradas, fondos de money market, letras del Tesoro) y el resto a
+  /// bonos cortos. Nada en acciones, sea cual sea el perfil.
+  static const shortTermAllocation = {
+    PlanAssetClass.cash: 0.70,
+    PlanAssetClass.bonds: 0.30,
+  };
+
+  static Map<PlanAssetClass, double> allocationFor(
+    RiskTolerance risk, {
+    bool shortTerm = false,
+  }) =>
+      shortTerm
+          ? shortTermAllocation
+          : switch (risk) {
         RiskTolerance.conservative => const {
           PlanAssetClass.equities: 0.30,
           PlanAssetClass.bonds: 0.60,
@@ -86,9 +100,13 @@ abstract final class PlanAssumptions {
       };
 
   /// Rendimiento real anual de la cartera de [risk] en [scenario].
-  static double realReturn(RiskTolerance risk, PlanScenario scenario) {
+  static double realReturn(
+    RiskTolerance risk,
+    PlanScenario scenario, {
+    bool shortTerm = false,
+  }) {
     var total = 0.0;
-    allocationFor(risk).forEach((asset, weight) {
+    allocationFor(risk, shortTerm: shortTerm).forEach((asset, weight) {
       total += weight * asset.realReturn[scenario]!;
     });
     return total;
@@ -125,6 +143,7 @@ class SavingsPlanInputs {
     this.desiredMonthlyIncome,
     this.incomeStrategy = IncomeStrategy.dividends,
     this.dividendYield,
+    this.shortTerm = false,
   });
 
   /// En dólares de hoy.
@@ -150,6 +169,9 @@ class SavingsPlanInputs {
   /// = el supuesto [PlanAssumptions.dividendYield].
   final double? dividendYield;
 
+  /// Compra a corto plazo (ver [PlanAssumptions.shortTermAllocation]).
+  final bool shortTerm;
+
   double get effectiveDividendYield =>
       dividendYield ?? PlanAssumptions.dividendYield;
 
@@ -165,6 +187,7 @@ class SavingsPlanInputs {
         desiredMonthlyIncome: desiredMonthlyIncome,
         incomeStrategy: incomeStrategy,
         dividendYield: dividendYield ?? this.dividendYield,
+        shortTerm: shortTerm,
       );
 
   Map<String, Object?> toJson() => {
@@ -178,6 +201,7 @@ class SavingsPlanInputs {
     'desired_monthly_income': desiredMonthlyIncome,
     'income_strategy': incomeStrategy.key,
     if (dividendYield != null) 'dividend_yield': dividendYield,
+    if (shortTerm) 'short_term': true,
   };
 
   static SavingsPlanInputs? fromJson(Object? json) {
@@ -206,6 +230,7 @@ class SavingsPlanInputs {
           IncomeStrategy.fromKey(json['income_strategy'] as String?) ??
           IncomeStrategy.dividends,
       dividendYield: yieldOverride is num ? yieldOverride.toDouble() : null,
+      shortTerm: json['short_term'] == true,
     );
   }
 
@@ -374,7 +399,11 @@ class SavingsPlan {
     final months = math.max(1, inputs.months);
     final returns = {
       for (final s in PlanScenario.values)
-        s: PlanAssumptions.realReturn(inputs.risk, s),
+        s: PlanAssumptions.realReturn(
+          inputs.risk,
+          s,
+          shortTerm: inputs.shortTerm,
+        ),
     };
     final required = {
       for (final s in PlanScenario.values)
@@ -438,7 +467,10 @@ class SavingsPlan {
       projected: projected,
       contributed: inputs.currentAmount + monthly * months,
       returns: returns,
-      allocation: PlanAssumptions.allocationFor(inputs.risk),
+      allocation: PlanAssumptions.allocationFor(
+        inputs.risk,
+        shortTerm: inputs.shortTerm,
+      ),
       nominalTarget:
           inputs.targetAmount *
           math.pow(1 + PlanAssumptions.inflation, months / 12),
@@ -484,6 +516,7 @@ class SavingsPlan {
     return {
       'inputs': inputs.toJson(),
       'risk_used': inputs.risk.storageValue,
+      if (inputs.shortTerm) 'short_term_allocation': true,
       'expected_real_return': {
         for (final s in PlanScenario.values) s.key: pct(returns[s]!),
       },

@@ -8,6 +8,9 @@ import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_cont
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// Candidatos para una simulación educativa de inversión (Gold).
 class GetInvestCandidatesTool implements DataTool {
@@ -146,16 +149,18 @@ class GetGoalProjectionTool implements DataTool {
 
   @override
   String get description =>
-      'The user\'s financial GOAL (target amount + date, e.g. retirement) '
+      'The user\'s financial GOAL (target amount + date: retirement, or '
+      'something to BUY like a laptop, a car, a trip, a house deposit) '
       'with a pre-computed SAVINGS PLAN: compound growth in today\'s dollars '
       '(after inflation), a suggested allocation for their risk, required '
       'monthly savings in pessimistic/base/optimistic scenarios, what they '
       'would need without investing, what-if horizons and, for retirement or '
       'an income goal, the two ways to collect it (living off dividends vs. '
       'withdrawing 4% a year) with the capital each needs. Use it when the user states '
-      'or asks about a savings goal or retirement ("en 20 años quiero tener '
-      '500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero jubilarme '
-      'cobrando 3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
+      'or asks about a savings goal, a purchase or retirement ("en 20 años '
+      'quiero tener 500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero '
+      'comprarme una compu de 1200 en un año", "quiero jubilarme cobrando '
+      '3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
       'stated in this conversation; omitted fields come from their saved '
       'goal and investor profile. If has_complete_goal is false, "missing" '
       'lists what to ask for. Never recalculate the numbers.';
@@ -182,6 +187,15 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'boolean',
         'description': 'true when the goal is retiring (jubilarse/retirarse).',
       },
+      'goal_type': {
+        'type': 'string',
+        'enum': ['retirement', 'purchase', 'other'],
+        'description':
+            'purchase = buying something concrete (computer, phone, car, '
+            'trip, wedding, house deposit): starts from 0 unless '
+            'current_savings is stated, and under 3 years the plan uses '
+            'cash and short-term bonds, no stocks.',
+      },
       'monthly_contribution': {
         'type': 'number',
         'description':
@@ -191,7 +205,7 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'number',
         'description':
             'USD the user said they already have for this goal, if stated '
-            '(default: their portfolio value).',
+            '(default: their portfolio value; 0 for a purchase).',
       },
       'desired_monthly_income': {
         'type': 'number',
@@ -225,7 +239,17 @@ class GetGoalProjectionTool implements DataTool {
       return ctx.lockedFeature(PlanFeature.goals);
     }
     final prefs = ctx.data.preferences;
-    final saved = await prefs.getSavedGoal();
+    // La meta de referencia: la más nueva de la pestaña Metas; si no hay,
+    // la última guardada en el dispositivo.
+    final latest = ctx.savedGoals.firstOrNull;
+    final saved =
+        latest != null
+            ? (
+              label: latest.label,
+              targetAmount: latest.targetAmount,
+              targetDate: GoalProjectionBuilder.formatDate(latest.targetDate),
+            )
+            : await prefs.getSavedGoal();
     final monthly =
         ToolArgs.number(args, 'monthly_contribution') ??
         await prefs.getMonthlyContribution();
@@ -245,6 +269,9 @@ class GetGoalProjectionTool implements DataTool {
           ToolArgs.number(args, 'desired_monthly_income'),
         ),
         isRetirement: retirement is bool ? retirement : null,
+        isPurchase:
+            ToolArgs.string(args, 'goal_type') ==
+            GoalProjectionBuilder.goalPurchase,
         incomeStrategy: IncomeStrategy.fromKey(
           ToolArgs.string(args, 'income_strategy'),
         ),
@@ -265,30 +292,42 @@ class GetGoalProjectionTool implements DataTool {
   static double? _nonNegative(double? v) => v != null && v >= 0 ? v : null;
 }
 
-/// Guarda la meta (Premium). Solo cuando el usuario lo pide explícitamente.
+/// Guarda en la pestaña Metas la meta con el plan que Porty armó en esta
+/// conversación (Premium, como las metas).
 class SaveGoalTool implements DataTool {
   SaveGoalTool(this.ctx);
 
   final AssistantToolContext ctx;
 
+  static const toolName = 'save_goal';
+
   @override
-  String get name => 'save_goal';
+  String get name => toolName;
 
   @override
   String get description =>
-      'Saves the user\'s financial goal so later questions can use it. Call '
-      'it ONLY when the user explicitly asks to save/remember the goal '
-      '("guardá esta meta"), with a complete amount and date.';
+      'Saves a goal WITH its plan in the user\'s "Metas" tab (where they '
+      'see its progress, computed automatically from the holdings that count '
+      'for it, and the plan). Call it when the '
+      'user accepts saving it ("sí, guardala", "guardá esta meta"), passing '
+      'the plan_id of the plan you built (a get_goal_projection or '
+      'get_monthly_buy_plan result; the buy plan one also saves the monthly '
+      'purchase). Never ask for the amount or date again: they come from the '
+      'plan. Returns needs_plan if there is no plan yet.';
 
   @override
   Map<String, Object?> get parameters => const {
     'type': 'object',
     'properties': {
-      'goal_label': {'type': 'string'},
-      'target_amount': {'type': 'number'},
-      'target_date': {'type': 'string', 'description': 'YYYY-MM-DD'},
+      'plan_id': {
+        'type': 'string',
+        'description': 'plan_id of the plan to save (default: the latest).',
+      },
+      'goal_label': {
+        'type': 'string',
+        'description': 'Optional better name ("MacBook M5 Pro").',
+      },
     },
-    'required': ['target_amount', 'target_date'],
     'additionalProperties': false,
   };
 
@@ -297,19 +336,153 @@ class SaveGoalTool implements DataTool {
     if (!ctx.allows(PlanFeature.goals)) {
       return ctx.lockedFeature(PlanFeature.goals);
     }
-    final amount = ToolArgs.number(args, 'target_amount');
-    final date = ToolArgs.date(args, 'target_date');
-    if (amount == null || amount <= 0 || date == null) {
+    final base = ctx.data.plans.lookup(ToolArgs.string(args, 'plan_id'));
+    final draft = base == null ? null : GoalDraft.fromToolResult(base);
+    if (draft == null) {
+      return {
+        'status': 'needs_plan',
+        'reason': 'Call get_goal_projection first: there is no plan yet.',
+      };
+    }
+    final label = ToolArgs.string(args, 'goal_label');
+    final toSave =
+        label == null
+            ? draft
+            : GoalDraft(
+              label: label.length > 80 ? label.substring(0, 80) : label,
+              type: draft.type,
+              targetAmount: draft.targetAmount,
+              targetDate: draft.targetDate,
+              snapshot: draft.snapshot,
+              planKey: draft.planKey,
+            );
+    // La meta "activa" de get_goal_projection (también sin la pestaña).
+    await ctx.data.preferences.saveGoal(
+      label: toSave.label,
+      targetAmount: toSave.targetAmount,
+      targetDate: GoalProjectionBuilder.formatDate(toSave.targetDate),
+    );
+    final save = ctx.saveGoal;
+    if (save == null) return {'status': 'ok', 'saved': true};
+    try {
+      final goal = await save(toSave);
+      return {
+        'status': 'ok',
+        'saved': true,
+        'label': goal.label,
+        'where': 'the Metas tab',
+      };
+    } on GoalLimitReached {
+      return {
+        'status': 'invalid',
+        'reason': 'goal_limit',
+        'message':
+            'The user already has ${UserGoal.maxActive} active goals: they '
+            'can archive or delete one in the Metas tab.',
+      };
+    } catch (_) {
+      return {'status': 'failed'};
+    }
+  }
+}
+
+/// Lo que el usuario tiene para una meta guardada FUERA de la app ("tengo
+/// 1500 en el banco para la compu"). Sus inversiones asignadas a la meta ya
+/// cuentan solas; esto es lo de afuera, como un monto total (no un aporte).
+class UpdateGoalSavingsTool implements DataTool {
+  UpdateGoalSavingsTool(this.ctx);
+
+  final AssistantToolContext ctx;
+
+  static const toolName = 'update_goal_savings';
+
+  @override
+  String get name => toolName;
+
+  @override
+  String get description =>
+      'Sets how much the user has for one of their saved goals (PORTFOLIO_BRIEF '
+      'saved_goals) OUTSIDE the app — bank account, cash, another broker: '
+      '"tengo 1500 en el banco para la compu". Pass the TOTAL they have '
+      'outside now (it replaces the previous outside_savings). Their holdings '
+      'in counted_holdings already count automatically: never add those here. '
+      'Returns the goal\'s updated progress (cite it, never recalculate).';
+
+  @override
+  Map<String, Object?> get parameters => const {
+    'type': 'object',
+    'properties': {
+      'goal_id': {
+        'type': 'string',
+        'description': 'id of the goal in saved_goals ("g1").',
+      },
+      'outside_savings_usd': {
+        'type': 'number',
+        'description': 'Total USD they have for the goal outside the app.',
+      },
+    },
+    'required': ['goal_id', 'outside_savings_usd'],
+    'additionalProperties': false,
+  };
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    final update = ctx.updateGoalSavings;
+    if (update == null) return {'status': 'failed'};
+    final goal = GoalTools.byRef(ctx, ToolArgs.string(args, 'goal_id'));
+    if (goal == null) return {'status': 'invalid', 'reason': 'unknown_goal_id'};
+    final amount = ToolArgs.number(args, 'outside_savings_usd');
+    if (amount == null || amount < 0 || amount >= 1e8) {
       return ToolArgs.invalid();
     }
-    final label = ToolArgs.string(args, 'goal_label') ?? 'Mi meta';
-    await ctx.data.preferences.saveGoal(
-      label: label,
-      targetAmount: amount,
-      targetDate: GoalProjectionBuilder.formatDate(date),
-    );
-    return {'status': 'ok', 'saved': true};
+    try {
+      final current = await update(goal.id, amount) ?? goal;
+      return {
+        'status': 'ok',
+        'updated': true,
+        'label': current.label,
+        'progress':
+            GoalProgress.of(
+              current,
+              ctx.now,
+              holdings: ctx.holdingsByTicker,
+            ).toBrief(),
+      };
+    } catch (_) {
+      return {'status': 'failed'};
+    }
   }
+}
+
+/// Referencias cortas de las metas guardadas en el brief ("g1", "g2"…), en
+/// el orden de [AssistantToolContext.savedGoals] (como la memoria).
+abstract final class GoalTools {
+  static String refOf(int index) => 'g${index + 1}';
+
+  static UserGoal? byRef(AssistantToolContext ctx, String? ref) {
+    final match = RegExp(r'^g(\d+)$').firstMatch(ref?.trim() ?? '');
+    if (match == null) return null;
+    final index = int.parse(match.group(1)!) - 1;
+    final goals = ctx.savedGoals;
+    return index >= 0 && index < goals.length ? goals[index] : null;
+  }
+
+  /// `saved_goals` del brief: lo que el modelo necesita para hablar de la
+  /// meta y de cómo va, con los números ya calculados.
+  static List<Map<String, Object?>> brief(AssistantToolContext ctx) => [
+    for (final (i, g) in ctx.savedGoals.indexed)
+      {
+        'id': refOf(i),
+        'label': g.label,
+        'goal_type': g.type.storageValue,
+        'target_amount': g.targetAmount.round(),
+        'target_date': GoalProgress.formatDate(g.targetDate),
+        if (g.snapshot.buyPlan.isNotEmpty)
+          'plan_instruments': [for (final e in g.snapshot.buyPlan) e.ticker],
+        ...GoalProgress.of(g, ctx.now, holdings: ctx.holdingsByTicker)
+            .toBrief(),
+      },
+  ];
 }
 
 /// La compra mensual de un plan: qué comprar cada mes y cuánto a cada uno,

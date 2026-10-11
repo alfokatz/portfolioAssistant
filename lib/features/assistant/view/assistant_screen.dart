@@ -11,6 +11,11 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_inden
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
+import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
@@ -18,6 +23,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_st
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
+import 'package:portfolio_assistant/features/assistant/services/chat_dictation.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_answer_tone.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
@@ -39,6 +45,7 @@ import 'package:portfolio_assistant/features/notifications/nav/notifications_rou
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
+import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
@@ -446,9 +453,61 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    // Un resultado tardío del dictado no puede volver a llenar el campo.
+    unawaited(ref.read(chatDictationProvider).cancel());
     _textController.clear();
     setState(() => _waitGateOpen = false);
     await notifier.submitMessage(trimmed);
+  }
+
+  /// "Guardar en Metas" desde la card del plan: directo, sin el modelo.
+  Future<UserGoal?> _saveGoal(GoalDraft draft) async {
+    try {
+      final goal = await ref.read(goalsProvider.notifier).save(draft);
+      ref
+          .read(alertProvider.notifier)
+          .showSuccess(message: 'goal_saved'.tr());
+      return goal;
+    } on GoalLimitReached {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'goal_limit_reached'.tr());
+    } catch (_) {
+      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
+    }
+    return null;
+  }
+
+  /// Mic del composer: empieza o termina el dictado. Lo dictado se suma a
+  /// lo que ya estaba escrito y queda en el campo para revisar y enviar.
+  Future<void> _toggleDictation() async {
+    final dictation = ref.read(chatDictationProvider);
+    if (dictation.isListening) {
+      await dictation.stop();
+      return;
+    }
+    final current = _textController.text.trim();
+    final prefix = current.isEmpty ? '' : '$current ';
+    final failure = await dictation.start(
+      languageCode: context.locale.languageCode,
+      onText: (words) {
+        if (!mounted) return;
+        final text = '$prefix$words';
+        _textController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
+    if (!mounted || failure == null) return;
+    ref
+        .read(alertProvider.notifier)
+        .showError(
+          message:
+              failure == DictationFailure.permission
+                  ? 'assistant_mic_permission'.tr()
+                  : 'assistant_mic_unavailable'.tr(),
+        );
   }
 
   /// Escribe [suggestion] en el input carácter por carácter, simulando que
@@ -514,6 +573,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     final notifier = ref.read(assistantProvider(_args).notifier);
     final service = notifier.service;
     final subscription = ref.watch(subscriptionProvider);
+    final dictation = ref.watch(chatDictationProvider);
 
     // La cascada de saludo + chips solo se muestra una vez (mientras no hay
     // más que el mensaje de bienvenida) — una vez que arrancó, la marcamos
@@ -642,6 +702,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     onNotification: _handleScrollNotification,
                     child: ListView(
                       controller: _scrollController,
+                      // Arrastrar la conversación baja el teclado.
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.fromLTRB(
                         AppDimens.pageHorizontal,
                         AppDimens.sp8,
@@ -733,37 +796,52 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                           AppDimens.sp24,
                           AppDimens.sp20,
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: AssistantComposerField(
-                                controller: _textController,
-                                hintText: 'portfolio_qa_input_hint'.tr(),
-                                onSubmitted:
-                                    state.isWaiting || _isAutoTyping
-                                        ? null
-                                        : (text) =>
-                                            _submitMessage(notifier, text),
-                                enabled: !state.isWaiting && service != null,
+                        // El mic y el send cuentan como "dentro" del campo:
+                        // tocarlos no baja el teclado (tocar en cualquier
+                        // otro lado, sí; ver AssistantComposerField).
+                        child: TextFieldTapRegion(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: AssistantComposerField(
+                                  controller: _textController,
+                                  hintText: 'portfolio_qa_input_hint'.tr(),
+                                  onSubmitted:
+                                      state.isWaiting || _isAutoTyping
+                                          ? null
+                                          : (text) =>
+                                              _submitMessage(notifier, text),
+                                  enabled: !state.isWaiting && service != null,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: AppDimens.sp8),
-                            ScaleTransition(
-                              scale: _pulseAnimation,
-                              child: AssistantSendButton(
+                              const SizedBox(width: AppDimens.sp8),
+                              AssistantMicButton(
+                                listening: dictation.isListening,
                                 onTap:
                                     state.isWaiting ||
                                             service == null ||
                                             _isAutoTyping
                                         ? null
-                                        : () => _submitMessage(
-                                          notifier,
-                                          _textController.text,
-                                        ),
+                                        : _toggleDictation,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: AppDimens.sp8),
+                              ScaleTransition(
+                                scale: _pulseAnimation,
+                                child: AssistantSendButton(
+                                  onTap:
+                                      state.isWaiting ||
+                                              service == null ||
+                                              _isAutoTyping
+                                          ? null
+                                          : () => _submitMessage(
+                                            notifier,
+                                            _textController.text,
+                                          ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -828,65 +906,70 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             v.position.ticker.toUpperCase(),
         },
         openPaywall: (request) => _openGoldPaywall(notifier, request),
-        child: QaFollowUpScope(
-          onFollowUp: (question) => _startAutoType(notifier, question),
-          child: QaEvidenceScope(
-            lookup: service.evidenceListenable,
-            // Confirmar una operación propuesta guarda directo, sin pasar
-            // por el modelo (ver `AssistantProvider.executeAction`).
-            child: QaActionScope(
-              proposals: ref.watch(assistantProvider(_args)).actionProposals,
-              onConfirm: (draft) async {
-                await notifier.executeAction(draft);
-                // Recién creada una alerta: sin permiso no sirve (plan de
-                // push §6, el momento de más intención).
-                if (draft.kind != ActionKind.alert || !mounted) return;
-                final done =
-                    ref
-                        .read(assistantProvider(_args))
-                        .actionProgress(draft.proposalId)
-                        .status ==
-                    ActionProposalStatus.done;
-                if (!done) return;
-                await PushPermissionSheet.maybeShow(
-                  context,
-                  ref,
-                  reason: PushPromptReason.priceAlert,
-                );
-              },
-              onCancel: notifier.cancelAction,
-              priceOn: notifier.actionPriceOn,
-              formOf: notifier.actionFormOf,
-              onFormChanged: notifier.saveActionForm,
-              onOpenPosition:
-                  (ticker) => GotoPositionDetail(
-                    ticker: ticker,
-                  ).navigate(context: context),
-              onOpenClosedPosition:
-                  (sale) => GotoClosedPositionDetail.of(
-                    sale,
-                  ).navigate(context: context),
-              onOpenAlerts:
-                  () => context.pushNamed(NotificationsRouter.alertsRouteName),
-              child: PortyVoiceScope(
-                onDoneSpeaking:
-                    message.surfaceId == _speakingSurfaceId
-                        ? () => _finishSpeaking(service, message.surfaceId!)
-                        : null,
-                child: PortfolioQaAssistantSurface(
-                  surfaceId: message.surfaceId!,
-                  surfaceContext: service.controller.contextFor(
-                    message.surfaceId!,
+        child: QaGoalScope(
+          savedFor: ref.watch(goalsProvider).byPlanKey,
+          onSave: _saveGoal,
+          onOpen: (id) => GoalsRouter.openDetail(context, id),
+          child: QaFollowUpScope(
+            onFollowUp: (question) => _startAutoType(notifier, question),
+            child: QaEvidenceScope(
+              lookup: service.evidenceListenable,
+              // Confirmar una operación propuesta guarda directo, sin pasar
+              // por el modelo (ver `AssistantProvider.executeAction`).
+              child: QaActionScope(
+                proposals: ref.watch(assistantProvider(_args)).actionProposals,
+                onConfirm: (draft) async {
+                  await notifier.executeAction(draft);
+                  // Recién creada una alerta: sin permiso no sirve (plan de
+                  // push §6, el momento de más intención).
+                  if (draft.kind != ActionKind.alert || !mounted) return;
+                  final done =
+                      ref
+                          .read(assistantProvider(_args))
+                          .actionProgress(draft.proposalId)
+                          .status ==
+                      ActionProposalStatus.done;
+                  if (!done) return;
+                  await PushPermissionSheet.maybeShow(
+                    context,
+                    ref,
+                    reason: PushPromptReason.priceAlert,
+                  );
+                },
+                onCancel: notifier.cancelAction,
+                priceOn: notifier.actionPriceOn,
+                formOf: notifier.actionFormOf,
+                onFormChanged: notifier.saveActionForm,
+                onOpenPosition:
+                    (ticker) => GotoPositionDetail(
+                      ticker: ticker,
+                    ).navigate(context: context),
+                onOpenClosedPosition:
+                    (sale) => GotoClosedPositionDetail.of(
+                      sale,
+                    ).navigate(context: context),
+                onOpenAlerts:
+                    () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                child: PortyVoiceScope(
+                  onDoneSpeaking:
+                      message.surfaceId == _speakingSurfaceId
+                          ? () => _finishSpeaking(service, message.surfaceId!)
+                          : null,
+                  child: PortfolioQaAssistantSurface(
+                    surfaceId: message.surfaceId!,
+                    surfaceContext: service.controller.contextFor(
+                      message.surfaceId!,
+                    ),
+                    startFullyRevealed: message.hasRevealed,
+                    onFullyRevealed: () {
+                      if (message.surfaceId == _followSurfaceId) {
+                        _finishFollowing();
+                      }
+                      // Respuesta sin texto: deja de hablar al terminar las cards.
+                      _finishSpeaking(service, message.surfaceId!);
+                      notifier.markRevealed(message.surfaceId!);
+                    },
                   ),
-                  startFullyRevealed: message.hasRevealed,
-                  onFullyRevealed: () {
-                    if (message.surfaceId == _followSurfaceId) {
-                      _finishFollowing();
-                    }
-                    // Respuesta sin texto: deja de hablar al terminar las cards.
-                    _finishSpeaking(service, message.surfaceId!);
-                    notifier.markRevealed(message.surfaceId!);
-                  },
                 ),
               ),
             ),

@@ -476,3 +476,7 @@ verify_jwt = false
 
 [functions.daily-jobs]
 verify_jwt = false
+
+# Valida el JWT del usuario ella misma, como finnhub.
+[functions.web-search]
+verify_jwt = false

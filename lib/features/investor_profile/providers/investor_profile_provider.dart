@@ -76,6 +76,7 @@ class InvestorProfileNotifier extends StateNotifier<InvestorProfileState> {
     required InvestmentObjective objective,
     InvestmentExperience? experience,
     DrawdownReaction? drawdownReaction,
+    Map<String, String> notes = const {},
   }) async {
     final saved = await _repository.save(
       risk: risk,
@@ -83,6 +84,7 @@ class InvestorProfileNotifier extends StateNotifier<InvestorProfileState> {
       objective: objective,
       experience: experience,
       drawdownReaction: drawdownReaction,
+      notes: notes,
     );
     state = InvestorProfileState(profile: saved, hasLoaded: true);
   }

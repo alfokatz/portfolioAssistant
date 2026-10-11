@@ -12,6 +12,11 @@ abstract final class GoalProjectionBuilder {
   /// a la card `QaSavingsPlan`.
   static const planIdKey = 'plan_id';
 
+  /// Tipos de meta (`goal_type` de la tool).
+  static const goalRetirement = 'retirement';
+  static const goalPurchase = 'purchase';
+  static const goalOther = 'other';
+
   static const riskStated = 'stated';
   static const riskProfile = 'profile';
   static const riskDefault = 'default';
@@ -25,6 +30,7 @@ abstract final class GoalProjectionBuilder {
     double? currentSavings,
     double? desiredMonthlyIncome,
     bool? isRetirement,
+    bool isPurchase = false,
     IncomeStrategy? incomeStrategy,
     double? dividendYield,
     RiskTolerance? statedRisk,
@@ -87,12 +93,20 @@ abstract final class GoalProjectionBuilder {
     final complete =
         active['target_amount'] != null && active['target_date'] != null;
 
-    final startingCapital = currentSavings ?? currentPortfolioValue;
+    // Una compra (una compu, un viaje) no se paga con la cartera salvo que
+    // el usuario lo diga: sin "ya tengo X para esto", se arranca de cero.
+    final startingCapital =
+        currentSavings ?? (isPurchase ? 0.0 : currentPortfolioValue);
     final result = <String, Object?>{
       'current_portfolio_value': currentPortfolioValue,
       'starting_capital': startingCapital,
       'starting_capital_source':
-          currentSavings != null ? 'stated' : 'portfolio_value',
+          currentSavings != null
+              ? 'stated'
+              : isPurchase
+              ? 'assumed_zero'
+              : 'portfolio_value',
+      if (isPurchase) 'goal_type': goalPurchase,
       'monthly_contribution': monthlyContribution,
       'saved_goal': saved,
       'active_goal': active,
@@ -114,8 +128,13 @@ abstract final class GoalProjectionBuilder {
     final date = DateTime.parse(active['target_date']! as String);
     final months = monthsBetween(reference, date);
     final retirement =
-        isRetirement ??
-        (incomeTarget != null || looksLikeRetirement('${active['label']}'));
+        !isPurchase &&
+        (isRetirement ??
+            (incomeTarget != null ||
+                looksLikeRetirement('${active['label']}')));
+    // Compra a menos de 3 años: liquidez y bonos cortos, sin acciones.
+    final shortTermPurchase =
+        isPurchase && months < PlanAssumptions.shortHorizonMonths;
 
     final chosenRisk = statedRisk ?? profile?.risk ?? RiskTolerance.moderate;
     final riskSource =
@@ -127,6 +146,7 @@ abstract final class GoalProjectionBuilder {
     // Plazo corto: la parte en acciones puede caer y no recuperarse a
     // tiempo, así que el plan va conservador aunque el perfil no lo sea.
     final shortHorizon =
+        !shortTermPurchase &&
         months < PlanAssumptions.shortHorizonMonths &&
         chosenRisk != RiskTolerance.conservative;
     final risk = shortHorizon ? RiskTolerance.conservative : chosenRisk;
@@ -142,12 +162,14 @@ abstract final class GoalProjectionBuilder {
       desiredMonthlyIncome: incomeTarget != null ? desiredMonthlyIncome : null,
       incomeStrategy: strategy,
       dividendYield: dividendYield,
+      shortTerm: shortTermPurchase,
     );
     final plan = SavingsPlan.build(inputs);
     result[planIdKey] = planIdFor(inputs);
     result['months_remaining'] = months;
     result['risk_source'] = riskSource;
     result['risk_adjusted_for_short_horizon'] = shortHorizon;
+    result['short_term_purchase'] = shortTermPurchase;
     result['plan'] = plan.toToolResult();
     return result;
   }

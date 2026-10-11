@@ -36,6 +36,7 @@ class InvestorProfileSupabaseDataSource {
     required InvestmentObjective objective,
     InvestmentExperience? experience,
     DrawdownReaction? drawdownReaction,
+    Map<String, String> notes = const {},
   }) async {
     final userId = _authService.requireUserId();
     final core = {
@@ -48,20 +49,28 @@ class InvestorProfileSupabaseDataSource {
       'experience': experience?.storageValue,
       'drawdown_reaction': drawdownReaction?.storageValue,
     };
-    Map<String, dynamic> row;
-    try {
-      row = await _client
-          .from(_table)
-          .upsert({...core, ...optional})
-          .select()
-          .single();
-    } on PostgrestException catch (e) {
-      // Sin la migración 20261007000000 las columnas opcionales no existen
-      // (PGRST204): se guarda lo esencial en vez de perder todo el perfil.
-      if (e.code != 'PGRST204') rethrow;
-      row = await _client.from(_table).upsert(core).select().single();
+    final cleanNotes = cleanedNotes(notes);
+    // Sin las migraciones 20261007000000 / 20261011050000 las columnas
+    // opcionales no existen (PGRST204): se guarda lo que se pueda en vez de
+    // perder todo el perfil.
+    Map<String, dynamic>? row;
+    for (final attempt in [
+      {
+        ...core,
+        ...optional,
+        'notes': cleanNotes.isEmpty ? null : cleanNotes,
+      },
+      {...core, ...optional},
+      core,
+    ]) {
+      try {
+        row = await _client.from(_table).upsert(attempt).select().single();
+        break;
+      } on PostgrestException catch (e) {
+        if (e.code != 'PGRST204' || identical(attempt, core)) rethrow;
+      }
     }
-    final profile = fromRow(Map<String, dynamic>.from(row));
+    final profile = fromRow(Map<String, dynamic>.from(row!));
     if (profile == null) {
       throw StateError('investor_profiles returned an unreadable row');
     }
@@ -94,7 +103,21 @@ class InvestorProfileSupabaseDataSource {
       drawdownReaction: DrawdownReaction.fromStorage(
         row['drawdown_reaction'] as String?,
       ),
+      notes: cleanedNotes(row['notes']),
     );
+  }
+
+  /// Solo strings no vacíos, recortados al tope.
+  static Map<String, String> cleanedNotes(Object? raw) {
+    if (raw is! Map) return const {};
+    return {
+      for (final MapEntry(:key, :value) in raw.entries)
+        if (key is String && value is String && value.trim().isNotEmpty)
+          key:
+              value.trim().length > InvestorProfile.maxNoteLength
+                  ? value.trim().substring(0, InvestorProfile.maxNoteLength)
+                  : value.trim(),
+    };
   }
 }
 

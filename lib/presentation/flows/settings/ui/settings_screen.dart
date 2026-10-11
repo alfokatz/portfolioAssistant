@@ -9,6 +9,8 @@ import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
@@ -299,6 +301,20 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _investorProfileLabel(investorProfile),
                   onTap:
                       () => context.pushNamed(InvestorProfileRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.bookmark_border_rounded,
+                  label: 'settings_porty_memory'.tr(),
+                  subtitle: 'settings_porty_memory_subtitle'.tr(),
+                  onTap: () => context.pushNamed(PortyMemoryRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.checkroom_rounded,
+                  label: 'settings_porty_outfit'.tr(),
+                  subtitle: 'settings_porty_outfit_subtitle'.tr(),
+                  onTap: () => context.pushNamed(PortyOutfitRouter.routeName),
                 ),
               ],
             ),

@@ -70,7 +70,10 @@ void main() {
   // 2026-10-08: subido a 106.000 para las acciones de Porty (propose_* +
   // QaActionProposal + [W:ACTION]): de 101.992 a 104.432 caracteres
   // (+2,4K ≈ +600 tokens, casi todo cacheado).
+  // 2026-10-11: subido a 110.000 para la personalización (alcance solo
+  // finanzas, continuidad, metas de compra, memoria + sus dos tools): de
+  // ~104.400 a 108.343 caracteres (+3,9K ≈ +1K tokens, casi todo cacheado).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(106000));
+    expect(prompt.length, lessThan(110000));
   });
 }

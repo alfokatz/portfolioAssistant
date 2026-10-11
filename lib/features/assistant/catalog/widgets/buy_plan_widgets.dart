@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -9,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetc
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// La card de la compra mensual: qué comprar cada mes y cuánto a cada uno.
 ///
@@ -70,7 +72,11 @@ class BuyPlanCardData {
     required this.annualDividends,
     this.weightedYieldPct,
     this.desiredMonthlyIncome,
+    this.draft,
   });
+
+  /// La meta con este plan y esta compra, para "Guardar en Metas".
+  final GoalDraft? draft;
 
   final int monthlyAmount;
   final List<BuyPlanItem> items;
@@ -159,8 +165,16 @@ class BuyPlanCardData {
       monthlyAfter: i(after['required_monthly_savings']),
       annualDividends: i(after['annual_dividends_at_target']),
       desiredMonthlyIncome: d(income['desired_monthly_income']),
+      draft: GoalDraft.fromToolResult(r),
     );
   }
+}
+
+/// "BIL y SHV", "SCHD, VYM y KO".
+String _joinTickers(List<BuyPlanItem> items) {
+  final t = [for (final i in items) i.ticker];
+  if (t.length <= 1) return t.join();
+  return '${t.sublist(0, t.length - 1).join(', ')} y ${t.last}';
 }
 
 class QaBuyPlanCard extends StatelessWidget {
@@ -218,21 +232,24 @@ class QaBuyPlanCard extends StatelessWidget {
             style: QaText.caption,
           ),
         ),
-        const QaFollowUpBar(
+        if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
+        QaFollowUpBar(
           items: [
-            QaFollowUp(
+            const QaFollowUp(
               'Ver plan actualizado',
               'Mostrame el plan con estos rendimientos',
               icon: Icons.show_chart_rounded,
             ),
-            QaFollowUp(
+            const QaFollowUp(
               'Otros instrumentos',
               'Armá la compra mensual con otros instrumentos',
               icon: Icons.swap_horiz_rounded,
             ),
+            // Con los tickers en la pregunta: "cada uno" solo, el modelo lo
+            // leía como las tenencias de la cartera.
             QaFollowUp(
               'Cuánto paga cada uno',
-              '¿Cuánto paga de dividendos cada uno?',
+              '¿Cuánto paga de dividendos ${_joinTickers(items)}?',
               icon: Icons.payments_outlined,
             ),
           ],

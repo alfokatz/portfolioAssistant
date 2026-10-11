@@ -45,6 +45,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Porty usa el micrófono para que le dictes tus preguntas en el chat.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Porty transcribe lo que dictás para escribir tu pregunta en el chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

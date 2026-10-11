@@ -3,7 +3,9 @@ import 'dart:ui' show PathMetric, lerpDouble;
 
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_accessory_painter.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_breath.dart';
+import 'package:portfolio_assistant/features/porty_outfit/domain/porty_outfit.dart';
 
 /// Qué está haciendo Porty. Cada estado es una expresión de la misma cara
 /// (ver `assets/porty-avatar/states/`) y, si el avatar es animado, un
@@ -393,9 +395,14 @@ class PortyAvatar extends StatefulWidget {
     this.palette = PortyAvatarPalette.brand,
     this.onTap,
     this.thinkingStyle = PortyThinkingStyle.standard,
+    this.outfit,
   });
 
   final PortyAvatarState state;
+
+  /// Accesorios puestos. `null` = los del usuario ([PortyOutfitScope]); solo
+  /// se dibujan con la paleta de marca.
+  final PortyOutfit? outfit;
 
   /// Cómo se ve [PortyAvatarState.thinking] (ver [PortyThinkingStyle]).
   final PortyThinkingStyle thinkingStyle;
@@ -958,7 +965,14 @@ class _PortyAvatarState extends State<PortyAvatar>
       child: SizedBox.square(
         dimension: widget.size,
         child: CustomPaint(
-          painter: PortyAvatarPainter(frame: _frame, palette: widget.palette),
+          painter: PortyAvatarPainter(
+            frame: _frame,
+            palette: widget.palette,
+            outfit:
+                widget.palette == PortyAvatarPalette.brand
+                    ? widget.outfit ?? PortyOutfitScope.of(context)
+                    : PortyOutfit.none,
+          ),
         ),
       ),
     );
@@ -1003,10 +1017,15 @@ class _Pose {
 /// [boxUnits] unidades centrada en el cuerpo (x/y 7–57 del SVG), con margen
 /// para el destello (que llega a y = −4) y el movimiento.
 class PortyAvatarPainter extends CustomPainter {
-  PortyAvatarPainter({required this.frame, required this.palette});
+  PortyAvatarPainter({
+    required this.frame,
+    required this.palette,
+    this.outfit = PortyOutfit.none,
+  });
 
   final PortyFrame frame;
   final PortyAvatarPalette palette;
+  final PortyOutfit outfit;
 
   static const boxUnits = 72.0;
   static const _boxOrigin = -4.0;
@@ -1168,6 +1187,7 @@ class PortyAvatarPainter extends CustomPainter {
       smile: frame.smile,
       boost: boost,
     );
+    if (!outfit.isEmpty) PortyAccessoryPainter.paintBody(canvas, outfit);
     canvas.restore();
 
     // El destello no se mueve con el cuerpo: titila en su lugar.
@@ -1219,6 +1239,9 @@ class PortyAvatarPainter extends CustomPainter {
         ),
         fill,
       );
+    }
+    if (!outfit.isEmpty) {
+      PortyAccessoryPainter.paintFace(canvas, outfit, Offset(cx, cy) + look, r);
     }
 
     final stroke =
@@ -1276,7 +1299,9 @@ class PortyAvatarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PortyAvatarPainter oldDelegate) =>
-      oldDelegate.frame != frame || oldDelegate.palette != palette;
+      oldDelegate.frame != frame ||
+      oldDelegate.palette != palette ||
+      oldDelegate.outfit != outfit;
 }
 
 /// El destello de Porty (el de [PortyAvatarState.thinking]) como glifo

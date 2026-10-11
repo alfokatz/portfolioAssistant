@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
+import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
@@ -17,7 +18,9 @@ class AssistantAdviceFooter extends StatelessWidget {
   final PortfolioQaMessage message;
 
   static bool hasContent(PortfolioQaMessage message) =>
-      message.showsAdviceDisclaimer || message.profileNudge != null;
+      message.showsAdviceDisclaimer ||
+      message.profileNudge != null ||
+      message.rememberedFacts.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +30,8 @@ class AssistantAdviceFooter extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (message.rememberedFacts.isNotEmpty)
+            _MemoryNote(facts: message.rememberedFacts),
           if (nudge != null) _ProfileNudge(nudge: nudge),
           if (message.showsAdviceDisclaimer) const _AdviceDisclaimer(),
         ],
@@ -111,6 +116,69 @@ class _ProfileNudge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Porty anotó: …" — lo que guardó en su memoria en este turno, tocable
+/// para ver o borrar todo lo que sabe (Ajustes → Lo que Porty sabe de vos).
+class _MemoryNote extends StatelessWidget {
+  const _MemoryNote({required this.facts});
+
+  final List<String> facts;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: PortfolioColors.textSecondary,
+      height: 1.4,
+    );
+    return Semantics(
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+        onTap: () => context.pushNamed(PortyMemoryRouter.routeName),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppDimens.sp4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.bookmark_add_outlined,
+                  size: 14,
+                  color: PortfolioColors.accentBlue,
+                ),
+                const SizedBox(width: AppDimens.sp6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'assistant_memory_noted'.tr(),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextSpan(text: ' ${facts.join(' · ')}'),
+                      ],
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
+                ),
+                const SizedBox(width: AppDimens.sp4),
+                Text(
+                  'assistant_memory_see'.tr(),
+                  style: style?.copyWith(
+                    color: PortfolioColors.accentBlueDim,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
