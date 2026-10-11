@@ -908,6 +908,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         openPaywall: (request) => _openGoldPaywall(notifier, request),
         child: QaGoalScope(
           savedFor: ref.watch(goalsProvider).byPlanKey,
+          existingFor: ref.watch(goalsProvider).activeByLabel,
           onSave: _saveGoal,
           onOpen: (id) => GoalsRouter.openDetail(context, id),
           child: QaFollowUpScope(

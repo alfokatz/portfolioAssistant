@@ -101,3 +101,13 @@ Feedback: cargar aportes a mano no lo va a hacer nadie, y una meta podía decir 
 - **Si ya tiene el monto** (en la app o afuera), la meta dice "¡Ya la tenés!", nunca "Atrasada".
 - Detalle: sección "Qué cuenta para esta meta" (cada inversión con su valor, ahorros fuera de la app, "Elegir qué cuenta").
 - Chat: `update_goal_savings` reemplaza a `add_goal_contribution`; el brief trae `counted_holdings` y `outside_savings`.
+
+### Planes: preguntar primero, arrancar de cero y decir en qué invertir
+
+Feedback: "Quiero armar un plan para una meta" tomó la MacBook de la memoria y usó la cartera entera ($55.374) como punto de partida ("ya alcanzada"); el plan "aparte" no decía en qué invertir y usaba 30% acciones a 12 meses.
+
+- **Preguntar primero:** sin saber qué meta, Porty pregunta qué quiere lograr, cuánto cuesta, para cuándo y si ya tiene algo; lo de la memoria es solo una pista ("¿es para la MacBook que me contaste?").
+- **Arranca de cero:** solo la jubilación parte de la cartera; cualquier otra meta, de 0 salvo que diga "usá lo que tengo" (`current_savings`). Lo aplica el código, no depende del modelo.
+- **Menos de 3 años = sin acciones** para toda meta que no sea el retiro (antes solo si el modelo pasaba `goal_type: purchase`).
+- **Instrumentos en cada plan:** `suggested_instruments` (un ETF amplio por clase de activo: SGOV liquidez; VGSH bonos cortos / BND bonos; VT acciones, SCHD si vive de dividendos) con el monto mensual de cada uno. La card muestra "Dónde invertir cada mes" (preview: `2026-10-11-plan-con-instrumentos.png`) y la meta se guarda con ellos (y los cuenta solos).
+- **Sin duplicados:** guardar un plan para una meta con el mismo nombre la actualiza ("Actualizar en Metas").

@@ -909,7 +909,7 @@
   "goals_empty_title": "You don't have goals yet",
   "goals_empty_body": "Tell Porty what you want to achieve (a laptop, a trip, retiring) and it builds a plan. Save it and you'll see your progress here.",
   "goals_new": "Build a goal with Porty",
-  "goals_new_question": "I want to build a plan for a goal",
+  "goals_new_question": "I want to build a plan for a new goal",
   "goals_achieved_section": "Achieved",
   "goals_card_subtitle": "{amount} by {date}",
   "goals_card_saved": "{saved} of {target}",

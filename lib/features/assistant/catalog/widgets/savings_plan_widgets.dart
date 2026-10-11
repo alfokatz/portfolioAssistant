@@ -116,6 +116,7 @@ class SavingsPlanCardData {
       p.growth,
       p.nominalTarget,
       for (final s in p.sensitivities) s.requiredMonthly,
+      for (final i in p.instruments) i.monthly,
       if (income != null) ...[
         if (income.desiredMonthly != null) income.desiredMonthly!,
         income.dividendsCapital,
@@ -186,7 +187,7 @@ class SavingsPlanCardData {
   }
 }
 
-enum _Block { savings, income, growth, progress, allocation, whatIf }
+enum _Block { savings, instruments, income, growth, progress, allocation, whatIf }
 
 class QaSavingsPlanCard extends StatefulWidget {
   const QaSavingsPlanCard({
@@ -238,6 +239,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final hasWhatIf = _plan.sensitivities.isNotEmpty;
     List<_Block> rest(Iterable<_Block> shown) => [
       for (final b in [
+        _Block.instruments,
         _Block.growth,
         _Block.allocation,
         if (hasIncome) _Block.income,
@@ -247,7 +249,8 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     ];
     final top = switch (_focus) {
       SavingsPlanFocus.income => [_Block.income, _Block.savings],
-      SavingsPlanFocus.savings => [_Block.savings],
+      // "¿Cuánto ahorro?" se contesta con el monto Y en qué ponerlo.
+      SavingsPlanFocus.savings => [_Block.savings, _Block.instruments],
       SavingsPlanFocus.growth => [_Block.growth, _Block.savings],
       SavingsPlanFocus.progress => [_Block.progress, _Block.savings],
     };
@@ -325,6 +328,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       _Block.income => ('Cómo cobrarías', _incomeBlock(_income!)),
       _Block.growth => ('Cómo crece', _growth(_plan)),
       _Block.progress => (null, _progress()),
+      _Block.instruments => ('Dónde invertir cada mes', _instruments(_plan)),
       _Block.allocation => ('Cartera sugerida', _allocation(_plan)),
       _Block.whatIf => ('¿Y si cambiás el plazo?', _whatIf(_plan)),
     };
@@ -703,6 +707,70 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         ],
         const SizedBox(height: QaSpace.gap),
         Text(_riskNote(), style: QaText.caption),
+      ],
+    );
+  }
+
+  /// Qué comprar cada mes: un ETF por clase de activo de la cartera, con su
+  /// parte del aporte (el del slider, si lo movió).
+  Widget _instruments(SavingsPlan plan) {
+    final monthly = _monthly ?? plan.monthlyUsed;
+    final items = plan.instruments;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: QaSpace.rowGap),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: QaPalette.series(i),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(items[i].instrument.ticker, style: QaText.value),
+                    Text(
+                      items[i].instrument.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: QaText.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${QaFormat.money(monthly * items[i].weight)}/mes',
+                    style: QaText.value,
+                  ),
+                  Text(
+                    '${(items[i].weight * 100).round()}% · '
+                    '${items[i].instrument.assetClass.label}',
+                    style: QaText.caption,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: QaSpace.gap),
+        Text(
+          'Ejemplos de ETFs amplios y de bajo costo para cada parte de la '
+          'cartera. Podés pedirle a Porty otros.',
+          style: QaText.caption,
+        ),
       ],
     );
   }

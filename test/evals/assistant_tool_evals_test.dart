@@ -301,6 +301,18 @@ final _cases = <_Case>[
     ],
   ),
   _Case(
+    'goal-generico-pregunta',
+    ['Quiero armar un plan para una meta nueva'],
+    (t, _) => [
+      ..._expect(
+        !t.calls.any((c) => c.name == 'get_goal_projection'),
+        'armó un plan sin saber la meta: ${t.calls.map((c) => c.name)}',
+      ),
+      ..._expect(t.text.contains('?'), 'no preguntó qué meta'),
+    ],
+    tier: SubscriptionTier.premium,
+  ),
+  _Case(
     'purchase-busca-precio',
     ['Quiero comprarme la MacBook Neo rosa en 14 meses, ¿cuánto ahorro por mes?'],
     (t, _) => [

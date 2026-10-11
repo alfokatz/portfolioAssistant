@@ -135,6 +135,8 @@ void main() {
       // Ida y vuelta por la columna jsonb.
       final back = GoalPlanSnapshot.fromJson(draft.snapshot.toJson())!;
       expect(back.inputs.targetAmount, 2500);
+      // Sin compra mensual armada, se guarda con los instrumentos del plan.
+      expect([for (final e in draft.snapshot.buyPlan) e.ticker], ['SGOV', 'VGSH']);
     });
 
     test('save_goal stores the latest plan of the conversation in Metas', () async {
