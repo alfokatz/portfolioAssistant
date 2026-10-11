@@ -111,3 +111,11 @@ Feedback: "Quiero armar un plan para una meta" tomó la MacBook de la memoria y 
 - **Menos de 3 años = sin acciones** para toda meta que no sea el retiro (antes solo si el modelo pasaba `goal_type: purchase`).
 - **Instrumentos en cada plan:** `suggested_instruments` (un ETF amplio por clase de activo: SGOV liquidez; VGSH bonos cortos / BND bonos; VT acciones, SCHD si vive de dividendos) con el monto mensual de cada uno. La card muestra "Dónde invertir cada mes" (preview: `2026-10-11-plan-con-instrumentos.png`) y la meta se guarda con ellos (y los cuenta solos).
 - **Sin duplicados:** guardar un plan para una meta con el mismo nombre la actualiza ("Actualizar en Metas").
+
+### La meta se propone y se confirma
+
+Feedback: "un auto de 25 mil en 3 años" se contestó solo con texto (651/mes, 85% acciones): sin la card del plan, sin el desglose de en qué invertir, y la meta recién se guardó después de insistir y decir "sí".
+
+- **La card siempre aparece:** si en el turno se calculó un plan completo y la respuesta no lo muestra, `AssistantAnswerReview.postProcess` agrega `QaSavingsPlan` (o `QaBuyPlan`) después del texto; si el modelo puso un `planId` que no existe, se corrige al del plan del turno.
+- **Confirmar para crear:** la card es la propuesta y termina con "Confirmar y crear meta" (o "Confirmar y actualizar meta" si ya hay una con ese nombre); después queda "Meta creada en Metas · Ver". El prompt pide invitar a revisar y confirmar en la card, sin "¿la guardo?" (un "sí" verbal sigue funcionando con `save_goal`). Preview: `2026-10-11-meta-confirmar.png`.
+- **3 años es corto plazo:** el corte pasa a `<= 36` meses (antes 36 meses justos caía en la cartera del perfil, con acciones).

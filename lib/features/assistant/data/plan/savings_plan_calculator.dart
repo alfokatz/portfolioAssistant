@@ -60,14 +60,14 @@ abstract final class PlanAssumptions {
   /// los trae Porty con datos.
   static const dividendYield = 0.035;
 
-  /// Con menos que esto, la parte en acciones puede caer y no recuperarse a
+  /// Hasta este plazo (inclusive), la parte en acciones puede caer y no recuperarse a
   /// tiempo: el plan pasa a conservador.
   static const shortHorizonMonths = 36;
 
   /// Cuánto se adelanta/posterga la meta en "¿Qué pasa si…?".
   static const sensitivityMonths = 60;
 
-  /// Cartera de una compra a menos de [shortHorizonMonths]: la plata se
+  /// Cartera de una compra a [shortHorizonMonths] o menos: la plata se
   /// necesita en meses, así que va casi toda a liquidez (cuentas
   /// remuneradas, fondos de money market, letras del Tesoro) y el resto a
   /// bonos cortos. Nada en acciones, sea cual sea el perfil.
