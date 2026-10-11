@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_analysis.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -220,15 +221,16 @@ class _NewGoalButton extends StatelessWidget {
 }
 
 /// Una meta en la lista: nombre, monto y fecha, barra de progreso y el
-/// veredicto ("En camino", "Atrasada"…).
-class _GoalCard extends StatelessWidget {
+/// veredicto ("En camino", "Atrasada"…). Deslizarla a la izquierda la borra
+/// (con confirmación); mantenerla apretada abre sus opciones.
+class _GoalCard extends ConsumerWidget {
   const _GoalCard({required this.goal, required this.progress});
 
   final UserGoal goal;
   final GoalProgress progress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final statusColor = GoalAnalysis.statusColor(progress.status, colors);
@@ -236,7 +238,7 @@ class _GoalCard extends StatelessWidget {
       Localizations.localeOf(context).toLanguageTag(),
     ).format(goal.targetDate);
 
-    return Material(
+    final card = Material(
       color: colors.surfaceCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
@@ -245,6 +247,7 @@ class _GoalCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => GoalsRouter.openDetail(context, goal.id),
+        onLongPress: () => GoalActions.showMenu(context, ref, goal),
         child: Padding(
           padding: const EdgeInsets.all(AppDimens.cardPadding),
           child: Column(
@@ -322,6 +325,43 @@ class _GoalCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+
+    return Semantics(
+      onLongPressHint: 'goal_options'.tr(),
+      child: Dismissible(
+        key: ValueKey('goal-${goal.id}'),
+        direction: DismissDirection.endToStart,
+        // El borrado lo hace confirmDelete (que ya la saca de la lista):
+        // el Dismissible solo vuelve a su lugar si se cancela.
+        confirmDismiss: (_) async {
+          await GoalActions.confirmDelete(context, ref, goal);
+          return false;
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: AppDimens.sp24),
+          decoration: BoxDecoration(
+            color: colors.loss.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline, color: colors.loss),
+              const SizedBox(width: AppDimens.sp6),
+              Text(
+                'goal_delete_confirm'.tr(),
+                style: tt.labelLarge?.copyWith(
+                  color: colors.loss,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        child: card,
       ),
     );
   }

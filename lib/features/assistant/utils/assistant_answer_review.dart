@@ -8,10 +8,12 @@ import 'package:portfolio_assistant/features/assistant/data/analysis/company_ana
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_layout_guard.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 /// Revisión de la respuesta final de Porty, en dos momentos del turno:
 ///
@@ -272,6 +274,13 @@ abstract final class AssistantAnswerReview {
       changed = true;
     }
 
+    if (_withPlanCard(list, components, root, evidence)) {
+      changed = true;
+      components
+        ..clear()
+        ..addAll(list.whereType<Map<String, dynamic>>());
+    }
+
     final planBacking = _planBacking(components, evidence);
     if (planBacking != null) {
       for (final c in components) {
@@ -303,6 +312,77 @@ abstract final class AssistantAnswerReview {
       }
     }
     return changed ? jsonEncode(message) : line;
+  }
+
+  /// El último resultado de ESTE turno con un plan completo para mostrar.
+  static ToolCallRecord? _turnPlan(TurnEvidence evidence) {
+    for (final call in evidence.turnCalls.reversed) {
+      if (!SavingsPlanCardData.toolNames.contains(call.name)) continue;
+      if (call.status != 'ok' || call.result['has_complete_goal'] != true) {
+        continue;
+      }
+      if (SavingsPlanCardData.fromToolResult(call.result) == null) continue;
+      return call;
+    }
+    return null;
+  }
+
+  /// Si en ESTE turno se calculó un plan completo, la respuesta lo muestra
+  /// en su card (con el botón para confirmar y crear la meta). Visto: "un
+  /// auto de 25 mil en 3 años" contestado solo con texto — sin el desglose
+  /// ni forma de crear la meta. Si el modelo puso la card con un `planId`
+  /// que no existe, se corrige al del plan del turno; si no la puso, va
+  /// después del texto.
+  static bool _withPlanCard(
+    List list,
+    List<Map<String, dynamic>> components,
+    Map<String, dynamic>? root,
+    TurnEvidence evidence,
+  ) {
+    final call = _turnPlan(evidence);
+    if (call == null || root == null || root['children'] is! List) {
+      return false;
+    }
+    final planId = call.result[GoalProjectionBuilder.planIdKey];
+    final buyPlanId = call.result[BuyPlanBuilder.buyPlanIdKey];
+    var changed = false;
+    var shown = false;
+    for (final c in components) {
+      if (c['component'] == 'QaBuyPlan') {
+        shown = true;
+      } else if (c['component'] == 'QaSavingsPlan') {
+        shown = true;
+        if (SavingsPlanCardData.from(evidence.calls, '${c['planId']}') ==
+            null) {
+          c['planId'] = planId;
+          changed = true;
+        }
+      }
+    }
+    if (shown) return changed;
+
+    final buy =
+        call.name == GetMonthlyBuyPlanTool.toolName && buyPlanId != null;
+    final id = buy ? 'buyPlanCard' : 'planCard';
+    list.add(
+      buy
+          ? {'id': id, 'component': 'QaBuyPlan', 'buyPlanId': buyPlanId}
+          : {
+            'id': id,
+            'component': 'QaSavingsPlan',
+            'planId': planId,
+            'focus': SavingsPlanFocus.savings.key,
+          },
+    );
+    final children = List.of(root['children'] as List);
+    final introAt = children.lastIndexWhere(
+      (child) => components.any(
+        (c) => c['id'] == child && c['component'] == 'QaAnswerText',
+      ),
+    );
+    children.insert(introAt < 0 ? 0 : introAt + 1, id);
+    root['children'] = children;
+    return true;
   }
 
   static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};

@@ -143,10 +143,10 @@ abstract final class GoalProjectionBuilder {
         (isRetirement ??
             (incomeTarget != null ||
                 looksLikeRetirement('${active['label']}')));
-    // Plata que se necesita en menos de 3 años (una compra, un viaje… todo
+    // Plata que se necesita en 3 años o menos (una compra, un viaje… todo
     // menos el retiro): liquidez y bonos cortos, sin acciones.
     final shortTermPurchase =
-        !retirement && months < PlanAssumptions.shortHorizonMonths;
+        !retirement && months <= PlanAssumptions.shortHorizonMonths;
 
     final chosenRisk = statedRisk ?? profile?.risk ?? RiskTolerance.moderate;
     final riskSource =
@@ -159,7 +159,7 @@ abstract final class GoalProjectionBuilder {
     // tiempo, así que el plan va conservador aunque el perfil no lo sea.
     final shortHorizon =
         !shortTermPurchase &&
-        months < PlanAssumptions.shortHorizonMonths &&
+        months <= PlanAssumptions.shortHorizonMonths &&
         chosenRisk != RiskTolerance.conservative;
     final risk = shortHorizon ? RiskTolerance.conservative : chosenRisk;
 

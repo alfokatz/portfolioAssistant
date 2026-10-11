@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -289,5 +291,65 @@ void main() {
       const TurnEvidence(calls: [locked], turnCalls: [locked]),
     );
     expect(out, isNot(contains('QaGoldTeaser')));
+  });
+
+  group('goal plan card', () {
+    final plan = ToolCallRecord(
+      name: GetGoalProjectionTool.toolName,
+      args: const {},
+      result: {
+        'status': 'ok',
+        ...GoalProjectionBuilder.build(
+          currentPortfolioValue: 10000,
+          targetAmount: 25000,
+          targetDate: DateTime.utc(2029, 10, 11),
+          label: 'Auto',
+          isPurchase: true,
+          asOf: DateTime.utc(2026, 10, 11),
+        ),
+      },
+    );
+    final planId = plan.result[GoalProjectionBuilder.planIdKey];
+
+    List<Map> components(String out) =>
+        (((jsonDecode(out) as Map)['updateComponents'] as Map)['components']
+                as List)
+            .cast<Map>();
+
+    test('a complete plan answered with text only gets its card', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Te armé el plan para el auto.')]),
+        TurnEvidence(calls: [plan], turnCalls: [plan]),
+      );
+      final all = components(out);
+      expect(all.firstWhere((c) => c['id'] == 'root')['children'], [
+        'a',
+        'planCard',
+      ]);
+      final card = all.firstWhere((c) => c['id'] == 'planCard');
+      expect(card['component'], 'QaSavingsPlan');
+      expect(card['planId'], planId);
+    });
+
+    test('a card with a wrong planId is pointed at the plan of the turn', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('Te armé el plan para el auto.'),
+          {'id': 'p', 'component': 'QaSavingsPlan', 'planId': 'plan_x'},
+        ]),
+        TurnEvidence(calls: [plan], turnCalls: [plan]),
+      );
+      final all = components(out);
+      expect(all.where((c) => c['component'] == 'QaSavingsPlan'), hasLength(1));
+      expect(all.firstWhere((c) => c['id'] == 'p')['planId'], planId);
+    });
+
+    test('a plan from an earlier turn is not injected', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('¿Para cuándo lo necesitás?')]),
+        TurnEvidence(calls: [plan]),
+      );
+      expect(out, isNot(contains('QaSavingsPlan')));
+    });
   });
 }
