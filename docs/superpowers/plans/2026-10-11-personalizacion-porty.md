@@ -119,3 +119,15 @@ Feedback: "un auto de 25 mil en 3 años" se contestó solo con texto (651/mes, 8
 - **La card siempre aparece:** si en el turno se calculó un plan completo y la respuesta no lo muestra, `AssistantAnswerReview.postProcess` agrega `QaSavingsPlan` (o `QaBuyPlan`) después del texto; si el modelo puso un `planId` que no existe, se corrige al del plan del turno.
 - **Confirmar para crear:** la card es la propuesta y termina con "Confirmar y crear meta" (o "Confirmar y actualizar meta" si ya hay una con ese nombre); después queda "Meta creada en Metas · Ver". El prompt pide invitar a revisar y confirmar en la card, sin "¿la guardo?" (un "sí" verbal sigue funcionando con `save_goal`). Preview: `2026-10-11-meta-confirmar.png`.
 - **3 años es corto plazo:** el corte pasa a `<= 36` meses (antes 36 meses justos caía en la cartera del perfil, con acciones).
+
+### Rediseño del detalle de una meta
+
+Feedback: "El plan de Porty" era texto plano y confuso; "Preguntarle a Porty" con el ícono de chat viejo; sin logos en "Qué cuenta"; el modal "Elegir qué cuenta" se abría hasta arriba y tapaba la manija; Porty siempre con la misma cara.
+
+- **Cómo vas:** monto + porcentaje, barra, tres datos (por mes — o "desde hoy" si vas atrasado —, meses que quedan, cuánto falta) y el análisis de Porty en una burbuja del color del estado. Porty cambia de cara (`goalMood`): sonrisa leve al empezar o al día, sonrisa grande si vas adelantado o ya la tenés, preocupado si vas atrasado o venció.
+- **El plan de Porty** (ahora antes de "Qué cuenta"): "Invertí cada mes" grande con la etiqueta del perfil o "Corto plazo", barra de composición con leyenda, nota de corto plazo y "En qué invertir" con logo, nombre, monto por mes y % del aporte (el puntito de color une cada inversión con su parte de la barra).
+- **Qué cuenta para esta meta:** logos; las inversiones que tenés llevan chevron y abren el detalle de la acción; ahorros fuera de la app con ícono de editar; "Elegir qué cuenta" como fila dentro de la card.
+- **Modal "Elegir qué cuenta":** `useSafeArea` y máximo 75% de la pantalla (la manija siempre se ve); logos en la lista. El de "ahorros fuera de la app" también respeta el área segura.
+- **Preguntarle a Porty:** card con el avatar de Porty y un subtítulo, en vez del ícono de chat.
+- Texto de borrar actualizado ("Tus inversiones no se tocan"; ya no hay aportes registrados).
+- Preview (claro, oscuro y el modal): `2026-10-11-meta-detalle.png`.
