@@ -362,23 +362,23 @@ abstract final class PortyAccessoryPainter {
         _stroke(_cream, 1.1),
       )
       ..drawCircle(const Offset(32.5, -0.4), 1.6, _fill(_redDark));
-    // Visera: nace del borde de la copa (su borde de arriba ES el borde de
-    // la copa) y sale por delante hacia la derecha, apenas hacia abajo.
+    // Visera de tres cuartos: ancha y curva, apoyada en el borde de la copa
+    // por delante de la frente y corrida hacia la derecha.
     final visor =
         Path()
-          ..moveTo(45, 13.7)
-          ..quadraticBezierTo(49.5, 14.2, 53, 15)
-          ..cubicTo(57, 14.4, 62, 14, 66, 14.8)
-          ..cubicTo(65.4, 16.8, 61.5, 17.8, 55, 17.9)
-          ..cubicTo(50.5, 18, 47, 16.8, 45, 13.7)
+          ..moveTo(20, 14.6)
+          ..quadraticBezierTo(40, 9.8, 54, 14.6)
+          ..cubicTo(60, 15.4, 64, 17, 63, 19.4)
+          ..cubicTo(56, 21.6, 44, 20.2, 36, 19.4)
+          ..cubicTo(28, 18.8, 21, 18.6, 20, 14.6)
           ..close();
     canvas
       ..drawPath(visor, _fill(_redDark))
       ..drawPath(
         Path()
-          ..moveTo(49, 15.9)
-          ..cubicTo(53, 16.6, 59, 16.4, 63.5, 15.6),
-        _stroke(_red, 0.8),
+          ..moveTo(23, 16.2)
+          ..quadraticBezierTo(42, 13.4, 60, 18),
+        _stroke(_red, 0.9),
       );
   }
 
