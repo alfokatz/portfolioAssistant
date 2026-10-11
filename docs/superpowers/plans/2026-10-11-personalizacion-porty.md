@@ -66,7 +66,7 @@
 - Permisos: `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription` (iOS); `RECORD_AUDIO` + `queries` de `RecognitionService` (Android).
 
 ### E. Accesorios de Porty
-- `PortyOutfit` (cabeza / cara / cuello) con 10 accesorios: gorro de lana, gorro de fiesta, galera, gorra, corona, moño, flor; anteojos, anteojos de sol; moño corbata.
+- `PortyOutfit` (cabeza / cara / cuello) con 11 accesorios: gorro de lana, gorro de fiesta, galera, gorra, corona, moño, flor; anteojos, anteojos de sol; moño corbata.
 - `PortyAvatarPainter` los dibuja dentro de la transformación del cuerpo (respiran, se inclinan y saltan con Porty); los de la cara siguen a los ojos.
 - Preview: `2026-10-11-porty-accesorios.png` (arriba en reposo, abajo pensando).
 - `PortyOutfitScope` en la raíz de la app: todo `PortyAvatar` lo usa sin cambiar los call sites. Solo con la paleta de marca.

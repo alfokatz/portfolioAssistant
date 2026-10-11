@@ -12,15 +12,27 @@ abstract final class PortyAccessoryPainter {
   static const _ink = Color(0xFF2F3437);
   static const _teal = Color(0xFF3F7F86);
   static const _tealDark = Color(0xFF2F646A);
-  static const _tealLight = Color(0xFF8FC1C4);
   static const _gold = Color(0xFFF2C14E);
   static const _goldDark = Color(0xFFD29B2E);
   static const _pink = Color(0xFFE86A8E);
   static const _pinkDark = Color(0xFFC94C72);
-  static const _blue = Color(0xFF3E6FB0);
-  static const _blueDark = Color(0xFF2D568C);
   static const _red = Color(0xFFC4533A);
+  static const _redDark = Color(0xFF8F3324);
   static const _cream = Color(0xFFFFF4E6);
+  static const _creamDark = Color(0xFFE3D3BF);
+  static const _navy = Color(0xFF2E4A7D);
+  static const _navyDark = Color(0xFF233961);
+  static const _navyLight = Color(0xFF4A6AA3);
+  static const _purple = Color(0xFF6A3FC2);
+  static const _purpleLight = Color(0xFF8A63DB);
+  static const _yellow = Color(0xFFFFD23F);
+  static const _cyan = Color(0xFF2EC4E6);
+  static const _coral = Color(0xFFFF5C5C);
+  static const _brown = Color(0xFFA2693B);
+  static const _brownDark = Color(0xFF7A4B27);
+  static const _brownBand = Color(0xFF4A2D17);
+  static const _leaf = Color(0xFF6FA36B);
+  static const _leafDark = Color(0xFF4F7F4C);
 
   static Paint _fill(Color color) => Paint()..color = color;
 
@@ -47,6 +59,8 @@ abstract final class PortyAccessoryPainter {
         _partyHat(canvas);
       case PortyAccessory.topHat:
         _topHat(canvas);
+      case PortyAccessory.cowboyHat:
+        _cowboyHat(canvas);
       case PortyAccessory.cap:
         _cap(canvas);
       case PortyAccessory.crown:
@@ -82,131 +96,236 @@ abstract final class PortyAccessoryPainter {
   // Cabeza
   // -------------------------------------------------------------------------
 
+  /// Gorro de lana bien puesto: baja hasta arriba de los ojos y envuelve
+  /// los costados de la cabeza, con el doblez tejido y un pompón.
   static void _beanie(Canvas canvas) {
     final dome =
         Path()
-          ..moveTo(11, 15)
-          ..cubicTo(11, 4, 21, -0.5, 33, -0.5)
-          ..cubicTo(45, -0.5, 55, 4, 55, 14)
-          ..quadraticBezierTo(33, 7, 11, 15)
+          ..moveTo(8.2, 22)
+          ..cubicTo(7.2, 8, 19, -1.5, 33, -1.5)
+          ..cubicTo(47, -1.5, 57.6, 8, 56.8, 21)
+          ..quadraticBezierTo(33, 15.5, 8.2, 22)
           ..close();
-    canvas.drawPath(dome, _fill(_teal));
-    final band =
+    canvas.drawPath(dome, _fill(_navy));
+    // Pliegues del tejido en la copa.
+    final knit = _stroke(_navyDark, 0.9);
+    for (final x in [18.0, 25.5, 33.0, 40.5, 48.0]) {
+      canvas.drawPath(
         Path()
-          ..moveTo(9.5, 13.5)
-          ..quadraticBezierTo(33, 5, 56.5, 12.5)
-          ..lineTo(57, 17.5)
-          ..quadraticBezierTo(33, 10.5, 9, 18.5)
+          ..moveTo(x + (x - 33) * 0.35, 4 + (x - 33).abs() * 0.12)
+          ..quadraticBezierTo(x + (x - 33) * 0.1, 9, x, 13.5),
+        knit,
+      );
+    }
+    // Doblez: una banda más clara que sigue la curva del borde.
+    final cuff =
+        Path()
+          ..moveTo(7.6, 14.8)
+          ..quadraticBezierTo(33, 7.5, 57.4, 14)
+          ..lineTo(56.8, 21.8)
+          ..quadraticBezierTo(33, 16.2, 8.2, 22.8)
           ..close();
-    canvas.drawPath(band, _fill(_tealDark));
-    final rib = _stroke(_teal, 1.1);
-    for (var i = 1; i < 8; i++) {
-      final x = 9.5 + i * 5.9;
-      // La banda es una curva: cada costilla sigue su altura.
-      final t = (x - 9.5) / 47;
-      final top = 13.5 - 4.2 * (1 - math.pow(2 * t - 1, 2)) + 0.8;
-      canvas.drawLine(Offset(x, top), Offset(x, top + 3.6), rib);
+    canvas.drawPath(cuff, _fill(_navyLight));
+    final rib = _stroke(_navy, 1);
+    for (var i = 1; i < 10; i++) {
+      final x = 7.6 + i * 4.98;
+      final t = (x - 7.6) / 49.8;
+      final bump = 1 - math.pow(2 * t - 1, 2);
+      final top = 14.6 - 3.5 * bump + 0.9;
+      final bottom = 22.4 - 2.9 * bump - 0.7;
+      canvas.drawLine(Offset(x, top), Offset(x, bottom), rib);
     }
     canvas
-      ..drawCircle(const Offset(33, -0.8), 3.2, _fill(_tealLight))
-      ..drawCircle(const Offset(32, -1.8), 1.1, _fill(_cream));
+      ..drawCircle(const Offset(33, -0.6), 3.3, _fill(_cream))
+      ..drawCircle(const Offset(33, -0.6), 3.3, _stroke(_creamDark, 0.7));
   }
 
+  /// Gorro de cumpleaños: violeta con lunares de colores, ribete dorado en
+  /// zigzag, pompón dorado con destellos y confeti alrededor.
   static void _partyHat(Canvas canvas) {
-    const apex = Offset(37, -2);
+    const apex = Offset(36.5, -1.8);
     final cone =
         Path()
           ..moveTo(apex.dx, apex.dy)
-          ..lineTo(49, 11)
-          ..quadraticBezierTo(35, 14.5, 21.5, 10)
+          ..lineTo(50, 11.5)
+          ..quadraticBezierTo(35, 15, 20.5, 10.5)
           ..close();
     canvas
       ..save()
       ..clipPath(cone)
-      ..drawPath(cone, _fill(_gold));
-    final stripe = _stroke(_pink, 2.4);
-    for (final y in [2.5, 8.5]) {
-      canvas.drawLine(Offset(20, y + 2), Offset(52, y - 2), stripe);
+      ..drawPath(cone, _fill(_purple));
+    // Franjas diagonales + lunares.
+    final stripe = _stroke(_purpleLight, 2.2);
+    for (final y in [1.0, 7.0, 13.0]) {
+      canvas.drawLine(Offset(18, y + 6), Offset(54, y - 6), stripe);
     }
-    canvas
-      ..restore()
-      ..drawCircle(apex, 2.1, _fill(_pink));
+    for (final (dot, color) in const [
+      (Offset(36, 4.5), _yellow),
+      (Offset(31, 9.5), _cyan),
+      (Offset(42, 9), _coral),
+      (Offset(38.5, 1.6), _cyan),
+    ]) {
+      canvas.drawCircle(dot, 1.25, _fill(color));
+    }
+    canvas.restore();
+    // Ribete en zigzag sobre la base.
+    final trim = Path()..moveTo(20.5, 10.5);
+    for (var i = 1; i <= 10; i++) {
+      final t = i / 10;
+      final x = 20.5 + 29.5 * t;
+      final y = 10.5 + 4.5 * math.sin(math.pi * t) * 0.9 + 1 * t;
+      trim.lineTo(x, i.isOdd ? y + 1.8 : y);
+    }
+    canvas.drawPath(trim, _stroke(_gold, 1.6));
+    // Pompón con destellos.
+    final burst = _stroke(_gold, 0.9);
+    for (var i = 0; i < 6; i++) {
+      final a = -math.pi / 2 + (i - 2.5) * 0.55;
+      final dir = Offset(math.cos(a), math.sin(a));
+      canvas.drawLine(apex + dir * 2.8, apex + dir * 4.4, burst);
+    }
+    canvas.drawCircle(apex, 2.4, _fill(_gold));
+    // Confeti.
+    for (final (pos, color, angle) in const [
+      (Offset(13.5, 4.5), _coral, 0.5),
+      (Offset(56, 3), _cyan, -0.6),
+      (Offset(59.5, 10.5), _yellow, 0.9),
+      (Offset(9.5, 11.5), _cyan, -0.3),
+      (Offset(25, -1.5), _yellow, 0.2),
+      (Offset(49, -2), _coral, 1.1),
+    ]) {
+      canvas
+        ..save()
+        ..translate(pos.dx, pos.dy)
+        ..rotate(angle)
+        ..drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset.zero, width: 3, height: 1.4),
+            const Radius.circular(0.5),
+          ),
+          _fill(color),
+        )
+        ..restore();
+    }
   }
 
-  static void _topHat(Canvas canvas) {
+  /// Sombrero cowboy, marrón: ala ancha que sube en las puntas, copa con
+  /// el hundido arriba y cinta oscura.
+  static void _cowboyHat(Canvas canvas) {
     final crown =
         Path()
-          ..moveTo(22.5, 9)
-          ..lineTo(23.5, -2.5)
-          ..quadraticBezierTo(33, -3.8, 42.5, -2.5)
-          ..lineTo(43.5, 9)
+          ..moveTo(20.5, 10)
+          ..cubicTo(20, 4, 20.5, -0.5, 24, -1.5)
+          ..quadraticBezierTo(28.5, -2.2, 33, 0.8)
+          ..quadraticBezierTo(37.5, -2.2, 42, -1.5)
+          ..cubicTo(45.5, -0.5, 46, 4, 45.5, 10)
           ..close();
     canvas
-      ..drawPath(crown, _fill(_ink))
-      ..drawRect(const Rect.fromLTRB(22.9, 4, 43.1, 7.4), _fill(_red))
-      ..drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTRB(13.5, 8, 52.5, 12),
-          const Radius.circular(2),
-        ),
-        _fill(_ink),
-      );
-  }
-
-  static void _cap(Canvas canvas) {
-    final visor =
-        Path()
-          ..moveTo(45, 10.5)
-          ..quadraticBezierTo(58, 8.5, 65, 12.5)
-          ..quadraticBezierTo(57, 16.5, 46, 15.5)
-          ..close();
-    canvas.drawPath(visor, _fill(_blueDark));
-    final dome =
-        Path()
-          ..moveTo(12, 15.5)
-          ..cubicTo(12, 6, 21, 0.5, 33, 0.5)
-          ..cubicTo(44, 0.5, 52, 5.5, 52.5, 13.5)
-          ..quadraticBezierTo(33, 8.5, 12, 15.5)
-          ..close();
-    canvas
-      ..drawPath(dome, _fill(_blue))
+      ..drawPath(crown, _fill(_brown))
+      // El hundido de la copa.
       ..drawPath(
         Path()
           ..moveTo(33, 1)
-          ..quadraticBezierTo(31, 6, 32, 10.5),
-        _stroke(_blueDark, 0.9),
+          ..quadraticBezierTo(32.6, 3.5, 33, 5.5),
+        _stroke(_brownDark, 1),
       )
-      ..drawCircle(const Offset(33, 1), 1.5, _fill(_blueDark));
-  }
-
-  static void _crown(Canvas canvas) {
-    final crown =
+      ..drawPath(
         Path()
-          ..moveTo(21, 11)
-          ..lineTo(20, 1)
-          ..lineTo(26.5, 5.5)
-          ..lineTo(33, -2.5)
-          ..lineTo(39.5, 5.5)
-          ..lineTo(46, 1)
-          ..lineTo(45, 11)
-          ..quadraticBezierTo(33, 12.5, 21, 11)
+          ..moveTo(20.6, 6)
+          ..quadraticBezierTo(33, 8, 45.4, 6)
+          ..lineTo(45.5, 9.6)
+          ..quadraticBezierTo(33, 11.5, 20.5, 9.6)
+          ..close(),
+        _fill(_brownBand),
+      );
+    final brim =
+        Path()
+          ..moveTo(5, 6.5)
+          ..cubicTo(9, 11.5, 19, 9.6, 33, 10.2)
+          ..cubicTo(47, 9.6, 57, 11.5, 61, 6.5)
+          ..cubicTo(60.5, 12.5, 52, 16.2, 33, 16)
+          ..cubicTo(14, 16.2, 5.5, 12.5, 5, 6.5)
           ..close();
     canvas
-      ..drawPath(crown, _fill(_gold))
-      ..drawPath(crown, _stroke(_goldDark, 0.9))
-      ..drawCircle(const Offset(33, 7.5), 1.7, _fill(_red))
-      ..drawCircle(const Offset(25.5, 8.5), 1.2, _fill(_teal))
-      ..drawCircle(const Offset(40.5, 8.5), 1.2, _fill(_teal));
-    for (final tip in const [Offset(20, 1), Offset(33, -2.5), Offset(46, 1)]) {
-      canvas.drawCircle(tip, 1.2, _fill(_goldDark));
-    }
+      ..drawPath(brim, _fill(_brown))
+      ..drawPath(
+        Path()
+          ..moveTo(9, 10.6)
+          ..cubicTo(16, 14.4, 50, 14.4, 57, 10.6),
+        _stroke(_brownDark, 0.8),
+      );
+  }
+
+  /// Gorra de frente: copa en gajos, botón arriba y la visera curva sobre
+  /// la frente.
+  static void _cap(Canvas canvas) {
+    final crown =
+        Path()
+          ..moveTo(11, 14.5)
+          ..cubicTo(10.5, 5, 20.5, -0.8, 33, -0.8)
+          ..cubicTo(45.5, -0.8, 55.5, 5, 55, 14.5)
+          ..close();
+    canvas.drawPath(crown, _fill(_red));
+    final seam = _stroke(_redDark, 0.9);
+    canvas
+      ..drawPath(
+        Path()
+          ..moveTo(33, -0.6)
+          ..lineTo(33, 13),
+        seam,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(31.5, -0.5)
+          ..quadraticBezierTo(21, 3, 19.5, 13.5),
+        seam,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(34.5, -0.5)
+          ..quadraticBezierTo(45, 3, 46.5, 13.5),
+        seam,
+      )
+      // Escudito de la gorra.
+      ..drawCircle(const Offset(33, 7.5), 2.2, _fill(_cream))
+      ..drawCircle(const Offset(33, -0.6), 1.5, _fill(_redDark));
+    final visor =
+        Path()
+          ..moveTo(10, 13.5)
+          ..quadraticBezierTo(33, 9, 56, 13.5)
+          ..quadraticBezierTo(57, 18, 52, 19)
+          ..quadraticBezierTo(33, 15.5, 14, 19)
+          ..quadraticBezierTo(9, 18, 10, 13.5)
+          ..close();
+    canvas
+      ..drawPath(visor, _fill(_redDark))
+      ..drawPath(
+        Path()
+          ..moveTo(14, 15.8)
+          ..quadraticBezierTo(33, 12, 52, 15.8),
+        _stroke(_red, 0.8),
+      );
+  }
+
+  /// Vincha que va de lado a lado de la cabeza, pegada al contorno, para
+  /// que el moño o la flor no queden flotando.
+  static void _headband(Canvas canvas, Color color, Color shade) {
+    final band =
+        Path()
+          ..moveTo(9.4, 25)
+          ..cubicTo(9.6, 14, 19.5, 8.6, 33, 8.6)
+          ..cubicTo(46.5, 8.6, 55.6, 14, 55.6, 24.5);
+    canvas
+      ..drawPath(band, _stroke(color, 3))
+      ..drawPath(band, _stroke(shade, 0.7)..color = shade.withValues(alpha: 0.5));
   }
 
   static void _bow(Canvas canvas) {
+    _headband(canvas, _pink, _pinkDark);
     canvas
       ..save()
-      ..translate(45, 9)
-      ..rotate(-0.35);
+      ..translate(44, 10.5)
+      ..rotate(-0.4);
     final left =
         Path()
           ..moveTo(0, 0)
@@ -235,7 +354,20 @@ abstract final class PortyAccessoryPainter {
   }
 
   static void _flower(Canvas canvas) {
-    const center = Offset(18.5, 11);
+    _headband(canvas, _leaf, _leafDark);
+    const center = Offset(20, 12);
+    // Hojitas a los costados, sobre la vincha.
+    for (final (angle, dx) in const [(-0.5, -5.5), (0.5, 5.5)]) {
+      canvas
+        ..save()
+        ..translate(center.dx + dx, center.dy + 1.5)
+        ..rotate(angle)
+        ..drawOval(
+          Rect.fromCenter(center: Offset.zero, width: 5.5, height: 2.6),
+          _fill(_leaf),
+        )
+        ..restore();
+    }
     for (var i = 0; i < 5; i++) {
       final angle = -math.pi / 2 + i * 2 * math.pi / 5;
       canvas.drawCircle(
@@ -249,43 +381,97 @@ abstract final class PortyAccessoryPainter {
       ..drawCircle(center, 3, _stroke(_goldDark, 0.6));
   }
 
+  static void _topHat(Canvas canvas) {
+    final crown =
+        Path()
+          ..moveTo(22.5, 9)
+          ..lineTo(23.5, -2.5)
+          ..quadraticBezierTo(33, -3.8, 42.5, -2.5)
+          ..lineTo(43.5, 9)
+          ..close();
+    canvas
+      ..drawPath(crown, _fill(_ink))
+      ..drawRect(const Rect.fromLTRB(22.9, 4, 43.1, 7.4), _fill(_red))
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTRB(13.5, 8, 52.5, 12),
+          const Radius.circular(2),
+        ),
+        _fill(_ink),
+      );
+  }
+
+  static void _crown(Canvas canvas) {
+    final crown =
+        Path()
+          ..moveTo(21, 11)
+          ..lineTo(20, 1)
+          ..lineTo(26.5, 5.5)
+          ..lineTo(33, -2.5)
+          ..lineTo(39.5, 5.5)
+          ..lineTo(46, 1)
+          ..lineTo(45, 11)
+          ..quadraticBezierTo(33, 12.5, 21, 11)
+          ..close();
+    canvas
+      ..drawPath(crown, _fill(_gold))
+      ..drawPath(crown, _stroke(_goldDark, 0.9))
+      ..drawCircle(const Offset(33, 7.5), 1.7, _fill(_red))
+      ..drawCircle(const Offset(25.5, 8.5), 1.2, _fill(_teal))
+      ..drawCircle(const Offset(40.5, 8.5), 1.2, _fill(_teal));
+    for (final tip in const [Offset(20, 1), Offset(33, -2.5), Offset(46, 1)]) {
+      canvas.drawCircle(tip, 1.2, _fill(_goldDark));
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Cara
   // -------------------------------------------------------------------------
 
+  /// Anteojos de ver: armazón fino y redondo, cristal sin relleno (el ojo
+  /// se ve igual que siempre) y un brillo blanco de reflejo.
   static void _glasses(Canvas canvas, Offset leftEye) {
-    const r = 5.6;
+    const r = 5.7;
     final right = leftEye + const Offset(12, 0);
-    final frame = _stroke(_ink, 1.5);
-    final lens = _fill(const Color(0x33FFFFFF));
+    final frame = _stroke(_ink, 1.1);
+    final glare = _stroke(const Color(0xE6FFFFFF), 1);
     for (final c in [leftEye, right]) {
       canvas
-        ..drawCircle(c, r, lens)
+        // Reflejo: un arco corto arriba a la derecha y un punto.
+        ..drawArc(
+          Rect.fromCircle(center: c, radius: r - 1.6),
+          -1.35,
+          0.9,
+          false,
+          glare,
+        )
+        ..drawCircle(c + const Offset(-1.3, -1.2), 0.75, _fill(const Color(0xE6FFFFFF)))
         ..drawCircle(c, r, frame);
     }
     canvas
       ..drawPath(
         Path()
-          ..moveTo(leftEye.dx + r, leftEye.dy - 0.5)
+          ..moveTo(leftEye.dx + r - 0.3, leftEye.dy - 1.4)
           ..quadraticBezierTo(
             leftEye.dx + 6,
-            leftEye.dy - 2,
-            right.dx - r,
-            right.dy - 0.5,
+            leftEye.dy - 2.6,
+            right.dx - r + 0.3,
+            right.dy - 1.4,
           ),
         frame,
       )
       ..drawLine(
         leftEye + const Offset(-r, -1),
-        leftEye + const Offset(-r - 4, -2.5),
+        leftEye + const Offset(-r - 3.4, -2.2),
         frame,
       )
       ..drawLine(
         right + const Offset(r, -1),
-        right + const Offset(r + 4, -2.5),
+        right + const Offset(r + 3.4, -2.2),
         frame,
       );
   }
+
 
   static void _sunglasses(Canvas canvas, Offset leftEye) {
     final right = leftEye + const Offset(12, 0);
