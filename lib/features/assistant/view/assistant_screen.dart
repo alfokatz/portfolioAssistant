@@ -11,6 +11,11 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_inden
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
+import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
@@ -455,6 +460,24 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     await notifier.submitMessage(trimmed);
   }
 
+  /// "Guardar en Metas" desde la card del plan: directo, sin el modelo.
+  Future<UserGoal?> _saveGoal(GoalDraft draft) async {
+    try {
+      final goal = await ref.read(goalsProvider.notifier).save(draft);
+      ref
+          .read(alertProvider.notifier)
+          .showSuccess(message: 'goal_saved'.tr());
+      return goal;
+    } on GoalLimitReached {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'goal_limit_reached'.tr());
+    } catch (_) {
+      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
+    }
+    return null;
+  }
+
   /// Mic del composer: empieza o termina el dictado. Lo dictado se suma a
   /// lo que ya estaba escrito y queda en el campo para revisar y enviar.
   Future<void> _toggleDictation() async {
@@ -883,65 +906,70 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             v.position.ticker.toUpperCase(),
         },
         openPaywall: (request) => _openGoldPaywall(notifier, request),
-        child: QaFollowUpScope(
-          onFollowUp: (question) => _startAutoType(notifier, question),
-          child: QaEvidenceScope(
-            lookup: service.evidenceListenable,
-            // Confirmar una operación propuesta guarda directo, sin pasar
-            // por el modelo (ver `AssistantProvider.executeAction`).
-            child: QaActionScope(
-              proposals: ref.watch(assistantProvider(_args)).actionProposals,
-              onConfirm: (draft) async {
-                await notifier.executeAction(draft);
-                // Recién creada una alerta: sin permiso no sirve (plan de
-                // push §6, el momento de más intención).
-                if (draft.kind != ActionKind.alert || !mounted) return;
-                final done =
-                    ref
-                        .read(assistantProvider(_args))
-                        .actionProgress(draft.proposalId)
-                        .status ==
-                    ActionProposalStatus.done;
-                if (!done) return;
-                await PushPermissionSheet.maybeShow(
-                  context,
-                  ref,
-                  reason: PushPromptReason.priceAlert,
-                );
-              },
-              onCancel: notifier.cancelAction,
-              priceOn: notifier.actionPriceOn,
-              formOf: notifier.actionFormOf,
-              onFormChanged: notifier.saveActionForm,
-              onOpenPosition:
-                  (ticker) => GotoPositionDetail(
-                    ticker: ticker,
-                  ).navigate(context: context),
-              onOpenClosedPosition:
-                  (sale) => GotoClosedPositionDetail.of(
-                    sale,
-                  ).navigate(context: context),
-              onOpenAlerts:
-                  () => context.pushNamed(NotificationsRouter.alertsRouteName),
-              child: PortyVoiceScope(
-                onDoneSpeaking:
-                    message.surfaceId == _speakingSurfaceId
-                        ? () => _finishSpeaking(service, message.surfaceId!)
-                        : null,
-                child: PortfolioQaAssistantSurface(
-                  surfaceId: message.surfaceId!,
-                  surfaceContext: service.controller.contextFor(
-                    message.surfaceId!,
+        child: QaGoalScope(
+          savedFor: ref.watch(goalsProvider).byPlanKey,
+          onSave: _saveGoal,
+          onOpen: (id) => GoalsRouter.openDetail(context, id),
+          child: QaFollowUpScope(
+            onFollowUp: (question) => _startAutoType(notifier, question),
+            child: QaEvidenceScope(
+              lookup: service.evidenceListenable,
+              // Confirmar una operación propuesta guarda directo, sin pasar
+              // por el modelo (ver `AssistantProvider.executeAction`).
+              child: QaActionScope(
+                proposals: ref.watch(assistantProvider(_args)).actionProposals,
+                onConfirm: (draft) async {
+                  await notifier.executeAction(draft);
+                  // Recién creada una alerta: sin permiso no sirve (plan de
+                  // push §6, el momento de más intención).
+                  if (draft.kind != ActionKind.alert || !mounted) return;
+                  final done =
+                      ref
+                          .read(assistantProvider(_args))
+                          .actionProgress(draft.proposalId)
+                          .status ==
+                      ActionProposalStatus.done;
+                  if (!done) return;
+                  await PushPermissionSheet.maybeShow(
+                    context,
+                    ref,
+                    reason: PushPromptReason.priceAlert,
+                  );
+                },
+                onCancel: notifier.cancelAction,
+                priceOn: notifier.actionPriceOn,
+                formOf: notifier.actionFormOf,
+                onFormChanged: notifier.saveActionForm,
+                onOpenPosition:
+                    (ticker) => GotoPositionDetail(
+                      ticker: ticker,
+                    ).navigate(context: context),
+                onOpenClosedPosition:
+                    (sale) => GotoClosedPositionDetail.of(
+                      sale,
+                    ).navigate(context: context),
+                onOpenAlerts:
+                    () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                child: PortyVoiceScope(
+                  onDoneSpeaking:
+                      message.surfaceId == _speakingSurfaceId
+                          ? () => _finishSpeaking(service, message.surfaceId!)
+                          : null,
+                  child: PortfolioQaAssistantSurface(
+                    surfaceId: message.surfaceId!,
+                    surfaceContext: service.controller.contextFor(
+                      message.surfaceId!,
+                    ),
+                    startFullyRevealed: message.hasRevealed,
+                    onFullyRevealed: () {
+                      if (message.surfaceId == _followSurfaceId) {
+                        _finishFollowing();
+                      }
+                      // Respuesta sin texto: deja de hablar al terminar las cards.
+                      _finishSpeaking(service, message.surfaceId!);
+                      notifier.markRevealed(message.surfaceId!);
+                    },
                   ),
-                  startFullyRevealed: message.hasRevealed,
-                  onFullyRevealed: () {
-                    if (message.surfaceId == _followSurfaceId) {
-                      _finishFollowing();
-                    }
-                    // Respuesta sin texto: deja de hablar al terminar las cards.
-                    _finishSpeaking(service, message.surfaceId!);
-                    notifier.markRevealed(message.surfaceId!);
-                  },
                 ),
               ),
             ),

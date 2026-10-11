@@ -463,18 +463,21 @@ void main() {
       expect(result['missing'], ['target_date']);
     });
 
-    test('save_goal writes the goal only with amount and date', () async {
+    test('save_goal saves the plan of the conversation, never asks again '
+        'for amount or date', () async {
       final prefs = FakePreferences();
-      final tool = SaveGoalTool(_ctx(SubscriptionTier.gold, prefs: prefs));
-      expect(
-        (await tool.run({'target_amount': 5}))['reason'],
-        'invalid_arguments',
-      );
-      await tool.run({
-        'goal_label': 'Auto',
+      final ctx = _ctx(SubscriptionTier.gold, prefs: prefs);
+      final tool = SaveGoalTool(ctx);
+      // Sin plan todavía: hay que armarlo primero.
+      expect((await tool.run(const {}))['status'], 'needs_plan');
+
+      final plan = await GetGoalProjectionTool(ctx).run({
         'target_amount': 20000,
-        'target_date': '2028-06',
+        'target_date': '2028-06-01',
+        'goal_label': 'Auto',
       });
+      final result = await tool.run({'plan_id': plan['plan_id']});
+      expect(result['status'], 'ok');
       expect(prefs.goal, (
         label: 'Auto',
         targetAmount: 20000.0,
@@ -605,6 +608,7 @@ void main() {
       'get_goal_projection',
       'save_goal',
       'get_monthly_buy_plan',
+      'add_goal_contribution',
       'propose_buy',
       'propose_sell',
       'propose_delete_position',

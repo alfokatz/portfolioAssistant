@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
@@ -89,6 +90,9 @@ class AssistantToolContext {
     this.userMemories = const [],
     this.saveMemory,
     this.deleteMemory,
+    this.savedGoals = const [],
+    this.saveGoal,
+    this.addGoalContribution,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -132,6 +136,17 @@ class AssistantToolContext {
   /// Lo que Porty anotó en este turno: la app lo muestra debajo de la
   /// respuesta ("Porty anotó: …").
   final rememberedFacts = <String>[];
+
+  /// Las metas activas de la pestaña Metas (más nuevas primero): van en
+  /// `saved_goals` del brief con la referencia de `GoalTools.refOf`.
+  final List<UserGoal> savedGoals;
+
+  /// Guarda la meta en la pestaña Metas. `null` fuera de la app.
+  final Future<UserGoal> Function(GoalDraft draft)? saveGoal;
+
+  /// Registra un aporte (negativo = retiro) y devuelve la meta al día.
+  final Future<UserGoal?> Function(String goalId, double amount, String? note)?
+  addGoalContribution;
   final DateTime now;
   final Set<String> heldTickers;
 

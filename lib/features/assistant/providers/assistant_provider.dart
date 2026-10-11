@@ -37,6 +37,8 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -266,6 +268,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         saveMemory: _saveMemory,
         deleteMemory:
             (id) => ref.read(userMemoryProvider.notifier).remove(id),
+        savedGoals: await _goalsForTurn(),
+        saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
+        addGoalContribution: (goalId, amount, note) async {
+          final goals = ref.read(goalsProvider.notifier);
+          await goals.addContribution(
+            goalId,
+            amount: amount,
+            note: note,
+            source: 'porty',
+          );
+          return ref.read(goalsProvider).byId(goalId);
+        },
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -804,6 +818,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   Future<List<UserMemory>> _memoriesForTurn() async {
     try {
       return await ref.read(userMemoryProvider.notifier).ensureLoaded();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Las metas activas para PORTFOLIO_BRIEF (una lectura por conversación;
+  /// la pestaña y las tools las mantienen al día). Nunca frena el turno.
+  Future<List<UserGoal>> _goalsForTurn() async {
+    try {
+      await ref.read(goalsProvider.notifier).ensureLoaded();
+      return ref.read(goalsProvider).active;
     } catch (_) {
       return const [];
     }

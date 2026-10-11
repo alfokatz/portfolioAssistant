@@ -30,6 +30,7 @@ abstract final class AssistantToolset {
     GetGoalProjectionTool(ctx),
     SaveGoalTool(ctx),
     GetMonthlyBuyPlanTool(ctx),
+    AddGoalContributionTool(ctx),
     // Al final: proponen operaciones, nunca escriben (ver ActionTools).
     ...ActionTools.build(ctx),
     ...AlertTools.build(ctx),

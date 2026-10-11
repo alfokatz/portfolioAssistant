@@ -78,3 +78,16 @@
 - Confirmar que el modelo de búsqueda (`gpt-4o-mini-search-preview`) siga disponible en la cuenta de OpenAI; si no, setear `WEB_SEARCH_MODEL`.
 - `deno task test` con `supabase start` para los tests nuevos de `web-search` (acá solo se pudo correr `deno check`).
 - Probar el dictado en dispositivo real (el simulador de iOS no tiene micrófono confiable).
+
+## Segunda ronda: Metas (2026-10-11)
+
+Feedback de la prueba con la MacBook: (1) "¿Cuánto paga de dividendos cada uno?" respondió sobre toda la cartera en vez de BIL/SHV; (2) faltaba una sección donde queden las metas con su plan y un análisis de si se cumple; (3) "Guardá esta meta" volvía a pedir el monto y Porty inventó una sección "Metas" que no existía; (4) "Armá mi compra mensual" contestó "primero necesito generar el plan" sin hacerlo.
+
+- **Pestaña Metas** (Inicio · Metas · Porty · Ajustes): tarjetas con monto, fecha, barra de progreso y veredicto (Recién empezás / En camino / Adelantada / Atrasada / ¡Lograda! / Venció). Preview: `2026-10-11-metas.png`.
+- **Detalle de la meta:** cuánto lleva, el **análisis de Porty** (determinístico, `GoalProgress`: compara lo juntado con lo que el plan esperaba a esta altura y calcula el aporte mensual necesario desde hoy), el plan (ahorro mensual, cartera, compra mensual si la armó), los aportes (registrar / borrar, aporte o retiro), "Preguntarle a Porty", marcar como lograda, borrar.
+- **Guardar:** botón **"Guardar en Metas"** en la card del plan y en la de la compra mensual (directo, sin el modelo ni cuota; después dice "Guardada en Metas · Ver"). Porty además pregunta si la quiere guardar; si dice que sí → `save_goal {plan_id}` (ya no pide monto ni fecha).
+- **Aportes por chat:** `add_goal_contribution` ("ya puse 200 para la compu").
+- **Brief:** `saved_goals` con el progreso ya calculado, para "¿cómo va mi meta?".
+- **Prompt:** ACT, DON'T ANNOUNCE; "cada uno" = los instrumentos de la respuesta anterior; WHERE THINGS ARE (nunca inventar secciones). El chip de la compra mensual ahora nombra los tickers ("¿Cuánto paga de dividendos BIL y SHV?").
+- **Datos:** migración `20261011070000_user_goals.sql` (`user_goals` + `goal_contributions`, RLS, tope de 20 activas, `plan_key` único para no duplicar).
+- **Deploy:** `supabase db push` y volver a desplegar `ai-chat` (hash nuevo del prompt en la allowlist).

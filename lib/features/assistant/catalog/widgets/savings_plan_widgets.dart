@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -13,6 +14,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 /// Qué responde la card arriba de todo; el resto del plan queda en "Ver
@@ -84,7 +86,11 @@ class SavingsPlanCardData {
     required this.riskSource,
     required this.shortHorizon,
     required this.capitalStated,
+    this.draft,
   });
+
+  /// La meta con este plan, para "Guardar en Metas".
+  final GoalDraft? draft;
 
   final SavingsPlan plan;
   final String label;
@@ -175,6 +181,7 @@ class SavingsPlanCardData {
           '${result['risk_source'] ?? GoalProjectionBuilder.riskDefault}',
       shortHorizon: result['risk_adjusted_for_short_horizon'] == true,
       capitalStated: result['starting_capital_source'] == 'stated',
+      draft: GoalDraft.fromToolResult(result),
     );
   }
 }
@@ -303,6 +310,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           ),
         ],
         QaSection(child: Text(_assumptions(_plan), style: QaText.caption)),
+        if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
         QaFollowUpBar(items: _followUps(), limit: 4),
       ],
     );
@@ -823,11 +831,6 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             'Rehacé el plan con una cartera ${_riskName(risk).toLowerCase()}',
             icon: Icons.tune_rounded,
           ),
-      const QaFollowUp(
-        'Guardar meta',
-        'Guardá esta meta',
-        icon: Icons.bookmark_border_rounded,
-      ),
     ];
   }
 

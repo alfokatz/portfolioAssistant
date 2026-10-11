@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
+import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
@@ -24,6 +25,9 @@ abstract final class PortfolioBrief {
 
   /// Lo que Porty sabe del usuario (ver `MemoryTools`).
   static const userMemoryKey = 'user_memory';
+
+  /// Las metas guardadas en la pestaña Metas, con cómo van.
+  static const savedGoalsKey = 'saved_goals';
 
   /// Cuántos datos de la memoria viajan por turno (los más recientes).
   static const maxMemoriesInBrief = 30;
@@ -52,6 +56,9 @@ abstract final class PortfolioBrief {
             'since': InvestorProfileContext.formatDate(m.updatedAt),
           },
       ];
+    }
+    if (ctx.savedGoals.isNotEmpty) {
+      map[savedGoalsKey] = GoalTools.brief(ctx);
     }
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;
