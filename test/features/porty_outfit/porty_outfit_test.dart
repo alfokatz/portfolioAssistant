@@ -18,6 +18,19 @@ void main() {
     expect(outfit[PortyOutfitSlot.head], isNull);
   });
 
+  test('wearing replaces the slot; without empties only that slot', () {
+    final outfit = PortyOutfit.none
+        .wearing(PortyAccessory.beanie)
+        .wearing(PortyAccessory.glasses)
+        .wearing(PortyAccessory.crown);
+    expect(outfit[PortyOutfitSlot.head], PortyAccessory.crown);
+    // Ponérselo de nuevo no lo saca (eso es "Normal").
+    expect(outfit.wearing(PortyAccessory.crown), outfit);
+    final plain = outfit.without(PortyOutfitSlot.head);
+    expect(plain[PortyOutfitSlot.head], isNull);
+    expect(plain.wears(PortyAccessory.glasses), isTrue);
+  });
+
   test('round-trips through storage and ignores unknown values', () {
     final outfit = PortyOutfit.none
         .toggle(PortyAccessory.partyHat)

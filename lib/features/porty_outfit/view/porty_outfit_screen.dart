@@ -9,8 +9,10 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Ajustes → "Personalizá a Porty": Porty grande con lo que tiene puesto y,
-/// debajo, los accesorios por lugar (cabeza, cara, cuello). Tocar uno se lo
-/// pone (reemplaza el de ese lugar) o se lo saca; se guarda en el acto.
+/// debajo, los accesorios por lugar (cabeza, cara, cuello). Cada lugar
+/// arranca con "Normal" (sin accesorio); tocar otro se lo pone (reemplaza
+/// el de ese lugar). Se guarda en el acto. Porty mantiene su cara de
+/// siempre (la leve sonrisa) mientras se viste.
 class PortyOutfitScreen extends ConsumerStatefulWidget {
   const PortyOutfitScreen({super.key});
 
@@ -19,18 +21,14 @@ class PortyOutfitScreen extends ConsumerStatefulWidget {
 }
 
 class _PortyOutfitScreenState extends ConsumerState<PortyOutfitScreen> {
-  /// Cambia en cada toque para que Porty festeje (saltito) el accesorio.
-  var _celebrate = PortyAvatarState.idle;
-
-  void _toggle(PortyAccessory accessory) {
+  void _pick(PortyOutfitSlot slot, PortyAccessory? accessory) {
     PortyHapticsService.maybeOf(context)?.selectionTap();
-    final wearing = ref.read(portyOutfitProvider).wears(accessory);
-    ref.read(portyOutfitProvider.notifier).toggle(accessory);
-    setState(
-      () =>
-          _celebrate =
-              wearing ? PortyAvatarState.idle : PortyAvatarState.answered,
-    );
+    final notifier = ref.read(portyOutfitProvider.notifier);
+    if (accessory == null) {
+      notifier.clearSlot(slot);
+    } else {
+      notifier.wear(accessory);
+    }
   }
 
   @override
@@ -44,10 +42,7 @@ class _PortyOutfitScreenState extends ConsumerState<PortyOutfitScreen> {
         actions: [
           if (!outfit.isEmpty)
             TextButton(
-              onPressed: () {
-                ref.read(portyOutfitProvider.notifier).clear();
-                setState(() => _celebrate = PortyAvatarState.idle);
-              },
+              onPressed: () => ref.read(portyOutfitProvider.notifier).clear(),
               child: Text(
                 'porty_outfit_reset'.tr(),
                 style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
@@ -98,9 +93,7 @@ class _PortyOutfitScreenState extends ConsumerState<PortyOutfitScreen> {
                 child: PortyAvatar(
                   size: 150,
                   animated: true,
-                  state: _celebrate,
                   outfit: outfit,
-                  onTap: () {},
                 ),
               ),
             ),
@@ -129,12 +122,19 @@ class _PortyOutfitScreenState extends ConsumerState<PortyOutfitScreen> {
               crossAxisSpacing: AppDimens.sp8,
               childAspectRatio: 0.9,
               children: [
+                _AccessoryTile(
+                  slot: slot,
+                  accessory: null,
+                  selected: outfit[slot] == null,
+                  onTap: () => _pick(slot, null),
+                ),
                 for (final accessory in PortyAccessory.values)
                   if (accessory.slot == slot)
                     _AccessoryTile(
+                      slot: slot,
                       accessory: accessory,
                       selected: outfit.wears(accessory),
-                      onTap: () => _toggle(accessory),
+                      onTap: () => _pick(slot, accessory),
                     ),
               ],
             ),
@@ -148,12 +148,16 @@ class _PortyOutfitScreenState extends ConsumerState<PortyOutfitScreen> {
 
 class _AccessoryTile extends StatelessWidget {
   const _AccessoryTile({
+    required this.slot,
     required this.accessory,
     required this.selected,
     required this.onTap,
   });
 
-  final PortyAccessory accessory;
+  final PortyOutfitSlot slot;
+
+  /// `null` = "Normal": nada en [slot].
+  final PortyAccessory? accessory;
   final bool selected;
   final VoidCallback onTap;
 
@@ -161,7 +165,11 @@ class _AccessoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    final label = 'porty_outfit_item_${accessory.storageValue}'.tr();
+    final accessory = this.accessory;
+    final label =
+        accessory == null
+            ? 'porty_outfit_item_none'.tr()
+            : 'porty_outfit_item_${accessory.storageValue}'.tr();
     return Semantics(
       button: true,
       selected: selected,
@@ -189,7 +197,10 @@ class _AccessoryTile extends StatelessWidget {
               children: [
                 PortyAvatar(
                   size: 56,
-                  outfit: PortyOutfit({accessory.slot: accessory}),
+                  outfit:
+                      accessory == null
+                          ? PortyOutfit.none
+                          : PortyOutfit({slot: accessory}),
                 ),
                 const SizedBox(height: AppDimens.sp6),
                 Text(

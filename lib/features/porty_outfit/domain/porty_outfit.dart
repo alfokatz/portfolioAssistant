@@ -57,6 +57,14 @@ class PortyOutfit {
     return PortyOutfit(next);
   }
 
+  /// Con [accessory] puesto (reemplaza lo que hubiera en su lugar).
+  PortyOutfit wearing(PortyAccessory accessory) =>
+      PortyOutfit({..._items, accessory.slot: accessory});
+
+  /// Sin nada en [slot] (la opción "Normal").
+  PortyOutfit without(PortyOutfitSlot slot) =>
+      PortyOutfit({..._items}..remove(slot));
+
   List<String> toStorage() => [for (final a in items) a.storageValue];
 
   static PortyOutfit fromStorage(List<String>? values) {

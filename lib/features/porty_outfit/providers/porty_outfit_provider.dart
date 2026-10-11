@@ -13,7 +13,10 @@ class PortyOutfitNotifier extends StateNotifier<PortyOutfit> {
 
   final SharedPreferences _prefs;
 
-  Future<void> toggle(PortyAccessory accessory) => _set(state.toggle(accessory));
+  Future<void> wear(PortyAccessory accessory) =>
+      _set(state.wearing(accessory));
+
+  Future<void> clearSlot(PortyOutfitSlot slot) => _set(state.without(slot));
 
   Future<void> clear() => _set(PortyOutfit.none);
 
