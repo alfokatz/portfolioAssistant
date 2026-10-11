@@ -4,11 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/view/tell_porty_screen.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
 /// Ajustes → "Lo que Porty sabe de vos": todo lo que Porty anotó en el
@@ -73,12 +73,15 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
     }
   }
 
-  Future<void> _add() async {
-    final added = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => const _AddMemorySheet(),
+  Future<void> _tell(TellPortyPrompt prompt) async {
+    if (ref.read(userMemoryProvider).memories.length >= UserMemory.maxPerUser) {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'porty_memory_full'.tr());
+      return;
+    }
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TellPortyScreen(prompt: prompt)),
     );
     if (added == true) {
       ref
@@ -141,6 +144,11 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
                     ),
                   ),
                   const SizedBox(height: AppDimens.sp20),
+                  // Sin nada anotado, las preguntas de Porty son lo primero.
+                  if (memories.isEmpty) ...[
+                    TellPortyPromptCards(onSelected: _tell),
+                    const SizedBox(height: AppDimens.sp24),
+                  ],
                   for (final category in UserMemoryCategory.values)
                     if (memories.any((m) => m.category == category)) ...[
                       _CategoryCard(
@@ -153,12 +161,10 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
                       ),
                       const SizedBox(height: AppDimens.sp16),
                     ],
-                  PositionPrimaryButton(
-                    label: 'porty_memory_add'.tr(),
-                    onPressed:
-                        memories.length >= UserMemory.maxPerUser ? null : _add,
-                  ),
                   if (memories.isNotEmpty) ...[
+                    const SizedBox(height: AppDimens.sp8),
+                    _SectionLabel('tell_porty_more'.tr()),
+                    TellPortyPromptCards(onSelected: _tell),
                     const SizedBox(height: AppDimens.sp8),
                     Center(
                       child: TextButton(
@@ -266,109 +272,21 @@ class _CategoryCard extends StatelessWidget {
   }
 }
 
-/// "Contale algo a Porty": un texto corto y de qué se trata.
-class _AddMemorySheet extends ConsumerStatefulWidget {
-  const _AddMemorySheet();
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
 
   @override
-  ConsumerState<_AddMemorySheet> createState() => _AddMemorySheetState();
-}
-
-class _AddMemorySheetState extends ConsumerState<_AddMemorySheet> {
-  final _controller = TextEditingController();
-  var _category = UserMemoryCategory.goal;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    try {
-      await ref
-          .read(userMemoryProvider.notifier)
-          .add(_controller.text, category: _category);
-      if (mounted) Navigator.of(context).pop(true);
-    } on UserMemoryLimitReached {
-      ref
-          .read(alertProvider.notifier)
-          .showError(message: 'porty_memory_full'.tr());
-      if (mounted) setState(() => _saving = false);
-    } catch (_) {
-      ref
-          .read(alertProvider.notifier)
-          .showError(message: 'porty_memory_error'.tr());
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppDimens.pageHorizontal,
-        0,
-        AppDimens.pageHorizontal,
-        MediaQuery.viewInsetsOf(context).bottom + AppDimens.sp24,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: AppDimens.sp4, bottom: AppDimens.sp8),
+    child: Text(
+      text.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: context.customColors.textSecondary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.0,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'porty_memory_add_title'.tr(),
-            style: tt.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppDimens.sp12),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            maxLength: UserMemory.maxLength,
-            minLines: 2,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              hintText: 'porty_memory_add_hint'.tr(),
-            ),
-          ),
-          const SizedBox(height: AppDimens.sp8),
-          Wrap(
-            spacing: AppDimens.sp8,
-            runSpacing: AppDimens.sp8,
-            children: [
-              for (final category in UserMemoryCategory.values)
-                ChoiceChip(
-                  label: Text(
-                    'porty_memory_category_${category.storageValue}'.tr(),
-                  ),
-                  selected: _category == category,
-                  onSelected: (_) => setState(() => _category = category),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppDimens.sp20),
-          PositionPrimaryButton(
-            label: 'porty_memory_save'.tr(),
-            loading: _saving,
-            onPressed:
-                _saving || _controller.text.trim().length < 3 ? null : _save,
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
