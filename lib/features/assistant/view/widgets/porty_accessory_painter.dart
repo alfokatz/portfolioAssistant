@@ -170,16 +170,24 @@ abstract final class PortyAccessoryPainter {
     ]) {
       canvas.drawCircle(dot, 1.25, _fill(color));
     }
-    canvas.restore();
-    // Ribete en zigzag sobre la base.
-    final trim = Path()..moveTo(20.5, 10.5);
-    for (var i = 1; i <= 10; i++) {
-      final t = i / 10;
-      final x = 20.5 + 29.5 * t;
-      final y = 10.5 + 4.5 * math.sin(math.pi * t) * 0.9 + 1 * t;
-      trim.lineTo(x, i.isOdd ? y + 1.8 : y);
+    // Ribete en zigzag dentro del gorro, siguiendo la curva de la base
+    // (recortado al gorro: nunca pisa la cara).
+    Offset base(double t) {
+      const a = Offset(20.5, 10.5);
+      const c = Offset(35, 15);
+      const b = Offset(50, 11.5);
+      final u = 1 - t;
+      return a * (u * u) + c * (2 * u * t) + b * (t * t);
     }
-    canvas.drawPath(trim, _stroke(_gold, 1.6));
+
+    final trim = Path()..moveTo(base(0).dx, base(0).dy - 1);
+    for (var i = 1; i <= 12; i++) {
+      final p = base(i / 12);
+      trim.lineTo(p.dx, p.dy - (i.isOdd ? 3 : 1));
+    }
+    canvas
+      ..drawPath(trim, _stroke(_gold, 1.5))
+      ..restore();
     // Pompón con destellos.
     final burst = _stroke(_gold, 0.9);
     for (var i = 0; i < 6; i++) {
@@ -324,20 +332,6 @@ abstract final class PortyAccessoryPainter {
   /// Gorrita con visera de costado: copa redonda en gajos, botón arriba,
   /// visera hacia la derecha y una costura clara.
   static void _peakedCap(Canvas canvas) {
-    final visor =
-        Path()
-          ..moveTo(44, 10.5)
-          ..cubicTo(53, 8.5, 62, 9.5, 65.5, 13)
-          ..cubicTo(62.5, 16.8, 53, 17, 45, 15.8)
-          ..close();
-    canvas
-      ..drawPath(visor, _fill(_redDark))
-      ..drawPath(
-        Path()
-          ..moveTo(47, 12.4)
-          ..cubicTo(54, 11, 60.5, 11.6, 63.5, 13.2),
-        _stroke(_red, 0.8),
-      );
     final crown =
         Path()
           ..moveTo(11.5, 16)
@@ -368,6 +362,24 @@ abstract final class PortyAccessoryPainter {
         _stroke(_cream, 1.1),
       )
       ..drawCircle(const Offset(32.5, -0.4), 1.6, _fill(_redDark));
+    // Visera: nace del borde de la copa (su borde de arriba ES el borde de
+    // la copa) y sale por delante hacia la derecha, apenas hacia abajo.
+    final visor =
+        Path()
+          ..moveTo(45, 13.7)
+          ..quadraticBezierTo(49.5, 14.2, 53, 15)
+          ..cubicTo(57, 14.4, 62, 14, 66, 14.8)
+          ..cubicTo(65.4, 16.8, 61.5, 17.8, 55, 17.9)
+          ..cubicTo(50.5, 18, 47, 16.8, 45, 13.7)
+          ..close();
+    canvas
+      ..drawPath(visor, _fill(_redDark))
+      ..drawPath(
+        Path()
+          ..moveTo(49, 15.9)
+          ..cubicTo(53, 16.6, 59, 16.4, 63.5, 15.6),
+        _stroke(_red, 0.8),
+      );
   }
 
   /// Vincha que cruza la frente de lado a lado, arriba de los ojos,
