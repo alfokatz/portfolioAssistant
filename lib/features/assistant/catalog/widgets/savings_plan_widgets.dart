@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.d
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_savings_plan_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
@@ -66,6 +67,7 @@ abstract final class SavingsPlanWidgets {
                 staged:
                     (context, active, onFinished) => QaSavingsPlanCard(
                       data: data,
+                      planId: id,
                       focus: focus,
                       active: active,
                       onFinished: onFinished,
@@ -87,7 +89,15 @@ class SavingsPlanCardData {
     required this.shortHorizon,
     required this.capitalStated,
     this.draft,
+    this.result = const {},
   });
+
+  /// El resultado de la tool del que sale (para recalcularlo si el usuario
+  /// lo edita).
+  final Map<String, Object?> result;
+
+  /// El usuario cambió el plan en la card.
+  bool get edited => result['edited_by_user'] == true;
 
   /// La meta con este plan, para "Guardar en Metas".
   final GoalDraft? draft;
@@ -183,6 +193,7 @@ class SavingsPlanCardData {
       shortHorizon: result['risk_adjusted_for_short_horizon'] == true,
       capitalStated: result['starting_capital_source'] == 'stated',
       draft: GoalDraft.fromToolResult(result),
+      result: result,
     );
   }
 }
@@ -193,12 +204,17 @@ class QaSavingsPlanCard extends StatefulWidget {
   const QaSavingsPlanCard({
     super.key,
     required this.data,
+    this.planId,
     this.focus,
     this.active = true,
     this.onFinished,
   });
 
+  /// El plan que calculó Porty (las ediciones del usuario parten de acá).
   final SavingsPlanCardData data;
+
+  /// Su `plan_id`: con él la card guarda y recupera lo que editó el usuario.
+  final String? planId;
 
   /// `null` = ingreso si el usuario pidió uno; si no, ahorro.
   final SavingsPlanFocus? focus;
@@ -215,7 +231,66 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
   bool _expanded = false;
   bool _finishReported = false;
 
-  SavingsPlan get _plan => widget.data.plan;
+  /// Lo que editó el usuario (ver [QaGoalScope.editedPlan]); `null` = el
+  /// plan de Porty.
+  SavingsPlanCardData? _edit;
+  bool _editLoaded = false;
+
+  SavingsPlanCardData get _data => _edit ?? widget.data;
+  SavingsPlan get _plan => _data.plan;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_editLoaded) return;
+    _editLoaded = true;
+    final id = widget.planId;
+    final edited =
+        id == null ? null : QaGoalScope.maybeOf(context)?.editedPlan?.call(id);
+    if (edited != null) _edit = SavingsPlanCardData.fromToolResult(edited);
+  }
+
+  bool get _canEdit =>
+      widget.planId != null &&
+      QaGoalScope.maybeOf(context)?.onPlanEdited != null;
+
+  Future<void> _editPlan() async {
+    final current = _data;
+    final change = await SavingsPlanEditSheet.show(
+      context,
+      label: current.label,
+      inputs: current.plan.inputs,
+      targetDate: current.targetDate,
+    );
+    if (change == null || !mounted) return;
+    final original = widget.data.plan.inputs;
+    final edited = GoalProjectionBuilder.edit(
+      widget.data.result,
+      label: change.label,
+      targetAmount: change.targetAmount,
+      targetDate: change.targetDate,
+      currentAmount:
+          change.currentAmount != original.currentAmount
+              ? change.currentAmount
+              : null,
+      risk: change.risk != original.risk ? change.risk : null,
+    );
+    final data = edited == null ? null : SavingsPlanCardData.fromToolResult(edited);
+    if (data == null) return;
+    QaGoalScope.maybeOf(context)?.onPlanEdited?.call(widget.planId!, edited);
+    setState(() {
+      _edit = data;
+      _monthly = null;
+    });
+  }
+
+  void _undoEdit() {
+    QaGoalScope.maybeOf(context)?.onPlanEdited?.call(widget.planId!, null);
+    setState(() {
+      _edit = null;
+      _monthly = null;
+    });
+  }
   SavingsPlanInputs get _inputs => _plan.inputs;
   IncomePlan? get _income => _plan.income;
 
@@ -271,7 +346,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     if (widget.active && !top.contains(_Block.growth)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _reportFinished());
     }
-    final data = widget.data;
+    final data = _data;
     final retirementLike =
         _inputs.isRetirement || _inputs.desiredMonthlyIncome != null;
 
@@ -293,6 +368,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             color: QaColors.accentBlue,
           ),
         ),
+        if (data.edited) _editedNote(),
         for (var i = 0; i < top.length; i++) _section(top[i], first: i == 0),
         if (rest.isNotEmpty) ...[
           MotionAwareSize(
@@ -313,11 +389,62 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           ),
         ],
         QaSection(child: Text(_assumptions(_plan), style: QaText.caption)),
+        if (_canEdit)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: OutlinedButton.icon(
+              onPressed: _editPlan,
+              icon: Icon(
+                Icons.tune_rounded,
+                size: 18,
+                color: QaColors.accentBlue,
+              ),
+              label: Text(
+                'Editar plan',
+                style: QaText.label.copyWith(
+                  color: QaColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                side: BorderSide(color: QaColors.border),
+                shape: const StadiumBorder(),
+              ),
+            ),
+          ),
         if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
         QaFollowUpBar(items: _followUps(), limit: 4),
       ],
     );
   }
+
+  /// "Editaste este plan · Deshacer cambios".
+  Widget _editedNote() => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      children: [
+        Icon(Icons.edit_note_rounded, size: 18, color: QaColors.accentBlue),
+        const SizedBox(width: 6),
+        Expanded(child: Text('Editaste este plan', style: QaText.caption)),
+        if (_canEdit)
+          TextButton(
+            onPressed: _undoEdit,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: Text(
+              'Volver al de Porty',
+              style: QaText.caption.copyWith(
+                color: QaColors.accentBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 
   Widget _section(_Block block, {bool first = false}) {
     final (title, child) = switch (block) {
@@ -576,7 +703,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'en ${widget.data.targetDate.year}',
+                'en ${_data.targetDate.year}',
                 style: QaText.label,
               ),
             ),
@@ -600,7 +727,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           points: curve,
           targetAmount: _inputs.targetAmount,
           startLabel: 'Hoy',
-          endLabel: '${widget.data.targetDate.year}',
+          endLabel: '${_data.targetDate.year}',
           active: widget.active,
           onFinished: _reportFinished,
         ),
@@ -825,11 +952,11 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           'cortos, sin acciones, para que no dependa de cómo esté el mercado '
           'cuando la necesites.';
     }
-    if (widget.data.shortHorizon) {
+    if (_data.shortHorizon) {
       return 'Con menos de 3 años, las acciones pueden caer y no recuperarse '
           'a tiempo: por eso el plan va conservador.';
     }
-    return switch (widget.data.riskSource) {
+    return switch (_data.riskSource) {
       GoalProjectionBuilder.riskStated => 'Cartera $name, como pediste.',
       GoalProjectionBuilder.riskProfile =>
         'Cartera $name, según tu perfil de inversor.',
@@ -842,7 +969,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
   String _assumptions(SavingsPlan plan) {
     final r = plan.returns;
     final capital =
-        widget.data.capitalStated
+        _data.capitalStated
             ? 'Partís de ${QaFormat.money(_inputs.currentAmount)}.'
             : _inputs.currentAmount > 0
             ? 'Partís del valor de tu portfolio '
@@ -854,7 +981,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         '${_pct(r[PlanScenario.optimistic]!)} anual según el escenario; '
         'aportes que suben con la inflación. Con inflación del '
         '${_pct(PlanAssumptions.inflation)}, la meta equivale a '
-        '${QaFormat.money(plan.nominalTarget)} de ${widget.data.targetDate.year}. '
+        '${QaFormat.money(plan.nominalTarget)} de ${_data.targetDate.year}. '
         'Es una simulación, no una garantía.';
   }
 
@@ -892,7 +1019,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           ),
       for (final risk in RiskTolerance.values)
         if (risk != _inputs.risk &&
-            !widget.data.shortHorizon &&
+            !_data.shortHorizon &&
             !_inputs.shortTerm)
           QaFollowUp(
             _riskName(risk),

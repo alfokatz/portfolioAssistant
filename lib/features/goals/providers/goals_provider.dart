@@ -129,6 +129,30 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
     await load();
   }
 
+  /// El usuario editó el plan de la meta [id] desde Metas. Lo que ya
+  /// contaba sigue contando; se suman solo las inversiones nuevas del plan
+  /// (las que el usuario sacó a mano no vuelven).
+  Future<void> updatePlan(String id, GoalDraft draft) async {
+    final goal = state.byId(id);
+    if (goal == null) return;
+    final before = {
+      for (final e in goal.snapshot.buyPlan) e.ticker.toUpperCase(),
+    };
+    final taken = {
+      for (final g in state.active)
+        if (g.id != id) ...g.linkedTickers,
+    };
+    final added = {
+      for (final e in draft.snapshot.buyPlan) e.ticker.toUpperCase(),
+    }.difference(before).difference(taken);
+    await _repo.updatePlan(
+      id,
+      draft,
+      linkedTickers: {...goal.linkedTickers, ...added},
+    );
+    await load();
+  }
+
   Future<void> setStatus(String id, GoalStatus status) async {
     await _repo.setStatus(id, status);
     await load();

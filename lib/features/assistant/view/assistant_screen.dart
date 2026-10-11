@@ -911,6 +911,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           existingFor: ref.watch(goalsProvider).activeByLabel,
           onSave: _saveGoal,
           onOpen: (id) => GoalsRouter.openDetail(context, id),
+          editedPlan: notifier.editedPlan,
+          onPlanEdited: notifier.editPlan,
           child: QaFollowUpScope(
             onFollowUp: (question) => _startAutoType(notifier, question),
             child: QaEvidenceScope(

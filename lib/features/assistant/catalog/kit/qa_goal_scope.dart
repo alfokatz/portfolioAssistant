@@ -15,8 +15,20 @@ class QaGoalScope extends InheritedWidget {
     required this.existingFor,
     required this.onSave,
     required this.onOpen,
+    this.editedPlan,
+    this.onPlanEdited,
     required super.child,
   });
+
+  /// La edición que el usuario hizo en la card del plan [planId] (un
+  /// resultado recalculado), si la hay. Vive en la conversación: la card
+  /// la recupera si se reconstruye y Porty parte de ella.
+  final Map<String, Object?>? Function(String planId)? editedPlan;
+
+  /// El usuario editó (o, con `null`, deshizo los cambios de) el plan
+  /// [planId] en su card.
+  final void Function(String planId, Map<String, Object?>? edited)?
+  onPlanEdited;
 
   /// La meta ya guardada con este `plan_id`, si la hay.
   final UserGoal? Function(String planKey) savedFor;

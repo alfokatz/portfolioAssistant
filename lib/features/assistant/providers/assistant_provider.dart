@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dar
 import 'package:portfolio_assistant/domain/use_cases/delete_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -436,6 +437,24 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   // ------------------------------------------------------------ acciones
+
+  /// Lo que el usuario editó en la card del plan [planId], si lo editó.
+  Map<String, Object?>? editedPlan(String planId) =>
+      _data?.plans.editOf(planId);
+
+  /// El usuario editó (o deshizo, con `null`) el plan [planId] en su card:
+  /// queda en la conversación para que Porty parta de ahí ("hacelo en 2
+  /// años", la compra mensual, guardarla).
+  void editPlan(String planId, Map<String, Object?>? edited) {
+    final plans = _data?.plans;
+    if (plans == null) return;
+    final editedId = edited?[GoalProjectionBuilder.planIdKey];
+    if (edited == null || editedId is! String) {
+      plans.clearEdit(planId);
+    } else {
+      plans.recordEdit(planId, editedId, edited);
+    }
+  }
 
   /// Guarda una operación que el usuario confirmó en una card
   /// `QaActionProposal`. No pasa por el modelo (no consume cuota): el

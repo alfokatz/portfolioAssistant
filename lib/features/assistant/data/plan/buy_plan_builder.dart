@@ -171,6 +171,9 @@ abstract final class BuyPlanBuilder {
     int r(double v) => v.round();
     final items = [
       for (final p in valid)
+        // Sin parte en la cartera (una acción en un plan sin acciones) no
+        // es parte de la compra.
+        if ((pcts[p.ticker] ?? 0) > 0)
         {
           'ticker': p.ticker,
           'asset_class': p.assetClass.key,

@@ -136,3 +136,20 @@ Feedback: "El plan de Porty" era texto plano y confuso; "Preguntarle a Porty" co
 
 - **Orden de la barra:** Inicio · Porty · Metas · Ajustes. Porty es lo principal de la app y queda más cerca del pulgar; Metas, que se arman con Porty, va después. (`AppNavDestination` y las ramas del shell en `app_router` cambian juntos.)
 - **Borrar desde Metas:** deslizar una meta a la izquierda (con confirmación; si se cancela vuelve a su lugar) o mantenerla apretada (opciones: marcar como lograda / borrar). La lógica se comparte con el detalle (`GoalActions`). El diálogo nombra la meta y al borrar hay un aviso.
+
+### Metas nuevas sin confundirse y plan editable
+
+Feedback: "quiero comprarme una silla herman miller" → "2000usd" salió como "MacBook M5 Pro, 2.000 en 1 año" y con "Confirmar y actualizar meta".
+
+- **Causa:** `get_goal_projection` completaba lo que el modelo no pasaba (nombre, fecha) con la **última meta guardada** (la MacBook, a 1 año). Con solo el monto de la silla, la meta nueva tomaba el nombre y la fecha de la MacBook, y como el nombre coincidía, la card ofrecía actualizarla.
+- **Ahora:** una meta nueva nunca toma datos de otra. Lo que falta vuelve en `missing` y Porty lo pregunta (nunca asume "en un año"). Solo se completa desde otra meta si el modelo la nombra: `goal_id` (una de Metas) o `base_plan_id` (un plan de esta charla).
+- **Pedirle cambios a Porty:** "hacelo en 2 años", "ponele Silla", "ya tengo 500" → `get_goal_projection {base_plan_id, solo lo que cambia}`: mantiene el resto (nombre, monto, lo que ya tiene, riesgo, tipo) y muestra la card nueva.
+- **Editar en la card:** botón "Editar plan" (nombre, monto, fecha con atajos de 1-10 años, lo que ya tiene y riesgo cuando no es corto plazo). Recalcula al toque con el mismo cálculo (`GoalProjectionBuilder.edit`), muestra "Editaste este plan · Volver al de Porty", y lo que se confirma se guarda así. La edición queda en el store de la conversación (`SavingsPlanStore.recordEdit`): si después se le pide un cambio a Porty, la compra mensual o guardarla, se parte de lo editado. Preview: `2026-10-11-plan-editable.png`.
+
+### Detalle de una meta: monto entero, opciones, editar y lo que no cuenta
+
+- **Monto ahorrado:** monto y "de X" se achican juntos si no entran, en vez de cortarse ("2.00…").
+- **Opciones (⋯):** en lugar del menú flotante de Material, una hoja con el nombre de la meta y cada opción con ícono en círculo, título y una línea que explica qué hace: Editar plan, Marcar como lograda / Volver a activa y Borrar meta (en rojo, separada). La misma hoja sale al mantener apretada una meta en la lista.
+- **Editar plan desde Metas:** botón en la card del plan y opción del menú; abre el mismo editor que el chat (`GoalActions.editPlan`). Si la cartera no cambia, se mantiene la compra mensual con los montos nuevos; si cambia (p. ej. pasa a corto plazo), van los instrumentos del plan nuevo. Lo que el usuario sacó de "Qué cuenta" no vuelve; solo se suman las inversiones nuevas del plan (`GoalsNotifier.updatePlan`). Los atajos de fecha cuentan desde hoy.
+- **VOO al 0%:** salía de una compra mensual con una acción en un plan de corto plazo (sin acciones). Ya no se arma ni se guarda una inversión con 0%, y las guardadas así no se muestran. Si el usuario saca de "Qué cuenta" una inversión que el plan sigue sugiriendo, la fila dice "No cuenta para esta meta".
+- Preview: `2026-10-11-meta-detalle-editar.png`.

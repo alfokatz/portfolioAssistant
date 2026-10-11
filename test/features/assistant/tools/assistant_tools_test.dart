@@ -282,7 +282,8 @@ void main() {
 
   group('goals', () {
     test(
-      'stated goal is projected; the saved one fills missing fields',
+      'a goal is projected from what was stated: a goal saved on the device '
+      'does not fill the gaps',
       () async {
         final prefs =
             FakePreferences()
@@ -295,13 +296,16 @@ void main() {
           _ctx(SubscriptionTier.gold, prefs: prefs),
         );
 
-        final saved = await tool.run(const {});
-        expect(saved['has_complete_goal'], isTrue);
-        expect((saved['active_goal'] as Map)['label'], 'Casa');
+        final partial = await tool.run({'target_amount': 250000});
+        expect(partial['has_complete_goal'], isFalse);
+        expect(partial['missing'], ['target_date']);
 
-        final stated = await tool.run({'target_amount': 250000});
+        final stated = await tool.run({
+          'target_amount': 250000,
+          'target_date': '2036-01-01',
+          'goal_label': 'Casa',
+        });
         expect((stated['active_goal'] as Map)['target_amount'], 250000.0);
-        expect((stated['active_goal'] as Map)['target_date'], '2036-01-01');
         expect(stated['months_remaining'], isPositive);
         expect(stated['plan_id'], startsWith('plan-'));
         expect(stated['plan'], isA<Map>());

@@ -45,8 +45,10 @@ Future<void> _pump(
   required List<GoalDraft> saved,
   List<UserGoal> existing = const [],
   GlobalKey? boundary,
+  Map<String, Map<String, Object?>>? edits,
 }) async {
   final goals = [...existing];
+  final planEdits = edits ?? {};
   await tester.binding.setSurfaceSize(const Size(390, 2400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final catalog = AssistantCatalog.build();
@@ -70,6 +72,12 @@ Future<void> _pump(
                   return goal;
                 },
                 onOpen: (_) {},
+                editedPlan: (id) => planEdits[id],
+                onPlanEdited:
+                    (id, edited) =>
+                        edited == null
+                            ? planEdits.remove(id)
+                            : planEdits[id] = edited,
                 child: QaEvidenceScope(
                   lookup:
                       (_) => ValueNotifier(
@@ -95,19 +103,20 @@ Future<void> _pump(
                               padding: const EdgeInsets.all(16),
                               child: Builder(
                                 builder:
-                                    (context) => qaSavingsPlanItem.widgetBuilder(
-                                      catalogContextFor(
-                                        buildContext: context,
-                                        component: {
-                                          'id': 'p',
-                                          'component': 'QaSavingsPlan',
-                                          'planId': _built['plan_id'],
-                                          'focus': 'savings',
-                                        },
-                                        catalog: catalog,
-                                        surfaceId: 's1',
-                                      ),
-                                    ),
+                                    (context) =>
+                                        qaSavingsPlanItem.widgetBuilder(
+                                          catalogContextFor(
+                                            buildContext: context,
+                                            component: {
+                                              'id': 'p',
+                                              'component': 'QaSavingsPlan',
+                                              'planId': _built['plan_id'],
+                                              'focus': 'savings',
+                                            },
+                                            catalog: catalog,
+                                            surfaceId: 's1',
+                                          ),
+                                        ),
                               ),
                             ),
                           ),
@@ -165,5 +174,60 @@ void main() {
     );
     await _pump(tester, saved: [], existing: [old]);
     expect(find.text('Confirmar y actualizar meta'), findsOneWidget);
+  });
+
+  testWidgets('the user edits the plan in the card and confirms the edited '
+      'goal', (tester) async {
+    final saved = <GoalDraft>[];
+    final edits = <String, Map<String, Object?>>{};
+    await _pump(tester, saved: saved, edits: edits);
+
+    await tester.ensureVisible(find.text('Editar plan'));
+    await tester.tap(find.text('Editar plan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre de la meta'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Auto'),
+      'Auto usado',
+    );
+    await tester.enterText(find.widgetWithText(TextField, '25000'), '18000');
+    // A 5 años ya no es corto plazo: aparece el riesgo.
+    await tester.tap(find.text('En 5 años'));
+    await tester.pumpAndSettle();
+    expect(find.text('Agresiva'), findsOneWidget);
+    await tester.tap(find.text('Aplicar cambios'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Auto usado'), findsOneWidget);
+    expect(find.text('Editaste este plan'), findsOneWidget);
+    expect(find.text('Corto plazo'), findsNothing);
+    expect(edits.keys.single, _built['plan_id']);
+
+    final confirm = find.text('Confirmar y crear meta');
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(saved.single.label, 'Auto usado');
+    expect(saved.single.targetAmount, 18000);
+    expect(saved.single.snapshot.inputs.months, 60);
+  });
+
+  testWidgets('undoing goes back to Porty\'s plan', (tester) async {
+    final edits = <String, Map<String, Object?>>{};
+    await _pump(tester, saved: [], edits: edits);
+    await tester.ensureVisible(find.text('Editar plan'));
+    await tester.tap(find.text('Editar plan'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Auto'), 'Moto');
+    await tester.tap(find.text('Aplicar cambios'));
+    await tester.pumpAndSettle();
+    expect(find.text('Moto'), findsOneWidget);
+
+    await tester.tap(find.text('Volver al de Porty'));
+    await tester.pumpAndSettle();
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('Editaste este plan'), findsNothing);
+    expect(edits, isEmpty);
   });
 }
