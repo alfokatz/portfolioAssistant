@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
+import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 import 'package:portfolio_assistant/features/assistant/utils/position_periods_builder.dart';
@@ -21,6 +22,12 @@ abstract final class PortfolioBrief {
   /// canceladas…): la cartera del brief ya refleja las confirmadas.
   static const actionsKey = 'actions_this_conversation';
 
+  /// Lo que Porty sabe del usuario (ver `MemoryTools`).
+  static const userMemoryKey = 'user_memory';
+
+  /// Cuántos datos de la memoria viajan por turno (los más recientes).
+  static const maxMemoriesInBrief = 30;
+
   static Map<String, Object?> build(AssistantToolContext ctx) {
     final map = PortfolioContextBuilder.buildMap(
       ctx.summary,
@@ -34,6 +41,18 @@ abstract final class PortfolioBrief {
       ..['closed_positions_count'] = ctx.closedPositions.length;
     final profile = InvestorProfileContext.brief(ctx.investorProfile, ctx.now);
     if (profile != null) map[userProfileKey] = profile;
+    final memories = ctx.userMemories.take(maxMemoriesInBrief).toList();
+    if (memories.isNotEmpty) {
+      map[userMemoryKey] = [
+        for (final (i, m) in memories.indexed)
+          {
+            'id': MemoryTools.refOf(i),
+            'fact': m.content,
+            'category': m.category.storageValue,
+            'since': InvestorProfileContext.formatDate(m.updatedAt),
+          },
+      ];
+    }
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;
     }

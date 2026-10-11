@@ -610,6 +610,9 @@ void main() {
       'propose_delete_position',
       'propose_price_alert',
       'list_price_alerts',
+      'remember_about_user',
+      'forget_about_user',
+      'search_web',
     ]);
   });
 }

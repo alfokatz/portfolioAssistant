@@ -15,6 +15,8 @@ import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
+import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 /// Fuentes de datos que viven toda la conversación (sus caches TTL también).
@@ -29,7 +31,9 @@ class AssistantDataSources {
     EtfHoldingsFetcher? etfHoldings,
     YahooCompanyProfileClient? profileClient,
     DividendFetcher? dividends,
+    WebSearchClient? webSearch,
   }) : _tickerResolver = tickerResolver,
+       _webSearch = webSearch,
        _dividends = dividends,
        _earnings = earnings,
        _fundamentals = fundamentals,
@@ -49,6 +53,7 @@ class AssistantDataSources {
   EtfHoldingsFetcher? _etfHoldings;
   YahooCompanyProfileClient? _profileClient;
   DividendFetcher? _dividends;
+  WebSearchClient? _webSearch;
 
   /// Planes de ahorro de la conversación (ver [SavingsPlanStore]).
   final plans = SavingsPlanStore();
@@ -64,6 +69,7 @@ class AssistantDataSources {
   YahooCompanyProfileClient get profileClient =>
       _profileClient ??= YahooCompanyProfileClient();
   DividendFetcher get dividends => _dividends ??= DividendFetcher();
+  WebSearchClient get webSearch => _webSearch ??= WebSearchClient();
 }
 
 /// Lo que las tools necesitan saber del usuario en ESTE turno. El plan se
@@ -80,6 +86,9 @@ class AssistantToolContext {
     this.investorProfile,
     this.actionsThisConversation = const [],
     this.loadPriceAlerts,
+    this.userMemories = const [],
+    this.saveMemory,
+    this.deleteMemory,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
        heldTickers = {
@@ -105,6 +114,24 @@ class AssistantToolContext {
   /// Las alertas de precio del usuario (list_price_alerts), ya en el
   /// formato del resultado de la tool; `null` fuera de la app.
   final Future<List<Map<String, Object?>>> Function()? loadPriceAlerts;
+
+  /// Lo que Porty sabe del usuario al empezar el turno (más recientes
+  /// primero): va en `user_memory` del brief, con la referencia de
+  /// `MemoryTools.refOf`.
+  final List<UserMemory> userMemories;
+
+  /// Guarda un dato nuevo, o reemplaza [replacesId]. `null` fuera de la app.
+  final Future<UserMemory> Function(
+    String content,
+    UserMemoryCategory category, {
+    String? replacesId,
+  })?
+  saveMemory;
+  final Future<void> Function(String id)? deleteMemory;
+
+  /// Lo que Porty anotó en este turno: la app lo muestra debajo de la
+  /// respuesta ("Porty anotó: …").
+  final rememberedFacts = <String>[];
   final DateTime now;
   final Set<String> heldTickers;
 

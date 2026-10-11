@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
     show FlutterSecureStorage;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/porty_outfit/domain/porty_outfit.dart';
+import 'package:portfolio_assistant/features/porty_outfit/providers/porty_outfit_provider.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/secure_auth_storage.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
@@ -107,6 +109,7 @@ class MyApp extends HookConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     // Mientras el chequeo corre (o si falla) la app arranca normal.
     final update = ref.watch(appUpdateStatusProvider).valueOrNull;
+    final outfit = ref.watch(portyOutfitProvider);
     return MaterialApp.router(
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: !kReleaseMode,
@@ -118,17 +121,21 @@ class MyApp extends HookConsumerWidget {
       darkTheme: darkTheme,
       themeMode: themeMode,
       builder: (context, child) {
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: ColoredBox(color: Theme.of(context).colorScheme.surface),
-            ),
-            if (child != null) child,
-            if (update?.required ?? false)
+        // Los accesorios que eligió el usuario, para todos los Porty.
+        return PortyOutfitScope(
+          outfit: outfit,
+          child: Stack(
+            children: [
               Positioned.fill(
-                child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
+                child: ColoredBox(color: Theme.of(context).colorScheme.surface),
               ),
-          ],
+              if (child != null) child,
+              if (update?.required ?? false)
+                Positioned.fill(
+                  child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
+                ),
+            ],
+          ),
         );
       },
     );

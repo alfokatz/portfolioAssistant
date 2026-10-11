@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
@@ -280,6 +281,7 @@ AssistantDataSources fakeDataSources({
   FakeProfileClient? profiles,
   FakeYahooProxy? yahoo,
   FakeYahooProxy? dividendYahoo,
+  WebSearchClient? webSearch,
 }) => AssistantDataSources(
   quoteRepository: quotes ?? CountingQuoteRepository(),
   preferences: preferences ?? FakePreferences(),
@@ -298,7 +300,35 @@ AssistantDataSources fakeDataSources({
     proxy: dividendYahoo ?? yahoo ?? FakeYahooProxy(),
   ),
   profileClient: profiles ?? FakeProfileClient(),
+  webSearch: webSearch ?? FakeWebSearch(),
 );
+
+/// `web-search` sin red: responde lo que se le pasa (por defecto, el precio
+/// de un producto con su fuente) y guarda las consultas.
+class FakeWebSearch extends WebSearchClient {
+  FakeWebSearch({Map<String, Object?>? result})
+    : _result =
+          result ??
+          const {
+            'status': 'ok',
+            'answer':
+                'La MacBook Neo cuesta 599 USD en EE. UU. en todos sus '
+                'colores, incluido el rosa.',
+            'sources': [
+              {'title': 'Apple', 'url': 'https://www.apple.com/macbook-neo/'},
+            ],
+          },
+      super(url: '');
+
+  final Map<String, Object?> _result;
+  final queries = <String>[];
+
+  @override
+  Future<Map<String, Object?>> search(String query) async {
+    queries.add(query);
+    return _result;
+  }
+}
 
 /// Un `quoteSummary` con dividendos como lo manda Yahoo: ETFs con `yield`,
 /// acciones con `dividendYield` (fracciones, {raw, fmt}).

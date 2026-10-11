@@ -19,6 +19,7 @@ class PortfolioQaMessage {
     this.isFallback = false,
     this.showsAdviceDisclaimer = false,
     this.profileNudge,
+    this.rememberedFacts = const [],
     this.notice,
   });
 
@@ -37,6 +38,10 @@ class PortfolioQaMessage {
   /// Si no es `null`, la pantalla agrega el aviso de completar/revisar el
   /// perfil en Ajustes → Perfil de inversor, con link directo.
   final InvestorProfileNudge? profileNudge;
+
+  /// Lo que Porty anotó en su memoria en este turno: la pantalla lo muestra
+  /// debajo de la respuesta, con link a "Lo que Porty sabe de vos".
+  final List<String> rememberedFacts;
 
   /// Si no es `null`, la fila muestra este aviso en vez de la respuesta.
   /// Conserva [surfaceId] (misma fila que la espera, que se funde en el
@@ -79,6 +84,7 @@ class PortfolioQaMessage {
     bool? isFallback,
     bool? showsAdviceDisclaimer,
     InvestorProfileNudge? profileNudge,
+    List<String>? rememberedFacts,
     AssistantNotice? notice,
   }) {
     return PortfolioQaMessage(
@@ -91,6 +97,7 @@ class PortfolioQaMessage {
       showsAdviceDisclaimer:
           showsAdviceDisclaimer ?? this.showsAdviceDisclaimer,
       profileNudge: profileNudge ?? this.profileNudge,
+      rememberedFacts: rememberedFacts ?? this.rememberedFacts,
       notice: notice ?? this.notice,
     );
   }

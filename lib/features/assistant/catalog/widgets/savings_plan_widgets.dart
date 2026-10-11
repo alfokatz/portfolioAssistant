@@ -278,7 +278,10 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               retirementLike
                   ? Icons.beach_access_outlined
                   : Icons.flag_outlined,
-          trailing: QaTag(_riskName(_inputs.risk), color: QaColors.accentBlue),
+          trailing: QaTag(
+            _inputs.shortTerm ? 'Corto plazo' : _riskName(_inputs.risk),
+            color: QaColors.accentBlue,
+          ),
         ),
         for (var i = 0; i < top.length; i++) _section(top[i], first: i == 0),
         if (rest.isNotEmpty) ...[
@@ -740,6 +743,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
 
   String _riskNote() {
     final name = _riskName(_inputs.risk).toLowerCase();
+    if (_inputs.shortTerm) {
+      return 'Es plata que vas a usar en menos de 3 años: el plan la deja en '
+          'liquidez (cuentas remuneradas, money market, letras) y bonos '
+          'cortos, sin acciones, para que no dependa de cómo esté el mercado '
+          'cuando la necesites.';
+    }
     if (widget.data.shortHorizon) {
       return 'Con menos de 3 años, las acciones pueden caer y no recuperarse '
           'a tiempo: por eso el plan va conservador.';
@@ -806,7 +815,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             icon: Icons.pie_chart_outline_rounded,
           ),
       for (final risk in RiskTolerance.values)
-        if (risk != _inputs.risk && !widget.data.shortHorizon)
+        if (risk != _inputs.risk &&
+            !widget.data.shortHorizon &&
+            !_inputs.shortTerm)
           QaFollowUp(
             _riskName(risk),
             'Rehacé el plan con una cartera ${_riskName(risk).toLowerCase()}',

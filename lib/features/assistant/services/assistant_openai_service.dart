@@ -70,6 +70,21 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       'mencionarlo.\n'
       '- Nunca cambia un número.\n';
 
+  /// Cómo usar `user_memory` (lo que Porty anotó del usuario en charlas
+  /// anteriores): para conectar la respuesta con su vida, no para recitarlo.
+  static const userMemoryGuidance =
+      'Sobre user_memory (lo que sabés del usuario por charlas anteriores):\n'
+      '- Usalo para que la respuesta sea SUYA: si pregunta cómo ahorrar o '
+      'invertir y tiene una meta anotada, conectalo con esa meta; si dijo '
+      'cuánto ahorra por mes, usalo como monthly_contribution; respetá sus '
+      'preferencias al elegir ideas.\n'
+      '- Si el dato resuelve lo que preguntarías, no lo preguntes de nuevo '
+      '(confirmalo en pocas palabras: "¿seguís con la idea de la MacBook?").\n'
+      '- No lo recites ni lo repitas de un mensaje a otro; nunca abras la '
+      'respuesta con él. Nunca cambia un número.\n'
+      '- since es la fecha en que lo anotaste: si es viejo y pesa en la '
+      'respuesta, confirmalo.\n';
+
   /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
   /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
   /// el análisis de empresa lee la posición parseando desde la primera "{".
@@ -80,6 +95,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       'referencia, se actualiza en cada turno; no es parte de ninguna '
       'pregunta):\n'
       '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
+      '${portfolioBrief.containsKey(PortfolioBrief.userMemoryKey) ? userMemoryGuidance : ''}'
       '${jsonEncode(portfolioBrief)}';
 
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.

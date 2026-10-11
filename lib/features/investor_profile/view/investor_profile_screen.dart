@@ -76,6 +76,7 @@ Future<bool> _saveAnswers(WidgetRef ref, ProfileAnswers answers) async {
       objective: answers.objective!,
       experience: answers.experience,
       drawdownReaction: answers.drawdown,
+      notes: answers.notes,
     );
     return true;
   } catch (_) {
@@ -124,10 +125,13 @@ class _ProfileWizardState extends ConsumerState<_ProfileWizard> {
     _pages.animateToPage(page, duration: _slide, curve: Curves.easeOutCubic);
   }
 
-  /// Elegir avanza solo (después de un instante, para ver la elección).
+  /// Elegir avanza solo (después de un instante, para ver la elección),
+  /// salvo en las preguntas con texto libre: ahí el usuario quizás quiera
+  /// escribir algo más, y avanza con Siguiente.
   void _select(Object value) {
     final page = _page;
     setState(() => _answers = _question.answer(_answers, value));
+    if (_question.allowsNote) return;
     Future<void>.delayed(const Duration(milliseconds: 260), () {
       if (mounted && _page == page) _next();
     });
@@ -216,6 +220,11 @@ class _ProfileWizardState extends ConsumerState<_ProfileWizard> {
                 question: question,
                 selected: question.valueIn(_answers),
                 onSelected: _select,
+                note: question.noteIn(_answers),
+                onNoteChanged:
+                    (note) => setState(
+                      () => _answers = _answers.withNote(question, note),
+                    ),
                 eyebrow: 'investor_profile_step'.tr(
                   namedArgs: {
                     'current': '${i + 1}',
@@ -485,14 +494,16 @@ class _EditQuestionScreen extends ConsumerStatefulWidget {
 class _EditQuestionScreenState extends ConsumerState<_EditQuestionScreen> {
   bool _saving = false;
 
-  Future<void> _save(Object? value) async {
+  /// Lo que se está editando, en las preguntas con texto libre (elegir no
+  /// guarda solo: se guarda con el botón, junto con la nota).
+  late ProfileAnswers _draft = ProfileAnswers.of(
+    ref.read(investorProfileProvider).profile,
+  );
+
+  Future<void> _saveDraft(ProfileAnswers answers) async {
     if (_saving) return;
     setState(() => _saving = true);
-    final current = ProfileAnswers.of(ref.read(investorProfileProvider).profile);
-    final ok = await _saveAnswers(
-      ref,
-      widget.question.answer(current, value),
-    );
+    final ok = await _saveAnswers(ref, answers);
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop(true);
@@ -501,9 +512,65 @@ class _EditQuestionScreenState extends ConsumerState<_EditQuestionScreen> {
     }
   }
 
+  Future<void> _save(Object? value) async {
+    final current = ProfileAnswers.of(ref.read(investorProfileProvider).profile);
+    await _saveDraft(widget.question.answer(current, value));
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final question = widget.question;
+    if (question.allowsNote) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: AbsorbPointer(
+          absorbing: _saving,
+          child: ProfileQuestionView(
+            question: question,
+            selected: question.valueIn(_draft),
+            onSelected:
+                (value) =>
+                    setState(() => _draft = question.answer(_draft, value)),
+            note: question.noteIn(_draft),
+            onNoteChanged:
+                (note) => setState(() => _draft = _draft.withNote(question, note)),
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.pageHorizontal,
+              AppDimens.sp8,
+              AppDimens.pageHorizontal,
+              AppDimens.sp16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PositionPrimaryButton(
+                  label: 'investor_profile_save'.tr(),
+                  loading: _saving,
+                  onPressed:
+                      _saving || !_draft.isComplete
+                          ? null
+                          : () => _saveDraft(_draft),
+                ),
+                if (question.isOptional && question.valueIn(_draft) != null)
+                  TextButton(
+                    onPressed: _saving ? null : () => _save(null),
+                    child: Text(
+                      'investor_profile_clear'.tr(),
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: colors.textSecondary),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final answers = ProfileAnswers.of(
       ref.watch(investorProfileProvider).profile,
     );
@@ -606,6 +673,19 @@ class _AnswersCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              if (question.noteIn(answers) case final note?) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '“$note”',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: colors.textSecondary,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

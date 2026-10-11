@@ -17,7 +17,7 @@ abstract final class InvestorProfileContext {
       'horizon': horizonLabel(profile.horizon),
       'objective': objectiveLabel(profile.objective),
       ..._optional(profile),
-      'updated_at': _formatDate(profile.updatedAt),
+      'updated_at': formatDate(profile.updatedAt),
     };
   }
 
@@ -41,6 +41,8 @@ abstract final class InvestorProfileContext {
       'experience': experienceLabel(profile.experience!),
     if (profile.drawdownReaction != null)
       'drawdown_reaction': drawdownLabel(profile.drawdownReaction!),
+    // Con las palabras del usuario: es lo que más dice de su objetivo real.
+    if (profile.notes.isNotEmpty) 'notes': profile.notes,
   };
 
   static String experienceLabel(InvestmentExperience experience) =>
@@ -76,7 +78,7 @@ abstract final class InvestorProfileContext {
         InvestmentObjective.specificGoal => 'juntar para una meta concreta',
       };
 
-  static String _formatDate(DateTime date) {
+  static String formatDate(DateTime date) {
     final local = date.toLocal();
     final month = local.month.toString().padLeft(2, '0');
     final day = local.day.toString().padLeft(2, '0');

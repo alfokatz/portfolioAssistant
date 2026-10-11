@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_st
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
+import 'package:portfolio_assistant/features/assistant/services/chat_dictation.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_answer_tone.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_advice_footer.dart';
@@ -39,6 +40,7 @@ import 'package:portfolio_assistant/features/notifications/nav/notifications_rou
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
+import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
@@ -446,9 +448,43 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    // Un parcial tardío del dictado no puede volver a llenar el campo.
+    unawaited(ref.read(chatDictationProvider).stop());
     _textController.clear();
     setState(() => _waitGateOpen = false);
     await notifier.submitMessage(trimmed);
+  }
+
+  /// Mic del composer: empieza o termina el dictado. Lo dictado se suma a
+  /// lo que ya estaba escrito y queda en el campo para revisar y enviar.
+  Future<void> _toggleDictation() async {
+    final dictation = ref.read(chatDictationProvider);
+    if (dictation.isListening) {
+      await dictation.stop();
+      return;
+    }
+    final current = _textController.text.trim();
+    final prefix = current.isEmpty ? '' : '$current ';
+    final failure = await dictation.start(
+      languageCode: context.locale.languageCode,
+      onText: (words) {
+        if (!mounted) return;
+        final text = '$prefix$words';
+        _textController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
+    if (!mounted || failure == null) return;
+    ref
+        .read(alertProvider.notifier)
+        .showError(
+          message:
+              failure == DictationFailure.permission
+                  ? 'assistant_mic_permission'.tr()
+                  : 'assistant_mic_unavailable'.tr(),
+        );
   }
 
   /// Escribe [suggestion] en el input carácter por carácter, simulando que
@@ -514,6 +550,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     final notifier = ref.read(assistantProvider(_args).notifier);
     final service = notifier.service;
     final subscription = ref.watch(subscriptionProvider);
+    final dictation = ref.watch(chatDictationProvider);
 
     // La cascada de saludo + chips solo se muestra una vez (mientras no hay
     // más que el mensaje de bienvenida) — una vez que arrancó, la marcamos
@@ -747,6 +784,16 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                             _submitMessage(notifier, text),
                                 enabled: !state.isWaiting && service != null,
                               ),
+                            ),
+                            const SizedBox(width: AppDimens.sp8),
+                            AssistantMicButton(
+                              listening: dictation.isListening,
+                              onTap:
+                                  state.isWaiting ||
+                                          service == null ||
+                                          _isAutoTyping
+                                      ? null
+                                      : _toggleDictation,
                             ),
                             const SizedBox(width: AppDimens.sp8),
                             ScaleTransition(

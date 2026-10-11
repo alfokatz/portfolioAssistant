@@ -81,7 +81,10 @@ abstract final class BuyPlanBuilder {
 
     // Peso de cada clase según el plan, con las clases sin instrumento
     // repartidas en proporción entre las que tienen.
-    final allocation = PlanAssumptions.allocationFor(inputs.risk);
+    final allocation = PlanAssumptions.allocationFor(
+      inputs.risk,
+      shortTerm: inputs.shortTerm,
+    );
     final present = {for (final p in valid) p.assetClass};
     final presentTotal = allocation.entries
         .where((e) => present.contains(e.key))

@@ -5,7 +5,9 @@ import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/web_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -31,16 +33,25 @@ abstract final class AssistantToolset {
     // Al final: proponen operaciones, nunca escriben (ver ActionTools).
     ...ActionTools.build(ctx),
     ...AlertTools.build(ctx),
+    ...MemoryTools.build(ctx),
+    SearchWebTool(ctx),
   ];
 }
 
 /// Avisos que la app agrega debajo de una respuesta (no los escribe el
 /// modelo, así no dependen de que se acuerde).
 class AdviceNotice {
-  const AdviceNotice({this.showsDisclaimer = false, this.profileNudge});
+  const AdviceNotice({
+    this.showsDisclaimer = false,
+    this.profileNudge,
+    this.rememberedFacts = const [],
+  });
 
   final bool showsDisclaimer;
   final InvestorProfileNudge? profileNudge;
+
+  /// Lo que Porty anotó en su memoria en este turno.
+  final List<String> rememberedFacts;
 }
 
 /// Decisiones de la app sobre un turno, a partir de las tools que corrieron.
@@ -90,6 +101,7 @@ abstract final class AssistantTurnPolicy {
   static AdviceNotice noticesFor(
     TurnOutcome outcome, {
     required bool profileNudgeAlreadyShown,
+    List<String> rememberedFacts = const [],
   }) {
     ToolCallRecord? advice;
     var completeGoal = false;
@@ -119,6 +131,7 @@ abstract final class AssistantTurnPolicy {
     return AdviceNotice(
       showsDisclaimer: invest || completeGoal,
       profileNudge: nudge,
+      rememberedFacts: List.unmodifiable(rememberedFacts),
     );
   }
 }

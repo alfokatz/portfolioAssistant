@@ -13,7 +13,11 @@ class InvestorProfile {
     required this.updatedAt,
     this.experience,
     this.drawdownReaction,
+    this.notes = const {},
   });
+
+  /// Tope de cada nota de texto libre.
+  static const maxNoteLength = 300;
 
   /// Un perfil con más de 12 meses se considera vencido: se sigue usando
   /// (no se borra hasta que el usuario confirme uno nuevo), pero Porty
@@ -31,6 +35,11 @@ class InvestorProfile {
   /// Opcional: qué haría ante una caída fuerte (el riesgo por
   /// comportamiento, más confiable que la etiqueta que cada uno se pone).
   final DrawdownReaction? drawdownReaction;
+
+  /// Lo que el usuario quiso contarle a Porty además de la opción elegida,
+  /// por pregunta (`objective`, `horizon`, `experience`): "quiero comprarme
+  /// una compu el año que viene". Solo notas no vacías.
+  final Map<String, String> notes;
 
   bool isStaleAt(DateTime now) {
     final cutoff = DateTime(

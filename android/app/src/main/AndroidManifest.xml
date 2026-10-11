@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Notificaciones push (Android 13+ pide permiso en tiempo de ejecución). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Dictado en el chat de Porty (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:label="Porty"
         android:name="${applicationName}"
@@ -82,6 +84,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Dictado: el reconocedor de voz del sistema (Android 11+). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 </manifest>

@@ -24,6 +24,7 @@ class _Repo implements InvestorProfileRepository {
     required InvestmentObjective objective,
     InvestmentExperience? experience,
     DrawdownReaction? drawdownReaction,
+    Map<String, String> notes = const {},
   }) async {
     saves++;
     return stored = InvestorProfile(
@@ -33,6 +34,7 @@ class _Repo implements InvestorProfileRepository {
       updatedAt: DateTime(2026, 10, 7),
       experience: experience,
       drawdownReaction: drawdownReaction,
+      notes: notes,
     );
   }
 }
@@ -89,6 +91,13 @@ Future<void> _choose(WidgetTester tester, String label) async {
   await _settle(tester);
 }
 
+/// Las preguntas con texto libre no avanzan solas: se confirma con el botón.
+Future<void> _tapButton(WidgetTester tester, String label) async {
+  await tester.ensureVisible(find.text(label));
+  await tester.tap(find.text(label));
+  await _settle(tester);
+}
+
 void main() {
   testWidgets('without a profile: Porty asks one question at a time, '
       'choosing moves on, the optional ones can be skipped, and it ends '
@@ -101,7 +110,17 @@ void main() {
     await _choose(tester, 'investor_profile_risk_aggressive');
     expect(find.text('investor_profile_q_horizon'), findsOneWidget);
     await _choose(tester, 'investor_profile_horizon_long');
-    await _choose(tester, 'investor_profile_objective_growth');
+    // Horizonte admite texto libre: elegir no avanza, Siguiente sí.
+    expect(find.text('investor_profile_q_horizon'), findsOneWidget);
+    expect(find.text('investor_profile_note_label'), findsOneWidget);
+    await _tapButton(tester, 'investor_profile_next');
+    await _choose(tester, 'investor_profile_objective_specific_goal');
+    await tester.enterText(
+      find.byType(TextField),
+      'Quiero comprarme una compu el año que viene',
+    );
+    await _settle(tester);
+    await _tapButton(tester, 'investor_profile_next');
 
     // Opcionales: se saltean.
     expect(find.text('investor_profile_q_experience'), findsOneWidget);
@@ -116,6 +135,9 @@ void main() {
     expect(repo.stored!.risk, RiskTolerance.aggressive);
     expect(repo.stored!.horizon, InvestmentHorizon.long);
     expect(repo.stored!.experience, isNull);
+    expect(repo.stored!.notes, {
+      'objective': 'Quiero comprarme una compu el año que viene',
+    });
     expect(find.text('investor_profile_done_title'), findsOneWidget);
   });
 
@@ -157,8 +179,13 @@ void main() {
     await _settle(tester);
     expect(find.text('investor_profile_q_horizon'), findsOneWidget);
     await _choose(tester, 'investor_profile_horizon_long');
+    // Con texto libre, se guarda con el botón (junto con la nota).
+    expect(repo.saves, 0);
+    await tester.enterText(find.byType(TextField), 'Para dentro de 10 años');
+    await _tapButton(tester, 'investor_profile_save');
 
     expect(repo.saves, 1);
+    expect(repo.stored!.notes, {'horizon': 'Para dentro de 10 años'});
     expect(repo.stored!.horizon, InvestmentHorizon.long);
     expect(repo.stored!.risk, RiskTolerance.aggressive);
     expect(repo.stored!.experience, InvestmentExperience.beginner);

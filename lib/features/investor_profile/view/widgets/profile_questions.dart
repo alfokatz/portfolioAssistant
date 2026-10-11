@@ -16,6 +16,7 @@ class ProfileAnswers {
     this.objective,
     this.experience,
     this.drawdown,
+    this.notes = const {},
   });
 
   factory ProfileAnswers.of(InvestorProfile? profile) => ProfileAnswers(
@@ -24,6 +25,7 @@ class ProfileAnswers {
     objective: profile?.objective,
     experience: profile?.experience,
     drawdown: profile?.drawdownReaction,
+    notes: profile?.notes ?? const {},
   );
 
   final RiskTolerance? risk;
@@ -32,8 +34,25 @@ class ProfileAnswers {
   final InvestmentExperience? experience;
   final DrawdownReaction? drawdown;
 
+  /// Texto libre por pregunta (clave = [ProfileQuestion.name]).
+  final Map<String, String> notes;
+
   /// Las tres necesarias para guardar.
   bool get isComplete => risk != null && horizon != null && objective != null;
+
+  /// [notes] con la de [question] cambiada (vacía = sin nota).
+  ProfileAnswers withNote(ProfileQuestion question, String note) {
+    final next = {...notes}..remove(question.name);
+    if (note.trim().isNotEmpty) next[question.name] = note.trim();
+    return ProfileAnswers(
+      risk: risk,
+      horizon: horizon,
+      objective: objective,
+      experience: experience,
+      drawdown: drawdown,
+      notes: next,
+    );
+  }
 }
 
 typedef ProfileOption = ({Object value, String label, String? description});
@@ -47,6 +66,14 @@ enum ProfileQuestion {
   drawdown;
 
   bool get isOptional => this == experience || this == drawdown;
+
+  /// Las preguntas donde el usuario puede contar más con sus palabras
+  /// ("quiero comprarme una compu", "para dentro de un año"). Esas no
+  /// avanzan solas al elegir: se confirma con Siguiente / Guardar.
+  bool get allowsNote =>
+      this == objective || this == horizon || this == experience;
+
+  String get noteHint => 'investor_profile_note_hint_$name'.tr();
 
   String get title => 'investor_profile_q_$name'.tr();
 
@@ -114,7 +141,11 @@ enum ProfileQuestion {
     experience:
         this == experience ? value as InvestmentExperience? : a.experience,
     drawdown: this == drawdown ? value as DrawdownReaction? : a.drawdown,
+    // Borrar una respuesta opcional también borra su nota.
+    notes: value == null ? ({...a.notes}..remove(name)) : a.notes,
   );
+
+  String? noteIn(ProfileAnswers a) => a.notes[name];
 
   /// La respuesta como se lee en el resumen, o `null` si no respondió.
   String? answerLabel(ProfileAnswers a) {
@@ -135,11 +166,18 @@ class ProfileQuestionView extends StatelessWidget {
     required this.onSelected,
     this.eyebrow,
     this.intro,
+    this.note,
+    this.onNoteChanged,
   });
 
   final ProfileQuestion question;
   final Object? selected;
   final ValueChanged<Object> onSelected;
+
+  /// Texto libre de la pregunta (solo si [ProfileQuestion.allowsNote] y
+  /// hay [onNoteChanged]).
+  final String? note;
+  final ValueChanged<String>? onNoteChanged;
 
   /// "Pregunta 2 de 5" (en el carrusel).
   final String? eyebrow;
@@ -257,6 +295,71 @@ class ProfileQuestionView extends StatelessWidget {
               ],
             ],
           ),
+        ),
+        if (question.allowsNote && onNoteChanged != null) ...[
+          const SizedBox(height: AppDimens.sp20),
+          ProfileNoteField(
+            key: ValueKey('note-${question.name}'),
+            initialValue: note ?? '',
+            hint: question.noteHint,
+            onChanged: onNoteChanged!,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// "Contale más a Porty (opcional)": lo que el usuario quiera sumar con
+/// sus palabras a la opción elegida.
+class ProfileNoteField extends StatefulWidget {
+  const ProfileNoteField({
+    super.key,
+    required this.initialValue,
+    required this.hint,
+    required this.onChanged,
+  });
+
+  final String initialValue;
+  final String hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<ProfileNoteField> createState() => _ProfileNoteFieldState();
+}
+
+class _ProfileNoteFieldState extends State<ProfileNoteField> {
+  late final _controller = TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'investor_profile_note_label'.tr(),
+          style: tt.bodyMedium?.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppDimens.sp8),
+        TextField(
+          controller: _controller,
+          onChanged: widget.onChanged,
+          minLines: 2,
+          maxLines: 5,
+          maxLength: InvestorProfile.maxNoteLength,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: widget.hint),
         ),
       ],
     );

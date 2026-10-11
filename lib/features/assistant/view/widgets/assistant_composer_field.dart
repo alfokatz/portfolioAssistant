@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -153,6 +154,130 @@ class AssistantSendButton extends StatelessWidget {
               Icons.arrow_upward_rounded,
               color: PortfolioColors.textPrimary,
               size: AppDimens.iconMd,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dictado del chat, al lado del send: mismo diámetro, pero calmo (borde
+/// sobre Pure Surface) para que el send siga siendo la acción principal.
+/// Escuchando, se tiñe de terracota con un halo que respira y muestra
+/// "stop".
+class AssistantMicButton extends StatefulWidget {
+  const AssistantMicButton({
+    super.key,
+    required this.listening,
+    this.onTap,
+  });
+
+  final bool listening;
+  final VoidCallback? onTap;
+
+  @override
+  State<AssistantMicButton> createState() => _AssistantMicButtonState();
+}
+
+class _AssistantMicButtonState extends State<AssistantMicButton>
+    with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(AssistantMicButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.listening != widget.listening) _sync();
+  }
+
+  void _sync() {
+    if (widget.listening) {
+      _pulse.repeat(reverse: true);
+    } else {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final enabled = widget.onTap != null;
+    final listening = widget.listening;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      button: true,
+      label:
+          listening
+              ? 'assistant_mic_stop'.tr()
+              : 'assistant_mic_start'.tr(),
+      excludeSemantics: true,
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, child) {
+          final glow = reduceMotion ? 0.5 : _pulse.value;
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow:
+                  listening
+                      ? [
+                        BoxShadow(
+                          color: PortfolioColors.accentBlue.withValues(
+                            alpha: 0.18 + 0.22 * glow,
+                          ),
+                          blurRadius: AppDimens.glowBlurSm + 8 * glow,
+                          spreadRadius: 2 * glow,
+                        ),
+                      ]
+                      : null,
+            ),
+            child: child,
+          );
+        },
+        child: Material(
+          color:
+              listening
+                  ? PortfolioColors.accentBlue
+                  : colors.surfaceCard.withValues(alpha: enabled ? 1 : 0.6),
+          shape: CircleBorder(
+            side:
+                listening
+                    ? BorderSide.none
+                    : BorderSide(color: colors.border),
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: AssistantComposerField.height,
+              height: AssistantComposerField.height,
+              child: Icon(
+                listening ? Icons.stop_rounded : Icons.mic_none_rounded,
+                color:
+                    listening
+                        ? PortfolioColors.textPrimary
+                        : colors.textSecondary.withValues(
+                          alpha: enabled ? 1 : 0.5,
+                        ),
+                size: AppDimens.iconMd,
+              ),
             ),
           ),
         ),

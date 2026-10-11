@@ -42,6 +42,7 @@ import 'package:portfolio_assistant/features/genui_core/services/openai_genui_se
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 
 import '../features/assistant/fakes/assistant_fakes.dart';
 
@@ -261,7 +262,89 @@ List<String> _asksInstead(_TurnLog t) => [
   ..._expect(_cards(t) == 0, 'mostró una card: ${t.components}'),
 ];
 
+/// Tools de mercado / ideas que nunca van en una meta de compra.
+const _stockTools = {'get_quote', 'get_invest_candidates', 'get_fundamentals'};
+
 final _cases = <_Case>[
+  // Personalización (feedback 2026-10-11): fuera de tema, metas de compra,
+  // continuidad y memoria.
+  _Case(
+    'scope-receta',
+    ['Decime una receta de tallarines con tuco'],
+    (t, _) => [
+      ..._expect(t.calls.isEmpty, 'pidió tools para algo fuera de tema'),
+      ..._expect(
+        !RegExp(r'tomate|cebolla|sofre|hervir|salsa', caseSensitive: false)
+            .hasMatch(t.text),
+        'contestó la receta: ${t.text}',
+      ),
+    ],
+  ),
+  _Case(
+    'scope-rubor',
+    ['¿Qué rubores líquidos me recomendás?'],
+    (t, _) => _expect(t.calls.isEmpty, 'pidió tools para algo fuera de tema'),
+  ),
+  _Case(
+    'purchase-compu-sin-datos',
+    ['Hola, ¿cuánto tengo que invertir para comprarme una compu?'],
+    (t, _) => [
+      ..._expect(
+        !t.calls.any((c) => _stockTools.contains(c.name)),
+        'lo leyó como inversión en acciones: ${t.calls.map((c) => c.name)}',
+      ),
+      ..._expect(
+        !t.components.any((c) => c.startsWith('QaPrice') || c == 'QaInvestOption'),
+        'widget de acciones: ${t.components}',
+      ),
+      ..._expect(t.text.contains('?'), 'no preguntó precio / fecha'),
+    ],
+  ),
+  _Case(
+    'purchase-busca-precio',
+    ['Quiero comprarme la MacBook Neo rosa en 14 meses, ¿cuánto ahorro por mes?'],
+    (t, _) => [
+      ..._expect(
+        t.calls.any((c) => c.name == 'search_web'),
+        'no buscó el precio: ${t.calls.map((c) => c.name)}',
+      ),
+      ..._expect(
+        !t.calls.any((c) => _stockTools.contains(c.name)),
+        'lo leyó como acciones',
+      ),
+    ],
+    tier: SubscriptionTier.premium,
+  ),
+  _Case(
+    'purchase-continuidad-mac',
+    [
+      'Hola, ¿cuánto tengo que invertir para comprarme una compu?',
+      'Una Mac',
+      'La MacBook Neo rosada, sale 800 dólares y la quiero en 14 meses',
+    ],
+    (t, all) => [
+      for (final turn in all.skip(1))
+        ..._expect(
+          !turn.calls.any((c) => _stockTools.contains(c.name)),
+          '"Mac" leído como AAPL: ${turn.calls.map((c) => c.name)}',
+        ),
+      ..._expect(
+        t.calls.any(
+          (c) =>
+              c.name == 'get_goal_projection' &&
+              c.args['goal_type'] == 'purchase' &&
+              c.args['target_amount'] == 800,
+        ),
+        'esperaba get_goal_projection purchase de 800: '
+        '${t.calls.map((c) => '${c.name} ${c.args}')}',
+      ),
+      ..._expect(
+        all.any((turn) => turn.calls.any((c) => c.name == 'remember_about_user')),
+        'no anotó la meta en la memoria',
+      ),
+    ],
+    tier: SubscriptionTier.premium,
+  ),
   _Case('chat-hola', [
     'Hola',
   ], (t, _) => _expect(t.calls.isEmpty, 'tools en un saludo')),
@@ -1089,6 +1172,15 @@ void main() {
             tier: c.tier,
             summary: heldSummary,
             data: caseData,
+            saveMemory:
+                (content, category, {replacesId}) async => UserMemory(
+                  id: 'eval-memory',
+                  content: content,
+                  category: category,
+                  source: UserMemorySource.porty,
+                  updatedAt: DateTime.now(),
+                ),
+            deleteMemory: (_) async {},
           );
           final courtesy = WeeklyFreeAnalysisGrant(
             ctx: ctx,

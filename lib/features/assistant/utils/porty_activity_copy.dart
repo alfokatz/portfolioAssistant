@@ -3,7 +3,9 @@ import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
+import 'package:portfolio_assistant/features/assistant/tools/web_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 
 /// La frase que muestra el header de Porty para una [TurnActivity]. Nunca
@@ -18,7 +20,10 @@ abstract final class PortyActivityCopy {
   };
 
   static String _tools(List<PendingToolCall> calls) {
-    final names = {for (final call in calls) call.name};
+    var names = {for (final call in calls) call.name};
+    // Anotar en la memoria va junto a otra tool: la frase es la de la otra.
+    final withoutMemory = names.difference(_memoryTools);
+    if (withoutMemory.isNotEmpty) names = withoutMemory;
     final tickers =
         <String>{
           for (final call in calls) ...ToolArgs.tickers(call.args, max: 6),
@@ -32,6 +37,11 @@ abstract final class PortyActivityCopy {
     }
     return 'porty_status_gathering'.tr();
   }
+
+  static const _memoryTools = {
+    RememberAboutUserTool.toolName,
+    ForgetAboutUserTool.toolName,
+  };
 
   static String _single(String name, List<String> tickers) {
     final one = tickers.length == 1 ? {'ticker': tickers.first} : null;
@@ -78,6 +88,11 @@ abstract final class PortyActivityCopy {
         return 'porty_status_action'.tr();
       case AlertTools.proposePriceAlert:
         return 'porty_status_alert'.tr();
+      case SearchWebTool.toolName:
+        return 'porty_status_web'.tr();
+      case RememberAboutUserTool.toolName:
+      case ForgetAboutUserTool.toolName:
+        return 'porty_status_memory'.tr();
       case AlertTools.listPriceAlerts:
         return 'porty_status_alerts_list'.tr();
       default:

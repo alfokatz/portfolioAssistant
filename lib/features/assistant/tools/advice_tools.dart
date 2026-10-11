@@ -146,16 +146,18 @@ class GetGoalProjectionTool implements DataTool {
 
   @override
   String get description =>
-      'The user\'s financial GOAL (target amount + date, e.g. retirement) '
+      'The user\'s financial GOAL (target amount + date: retirement, or '
+      'something to BUY like a laptop, a car, a trip, a house deposit) '
       'with a pre-computed SAVINGS PLAN: compound growth in today\'s dollars '
       '(after inflation), a suggested allocation for their risk, required '
       'monthly savings in pessimistic/base/optimistic scenarios, what they '
       'would need without investing, what-if horizons and, for retirement or '
       'an income goal, the two ways to collect it (living off dividends vs. '
       'withdrawing 4% a year) with the capital each needs. Use it when the user states '
-      'or asks about a savings goal or retirement ("en 20 años quiero tener '
-      '500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero jubilarme '
-      'cobrando 3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
+      'or asks about a savings goal, a purchase or retirement ("en 20 años '
+      'quiero tener 500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero '
+      'comprarme una compu de 1200 en un año", "quiero jubilarme cobrando '
+      '3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
       'stated in this conversation; omitted fields come from their saved '
       'goal and investor profile. If has_complete_goal is false, "missing" '
       'lists what to ask for. Never recalculate the numbers.';
@@ -182,6 +184,15 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'boolean',
         'description': 'true when the goal is retiring (jubilarse/retirarse).',
       },
+      'goal_type': {
+        'type': 'string',
+        'enum': ['retirement', 'purchase', 'other'],
+        'description':
+            'purchase = buying something concrete (computer, phone, car, '
+            'trip, wedding, house deposit): starts from 0 unless '
+            'current_savings is stated, and under 3 years the plan uses '
+            'cash and short-term bonds, no stocks.',
+      },
       'monthly_contribution': {
         'type': 'number',
         'description':
@@ -191,7 +202,7 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'number',
         'description':
             'USD the user said they already have for this goal, if stated '
-            '(default: their portfolio value).',
+            '(default: their portfolio value; 0 for a purchase).',
       },
       'desired_monthly_income': {
         'type': 'number',
@@ -245,6 +256,9 @@ class GetGoalProjectionTool implements DataTool {
           ToolArgs.number(args, 'desired_monthly_income'),
         ),
         isRetirement: retirement is bool ? retirement : null,
+        isPurchase:
+            ToolArgs.string(args, 'goal_type') ==
+            GoalProjectionBuilder.goalPurchase,
         incomeStrategy: IncomeStrategy.fromKey(
           ToolArgs.string(args, 'income_strategy'),
         ),

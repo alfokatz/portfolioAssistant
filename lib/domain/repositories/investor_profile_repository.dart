@@ -11,5 +11,6 @@ abstract class InvestorProfileRepository {
     required InvestmentObjective objective,
     InvestmentExperience? experience,
     DrawdownReaction? drawdownReaction,
+    Map<String, String> notes = const {},
   });
 }
