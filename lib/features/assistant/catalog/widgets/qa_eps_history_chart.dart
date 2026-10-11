@@ -3,6 +3,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 
+/// Contra qué se compara el EPS real de cada trimestre.
+enum QaEpsBaseline {
+  /// Lo que esperaba el mercado (consenso de analistas).
+  consensus,
+
+  /// El mismo trimestre del año anterior (datos de la SEC, que no publica
+  /// consenso).
+  yearAgo,
+}
+
 /// Un trimestre del historial de EPS.
 class QaEpsQuarter {
   const QaEpsQuarter({
@@ -13,25 +23,38 @@ class QaEpsQuarter {
 
   final String label;
   final double actual;
+
+  /// La referencia: el consenso o el EPS de un año antes (ver
+  /// [QaEpsBaseline]).
   final double estimate;
 
   bool get beat => actual >= estimate;
 
-  /// Sorpresa sobre el consenso, en %; `null` si el consenso es 0.
+  /// Diferencia contra la referencia, en %; `null` si la referencia es 0.
   double? get surprisePct =>
       estimate == 0 ? null : (actual - estimate) / estimate.abs() * 100;
 }
 
 /// Gráfico de "sorpresas" de EPS, el que usan Robinhood/Quartz para
-/// earnings: por trimestre, el consenso como círculo hueco y el real como
-/// punto lleno (verde si superó, rojo si no), unidos por un trazo que hace
-/// visible la distancia. Debajo, período, EPS real y sorpresa en texto —
-/// el color nunca es la única señal.
+/// earnings: por trimestre, la referencia como círculo hueco y el real como
+/// punto lleno (verde si superó / creció, rojo si no), unidos por un trazo
+/// que hace visible la distancia. Debajo, período, EPS real y diferencia en
+/// texto — el color nunca es la única señal.
 ///
-/// Al aparecer, cada punto real "sale" desde el consenso hasta su valor:
-/// la animación cuenta exactamente la historia de la sorpresa.
+/// La referencia es el consenso o, con datos de la SEC, el mismo trimestre
+/// del año anterior ([baseline]): mismo dibujo, otra pregunta ("¿sorprendió
+/// al mercado?" vs. "¿mejoró?").
+///
+/// Al aparecer, cada punto real "sale" desde la referencia hasta su valor:
+/// la animación cuenta exactamente esa historia.
 class QaEpsHistoryChart extends StatelessWidget {
-  const QaEpsHistoryChart({super.key, required this.quarters});
+  const QaEpsHistoryChart({
+    super.key,
+    required this.quarters,
+    this.baseline = QaEpsBaseline.consensus,
+  });
+
+  final QaEpsBaseline baseline;
 
   /// Del más viejo al más nuevo.
   final List<QaEpsQuarter> quarters;
@@ -105,10 +128,12 @@ class _QuarterCaption extends StatelessWidget {
   }
 }
 
-/// Leyenda compacta ("● Real  ○ Estimado") para el trailing del rótulo de
-/// sección.
+/// Leyenda compacta ("● Real  ○ Estimado", o "○ Hace un año" contra el año
+/// anterior) para el trailing del rótulo de sección.
 class QaEpsLegend extends StatelessWidget {
-  const QaEpsLegend({super.key});
+  const QaEpsLegend({super.key, this.baseline = QaEpsBaseline.consensus});
+
+  final QaEpsBaseline baseline;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +158,10 @@ class QaEpsLegend extends StatelessWidget {
         const SizedBox(width: 10),
         dot(hollow: true),
         const SizedBox(width: 4),
-        Text('Estimado', style: QaText.caption),
+        Text(
+          baseline == QaEpsBaseline.yearAgo ? 'Hace un año' : 'Estimado',
+          style: QaText.caption,
+        ),
       ],
     );
   }

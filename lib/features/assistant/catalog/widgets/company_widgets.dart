@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
@@ -7,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_eps_history_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_media_index.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,7 +20,25 @@ abstract final class CompanyWidgets {
   // ---------------------------------------------------------------------
 
   static Widget qaEarningsCalendar(CatalogItemContext ctx) {
-    final data = _EarningsCalendarData.fromMap(ctx.data as JsonMap);
+    final fromModel = _EarningsCalendarData.fromMap(ctx.data as JsonMap);
+    // Con datos de la SEC (sin consenso) los números del historial y del
+    // último reporte salen de get_earnings, no de lo que copió el modelo:
+    // la referencia es el mismo trimestre del año anterior.
+    return Builder(
+      builder:
+          (context) => ValueListenableBuilder<TurnEvidence>(
+            valueListenable: QaEvidenceScope.listenableOf(
+              context,
+              ctx.surfaceId,
+            ),
+            builder:
+                (context, evidence, _) =>
+                    _earningsCard(fromModel.withSecEvidence(evidence)),
+          ),
+    );
+  }
+
+  static Widget _earningsCard(_EarningsCalendarData data) {
     final latest = data.latestResult;
     final hasAnything =
         data.hasNext ||
@@ -48,9 +68,12 @@ abstract final class CompanyWidgets {
           if (data.history.length >= 2)
             QaSection(
               title: 'Historial de EPS',
-              trailing: const QaEpsLegend(),
+              trailing: QaEpsLegend(baseline: data.baseline),
               first: !data.hasNext,
-              child: QaEpsHistoryChart(quarters: data.history),
+              child: QaEpsHistoryChart(
+                quarters: data.history,
+                baseline: data.baseline,
+              ),
             ),
           if (data.epsPoints.length >= 2)
             QaSection(
@@ -362,7 +385,13 @@ extension on _LatestResultRow {
   /// Sin consenso (SEC): el EPS real y cómo cambió contra el mismo
   /// trimestre del año anterior. Nunca "superó / no alcanzó".
   Widget _withoutConsensus() {
-    final yoy = result.yoyPct;
+    final yearAgo = result.yearAgo;
+    final yoy =
+        result.yoyPct ??
+        (yearAgo != null && yearAgo > 0
+            ? (result.actual - yearAgo) / yearAgo * 100
+            : null);
+    final grew = yearAgo != null ? result.actual >= yearAgo : null;
     return Row(
       children: [
         Expanded(
@@ -373,7 +402,12 @@ extension on _LatestResultRow {
                   text: 'EPS ${QaFormat.price(result.actual)}',
                   style: QaText.value,
                 ),
-                if (yoy != null)
+                if (yearAgo != null)
+                  TextSpan(
+                    text: '  vs. ${QaFormat.price(yearAgo)} hace un año',
+                    style: QaText.label,
+                  )
+                else if (yoy != null)
                   TextSpan(text: '  vs. un año antes', style: QaText.label),
               ],
             ),
@@ -381,10 +415,28 @@ extension on _LatestResultRow {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (yoy != null && yoy != 0) ...[
-          const SizedBox(width: 8),
-          QaDeltaChip(value: yoy, digits: 1, dense: true),
-        ],
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mismo lenguaje que "Superó / No alcanzó", contra el año
+            // anterior (la SEC no publica lo que esperaba el mercado).
+            if (grew != null)
+              QaTag(
+                grew ? 'Creció' : 'Cayó',
+                color: grew ? QaColors.profit : QaColors.loss,
+                icon:
+                    grew
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
+              ),
+            if (yoy != null && yoy != 0) ...[
+              if (grew != null) const SizedBox(height: 4),
+              QaDeltaChip(value: yoy, digits: 1, dense: true),
+            ],
+          ],
+        ),
       ],
     );
   }
@@ -899,6 +951,7 @@ final class _LatestResult {
     required this.beat,
     required this.dateLabel,
     this.yoyPct,
+    this.yearAgo,
   });
 
   final double actual;
@@ -909,6 +962,9 @@ final class _LatestResult {
   final bool? beat;
   final String dateLabel;
   final double? yoyPct;
+
+  /// EPS del mismo trimestre del año anterior (SEC).
+  final double? yearAgo;
 
   double? get surprisePct {
     final e = estimate;
@@ -937,6 +993,7 @@ final class _EarningsCalendarData {
     required this.latestResult,
     required this.history,
     required this.epsPoints,
+    this.baseline = QaEpsBaseline.consensus,
   });
 
   factory _EarningsCalendarData.fromMap(JsonMap map) {
@@ -1056,7 +1113,76 @@ final class _EarningsCalendarData {
   /// Historial sin consenso (SEC), del más viejo al más nuevo.
   final List<_EpsPoint> epsPoints;
 
+  /// Contra qué se comparan los puntos de [history].
+  final QaEpsBaseline baseline;
+
   bool get hasNext => nextReportDateLabel.isNotEmpty;
+
+  /// Con datos de la SEC para [ticker] en la evidencia del turno: el
+  /// historial pasa a ser EPS real vs. el mismo trimestre del año anterior
+  /// (el gráfico de siempre, con otra referencia) y el último reporte se
+  /// compara contra ese año. Sin esa evidencia, queda lo que mandó el modelo.
+  _EarningsCalendarData withSecEvidence(TurnEvidence evidence) {
+    Map? entry;
+    for (final call in evidence.calls.reversed) {
+      if (call.name != 'get_earnings') continue;
+      final byTicker = call.result['earnings'];
+      final e = byTicker is Map ? byTicker[ticker] : null;
+      if (e is Map && e['source'] == 'SEC EDGAR') {
+        entry = e;
+        break;
+      }
+    }
+    if (entry == null) return this;
+
+    QaEpsQuarter? quarterOf(Object? raw) {
+      if (raw is! Map) return null;
+      final actual = _optDouble(raw['eps_actual']);
+      final yearAgo = _optDouble(raw['eps_year_ago']);
+      if (actual == null || yearAgo == null) return null;
+      return QaEpsQuarter(
+        label: '${raw['fiscal_period_label'] ?? ''}',
+        actual: actual,
+        estimate: yearAgo,
+      );
+    }
+
+    final quarters = [
+      for (final raw in (entry['history'] as List? ?? const []))
+        if (quarterOf(raw) case final q?) q,
+    ];
+    final last4 =
+        quarters.length > 4 ? quarters.sublist(quarters.length - 4) : quarters;
+    final raw = entry['latest_result'];
+    final latestRaw = raw is Map ? raw : null;
+    final actual = _optDouble(latestRaw?['eps_actual']);
+    final dateLabel =
+        '${latestRaw?['report_date_label'] ?? latestRaw?['fiscal_period_label'] ?? ''}';
+    return _EarningsCalendarData(
+      ticker: ticker,
+      nextReportDateLabel: nextReportDateLabel,
+      nextReportDate: nextReportDate,
+      fiscalPeriodLabel: fiscalPeriodLabel,
+      timingLabel: timingLabel,
+      nextEpsEstimate: null,
+      nextReportEstimated: nextReportEstimated,
+      latestResult:
+          actual == null
+              ? latestResult
+              : _LatestResult(
+                actual: actual,
+                estimate: null,
+                beat: null,
+                dateLabel: dateLabel.isEmpty ? latestResult?.dateLabel ?? '' : dateLabel,
+                yoyPct: _optDouble(latestRaw?['eps_yoy_pct']),
+                yearAgo: _optDouble(latestRaw?['eps_year_ago']),
+              ),
+      history: last4.length >= 2 ? last4 : const [],
+      // Sin al menos 2 trimestres con referencia, la lista sin gráfico.
+      epsPoints: last4.length >= 2 ? const [] : epsPoints,
+      baseline: QaEpsBaseline.yearAgo,
+    );
+  }
 }
 
 final class _NewsItem {
