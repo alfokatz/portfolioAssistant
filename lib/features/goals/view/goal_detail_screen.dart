@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_analysis.dart';
 import 'package:portfolio_assistant/features/goals/view/goals_screen.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -62,40 +63,13 @@ class GoalDetailScreen extends ConsumerWidget {
         builder: (_) => _LinkHoldingsSheet(goal: goal),
       );
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('goal_delete_title'.tr()),
-            content: Text('goal_delete_body'.tr()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('porty_memory_cancel'.tr()),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('goal_delete_confirm'.tr()),
-              ),
-            ],
-          ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    try {
-      await ref.read(goalsProvider.notifier).delete(goalId);
-      if (context.mounted) Navigator.of(context).maybePop();
-    } catch (_) {
-      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
-    }
-  }
-
-  Future<void> _setStatus(WidgetRef ref, GoalStatus status) async {
-    try {
-      await ref.read(goalsProvider.notifier).setStatus(goalId, status);
-    } catch (_) {
-      ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
-    }
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    UserGoal goal,
+  ) async {
+    final deleted = await GoalActions.confirmDelete(context, ref, goal);
+    if (deleted && context.mounted) Navigator.of(context).maybePop();
   }
 
   @override
@@ -122,11 +96,11 @@ class GoalDetailScreen extends ConsumerWidget {
             onSelected: (value) {
               switch (value) {
                 case 'achieved':
-                  _setStatus(ref, GoalStatus.achieved);
+                  GoalActions.setStatus(ref, goal, GoalStatus.achieved);
                 case 'active':
-                  _setStatus(ref, GoalStatus.active);
+                  GoalActions.setStatus(ref, goal, GoalStatus.active);
                 case 'delete':
-                  _delete(context, ref);
+                  _delete(context, ref, goal);
               }
             },
             itemBuilder:

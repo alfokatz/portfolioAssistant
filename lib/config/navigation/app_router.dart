@@ -102,8 +102,8 @@ class AppRouter {
               ),
           branches: [
             StatefulShellBranch(routes: [HomeRouter.getRoute()]),
-            StatefulShellBranch(routes: [GoalsRouter.getRoute()]),
             StatefulShellBranch(routes: [AssistantRouter.getRoute()]),
+            StatefulShellBranch(routes: [GoalsRouter.getRoute()]),
             StatefulShellBranch(routes: [SettingsRouter.getRoute()]),
           ],
         ),

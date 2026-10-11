@@ -5,7 +5,9 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
 /// En el orden de las ramas del shell (app_router.dart).
-enum AppNavDestination { home, goals, assistant, settings }
+/// En el orden de la barra (y de las ramas del shell en `app_router`):
+/// Porty segundo, cerca del pulgar; Metas, que se arman con Porty, después.
+enum AppNavDestination { home, assistant, goals, settings }
 
 /// Floating pill nav bar used to move between the app's main sections.
 class AppBottomNavBar extends StatelessWidget {
@@ -26,17 +28,17 @@ class AppBottomNavBar extends StatelessWidget {
       labelKey: 'nav_home',
     ),
     (
-      destination: AppNavDestination.goals,
-      icon: Icons.flag_rounded,
-      porty: false,
-      labelKey: 'nav_goals',
-    ),
-    (
       destination: AppNavDestination.assistant,
       // Porty en una sola tinta, con el color de la pestaña.
       icon: null,
       porty: true,
       labelKey: 'nav_assistant',
+    ),
+    (
+      destination: AppNavDestination.goals,
+      icon: Icons.flag_rounded,
+      porty: false,
+      labelKey: 'nav_goals',
     ),
     (
       destination: AppNavDestination.settings,

@@ -131,3 +131,8 @@ Feedback: "El plan de Porty" era texto plano y confuso; "Preguntarle a Porty" co
 - **Preguntarle a Porty:** card con el avatar de Porty y un subtítulo, en vez del ícono de chat.
 - Texto de borrar actualizado ("Tus inversiones no se tocan"; ya no hay aportes registrados).
 - Preview (claro, oscuro y el modal): `2026-10-11-meta-detalle.png`.
+
+### Barra de abajo y borrar metas desde la lista
+
+- **Orden de la barra:** Inicio · Porty · Metas · Ajustes. Porty es lo principal de la app y queda más cerca del pulgar; Metas, que se arman con Porty, va después. (`AppNavDestination` y las ramas del shell en `app_router` cambian juntos.)
+- **Borrar desde Metas:** deslizar una meta a la izquierda (con confirmación; si se cancela vuelve a su lugar) o mantenerla apretada (opciones: marcar como lograda / borrar). La lógica se comparte con el detalle (`GoalActions`). El diálogo nombra la meta y al borrar hay un aviso.
