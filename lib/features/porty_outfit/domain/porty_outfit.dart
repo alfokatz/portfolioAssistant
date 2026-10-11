@@ -12,6 +12,7 @@ enum PortyAccessory {
   topHat('top_hat', PortyOutfitSlot.head),
   cowboyHat('cowboy_hat', PortyOutfitSlot.head),
   cap('cap', PortyOutfitSlot.head),
+  peakedCap('peaked_cap', PortyOutfitSlot.head),
   crown('crown', PortyOutfitSlot.head),
   bow('bow', PortyOutfitSlot.head),
   flower('flower', PortyOutfitSlot.head),

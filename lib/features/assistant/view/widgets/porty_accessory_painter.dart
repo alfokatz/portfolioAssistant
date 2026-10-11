@@ -18,6 +18,7 @@ abstract final class PortyAccessoryPainter {
   static const _pinkDark = Color(0xFFC94C72);
   static const _red = Color(0xFFC4533A);
   static const _redDark = Color(0xFF8F3324);
+  static const _brightRed = Color(0xFFE0453A);
   static const _cream = Color(0xFFFFF4E6);
   static const _creamDark = Color(0xFFE3D3BF);
   static const _navy = Color(0xFF2E4A7D);
@@ -63,6 +64,8 @@ abstract final class PortyAccessoryPainter {
         _cowboyHat(canvas);
       case PortyAccessory.cap:
         _cap(canvas);
+      case PortyAccessory.peakedCap:
+        _peakedCap(canvas);
       case PortyAccessory.crown:
         _crown(canvas);
       case PortyAccessory.bow:
@@ -307,25 +310,92 @@ abstract final class PortyAccessoryPainter {
       );
   }
 
-  /// Vincha que va de lado a lado de la cabeza, pegada al contorno, para
-  /// que el moño o la flor no queden flotando.
+  /// El contorno del cuerpo (mismo path que `PortyAvatarPainter`): la
+  /// vincha se recorta con él para terminar justo en los bordes.
+  static final Path _bodyOutline =
+      Path()
+        ..moveTo(33, 7)
+        ..cubicTo(47, 7, 57, 17, 57, 32)
+        ..cubicTo(57, 47, 47, 57, 31, 57)
+        ..cubicTo(16, 57, 7, 48, 7, 34)
+        ..cubicTo(7, 18, 18, 7, 33, 7)
+        ..close();
+
+  /// Gorrita con visera de costado: copa redonda en gajos, botón arriba,
+  /// visera hacia la derecha y una costura clara.
+  static void _peakedCap(Canvas canvas) {
+    final visor =
+        Path()
+          ..moveTo(44, 10.5)
+          ..cubicTo(53, 8.5, 62, 9.5, 65.5, 13)
+          ..cubicTo(62.5, 16.8, 53, 17, 45, 15.8)
+          ..close();
+    canvas
+      ..drawPath(visor, _fill(_redDark))
+      ..drawPath(
+        Path()
+          ..moveTo(47, 12.4)
+          ..cubicTo(54, 11, 60.5, 11.6, 63.5, 13.2),
+        _stroke(_red, 0.8),
+      );
+    final crown =
+        Path()
+          ..moveTo(11.5, 16)
+          ..cubicTo(10.5, 6, 20, -0.5, 32.5, -0.5)
+          ..cubicTo(44.5, -0.5, 53.5, 5.5, 53, 15)
+          ..quadraticBezierTo(32.5, 9.5, 11.5, 16)
+          ..close();
+    canvas.drawPath(crown, _fill(_brightRed));
+    final seam = _stroke(_red, 0.9);
+    canvas
+      ..drawPath(
+        Path()
+          ..moveTo(30.5, -0.3)
+          ..quadraticBezierTo(23, 4.5, 22.5, 12.8),
+        seam,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(34.5, -0.3)
+          ..quadraticBezierTo(41.5, 4.5, 42.5, 12.2),
+        seam,
+      )
+      // Ribete claro en el borde.
+      ..drawPath(
+        Path()
+          ..moveTo(12, 14.8)
+          ..quadraticBezierTo(32.5, 8.4, 52.8, 13.8),
+        _stroke(_cream, 1.1),
+      )
+      ..drawCircle(const Offset(32.5, -0.4), 1.6, _fill(_redDark));
+  }
+
+  /// Vincha que cruza la frente de lado a lado, arriba de los ojos,
+  /// curvada como si envolviera la cabeza, para que el moño o la flor no
+  /// queden flotando.
   static void _headband(Canvas canvas, Color color, Color shade) {
     final band =
         Path()
-          ..moveTo(9.4, 25)
-          ..cubicTo(9.6, 14, 19.5, 8.6, 33, 8.6)
-          ..cubicTo(46.5, 8.6, 55.6, 14, 55.6, 24.5);
+          ..moveTo(4, 16.5)
+          ..quadraticBezierTo(33, 24, 62, 15.5);
     canvas
-      ..drawPath(band, _stroke(color, 3))
-      ..drawPath(band, _stroke(shade, 0.7)..color = shade.withValues(alpha: 0.5));
+      ..save()
+      ..clipPath(_bodyOutline)
+      ..drawPath(band, _stroke(color, 3.4))
+      ..drawPath(
+        band,
+        _stroke(shade.withValues(alpha: 0.55), 0.7)..strokeCap = StrokeCap.butt,
+      )
+      ..restore();
   }
 
   static void _bow(Canvas canvas) {
     _headband(canvas, _pink, _pinkDark);
     canvas
       ..save()
-      ..translate(44, 10.5)
-      ..rotate(-0.4);
+      ..translate(45, 18)
+      ..rotate(-0.3)
+      ..scale(0.95);
     final left =
         Path()
           ..moveTo(0, 0)
@@ -355,13 +425,13 @@ abstract final class PortyAccessoryPainter {
 
   static void _flower(Canvas canvas) {
     _headband(canvas, _leaf, _leafDark);
-    const center = Offset(20, 12);
+    const center = Offset(19, 18.4);
     // Hojitas a los costados, sobre la vincha.
     for (final (angle, dx) in const [(-0.5, -5.5), (0.5, 5.5)]) {
       canvas
         ..save()
-        ..translate(center.dx + dx, center.dy + 1.5)
-        ..rotate(angle)
+        ..translate(center.dx + dx * 1.15, center.dy + 0.6 + dx * 0.08)
+        ..rotate(angle * 0.6)
         ..drawOval(
           Rect.fromCenter(center: Offset.zero, width: 5.5, height: 2.6),
           _fill(_leaf),
@@ -371,14 +441,14 @@ abstract final class PortyAccessoryPainter {
     for (var i = 0; i < 5; i++) {
       final angle = -math.pi / 2 + i * 2 * math.pi / 5;
       canvas.drawCircle(
-        center + Offset(math.cos(angle), math.sin(angle)) * 4.6,
-        3.7,
+        center + Offset(math.cos(angle), math.sin(angle)) * 4,
+        3.2,
         _fill(_cream),
       );
     }
     canvas
-      ..drawCircle(center, 3, _fill(_gold))
-      ..drawCircle(center, 3, _stroke(_goldDark, 0.6));
+      ..drawCircle(center, 2.6, _fill(_gold))
+      ..drawCircle(center, 2.6, _stroke(_goldDark, 0.6));
   }
 
   static void _topHat(Canvas canvas) {
