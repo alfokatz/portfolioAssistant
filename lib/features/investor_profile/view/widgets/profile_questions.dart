@@ -355,6 +355,7 @@ class _ProfileNoteFieldState extends State<ProfileNoteField> {
         TextField(
           controller: _controller,
           onChanged: widget.onChanged,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
           minLines: 2,
           maxLines: 5,
           maxLength: InvestorProfile.maxNoteLength,

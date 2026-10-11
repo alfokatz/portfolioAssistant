@@ -448,8 +448,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    // Un parcial tardío del dictado no puede volver a llenar el campo.
-    unawaited(ref.read(chatDictationProvider).stop());
+    // Un resultado tardío del dictado no puede volver a llenar el campo.
+    unawaited(ref.read(chatDictationProvider).cancel());
     _textController.clear();
     setState(() => _waitGateOpen = false);
     await notifier.submitMessage(trimmed);
@@ -679,6 +679,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     onNotification: _handleScrollNotification,
                     child: ListView(
                       controller: _scrollController,
+                      // Arrastrar la conversación baja el teclado.
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.fromLTRB(
                         AppDimens.pageHorizontal,
                         AppDimens.sp8,
@@ -770,47 +773,52 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                           AppDimens.sp24,
                           AppDimens.sp20,
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: AssistantComposerField(
-                                controller: _textController,
-                                hintText: 'portfolio_qa_input_hint'.tr(),
-                                onSubmitted:
-                                    state.isWaiting || _isAutoTyping
-                                        ? null
-                                        : (text) =>
-                                            _submitMessage(notifier, text),
-                                enabled: !state.isWaiting && service != null,
+                        // El mic y el send cuentan como "dentro" del campo:
+                        // tocarlos no baja el teclado (tocar en cualquier
+                        // otro lado, sí; ver AssistantComposerField).
+                        child: TextFieldTapRegion(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: AssistantComposerField(
+                                  controller: _textController,
+                                  hintText: 'portfolio_qa_input_hint'.tr(),
+                                  onSubmitted:
+                                      state.isWaiting || _isAutoTyping
+                                          ? null
+                                          : (text) =>
+                                              _submitMessage(notifier, text),
+                                  enabled: !state.isWaiting && service != null,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: AppDimens.sp8),
-                            AssistantMicButton(
-                              listening: dictation.isListening,
-                              onTap:
-                                  state.isWaiting ||
-                                          service == null ||
-                                          _isAutoTyping
-                                      ? null
-                                      : _toggleDictation,
-                            ),
-                            const SizedBox(width: AppDimens.sp8),
-                            ScaleTransition(
-                              scale: _pulseAnimation,
-                              child: AssistantSendButton(
+                              const SizedBox(width: AppDimens.sp8),
+                              AssistantMicButton(
+                                listening: dictation.isListening,
                                 onTap:
                                     state.isWaiting ||
                                             service == null ||
                                             _isAutoTyping
                                         ? null
-                                        : () => _submitMessage(
-                                          notifier,
-                                          _textController.text,
-                                        ),
+                                        : _toggleDictation,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: AppDimens.sp8),
+                              ScaleTransition(
+                                scale: _pulseAnimation,
+                                child: AssistantSendButton(
+                                  onTap:
+                                      state.isWaiting ||
+                                              service == null ||
+                                              _isAutoTyping
+                                          ? null
+                                          : () => _submitMessage(
+                                            notifier,
+                                            _textController.text,
+                                          ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

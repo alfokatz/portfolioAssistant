@@ -190,7 +190,7 @@ class _TellPortyScreenState extends ConsumerState<TellPortyScreen> {
   }
 
   Future<void> _save() async {
-    await ref.read(_tellPortyDictationProvider).stop();
+    await ref.read(_tellPortyDictationProvider).cancel();
     setState(() => _saving = true);
     try {
       await ref
@@ -276,6 +276,7 @@ class _TellPortyScreenState extends ConsumerState<TellPortyScreen> {
           const SizedBox(height: AppDimens.sp24),
           TextField(
             controller: _controller,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
             minLines: 3,
             maxLines: 6,
             maxLength: UserMemory.maxLength,

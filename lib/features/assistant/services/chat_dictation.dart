@@ -26,6 +26,11 @@ class ChatDictation extends ChangeNotifier {
   bool _listening = false;
   String? _localeId;
 
+  /// A quién van los resultados de la sesión en curso. [cancel] lo suelta:
+  /// el reconocedor manda un resultado "final" un instante DESPUÉS de
+  /// frenarlo, y sin esto volvía a llenar el campo recién enviado.
+  ValueChanged<String>? _onText;
+
   bool get isListening => _listening;
 
   /// Empieza a escuchar. [onText] recibe la transcripción acumulada de esta
@@ -57,12 +62,13 @@ class ChatDictation extends ChangeNotifier {
           : DictationFailure.permission;
     }
     _localeId ??= await _localeFor(languageCode);
+    _onText = onText;
     _listening = true;
     notifyListeners();
     try {
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) =>
-            onText(result.recognizedWords),
+            _onText?.call(result.recognizedWords),
         listenOptions: SpeechListenOptions(
           localeId: _localeId,
           listenFor: const Duration(seconds: 60),
@@ -81,9 +87,19 @@ class ChatDictation extends ChangeNotifier {
     return null;
   }
 
+  /// Termina de escuchar (el usuario tocó "stop"): el último resultado
+  /// todavía llega y completa el texto.
   Future<void> stop() async {
     if (!_listening) return;
     await _speech.stop();
+    _setListening(false);
+  }
+
+  /// Corta y descarta lo que falte llegar (al enviar o guardar el texto).
+  Future<void> cancel() async {
+    _onText = null;
+    if (!_listening) return;
+    await _speech.cancel();
     _setListening(false);
   }
 
@@ -125,6 +141,7 @@ class ChatDictation extends ChangeNotifier {
 
   @override
   void dispose() {
+    _onText = null;
     if (_listening) _speech.cancel();
     super.dispose();
   }

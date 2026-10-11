@@ -87,6 +87,9 @@ class _AssistantComposerFieldState extends State<AssistantComposerField> {
         focusNode: _focusNode,
         enabled: widget.enabled,
         onSubmitted: widget.onSubmitted,
+        // En mobile Flutter no baja el teclado al tocar afuera: sin esto
+        // quedaba abierto hasta enviar.
+        onTapOutside: (_) => _focusNode.unfocus(),
         maxLines: 4,
         minLines: 1,
         cursorColor: colors.accentBlue,
