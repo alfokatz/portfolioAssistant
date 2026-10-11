@@ -24,6 +24,12 @@ class GoalsState {
   /// La meta guardada con este `plan_id` del chat, si la hay.
   UserGoal? byPlanKey(String planKey) =>
       goals.where((g) => g.planKey == planKey).firstOrNull;
+
+  /// La meta activa con este nombre (sin distinguir mayúsculas), si la hay.
+  UserGoal? activeByLabel(String label) {
+    final key = label.trim().toLowerCase();
+    return active.where((g) => g.label.trim().toLowerCase() == key).firstOrNull;
+  }
 }
 
 /// Único dueño de las metas: las leen la pestaña Metas y el chat (en cada
@@ -63,9 +69,15 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
   /// o no: cuando las compre, se suman solas) o, para la jubilación (que
   /// parte del valor de la cartera), toda su cartera. Lo que ya cuenta para
   /// otra meta queda donde está.
+  ///
+  /// Si ya hay una meta activa con el mismo nombre (Porty rehízo el plan de
+  /// "MacBook"), se actualiza esa en vez de duplicarla: plan nuevo, y suma
+  /// los instrumentos nuevos a lo que ya contaba.
   Future<UserGoal> save(GoalDraft draft) async {
+    final existing = state.activeByLabel(draft.label);
     final taken = {
-      for (final g in state.active) ...g.linkedTickers,
+      for (final g in state.active)
+        if (g.id != existing?.id) ...g.linkedTickers,
     };
     final candidates =
         draft.snapshot.buyPlan.isNotEmpty
@@ -73,6 +85,18 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
             : draft.type == GoalType.retirement
             ? _heldTickers()
             : const <String>{};
+    if (existing != null) {
+      await _repo.updatePlan(
+        existing.id,
+        draft,
+        linkedTickers: {
+          ...existing.linkedTickers,
+          ...candidates.difference(taken),
+        },
+      );
+      await load();
+      return state.byId(existing.id) ?? existing;
+    }
     final goal = await _repo.create(
       draft,
       linkedTickers: candidates.difference(taken),

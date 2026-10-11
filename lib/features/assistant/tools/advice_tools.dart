@@ -313,7 +313,8 @@ class SaveGoalTool implements DataTool {
       'the plan_id of the plan you built (a get_goal_projection or '
       'get_monthly_buy_plan result; the buy plan one also saves the monthly '
       'purchase). Never ask for the amount or date again: they come from the '
-      'plan. Returns needs_plan if there is no plan yet.';
+      'plan. A saved goal with the same name is updated with the new plan. '
+      'Returns needs_plan if there is no plan yet.';
 
   @override
   Map<String, Object?> get parameters => const {
