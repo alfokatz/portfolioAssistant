@@ -361,7 +361,8 @@ void main() {
       expect(withdrawal['plan_id'], isNot(dividends['plan_id']));
     });
 
-    test('a short horizon goes conservative even for an aggressive profile', () async {
+    test('money needed in under 3 years goes to cash and short bonds, no '
+        'stocks, even for an aggressive profile', () async {
       final result = await GetGoalProjectionTool(
         _ctx(SubscriptionTier.premium),
       ).run({
@@ -369,8 +370,47 @@ void main() {
         'target_date': '2028-06-01',
         'risk': 'aggressive',
       });
+      expect(result['short_term_purchase'], isTrue);
+      final plan = result['plan'] as Map;
+      expect(plan['short_term_allocation'], isTrue);
+      // Y dice en qué invertir cada mes.
+      final instruments = plan['suggested_instruments'] as List;
+      expect(
+        [for (final i in instruments) (i as Map)['ticker']],
+        ['SGOV', 'VGSH'],
+      );
+    });
+
+    test('a short-horizon retirement still goes conservative', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.premium),
+      ).run({
+        'target_amount': 20000,
+        'target_date': '2028-06-01',
+        'is_retirement': true,
+        'risk': 'aggressive',
+      });
       expect(result['risk_adjusted_for_short_horizon'], isTrue);
       expect((result['plan'] as Map)['risk_used'], 'conservative');
+      // La jubilación parte de la cartera.
+      expect(result['starting_capital_source'], 'portfolio_value');
+    });
+
+    test('any non-retirement goal starts from 0, never from the portfolio', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.premium),
+      ).run({
+        'target_amount': 50000,
+        'target_date': '2036-01-01',
+        'goal_label': 'Depto',
+      });
+      expect(result['starting_capital'], 0);
+      expect(result['starting_capital_source'], 'assumed_zero');
+      final instruments = (result['plan'] as Map)['suggested_instruments'] as List;
+      expect(
+        [for (final i in instruments) (i as Map)['ticker']],
+        containsAll(['VT', 'BND']),
+      );
     });
 
     test('dividends: stocks and ETFs; Free only for held tickers', () async {

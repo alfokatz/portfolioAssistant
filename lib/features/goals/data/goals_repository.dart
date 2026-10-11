@@ -87,6 +87,33 @@ class GoalsRepository {
     }
   }
 
+  /// Reemplaza el plan de una meta existente (Porty lo rehízo); conserva lo
+  /// que cuenta para la meta salvo que se pase [linkedTickers].
+  Future<void> updatePlan(
+    String id,
+    GoalDraft draft, {
+    Set<String>? linkedTickers,
+  }) async {
+    final client = _signedIn;
+    if (client == null) throw const GoalsUnavailable();
+    try {
+      await client
+          .from(_goals)
+          .update({
+            'label': draft.label,
+            'goal_type': draft.type.storageValue,
+            'target_amount': draft.targetAmount,
+            'target_date': GoalProgress.formatDate(draft.targetDate),
+            'plan': draft.snapshot.toJson(),
+            'plan_key': draft.planKey,
+            if (linkedTickers != null) 'linked_tickers': linkedTickers.toList(),
+          })
+          .eq('id', id);
+    } on PostgrestException {
+      throw const GoalsUnavailable();
+    }
+  }
+
   Future<void> setStatus(String id, GoalStatus status) async {
     final client = _signedIn;
     if (client == null) throw const GoalsUnavailable();

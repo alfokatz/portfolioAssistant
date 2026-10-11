@@ -218,7 +218,11 @@ class GoalDraft {
     final date = DateTime.tryParse('${goal['target_date']}');
     if (date == null) return null;
     final label = '${goal['label'] ?? ''}'.trim();
-    final items = result['items'];
+    // La compra mensual que armó Porty, o los instrumentos de ejemplo del
+    // plan: la meta siempre se guarda diciendo en qué invertir.
+    final buyItems = result['items'];
+    final suggested = plan is Map ? plan['suggested_instruments'] : null;
+    final items = buyItems is List && buyItems.isNotEmpty ? buyItems : suggested;
     final planId = result[GoalProjectionBuilder.planIdKey];
     return GoalDraft(
       label: label.isEmpty ? 'Mi meta' : label,

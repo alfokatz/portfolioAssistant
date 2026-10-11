@@ -12,6 +12,7 @@ class QaGoalScope extends InheritedWidget {
   const QaGoalScope({
     super.key,
     required this.savedFor,
+    required this.existingFor,
     required this.onSave,
     required this.onOpen,
     required super.child,
@@ -19,6 +20,9 @@ class QaGoalScope extends InheritedWidget {
 
   /// La meta ya guardada con este `plan_id`, si la hay.
   final UserGoal? Function(String planKey) savedFor;
+
+  /// La meta activa con este nombre (guardar la actualiza).
+  final UserGoal? Function(String label) existingFor;
 
   /// Guarda y devuelve la meta (o `null` si falló: la pantalla avisa).
   final Future<UserGoal?> Function(GoalDraft draft) onSave;
@@ -53,6 +57,7 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
     final key = widget.draft.planKey;
     if (scope == null) return const SizedBox.shrink();
     final saved = _justSaved ?? (key == null ? null : scope.savedFor(key));
+    final updates = scope.existingFor(widget.draft.label) != null;
 
     final Widget child;
     if (saved != null) {
@@ -93,7 +98,7 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
                   size: 18,
                 ),
         label: Text(
-          'Guardar en Metas',
+          updates ? 'Actualizar en Metas' : 'Guardar en Metas',
           style: QaText.label.copyWith(
             color: QaColors.textPrimary,
             fontWeight: FontWeight.w600,

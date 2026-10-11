@@ -35,6 +35,15 @@ class _Repo extends GoalsRepository {
   }
 
   @override
+  Future<void> updatePlan(
+    String id,
+    GoalDraft draft, {
+    Set<String>? linkedTickers,
+  }) async {
+    if (linkedTickers != null) await setLinkedTickers(id, linkedTickers);
+  }
+
+  @override
   Future<void> setLinkedTickers(String id, Set<String> tickers) async {
     final i = goals.indexWhere((g) => g.id == id);
     final g = goals[i];
@@ -95,6 +104,17 @@ void main() {
     // Una jubilación parte del valor de la cartera: cuenta lo que queda.
     final retirement = await goals.save(_draft('Jubilación', GoalType.retirement, []));
     expect(retirement.linkedTickers, {'AAPL'});
+  });
+
+  test('saving a plan for a goal with the same name updates it instead of '
+      'duplicating it', () async {
+    final repo = _Repo();
+    final goals = GoalsNotifier(repo);
+    final first = await goals.save(_draft('MacBook', GoalType.purchase, ['BIL']));
+    final again = await goals.save(_draft('macbook ', GoalType.purchase, ['SGOV']));
+    expect(again.id, first.id);
+    expect(goals.state.goals, hasLength(1));
+    expect(again.linkedTickers, {'BIL', 'SGOV'});
   });
 
   test('assigning a ticker to a goal moves it out of the other one', () async {

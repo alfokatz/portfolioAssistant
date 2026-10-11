@@ -95,17 +95,28 @@ abstract final class GoalProjectionBuilder {
 
     // Una compra (una compu, un viaje) no se paga con la cartera salvo que
     // el usuario lo diga: sin "ya tengo X para esto", se arranca de cero.
+    // Solo la jubilación parte del valor de la cartera (es plata para el
+    // retiro). Cualquier otra meta (una compra, un viaje) arranca de cero
+    // salvo que el usuario diga "ya tengo X para esto": nunca se asume que
+    // la cartera la paga (pasaba "ya alcanzada" sin que lo pidiera).
+    final retirementGoal =
+        !isPurchase &&
+        (isRetirement ??
+            (incomeTarget != null ||
+                looksLikeRetirement(
+                  '${stated['label'] ?? saved?['label'] ?? ''}',
+                )));
     final startingCapital =
-        currentSavings ?? (isPurchase ? 0.0 : currentPortfolioValue);
+        currentSavings ?? (retirementGoal ? currentPortfolioValue : 0.0);
     final result = <String, Object?>{
       'current_portfolio_value': currentPortfolioValue,
       'starting_capital': startingCapital,
       'starting_capital_source':
           currentSavings != null
               ? 'stated'
-              : isPurchase
-              ? 'assumed_zero'
-              : 'portfolio_value',
+              : retirementGoal
+              ? 'portfolio_value'
+              : 'assumed_zero',
       if (isPurchase) 'goal_type': goalPurchase,
       'monthly_contribution': monthlyContribution,
       'saved_goal': saved,
@@ -132,9 +143,10 @@ abstract final class GoalProjectionBuilder {
         (isRetirement ??
             (incomeTarget != null ||
                 looksLikeRetirement('${active['label']}')));
-    // Compra a menos de 3 años: liquidez y bonos cortos, sin acciones.
+    // Plata que se necesita en menos de 3 años (una compra, un viaje… todo
+    // menos el retiro): liquidez y bonos cortos, sin acciones.
     final shortTermPurchase =
-        isPurchase && months < PlanAssumptions.shortHorizonMonths;
+        !retirement && months < PlanAssumptions.shortHorizonMonths;
 
     final chosenRisk = statedRisk ?? profile?.risk ?? RiskTolerance.moderate;
     final riskSource =

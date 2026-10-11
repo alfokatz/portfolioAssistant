@@ -911,7 +911,7 @@
   "goals_empty_title": "Todavía no tenés metas",
   "goals_empty_body": "Contale a Porty qué querés lograr (una compu, un viaje, jubilarte) y te arma un plan. Guardalo y acá vas a ver cómo venís.",
   "goals_new": "Armar una meta con Porty",
-  "goals_new_question": "Quiero armar un plan para una meta",
+  "goals_new_question": "Quiero armar un plan para una meta nueva",
   "goals_achieved_section": "Logradas",
   "goals_card_subtitle": "{amount} para {date}",
   "goals_card_saved": "{saved} de {target}",

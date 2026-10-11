@@ -113,6 +113,55 @@ abstract final class PlanAssumptions {
   }
 }
 
+/// Un instrumento de ejemplo para una clase de activo del plan: qué
+/// comprar cada mes para seguir la cartera sugerida. Son ETFs amplios y de
+/// bajo costo (hechos estables, no recomendaciones con números): Porty puede
+/// cambiarlos por otros con `get_monthly_buy_plan`.
+class PlanInstrument {
+  const PlanInstrument(this.ticker, this.name, this.assetClass);
+
+  final String ticker;
+  final String name;
+  final PlanAssetClass assetClass;
+
+  static const _cash = PlanInstrument(
+    'SGOV',
+    'iShares 0-3 Month Treasury Bond ETF',
+    PlanAssetClass.cash,
+  );
+  static const _shortBonds = PlanInstrument(
+    'VGSH',
+    'Vanguard Short-Term Treasury ETF',
+    PlanAssetClass.bonds,
+  );
+  static const _bonds = PlanInstrument(
+    'BND',
+    'Vanguard Total Bond Market ETF',
+    PlanAssetClass.bonds,
+  );
+  static const _world = PlanInstrument(
+    'VT',
+    'Vanguard Total World Stock ETF',
+    PlanAssetClass.equities,
+  );
+  static const _dividends = PlanInstrument(
+    'SCHD',
+    'Schwab U.S. Dividend Equity ETF',
+    PlanAssetClass.equities,
+  );
+
+  /// El de cada clase de activo, según el plazo y si vive de dividendos.
+  static PlanInstrument forClass(
+    PlanAssetClass assetClass, {
+    required bool shortTerm,
+    required bool dividends,
+  }) => switch (assetClass) {
+    PlanAssetClass.cash => _cash,
+    PlanAssetClass.bonds => shortTerm ? _shortBonds : _bonds,
+    PlanAssetClass.equities => dividends ? _dividends : _world,
+  };
+}
+
 /// Cómo se cobra un ingreso mensual con el capital juntado.
 enum IncomeStrategy {
   /// Vivir de los dividendos: el capital no se toca.
@@ -391,6 +440,27 @@ class SavingsPlan {
   final IncomePlan? income;
 
   double get projectedBase => projected[PlanScenario.base]!;
+
+  /// Qué comprar cada mes con [monthlyUsed]: un instrumento por clase de
+  /// activo de la cartera sugerida, con su parte del aporte.
+  List<({PlanInstrument instrument, double weight, double monthly})>
+  get instruments {
+    final dividends =
+        income != null && inputs.incomeStrategy == IncomeStrategy.dividends;
+    return [
+      for (final e in allocation.entries)
+        if (e.value > 0)
+          (
+            instrument: PlanInstrument.forClass(
+              e.key,
+              shortTerm: inputs.shortTerm,
+              dividends: dividends,
+            ),
+            weight: e.value,
+            monthly: monthlyUsed * e.value,
+          ),
+    ];
+  }
   double get growth => math.max(0, projectedBase - contributed);
   bool get onTrack => projectedBase >= inputs.targetAmount - 0.5;
   bool get alreadyReached => inputs.currentAmount >= inputs.targetAmount;
@@ -537,6 +607,18 @@ class SavingsPlan {
       'suggested_allocation': [
         for (final e in allocation.entries)
           {'asset_class': e.key.label, 'pct': (e.value * 100).round()},
+      ],
+      // Qué comprar cada mes (ejemplo; get_monthly_buy_plan lo cambia).
+      'suggested_instruments': [
+        for (final i in instruments)
+          {
+            'ticker': i.instrument.ticker,
+            'name': i.instrument.name,
+            'asset_class': i.instrument.assetClass.key,
+            'asset_class_label': i.instrument.assetClass.label,
+            'pct': (i.weight * 100).round(),
+            'monthly_amount': r(i.monthly),
+          },
       ],
       'what_if': [
         for (final s in sensitivities)
