@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/source_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
@@ -20,7 +21,8 @@ class AssistantAdviceFooter extends StatelessWidget {
   static bool hasContent(PortfolioQaMessage message) =>
       message.showsAdviceDisclaimer ||
       message.profileNudge != null ||
-      message.rememberedFacts.isNotEmpty;
+      message.rememberedFacts.isNotEmpty ||
+      message.sources.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,8 @@ class AssistantAdviceFooter extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (message.sources.isNotEmpty)
+            QaSourceList(sources: message.sources),
           if (message.rememberedFacts.isNotEmpty)
             _MemoryNote(facts: message.rememberedFacts),
           if (nudge != null) _ProfileNudge(nudge: nudge),

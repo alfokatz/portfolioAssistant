@@ -1,3 +1,5 @@
+import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
+
 /// Mensaje de la conversación Portfolio Q&A (UI).
 enum PortfolioQaRole { user, assistant }
 
@@ -20,6 +22,7 @@ class PortfolioQaMessage {
     this.showsAdviceDisclaimer = false,
     this.profileNudge,
     this.rememberedFacts = const [],
+    this.sources = const [],
     this.notice,
   });
 
@@ -42,6 +45,10 @@ class PortfolioQaMessage {
   /// Lo que Porty anotó en su memoria en este turno: la pantalla lo muestra
   /// debajo de la respuesta, con link a "Lo que Porty sabe de vos".
   final List<String> rememberedFacts;
+
+  /// Fuentes con link de la respuesta (citas de la búsqueda web, SEC), que
+  /// la app muestra debajo. Solo en memoria: no se guardan con el chat.
+  final List<MessageSource> sources;
 
   /// Si no es `null`, la fila muestra este aviso en vez de la respuesta.
   /// Conserva [surfaceId] (misma fila que la espera, que se funde en el
@@ -85,6 +92,7 @@ class PortfolioQaMessage {
     bool? showsAdviceDisclaimer,
     InvestorProfileNudge? profileNudge,
     List<String>? rememberedFacts,
+    List<MessageSource>? sources,
     AssistantNotice? notice,
   }) {
     return PortfolioQaMessage(
@@ -98,6 +106,7 @@ class PortfolioQaMessage {
           showsAdviceDisclaimer ?? this.showsAdviceDisclaimer,
       profileNudge: profileNudge ?? this.profileNudge,
       rememberedFacts: rememberedFacts ?? this.rememberedFacts,
+      sources: sources ?? this.sources,
       notice: notice ?? this.notice,
     );
   }

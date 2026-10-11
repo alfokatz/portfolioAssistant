@@ -1,9 +1,10 @@
 // Deploy: supabase functions deploy daily-jobs
 // Secrets: CRON_SECRET, FCM_SERVICE_ACCOUNT, FINNHUB_API_KEY (calendario de
-// earnings). La agenda (pg_cron) está en docs/runbooks/push-notifications.md.
+// earnings, news_provider = legacy), SEC_USER_AGENT (resultados, v2). La agenda (pg_cron) está en docs/runbooks/push-notifications.md.
 import { defaultDeps } from "../_shared/common.ts";
 import { FcmSender } from "../notify-dispatch/fcm.ts";
 import { supabaseDispatchStore } from "../notify-dispatch/store.ts";
+import { secEarningsReleases } from "../_shared/sec_data.ts";
 import { handle } from "./handler.ts";
 import { supabaseJobsStore } from "./store.ts";
 
@@ -17,5 +18,6 @@ Deno.serve((req) =>
     store: supabaseJobsStore(deps.db),
     dispatchStore: supabaseDispatchStore(deps.db),
     sender,
+    secReleases: (symbols, since) => secEarningsReleases(deps, symbols, since),
   })
 );

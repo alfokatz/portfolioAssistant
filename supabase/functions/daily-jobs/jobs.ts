@@ -28,6 +28,9 @@ export type EarningsEntry = {
   hour: string | null;
   epsActual: number | null;
   epsEstimate: number | null;
+  /// v2 (SEC): hay un comunicado de resultados presentado (8-K 2.02) aunque
+  /// no se sepa el EPS ni lo esperado.
+  reported?: boolean;
 };
 
 /// A qué hora local corre cada cosa.
@@ -98,7 +101,8 @@ export function earningsResultRows(users: LocalUser[], calendar: EarningsEntry[]
     const days = new Set([u.local_date, addDays(u.local_date, -1)]);
     const held = new Set(u.symbols);
     for (const e of calendar) {
-      if (!held.has(e.symbol) || !days.has(e.date) || e.epsActual === null) continue;
+      if (!held.has(e.symbol) || !days.has(e.date)) continue;
+      if (e.epsActual === null && !e.reported) continue;
       out.push({
         user_id: u.user_id,
         kind: "earnings_result",
@@ -108,7 +112,9 @@ export function earningsResultRows(users: LocalUser[], calendar: EarningsEntry[]
           date: e.date,
           eps_actual: e.epsActual,
           eps_estimate: e.epsEstimate,
-          surprise: e.epsEstimate === null ? "inline" : surprise(e.epsActual, e.epsEstimate),
+          surprise: e.epsActual === null || e.epsEstimate === null
+            ? (e.reported ? "reported" : "inline")
+            : surprise(e.epsActual, e.epsEstimate),
         },
       });
     }

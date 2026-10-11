@@ -21,7 +21,10 @@ abstract final class CompanyWidgets {
     final data = _EarningsCalendarData.fromMap(ctx.data as JsonMap);
     final latest = data.latestResult;
     final hasAnything =
-        data.hasNext || data.history.isNotEmpty || latest != null;
+        data.hasNext ||
+        data.history.isNotEmpty ||
+        data.epsPoints.isNotEmpty ||
+        latest != null;
 
     return QaCardShell(
       child: Column(
@@ -49,13 +52,22 @@ abstract final class CompanyWidgets {
               first: !data.hasNext,
               child: QaEpsHistoryChart(quarters: data.history),
             ),
+          if (data.epsPoints.length >= 2)
+            QaSection(
+              title: 'Ganancia por acción',
+              first: !data.hasNext,
+              child: _EpsPointsList(points: data.epsPoints),
+            ),
           if (latest != null)
             QaSection(
               title:
                   latest.dateLabel.isEmpty
                       ? 'Último reporte'
                       : 'Último reporte · ${latest.dateLabel}',
-              first: !data.hasNext && data.history.length < 2,
+              first:
+                  !data.hasNext &&
+                  data.history.length < 2 &&
+                  data.epsPoints.length < 2,
               child: _LatestResultRow(result: latest),
             ),
           if (!hasAnything) ...[
@@ -228,7 +240,12 @@ class _NextReportBlock extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('PRÓXIMO REPORTE', style: QaText.insetLabel),
+                    Text(
+                      data.nextReportEstimated
+                          ? 'PRÓXIMO REPORTE · ESTIMADO'
+                          : 'PRÓXIMO REPORTE',
+                      style: QaText.insetLabel,
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       data.nextReportDateLabel,
@@ -251,7 +268,9 @@ class _NextReportBlock extends StatelessWidget {
           ),
           // Los tags van en su propia línea a todo el ancho: "Después del
           // cierre" no entra al lado del EPS en pantallas chicas.
-          if (countdown != null || timing.isNotEmpty) ...[
+          if (countdown != null ||
+              timing.isNotEmpty ||
+              data.nextReportEstimated) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -264,6 +283,10 @@ class _NextReportBlock extends StatelessWidget {
                     icon: Icons.schedule_rounded,
                   ),
                 if (timing.isNotEmpty) QaTag(timing, icon: _timingIcon(timing)),
+                // La SEC no publica un calendario: la fecha sale del
+                // calendario de reportes anteriores de la empresa.
+                if (data.nextReportEstimated)
+                  const QaTag('Fecha estimada', icon: Icons.info_outline_rounded),
               ],
             ),
           ],
@@ -290,6 +313,8 @@ class _LatestResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final beat = result.beat;
+    final estimate = result.estimate;
+    if (beat == null || estimate == null) return _withoutConsensus();
     final surprise = result.surprisePct;
     // El título ("Último reporte · T2 FY26") lo pone la sección.
     return Row(
@@ -303,7 +328,7 @@ class _LatestResultRow extends StatelessWidget {
                   style: QaText.value,
                 ),
                 TextSpan(
-                  text: '  vs. ${QaFormat.price(result.estimate)} est.',
+                  text: '  vs. ${QaFormat.price(estimate)} est.',
                   style: QaText.label,
                 ),
               ],
@@ -328,6 +353,83 @@ class _LatestResultRow extends StatelessWidget {
             ],
           ],
         ),
+      ],
+    );
+  }
+}
+
+extension on _LatestResultRow {
+  /// Sin consenso (SEC): el EPS real y cómo cambió contra el mismo
+  /// trimestre del año anterior. Nunca "superó / no alcanzó".
+  Widget _withoutConsensus() {
+    final yoy = result.yoyPct;
+    return Row(
+      children: [
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'EPS ${QaFormat.price(result.actual)}',
+                  style: QaText.value,
+                ),
+                if (yoy != null)
+                  TextSpan(text: '  vs. un año antes', style: QaText.label),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (yoy != null && yoy != 0) ...[
+          const SizedBox(width: 8),
+          QaDeltaChip(value: yoy, digits: 1, dense: true),
+        ],
+      ],
+    );
+  }
+}
+
+/// Historial de EPS sin consenso: período, EPS y variación interanual.
+class _EpsPointsList extends StatelessWidget {
+  const _EpsPointsList({required this.points});
+
+  final List<_EpsPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final p in points)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(child: Text(p.label, style: QaText.label)),
+                Text(QaFormat.price(p.actual), style: QaText.valueSm),
+                // Ancho mínimo fijo para alinear las columnas; crece si el
+                // chip lo necesita (+128,4%).
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 88),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    widthFactor: 1,
+                    child:
+                        p.yoyPct == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: QaDeltaChip(
+                                value: p.yoyPct!,
+                                digits: 1,
+                                dense: true,
+                              ),
+                            ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -796,15 +898,31 @@ final class _LatestResult {
     required this.estimate,
     required this.beat,
     required this.dateLabel,
+    this.yoyPct,
   });
 
   final double actual;
-  final double estimate;
-  final bool beat;
-  final String dateLabel;
 
-  double? get surprisePct =>
-      estimate == 0 ? null : (actual - estimate) / estimate.abs() * 100;
+  /// Consenso del mercado. `null` con datos de la SEC (no lo publica): la
+  /// fila muestra el EPS contra el mismo trimestre del año anterior.
+  final double? estimate;
+  final bool? beat;
+  final String dateLabel;
+  final double? yoyPct;
+
+  double? get surprisePct {
+    final e = estimate;
+    return e == null || e == 0 ? null : (actual - e) / e.abs() * 100;
+  }
+}
+
+/// Un trimestre sin consenso (SEC): EPS real y su variación interanual.
+final class _EpsPoint {
+  const _EpsPoint({required this.label, required this.actual, this.yoyPct});
+
+  final String label;
+  final double actual;
+  final double? yoyPct;
 }
 
 final class _EarningsCalendarData {
@@ -815,8 +933,10 @@ final class _EarningsCalendarData {
     required this.fiscalPeriodLabel,
     required this.timingLabel,
     required this.nextEpsEstimate,
+    required this.nextReportEstimated,
     required this.latestResult,
     required this.history,
+    required this.epsPoints,
   });
 
   factory _EarningsCalendarData.fromMap(JsonMap map) {
@@ -824,32 +944,51 @@ final class _EarningsCalendarData {
         GenUiHelpers.safeString(map[key], defaultValue: '').trim();
 
     final history = <QaEpsQuarter>[];
+    final points = <_EpsPoint>[];
     final rawHistory = map['history'];
     if (rawHistory is List) {
       for (final raw in rawHistory.whereType<Map>()) {
         final actual = _optDouble(raw['epsActual']);
         final estimate = _optDouble(raw['epsEstimate']);
-        if (actual == null || estimate == null) continue;
-        history.add(
-          QaEpsQuarter(
-            label: GenUiHelpers.safeString(
-              raw['periodLabel'],
-              defaultValue: '',
-            ),
+        if (actual == null) continue;
+        final label = GenUiHelpers.safeString(
+          raw['periodLabel'],
+          defaultValue: '',
+        );
+        points.add(
+          _EpsPoint(
+            label: label,
             actual: actual,
-            estimate: estimate,
+            yoyPct: _optDouble(raw['epsYoyPct']),
           ),
         );
+        if (estimate != null) {
+          history.add(
+            QaEpsQuarter(label: label, actual: actual, estimate: estimate),
+          );
+        }
       }
     }
     // Máximo 4, los más recientes (el schema pide del más viejo al nuevo).
-    final quarters =
-        history.length > 4 ? history.sublist(history.length - 4) : history;
+    List<T> last4<T>(List<T> l) => l.length > 4 ? l.sublist(l.length - 4) : l;
+    // Con consenso en todos los trimestres, el gráfico de sorpresas; si no
+    // (SEC), la lista de EPS con su variación interanual.
+    final withConsensus = history.length == points.length;
+    final quarters = withConsensus ? last4(history) : <QaEpsQuarter>[];
+    final epsPoints = withConsensus ? <_EpsPoint>[] : last4(points);
 
     final actual = _optDouble(map['epsActual']);
     final estimate = _optDouble(map['epsEstimate']);
     _LatestResult? latest;
-    if (actual != null && estimate != null) {
+    if (actual != null && estimate == null) {
+      latest = _LatestResult(
+        actual: actual,
+        estimate: null,
+        beat: null,
+        dateLabel: str('latestReportDateLabel'),
+        yoyPct: _optDouble(map['epsYoyPct']),
+      );
+    } else if (actual != null && estimate != null) {
       final beatRaw = map['beat'];
       latest = _LatestResult(
         actual: actual,
@@ -873,6 +1012,15 @@ final class _EarningsCalendarData {
         beat: last.beat,
         dateLabel: last.label,
       );
+    } else if (epsPoints.isNotEmpty) {
+      final last = epsPoints.last;
+      latest = _LatestResult(
+        actual: last.actual,
+        estimate: null,
+        beat: null,
+        dateLabel: last.label,
+        yoyPct: last.yoyPct,
+      );
     }
 
     final iso = str('nextReportDate');
@@ -883,8 +1031,13 @@ final class _EarningsCalendarData {
       fiscalPeriodLabel: str('fiscalPeriodLabel'),
       timingLabel: str('timingLabel'),
       nextEpsEstimate: _optDouble(map['nextEpsEstimate']),
+      nextReportEstimated: GenUiHelpers.safeBool(
+        map['nextReportEstimated'],
+        defaultValue: false,
+      ),
       latestResult: latest,
       history: quarters,
+      epsPoints: epsPoints,
     );
   }
 
@@ -894,8 +1047,14 @@ final class _EarningsCalendarData {
   final String fiscalPeriodLabel;
   final String timingLabel;
   final double? nextEpsEstimate;
+
+  /// Fecha estimada (SEC: EDGAR no publica un calendario).
+  final bool nextReportEstimated;
   final _LatestResult? latestResult;
   final List<QaEpsQuarter> history;
+
+  /// Historial sin consenso (SEC), del más viejo al más nuevo.
+  final List<_EpsPoint> epsPoints;
 
   bool get hasNext => nextReportDateLabel.isNotEmpty;
 }

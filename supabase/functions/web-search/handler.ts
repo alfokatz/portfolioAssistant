@@ -21,6 +21,10 @@ export const config = {
   maxQueryLength: 200,
   maxSources: 4,
   maxAnswerTokens: 350,
+  /// Costo estimado por búsqueda (modelo search-preview de Chat Completions:
+  /// la búsqueda se cobra por llamada; tokens de gpt-4o-mini aparte).
+  searchCallUsd: 0.025,
+  tokenPricesPerM: [0.15, 0.6] as [number, number],
 };
 
 const systemPrompt =
@@ -123,6 +127,16 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return typedError(502, "upstream_failed", "Search failed");
   }
   const completion = await upstream.json();
+  const cost = config.searchCallUsd +
+    (Number(completion?.usage?.prompt_tokens ?? 0) * config.tokenPricesPerM[0] +
+        Number(completion?.usage?.completion_tokens ?? 0) * config.tokenPricesPerM[1]) / 1e6;
+  const record = await deps.db.rpc("record_web_search_usage", {
+    p_user_id: userId,
+    p_turn_id: req.headers.get("x-porty-turn-id"),
+    p_calls: 1,
+    p_cost_usd: Number(cost.toFixed(6)),
+  });
+  if (record.error) console.error("[web-search] record usage", record.error.message);
   const message = completion?.choices?.[0]?.message as Record<string, unknown> | undefined;
   const answer = typeof message?.content === "string" ? message.content.trim() : "";
 

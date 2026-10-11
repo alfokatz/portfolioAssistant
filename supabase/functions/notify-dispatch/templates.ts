@@ -240,9 +240,15 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
         : surprise === "miss"
         ? es ? "por debajo de lo esperado" : "below expectations"
         : es ? "en línea con lo esperado" : "in line with expectations";
+      // v2 (SEC EDGAR): se sabe que presentó, no cómo le fue contra lo esperado.
+      const reported = surprise === "reported";
       return {
         title: es ? `${symbol} presentó resultados` : `${symbol} reported earnings`,
-        body: es
+        body: reported
+          ? es
+            ? "Ya publicó sus resultados del trimestre. Tocá para ver cómo le fue."
+            : "Its quarterly results are out. Tap to see how it did."
+          : es
           ? `La ganancia por acción quedó ${how}${detail}.`
           : `Earnings per share came in ${how}${detail}.`,
         ...askPorty(

@@ -1044,10 +1044,8 @@ class _Results extends StatelessWidget {
     if (d.earningsStatus == AnalysisSourceStatus.locked) return null;
     final latest = d.latestResult;
     final next = d.nextReport;
-    final hasLatest =
-        latest != null &&
-        latest['eps_actual'] is num &&
-        latest['eps_estimate'] is num;
+    // Con SEC (v2) no hay consenso: alcanza con el EPS real.
+    final hasLatest = latest != null && latest['eps_actual'] is num;
     final hasNext = next != null && '${next['date_label'] ?? ''}'.isNotEmpty;
     if (!hasLatest && !hasNext) return null;
     return _Results(
@@ -1084,9 +1082,15 @@ class _LatestRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actual = (result['eps_actual'] as num).toDouble();
-    final estimate = (result['eps_estimate'] as num).toDouble();
+    final rawEstimate = result['eps_estimate'];
+    final estimate = rawEstimate is num ? rawEstimate.toDouble() : null;
     final beat =
-        result['beat'] is bool ? result['beat'] as bool : actual >= estimate;
+        estimate == null
+            ? null
+            : result['beat'] is bool
+            ? result['beat'] as bool
+            : actual >= estimate;
+    final yoy = result['eps_yoy_pct'];
     final period = '${result['fiscal_period_label'] ?? ''}'.trim();
     final date = '${result['report_date_label'] ?? ''}'.trim();
     final when = [
@@ -1106,18 +1110,24 @@ class _LatestRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Ganó ${QaFormat.price(actual)} por acción; '
-                'se esperaban ${QaFormat.price(estimate)}',
+                estimate == null
+                    ? 'Ganó ${QaFormat.price(actual)} por acción'
+                    : 'Ganó ${QaFormat.price(actual)} por acción; '
+                        'se esperaban ${QaFormat.price(estimate)}',
                 style: QaText.body,
               ),
             ],
           ),
         ),
         const SizedBox(width: 8),
-        QaTag(
-          beat ? 'Superó' : 'No alcanzó',
-          color: beat ? QaColors.profit : QaColors.loss,
-        ),
+        if (beat != null)
+          QaTag(
+            beat ? 'Superó' : 'No alcanzó',
+            color: beat ? QaColors.profit : QaColors.loss,
+          )
+        // Sin consenso (SEC): contra el mismo trimestre del año anterior.
+        else if (yoy is num && yoy != 0)
+          QaDeltaChip(value: yoy, digits: 1, dense: true),
       ],
     );
   }
@@ -1140,7 +1150,12 @@ class _NextRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Próximo reporte', style: QaText.label),
+              Text(
+                report['estimated'] == true
+                    ? 'Próximo reporte (fecha estimada)'
+                    : 'Próximo reporte',
+                style: QaText.label,
+              ),
               const SizedBox(height: 2),
               Text(label, style: QaText.bodyStrong),
               if (eps is num)

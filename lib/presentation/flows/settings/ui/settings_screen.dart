@@ -28,6 +28,7 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding
 import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_appearance_picker.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_danger_zone.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_data_sources_sheet.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_profile_card.dart';
@@ -420,6 +421,12 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   icon: Icons.shield_outlined,
                   label: 'settings_privacy'.tr(),
                   onTap: () => _openUrl('https://portfolioai.app/privacy'),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.source_outlined,
+                  label: 'data_sources_title'.tr(),
+                  onTap: () => SettingsDataSourcesSheet.show(context),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

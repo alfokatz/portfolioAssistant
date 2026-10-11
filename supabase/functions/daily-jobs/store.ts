@@ -9,6 +9,9 @@ export interface JobsStore {
   enqueue(rows: OutboxInsert[]): Promise<number>;
   /// El interruptor del informe semanal (`app_config.weekly_report`).
   weeklyReportEnabled(): Promise<boolean>;
+  /// Fuente de noticias/resultados (`app_config.news_provider`): "legacy"
+  /// (Finnhub) o "v2" (SEC EDGAR). Sin implementar = legacy.
+  newsProvider?(): Promise<string>;
   purge(): Promise<void>;
 }
 
@@ -39,6 +42,10 @@ export function supabaseJobsStore(db: SupabaseClient): JobsStore {
       const { data, error } = await db.from("app_config").select("value").eq("key", "weekly_report").maybeSingle();
       fail("weeklyReportEnabled", error);
       return (data?.value as { enabled?: boolean } | null)?.enabled === true;
+    },
+    async newsProvider() {
+      const { data } = await db.from("app_config").select("value").eq("key", "news_provider").maybeSingle();
+      return (data?.value as { provider?: string } | null)?.provider === "v2" ? "v2" : "legacy";
     },
     async purge() {
       const { error } = await db.rpc("push_purge");

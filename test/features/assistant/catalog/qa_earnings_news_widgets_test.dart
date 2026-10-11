@@ -114,6 +114,36 @@ void main() {
       expect(find.textContaining('Último reporte · T2 FY26'), findsOneWidget);
     });
 
+    testWidgets(
+      'SEC data (no consensus): estimated date, EPS vs. a year earlier, '
+      'never beat/miss',
+      (tester) async {
+        await pumpData(tester, 'QaEarningsCalendar', {
+          'ticker': 'AAPL',
+          'nextReportDateLabel': '29 oct 2026',
+          'nextReportDate': '2026-10-29',
+          'nextReportEstimated': true,
+          'latestReportDateLabel': '30 jul 2026',
+          'epsActual': 2.02,
+          'epsYoyPct': 28.7,
+          'history': [
+            {'periodLabel': 'T4 FY25', 'epsActual': 1.84, 'epsYoyPct': 12.2},
+            {'periodLabel': 'T1 FY26', 'epsActual': 2.84, 'epsYoyPct': 18.8},
+            {'periodLabel': 'T2 FY26', 'epsActual': 2.01, 'epsYoyPct': 22.6},
+            {'periodLabel': 'T3 FY26', 'epsActual': 2.02, 'epsYoyPct': 28.7},
+          ],
+        });
+        expect(find.text('PRÓXIMO REPORTE · ESTIMADO'), findsOneWidget);
+        expect(find.text('Fecha estimada'), findsOneWidget);
+        expect(find.text('Ganancia por acción'), findsOneWidget);
+        expect(find.byType(QaEpsHistoryChart), findsNothing);
+        expect(find.text('T1 FY26'), findsOneWidget);
+        expect(find.textContaining('vs. un año antes'), findsOneWidget);
+        expect(find.text('Superó'), findsNothing);
+        expect(find.text('No alcanzó'), findsNothing);
+      },
+    );
+
     testWidgets('degenerate: only a ticker, garbage history', (tester) async {
       await pumpData(tester, 'QaEarningsCalendar', {
         'ticker': 'XYZ',

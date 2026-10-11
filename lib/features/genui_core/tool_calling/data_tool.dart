@@ -27,6 +27,12 @@ abstract interface class DataTool {
   Future<Map<String, Object?>> run(Map<String, Object?> args);
 }
 
+/// Una tool que necesita más que el tope común por tool (p. ej. una
+/// búsqueda web en el servidor, ~5-11 s): declara el suyo.
+abstract interface class SlowDataTool implements DataTool {
+  Duration get timeout;
+}
+
 extension DataToolOpenAi on DataTool {
   OpenAIToolModel toOpenAi() => OpenAIToolModel(
     type: 'function',

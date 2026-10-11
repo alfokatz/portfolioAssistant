@@ -893,8 +893,9 @@ final _epsQuarterSchema = S.object(
     'periodLabel': S.string(description: 'fiscal_period_label, ej. "T2 FY26".'),
     'epsActual': S.number(),
     'epsEstimate': S.number(),
+    'epsYoyPct': S.number(),
   },
-  required: ['periodLabel', 'epsActual', 'epsEstimate'],
+  required: ['periodLabel', 'epsActual'],
 );
 
 final CatalogItem qaEarningsCalendarItem = CatalogItem(
@@ -917,6 +918,7 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
             'next_report.date (ISO "2026-11-13"), junto con '
             'nextReportDateLabel — la app calcula la cuenta regresiva.',
       ),
+      'nextReportEstimated': S.boolean(),
       'timingLabel': S.string(
         description: 'next_report.timing_label (opcional).',
       ),
@@ -942,6 +944,7 @@ final CatalogItem qaEarningsCalendarItem = CatalogItem(
       'epsEstimate': S.number(
         description: 'EPS esperado por el mercado (opcional).',
       ),
+      'epsYoyPct': S.number(description: 'latest_result.eps_yoy_pct.'),
       'beat': S.boolean(
         description: 'true si epsActual superó epsEstimate (opcional).',
       ),

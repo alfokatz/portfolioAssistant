@@ -1,8 +1,11 @@
 // daily-jobs: cada hora en punto (pg_cron). Encola lo que corresponde a la
 // hora local de cada usuario y lo despacha:
 // - sábado 9:00 → "Tu semana en Porty está lista" (F3);
-// - 19:00 → earnings de mañana de su cartera (Gold, F6);
-// - 12:00 y 19:00 → resultados que ya salieron (Gold, F6);
+// - 19:00 → earnings de mañana de su cartera (Gold, F6) — solo con
+//   `news_provider = legacy` (Finnhub): con v2 (SEC) no hay calendario
+//   confirmado y una fecha estimada no alcanza para avisar;
+// - 12:00 y 19:00 → resultados que ya salieron (Gold, F6): legacy, por el
+//   calendario de Finnhub; v2, por el 8-K con ítem 2.02 presentado a la SEC;
 // - 04:00 UTC → limpieza (push_purge).
 //
 // POST /functions/v1/daily-jobs con `x-cron-secret`. Body opcional
@@ -28,6 +31,9 @@ import type { JobsStore } from "./store.ts";
 
 export type JobsDeps = Pick<Deps, "env" | "now" | "fetch"> & {
   store: JobsStore;
+  /// v2: comunicados de resultados (8-K 2.02) presentados desde [since] por
+  /// [symbols] (ver `secEarningsReleases`).
+  secReleases?: (symbols: string[], since: string) => Promise<EarningsEntry[]>;
   dispatchStore: DispatchStore;
   sender: PushSender | null;
 };
@@ -93,12 +99,25 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
     .filter((u) => u.tier === "gold" && u.symbols.length > 0);
   if (earningsUsers.length > 0) {
     const today = new Date(now).toISOString().slice(0, 10);
-    const calendar = await fetchCalendar(deps, addDays(today, -2), addDays(today, 2));
-    if (wanted.has(jobHours.earningsTomorrow)) {
-      rows.push(...earningsTomorrowRows(usersAt.get(jobHours.earningsTomorrow) ?? [], calendar));
-    }
-    for (const h of jobHours.earningsResult) {
-      if (wanted.has(h)) rows.push(...earningsResultRows(usersAt.get(h) ?? [], calendar));
+    const provider = (await deps.store.newsProvider?.()) ?? "legacy";
+    if (provider === "v2") {
+      const resultUsers = jobHours.earningsResult.flatMap((h) => (wanted.has(h) ? usersAt.get(h) ?? [] : []))
+        .filter((u) => u.tier === "gold" && u.symbols.length > 0);
+      const symbols = [...new Set(resultUsers.flatMap((u) => u.symbols))].sort();
+      const releases = symbols.length > 0 && deps.secReleases
+        ? await deps.secReleases(symbols, addDays(today, -2))
+        : [];
+      for (const h of jobHours.earningsResult) {
+        if (wanted.has(h)) rows.push(...earningsResultRows(usersAt.get(h) ?? [], releases));
+      }
+    } else {
+      const calendar = await fetchCalendar(deps, addDays(today, -2), addDays(today, 2));
+      if (wanted.has(jobHours.earningsTomorrow)) {
+        rows.push(...earningsTomorrowRows(usersAt.get(jobHours.earningsTomorrow) ?? [], calendar));
+      }
+      for (const h of jobHours.earningsResult) {
+        if (wanted.has(h)) rows.push(...earningsResultRows(usersAt.get(h) ?? [], calendar));
+      }
     }
   }
 
