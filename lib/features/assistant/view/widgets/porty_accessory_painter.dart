@@ -333,12 +333,15 @@ abstract final class PortyAccessoryPainter {
   /// en gajos girada un poco a la derecha y una visera larga y curva que
   /// sale hacia adelante a la izquierda, con el borde de abajo en "S".
   static void _peakedCap(Canvas canvas) {
+    // El costado derecho sigue el contorno de la cabeza (apenas por
+    // fuera) hasta donde termina la visera: sin huecos en la esquina.
     final crown =
         Path()
           ..moveTo(12, 16)
           ..cubicTo(11, 5.5, 21, -1.2, 34, -1.2)
-          ..cubicTo(47, -1.2, 56.5, 6, 56.2, 16.5)
-          ..quadraticBezierTo(40, 12, 12, 16)
+          ..cubicTo(45.5, -1.2, 53.4, 5, 54.4, 12.5)
+          ..quadraticBezierTo(54.9, 16.4, 54.6, 19.8)
+          ..quadraticBezierTo(38, 13, 12, 16)
           ..close();
     canvas.drawPath(crown, _fill(_brightRed));
     // Gajo lateral (derecha) un tono más oscuro, como en una gorra real.
@@ -360,7 +363,7 @@ abstract final class PortyAccessoryPainter {
       ..drawPath(
         Path()
           ..moveTo(40, -0.9)
-          ..cubicTo(47, 2, 50, 9, 50.5, 16),
+          ..cubicTo(47, 2, 50, 9, 50.5, 17),
         seam,
       )
       ..drawPath(
@@ -372,30 +375,32 @@ abstract final class PortyAccessoryPainter {
       ..drawCircle(const Offset(35.5, -1), 1.6, _fill(_redDark));
     // Visera: su borde de arriba sube por el frente de la copa y baja a la
     // derecha; la punta sale a la izquierda, más allá de la cabeza.
+    // Su extremo derecho cae sobre el contorno de la cabeza, en el mismo
+    // punto donde termina la copa.
     final visor =
         Path()
-          ..moveTo(-1.5, 17.5)
-          ..cubicTo(4, 13.5, 14, 9, 26, 8.6)
-          ..cubicTo(38, 8.4, 46, 13.4, 53.5, 16.8)
-          ..cubicTo(47, 20.6, 40, 23.6, 33, 23.4)
-          ..cubicTo(26, 23.2, 22.5, 19.4, 16.5, 18.6)
-          ..cubicTo(10, 17.8, 3.5, 20.4, 0.5, 20.6)
-          ..cubicTo(-2, 20.8, -2.6, 18.6, -1.5, 17.5)
+          ..moveTo(3.5, 17.4)
+          ..cubicTo(8, 14.2, 16.5, 10.2, 27, 9.8)
+          ..cubicTo(38.5, 9.6, 47, 14.8, 54.6, 19.8)
+          ..cubicTo(48.5, 21.4, 41.5, 22.4, 35, 22.2)
+          ..cubicTo(28.5, 22, 25, 19.6, 20, 19)
+          ..cubicTo(14, 18.4, 8.5, 20, 5.6, 20.2)
+          ..cubicTo(3.2, 20.4, 2.5, 18.4, 3.5, 17.4)
           ..close();
     canvas
       ..drawPath(visor, _fill(_redDark))
       // Pespuntes, paralelos al borde de abajo.
       ..drawPath(
         Path()
-          ..moveTo(0.8, 19.2)
-          ..cubicTo(5, 17.8, 11, 16.4, 16.5, 17.2)
-          ..cubicTo(22, 18, 25, 21.4, 31, 21.8),
+          ..moveTo(5.6, 18.8)
+          ..cubicTo(9.5, 17.6, 15, 16.6, 20, 17.4)
+          ..cubicTo(25, 18.2, 28, 20.6, 32.5, 20.9),
         _stroke(_red, 0.8),
       )
       ..drawPath(
         Path()
-          ..moveTo(36, 21.4)
-          ..cubicTo(40, 20.8, 44, 19.2, 47, 17.8),
+          ..moveTo(37, 20.7)
+          ..cubicTo(41, 20.3, 45, 19.4, 48.5, 18.6),
         _stroke(_red, 0.8),
       );
   }
