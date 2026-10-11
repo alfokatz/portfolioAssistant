@@ -160,10 +160,11 @@ class GetGoalProjectionTool implements DataTool {
       'or asks about a savings goal, a purchase or retirement ("en 20 años '
       'quiero tener 500 mil", "¿cuánto tengo que ahorrar por mes?", "quiero '
       'comprarme una compu de 1200 en un año", "quiero jubilarme cobrando '
-      '3000 por mes", "¿cómo va mi meta?"). Pass only what the user '
-      'stated in this conversation; omitted fields come from their saved '
-      'goal and investor profile. If has_complete_goal is false, "missing" '
-      'lists what to ask for. Never recalculate the numbers.';
+      '3000 por mes", "¿cómo va mi meta?"). A NEW goal: pass what the '
+      'user stated, never goal_id/base_plan_id, and never invent a date or '
+      'amount (missing ones come back in "missing" to ask). To CHANGE a plan '
+      'of this chat ("hacelo en 2 años", "ya tengo 500"): base_plan_id + only '
+      'what changes. A SAVED goal (saved_goals): goal_id. Never recalculate.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -181,7 +182,22 @@ class GetGoalProjectionTool implements DataTool {
       },
       'goal_label': {
         'type': 'string',
-        'description': 'Short name for the goal ("Casa", "Jubilación").',
+        'description':
+            'Short name for the goal ("Silla Herman Miller", "Casa", '
+            '"Jubilación"). Always pass it for a new goal.',
+      },
+      'goal_id': {
+        'type': 'string',
+        'description':
+            'Only for a goal in saved_goals (its id, "g1"): its amount, date '
+            'and name fill what is not stated.',
+      },
+      'base_plan_id': {
+        'type': 'string',
+        'description':
+            'Only to change a plan already shown in this chat: its plan_id. '
+            'Everything not passed is kept from that plan (with the user\'s '
+            'own edits in the card).',
       },
       'is_retirement': {
         'type': 'boolean',
@@ -239,46 +255,87 @@ class GetGoalProjectionTool implements DataTool {
       return ctx.lockedFeature(PlanFeature.goals);
     }
     final prefs = ctx.data.preferences;
-    // La meta de referencia: la más nueva de la pestaña Metas; si no hay,
-    // la última guardada en el dispositivo.
-    final latest = ctx.savedGoals.firstOrNull;
-    final saved =
-        latest != null
+    // De qué meta se completa lo que el usuario no dijo: solo de la que el
+    // modelo nombra (una guardada, o un plan de esta charla). Antes se
+    // completaba con la última meta guardada y una meta nueva ("una silla
+    // de 2000") salía con el nombre y la fecha de la MacBook.
+    final savedGoal = GoalTools.byRef(ctx, ToolArgs.string(args, 'goal_id'));
+    final basePlanId = ToolArgs.string(args, 'base_plan_id');
+    final basePlan =
+        basePlanId == null ? null : ctx.data.plans.lookup(basePlanId);
+    final baseInputs = SavingsPlanInputs.fromJson(
+      (basePlan?['plan'] as Map?)?['inputs'],
+    );
+    final baseGoal = basePlan?['active_goal'];
+    final base =
+        baseGoal is Map
             ? (
-              label: latest.label,
-              targetAmount: latest.targetAmount,
-              targetDate: GoalProjectionBuilder.formatDate(latest.targetDate),
+              label: '${baseGoal['label'] ?? ''}',
+              targetAmount: (baseGoal['target_amount'] as num).toDouble(),
+              targetDate: '${baseGoal['target_date']}',
             )
-            : await prefs.getSavedGoal();
+            : savedGoal == null
+            ? null
+            : (
+              label: savedGoal.label,
+              targetAmount: savedGoal.targetAmount,
+              targetDate: GoalProjectionBuilder.formatDate(
+                savedGoal.targetDate,
+              ),
+            );
+    // Del plan base se mantiene también lo que el usuario había dicho (o
+    // editado en la card): lo que ya tiene, el riesgo, el tipo de meta.
+    T? fromBase<T>(T? Function(Map<String, Object?> plan) read) =>
+        basePlan == null ? null : read(basePlan);
     final monthly =
         ToolArgs.number(args, 'monthly_contribution') ??
+        baseInputs?.monthlyContribution ??
         await prefs.getMonthlyContribution();
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
+    final statedAmount = _positive(ToolArgs.number(args, 'target_amount'));
     final result = <String, Object?>{
       'status': 'ok',
       'as_of': ctx.asOf,
       ...GoalProjectionBuilder.build(
         currentPortfolioValue: ctx.summary?.totalValue ?? 0,
-        targetAmount: _positive(ToolArgs.number(args, 'target_amount')),
+        targetAmount: statedAmount,
         targetDate: ToolArgs.date(args, 'target_date'),
         label: ToolArgs.string(args, 'goal_label'),
         monthlyContribution: _nonNegative(monthly),
-        currentSavings: _nonNegative(ToolArgs.number(args, 'current_savings')),
-        desiredMonthlyIncome: _positive(
-          ToolArgs.number(args, 'desired_monthly_income'),
-        ),
-        isRetirement: retirement is bool ? retirement : null,
+        currentSavings:
+            _nonNegative(ToolArgs.number(args, 'current_savings')) ??
+            fromBase(
+              (p) =>
+                  p['starting_capital_source'] == 'stated'
+                      ? baseInputs?.currentAmount
+                      : null,
+            ),
+        desiredMonthlyIncome:
+            _positive(ToolArgs.number(args, 'desired_monthly_income')) ??
+            (statedAmount == null ? baseInputs?.desiredMonthlyIncome : null),
+        isRetirement:
+            retirement is bool ? retirement : baseInputs?.isRetirement,
         isPurchase:
             ToolArgs.string(args, 'goal_type') ==
-            GoalProjectionBuilder.goalPurchase,
-        incomeStrategy: IncomeStrategy.fromKey(
-          ToolArgs.string(args, 'income_strategy'),
-        ),
+                GoalProjectionBuilder.goalPurchase ||
+            (ToolArgs.string(args, 'goal_type') == null &&
+                (basePlan?['goal_type'] == GoalProjectionBuilder.goalPurchase ||
+                    savedGoal?.type == GoalType.purchase)),
+        incomeStrategy:
+            IncomeStrategy.fromKey(ToolArgs.string(args, 'income_strategy')) ??
+            baseInputs?.incomeStrategy,
         dividendYield: ctx.data.plans.dividendYield,
-        statedRisk: RiskTolerance.fromStorage(ToolArgs.string(args, 'risk')),
+        statedRisk:
+            RiskTolerance.fromStorage(ToolArgs.string(args, 'risk')) ??
+            fromBase(
+              (p) =>
+                  p['risk_source'] == GoalProjectionBuilder.riskStated
+                      ? baseInputs?.risk
+                      : null,
+            ),
         profile: profile,
-        savedGoal: saved,
+        savedGoal: base,
         asOf: ctx.now,
       ),
       'investor_profile': InvestorProfileContext.build(profile, ctx.now),

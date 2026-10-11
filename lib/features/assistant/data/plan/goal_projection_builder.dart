@@ -186,6 +186,72 @@ abstract final class GoalProjectionBuilder {
     return result;
   }
 
+  /// El plan [original] (un resultado de esta clase) con lo que el usuario
+  /// cambió en la card: nombre, monto, fecha, lo que ya tiene y el riesgo.
+  /// Mismo cálculo que [build] (corto plazo si son 3 años o menos y no es el
+  /// retiro); `null` si [original] no es un plan completo.
+  static Map<String, Object?>? edit(
+    Map<String, Object?> original, {
+    String? label,
+    double? targetAmount,
+    DateTime? targetDate,
+    double? currentAmount,
+    RiskTolerance? risk,
+  }) {
+    final plan = original['plan'];
+    final inputs = SavingsPlanInputs.fromJson(
+      plan is Map ? plan['inputs'] : null,
+    );
+    final goal = original['active_goal'];
+    if (inputs == null || goal is! Map) return null;
+    final date = targetDate ?? DateTime.tryParse('${goal['target_date']}');
+    if (date == null) return null;
+    final months = monthsBetween(inputs.startDate, date);
+    final shortTerm =
+        !inputs.isRetirement && months <= PlanAssumptions.shortHorizonMonths;
+    final amountChanged =
+        targetAmount != null && targetAmount != inputs.targetAmount;
+    final edited = SavingsPlanInputs(
+      targetAmount: targetAmount ?? inputs.targetAmount,
+      months: months,
+      currentAmount: currentAmount ?? inputs.currentAmount,
+      risk: risk ?? inputs.risk,
+      startDate: inputs.startDate,
+      monthlyContribution: inputs.monthlyContribution,
+      isRetirement: inputs.isRetirement,
+      // Un monto puesto a mano reemplaza al que salía del ingreso pedido.
+      desiredMonthlyIncome: amountChanged ? null : inputs.desiredMonthlyIncome,
+      incomeStrategy: inputs.incomeStrategy,
+      dividendYield: inputs.dividendYield,
+      shortTerm: shortTerm,
+    );
+    final name = label?.trim();
+    final result = <String, Object?>{
+      for (final e in original.entries)
+        // La compra mensual era para el plan anterior.
+        if (e.key != 'items' && e.key != 'buy_plan_id') e.key: e.value,
+      planIdKey: planIdFor(edited),
+      'active_goal': {
+        'label': name == null || name.isEmpty ? goal['label'] : name,
+        'target_amount': edited.targetAmount,
+        'target_date': formatDate(date),
+      },
+      'starting_capital': edited.currentAmount,
+      'months_remaining': months,
+      'short_term_purchase': shortTerm,
+      'has_complete_goal': true,
+      'edited_by_user': true,
+      'plan': SavingsPlan.build(edited).toToolResult(),
+    };
+    if (currentAmount != null) result['starting_capital_source'] = 'stated';
+    if (risk != null) {
+      result['risk_source'] = riskStated;
+      result['risk_adjusted_for_short_horizon'] = false;
+    }
+    if (amountChanged) result.remove('target_from_income');
+    return result;
+  }
+
   /// Id estable del plan: el mismo pedido da el mismo id.
   static String planIdFor(SavingsPlanInputs inputs) {
     var hash = 0x811c9dc5;
