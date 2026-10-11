@@ -65,7 +65,15 @@ abstract final class PortyAccessoryPainter {
       case PortyAccessory.cap:
         _cap(canvas);
       case PortyAccessory.peakedCap:
+        // Dibujada mirando a la izquierda y espejada sobre el eje de la
+        // cabeza (x = 32): la visera apunta a la derecha. El contorno de la
+        // cabeza es casi simétrico, así que la copa sigue apoyada.
+        canvas
+          ..save()
+          ..translate(64, 0)
+          ..scale(-1, 1);
         _peakedCap(canvas);
+        canvas.restore();
       case PortyAccessory.crown:
         _crown(canvas);
       case PortyAccessory.bow:
@@ -330,8 +338,8 @@ abstract final class PortyAccessoryPainter {
         ..close();
 
   /// Gorrita de tres cuartos (como una gorra de béisbol dibujada): copa
-  /// en gajos girada un poco a la derecha y una visera larga y curva que
-  /// sale hacia adelante a la izquierda, con el borde de abajo en "S".
+  /// en gajos y una visera larga y curva con el borde de abajo en "S".
+  /// Se dibuja con la visera a la izquierda; `paintBody` la espeja.
   static void _peakedCap(Canvas canvas) {
     // El costado derecho sigue el contorno de la cabeza (apenas por
     // fuera) hasta donde termina la visera: sin huecos en la esquina.
