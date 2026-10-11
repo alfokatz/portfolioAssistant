@@ -1091,6 +1091,10 @@ class _LatestRow extends StatelessWidget {
             ? result['beat'] as bool
             : actual >= estimate;
     final yoy = result['eps_yoy_pct'];
+    final rawYearAgo = result['eps_year_ago'];
+    final yearAgo = rawYearAgo is num ? rawYearAgo.toDouble() : null;
+    // Sin consenso (SEC): la misma lectura contra el año anterior.
+    final grew = estimate == null && yearAgo != null ? actual >= yearAgo : null;
     final period = '${result['fiscal_period_label'] ?? ''}'.trim();
     final date = '${result['report_date_label'] ?? ''}'.trim();
     final when = [
@@ -1110,10 +1114,13 @@ class _LatestRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                estimate == null
-                    ? 'Ganó ${QaFormat.price(actual)} por acción'
-                    : 'Ganó ${QaFormat.price(actual)} por acción; '
-                        'se esperaban ${QaFormat.price(estimate)}',
+                estimate != null
+                    ? 'Ganó ${QaFormat.price(actual)} por acción; '
+                        'se esperaban ${QaFormat.price(estimate)}'
+                    : yearAgo != null
+                    ? 'Ganó ${QaFormat.price(actual)} por acción; '
+                        'hace un año, ${QaFormat.price(yearAgo)}'
+                    : 'Ganó ${QaFormat.price(actual)} por acción',
                 style: QaText.body,
               ),
             ],
@@ -1126,6 +1133,11 @@ class _LatestRow extends StatelessWidget {
             color: beat ? QaColors.profit : QaColors.loss,
           )
         // Sin consenso (SEC): contra el mismo trimestre del año anterior.
+        else if (grew != null)
+          QaTag(
+            grew ? 'Creció' : 'Cayó',
+            color: grew ? QaColors.profit : QaColors.loss,
+          )
         else if (yoy is num && yoy != 0)
           QaDeltaChip(value: yoy, digits: 1, dense: true),
       ],

@@ -130,6 +130,8 @@ class SecEarningsFetcher implements EarningsSource {
             'fiscal_period_label': '${q['label']}',
           'period_end': q['end'],
           if (_num(q['eps_diluted']) != null) 'eps_actual': _num(q['eps_diluted']),
+          if (_num(q['eps_year_ago']) != null)
+            'eps_year_ago': _num(q['eps_year_ago']),
           if (_num(q['eps_yoy_pct']) != null) 'eps_yoy_pct': _num(q['eps_yoy_pct']),
           if (_num(q['revenue']) != null)
             'revenue_millions': _round(_num(q['revenue'])! / 1e6, 1),

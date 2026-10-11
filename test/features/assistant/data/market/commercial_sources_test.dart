@@ -63,7 +63,7 @@ const _secEarnings = {
   },
   'quarters': [
     {'label': 'T2 FY26', 'end': '2026-03-28', 'revenue': 111184000000, 'eps_diluted': 2.01, 'eps_yoy_pct': 22.6, 'revenue_yoy_pct': 16.6},
-    {'label': 'T3 FY26', 'end': '2026-06-27', 'revenue': 109417000000, 'eps_diluted': 2.02, 'eps_yoy_pct': 28.7, 'revenue_yoy_pct': 16.0},
+    {'label': 'T3 FY26', 'end': '2026-06-27', 'revenue': 109417000000, 'eps_diluted': 2.02, 'eps_year_ago': 1.57, 'eps_yoy_pct': 28.7, 'revenue_yoy_pct': 16.0},
   ],
   'years': [],
   'next_report': {'date': '2026-10-29', 'estimated': true, 'basis': 'same_quarter_last_year'},
@@ -120,6 +120,7 @@ void main() {
       final latest = aapl['latest_result'] as Map;
       expect(latest['eps_actual'], 2.02);
       expect(latest['eps_yoy_pct'], 28.7);
+      expect(latest['eps_year_ago'], 1.57);
       expect(latest['revenue_millions'], 109417.0);
       expect(latest['report_date_label'], '30 jul 2026');
       expect(latest.containsKey('eps_estimate'), isFalse);

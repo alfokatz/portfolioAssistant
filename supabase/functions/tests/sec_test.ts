@@ -43,6 +43,8 @@ Deno.test("fundamentals AAPL: TTM de 4 trimestres, Q4 calculado y márgenes", as
   assertEquals(f.quarters.map((q) => q.label), ["T4 FY25", "T1 FY26", "T2 FY26", "T3 FY26"]);
   assertEquals(f.quarters[0].derived, true);
   assertEquals(f.quarters[3].eps_diluted, 2.02);
+  // Referencia del gráfico: el mismo trimestre un año antes (T3 FY25).
+  assertEquals(f.quarters[3].eps_year_ago, 1.57);
   assertEquals(f.years.map((y) => y.fiscal_year), [2023, 2024, 2025]);
   assert(f.shares_outstanding! > 14e9);
 });

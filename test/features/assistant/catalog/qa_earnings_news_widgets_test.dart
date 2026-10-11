@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_eps_history_chart.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_media_index.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/shared/widgets/genui_error_card.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
@@ -27,6 +30,7 @@ void main() {
     String name,
     Map<String, dynamic> data, {
     ValueChanged<String>? onFollowUp,
+    List<ToolCallRecord> evidence = const [],
   }) async {
     final item = catalog.items.firstWhere((i) => i.name == name);
     final component = {'id': 'c', 'component': name, ...data};
@@ -45,6 +49,12 @@ void main() {
     );
     if (onFollowUp != null) {
       body = QaFollowUpScope(onFollowUp: onFollowUp, child: body);
+    }
+    if (evidence.isNotEmpty) {
+      body = QaEvidenceScope(
+        lookup: (_) => ValueNotifier(TurnEvidence(calls: evidence)),
+        child: body,
+      );
     }
     await tester.pumpWidget(genuiTestApp(child: body));
     await tester.pump(const Duration(seconds: 1));
@@ -141,6 +151,58 @@ void main() {
         expect(find.textContaining('vs. un año antes'), findsOneWidget);
         expect(find.text('Superó'), findsNothing);
         expect(find.text('No alcanzó'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'SEC evidence: the same EPS chart against a year earlier, '
+      'grew/fell instead of beat/miss',
+      (tester) async {
+        Map<String, Object?> q(String label, double eps, double ago) => {
+          'fiscal_period_label': label,
+          'eps_actual': eps,
+          'eps_year_ago': ago,
+        };
+        await pumpData(
+          tester,
+          'QaEarningsCalendar',
+          // Lo que escribió el modelo no manda: los números salen de la tool.
+          {'ticker': 'AAPL', 'epsActual': 9.99},
+          evidence: [
+            ToolCallRecord(
+              name: 'get_earnings',
+              args: const {
+                'tickers': ['AAPL'],
+              },
+              result: {
+                'status': 'ok',
+                'earnings': {
+                  'AAPL': {
+                    'source': 'SEC EDGAR',
+                    'latest_result': {
+                      ...q('T3 FY26', 2.02, 1.57),
+                      'report_date_label': '30 jul 2026',
+                      'eps_yoy_pct': 28.7,
+                    },
+                    'history': [
+                      q('T4 FY25', 1.84, 1.64),
+                      q('T1 FY26', 2.84, 2.40),
+                      q('T2 FY26', 2.01, 1.65),
+                      q('T3 FY26', 2.02, 1.57),
+                    ],
+                  },
+                },
+              },
+            ),
+          ],
+        );
+        expect(find.byType(QaEpsHistoryChart), findsOneWidget);
+        expect(find.text('Hace un año'), findsOneWidget);
+        expect(find.text('Estimado'), findsNothing);
+        expect(find.text('Creció'), findsOneWidget);
+        expect(find.textContaining('hace un año'), findsOneWidget);
+        expect(find.textContaining('9.99'), findsNothing);
+        expect(find.text('Superó'), findsNothing);
       },
     );
 

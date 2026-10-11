@@ -549,6 +549,8 @@ export type FundamentalsQuarter = {
   revenue: number | null;
   net_income: number | null;
   eps_diluted: number | null;
+  /// EPS del mismo trimestre del año anterior (referencia del gráfico).
+  eps_year_ago: number | null;
   /// Contra el mismo trimestre del año anterior.
   revenue_yoy_pct: number | null;
   eps_yoy_pct: number | null;
@@ -720,6 +722,7 @@ export function extractFundamentals(facts: any): Fundamentals {
         revenue: valueAt("revenue", q.end),
         net_income: valueAt("net_income", q.end),
         eps_diluted: round(epsNow),
+        eps_year_ago: yearAgo ? round(valueAt("eps_diluted", yearAgo.end)) : null,
         revenue_yoy_pct: yearAgo ? growth(valueAt("revenue", q.end), valueAt("revenue", yearAgo.end)) : null,
         eps_yoy_pct: yearAgo ? growth(epsNow, valueAt("eps_diluted", yearAgo.end)) : null,
         ...(q.derived ? { derived: true as const } : {}),
