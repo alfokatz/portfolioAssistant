@@ -40,6 +40,19 @@ class _Repo extends GoalsRepository {
     GoalDraft draft, {
     Set<String>? linkedTickers,
   }) async {
+    final i = goals.indexWhere((g) => g.id == id);
+    final g = goals[i];
+    goals[i] = UserGoal(
+      id: g.id,
+      label: draft.label,
+      type: draft.type,
+      targetAmount: draft.targetAmount,
+      targetDate: draft.targetDate,
+      snapshot: draft.snapshot,
+      status: g.status,
+      createdAt: g.createdAt,
+      linkedTickers: g.linkedTickers,
+    );
     if (linkedTickers != null) await setLinkedTickers(id, linkedTickers);
   }
 
@@ -127,5 +140,24 @@ void main() {
 
     expect(goals.state.byId(trip.id)!.linkedTickers, {'SGOV', 'BIL'});
     expect(goals.state.byId(mac.id)!.linkedTickers, isEmpty);
+  });
+
+  test('editing the plan from Metas keeps what the user removed out, and '
+      'counts only the new instruments', () async {
+    final repo = _Repo();
+    final goals = GoalsNotifier(repo);
+    final car = await goals.save(
+      _draft('Auto', GoalType.purchase, ['VOO', 'SGOV']),
+    );
+    // El usuario sacó VOO de "Qué cuenta".
+    await goals.setLinkedTickers(car.id, {'SGOV'});
+
+    await goals.updatePlan(
+      car.id,
+      _draft('Auto usado', GoalType.purchase, ['VOO', 'SGOV', 'VGSH']),
+    );
+    final updated = goals.state.byId(car.id)!;
+    expect(updated.label, 'Auto usado');
+    expect(updated.linkedTickers, {'SGOV', 'VGSH'});
   });
 }

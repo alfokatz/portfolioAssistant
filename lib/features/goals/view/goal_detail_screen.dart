@@ -63,15 +63,6 @@ class GoalDetailScreen extends ConsumerWidget {
         builder: (_) => _LinkHoldingsSheet(goal: goal),
       );
 
-  Future<void> _delete(
-    BuildContext context,
-    WidgetRef ref,
-    UserGoal goal,
-  ) async {
-    final deleted = await GoalActions.confirmDelete(context, ref, goal);
-    if (deleted && context.mounted) Navigator.of(context).maybePop();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
@@ -86,40 +77,22 @@ class GoalDetailScreen extends ConsumerWidget {
     final date = DateFormat.yMMMM(
       locale.toLanguageTag(),
     ).format(goal.targetDate);
-    final active = goal.status == GoalStatus.active;
 
     return Scaffold(
       appBar: AppBar(
         actions: [
-          PopupMenuButton<String>(
+          IconButton(
+            tooltip: 'goal_options'.tr(),
             icon: Icon(Icons.more_horiz_rounded, color: colors.textPrimary),
-            onSelected: (value) {
-              switch (value) {
-                case 'achieved':
-                  GoalActions.setStatus(ref, goal, GoalStatus.achieved);
-                case 'active':
-                  GoalActions.setStatus(ref, goal, GoalStatus.active);
-                case 'delete':
-                  _delete(context, ref, goal);
-              }
-            },
-            itemBuilder:
-                (_) => [
-                  if (active)
-                    PopupMenuItem(
-                      value: 'achieved',
-                      child: Text('goal_mark_achieved'.tr()),
-                    )
-                  else
-                    PopupMenuItem(
-                      value: 'active',
-                      child: Text('goal_mark_active'.tr()),
-                    ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text('goal_delete'.tr()),
-                  ),
-                ],
+            onPressed:
+                () => GoalActions.showMenu(
+                  context,
+                  ref,
+                  goal,
+                  onDeleted: () {
+                    if (context.mounted) Navigator.of(context).maybePop();
+                  },
+                ),
           ),
         ],
       ),
@@ -157,7 +130,10 @@ class GoalDetailScreen extends ConsumerWidget {
           _ProgressCard(goal: goal, progress: progress),
           const SizedBox(height: AppDimens.sectionGap),
           _SectionTitle('goal_plan_title'.tr()),
-          _PlanCard(goal: goal),
+          _PlanCard(
+            goal: goal,
+            onEdit: () => GoalActions.editPlan(context, ref, goal),
+          ),
           const SizedBox(height: AppDimens.sectionGap),
           _SectionTitle('goal_counts_title'.tr()),
           _CountsCard(
@@ -228,31 +204,42 @@ class _ProgressCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Flexible(
-                child: Text(
-                  QaFormat.money(progress.saved),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.displaySmall?.copyWith(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.6,
-                    color: colors.textPrimary,
-                    fontFeatures: tabular,
+              // Monto y "de X" juntos: con montos largos se achican en vez
+              // de cortarse ("2.00…").
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        QaFormat.money(progress.saved),
+                        style: tt.displaySmall?.copyWith(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.6,
+                          color: colors.textPrimary,
+                          fontFeatures: tabular,
+                        ),
+                      ),
+                      const SizedBox(width: AppDimens.sp6),
+                      Text(
+                        'goal_of_target'.tr(
+                          namedArgs: {
+                            'target': QaFormat.money(goal.targetAmount),
+                          },
+                        ),
+                        style: tt.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: AppDimens.sp6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Text(
-                  'goal_of_target'.tr(
-                    namedArgs: {'target': QaFormat.money(goal.targetAmount)},
-                  ),
-                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-                ),
-              ),
-              const Spacer(),
+              const SizedBox(width: AppDimens.sp8),
               Padding(
                 padding: const EdgeInsets.only(bottom: 5),
                 child: Text(
@@ -404,22 +391,24 @@ typedef _PlanItem =
 /// El plan de Porty: cuánto invertir por mes, cómo se reparte (barra +
 /// leyenda) y en qué, con el logo y el monto de cada inversión.
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.goal});
+  const _PlanCard({required this.goal, required this.onEdit});
 
   final UserGoal goal;
+  final VoidCallback onEdit;
 
   List<_PlanItem> _items(SavingsPlan plan) {
     final buy = goal.snapshot.buyPlan;
     if (buy.isNotEmpty) {
       return [
         for (final e in buy)
-          (
-            ticker: e.ticker,
-            name: e.name,
-            assetClass: e.assetClassLabel,
-            weight: e.pct / 100,
-            monthly: e.monthlyAmount.toDouble(),
-          ),
+          if (e.pct > 0 || e.monthlyAmount > 0)
+            (
+              ticker: e.ticker,
+              name: e.name,
+              assetClass: e.assetClassLabel,
+              weight: e.pct / 100,
+              monthly: e.monthlyAmount.toDouble(),
+            ),
       ];
     }
     return [
@@ -451,6 +440,8 @@ class _PlanCard extends StatelessWidget {
         if (e.value > 0) e,
     ];
     final items = _items(plan);
+    bool counted(String ticker) =>
+        goal.linkedTickers.contains(ticker.toUpperCase());
     // Cada inversión con el color de su parte de la cartera.
     Color colorOf(String assetClass, int fallback) {
       final i = allocation.indexWhere((e) => e.key.label == assetClass);
@@ -622,7 +613,19 @@ class _PlanCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (items[i].name != null)
+                          // Si el usuario la sacó de "Qué cuenta", el plan la
+                          // sigue sugiriendo pero se dice que no suma.
+                          if (!counted(items[i].ticker))
+                            Text(
+                              'goal_plan_not_counted'.tr(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tt.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          else if (items[i].name != null)
                             Text(
                               items[i].name!,
                               maxLines: 1,
@@ -678,6 +681,27 @@ class _PlanCard extends StatelessWidget {
             style: tt.bodySmall?.copyWith(
               color: colors.textSecondary,
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+          OutlinedButton.icon(
+            onPressed: onEdit,
+            icon: Icon(
+              Icons.tune_rounded,
+              size: AppDimens.iconSm + 2,
+              color: colors.accentBlue,
+            ),
+            label: Text(
+              'goal_edit_plan'.tr(),
+              style: tt.labelLarge?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(AppDimens.touchTarget),
+              side: BorderSide(color: colors.border),
+              shape: const StadiumBorder(),
             ),
           ),
         ],

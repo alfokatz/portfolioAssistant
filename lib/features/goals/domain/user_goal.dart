@@ -59,6 +59,9 @@ class GoalBuyPlanEntry {
     final pct = json['pct'];
     final amount = json['monthly_amount'];
     if (ticker is! String || pct is! num || amount is! num) return null;
+    // Una inversión con 0% no es parte del plan (pasaba con una acción en
+    // un plan de corto plazo, que no lleva acciones: "VOO · 0 $/mes").
+    if (pct <= 0 && amount <= 0) return null;
     return GoalBuyPlanEntry(
       ticker: ticker,
       name: json['name'] as String?,

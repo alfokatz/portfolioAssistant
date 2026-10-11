@@ -137,15 +137,28 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
       _currentValue != null &&
       _monthsAhead >= 1;
 
+  /// Los atajos cuentan desde hoy (en una meta guardada hace meses, "en 3
+  /// años" es desde hoy, no desde que se creó).
+  static DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   DateTime _inYears(int years) =>
-      DateTime(_start.year + years, _start.month, _start.day);
+      DateTime(_today.year + years, _today.month, _today.day);
+
+  bool _isInYears(int years) {
+    final d = _inYears(years);
+    return _date.year == d.year && _date.month == d.month;
+  }
 
   Future<void> _pickDate() async {
+    final first = DateTime(_today.year, _today.month + 1, _today.day);
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime(_start.year, _start.month + 1, _start.day),
-      lastDate: DateTime(_start.year + 60, _start.month, _start.day),
+      initialDate: _date.isBefore(first) ? first : _date,
+      firstDate: first,
+      lastDate: DateTime(_today.year + 60, _today.month, _today.day),
       initialDatePickerMode: DatePickerMode.year,
       helpText: 'Para cuándo',
     );
@@ -284,7 +297,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
                 for (final y in quickYears)
                   _chip(
                     y == 1 ? 'En 1 año' : 'En $y años',
-                    selected: _monthsAhead == y * 12,
+                    selected: _isInYears(y),
                     onTap: () => setState(() => _date = _inYears(y)),
                   ),
               ],

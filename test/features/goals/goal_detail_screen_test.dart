@@ -17,6 +17,9 @@ import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_detail_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 
@@ -27,7 +30,11 @@ class _Goals extends GoalsNotifier {
 }
 
 /// "Auto": 25 mil en 3 años, guardada hace 6 meses con VT y BND.
-UserGoal goalFixture({double outside = 0}) {
+UserGoal goalFixture({
+  double outside = 0,
+  Set<String> linked = const {'VT', 'BND'},
+  List<GoalBuyPlanEntry> extra = const [],
+}) {
   final now = DateTime.now();
   final start = DateTime(now.year, now.month - 6, now.day);
   return UserGoal(
@@ -44,7 +51,7 @@ UserGoal goalFixture({double outside = 0}) {
         risk: RiskTolerance.aggressive,
         startDate: start,
       ),
-      buyPlan: const [
+      buyPlan: [
         GoalBuyPlanEntry(
           ticker: 'VT',
           name: 'Vanguard Total World Stock ETF',
@@ -59,11 +66,12 @@ UserGoal goalFixture({double outside = 0}) {
           pct: 15,
           monthlyAmount: 98,
         ),
+        ...extra,
       ],
     ),
     status: GoalStatus.active,
     createdAt: start,
-    linkedTickers: const {'VT', 'BND'},
+    linkedTickers: linked,
     externalSavings: outside,
   );
 }
@@ -138,4 +146,97 @@ void main() {
     final first = tester.widget<PortyAvatar>(find.byType(PortyAvatar).first);
     expect(first.state, PortyAvatarState.answered);
   });
+
+  testWidgets('a 0% instrument is not in the plan, and one the user took out '
+      'of "Qué cuenta" says it does not count', (tester) async {
+    await pumpGoalDetail(
+      tester,
+      goal: goalFixture(
+        linked: const {'VT'},
+        extra: const [
+          GoalBuyPlanEntry(
+            ticker: 'VOO',
+            name: 'Vanguard S&P 500 ETF',
+            assetClassLabel: 'Acciones globales',
+            pct: 0,
+            monthlyAmount: 0,
+          ),
+        ],
+      ),
+    );
+    expect(find.text('VOO'), findsNothing);
+    expect(find.text('goal_plan_not_counted'.tr()), findsOneWidget);
+  });
+
+  testWidgets('a long saved amount is shown whole', (tester) async {
+    await pumpGoalDetail(tester, goal: goalFixture(outside: 12345));
+    final text = tester.widget<Text>(find.text(QaFormat.money(12345)).first);
+    expect(text.overflow, isNot(TextOverflow.ellipsis));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the options sheet: edit plan, mark achieved, delete', (
+    tester,
+  ) async {
+    await pumpGoalDetail(tester, goal: goalFixture());
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('goal_edit_plan'.tr()), findsWidgets);
+    expect(find.text('goal_mark_achieved'.tr()), findsOneWidget);
+    expect(find.text('goal_delete'.tr()), findsOneWidget);
+
+    // "Editar plan" abre el mismo editor que la card del chat.
+    await tester.tap(find.text('goal_edit_plan_subtitle'.tr()));
+    await tester.pumpAndSettle();
+    expect(find.text('Nombre de la meta'), findsOneWidget);
+  });
+
+  test(
+    'an edit that keeps the mix keeps the buy plan with the new amounts',
+    () {
+      final goal = goalFixture();
+      // A 5 años de su inicio sigue con la cartera del perfil (con
+      // acciones); a 3 años o menos pasaría a corto plazo.
+      final later = DateTime(
+        goal.targetDate.year + 2,
+        goal.targetDate.month,
+        goal.targetDate.day,
+      );
+      final draft =
+          GoalActions.editedDraft(
+            goal,
+            SavingsPlanEdit(
+              label: 'Auto usado',
+              targetAmount: 30000,
+              targetDate: later,
+              currentAmount: 0,
+              risk: goal.snapshot.inputs.risk,
+            ),
+          )!;
+      expect(draft.label, 'Auto usado');
+      expect([for (final e in draft.snapshot.buyPlan) e.ticker], ['VT', 'BND']);
+      final monthly = draft.snapshot.plan.monthlyUsed;
+      expect(
+        draft.snapshot.buyPlan.first.monthlyAmount,
+        (monthly * 0.85).round(),
+      );
+
+      // A un año pasa a corto plazo: van los instrumentos del plan nuevo.
+      final short =
+          GoalActions.editedDraft(
+            goal,
+            SavingsPlanEdit(
+              label: 'Auto',
+              targetAmount: 25000,
+              targetDate: DateTime.now().add(const Duration(days: 365)),
+              currentAmount: 0,
+              risk: goal.snapshot.inputs.risk,
+            ),
+          )!;
+      expect(
+        [for (final e in short.snapshot.buyPlan) e.ticker],
+        ['SGOV', 'VGSH'],
+      );
+    },
+  );
 }
