@@ -329,56 +329,74 @@ abstract final class PortyAccessoryPainter {
         ..cubicTo(7, 18, 18, 7, 33, 7)
         ..close();
 
-  /// Gorrita con visera de costado: copa redonda en gajos, botón arriba,
-  /// visera hacia la derecha y una costura clara.
+  /// Gorrita de tres cuartos (como una gorra de béisbol dibujada): copa
+  /// en gajos girada un poco a la derecha y una visera larga y curva que
+  /// sale hacia adelante a la izquierda, con el borde de abajo en "S".
   static void _peakedCap(Canvas canvas) {
     final crown =
         Path()
-          ..moveTo(11.5, 16)
-          ..cubicTo(10.5, 6, 20, -0.5, 32.5, -0.5)
-          ..cubicTo(44.5, -0.5, 53.5, 5.5, 53, 15)
-          ..quadraticBezierTo(32.5, 9.5, 11.5, 16)
+          ..moveTo(12, 16)
+          ..cubicTo(11, 5.5, 21, -1.2, 34, -1.2)
+          ..cubicTo(47, -1.2, 56.5, 6, 56.2, 16.5)
+          ..quadraticBezierTo(40, 12, 12, 16)
           ..close();
     canvas.drawPath(crown, _fill(_brightRed));
-    final seam = _stroke(_red, 0.9);
+    // Gajo lateral (derecha) un tono más oscuro, como en una gorra real.
+    canvas
+      ..save()
+      ..clipPath(crown)
+      ..drawPath(
+        Path()
+          ..moveTo(40, -2)
+          ..cubicTo(47, 2, 50, 9, 50.5, 20)
+          ..lineTo(60, 20)
+          ..lineTo(60, -2)
+          ..close(),
+        _fill(_red),
+      )
+      ..restore();
+    final seam = _stroke(_redDark, 0.9);
     canvas
       ..drawPath(
         Path()
-          ..moveTo(30.5, -0.3)
-          ..quadraticBezierTo(23, 4.5, 22.5, 12.8),
+          ..moveTo(40, -0.9)
+          ..cubicTo(47, 2, 50, 9, 50.5, 16),
         seam,
       )
       ..drawPath(
         Path()
-          ..moveTo(34.5, -0.3)
-          ..quadraticBezierTo(41.5, 4.5, 42.5, 12.2),
+          ..moveTo(31, -1)
+          ..quadraticBezierTo(23, 3, 20.5, 12),
         seam,
       )
-      // Ribete claro en el borde.
-      ..drawPath(
-        Path()
-          ..moveTo(12, 14.8)
-          ..quadraticBezierTo(32.5, 8.4, 52.8, 13.8),
-        _stroke(_cream, 1.1),
-      )
-      ..drawCircle(const Offset(32.5, -0.4), 1.6, _fill(_redDark));
-    // Visera de tres cuartos: ancha y curva, apoyada en el borde de la copa
-    // por delante de la frente y corrida hacia la derecha.
+      ..drawCircle(const Offset(35.5, -1), 1.6, _fill(_redDark));
+    // Visera: su borde de arriba sube por el frente de la copa y baja a la
+    // derecha; la punta sale a la izquierda, más allá de la cabeza.
     final visor =
         Path()
-          ..moveTo(20, 14.6)
-          ..quadraticBezierTo(40, 9.8, 54, 14.6)
-          ..cubicTo(60, 15.4, 64, 17, 63, 19.4)
-          ..cubicTo(56, 21.6, 44, 20.2, 36, 19.4)
-          ..cubicTo(28, 18.8, 21, 18.6, 20, 14.6)
+          ..moveTo(-1.5, 17.5)
+          ..cubicTo(4, 13.5, 14, 9, 26, 8.6)
+          ..cubicTo(38, 8.4, 46, 13.4, 53.5, 16.8)
+          ..cubicTo(47, 20.6, 40, 23.6, 33, 23.4)
+          ..cubicTo(26, 23.2, 22.5, 19.4, 16.5, 18.6)
+          ..cubicTo(10, 17.8, 3.5, 20.4, 0.5, 20.6)
+          ..cubicTo(-2, 20.8, -2.6, 18.6, -1.5, 17.5)
           ..close();
     canvas
       ..drawPath(visor, _fill(_redDark))
+      // Pespuntes, paralelos al borde de abajo.
       ..drawPath(
         Path()
-          ..moveTo(23, 16.2)
-          ..quadraticBezierTo(42, 13.4, 60, 18),
-        _stroke(_red, 0.9),
+          ..moveTo(0.8, 19.2)
+          ..cubicTo(5, 17.8, 11, 16.4, 16.5, 17.2)
+          ..cubicTo(22, 18, 25, 21.4, 31, 21.8),
+        _stroke(_red, 0.8),
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(36, 21.4)
+          ..cubicTo(40, 20.8, 44, 19.2, 47, 17.8),
+        _stroke(_red, 0.8),
       );
   }
 
