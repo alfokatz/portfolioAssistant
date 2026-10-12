@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart' show goalHoldingsProvider;
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -144,6 +145,7 @@ Widget reportApp(
   bool openScreen = false,
   Brightness brightness = Brightness.light,
   List<PortyHapticPattern>? haptics,
+  Map<String, double> holdings = const {'AAPL': 3000},
   // Para screenshots con textos reales (EasyLocalization).
   List<LocalizationsDelegate<Object?>>? localizationsDelegates,
   List<Locale>? supportedLocales,
@@ -176,6 +178,9 @@ Widget reportApp(
     overrides: [
       weeklyReportControllerProvider.overrideWith((ref) => controller),
       weeklyReportBenchmarkAllowedProvider.overrideWithValue(benchmarkAllowed),
+      // Lo que tiene hoy (las filas que siguen en cartera abren la
+      // posición): sin Supabase en los tests.
+      goalHoldingsProvider.overrideWithValue(holdings),
       portyHapticsServiceProvider.overrideWithValue(
         PortyHapticsService(
           enabled: true,
@@ -271,9 +276,10 @@ void main() {
       }
       expect(floats.length, greaterThan(1));
 
+      // Listo: Porty se va de la card (la Home ya lo tiene arriba).
       controller.emit(ready(fullReport(), fresh: true));
       await tester.pumpAndSettle();
-      expect(avatar(), const PortyFrame.still(PortyAvatarState.idle));
+      expect(find.byType(PortyAvatar), findsNothing);
     });
 
     testWidgets('Free with the tasting used: numbers, no S&P, Gold line', (
@@ -343,8 +349,10 @@ void main() {
       expect(opacity(), 1);
     });
 
-    testWidgets('sections are grouped by question, each group with its '
-        'eyebrow', (tester) async {
+    testWidgets('groups are separated by space and a line, without the '
+        'uppercase eyebrow over each one (DESIGN.md bans that scaffold)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         reportApp(FixedWeeklyReportController(ready(fullReport())),
             openScreen: true),
@@ -356,9 +364,10 @@ void main() {
         'weekly_report_group_next',
         'weekly_report_group_deeper',
       ]) {
-        await scrollTo(tester, find.text(key.toUpperCase()));
-        expect(find.text(key.toUpperCase()), findsOneWidget, reason: key);
+        expect(find.text(key.toUpperCase()), findsNothing, reason: key);
       }
+      await scrollTo(tester, find.text('weekly_report_movers_section'));
+      expect(find.text('weekly_report_movers_section'), findsOneWidget);
     });
 
     testWidgets('full report: the three questions, then only the sections '

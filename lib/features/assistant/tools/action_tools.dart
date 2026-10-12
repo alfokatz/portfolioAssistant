@@ -218,7 +218,11 @@ class ProposeBuyTool extends _ProposeTool {
   String get description =>
       'Prepares a BUY the user says they ALREADY made ("compré 10 de Apple el '
       'lunes") or asks to register, for them to review and confirm in a card. '
-      'Nothing is saved until the user confirms. NOT for advice ("¿compro?") '
+      'Works for ANY stock, ETF, fund or bond ETF, held or not, with or '
+      'without eToro connected — also when the ticker is imported from eToro '
+      '(source: etoro): the buy is added as a separate manual purchase. Only '
+      'SELLING or DELETING imported shares is read-only; never refuse a buy '
+      'for that. Nothing is saved until the user confirms. NOT for advice ("¿compro?") '
       'or hypotheticals ("si comprara…"). One call per purchase. Pass shares '
       'OR amount_usd, as the user said it. status: ok (show '
       'QaActionProposal with proposal_id) | needs_input (ask for everything '

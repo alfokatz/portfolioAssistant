@@ -74,9 +74,16 @@ abstract final class PortfolioContextBuilder {
           'pnl_pct': v.pnlPercent,
           'weight_pct': double.parse(weightPct.toStringAsFixed(2)),
           // Solo si no es manual: viene de eToro (o mezcla compras de los
-          // dos orígenes). Porty no puede venderla ni editarla.
-          if (v.position.source != PositionSource.manual)
+          // dos orígenes). Lo importado no se vende ni se borra desde Porty,
+          // pero una compra nueva se registra igual (va como manual): visto,
+          // el modelo se negaba a registrar una compra de EWZ porque la
+          // posición venía de eToro.
+          if (v.position.source != PositionSource.manual) ...{
             'source': v.position.source.name,
+            'source_note':
+                'imported shares are sold/deleted in eToro; new buys can '
+                'still be registered in Porty with propose_buy',
+          },
         });
       }
     }

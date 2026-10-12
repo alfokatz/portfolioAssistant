@@ -62,8 +62,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color track;
 
   /// Cuánto del acento tiñe el halo superior de `AppBackgroundGradient`
-  /// (0–1). En oscuro es mucho menor: el mismo 32% del claro se veía como
-  /// una mancha marrón sobre el grafito.
+  /// (0–1). En oscuro es 0: cualquier lavado terracota sobre el grafito se
+  /// veía como una mancha marrón.
   final double haloStrength;
 
   /// Multiplicador de la opacidad de glows (foco, send, mic). Sobre fondo
@@ -122,8 +122,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
     onAccent: PortfolioColorsDark.onAccent,
     inset: PortfolioColorsDark.inset,
     track: PortfolioColorsDark.track,
-    haloStrength: 0.10,
-    glowScale: 0.45,
+    haloStrength: 0,
+    glowScale: 0.35,
   );
 
   @override

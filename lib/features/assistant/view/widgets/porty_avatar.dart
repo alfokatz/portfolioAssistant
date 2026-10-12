@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show PathMetric, lerpDouble;
 
+import 'package:flutter/material.dart' show Theme;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_accessory_painter.dart';
@@ -49,8 +50,8 @@ enum PortyThinkingStyle {
   pulse,
 }
 
-/// Colores de Porty. [brand] va igual en light y en dark: el terracota tiene
-/// ~6,9:1 contra el fondo dark (#171614) y los ojos ~4,9:1 contra el cuerpo.
+/// Colores de Porty. [brand] en claro; en oscuro el avatar usa solo
+/// [brandDark] (el mismo terracota, apagado).
 @immutable
 class PortyAvatarPalette {
   const PortyAvatarPalette({
@@ -70,6 +71,14 @@ class PortyAvatarPalette {
   static const brand = PortyAvatarPalette(
     body: Color(0xFFD98E5D),
     features: Color(0xFF2F3437),
+  );
+
+  /// [brand] en modo oscuro (se elige solo, ver [PortyAvatar]): el mismo
+  /// terracota apagado del acento oscuro. El saturado se veía flúor sobre
+  /// el grafito. Ojos y boca a 6,5:1 contra el cuerpo.
+  static const brandDark = PortyAvatarPalette(
+    body: Color(0xFFC09479),
+    features: Color(0xFF211711),
   );
 
   /// `porty_*_mono_dark.svg`: una sola tinta oscura, para fondos claros.
@@ -961,15 +970,20 @@ class _PortyAvatarState extends State<PortyAvatar>
 
   @override
   Widget build(BuildContext context) {
+    final brand = widget.palette == PortyAvatarPalette.brand;
+    final palette =
+        brand && Theme.of(context).brightness == Brightness.dark
+            ? PortyAvatarPalette.brandDark
+            : widget.palette;
     Widget avatar = RepaintBoundary(
       child: SizedBox.square(
         dimension: widget.size,
         child: CustomPaint(
           painter: PortyAvatarPainter(
             frame: _frame,
-            palette: widget.palette,
+            palette: palette,
             outfit:
-                widget.palette == PortyAvatarPalette.brand
+                brand
                     ? widget.outfit ?? PortyOutfitScope.of(context)
                     : PortyOutfit.none,
           ),

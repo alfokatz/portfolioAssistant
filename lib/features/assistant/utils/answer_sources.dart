@@ -34,9 +34,17 @@ abstract final class AnswerSources {
       final result = call.result;
       switch (call.name) {
         case 'get_news':
+          // Los titulares ya se ven en la card de noticias: una cita con el
+          // mismo link no se repite en "Fuentes".
+          final news = result['news'];
+          final inCard = {
+            for (final n in (news is List ? news : const []).whereType<Map>())
+              '${n['url'] ?? ''}'.trim(),
+          };
           final context = result['context'];
           final sources = context is Map ? context['sources'] : null;
           for (final s in (sources is List ? sources : const []).whereType<Map>()) {
+            if (inCard.contains('${s['url'] ?? ''}'.trim())) continue;
             add(s['url'], '${s['title'] ?? ''}', '${s['source'] ?? ''}');
           }
         case 'search_web':

@@ -7,7 +7,6 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
@@ -114,140 +113,178 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(0.9, -0.7),
-            radius: 1.2,
-            colors: [
-              // Brillo terracota en la esquina: en oscuro baja con
-              // `glowScale`, si no la card se veía manchada de marrón.
-              Color.lerp(
-                colors.surfaceCard,
-                colors.accentWarm,
-                0.22 * colors.glowScale,
-              )!,
-              colors.surfaceCard,
-            ],
-            stops: const [0.0, 0.85],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: colors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'portfolio_total_label'.tr(),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colors.textSecondary,
-                      letterSpacing: 0.3,
-                    ),
+      // Sin card: el total y su gráfico van directo sobre el fondo, como
+      // protagonistas de la pantalla. Con todo el Home en cajas con borde,
+      // la pantalla se leía como una grilla de contornos (sobre todo en
+      // oscuro) y el número competía con su propio marco.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'portfolio_total_label'.tr(),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.textSecondary,
+                    letterSpacing: 0.3,
                   ),
-                  const SizedBox(height: 4),
-                  // Los valores cambian en el lugar con un crossfade corto
-                  // (caché → datos nuevos, o al refrescar).
-                  SkeletonText(
-                    skeleton ? null : currency.format(value),
-                    // Recorriendo, el valor sigue al dedo sin crossfade.
-                    animate: scrub == null,
-                    placeholder: '\$00,000.00',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: colors.textPrimary,
-                      fontSize: 40,
-                      letterSpacing: -1.5,
-                      height: 1.0,
-                      fontWeight: FontWeight.w700,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                // Los valores cambian en el lugar con un crossfade corto
+                // (caché → datos nuevos, o al refrescar).
+                SkeletonText(
+                  skeleton ? null : currency.format(value),
+                  // Recorriendo, el valor sigue al dedo sin crossfade.
+                  animate: scrub == null,
+                  placeholder: '\$00,000.00',
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontSize: 40,
+                    letterSpacing: -1.5,
+                    height: 1.0,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 10,
-                    runSpacing: 4,
-                    children: [
-                      SkeletonText(
-                        skeleton ? null : '$sign${currency.format(pnl)}',
-                        animate: scrub == null,
-                        placeholder: '+\$000.00',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleMedium?.copyWith(
-                          color: colors.pnlColor(pnl),
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
+                    SkeletonText(
+                      skeleton ? null : '$sign${currency.format(pnl)}',
+                      animate: scrub == null,
+                      placeholder: '+\$000.00',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.pnlColor(pnl),
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    if (skeleton)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: SkeletonText(
+                          null,
+                          placeholder: '+0.0%',
+                          style: badgeStyle,
+                        ),
+                      )
+                    else ...[
+                      PnlBadge(percent: pnlPercent),
+                      // De qué período es la variación (o qué día se
+                      // está recorriendo).
+                      Text(
+                        periodText,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
                         ),
                       ),
-                      if (skeleton)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: SkeletonText(
-                            null,
-                            placeholder: '+0.0%',
-                            style: badgeStyle,
-                          ),
-                        )
-                      else ...[
-                        PnlBadge(percent: pnlPercent),
-                        // De qué período es la variación (o qué día se
-                        // está recorriendo).
-                        Text(
-                          periodText,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colors.textSecondary),
-                        ),
-                      ],
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-            if (skeleton)
-              const SizedBox(
-                height: PortfolioHeroSection.chartHeight,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
-                  child: SkeletonBlock(radius: 12),
+                  ],
                 ),
-              )
-            else
-              PortfolioAreaLineChart(
-                key: ValueKey(
-                  chartValues.isEmpty
-                      ? 'empty'
-                      : '${chartValues.length}_${chartValues.last}',
-                ),
-                values: chartValues,
-                showYAxisLabels: false,
-                height: PortfolioHeroSection.chartHeight,
-                onScrub: chartValues.length < 2 ? null : _onScrub,
-                scrubIndex: scrub,
-                showStartReference: true,
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: SegmentedChoice<ChartTimeRange>(
-                selected: widget.selectedRange,
-                onChanged: widget.onRangeSelected,
-                options: [
-                  for (final range in ChartTimeRange.values)
-                    (value: range, label: range.label),
-                ],
-              ),
+                const SizedBox(height: 12),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (skeleton)
+            const SizedBox(
+              height: PortfolioHeroSection.chartHeight,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: SkeletonBlock(radius: 12),
+              ),
+            )
+          else
+            PortfolioAreaLineChart(
+              key: ValueKey(
+                chartValues.isEmpty
+                    ? 'empty'
+                    : '${chartValues.length}_${chartValues.last}',
+              ),
+              values: chartValues,
+              showYAxisLabels: false,
+              height: PortfolioHeroSection.chartHeight,
+              onScrub: chartValues.length < 2 ? null : _onScrub,
+              scrubIndex: scrub,
+              showStartReference: true,
+              // El punto del recorrido se recorta contra el fondo.
+              scrubHaloColor: colors.background,
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+            child: _RangeLabels(
+              selected: widget.selectedRange,
+              onSelected: widget.onRangeSelected,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// Los rangos del gráfico como una fila de etiquetas, sin caja (DESIGN.md,
+/// TimeRangeSelector): la activa en tinta y negrita, el resto en gris. Una
+/// caja con riel adentro de la card del total era caja dentro de caja.
+class _RangeLabels extends StatelessWidget {
+  const _RangeLabels({required this.selected, required this.onSelected});
+
+  final ChartTimeRange selected;
+  final ValueChanged<ChartTimeRange> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final base = Theme.of(context).textTheme.labelLarge;
+    final duration =
+        MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180);
+    return Row(
+      children: [
+        for (final range in ChartTimeRange.values)
+          Expanded(
+            child: Semantics(
+              button: true,
+              selected: range == selected,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                onTap: () {
+                  if (range == selected) return;
+                  PortyHapticsService.maybeOf(context)?.selectionTap();
+                  onSelected(range);
+                },
+                child: SizedBox(
+                  height: AppDimens.touchTarget,
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: duration,
+                      curve: Curves.easeOutCubic,
+                      style: (base ?? const TextStyle()).copyWith(
+                        color:
+                            range == selected
+                                ? colors.textPrimary
+                                : colors.textSecondary,
+                        fontWeight:
+                            range == selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                      ),
+                      child: Text(range.label),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

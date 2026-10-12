@@ -77,10 +77,14 @@ abstract final class PortfolioPeriodUtils {
     final start = points.first;
     final end = points.last;
     final absolute = end.unrealizedPnl - start.unrealizedPnl;
-    final percent =
-        start.totalCostBasis > 0
-            ? (absolute / start.totalCostBasis) * 100
-            : 0.0;
+    // Método Dietz simple: la ganancia sobre el capital que estuvo
+    // invertido en el período (lo del inicio + la mitad de lo que entró).
+    // Antes se dividía solo por lo invertido al inicio: si la cartera se
+    // cargó a fin de mes, -7,94 $ sobre 57 mil daba "-1,6%".
+    final flows = end.totalCostBasis - start.totalCostBasis;
+    final dietzBase = start.totalValue + flows / 2;
+    final base = dietzBase > 0 ? dietzBase : end.totalCostBasis;
+    final percent = base > 0 ? (absolute / base) * 100 : 0.0;
     return PeriodPnl(
       absolute: absolute,
       percent: percent,

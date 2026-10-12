@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
@@ -274,6 +275,10 @@ abstract final class AssistantAnswerReview {
       changed = true;
     }
 
+    if (_withNewsCard(list, components, root, evidence)) {
+      changed = true;
+    }
+
     if (_withPlanCard(list, components, root, evidence)) {
       changed = true;
       components
@@ -384,6 +389,88 @@ abstract final class AssistantAnswerReview {
     root['children'] = children;
     return true;
   }
+
+  /// Si en ESTE turno get_news trajo titulares y la respuesta no los
+  /// muestra, agrega un `QaNewsSummary` armado con esos titulares (título,
+  /// url, medio y fecha tal cual vinieron, nunca escritos por el modelo).
+  /// Visto: "¿qué noticias hay de AMZN?" contestado solo con texto. Va
+  /// cuando la respuesta no tiene un widget de datos, o cuando el principal
+  /// es de precio ("por qué se movió": precio + noticias, la composición
+  /// que permite el layout).
+  static bool _withNewsCard(
+    List list,
+    List<Map<String, dynamic>> components,
+    Map<String, dynamic>? root,
+    TurnEvidence evidence,
+  ) {
+    if (root == null || root['children'] is! List) return false;
+    if (components.any((c) => c['component'] == 'QaNewsSummary')) return false;
+    final data = [
+      for (final c in components)
+        if (!_nonData.contains(c['component'])) c['component'],
+    ];
+    if (data.isNotEmpty && !_priceWidgets.contains(data.first)) return false;
+
+    final call = evidence.turnCalls.lastWhere(
+      (c) => c.name == 'get_news' && c.status == 'ok',
+      orElse: () => const ToolCallRecord(name: '', args: {}, result: {}),
+    );
+    final raw = call.result['news'];
+    final news = [
+      for (final n in raw is List ? raw : const [])
+        if (n is Map &&
+            '${n['title'] ?? ''}'.trim().isNotEmpty &&
+            '${n['url'] ?? ''}'.startsWith('https://'))
+          n,
+    ];
+    if (news.isEmpty) return false;
+    final asOf = DateTime.tryParse('${call.result['as_of'] ?? ''}');
+    final tickers = {for (final n in news) '${n['ticker'] ?? ''}'.toUpperCase()}
+      ..remove('');
+    String dateOf(Map n) {
+      final published = DateTime.tryParse('${n['published_at'] ?? ''}');
+      return published == null ? '' : QaTime.ago(published, now: asOf);
+    }
+
+    const id = 'newsCard';
+    list.add({
+      'id': id,
+      'component': 'QaNewsSummary',
+      'ticker': tickers.length == 1 ? tickers.first : tickers.join(', '),
+      'items': [
+        for (final n in news.take(3))
+          {
+            'headline': '${n['title']}'.trim(),
+            'summaryLine': '${n['snippet'] ?? ''}'.trim(),
+            'dateLabel': dateOf(n),
+            if ('${n['source'] ?? ''}'.trim().isNotEmpty)
+              'source': '${n['source']}'.trim(),
+            'url': '${n['url']}',
+            if (tickers.length > 1) 'ticker': '${n['ticker'] ?? ''}',
+          },
+      ],
+    });
+    // Después del widget de precio si lo hay; si no, después del texto.
+    final children = List.of(root['children'] as List);
+    final after = children.lastIndexWhere(
+      (child) => components.any(
+        (c) =>
+            c['id'] == child &&
+            (_priceWidgets.contains(c['component']) ||
+                c['component'] == 'QaAnswerText'),
+      ),
+    );
+    children.insert(after < 0 ? 0 : after + 1, id);
+    root['children'] = children;
+    return true;
+  }
+
+  static const _priceWidgets = {
+    'QaPriceChart',
+    'QaTickerMove',
+    'QaTickerSnapshot',
+    'QaPeriodChange',
+  };
 
   static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};
 

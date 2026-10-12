@@ -13,12 +13,18 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 /// % desde el cierre del viernes anterior, con el valor final al lado de
 /// cada línea. Mismos colores que la comparación de la Home
 /// (`BenchmarkDualLineChart`): cartera en charcoal, S&P en benchmark gray.
+///
+/// Se puede recorrer con el dedo (como el gráfico de la Home): una línea
+/// marca el día y los valores de la derecha pasan a ser los de ese día.
+/// [onScrub] avisa qué día se está mirando (`null` al soltar).
 class WeeklyReportChart extends StatelessWidget {
   const WeeklyReportChart({
     super.key,
     required this.points,
     required this.showSp500,
     this.height = 120,
+    this.scrubIndex,
+    this.onScrub,
   });
 
   final List<WeeklyDayPoint> points;
@@ -26,6 +32,10 @@ class WeeklyReportChart extends StatelessWidget {
   /// Free no ve la comparación con el S&P 500 (es de Premium).
   final bool showSp500;
   final double height;
+
+  /// El día que se está recorriendo, o `null`.
+  final int? scrubIndex;
+  final ValueChanged<int?>? onScrub;
 
   /// Ancho reservado a la derecha para los valores finales.
   static const labelWidth = 76.0;
@@ -65,8 +75,10 @@ class WeeklyReportChart extends StatelessWidget {
         );
 
     final mine = [for (final p in points) p.portfolioPct];
-    final lastMine = mine.last;
-    final lastSp = withSp ? sp.last : null;
+    final scrub = scrubIndex?.clamp(0, points.length - 1);
+    // Recorriendo, los valores de la derecha son los del día marcado.
+    final lastMine = mine[scrub ?? mine.length - 1];
+    final lastSp = withSp ? sp[scrub ?? sp.length - 1] : null;
 
     final semantics = [
       'weekly_report_chart_semantics_you'.tr(
@@ -108,31 +120,43 @@ class WeeklyReportChart extends StatelessWidget {
               children: [
                 Positioned.fill(
                   right: labelWidth,
-                  child: LineChart(
-                    LineChartData(
-                      minY: minY,
-                      maxY: maxY,
-                      gridData: const FlGridData(show: false),
-                      titlesData: const FlTitlesData(show: false),
-                      borderData: FlBorderData(show: false),
-                      lineTouchData: const LineTouchData(enabled: false),
-                      // La línea de 0 %: dónde empezó la semana.
-                      extraLinesData: ExtraLinesData(
-                        horizontalLines: [
-                          HorizontalLine(
-                            y: 0,
-                            color: colors.border,
-                            strokeWidth: 1,
-                            dashArray: const [3, 4],
-                          ),
+                  child: _Scrubbable(
+                    count: points.length,
+                    onScrub: onScrub,
+                    child: LineChart(
+                      LineChartData(
+                        minY: minY,
+                        maxY: maxY,
+                        gridData: const FlGridData(show: false),
+                        titlesData: const FlTitlesData(show: false),
+                        borderData: FlBorderData(show: false),
+                        lineTouchData: const LineTouchData(enabled: false),
+                        // La línea de 0 %: dónde empezó la semana.
+                        extraLinesData: ExtraLinesData(
+                          verticalLines: [
+                            if (scrub != null)
+                              VerticalLine(
+                                x: scrub.toDouble(),
+                                color: colors.chartLine.withValues(alpha: 0.3),
+                                strokeWidth: 1,
+                              ),
+                          ],
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: 0,
+                              color: colors.border,
+                              strokeWidth: 1,
+                              dashArray: const [3, 4],
+                            ),
+                          ],
+                        ),
+                        lineBarsData: [
+                          if (withSp) line(sp, colors.benchmarkSp500, 1.5),
+                          line(mine, colors.chartLine, 2.25),
                         ],
                       ),
-                      lineBarsData: [
-                        if (withSp) line(sp, colors.benchmarkSp500, 1.5),
-                        line(mine, colors.chartLine, 2.25),
-                      ],
+                      duration: Duration.zero,
                     ),
-                    duration: Duration.zero,
                   ),
                 ),
                 Positioned(
@@ -168,6 +192,40 @@ class WeeklyReportChart extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Arrastre horizontal sobre el gráfico → qué día se está mirando. No
+/// compite con el scroll vertical de la pantalla.
+class _Scrubbable extends StatelessWidget {
+  const _Scrubbable({
+    required this.count,
+    required this.onScrub,
+    required this.child,
+  });
+
+  final int count;
+  final ValueChanged<int?>? onScrub;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final onScrub = this.onScrub;
+    if (onScrub == null || count < 2) return child;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int indexAt(double dx) =>
+            ((dx / constraints.maxWidth).clamp(0.0, 1.0) * (count - 1)).round();
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (d) => onScrub(indexAt(d.localPosition.dx)),
+          onHorizontalDragUpdate: (d) => onScrub(indexAt(d.localPosition.dx)),
+          onHorizontalDragEnd: (_) => onScrub(null),
+          onHorizontalDragCancel: () => onScrub(null),
+          child: child,
+        );
+      },
     );
   }
 }

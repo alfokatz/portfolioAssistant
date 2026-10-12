@@ -13,11 +13,13 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart' show goalHoldingsProvider;
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_format.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -31,8 +33,8 @@ import 'package:url_launcher/url_launcher.dart';
 /// sin nada relevante no aparece.
 ///
 /// Título grande arriba ("Tu semana"), que pasa a la barra al scrollear.
-/// Después, grupos por pregunta: una línea fina, una etiqueta terracota
-/// ("POR QUÉ") y secciones con título propio. Entre grupos hay más aire que
+/// Después, grupos por pregunta: una línea fina y secciones con título
+/// propio. Entre grupos hay más aire que
 /// entre filas, y las filas no llevan divisores: la cercanía agrupa. Sin
 /// cajas por ítem. Los números los pone la app; el texto es de Porty.
 class WeeklyReportScreen extends ConsumerStatefulWidget {
@@ -186,15 +188,13 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     return [
       _Header(report: r),
       _Group(
-        eyebrow: 'weekly_report_group_how'.tr(),
         first: true,
         children: [_Week(report: r, benchmark: benchmark)],
       ),
       if (why.isNotEmpty)
-        _Group(eyebrow: 'weekly_report_group_why'.tr(), children: why),
+        _Group(children: why),
       if (r.upcomingEarnings.isNotEmpty)
         _Group(
-          eyebrow: 'weekly_report_group_next'.tr(),
           children: [
             _Section(
               title: 'weekly_report_upcoming_section'.tr(),
@@ -203,7 +203,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
           ],
         ),
       if (deeper.isNotEmpty)
-        _Group(eyebrow: 'weekly_report_group_deeper'.tr(), children: deeper),
+        _Group(children: deeper),
       if (questions.isNotEmpty) _Group(children: [_Questions(questions)]),
       const _Disclaimer(),
     ];
@@ -294,53 +294,89 @@ class _Header extends StatelessWidget {
 // B. El número de la semana + gráfico + mercado
 // ---------------------------------------------------------------------------
 
-class _Week extends ConsumerWidget {
+class _Week extends ConsumerStatefulWidget {
   const _Week({required this.report, required this.benchmark});
   final WeeklyReport report;
   final bool benchmark;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Week> createState() => _WeekState();
+}
+
+/// Recorriendo el gráfico, el número grande sigue al dedo (como en la
+/// Home): cómo venía la cartera al cierre de ese día.
+class _WeekState extends ConsumerState<_Week> {
+  int? _scrub;
+
+  void _onScrub(int? index) {
+    if (index == _scrub) return;
+    if (index != null) PortyHapticsService.maybeOf(context)?.scrubTick();
+    setState(() => _scrub = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    final r = report;
+    final r = widget.report;
+    final benchmark = widget.benchmark;
     final tabular = const [FontFeature.tabularFigures()];
     final comparison = benchmark ? WeeklyReportFormat.comparison(r) : null;
+    final day = _scrub == null ? null : r.daily[_scrub!];
+    final pct = day?.portfolioPct ?? r.changePct;
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Meta('weekly_report_this_week_label'.tr()),
+          _Meta(
+            day == null
+                ? 'weekly_report_this_week_label'.tr()
+                : 'weekly_report_scrub_day'.tr(
+                  namedArgs: {
+                    'day': DateFormat(
+                      'EEEE d',
+                      Localizations.localeOf(context).toLanguageTag(),
+                    ).format(day.day),
+                  },
+                ),
+          ),
           const SizedBox(height: AppDimens.sp4),
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.end,
             spacing: AppDimens.sp12,
             children: [
               Text(
-                WeeklyReportFormat.pct(r.changePct),
+                WeeklyReportFormat.pct(pct),
                 style: tt.displaySmall?.copyWith(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
                   height: 1.05,
                   letterSpacing: -0.8,
-                  color: colors.pnlColor(r.changePct),
+                  color: colors.pnlColor(pct),
                   fontFeatures: tabular,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  WeeklyReportFormat.signedMoney(r.changeAbs),
-                  style: tt.bodyLarge?.copyWith(
-                    color: colors.textSecondary,
-                    fontFeatures: tabular,
+              // El monto es de la semana entera: recorriendo, solo el %.
+              if (day == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    WeeklyReportFormat.signedMoney(r.changeAbs),
+                    style: tt.bodyLarge?.copyWith(
+                      color: colors.textSecondary,
+                      fontFeatures: tabular,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           if (r.daily.length >= 2) ...[
             const SizedBox(height: AppDimens.sp20),
-            WeeklyReportChart(points: r.daily, showSp500: benchmark),
+            WeeklyReportChart(
+              points: r.daily,
+              showSp500: benchmark,
+              scrubIndex: _scrub,
+              onScrub: _onScrub,
+            ),
           ],
           const SizedBox(height: AppDimens.sp16),
           if (comparison != null)
@@ -388,20 +424,37 @@ class _Week extends ConsumerWidget {
 // C. Qué movió tu cartera
 // ---------------------------------------------------------------------------
 
-class _Movers extends StatelessWidget {
+class _Movers extends ConsumerWidget {
   const _Movers({required this.report});
   final WeeklyReport report;
 
   @override
-  Widget build(BuildContext context) {
-    final maxAbs = report.movers
+  Widget build(BuildContext context, WidgetRef ref) {
+    // De la que más ganó a la que más perdió (también los informes
+    // guardados antes de que se ordenaran así).
+    final movers = [...report.movers]
+      ..sort((a, b) => b.contributionPp.compareTo(a.contributionPp));
+    final maxAbs = movers
         .map((m) => m.contributionPp.abs())
         .fold(0.0, math.max);
+    final held = ref.watch(goalHoldingsProvider);
     final others = WeeklyReportFormat.others(report);
     return _Section(
       title: 'weekly_report_movers_section'.tr(),
       rows: [
-        for (final m in report.movers) _MoverRow(mover: m, maxAbs: maxAbs),
+        for (final (i, m) in movers.indexed)
+          _MoverRow(
+            mover: m,
+            maxAbs: maxAbs,
+            index: i,
+            // Si todavía la tiene, la fila abre la posición.
+            onTap:
+                (held[m.ticker.toUpperCase()] ?? 0) > 0
+                    ? () => GotoPositionDetail(
+                      ticker: m.ticker,
+                    ).navigate(context: context)
+                    : null,
+          ),
         if (others != null) _Meta(others),
       ],
     );
@@ -409,21 +462,48 @@ class _Movers extends StatelessWidget {
 }
 
 class _MoverRow extends StatelessWidget {
-  const _MoverRow({required this.mover, required this.maxAbs});
+  const _MoverRow({
+    required this.mover,
+    required this.maxAbs,
+    required this.index,
+    this.onTap,
+  });
   final ReportMover mover;
   final double maxAbs;
+
+  /// Posición en la lista: las barras crecen una detrás de otra.
+  final int index;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final m = mover;
+    // El número y la barra dicen lo mismo: cómo le fue a SU posición. Un
+    // informe guardado antes de tener ese dato muestra el de la acción
+    // solo si va para el mismo lado que la barra.
+    final sameSide = (m.movePct >= 0) == (m.contributionPp >= 0);
+    final pct = m.positionPct ?? (sameSide ? m.movePct : null);
+    // Si compró en la semana, lo suyo y lo de la acción pueden diferir:
+    // se aclaran las dos cosas.
+    final stockDiffers =
+        m.boughtThisWeek &&
+        (pct == null || (m.movePct - pct).abs() >= 0.1);
     final role = switch (m.role) {
       MoverRole.addedMost => 'weekly_report_role_added_most'.tr(),
       MoverRole.subtractedMost => 'weekly_report_role_subtracted_most'.tr(),
       null => m.boughtThisWeek ? 'weekly_report_bought_this_week'.tr() : null,
     };
-    return Column(
+    final subtitle = [
+      if (role != null) role,
+      if (stockDiffers)
+        'weekly_report_stock_move'.tr(
+          namedArgs: {'pct': WeeklyReportFormat.pct(m.movePct)},
+        ),
+    ].join(' · ');
+
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
@@ -441,9 +521,9 @@ class _MoverRow extends StatelessWidget {
                       color: colors.textPrimary,
                     ),
                   ),
-                  if (role != null)
+                  if (subtitle.isNotEmpty)
                     Text(
-                      role,
+                      subtitle,
                       style: tt.bodySmall?.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -451,18 +531,31 @@ class _MoverRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              WeeklyReportFormat.pct(m.movePct),
-              style: tt.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: colors.pnlColor(m.movePct),
-                fontFeatures: const [FontFeature.tabularFigures()],
+            if (pct != null)
+              Text(
+                WeeklyReportFormat.pct(pct),
+                style: tt.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.pnlColor(m.contributionPp),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
+            if (this.onTap != null) ...[
+              const SizedBox(width: AppDimens.sp4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: colors.textSecondary,
+              ),
+            ],
           ],
         ),
         const SizedBox(height: AppDimens.sp8),
-        WeeklyImpactBar(contribution: m.contributionPp, maxAbs: maxAbs),
+        _GrowingImpactBar(
+          contribution: m.contributionPp,
+          maxAbs: maxAbs,
+          index: index,
+        ),
         if (m.why != null) ...[
           const SizedBox(height: AppDimens.sp8),
           _Prose(m.why!),
@@ -474,6 +567,57 @@ class _MoverRow extends StatelessWidget {
             url: m.source!.url,
           ),
       ],
+    );
+    final onTap = this.onTap;
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        onTap: () {
+          PortyHapticsService.maybeOf(context)?.selectionTap();
+          onTap();
+        },
+        child: content,
+      ),
+    );
+  }
+}
+
+/// La barra de impacto, que crece desde el centro la primera vez que se
+/// ve: una detrás de otra, de arriba hacia abajo. Comunica cuánto pesó cada
+/// una, no decora. Con reduce motion, aparece completa.
+class _GrowingImpactBar extends StatelessWidget {
+  const _GrowingImpactBar({
+    required this.contribution,
+    required this.maxAbs,
+    required this.index,
+  });
+
+  final double contribution;
+  final double maxAbs;
+  final int index;
+
+  static const _grow = Duration(milliseconds: 420);
+  static const _stagger = 70;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return WeeklyImpactBar(contribution: contribution, maxAbs: maxAbs);
+    }
+    final total = _grow.inMilliseconds + _stagger * index;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: total),
+      curve: Interval(
+        _stagger * index / total,
+        1,
+        curve: Curves.easeOutQuart,
+      ),
+      builder:
+          (context, t, _) =>
+              WeeklyImpactBar(contribution: contribution * t, maxAbs: maxAbs),
     );
   }
 }
@@ -763,14 +907,14 @@ class _Disclaimer extends StatelessWidget {
 // Piezas
 // ---------------------------------------------------------------------------
 
-/// Un grupo por pregunta del informe ("Cómo te fue", "Por qué"…): mucho
-/// aire arriba, una línea fina de lado a lado y la etiqueta en terracota.
-/// Es el único divisor de la pantalla: separa grupos, nunca filas.
+/// Un grupo por pregunta del informe (cómo te fue, por qué, qué viene…):
+/// mucho aire arriba y una línea fina de lado a lado. Es el único divisor de
+/// la pantalla: separa grupos, nunca filas. Sin etiqueta en mayúsculas
+/// arriba (el andamiaje "POR QUÉ / QUÉ VIENE" que DESIGN.md prohíbe): cada
+/// sección ya trae su título.
 class _Group extends StatelessWidget {
-  const _Group({this.eyebrow, required this.children, this.first = false});
+  const _Group({required this.children, this.first = false});
 
-  /// Sin etiqueta (p. ej. "Seguí con Porty"): solo la línea y el aire.
-  final String? eyebrow;
   final List<Widget> children;
 
   /// El primero va pegado al encabezado, sin línea.
@@ -784,7 +928,6 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final eyebrow = this.eyebrow;
     return Padding(
       padding: EdgeInsets.only(top: first ? AppDimens.sp32 : gap),
       child: Column(
@@ -793,21 +936,6 @@ class _Group extends StatelessWidget {
           if (!first) ...[
             Divider(height: 1, thickness: 1, color: colors.border),
             const SizedBox(height: AppDimens.sp24),
-          ],
-          if (eyebrow != null) ...[
-            Semantics(
-              header: true,
-              child: Text(
-                eyebrow.toUpperCase(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.accentBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppDimens.sp12),
           ],
           for (final (i, child) in children.indexed) ...[
             if (i > 0) const SizedBox(height: sectionGap),

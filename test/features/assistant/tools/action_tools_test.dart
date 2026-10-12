@@ -140,6 +140,49 @@ void main() {
       expect(quotes.dailyCalls, ['AAPL']);
     });
 
+    test('a ticker imported from eToro can still get a manual buy '
+        '(only selling or deleting imported shares is read-only)', () async {
+      final imported = PositionValuation(
+        position: Position(
+          id: 'ewz-etoro',
+          ticker: 'EWZ',
+          quantity: 20,
+          purchasePrice: 28,
+          purchaseDate: DateTime(2025, 3, 1),
+          source: PositionSource.etoro,
+        ),
+        currentPrice: 30,
+        marketValue: 600,
+        pnlAbsolute: 40,
+        pnlPercent: 7,
+      );
+      final ctx = AssistantToolContext(
+        tier: SubscriptionTier.premium,
+        data: fakeDataSources(quotes: _Quotes()),
+        summary: PortfolioSummary(
+          totalValue: 600,
+          totalCostBasis: 560,
+          totalPnlAbsolute: 40,
+          totalPnlPercent: 7,
+          valuations: [imported],
+          lots: [imported],
+        ),
+        now: DateTime(2026, 9, 29),
+      );
+      final p = _proposal(
+        await ProposeBuyTool(
+          ctx,
+        ).run({'ticker': 'EWZ', 'shares': 5, 'date': '2026-09-28'}),
+      );
+      expect(p.kind, ActionKind.buy);
+      expect(p.ticker, 'EWZ');
+      // Vender lo importado sí sigue siendo de eToro.
+      final sell = await ProposeSellTool(
+        ctx,
+      ).run({'ticker': 'EWZ', 'shares': 5, 'date': '2026-09-28'});
+      expect(sell['reason'], 'managed_by_broker');
+    });
+
     test('each call gets a new proposal id', () async {
       final tool = ProposeBuyTool(_ctx());
       final args = {'ticker': 'AAPL', 'shares': 1, 'date': '2026-09-28'};

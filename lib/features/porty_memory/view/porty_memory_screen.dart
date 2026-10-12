@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
@@ -45,25 +46,13 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
   }
 
   Future<void> _clearAll() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('porty_memory_clear_title'.tr()),
-            content: Text('porty_memory_clear_body'.tr()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('porty_memory_cancel'.tr()),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('porty_memory_clear_confirm'.tr()),
-              ),
-            ],
-          ),
+    final confirmed = await ConfirmSheet.show(
+      context,
+      title: 'porty_memory_clear_title'.tr(),
+      body: 'porty_memory_clear_body'.tr(),
+      confirmLabel: 'porty_memory_clear_confirm'.tr(),
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await ref.read(userMemoryProvider.notifier).clear();
     } catch (_) {

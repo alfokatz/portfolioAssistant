@@ -55,10 +55,10 @@ abstract final class PortfolioColors {
 /// - **Semánticos apagados.** Verde salvia y rojo arcilla, con el mismo
 ///   carácter editorial que los profundos del claro: nada de verde semáforo
 ///   ni rojo Material.
-/// - **Brillo prestado con moderación.** El acento se usa igual que en el
-///   claro; los halos y glows bajan de intensidad (ver
-///   `CustomColors.glowScale`), porque sobre fondo oscuro cualquier glow se
-///   lee como neón.
+/// - **Sin degradés.** En oscuro no hay halo de fondo ni brillo en las
+///   cards, y los glows de foco bajan (ver `CustomColors.glowScale`):
+///   sobre fondo oscuro cualquier degradé terracota se lee como neón, y un
+///   terracota saturado, como flúor.
 abstract final class PortfolioColorsDark {
   // ── Fondos (grafito tibio, de abajo hacia arriba) ───────────────────────
   static const background = Color(0xFF171614); // oklch(0.200 0.004 70)
@@ -74,13 +74,14 @@ abstract final class PortfolioColorsDark {
   static const chartGrid = Color(0x0FFFF6EC); // ~6% marfil
   static const track = Color(0x14FFF6EC); // fondo de barras / anillos
 
-  // ── Acento (el mismo terracota, apenas levantado para fondo oscuro) ─────
-  // Un poco menos luminoso que lo habitual en temas oscuros: a más de 8:1
-  // las etiquetas terracota "gritaban" sobre el grafito.
-  static const accent = Color(0xFFD69A72); // oklch(0.735 0.09 55) · 7:1
-  static const accentDim = Color(0xFFB47C5A); // oklch(0.635 0.085 52) · 4,8:1
-  static const onAccent = Color(0xFF211711); // tinta sobre el acento · 7,3:1
-  static const aiCardBorder = Color(0x4DD69A72); // accent @ 30%
+  // ── Acento: terracota apagado, tipo arcilla ─────────────────────────────
+  // Mismo tono que el del claro, con mucho menos croma: sobre grafito un
+  // terracota saturado se ve flúor (el FAB, Porty, las etiquetas). Sigue
+  // cumpliendo AA como texto (6,2:1 sobre card).
+  static const accent = Color(0xFFC09479); // oklch(0.70 0.065 52) · 6,2:1
+  static const accentDim = Color(0xFFA47C66); // oklch(0.62 0.06 50) · 4,5:1
+  static const onAccent = Color(0xFF211711); // tinta sobre el acento · 6,5:1
+  static const aiCardBorder = Color(0x4DC09479); // accent @ 30%
 
   // ── Texto ────────────────────────────────────────────────────────────────
   static const textPrimary = Color(0xFFE9E6E1); // marfil · 13,5:1 en card

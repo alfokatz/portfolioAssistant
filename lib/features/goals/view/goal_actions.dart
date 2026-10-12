@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
@@ -19,34 +20,13 @@ abstract final class GoalActions {
     WidgetRef ref,
     UserGoal goal,
   ) async {
-    final colors = context.customColors;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(
-              'goal_delete_title'.tr(namedArgs: {'goal': goal.label}),
-            ),
-            content: Text('goal_delete_body'.tr()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('porty_memory_cancel'.tr()),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(
-                  'goal_delete_confirm'.tr(),
-                  style: TextStyle(
-                    color: colors.loss,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
+    final confirmed = await ConfirmSheet.show(
+      context,
+      title: 'goal_delete_title'.tr(namedArgs: {'goal': goal.label}),
+      body: 'goal_delete_body'.tr(),
+      confirmLabel: 'goal_delete'.tr(),
     );
-    if (confirmed != true) return false;
+    if (!confirmed) return false;
     try {
       await ref.read(goalsProvider.notifier).delete(goal.id);
       ref
