@@ -293,6 +293,112 @@ void main() {
     expect(out, isNot(contains('QaGoldTeaser')));
   });
 
+  group('news card', () {
+    const news = ToolCallRecord(
+      name: 'get_news',
+      args: {
+        'tickers': ['AMZN'],
+      },
+      result: {
+        'status': 'ok',
+        'as_of': '2026-10-12T17:00:00Z',
+        'news': [
+          {
+            'ticker': 'AMZN',
+            'title': 'Amazon in Talks to Acquire Decart AI',
+            'url': 'https://www.bloomberg.com/news/amazon-decart',
+            'source': 'Bloomberg',
+            'snippet': '',
+            'published_at': '2026-10-11T15:00:00Z',
+          },
+          {
+            'ticker': 'AMZN',
+            'title': 'Amazon Launches Alexa+ Tablet',
+            'url': 'https://www.reuters.com/amazon-alexa-tablet',
+            'source': 'Reuters',
+            'snippet': 'The tablet runs Google apps.',
+            'published_at': '2026-10-08T15:00:00Z',
+          },
+        ],
+        'context': {'status': 'ok', 'summary': 'Amazon negocia...'},
+      },
+    );
+
+    List<Map> componentsOf(String out) =>
+        (((jsonDecode(out) as Map)['updateComponents'] as Map)['components']
+                as List)
+            .cast<Map>();
+
+    test('"¿qué noticias hay de AMZN?" answered with text only gets the '
+        'news card with the real headlines, after the text', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Estas son las noticias recientes de Amazon.')]),
+        const TurnEvidence(calls: [news], turnCalls: [news]),
+      );
+      final components = componentsOf(out);
+      final root = components.firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'newsCard']);
+      final card = components.firstWhere((c) => c['id'] == 'newsCard');
+      expect(card['component'], 'QaNewsSummary');
+      expect(card['ticker'], 'AMZN');
+      final items = (card['items'] as List).cast<Map>();
+      expect(items.map((i) => i['headline']), [
+        'Amazon in Talks to Acquire Decart AI',
+        'Amazon Launches Alexa+ Tablet',
+      ]);
+      expect(items.first['url'], 'https://www.bloomberg.com/news/amazon-decart');
+      expect(items.first['source'], 'Bloomberg');
+      expect(items.first['dateLabel'], 'ayer');
+      expect(items.last['summaryLine'], 'The tablet runs Google apps.');
+    });
+
+    test('"why did it move": the news card follows the price widget', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('AMZN bajó.'),
+          {'id': 'p', 'component': 'QaTickerMove', 'ticker': 'AMZN'},
+        ]),
+        const TurnEvidence(calls: [news], turnCalls: [news]),
+      );
+      final root = componentsOf(out).firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'p', 'newsCard']);
+    });
+
+    test('nothing added when the model already showed them, when another '
+        'card answers, or without headlines', () {
+      final shown = _answer([
+        _intro('Noticias de AMZN.'),
+        {'id': 'n', 'component': 'QaNewsSummary', 'ticker': 'AMZN', 'items': []},
+      ]);
+      expect(
+        AssistantAnswerReview.postProcess(
+          shown,
+          const TurnEvidence(calls: [news], turnCalls: [news]),
+        ),
+        isNot(contains('newsCard')),
+      );
+      expect(
+        AssistantAnswerReview.postProcess(
+          _answer([_intro('Análisis.'), _analysis('Un banco.')]),
+          const TurnEvidence(calls: [news], turnCalls: [news]),
+        ),
+        isNot(contains('newsCard')),
+      );
+      const empty = ToolCallRecord(
+        name: 'get_news',
+        args: {},
+        result: {'status': 'ok', 'news': [], 'context': {'status': 'ok'}},
+      );
+      expect(
+        AssistantAnswerReview.postProcess(
+          _answer([_intro('Amazon negocia una compra.')]),
+          const TurnEvidence(calls: [empty], turnCalls: [empty]),
+        ),
+        isNot(contains('newsCard')),
+      );
+    });
+  });
+
   group('goal plan card', () {
     final plan = ToolCallRecord(
       name: GetGoalProjectionTool.toolName,
