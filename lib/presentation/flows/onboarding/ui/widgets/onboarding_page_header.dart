@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_mockup_widgets.dart';
 
 /// Título grande (como los de las pantallas de la app) y una línea que lo
-/// explica.
+/// explica. Con [tag], el plan que incluye toda la página.
 class OnboardingPageHeader extends StatelessWidget {
   const OnboardingPageHeader({
     super.key,
     required this.title,
     required this.subtitle,
+    this.tag,
     this.textAlign = TextAlign.start,
   });
 
   final String title;
   final String subtitle;
+  final String? tag;
   final TextAlign textAlign;
 
   @override
@@ -25,6 +28,10 @@ class OnboardingPageHeader extends StatelessWidget {
       crossAxisAlignment:
           center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
+        if (tag != null) ...[
+          OnboardingPlanTag(label: tag!),
+          const SizedBox(height: AppDimens.sp8),
+        ],
         Semantics(
           header: true,
           child: Text(

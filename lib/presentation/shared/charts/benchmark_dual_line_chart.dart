@@ -9,11 +9,15 @@ class BenchmarkDualLineChart extends StatelessWidget {
   final List<double> sp500Values;
   final double height;
 
+  /// Sin eje ni grilla: solo las dos líneas (p. ej. en un mockup chico).
+  final bool showYAxisLabels;
+
   const BenchmarkDualLineChart({
     super.key,
     required this.portfolioValues,
     required this.sp500Values,
     this.height = 120,
+    this.showYAxisLabels = true,
   });
 
   @override
@@ -47,6 +51,43 @@ class BenchmarkDualLineChart extends StatelessWidget {
       (i) => FlSpot(i.toDouble(), sp500Values[i]),
     );
 
+    final chart = LineChart(
+      LineChartData(
+        gridData: showYAxisLabels
+            ? ChartAxisHelper.horizontalGrid(
+                minY: chartMinY,
+                maxY: chartMaxY,
+                gridColor: colors.chartGrid,
+              )
+            : const FlGridData(show: false),
+        titlesData: ChartTitlesWithoutLeftAxis.none,
+        borderData: FlBorderData(show: false),
+        minY: chartMinY,
+        maxY: chartMaxY,
+        baselineY: chartMinY,
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: portfolioSpots,
+            isCurved: true,
+            color: colors.chartLine,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+          ),
+          LineChartBarData(
+            spots: spSpots,
+            isCurved: true,
+            color: colors.benchmarkSp500,
+            barWidth: 2,
+            dashArray: [6, 4],
+            dotData: const FlDotData(show: false),
+          ),
+        ],
+      ),
+    );
+
+    if (!showYAxisLabels) return SizedBox(height: height, child: chart);
+
     return ChartWithYAxis(
       height: height,
       minY: chartMinY,
@@ -55,38 +96,7 @@ class BenchmarkDualLineChart extends StatelessWidget {
         v,
         range: chartMaxY - chartMinY,
       ),
-      chart: LineChart(
-        LineChartData(
-          gridData: ChartAxisHelper.horizontalGrid(
-            minY: chartMinY,
-            maxY: chartMaxY,
-            gridColor: colors.chartGrid,
-          ),
-          titlesData: ChartTitlesWithoutLeftAxis.none,
-          borderData: FlBorderData(show: false),
-          minY: chartMinY,
-          maxY: chartMaxY,
-          baselineY: chartMinY,
-          lineTouchData: const LineTouchData(enabled: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: portfolioSpots,
-              isCurved: true,
-              color: colors.chartLine,
-              barWidth: 2,
-              dotData: const FlDotData(show: false),
-            ),
-            LineChartBarData(
-              spots: spSpots,
-              isCurved: true,
-              color: colors.benchmarkSp500,
-              barWidth: 2,
-              dashArray: [6, 4],
-              dotData: const FlDotData(show: false),
-            ),
-          ],
-        ),
-      ),
+      chart: chart,
     );
   }
 }

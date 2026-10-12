@@ -6,22 +6,16 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/presentation/shared/charts/diverging_bar.dart';
-import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 
-/// Datos de ejemplo de los mockups del onboarding: una cartera inventada
-/// (y así se presenta, nunca como dato real del usuario).
-abstract final class _Sample {
-  static const values = <double>[
-    12130, 12090, 12160, 12210, 12180, 12150, 12240, 12300, 12270, 12330,
-    12380, 12350, 12410, 12450,
-  ];
-}
+/// Piezas comunes de los mockups del onboarding. Todo lo que se muestra es
+/// una cartera inventada y así se presenta ([OnboardingSampleCaption]),
+/// nunca como dato real del usuario. Nada sale a la red: los logos son
+/// monogramas.
+const onboardingTabular = [FontFeature.tabularFigures()];
 
 /// Card base de los mockups: la misma superficie que las cards de la app.
-class _MockCard extends StatelessWidget {
-  const _MockCard({required this.child, this.padding});
+class OnboardingMockCard extends StatelessWidget {
+  const OnboardingMockCard({super.key, required this.child, this.padding});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -43,191 +37,182 @@ class _MockCard extends StatelessWidget {
   }
 }
 
-/// Avatar con monograma, sin pedir el logo (el onboarding no sale a la red).
-Widget _avatar(String ticker, double size) => QaTickerAvatar(
-  ticker: ticker,
-  size: size,
-  brand: CompanyBrand(ticker: ticker),
-);
-
-/// La card del total de la Home en chico: el valor, la variación del
-/// período y el gráfico con la línea de inicio.
-class OnboardingPortfolioPreview extends StatelessWidget {
-  const OnboardingPortfolioPreview({super.key});
+/// "Ejemplo": encima de cada mockup, para que nadie confunda los números
+/// con los suyos.
+class OnboardingSampleCaption extends StatelessWidget {
+  const OnboardingSampleCaption({super.key});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    const tabular = [FontFeature.tabularFigures()];
-
-    return ExcludeSemantics(
-      child: Column(
-        children: [
-          _MockCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'portfolio_total_label'.tr(),
-                        style: tt.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        r'$12,450.00',
-                        style: tt.displaySmall?.copyWith(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.8,
-                          color: colors.textPrimary,
-                          fontFeatures: tabular,
-                        ),
-                      ),
-                      const SizedBox(height: AppDimens.sp6),
-                      Wrap(
-                        spacing: AppDimens.sp8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            r'+$320.00',
-                            style: tt.bodyMedium?.copyWith(
-                              color: colors.pnlColor(1),
-                              fontWeight: FontWeight.w600,
-                              fontFeatures: tabular,
-                            ),
-                          ),
-                          const PnlBadge(percent: 2.6),
-                          Text(
-                            'home_range_m1'.tr(),
-                            style: tt.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const PortfolioAreaLineChart(
-                  values: _Sample.values,
-                  showYAxisLabels: false,
-                  showStartReference: true,
-                  height: 84,
-                ),
-                const SizedBox(height: AppDimens.sp12),
-              ],
+    return Row(
+      children: [
+        Icon(Icons.visibility_outlined, size: 14, color: colors.textSecondary),
+        const SizedBox(width: AppDimens.sp6),
+        Flexible(
+          child: Text(
+            'onboarding_sample_caption'.tr(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Lo que incluye un plan ("Premium", "Gold"), para no prometer de más.
+class OnboardingPlanTag extends StatelessWidget {
+  const OnboardingPlanTag({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.sp6,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: colors.accentBlue.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.accentBlue,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
 }
 
-/// Una conversación de ejemplo con Porty: la pregunta del usuario, la
-/// respuesta al lado del avatar y una card como las del chat.
-class OnboardingChatPreview extends StatelessWidget {
-  const OnboardingChatPreview({super.key});
+/// Avatar con monograma, sin pedir el logo (el onboarding no sale a la red).
+class OnboardingTickerAvatar extends StatelessWidget {
+  const OnboardingTickerAvatar({
+    super.key,
+    required this.ticker,
+    this.size = 28,
+  });
+
+  final String ticker;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    QaColors.resolve(Theme.of(context).brightness);
+    return QaTickerAvatar(
+      ticker: ticker,
+      size: size,
+      brand: CompanyBrand(ticker: ticker),
+    );
+  }
+}
+
+/// El mensaje del usuario, como en el chat: burbuja a la derecha.
+class OnboardingUserBubble extends StatelessWidget {
+  const OnboardingUserBubble({super.key, required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    QaColors.resolve(Theme.of(context).brightness);
-    const tabular = [FontFeature.tabularFigures()];
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(left: AppDimens.sp40),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.sp16,
+          vertical: AppDimens.sp12,
+        ),
+        decoration: BoxDecoration(
+          color: colors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+        ),
+        child: Text(
+          text,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.textPrimary),
+        ),
+      ),
+    );
+  }
+}
 
-    return ExcludeSemantics(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimens.sp16,
-                vertical: AppDimens.sp12,
-              ),
-              decoration: BoxDecoration(
-                color: colors.surfaceElevated,
-                borderRadius: BorderRadius.circular(AppDimens.radiusXl),
-              ),
-              child: Text(
-                'onboarding_chat_question'.tr(),
-                style: tt.bodyMedium?.copyWith(color: colors.textPrimary),
+/// La respuesta de Porty, como en el chat: texto suelto al lado del avatar.
+class OnboardingPortyReply extends StatelessWidget {
+  const OnboardingPortyReply({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ExcludeSemantics(
+          child: PortyAvatar(size: 32, state: PortyAvatarState.answered),
+        ),
+        const SizedBox(width: AppDimens.sp12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.textPrimary,
+                height: 1.45,
               ),
             ),
           ),
-          const SizedBox(height: AppDimens.sp16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const PortyAvatar(size: 32, state: PortyAvatarState.answered),
-              const SizedBox(width: AppDimens.sp12),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 5),
-                  child: Text(
-                    'onboarding_chat_answer'.tr(),
-                    style: tt.bodyMedium?.copyWith(
-                      color: colors.textPrimary,
-                      height: 1.45,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Algo que se le puede pedir a Porty, con la chispa de las preguntas
+/// sugeridas de la app. No es un botón: en el onboarding todavía no hay
+/// cartera con la que responder.
+class OnboardingExamplePrompt extends StatelessWidget {
+  const OnboardingExamplePrompt({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.sp16,
+        vertical: AppDimens.sp12,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: PortySpark(size: 12, color: colors.accentBlue),
           ),
-          const SizedBox(height: AppDimens.sp12),
-          _MockCard(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'weekly_report_movers_section'.tr(),
-                  style: tt.titleSmall?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: AppDimens.sp12),
-                for (final (ticker, pct, impact) in const [
-                  ('NVDA', '+4.5%', 1.8),
-                ]) ...[
-                  Row(
-                    children: [
-                      _avatar(ticker, 28),
-                      const SizedBox(width: AppDimens.sp12),
-                      Expanded(
-                        child: Text(
-                          ticker,
-                          style: tt.titleSmall?.copyWith(
-                            color: colors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        pct,
-                        style: tt.titleSmall?.copyWith(
-                          color: colors.pnlColor(impact),
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: tabular,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppDimens.sp8),
-                  DivergingBar(value: impact, maxAbs: 1.8),
-                ],
-              ],
+          const SizedBox(width: AppDimens.sp8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

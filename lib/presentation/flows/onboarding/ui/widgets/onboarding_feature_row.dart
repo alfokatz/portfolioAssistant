@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_mockup_widgets.dart';
 
 /// Una función de la app: ícono en un círculo teñido (como los
 /// encabezados de las cards), título y una línea. Con [tag], el plan que la
@@ -54,24 +55,7 @@ class OnboardingFeatureRow extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-                  if (tag != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppDimens.sp6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.accentBlue.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-                      ),
-                      child: Text(
-                        tag!,
-                        style: tt.labelSmall?.copyWith(
-                          color: colors.accentBlue,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                  if (tag != null) OnboardingPlanTag(label: tag!),
                 ],
               ),
               const SizedBox(height: AppDimens.sp2),

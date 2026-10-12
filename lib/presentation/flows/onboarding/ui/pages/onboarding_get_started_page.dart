@@ -1,17 +1,21 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_feature_row.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_entrance.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_header.dart';
 
 /// El primer paso concreto: cargar la cartera (el botón de abajo, en
-/// [OnboardingScreen]). Y el aviso de que Porty es información educativa.
+/// [OnboardingScreen]). Con qué se empieza (el plan gratis, con sus números
+/// de [PlanMatrix]) y el aviso de que Porty es información educativa.
 class OnboardingGetStartedPage extends StatelessWidget {
   const OnboardingGetStartedPage({super.key, required this.activePage});
 
-  static const pageIndex = 3;
+  static const pageIndex = 5;
 
   final int activePage;
 
@@ -19,6 +23,7 @@ class OnboardingGetStartedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
+    final free = PlanMatrix.plans[SubscriptionTier.free]!;
     Widget enter(int i, Widget child) => OnboardingStaggeredEntrance(
       pageIndex: pageIndex,
       activePage: activePage,
@@ -62,6 +67,20 @@ class OnboardingGetStartedPage extends StatelessWidget {
                   const SizedBox(height: AppDimens.sp32),
                   enter(
                     2,
+                    OnboardingFeatureRow(
+                      icon: Icons.lock_open_rounded,
+                      title: 'onboarding_finish_free_title'.tr(),
+                      subtitle: 'onboarding_finish_free_subtitle'.tr(
+                        namedArgs: {
+                          'queries': '${free.monthlyQueries}',
+                          'positions': '${free.positionLimit}',
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimens.sp20),
+                  enter(
+                    3,
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
