@@ -333,5 +333,43 @@ void main() {
       // Desmontar el loader cancela sus timers.
       await tester.pumpWidget(const SizedBox());
     });
+
+    // El tema elegido en Ajustes manda sobre el del sistema.
+    for (final (system, chosen, expectDark) in [
+      (Brightness.dark, ThemeMode.light, false),
+      (Brightness.light, ThemeMode.dark, true),
+      (Brightness.dark, ThemeMode.system, true),
+    ]) {
+      testWidgets('system ${system.name} + Porty ${chosen.name} → loader '
+          '${expectDark ? 'dark' : 'light'}', (tester) async {
+        tester.platformDispatcher.platformBrightnessTestValue = system;
+        addTearDown(
+          tester.platformDispatcher.clearPlatformBrightnessTestValue,
+        );
+        final ready = Completer<Widget>();
+        await tester.pumpWidget(
+          AppBootstrap(initialize: () => ready.future, themeMode: chosen),
+        );
+        final background = tester.widget<ColoredBox>(
+          find.ancestor(
+            of: find.byType(PortyLoader),
+            matching: find.byType(ColoredBox),
+          ),
+        );
+        expect(
+          background.color,
+          expectDark
+              ? AppBootstrap.darkBackground
+              : AppBootstrap.lightBackground,
+        );
+        expect(
+          tester.widget<PortyLoader>(find.byType(PortyLoader)).textColor,
+          expectDark
+              ? CustomColors.dark.textSecondary
+              : CustomColors.light.textSecondary,
+        );
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
   });
 }

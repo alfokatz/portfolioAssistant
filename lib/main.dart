@@ -29,13 +29,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _translationsPath = 'assets/translations';
 const _dotenvBaseFolder = 'assets/env/';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   GenUiDebugLog.installLoggerBridge();
+  // Antes del primer frame (sigue el splash nativo): el loader del arranque
+  // tiene que salir con el tema elegido en Ajustes, no siempre con el del
+  // sistema. Es una lectura local; `_initialize` reusa la misma instancia.
+  final themeMode = ThemeModeNotifier.read(
+    await SharedPreferences.getInstance(),
+  );
   // El primer frame es Porty (el mismo del splash nativo) mientras se
   // inicializa todo; después, la app (ver AppBootstrap).
-  runApp(const AppBootstrap(initialize: _initialize));
+  runApp(AppBootstrap(initialize: _initialize, themeMode: themeMode));
 }
 
 /// Entorno, Supabase (restaura la sesión guardada), RevenueCat, idioma y
