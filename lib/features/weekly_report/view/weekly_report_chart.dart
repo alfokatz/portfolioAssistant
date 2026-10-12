@@ -230,8 +230,9 @@ class _Scrubbable extends StatelessWidget {
   }
 }
 
-/// Barra divergente (centro en 0) de cuánto empujó o frenó una posición a
-/// la cartera: reemplaza el "+0,9 pts a tu cartera". Larga = mucho impacto.
+/// Barra divergente (centro en 0) de cuánto se movió la acción en la
+/// semana, relativa a la que más se movió de la lista (esa llega al borde).
+/// Verde si subió, roja si bajó: lo mismo que el número de la fila.
 class WeeklyImpactBar extends StatelessWidget {
   const WeeklyImpactBar({
     super.key,
@@ -241,7 +242,7 @@ class WeeklyImpactBar extends StatelessWidget {
 
   final double contribution;
 
-  /// La contribución más grande en valor absoluto entre las filas (la barra
+  /// El movimiento más grande en valor absoluto entre las filas (la barra
   /// más larga llega al borde).
   final double maxAbs;
 

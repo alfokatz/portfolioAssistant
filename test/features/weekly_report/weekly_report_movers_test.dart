@@ -65,26 +65,19 @@ WeeklyReport _report() {
 }
 
 void main() {
-  test('movers go from the biggest gain to the biggest loss', () {
+  test('movers go from the stock that rose the most to the one that rose '
+      'the least, with the stock\'s weekly move', () {
     final movers = _report().movers;
-    expect(movers.map((m) => m.ticker), ['AAPL', 'VOO', 'DASH']);
+    expect(movers.map((m) => m.ticker), ['AAPL', 'DASH', 'VOO']);
+    expect(movers.map((m) => m.movePct.round()), [10, 4, 1]);
     expect(movers.first.role, MoverRole.addedMost);
-    expect(movers.last.role, MoverRole.subtractedMost);
+    // Ninguna bajó: no hay "la que más bajó".
+    expect(movers.any((m) => m.role == MoverRole.subtractedMost), isFalse);
   });
 
-  test('a mid-week buy keeps both numbers: the stock\'s week and the '
-      'position since the purchase', () {
-    final dash = _report().movers.firstWhere((m) => m.ticker == 'DASH');
-    expect(dash.movePct, closeTo(4, 1e-9)); // la acción, viernes a viernes
-    expect(dash.positionPct, closeTo((104 - 108) / 108 * 100, 1e-9));
-    expect(dash.contributionPp, lessThan(0));
-    // Sobrevive al guardado.
-    final stored = ReportMover.fromJson(dash.toJson());
-    expect(stored.positionPct, dash.positionPct);
-  });
-
-  testWidgets('the row shows what the bar draws: DASH in red (its position '
-      'lost), with the stock\'s +4% as context', (tester) async {
+  testWidgets('a mid-week buy shows what the STOCK did in the week: DASH '
+      '+4% in green with a green bar, even if the position lost since the '
+      'purchase', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -97,17 +90,65 @@ void main() {
     );
     await tester.pumpAndSettle();
     final context = tester.element(find.byType(WeeklyImpactBar).first);
-    final loss = context.customColors.loss;
+    final profit = context.customColors.profit;
 
-    final dashPct = tester.widget<Text>(find.text('-3.7%'));
-    expect(dashPct.style?.color, loss);
-    expect(find.textContaining('weekly_report_stock_move'), findsOneWidget);
+    final dashPct = tester.widget<Text>(find.text('+4.0%'));
+    expect(dashPct.style?.color, profit);
+    expect(find.text('weekly_report_bought_this_week'), findsOneWidget);
+    expect(find.textContaining('weekly_report_role_up_most'), findsOneWidget);
 
-    // Las barras en el orden de la lista: la última, la de DASH, en rojo.
+    // Las barras en el orden de la lista y todas verdes: las tres subieron.
     final bars = tester.widgetList<DivergingBar>(find.byType(DivergingBar));
-    expect(bars.map((b) => b.value.sign), [1, 1, -1]);
+    expect(bars.map((b) => b.value.sign), [1, 1, 1]);
+    expect(bars.map((b) => b.value.round()), [10, 4, 1]);
 
     // Una fila que sigue en cartera abre la posición.
     expect(find.byIcon(Icons.chevron_right_rounded), findsNWidgets(3));
+  });
+
+  testWidgets('a report saved before (sorted by impact) also shows by the '
+      'stock\'s move, with "la que más bajó" at the bottom', (tester) async {
+    final saved = _report();
+    final mixed = WeeklyReport.tryParse({
+      ...saved.toJson(),
+      'movers': [
+        for (final m in [
+          ReportMover(
+            ticker: 'NFLX',
+            movePct: -2,
+            contributionPp: -1.5,
+            boughtThisWeek: false,
+          ),
+          ReportMover(
+            ticker: 'UBER',
+            movePct: 5,
+            contributionPp: -0.4,
+            boughtThisWeek: true,
+          ),
+          ReportMover(
+            ticker: 'AMZN',
+            movePct: 4.3,
+            contributionPp: 1.2,
+            boughtThisWeek: false,
+          ),
+        ])
+          m.toJson(),
+      ],
+    })!;
+    await tester.binding.setSurfaceSize(const Size(390, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      reportApp(
+        FixedWeeklyReportController(ready(mixed, seen: true)),
+        openScreen: true,
+        reduceMotion: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bars = tester.widgetList<DivergingBar>(find.byType(DivergingBar));
+    expect(bars.map((b) => b.value), [5, 4.3, -2]);
+    // UBER arriba: "La que más subió · Compraste esta semana".
+    expect(find.textContaining('weekly_report_role_up_most'), findsOneWidget);
+    expect(find.text('weekly_report_role_down_most'), findsOneWidget);
   });
 }
