@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -168,26 +169,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text('settings_change_password'.tr()),
-            content: Text('settings_change_password_message'.tr()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text('cancel'.tr()),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: Text('settings_send_link'.tr()),
-              ),
-            ],
-          ),
+    final confirmed = await ConfirmSheet.show(
+      context,
+      title: 'settings_change_password'.tr(),
+      body: 'settings_change_password_message'.tr(),
+      confirmLabel: 'settings_send_link'.tr(),
+      destructive: false,
     );
-
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     await ref
         .read(authControllerProvider.notifier)
@@ -206,29 +195,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
   }
 
   Future<void> _onDeleteAccount() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final colors = ctx.customColors;
-        return AlertDialog(
-          title: Text('settings_delete_account'.tr()),
-          content: Text('settings_delete_account_message'.tr()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('cancel'.tr()),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(foregroundColor: colors.loss),
-              child: Text('settings_delete_account'.tr()),
-            ),
-          ],
-        );
-      },
+    final confirmed = await ConfirmSheet.show(
+      context,
+      title: 'settings_delete_account_title'.tr(),
+      body: 'settings_delete_account_message'.tr(),
+      confirmLabel: 'settings_delete_account'.tr(),
     );
-
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     ref
         .read(alertProvider.notifier)

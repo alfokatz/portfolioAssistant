@@ -267,6 +267,9 @@ Variante propia del input del chat (`input-field-chat` + `button-send-chat`), se
 - **Reposo:** borde 1px Whisper Border, sin sombra.
 - **Focus:** borde Warm Accent 1.5px + glow terracota tenue (alpha 0.16, blur 10px), animado 180ms. Es feedback de interacción, no elevación: única sombra permitida en inputs y solo mientras hay foco.
 
+### Confirmaciones (`ConfirmSheet`)
+Nunca un `AlertDialog` de Material. Una hoja desde abajo, como "Desconectar eToro": Porty arriba (preocupado si la acción destruye algo), título y explicación centrados, botón lleno de 52 px / radius 14 que dice exactamente lo que pasa ("Borrar meta", "Eliminar AAPL", nunca "Aceptar") en Deep Loss Red si destruye y en Charcoal Ink si no, y "Cancelar" debajo en texto secundario. Código: `ConfirmSheet.show` (`presentation/shared/widgets/confirm_sheet.dart`).
+
 ### Navigation
 - **App bar:** transparente (revela `AppBackgroundGradient` detrás), título titleMedium w600 charcoal, iconos 20px, elevation 0
 - **Bottom nav bar:** pill flotante translúcida sobre el fondo, ítem activo en Charcoal Ink; FAB en Warm Accent

@@ -77,7 +77,7 @@ void main() {
 
     await tester.drag(find.text('Auto'), const Offset(-500, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('goal_delete_confirm'.tr()).last);
+    await tester.tap(find.text('goal_delete'.tr()).last);
     // Sin metas queda el estado vacío, con Porty animado: no "se asienta".
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 3));
@@ -93,7 +93,7 @@ void main() {
     expect(find.text('goal_mark_achieved'.tr()), findsOneWidget);
     await tester.tap(find.text('goal_delete'.tr()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('goal_delete_confirm'.tr()).last);
+    await tester.tap(find.text('goal_delete'.tr()).last);
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 3));
     expect(repo.deleted, ['g1']);
