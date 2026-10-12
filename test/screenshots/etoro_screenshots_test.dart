@@ -331,7 +331,7 @@ void main() {
       await _capture(tester, boundary, 'etoro_home_banner_$b');
     }, skip: !_enabled);
 
-    for (final page in [1, 3]) {
+    for (final page in [1, 5]) {
       testWidgets('etoro_onboarding_${page}_$b', (tester) async {
         await setUp(tester, brightness);
         final boundary = GlobalKey();

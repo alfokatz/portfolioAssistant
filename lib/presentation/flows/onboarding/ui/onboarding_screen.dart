@@ -10,9 +10,11 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_alerts_page.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_assistant_page.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_dashboard_page.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_get_started_page.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_goals_page.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/pages/onboarding_welcome_page.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_dots.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
@@ -21,7 +23,7 @@ import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/posit
 class OnboardingScreen extends StatefulHookConsumerWidget {
   const OnboardingScreen({super.key});
 
-  static const pageCount = 4;
+  static const pageCount = 6;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -150,6 +152,8 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
                     OnboardingWelcomePage(activePage: _currentPage),
                     OnboardingDashboardPage(activePage: _currentPage),
                     OnboardingAssistantPage(activePage: _currentPage),
+                    OnboardingGoalsPage(activePage: _currentPage),
+                    OnboardingAlertsPage(activePage: _currentPage),
                     OnboardingGetStartedPage(activePage: _currentPage),
                   ],
                 ),
