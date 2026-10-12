@@ -85,6 +85,26 @@ void main() {
     });
   });
 
+  test('redoing a saved goal\'s plan starts from what it already has, not '
+      'from 0', () async {
+    final saved = _macbook();
+    final withSavings = UserGoal(
+      id: saved.id,
+      label: saved.label,
+      type: saved.type,
+      targetAmount: saved.targetAmount,
+      targetDate: saved.targetDate,
+      snapshot: saved.snapshot,
+      status: saved.status,
+      createdAt: saved.createdAt,
+      externalSavings: 450,
+    );
+    final result = await GetGoalProjectionTool(
+      _ctx(goals: [withSavings]),
+    ).run({'goal_id': 'g1'});
+    expect(result['starting_capital'], 450);
+  });
+
   group('changing a plan of the chat', () {
     test('base_plan_id keeps everything but what changes', () async {
       final ctx = _ctx();

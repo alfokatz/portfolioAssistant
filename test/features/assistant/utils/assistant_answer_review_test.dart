@@ -450,6 +450,57 @@ void main() {
       expect(all.firstWhere((c) => c['id'] == 'p')['planId'], planId);
     });
 
+    group('"¿cómo va mi meta?" (a saved goal, nothing changed)', () {
+      final status = ToolCallRecord(
+        name: GetGoalProjectionTool.toolName,
+        args: const {'goal_id': 'g1'},
+        result: plan.result,
+      );
+
+      test('the plan card nobody asked for becomes the goal status', () {
+        final out = AssistantAnswerReview.postProcess(
+          _answer([
+            _intro('Tu meta Auto va en camino.'),
+            {'id': 'p', 'component': 'QaSavingsPlan', 'planId': planId},
+          ]),
+          TurnEvidence(calls: [status], turnCalls: [status]),
+        );
+        final all = components(out);
+        expect(all.where((c) => c['component'] == 'QaSavingsPlan'), isEmpty);
+        expect(all.firstWhere((c) => c['id'] == 'root')['children'], [
+          'a',
+          'goalStatus',
+        ]);
+        final card = all.firstWhere((c) => c['id'] == 'goalStatus');
+        expect(card['component'], 'QaGoalStatus');
+        expect(card['goal'], 'Auto');
+      });
+
+      test('a text-only answer gets the goal status, not the plan', () {
+        final out = AssistantAnswerReview.postProcess(
+          _answer([_intro('Tu meta Auto va en camino.')]),
+          TurnEvidence(calls: [status], turnCalls: [status]),
+        );
+        expect(out, isNot(contains('QaSavingsPlan')));
+        expect(out, contains('QaGoalStatus'));
+      });
+
+      test('asking to change it ("hacelo en 2 años") still shows the new '
+          'plan', () {
+        final change = ToolCallRecord(
+          name: GetGoalProjectionTool.toolName,
+          args: const {'goal_id': 'g1', 'target_date': '2028-10-11'},
+          result: plan.result,
+        );
+        final out = AssistantAnswerReview.postProcess(
+          _answer([_intro('Así queda en dos años.')]),
+          TurnEvidence(calls: [change], turnCalls: [change]),
+        );
+        expect(out, contains('QaSavingsPlan'));
+        expect(out, isNot(contains('QaGoalStatus')));
+      });
+    });
+
     test('a plan from an earlier turn is not injected', () {
       final out = AssistantAnswerReview.postProcess(
         _answer([_intro('¿Para cuándo lo necesitás?')]),

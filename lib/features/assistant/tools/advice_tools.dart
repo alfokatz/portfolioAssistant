@@ -292,6 +292,12 @@ class GetGoalProjectionTool implements DataTool {
         ToolArgs.number(args, 'monthly_contribution') ??
         baseInputs?.monthlyContribution ??
         await prefs.getMonthlyContribution();
+    double? savedSoFar;
+    if (savedGoal != null) {
+      savedSoFar = savedGoal.savedWith(
+        GoalShares.holdingsFor(savedGoal, ctx.savedGoals, ctx.holdingsByTicker),
+      );
+    }
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
     final statedAmount = _positive(ToolArgs.number(args, 'target_amount'));
@@ -313,7 +319,12 @@ class GetGoalProjectionTool implements DataTool {
                   p['starting_capital_source'] == 'stated'
                       ? baseInputs?.currentAmount
                       : null,
-            ),
+            ) ??
+            // Rehacer el plan de una meta guardada parte de lo que ya
+            // juntó (lo de afuera + su parte de las inversiones asignadas),
+            // no de 0: visto, "¿cómo va mi viaje?" daba "Hoy tenés 0 $"
+            // con 4.500 $ juntados.
+            savedSoFar,
         desiredMonthlyIncome:
             _positive(ToolArgs.number(args, 'desired_monthly_income')) ??
             (statedAmount == null ? baseInputs?.desiredMonthlyIncome : null),

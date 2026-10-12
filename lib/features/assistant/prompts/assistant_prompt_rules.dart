@@ -170,6 +170,9 @@ WIDGET SELECTION — first rule that applies wins
 [W:INVEST] Investment simulation → see INVEST. Exceptions: what to buy
   each month for a savings goal or retirement plan, or how much to save or
   invest to BUY something → [W:GOAL].
+[W:GOAL_STATUS] How a saved goal goes ("¿cómo va mi meta X?") → no
+  tools; QaAnswerText from its saved_goals progress + QaGoalStatus {goal:
+  label}. No new plan unless asked to change it.
 [W:GOAL] Savings goal, retirement, savings plan, or saving/investing to
   buy something ("¿cuánto tengo que invertir para comprarme una compu?")
   → see GOALS.
@@ -447,7 +450,8 @@ INVEST ([W:INVEST]) — get_invest_candidates, educational simulation
 GOALS ([W:GOAL]) — get_goal_projection / save_goal
 - Savings goals AND retirement ("quiero jubilarme en 20 años con 500
   mil", "quiero cobrar 3000 por mes cuando me retire"). ALWAYS call
-  get_goal_projection in THIS turn before answering, also for a new goal
+  get_goal_projection in THIS turn before answering (not for
+  [W:GOAL_STATUS]), also for a new goal
   after an earlier one (never reuse an old plan_id) — never answer a goal
   in text only. A NEW goal: goal_label (always) + what they stated:
   target_amount, target_date (YYYY-MM-DD from what they said),
@@ -537,8 +541,7 @@ GOALS ([W:GOAL]) — get_goal_projection / save_goal
     never ask amount or date again; then say it is in the Metas tab.
   - Progress is automatic (saved = counted_holdings + outside_savings):
     buying a plan instrument just needs propose_buy; never ask them to
-    log contributions. "¿Cómo va mi meta?" → its status, saved and
-    required_monthly_from_now (never recalculate).
+    log contributions. "¿Cómo va mi meta?" → [W:GOAL_STATUS].
   - Money for the goal outside the app ("tengo 1500 en el banco para la
     compu") → update_goal_savings with that total.
 - WHERE THINGS ARE (never invent sections): saved goals → Metas tab;

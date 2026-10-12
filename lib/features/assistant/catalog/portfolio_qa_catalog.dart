@@ -1277,6 +1277,31 @@ final CatalogItem qaSavingsPlanItem = CatalogItem(
   ],
 );
 
+final CatalogItem qaGoalStatusItem = CatalogItem(
+  name: 'QaGoalStatus',
+  dataSchema: S.object(
+    description:
+        'Cómo va hoy una meta guardada. Solo el nombre; la app pone los '
+        'datos.',
+    properties: {'goal': S.string(description: 'label en saved_goals.')},
+    required: ['goal'],
+  ),
+  widgetBuilder:
+      (ctx) =>
+          guardedCatalogWidget(ctx, PortfolioQaCatalogWidgets.qaGoalStatus),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "goal",
+    "component": "QaGoalStatus",
+    "goal": "Viaje a Japón"
+  }
+]
+''',
+  ],
+);
+
 final CatalogItem qaBuyPlanItem = CatalogItem(
   name: 'QaBuyPlan',
   dataSchema: S.object(

@@ -13,6 +13,8 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_s
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
@@ -461,6 +463,31 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   }
 
   /// "Guardar en Metas" desde la card del plan: directo, sin el modelo.
+  /// La meta guardada que nombra una card `QaGoalStatus`, con su progreso
+  /// de hoy: activa primero, si no cualquiera con ese nombre.
+  ({UserGoal goal, GoalProgress progress})? _goalStatus(
+    WidgetRef ref,
+    String label,
+  ) {
+    final goals = ref.read(goalsProvider);
+    final key = label.trim().toLowerCase();
+    final goal =
+        goals.activeByLabel(label) ??
+        goals.goals
+            .where((g) => g.label.trim().toLowerCase() == key)
+            .firstOrNull;
+    if (goal == null) return null;
+    final holdings = GoalShares.holdingsFor(
+      goal,
+      goals.goals,
+      ref.read(goalHoldingsProvider),
+    );
+    return (
+      goal: goal,
+      progress: GoalProgress.of(goal, DateTime.now(), holdings: holdings),
+    );
+  }
+
   Future<UserGoal?> _saveGoal(GoalDraft draft) async {
     try {
       final goal = await ref.read(goalsProvider.notifier).save(draft);
@@ -913,6 +940,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           onOpen: (id) => GoalsRouter.openDetail(context, id),
           editedPlan: notifier.editedPlan,
           onPlanEdited: notifier.editPlan,
+          statusFor: (label) => _goalStatus(ref, label),
           child: QaFollowUpScope(
             onFollowUp: (question) => _startAutoType(notifier, question),
             child: QaEvidenceScope(
