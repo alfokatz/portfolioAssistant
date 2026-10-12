@@ -12,6 +12,10 @@ class PortfolioAreaLineChart extends StatelessWidget {
   final List<double> values;
   final double height;
   final Color? lineColor;
+
+  /// Halo del punto al recorrer: el color de lo que hay detrás del
+  /// gráfico (default, una card).
+  final Color? scrubHaloColor;
   final bool showYAxisLabels;
 
   /// Índice del punto que se está recorriendo, o `null` al soltar.
@@ -32,6 +36,7 @@ class PortfolioAreaLineChart extends StatelessWidget {
     this.onScrub,
     this.scrubIndex,
     this.showStartReference = false,
+    this.scrubHaloColor,
   });
 
   @override
@@ -105,12 +110,9 @@ class PortfolioAreaLineChart extends StatelessWidget {
                             ? 0.04
                             : 0.08,
                   ),
-                  effectiveLineColor.withValues(
-                    alpha:
-                        Theme.of(context).brightness == Brightness.dark
-                            ? 0
-                            : 0.02,
-                  ),
+                  // Se apaga del todo hacia abajo: sin card detrás (Home), un
+                  // 2% al fondo dibujaba el borde de una caja.
+                  effectiveLineColor.withValues(alpha: 0),
                 ],
               ),
             ),
@@ -154,7 +156,7 @@ class PortfolioAreaLineChart extends StatelessWidget {
                               (values[scrubIndex!] - chartMinY) /
                               (chartMaxY - chartMinY),
                           color: effectiveLineColor,
-                          haloColor: colors.surfaceCard,
+                          haloColor: scrubHaloColor ?? colors.surfaceCard,
                         ),
                       ),
                     ),
