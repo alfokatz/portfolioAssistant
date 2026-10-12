@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
@@ -36,12 +37,24 @@ class GoalsState {
 /// turno), las escriben la card del plan, las tools y la pantalla de la
 /// meta. Después de escribir se vuelve a leer del servidor.
 class GoalsNotifier extends StateNotifier<GoalsState> {
-  GoalsNotifier(this._repo, {Set<String> Function()? heldTickers})
-    : _heldTickers = heldTickers ?? (() => const {}),
-      super(const GoalsState());
+  GoalsNotifier(
+    this._repo, {
+    Set<String> Function()? heldTickers,
+    Map<String, double> Function()? holdings,
+    DateTime Function()? clock,
+  }) : _holdings = holdings ?? (() => const {}),
+       _heldTickers =
+           heldTickers ??
+           (holdings == null ? (() => const {}) : () => holdings().keys.toSet()),
+       _clock = clock ?? DateTime.now,
+       super(const GoalsState());
 
   final GoalsRepository _repo;
   final Set<String> Function() _heldTickers;
+
+  /// Valor de mercado por ticker de la cartera (ver [goalHoldingsProvider]).
+  final Map<String, double> Function() _holdings;
+  final DateTime Function() _clock;
 
   Future<List<UserGoal>> load() async {
     try {
@@ -109,10 +122,12 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
   /// sola meta: si estaba en otra, se saca de ahí.
   Future<void> setLinkedTickers(String goalId, Set<String> tickers) async {
     final normalized = {for (final t in tickers) t.toUpperCase()};
+    final moved = <String>{};
     for (final other in state.goals) {
       if (other.id == goalId) continue;
       final overlap = other.linkedTickers.intersection(normalized);
       if (overlap.isEmpty) continue;
+      moved.add(other.id);
       await _repo.setLinkedTickers(
         other.id,
         other.linkedTickers.difference(overlap),
@@ -120,21 +135,58 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
     }
     await _repo.setLinkedTickers(goalId, normalized);
     await load();
+    // Sumar una inversión que ya tiene (o sacarla) cambia lo que la meta
+    // lleva juntado: el plan se rehace con eso, en esta meta y en la que la
+    // perdió.
+    await _rebase({goalId, ...moved});
   }
 
   /// Lo que tiene para la meta fuera de la app (reemplaza el monto
-  /// anterior). Tira [GoalsFailure].
+  /// anterior). El plan se recalcula partiendo de eso más sus inversiones
+  /// asignadas. Tira [GoalsFailure].
   Future<void> setExternalSavings(String goalId, double amount) async {
     await _repo.setExternalSavings(goalId, amount < 0 ? 0 : amount);
     await load();
+    await _rebase({goalId});
+  }
+
+  /// Rehace desde hoy el plan de cada meta de [ids] cuyo punto de partida
+  /// ya no coincide con lo que tiene (ver [GoalReplan]).
+  Future<void> _rebase(Set<String> ids) async {
+    final holdings = _holdings();
+    var changed = false;
+    for (final id in ids) {
+      final goal = state.byId(id);
+      if (goal == null) continue;
+      final draft = GoalReplan.rebase(
+        goal,
+        GoalReplan.capital(goal, holdings),
+        _clock(),
+      );
+      if (draft == null) continue;
+      await _repo.updatePlan(id, draft);
+      changed = true;
+    }
+    if (changed) await load();
   }
 
   /// El usuario editó el plan de la meta [id] desde Metas. Lo que ya
   /// contaba sigue contando; se suman solo las inversiones nuevas del plan
-  /// (las que el usuario sacó a mano no vuelven).
-  Future<void> updatePlan(String id, GoalDraft draft) async {
+  /// (las que el usuario sacó a mano no vuelven). [externalSavings]: lo que
+  /// cargó en "Ahorros fuera de la app" desde el editor (el mismo dato).
+  Future<void> updatePlan(
+    String id,
+    GoalDraft draft, {
+    double? externalSavings,
+  }) async {
     final goal = state.byId(id);
     if (goal == null) return;
+    if (externalSavings != null && externalSavings != goal.externalSavings) {
+      await _repo.setExternalSavings(
+        id,
+        externalSavings < 0 ? 0 : externalSavings,
+      );
+    }
     final before = {
       for (final e in goal.snapshot.buyPlan) e.ticker.toUpperCase(),
     };
@@ -172,7 +224,7 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
 final goalsProvider = StateNotifierProvider<GoalsNotifier, GoalsState>(
   (ref) => GoalsNotifier(
     ref.watch(goalsRepositoryProvider),
-    heldTickers: () => ref.read(goalHoldingsProvider).keys.toSet(),
+    holdings: () => ref.read(goalHoldingsProvider),
   ),
 );
 

@@ -1013,6 +1013,7 @@
   "goal_outside_subtitle": "Banco, efectivo u otro broker",
   "goal_outside_body": "¿Cuánto tenés en total para esta meta fuera de la app? Actualizalo cuando cambie, o contáselo a Porty.",
   "goal_outside_saved": "Listo, lo actualicé",
+  "goal_edit_outside_helper_invested": "Banco, efectivo u otro broker. Tus inversiones elegidas para esta meta ({amount}) se suman solas.",
   "goal_stat_monthly": "Por mes",
   "goal_stat_missing": "Te faltan",
   "goal_plan_share": "{pct} del aporte",

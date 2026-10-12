@@ -1011,6 +1011,7 @@
   "goal_outside_subtitle": "Bank, cash or another broker",
   "goal_outside_body": "How much do you have in total for this goal outside the app? Update it when it changes, or tell Porty.",
   "goal_outside_saved": "Done, updated",
+  "goal_edit_outside_helper_invested": "Bank, cash or another broker. The holdings you picked for this goal ({amount}) add up on their own.",
   "goal_stat_monthly": "Per month",
   "goal_stat_missing": "Still to go",
   "goal_plan_share": "{pct} of it",

@@ -302,7 +302,9 @@ class GetGoalProjectionTool implements DataTool {
         targetAmount: statedAmount,
         targetDate: ToolArgs.date(args, 'target_date'),
         label: ToolArgs.string(args, 'goal_label'),
-        monthlyContribution: _nonNegative(monthly),
+        // 0 no es un aporte que haya dicho: el modelo a veces lo manda
+        // cuando no lo sabe, y el plan quedaba en "0 $/mes".
+        monthlyContribution: _positive(monthly),
         currentSavings:
             _nonNegative(ToolArgs.number(args, 'current_savings')) ??
             fromBase(
