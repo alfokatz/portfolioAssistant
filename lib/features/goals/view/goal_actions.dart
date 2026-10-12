@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -81,7 +82,12 @@ abstract final class GoalActions {
     WidgetRef ref,
     UserGoal goal,
   ) async {
-    final holdings = ref.read(goalHoldingsProvider);
+    // Lo que le toca de cada inversión que comparte con otras metas.
+    final holdings = GoalShares.holdingsFor(
+      goal,
+      ref.read(goalsProvider).goals,
+      ref.read(goalHoldingsProvider),
+    );
     final invested = GoalReplan.capital(goal, holdings, externalSavings: 0);
     final change = await SavingsPlanEditSheet.show(
       context,

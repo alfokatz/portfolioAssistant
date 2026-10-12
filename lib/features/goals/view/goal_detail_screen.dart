@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_ca
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
@@ -72,7 +73,13 @@ class GoalDetailScreen extends ConsumerWidget {
       return Scaffold(appBar: AppBar());
     }
     final locale = Localizations.localeOf(context);
-    final holdings = ref.watch(goalHoldingsProvider);
+    final goals = ref.watch(goalsProvider).goals;
+    // Las inversiones que comparte con otras metas, solo con su parte.
+    final holdings = GoalShares.holdingsFor(
+      goal,
+      goals,
+      ref.watch(goalHoldingsProvider),
+    );
     final progress = GoalProgress.of(goal, DateTime.now(), holdings: holdings);
     final date = DateFormat.yMMMM(
       locale.toLanguageTag(),
@@ -138,6 +145,7 @@ class GoalDetailScreen extends ConsumerWidget {
           _SectionTitle('goal_counts_title'.tr()),
           _CountsCard(
             goal: goal,
+            goals: goals,
             holdings: holdings,
             onEditOutside:
                 () => _editOutside(context, ref, goal.externalSavings),
@@ -716,12 +724,18 @@ class _PlanCard extends StatelessWidget {
 class _CountsCard extends StatelessWidget {
   const _CountsCard({
     required this.goal,
+    required this.goals,
     required this.holdings,
     required this.onEditOutside,
     required this.onEditLinks,
   });
 
   final UserGoal goal;
+
+  /// Todas las metas: para decir con cuáles comparte cada inversión.
+  final List<UserGoal> goals;
+
+  /// Ya repartidas: lo que le toca a esta meta de cada inversión.
   final Map<String, double> holdings;
   final VoidCallback onEditOutside;
   final VoidCallback onEditLinks;
@@ -754,10 +768,20 @@ class _CountsCard extends StatelessWidget {
             _CountRow(
               leading: QaTickerAvatar(ticker: t, size: 36),
               title: t,
-              subtitle:
+              subtitle: switch (GoalShares.othersCounting(goal, t, goals)) {
+                // Compartida: con qué metas y qué parte le toca a esta.
+                final others when others.isNotEmpty => 'goal_counts_shared'.tr(
+                  namedArgs: {
+                    'goals': others.map((g) => g.label).join(', '),
+                    'pct':
+                        '${(GoalShares.shareOf(goal, t, goals) * 100).round()}',
+                  },
+                ),
+                _ =>
                   (holdings[t] ?? 0) > 0
                       ? names[t]
                       : 'goal_counts_not_held'.tr(),
+              },
               trailing: Text(
                 QaFormat.money(holdings[t] ?? 0),
                 style: valueStyle,
@@ -1131,8 +1155,8 @@ class _OutsideSavingsSheetState extends ConsumerState<_OutsideSavingsSheet> {
 }
 
 /// "Elegir qué cuenta": las inversiones de la cartera (y las del plan que
-/// todavía no tiene). Cada una cuenta para una sola meta: elegir una que
-/// está en otra la mueve a esta.
+/// todavía no tiene). Una que ya cuenta para otra meta puede contar
+/// también para esta: su valor se reparte (ver [GoalShares]).
 class _LinkHoldingsSheet extends ConsumerStatefulWidget {
   const _LinkHoldingsSheet({required this.goal});
 
@@ -1236,7 +1260,7 @@ class _LinkHoldingsSheetState extends ConsumerState<_LinkHoldingsSheet> {
                               ? QaFormat.money(holdings[t]!)
                               : 'goal_counts_not_held'.tr(),
                           if (ownerOf(t) case final owner?)
-                            'goal_link_in_other'.tr(namedArgs: {'goal': owner}),
+                            'goal_link_also_in'.tr(namedArgs: {'goal': owner}),
                         ].join(' · '),
                         style: tt.bodySmall?.copyWith(
                           color: colors.textSecondary,

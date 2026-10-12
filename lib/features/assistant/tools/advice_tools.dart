@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/utils/investor_profile_co
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// Candidatos para una simulación educativa de inversión (Gold).
@@ -505,7 +506,11 @@ class UpdateGoalSavingsTool implements DataTool {
             GoalProgress.of(
               current,
               ctx.now,
-              holdings: ctx.holdingsByTicker,
+              holdings: GoalShares.holdingsFor(
+                current,
+                ctx.savedGoals,
+                ctx.holdingsByTicker,
+              ),
             ).toBrief(),
       };
     } catch (_) {
@@ -539,8 +544,15 @@ abstract final class GoalTools {
         'target_date': GoalProgress.formatDate(g.targetDate),
         if (g.snapshot.buyPlan.isNotEmpty)
           'plan_instruments': [for (final e in g.snapshot.buyPlan) e.ticker],
-        ...GoalProgress.of(g, ctx.now, holdings: ctx.holdingsByTicker)
-            .toBrief(),
+        ...GoalProgress.of(
+          g,
+          ctx.now,
+          holdings: GoalShares.holdingsFor(
+            g,
+            ctx.savedGoals,
+            ctx.holdingsByTicker,
+          ),
+        ).toBrief(),
       },
   ];
 }

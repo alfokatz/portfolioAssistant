@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
@@ -101,7 +102,15 @@ class _GoalsScreenState extends BaseStatefulWidget<GoalsScreen> {
                 for (final goal in active) ...[
                   _GoalCard(
                     goal: goal,
-                    progress: GoalProgress.of(goal, now, holdings: holdings),
+                    progress: GoalProgress.of(
+                      goal,
+                      now,
+                      holdings: GoalShares.holdingsFor(
+                        goal,
+                        state.goals,
+                        holdings,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: AppDimens.sp12),
                 ],
@@ -126,7 +135,15 @@ class _GoalsScreenState extends BaseStatefulWidget<GoalsScreen> {
                   for (final goal in done) ...[
                     _GoalCard(
                     goal: goal,
-                    progress: GoalProgress.of(goal, now, holdings: holdings),
+                    progress: GoalProgress.of(
+                      goal,
+                      now,
+                      holdings: GoalShares.holdingsFor(
+                        goal,
+                        state.goals,
+                        holdings,
+                      ),
+                    ),
                   ),
                     const SizedBox(height: AppDimens.sp12),
                   ],

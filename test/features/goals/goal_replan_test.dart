@@ -151,14 +151,13 @@ void main() {
     expect(repo.planUpdates, 0);
   });
 
-  test('counting a stock the user already holds adds it to the total and '
-      'recalculates the monthly amount; the goal that lost it too', () async {
+  test('counting a stock the user already holds adds its share to the '
+      'total and recalculates the monthly amount, also for the goal it is '
+      'shared with', () async {
     final car = _trip(id: 'car', linked: const {'AAPL'});
     final repo = _Repo([_trip(), car]);
     final goals = _notifier(repo, {'AAPL': 4000});
     await goals.load();
-    // El auto todavía partía de 0 aunque contaba AAPL: queda igual hasta
-    // que algo cambie.
     final fromScratch =
         GoalReplan.draft(
           goals.state.byId('trip')!,
@@ -167,16 +166,17 @@ void main() {
 
     await goals.setLinkedTickers('trip', {'SGOV', 'VGSH', 'AAPL'});
 
+    // Ninguno de los dos planes compra AAPL: se reparte en partes iguales.
     final trip = goals.state.byId('trip')!;
-    expect(trip.snapshot.inputs.currentAmount, 4000);
+    expect(trip.snapshot.inputs.currentAmount, 2000);
     expect(trip.snapshot.plan.monthlyUsed, lessThan(fromScratch));
-    // El auto perdió AAPL: su plan sigue partiendo de 0 (ya lo hacía).
-    expect(goals.state.byId('car')!.linkedTickers, isEmpty);
-    expect(goals.state.byId('car')!.snapshot.inputs.currentAmount, 0);
+    expect(goals.state.byId('car')!.linkedTickers, {'AAPL'});
+    expect(goals.state.byId('car')!.snapshot.inputs.currentAmount, 2000);
 
-    // Sacarla vuelve a recalcular.
+    // Sacarla: al auto le vuelve a tocar todo.
     await goals.setLinkedTickers('trip', {'SGOV', 'VGSH'});
     expect(goals.state.byId('trip')!.snapshot.inputs.currentAmount, 0);
+    expect(goals.state.byId('car')!.snapshot.inputs.currentAmount, 4000);
   });
 
   test('a stock the user does not hold yet changes nothing', () async {

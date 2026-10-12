@@ -100,8 +100,8 @@ GoalDraft _draft(String label, GoalType type, List<String> buy) => GoalDraft(
 );
 
 void main() {
-  test('a saved goal counts its plan instruments right away, without '
-      'stealing them from another goal', () async {
+  test('a saved goal counts its plan instruments right away, even the ones '
+      'another goal also counts (their value is split)', () async {
     final repo = _Repo();
     final goals = GoalsNotifier(repo, heldTickers: () => {'AAPL', 'BIL'});
     final mac = await goals.save(
@@ -112,9 +112,11 @@ void main() {
     final trip = await goals.save(
       _draft('Viaje', GoalType.purchase, ['BIL', 'SGOV']),
     );
-    expect(trip.linkedTickers, {'SGOV'});
+    expect(trip.linkedTickers, {'BIL', 'SGOV'});
+    expect(goals.state.byId(mac.id)!.linkedTickers, {'BIL', 'SHV'});
 
-    // Una jubilación parte del valor de la cartera: cuenta lo que queda.
+    // Una jubilación sin compra mensual parte del valor de la cartera:
+    // cuenta lo que tiene y todavía no cuenta para otra meta.
     final retirement = await goals.save(_draft('Jubilación', GoalType.retirement, []));
     expect(retirement.linkedTickers, {'AAPL'});
   });
@@ -130,7 +132,8 @@ void main() {
     expect(again.linkedTickers, {'BIL', 'SGOV'});
   });
 
-  test('assigning a ticker to a goal moves it out of the other one', () async {
+  test('a ticker can count for two goals: assigning it does not take it '
+      'out of the other one', () async {
     final repo = _Repo();
     final goals = GoalsNotifier(repo);
     final mac = await goals.save(_draft('MacBook', GoalType.purchase, ['BIL']));
@@ -139,7 +142,7 @@ void main() {
     await goals.setLinkedTickers(trip.id, {'SGOV', 'bil'});
 
     expect(goals.state.byId(trip.id)!.linkedTickers, {'SGOV', 'BIL'});
-    expect(goals.state.byId(mac.id)!.linkedTickers, isEmpty);
+    expect(goals.state.byId(mac.id)!.linkedTickers, {'BIL'});
   });
 
   test('editing the plan from Metas keeps what the user removed out, and '
