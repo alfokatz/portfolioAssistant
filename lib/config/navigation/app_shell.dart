@@ -66,10 +66,10 @@ class AppShell extends ConsumerWidget with BaseScreen {
                 child: InkWell(
                   onTap: () => _onAddPosition(context, ref),
                   borderRadius: BorderRadius.circular(28),
-                  child: const SizedBox(
+                  child: SizedBox(
                     width: 56,
                     height: 56,
-                    child: Icon(Icons.add, color: Colors.white, size: 26),
+                    child: Icon(Icons.add, color: colors.onAccent, size: 26),
                   ),
                 ),
               )

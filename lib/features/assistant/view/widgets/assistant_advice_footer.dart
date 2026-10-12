@@ -7,7 +7,7 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Avisos fijos debajo de una respuesta de Invertir/Planificar: el aviso
 /// de perfil de inversor (si falta o venció) y el disclaimer de sugerencia
@@ -66,6 +66,7 @@ class _ProfileNudge extends StatelessWidget {
             ? 'assistant_profile_nudge_action_stale'.tr()
             : 'assistant_profile_nudge_action_missing'.tr();
 
+    final colors = context.customColors;
     return QaCardShell(
       highlighted: true,
       margin: const EdgeInsets.only(top: AppDimens.sp6),
@@ -73,10 +74,10 @@ class _ProfileNudge extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.lightbulb_outline,
             size: 16,
-            color: PortfolioColors.accentBlue,
+            color: colors.accentBlue,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -86,7 +87,7 @@ class _ProfileNudge extends StatelessWidget {
                 Text(
                   text,
                   style: TextStyle(
-                    color: PortfolioColors.textPrimary.withValues(alpha: 0.9),
+                    color: colors.textPrimary.withValues(alpha: 0.9),
                     fontSize: 13,
                     height: 1.35,
                   ),
@@ -95,7 +96,7 @@ class _ProfileNudge extends StatelessWidget {
                   onPressed:
                       () => context.pushNamed(InvestorProfileRouter.routeName),
                   style: TextButton.styleFrom(
-                    foregroundColor: PortfolioColors.accentBlueDim,
+                    foregroundColor: colors.accentDim,
                     minimumSize: const Size(0, AppDimens.touchTarget),
                     padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.padded,
@@ -134,8 +135,9 @@ class _MemoryNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: PortfolioColors.textSecondary,
+      color: colors.textSecondary,
       height: 1.4,
     );
     return Semantics(
@@ -149,10 +151,10 @@ class _MemoryNote extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: AppDimens.sp4),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.bookmark_add_outlined,
                   size: 14,
-                  color: PortfolioColors.accentBlue,
+                  color: colors.accentBlue,
                 ),
                 const SizedBox(width: AppDimens.sp6),
                 Expanded(
@@ -175,7 +177,7 @@ class _MemoryNote extends StatelessWidget {
                 Text(
                   'assistant_memory_see'.tr(),
                   style: style?.copyWith(
-                    color: PortfolioColors.accentBlueDim,
+                    color: colors.accentDim,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -193,17 +195,18 @@ class _AdviceDisclaimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     return Padding(
       padding: const EdgeInsets.only(top: AppDimens.sp8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
             child: Icon(
               Icons.info_outline_rounded,
               size: 12,
-              color: PortfolioColors.textSecondary,
+              color: colors.textSecondary,
             ),
           ),
           const SizedBox(width: AppDimens.sp4),
@@ -211,7 +214,7 @@ class _AdviceDisclaimer extends StatelessWidget {
             child: Text(
               'assistant_advice_disclaimer'.tr(),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: PortfolioColors.textSecondary,
+                color: colors.textSecondary,
                 height: 1.4,
               ),
             ),

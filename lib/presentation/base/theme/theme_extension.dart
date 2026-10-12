@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
@@ -21,6 +23,12 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.accentWarm,
     required this.cardBackground,
     required this.aiCardBorder,
+    required this.accentDim,
+    required this.onAccent,
+    required this.inset,
+    required this.track,
+    required this.haloStrength,
+    required this.glowScale,
   });
 
   final Color background;
@@ -40,6 +48,28 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color accentWarm;
   final Color cardBackground;
   final Color aiCardBorder;
+
+  /// Acento atenuado para links y acciones secundarias de texto.
+  final Color accentDim;
+
+  /// Texto e íconos sobre un relleno de acento (FAB, send, CTA terracota).
+  final Color onAccent;
+
+  /// Bloques internos de una card (más hundidos que la card).
+  final Color inset;
+
+  /// Fondo de barras de progreso y anillos.
+  final Color track;
+
+  /// Cuánto del acento tiñe el halo superior de `AppBackgroundGradient`
+  /// (0–1). En oscuro es mucho menor: el mismo 32% del claro se veía como
+  /// una mancha marrón sobre el grafito.
+  final double haloStrength;
+
+  /// Multiplicador de la opacidad de glows (foco, send, mic). Sobre fondo
+  /// oscuro un glow pleno se lee como neón; en oscuro baja a menos de la
+  /// mitad.
+  final double glowScale;
 
   Color pnlColor(double value) => value >= 0 ? profit : loss;
 
@@ -61,26 +91,39 @@ class CustomColors extends ThemeExtension<CustomColors> {
     accentWarm: PortfolioColors.accentWarm,
     cardBackground: PortfolioColors.surfaceCard,
     aiCardBorder: PortfolioColors.aiCardBorder,
+    accentDim: PortfolioColors.accentBlueDim,
+    onAccent: Colors.white,
+    inset: Color(0xFFF7F6F3),
+    track: Color(0x0F000000),
+    haloStrength: 0.32,
+    glowScale: 1,
   );
 
+  /// Ver `PortfolioColorsDark` para el porqué de cada valor.
   static const dark = CustomColors(
-    background: Color(0xFF0F0F0F),
-    surfaceCard: Color(0xFF1A1A1A),
-    surfaceElevated: Color(0xFF242424),
-    border: Color(0x14FFFFFF),
-    textPrimary: Color(0xFFEDEDF0),
-    textSecondary: Color(0xFF8A8A8E),
-    profit: Color(0xFF5CB85C),
-    loss: Color(0xFFE57373),
-    profitContainer: Color(0xFF1A2E1C),
-    lossContainer: Color(0xFF2E1A1A),
-    chartGrid: Color(0x0FFFFFFF),
-    chartLine: Color(0xFFEDEDF0),
-    benchmarkSp500: Color(0xFF8A8582),
-    accentBlue: Color(0xFFE3A472), // mismo acento cálido que accentWarm
-    accentWarm: Color(0xFFE3A472),
-    cardBackground: Color(0xFF1A1A1A),
-    aiCardBorder: Color(0x59E3A472), // accentWarm (dark) @ 35% alpha
+    background: PortfolioColorsDark.background,
+    surfaceCard: PortfolioColorsDark.surfaceCard,
+    surfaceElevated: PortfolioColorsDark.surfaceElevated,
+    border: PortfolioColorsDark.border,
+    textPrimary: PortfolioColorsDark.textPrimary,
+    textSecondary: PortfolioColorsDark.textSecondary,
+    profit: PortfolioColorsDark.profit,
+    loss: PortfolioColorsDark.loss,
+    profitContainer: PortfolioColorsDark.profitContainer,
+    lossContainer: PortfolioColorsDark.lossContainer,
+    chartGrid: PortfolioColorsDark.chartGrid,
+    chartLine: PortfolioColorsDark.chartLine,
+    benchmarkSp500: PortfolioColorsDark.benchmarkSp500,
+    accentBlue: PortfolioColorsDark.accent, // mismo acento que accentWarm
+    accentWarm: PortfolioColorsDark.accent,
+    cardBackground: PortfolioColorsDark.surfaceCard,
+    aiCardBorder: PortfolioColorsDark.aiCardBorder,
+    accentDim: PortfolioColorsDark.accentDim,
+    onAccent: PortfolioColorsDark.onAccent,
+    inset: PortfolioColorsDark.inset,
+    track: PortfolioColorsDark.track,
+    haloStrength: 0.10,
+    glowScale: 0.45,
   );
 
   @override
@@ -102,6 +145,12 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? accentWarm,
     Color? cardBackground,
     Color? aiCardBorder,
+    Color? accentDim,
+    Color? onAccent,
+    Color? inset,
+    Color? track,
+    double? haloStrength,
+    double? glowScale,
   }) {
     return CustomColors(
       background: background ?? this.background,
@@ -121,6 +170,12 @@ class CustomColors extends ThemeExtension<CustomColors> {
       accentWarm: accentWarm ?? this.accentWarm,
       cardBackground: cardBackground ?? this.cardBackground,
       aiCardBorder: aiCardBorder ?? this.aiCardBorder,
+      accentDim: accentDim ?? this.accentDim,
+      onAccent: onAccent ?? this.onAccent,
+      inset: inset ?? this.inset,
+      track: track ?? this.track,
+      haloStrength: haloStrength ?? this.haloStrength,
+      glowScale: glowScale ?? this.glowScale,
     );
   }
 
@@ -145,6 +200,12 @@ class CustomColors extends ThemeExtension<CustomColors> {
       accentWarm: Color.lerp(accentWarm, other.accentWarm, t)!,
       cardBackground: Color.lerp(cardBackground, other.cardBackground, t)!,
       aiCardBorder: Color.lerp(aiCardBorder, other.aiCardBorder, t)!,
+      accentDim: Color.lerp(accentDim, other.accentDim, t)!,
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
+      inset: Color.lerp(inset, other.inset, t)!,
+      track: Color.lerp(track, other.track, t)!,
+      haloStrength: lerpDouble(haloStrength, other.haloStrength, t)!,
+      glowScale: lerpDouble(glowScale, other.glowScale, t)!,
     );
   }
 }

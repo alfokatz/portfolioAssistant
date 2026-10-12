@@ -31,6 +31,7 @@ class SegmentedChoice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final duration =
         MediaQuery.disableAnimationsOf(context) ? Duration.zero : slideDuration;
     final index = options.indexWhere((o) => o.value == selected);
@@ -60,26 +61,32 @@ class SegmentedChoice<T> extends StatelessWidget {
               heightFactor: 1,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  // En oscuro la card es más oscura que el riel: el
-                  // indicador se aclara un poco para despegarse.
+                  // En claro el indicador es la card (blanca) sobre el riel
+                  // gris. En oscuro "más arriba" es "más claro": el
+                  // indicador sube un escalón por encima del riel, con borde
+                  // en vez de sombra (que no se ve sobre grafito).
                   color:
-                      Theme.of(context).brightness == Brightness.dark
+                      dark
                           ? Color.lerp(
                             colors.surfaceElevated,
-                            Colors.white,
+                            colors.textPrimary,
                             0.10,
                           )
                           : colors.surfaceCard,
+                  border: dark ? Border.all(color: colors.border) : null,
                   borderRadius: BorderRadius.circular(
                     AppDimens.radiusPill - _inset,
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 6,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
+                  boxShadow:
+                      dark
+                          ? null
+                          : const [
+                            BoxShadow(
+                              color: Color(0x14000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                 ),
               ),
             ),

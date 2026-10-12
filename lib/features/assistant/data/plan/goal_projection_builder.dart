@@ -169,7 +169,10 @@ abstract final class GoalProjectionBuilder {
       currentAmount: startingCapital,
       risk: risk,
       startDate: DateTime(reference.year, reference.month, reference.day),
-      monthlyContribution: monthlyContribution,
+      monthlyContribution:
+          monthlyContribution != null && monthlyContribution > 0
+              ? monthlyContribution
+              : null,
       isRetirement: retirement,
       desiredMonthlyIncome: incomeTarget != null ? desiredMonthlyIncome : null,
       incomeStrategy: strategy,
@@ -197,6 +200,7 @@ abstract final class GoalProjectionBuilder {
     DateTime? targetDate,
     double? currentAmount,
     RiskTolerance? risk,
+    DateTime? startDate,
   }) {
     final plan = original['plan'];
     final inputs = SavingsPlanInputs.fromJson(
@@ -206,7 +210,10 @@ abstract final class GoalProjectionBuilder {
     if (inputs == null || goal is! Map) return null;
     final date = targetDate ?? DateTime.tryParse('${goal['target_date']}');
     if (date == null) return null;
-    final months = monthsBetween(inputs.startDate, date);
+    // [startDate]: el plan se rehace desde esa fecha (una meta que cambió
+    // lo que ya tiene parte de hoy, con el plazo que le queda).
+    final start = startDate ?? inputs.startDate;
+    final months = monthsBetween(start, date);
     final shortTerm =
         !inputs.isRetirement && months <= PlanAssumptions.shortHorizonMonths;
     final amountChanged =
@@ -216,7 +223,7 @@ abstract final class GoalProjectionBuilder {
       months: months,
       currentAmount: currentAmount ?? inputs.currentAmount,
       risk: risk ?? inputs.risk,
-      startDate: inputs.startDate,
+      startDate: start,
       monthlyContribution: inputs.monthlyContribution,
       isRetirement: inputs.isRetirement,
       // Un monto puesto a mano reemplaza al que salía del ingreso pedido.

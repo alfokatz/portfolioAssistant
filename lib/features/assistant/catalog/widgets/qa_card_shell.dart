@@ -67,16 +67,23 @@ class QaCardShell extends StatelessWidget {
             highlighted
                 ? [
                   BoxShadow(
-                    color: QaColors.accentBlue.withValues(alpha: 0.14),
+                    color: QaColors.accentBlue.withValues(
+                      alpha: 0.14 * QaColors.glowScale,
+                    ),
                     blurRadius: AppDimens.glowBlurMd,
                   ),
                   BoxShadow(
-                    color: QaColors.accentWarm.withValues(alpha: 0.10),
+                    color: QaColors.accentWarm.withValues(
+                      alpha: 0.10 * QaColors.glowScale,
+                    ),
                     blurRadius: AppDimens.glowBlurSm,
                   ),
                 ]
                 // Sombra casi imperceptible: despega la card del fondo
-                // cálido sin el look "material elevado".
+                // cálido sin el look "material elevado". En oscuro no se
+                // ve: ahí la card se despega por ser más clara que el fondo.
+                : QaColors.isDark
+                ? null
                 : const [
                   BoxShadow(
                     color: Color(0x0A000000),

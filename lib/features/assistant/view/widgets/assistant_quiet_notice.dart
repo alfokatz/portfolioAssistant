@@ -1,8 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Aviso de la app en el lugar de una respuesta ([AssistantNotice]): texto
 /// secundario, sin card ni color de alerta — no es un error ni una venta.
@@ -21,8 +21,9 @@ class AssistantQuietNotice extends StatelessWidget {
         'assistant_daily_limit_body'.tr(),
       ),
     };
+    final colors = context.customColors;
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: PortfolioColors.textSecondary,
+      color: colors.textSecondary,
       height: 1.4,
     );
     return Padding(
@@ -32,12 +33,12 @@ class AssistantQuietNotice extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
               child: Icon(
                 Icons.schedule_rounded,
                 size: 14,
-                color: PortfolioColors.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
             const SizedBox(width: 8),

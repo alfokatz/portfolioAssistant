@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
@@ -14,14 +15,23 @@ import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dar
 /// El loader se muestra sin la espera de 300 ms: continúa al splash, que ya
 /// tiene a Porty en pantalla, así que no hay nada que titile.
 class AppBootstrap extends StatefulWidget {
-  const AppBootstrap({super.key, required this.initialize});
+  const AppBootstrap({
+    super.key,
+    required this.initialize,
+    this.themeMode = ThemeMode.system,
+  });
 
   /// Inicializa todo y devuelve la app lista para montar.
   final Future<Widget> Function() initialize;
 
+  /// El tema elegido en Ajustes: el loader lo respeta (claro en Porty con
+  /// el teléfono en oscuro → loader claro). Con [ThemeMode.system], sigue
+  /// al sistema.
+  final ThemeMode themeMode;
+
   /// Fondos del splash nativo (ver `flutter_native_splash` en pubspec.yaml).
   static const lightBackground = PortfolioColors.background;
-  static const darkBackground = Color(0xFF0F0F0F);
+  static const darkBackground = PortfolioColorsDark.background;
 
   @override
   State<AppBootstrap> createState() => _AppBootstrapState();
@@ -71,17 +81,23 @@ class _AppBootstrapState extends State<AppBootstrap> {
           ),
       child:
           app == null
-              ? const _BootLoader(key: ValueKey('boot'))
+              ? _BootLoader(
+                key: const ValueKey('boot'),
+                themeMode: widget.themeMode,
+              )
               : KeyedSubtree(key: const ValueKey('app'), child: app),
     );
   }
 }
 
-/// [PortyLoader] fuera del `MaterialApp` (todavía no existe): fondo, colores
-/// y textos según el sistema, como el splash nativo. Porty pasa de reposo
-/// (el splash) a pensar con el pulso, y debajo se turnan frases de carga.
+/// [PortyLoader] fuera del `MaterialApp` (todavía no existe): fondo y colores
+/// según el tema elegido en Ajustes (o el del sistema, si sigue al sistema),
+/// textos en el idioma del sistema. Porty pasa de reposo (el splash) a
+/// pensar con el pulso, y debajo se turnan frases de carga.
 class _BootLoader extends StatelessWidget {
-  const _BootLoader({super.key});
+  const _BootLoader({super.key, required this.themeMode});
+
+  final ThemeMode themeMode;
 
   /// El arranque suele durar poco: la primera frase entra antes que en los
   /// otros loaders.
@@ -114,7 +130,11 @@ class _BootLoader extends StatelessWidget {
   Widget build(BuildContext context) {
     final view = View.of(context);
     final dispatcher = view.platformDispatcher;
-    final dark = dispatcher.platformBrightness == Brightness.dark;
+    final dark = switch (themeMode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => dispatcher.platformBrightness == Brightness.dark,
+    };
     final copy = _copy(dispatcher.locale);
     return MediaQuery.fromView(
       view: view,

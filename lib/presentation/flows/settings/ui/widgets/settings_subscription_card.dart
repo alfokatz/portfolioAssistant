@@ -35,8 +35,14 @@ class SettingsSubscriptionCard extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.all(AppDimens.cardPaddingLg),
           decoration: BoxDecoration(
-            color: isGold ? SubscriptionGoldTheme.surfaceDark : colors.surfaceCard,
-            gradient: isGold ? SubscriptionGoldTheme.cardGradient : null,
+            color: isGold
+                ? SubscriptionGoldTheme.surfaceFor(Theme.of(context).brightness)
+                : colors.surfaceCard,
+            gradient: isGold
+                ? SubscriptionGoldTheme.cardGradientFor(
+                  Theme.of(context).brightness,
+                )
+                : null,
             borderRadius: BorderRadius.circular(AppDimens.radiusLg),
             border: Border.all(
               color: isGold

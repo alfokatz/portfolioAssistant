@@ -209,6 +209,35 @@ class GoalDraft {
   /// El `plan_id` del chat: guardar dos veces el mismo plan no duplica.
   final String? planKey;
 
+  /// El mismo plan con el aporte que eligió el usuario en la card ("Probá
+  /// otro aporte"): eso es lo que se guarda al confirmar, con la compra
+  /// mensual repartida igual. Un aporte de 0 no cambia nada.
+  GoalDraft withMonthlyContribution(double monthly) {
+    if (monthly <= 0) return this;
+    final inputs = snapshot.inputs.copyWith(monthlyContribution: monthly);
+    return GoalDraft(
+      label: label,
+      type: type,
+      targetAmount: targetAmount,
+      targetDate: targetDate,
+      snapshot: GoalPlanSnapshot(
+        inputs: inputs,
+        buyPlan: [
+          for (final e in snapshot.buyPlan)
+            GoalBuyPlanEntry(
+              ticker: e.ticker,
+              name: e.name,
+              kind: e.kind,
+              assetClassLabel: e.assetClassLabel,
+              pct: e.pct,
+              monthlyAmount: (monthly * e.pct / 100).round(),
+            ),
+        ],
+      ),
+      planKey: GoalProjectionBuilder.planIdFor(inputs),
+    );
+  }
+
   /// Desde el resultado de `get_goal_projection` o `get_monthly_buy_plan`
   /// (este trae además la compra mensual). `null` si no es un plan completo.
   static GoalDraft? fromToolResult(Map<String, Object?> result) {

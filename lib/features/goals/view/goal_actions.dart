@@ -2,7 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
-import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -72,24 +74,42 @@ abstract final class GoalActions {
   }
 
   /// "Editar plan" de una meta guardada: el mismo editor que la card del
-  /// chat. Recalcula el plan con lo que cambió y lo guarda en la meta.
+  /// chat. "Lo que ya tenés" es el mismo dato que "Ahorros fuera de la
+  /// app" (se ven y se guardan iguales); el plan parte de eso más el valor
+  /// de sus inversiones asignadas, y se recalcula y se guarda en la meta.
   static Future<void> editPlan(
     BuildContext context,
     WidgetRef ref,
     UserGoal goal,
   ) async {
-    final inputs = goal.snapshot.inputs;
+    // Lo que le toca de cada inversión que comparte con otras metas.
+    final holdings = GoalShares.holdingsFor(
+      goal,
+      ref.read(goalsProvider).goals,
+      ref.read(goalHoldingsProvider),
+    );
+    final invested = GoalReplan.capital(goal, holdings, externalSavings: 0);
     final change = await SavingsPlanEditSheet.show(
       context,
       label: goal.label,
-      inputs: inputs,
+      inputs: goal.snapshot.inputs,
       targetDate: goal.targetDate,
+      currentAmount: goal.externalSavings,
+      currentLabel: 'goal_outside_title'.tr(),
+      currentHelper:
+          invested > 0
+              ? 'goal_edit_outside_helper_invested'.tr(
+                namedArgs: {'amount': QaFormat.money(invested)},
+              )
+              : 'goal_outside_subtitle'.tr(),
     );
     if (change == null) return;
-    final draft = editedDraft(goal, change);
+    final draft = editedDraft(goal, change, holdings: holdings);
     if (draft == null) return;
     try {
-      await ref.read(goalsProvider.notifier).updatePlan(goal.id, draft);
+      await ref
+          .read(goalsProvider.notifier)
+          .updatePlan(goal.id, draft, externalSavings: change.currentAmount);
       ref
           .read(alertProvider.notifier)
           .showSuccess(message: 'goal_plan_updated'.tr());
@@ -98,70 +118,36 @@ abstract final class GoalActions {
     }
   }
 
-  /// La meta [goal] con lo que el usuario cambió en el editor. Si la
-  /// cartera sigue igual (mismo riesgo y plazo), se mantiene su compra
-  /// mensual con los montos nuevos; si cambió, van los instrumentos del
-  /// plan nuevo.
-  static GoalDraft? editedDraft(UserGoal goal, SavingsPlanEdit change) {
-    final inputs = goal.snapshot.inputs;
-    final edited = GoalProjectionBuilder.edit(
-      {
-        'plan': {'inputs': inputs.toJson()},
-        'active_goal': {
-          'label': goal.label,
-          'target_amount': goal.targetAmount,
-          'target_date': GoalProjectionBuilder.formatDate(goal.targetDate),
-        },
-        if (goal.type == GoalType.purchase)
-          'goal_type': GoalProjectionBuilder.goalPurchase,
-      },
+  /// La meta [goal] con lo que el usuario cambió en el editor (ver
+  /// [GoalReplan.draft]). Con [holdings], `change.currentAmount` son sus
+  /// ahorros fuera de la app: el plan parte de eso + sus inversiones
+  /// asignadas y, si eso cambió, se rehace desde hoy.
+  static GoalDraft? editedDraft(
+    UserGoal goal,
+    SavingsPlanEdit change, {
+    Map<String, double>? holdings,
+    DateTime? now,
+  }) {
+    final capital =
+        holdings == null
+            ? change.currentAmount
+            : GoalReplan.capital(
+              goal,
+              holdings,
+              externalSavings: change.currentAmount,
+            );
+    final today = now ?? DateTime.now();
+    return GoalReplan.draft(
+      goal,
       label: change.label,
       targetAmount: change.targetAmount,
       targetDate: change.targetDate,
-      currentAmount:
-          change.currentAmount != inputs.currentAmount
-              ? change.currentAmount
+      currentAmount: capital,
+      risk: change.risk,
+      startDate:
+          holdings != null && !GoalReplan.startsFrom(goal, capital)
+              ? DateTime(today.year, today.month, today.day)
               : null,
-      risk: change.risk != inputs.risk ? change.risk : null,
-    );
-    final draft = edited == null ? null : GoalDraft.fromToolResult(edited);
-    if (draft == null) return null;
-    final before = goal.snapshot.plan.allocation;
-    final after = draft.snapshot.plan.allocation;
-    final sameMix =
-        before.length == after.length &&
-        before.entries.every((e) => after[e.key] == e.value);
-    if (!sameMix || goal.snapshot.buyPlan.isEmpty) {
-      return GoalDraft(
-        label: draft.label,
-        type: goal.type,
-        targetAmount: draft.targetAmount,
-        targetDate: draft.targetDate,
-        snapshot: draft.snapshot,
-        planKey: draft.planKey,
-      );
-    }
-    final monthly = draft.snapshot.plan.monthlyUsed;
-    return GoalDraft(
-      label: draft.label,
-      type: goal.type,
-      targetAmount: draft.targetAmount,
-      targetDate: draft.targetDate,
-      snapshot: GoalPlanSnapshot(
-        inputs: draft.snapshot.inputs,
-        buyPlan: [
-          for (final e in goal.snapshot.buyPlan)
-            GoalBuyPlanEntry(
-              ticker: e.ticker,
-              name: e.name,
-              kind: e.kind,
-              assetClassLabel: e.assetClassLabel,
-              pct: e.pct,
-              monthlyAmount: (monthly * e.pct / 100).round(),
-            ),
-        ],
-      ),
-      planKey: draft.planKey,
     );
   }
 

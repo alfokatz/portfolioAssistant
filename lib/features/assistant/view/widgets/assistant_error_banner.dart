@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 /// Banner de falla de conexión real (ver `isConnectionFailure` en
 /// `gen_ui_error_message.dart`), con un botón de reintentar.
@@ -26,8 +26,9 @@ class AssistantErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     return Material(
-      color: PortfolioColors.surfaceCard,
+      color: colors.surfaceCard,
       borderRadius: BorderRadius.circular(AppDimens.radiusMd),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -43,7 +44,7 @@ class AssistantErrorBanner extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: PortfolioColors.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
             Align(

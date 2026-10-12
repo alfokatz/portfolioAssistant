@@ -413,7 +413,14 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               ),
             ),
           ),
-        if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
+        // Se guarda el aporte que el usuario eligió en el slider, si lo movió.
+        if (data.draft != null)
+          QaSaveGoalButton(
+            draft:
+                _monthly == null
+                    ? data.draft!
+                    : data.draft!.withMonthlyContribution(_monthly!),
+          ),
         QaFollowUpBar(items: _followUps(), limit: 4),
       ],
     );

@@ -36,6 +36,10 @@ abstract final class QaColors {
   static Color get profitContainer => _c.profitContainer;
   static Color get lossContainer => _c.lossContainer;
   static Color get aiCardBorder => _c.aiCardBorder;
+  static Color get onAccent => _c.onAccent;
+  static Color get inset => _c.inset;
+  static Color get track => _c.track;
+  static double get glowScale => _c.glowScale;
 }
 
 /// Tokens del kit de widgets GenUI de Porty: la escala tipográfica, los
@@ -177,7 +181,7 @@ abstract final class QaPalette {
   ];
   static const _categoricalDark = [
     Color(0xFFE3A472), // terracota (acento dark)
-    Color(0xFFD6D6DA), // gris claro
+    Color(0xFFD9D4CD), // marfil grisáceo (tibio, como el resto)
     Color(0xFF8DB592), // salvia
     Color(0xFFCDBB9F), // arena
     Color(0xFF86A6C6), // azul polvo
@@ -190,12 +194,10 @@ abstract final class QaPalette {
   static Color series(int index) => categorical[index % categorical.length];
 
   /// Fondo tenue de superficies internas (bloques dentro de una card).
-  static Color get inset =>
-      QaColors.isDark ? const Color(0xFF222222) : const Color(0xFFF7F6F3);
+  static Color get inset => QaColors.inset;
 
   /// Fondo de barras/anillos (6%).
-  static Color get track =>
-      QaColors.isDark ? const Color(0x14FFFFFF) : const Color(0x0F000000);
+  static Color get track => QaColors.track;
 
   static Color get profitTint => QaColors.profit.withValues(alpha: 0.12);
   static Color get lossTint => QaColors.loss.withValues(alpha: 0.12);

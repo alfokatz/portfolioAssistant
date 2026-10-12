@@ -224,14 +224,17 @@ class SavingsPlanInputs {
   double get effectiveDividendYield =>
       dividendYield ?? PlanAssumptions.dividendYield;
 
-  SavingsPlanInputs copyWith({double? targetAmount, double? dividendYield}) =>
-      SavingsPlanInputs(
+  SavingsPlanInputs copyWith({
+    double? targetAmount,
+    double? dividendYield,
+    double? monthlyContribution,
+  }) => SavingsPlanInputs(
         targetAmount: targetAmount ?? this.targetAmount,
         months: months,
         currentAmount: currentAmount,
         risk: risk,
         startDate: startDate,
-        monthlyContribution: monthlyContribution,
+        monthlyContribution: monthlyContribution ?? this.monthlyContribution,
         isRetirement: isRetirement,
         desiredMonthlyIncome: desiredMonthlyIncome,
         incomeStrategy: incomeStrategy,
@@ -272,7 +275,10 @@ class SavingsPlanInputs {
       currentAmount: current is num ? current.toDouble() : 0,
       risk: risk,
       startDate: start,
-      monthlyContribution: monthly is num ? monthly.toDouble() : null,
+      // Un aporte de 0 no es un aporte: planes guardados así (el modelo lo
+      // mandaba sin que el usuario lo dijera) vuelven a usar el necesario.
+      monthlyContribution:
+          monthly is num && monthly > 0 ? monthly.toDouble() : null,
       isRetirement: json['is_retirement'] == true,
       desiredMonthlyIncome: income is num ? income.toDouble() : null,
       incomeStrategy:
@@ -484,7 +490,9 @@ class SavingsPlan {
           annualReturn: returns[s]!,
         ),
     };
-    final monthly = inputs.monthlyContribution ?? required[PlanScenario.base]!;
+    final stated = inputs.monthlyContribution;
+    final monthly =
+        stated != null && stated > 0 ? stated : required[PlanScenario.base]!;
     final projected = {
       for (final s in PlanScenario.values)
         s: SavingsPlanCalculator.futureValue(

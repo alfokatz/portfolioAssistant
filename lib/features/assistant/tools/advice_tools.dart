@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/utils/investor_profile_co
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// Candidatos para una simulación educativa de inversión (Gold).
@@ -302,7 +303,9 @@ class GetGoalProjectionTool implements DataTool {
         targetAmount: statedAmount,
         targetDate: ToolArgs.date(args, 'target_date'),
         label: ToolArgs.string(args, 'goal_label'),
-        monthlyContribution: _nonNegative(monthly),
+        // 0 no es un aporte que haya dicho: el modelo a veces lo manda
+        // cuando no lo sabe, y el plan quedaba en "0 $/mes".
+        monthlyContribution: _positive(monthly),
         currentSavings:
             _nonNegative(ToolArgs.number(args, 'current_savings')) ??
             fromBase(
@@ -503,7 +506,11 @@ class UpdateGoalSavingsTool implements DataTool {
             GoalProgress.of(
               current,
               ctx.now,
-              holdings: ctx.holdingsByTicker,
+              holdings: GoalShares.holdingsFor(
+                current,
+                ctx.savedGoals,
+                ctx.holdingsByTicker,
+              ),
             ).toBrief(),
       };
     } catch (_) {
@@ -537,8 +544,15 @@ abstract final class GoalTools {
         'target_date': GoalProgress.formatDate(g.targetDate),
         if (g.snapshot.buyPlan.isNotEmpty)
           'plan_instruments': [for (final e in g.snapshot.buyPlan) e.ticker],
-        ...GoalProgress.of(g, ctx.now, holdings: ctx.holdingsByTicker)
-            .toBrief(),
+        ...GoalProgress.of(
+          g,
+          ctx.now,
+          holdings: GoalShares.holdingsFor(
+            g,
+            ctx.savedGoals,
+            ctx.holdingsByTicker,
+          ),
+        ).toBrief(),
       },
   ];
 }

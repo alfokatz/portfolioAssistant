@@ -30,17 +30,31 @@ class SavingsPlanEditSheet extends StatefulWidget {
     required this.label,
     required this.inputs,
     required this.targetDate,
+    this.currentAmount,
+    this.currentLabel,
+    this.currentHelper,
   });
 
   final String label;
   final SavingsPlanInputs inputs;
   final DateTime targetDate;
 
+  /// Valor inicial de "lo que ya tenés" (default: el del plan). Una meta
+  /// guardada pasa sus ahorros fuera de la app: es el mismo dato.
+  final double? currentAmount;
+
+  /// Rótulo y ayuda del campo (default: "Lo que ya tenés para esto").
+  final String? currentLabel;
+  final String? currentHelper;
+
   static Future<SavingsPlanEdit?> show(
     BuildContext context, {
     required String label,
     required SavingsPlanInputs inputs,
     required DateTime targetDate,
+    double? currentAmount,
+    String? currentLabel,
+    String? currentHelper,
   }) => showModalBottomSheet<SavingsPlanEdit>(
     context: context,
     isScrollControlled: true,
@@ -52,6 +66,9 @@ class SavingsPlanEditSheet extends StatefulWidget {
           label: label,
           inputs: inputs,
           targetDate: targetDate,
+          currentAmount: currentAmount,
+          currentLabel: currentLabel,
+          currentHelper: currentHelper,
         ),
   );
 
@@ -82,10 +99,10 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
     text: widget.inputs.targetAmount.round().toString(),
   );
   late final _current = TextEditingController(
-    text:
-        widget.inputs.currentAmount > 0
-            ? widget.inputs.currentAmount.round().toString()
-            : '',
+    text: switch (widget.currentAmount ?? widget.inputs.currentAmount) {
+      final v when v > 0 => v.round().toString(),
+      _ => '',
+    },
   );
   late DateTime _date = widget.targetDate;
   late RiskTolerance _risk = widget.inputs.risk;
@@ -308,9 +325,13 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               keyboardType: TextInputType.number,
               inputFormatters: digits,
               decoration: _decoration(
-                'Lo que ya tenés para esto',
+                widget.currentLabel ?? 'Lo que ya tenés para esto',
                 prefix: r'$ ',
                 hint: '0',
+              ).copyWith(
+                helperText: widget.currentHelper,
+                helperMaxLines: 3,
+                helperStyle: QaText.caption,
               ),
             ),
             const SizedBox(height: 16),
@@ -345,14 +366,14 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               onPressed: _valid ? _apply : null,
               style: FilledButton.styleFrom(
                 backgroundColor: QaColors.accentBlue,
-                foregroundColor: Colors.white,
+                foregroundColor: QaColors.onAccent,
                 minimumSize: const Size.fromHeight(48),
                 shape: const StadiumBorder(),
               ),
               child: Text(
                 'Aplicar cambios',
                 style: QaText.label.copyWith(
-                  color: Colors.white,
+                  color: QaColors.onAccent,
                   fontWeight: FontWeight.w700,
                 ),
               ),

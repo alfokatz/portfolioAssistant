@@ -408,7 +408,9 @@ class _PaywallPlanCard extends StatelessWidget {
       label: _titleKey.tr(),
       child: Material(
         color:
-            featured ? SubscriptionGoldTheme.surfaceDark : colors.surfaceCard,
+            featured
+                ? SubscriptionGoldTheme.surfaceFor(Theme.of(context).brightness)
+                : colors.surfaceCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppDimens.radiusLg),
           side: BorderSide(

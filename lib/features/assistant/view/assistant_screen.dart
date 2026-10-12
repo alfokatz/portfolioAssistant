@@ -39,6 +39,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/top_edge_fade.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
@@ -49,7 +50,6 @@ import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart'
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
 /// `true` una vez que el avatar del header hizo su entrada en esta sesión de
@@ -742,7 +742,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                               style: Theme.of(
                                 context,
                               ).textTheme.labelMedium?.copyWith(
-                                color: PortfolioColors.textSecondary,
+                                color: context.customColors.textSecondary,
                               ),
                             ),
                           ),

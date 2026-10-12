@@ -121,7 +121,13 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
             center: const Alignment(0.9, -0.7),
             radius: 1.2,
             colors: [
-              Color.lerp(colors.surfaceCard, colors.accentWarm, 0.22)!,
+              // Brillo terracota en la esquina: en oscuro baja con
+              // `glowScale`, si no la card se veía manchada de marrón.
+              Color.lerp(
+                colors.surfaceCard,
+                colors.accentWarm,
+                0.22 * colors.glowScale,
+              )!,
               colors.surfaceCard,
             ],
             stops: const [0.0, 0.85],

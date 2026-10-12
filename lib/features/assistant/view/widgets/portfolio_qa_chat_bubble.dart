@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/typewriter_text.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 
 class PortfolioQaChatBubble extends StatelessWidget {
   const PortfolioQaChatBubble({
@@ -23,6 +23,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == PortfolioQaRole.user;
+    final colors = context.customColors;
 
     // El usuario mantiene una pill compacta a la derecha — marca claramente
     // "esto lo escribiste vos". La respuesta de Porty no lleva chrome de
@@ -44,7 +45,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
               vertical: AppDimens.sp12,
             ),
             decoration: BoxDecoration(
-              color: PortfolioColors.surfaceElevated,
+              color: colors.surfaceElevated,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(AppDimens.radiusLg),
                 topRight: const Radius.circular(AppDimens.radiusLg),
@@ -55,7 +56,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
             child: TypewriterText(
               text: message.content,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: PortfolioColors.textPrimary,
+                color: colors.textPrimary,
                 height: 1.5,
               ),
               skipAnimation: message.hasRevealed,
@@ -75,7 +76,7 @@ class PortfolioQaChatBubble extends StatelessWidget {
       child: SelectableText(
         message.content,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: PortfolioColors.textPrimary,
+          color: colors.textPrimary,
           height: 1.55,
         ),
       ),

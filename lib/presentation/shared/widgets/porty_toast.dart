@@ -166,11 +166,15 @@ class _ToastCard extends StatelessWidget {
           color: colors.surfaceCard,
           borderRadius: BorderRadius.circular(AppDimens.radiusXl),
           border: Border.all(color: colors.border),
-          boxShadow: const [
+          // Flota sobre el contenido: la sombra se mantiene, más densa en
+          // oscuro, donde una sombra al 7% desaparece sobre el grafito.
+          boxShadow: [
             BoxShadow(
-              color: Color(0x12000000),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0x59000000)
+                  : const Color(0x12000000),
               blurRadius: 18,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
