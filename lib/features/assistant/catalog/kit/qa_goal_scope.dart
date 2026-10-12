@@ -153,24 +153,24 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
             onPressed: _saving ? null : () => _confirm(scope, updates: updates),
             icon:
                 _saving
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                       dimension: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: QaColors.onAccent,
                       ),
                     )
                     : const Icon(Icons.flag_rounded, size: 18),
             label: Text(
               updates ? 'Confirmar y actualizar meta' : 'Confirmar y crear meta',
               style: QaText.label.copyWith(
-                color: Colors.white,
+                color: QaColors.onAccent,
                 fontWeight: FontWeight.w700,
               ),
             ),
             style: FilledButton.styleFrom(
               backgroundColor: QaColors.accentBlue,
-              foregroundColor: Colors.white,
+              foregroundColor: QaColors.onAccent,
               disabledBackgroundColor: QaColors.accentBlue.withValues(
                 alpha: 0.6,
               ),

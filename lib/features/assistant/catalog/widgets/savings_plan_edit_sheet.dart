@@ -345,14 +345,14 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               onPressed: _valid ? _apply : null,
               style: FilledButton.styleFrom(
                 backgroundColor: QaColors.accentBlue,
-                foregroundColor: Colors.white,
+                foregroundColor: QaColors.onAccent,
                 minimumSize: const Size.fromHeight(48),
                 shape: const StadiumBorder(),
               ),
               child: Text(
                 'Aplicar cambios',
                 style: QaText.label.copyWith(
-                  color: Colors.white,
+                  color: QaColors.onAccent,
                   fontWeight: FontWeight.w700,
                 ),
               ),

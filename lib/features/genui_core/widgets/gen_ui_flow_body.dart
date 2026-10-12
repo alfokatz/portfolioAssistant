@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
 /// Cuerpo de carga para pantallas GenUI: Porty pensando, con [message]
@@ -26,23 +26,24 @@ class GenUiFlowErrorBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline,
-              color: PortfolioColors.loss,
+              color: colors.loss,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: PortfolioColors.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 16,
               ),
             ),
@@ -52,8 +53,8 @@ class GenUiFlowErrorBody extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               label: const Text('Reintentar'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: PortfolioColors.textPrimary,
-                side: const BorderSide(color: PortfolioColors.textSecondary),
+                foregroundColor: colors.textPrimary,
+                side: BorderSide(color: colors.textSecondary),
               ),
             ),
           ],

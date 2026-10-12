@@ -69,6 +69,11 @@ ThemeData _buildThemeData({
       ),
       margin: EdgeInsets.zero,
     ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: customColors.accentWarm,
+      selectionColor: customColors.accentWarm.withValues(alpha: 0.28),
+      selectionHandleColor: customColors.accentWarm,
+    ),
     dividerTheme: DividerThemeData(
       color: customColors.border,
       thickness: 0.5,
@@ -114,8 +119,11 @@ ThemeData _buildThemeData({
         vertical: 14,
       ),
       labelStyle: TextStyle(color: scheme.onSurfaceVariant),
+      // En oscuro el 60% quedaba en ~3:1: el hint sube para cumplir AA.
       hintStyle: TextStyle(
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+        color: scheme.onSurfaceVariant.withValues(
+          alpha: scheme.brightness == Brightness.dark ? 0.85 : 0.6,
+        ),
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),

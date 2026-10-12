@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Input del chat de Porty (token `input-field-chat` en DESIGN.md).
@@ -75,7 +74,9 @@ class _AssistantComposerFieldState extends State<AssistantComposerField> {
           // Siempre presente (alpha 0 en reposo) para que AnimatedContainer
           // interpole el glow en vez de hacerlo aparecer de golpe.
           BoxShadow(
-            color: colors.accentBlue.withValues(alpha: focused ? 0.16 : 0),
+            color: colors.accentBlue.withValues(
+              alpha: focused ? 0.16 * colors.glowScale : 0,
+            ),
             blurRadius: AppDimens.glowBlurSm,
           ),
         ],
@@ -99,7 +100,11 @@ class _AssistantComposerFieldState extends State<AssistantComposerField> {
         decoration: InputDecoration(
           hintText: widget.hintText,
           hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: colors.textSecondary.withValues(alpha: 0.6),
+            color: colors.textSecondary.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.85
+                  : 0.6,
+            ),
           ),
           isCollapsed: true,
           filled: false,
@@ -123,7 +128,13 @@ class AssistantSendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
     final enabled = onTap != null;
+    // En claro la flecha va en tinta carbón; en oscuro el texto principal
+    // es marfil y sobre el terracota no se lee: va la tinta `onAccent`.
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? colors.onAccent
+        : colors.textPrimary;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -131,11 +142,15 @@ class AssistantSendButton extends StatelessWidget {
             enabled
                 ? [
                   BoxShadow(
-                    color: PortfolioColors.accentBlue.withValues(alpha: 0.30),
+                    color: colors.accentBlue.withValues(
+                      alpha: 0.30 * colors.glowScale,
+                    ),
                     blurRadius: AppDimens.glowBlurSm,
                   ),
                   BoxShadow(
-                    color: PortfolioColors.accentWarm.withValues(alpha: 0.22),
+                    color: colors.accentWarm.withValues(
+                      alpha: 0.22 * colors.glowScale,
+                    ),
                     blurRadius: AppDimens.glowBlurMd,
                   ),
                 ]
@@ -144,18 +159,18 @@ class AssistantSendButton extends StatelessWidget {
       child: Material(
         color:
             enabled
-                ? PortfolioColors.accentBlue
-                : PortfolioColors.accentBlue.withValues(alpha: 0.35),
+                ? colors.accentBlue
+                : colors.accentBlue.withValues(alpha: 0.35),
         shape: const CircleBorder(),
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          child: const SizedBox(
+          child: SizedBox(
             width: AssistantComposerField.height,
             height: AssistantComposerField.height,
             child: Icon(
               Icons.arrow_upward_rounded,
-              color: PortfolioColors.textPrimary,
+              color: ink,
               size: AppDimens.iconMd,
             ),
           ),
@@ -224,6 +239,9 @@ class _AssistantMicButtonState extends State<AssistantMicButton>
     final enabled = widget.onTap != null;
     final listening = widget.listening;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? colors.onAccent
+        : colors.textPrimary;
     return Semantics(
       button: true,
       label:
@@ -242,8 +260,8 @@ class _AssistantMicButtonState extends State<AssistantMicButton>
                   listening
                       ? [
                         BoxShadow(
-                          color: PortfolioColors.accentBlue.withValues(
-                            alpha: 0.18 + 0.22 * glow,
+                          color: colors.accentBlue.withValues(
+                            alpha: (0.18 + 0.22 * glow) * colors.glowScale,
                           ),
                           blurRadius: AppDimens.glowBlurSm + 8 * glow,
                           spreadRadius: 2 * glow,
@@ -257,7 +275,7 @@ class _AssistantMicButtonState extends State<AssistantMicButton>
         child: Material(
           color:
               listening
-                  ? PortfolioColors.accentBlue
+                  ? colors.accentBlue
                   : colors.surfaceCard.withValues(alpha: enabled ? 1 : 0.6),
           shape: CircleBorder(
             side:
@@ -275,7 +293,7 @@ class _AssistantMicButtonState extends State<AssistantMicButton>
                 listening ? Icons.stop_rounded : Icons.mic_none_rounded,
                 color:
                     listening
-                        ? PortfolioColors.textPrimary
+                        ? ink
                         : colors.textSecondary.withValues(
                           alpha: enabled ? 1 : 0.5,
                         ),

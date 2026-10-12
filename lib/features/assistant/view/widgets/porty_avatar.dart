@@ -50,7 +50,7 @@ enum PortyThinkingStyle {
 }
 
 /// Colores de Porty. [brand] va igual en light y en dark: el terracota tiene
-/// ~7:1 contra el fondo dark (#0F0F0F) y los ojos ~4,9:1 contra el cuerpo.
+/// ~6,9:1 contra el fondo dark (#171614) y los ojos ~4,9:1 contra el cuerpo.
 @immutable
 class PortyAvatarPalette {
   const PortyAvatarPalette({

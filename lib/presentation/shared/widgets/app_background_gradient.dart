@@ -25,7 +25,13 @@ class AppBackgroundGradient extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.lerp(colors.background, colors.accentWarm, 0.32)!,
+            // 32% en claro, 10% en oscuro (`haloStrength`): sobre grafito
+            // el mismo lavado se volvía una mancha marrón.
+            Color.lerp(
+              colors.background,
+              colors.accentWarm,
+              colors.haloStrength,
+            )!,
             colors.background,
           ],
           stops: const [0.0, 0.28],

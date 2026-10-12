@@ -12,6 +12,24 @@ abstract final class SubscriptionGoldTheme {
     colors: [accent, accentLight],
   );
 
+  /// En oscuro el piedra (#1C1917) se perdía contra el fondo grafito y la
+  /// card destacada dejaba de destacarse: sube un escalón, con un dejo
+  /// ámbar, por encima de las cards comunes.
+  static const surfaceRaised = Color(0xFF362E22);
+  static const surfaceRaisedEnd = Color(0xFF2B261D);
+
+  static Color surfaceFor(Brightness brightness) =>
+      brightness == Brightness.dark ? surfaceRaised : surfaceDark;
+
+  static LinearGradient cardGradientFor(Brightness brightness) =>
+      brightness == Brightness.dark
+          ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [surfaceRaised, surfaceRaisedEnd],
+          )
+          : cardGradient;
+
   static LinearGradient get cardGradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

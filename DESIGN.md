@@ -159,6 +159,36 @@ Paleta **Restrained**: neutros cálidos tenues + un acento secundario terracota 
 
 **The Ink Button Rule.** El CTA primario de auth usa charcoal (#2F3437) sobre blanco, no el acento saturado. El acento queda para estados de foco, no para competir con el hero numérico.
 
+### Dark mode — "The Quiet Ledger, de noche"
+
+El oscuro no es el claro invertido ni un negro genérico: es la misma paleta Restrained, con los mismos roles, vista de noche. Fuente única: `PortfolioColorsDark` (`portfolio_colors.dart`), que alimenta `CustomColors.dark` y el `ColorScheme` oscuro. Ningún widget declara hex propios para oscuro.
+
+| Token | Valor | OKLCH | Uso |
+|---|---|---|---|
+| background | #171614 | 0.200 0.004 70 | Canvas |
+| surface-card | #1F1D1B | 0.232 0.005 70 | Cards, sheets, composer |
+| surface-elevated | #282523 | 0.268 0.006 70 | Inputs, riel del segmentado, burbuja del usuario |
+| inset | #23211F | 0.250 0.0055 70 | Bloques dentro de una card |
+| border | marfil 10% | — | Bordes y divisores |
+| text-primary | #E9E6E1 | 0.925 0.007 80 | 13,5:1 sobre card |
+| text-secondary | #A7A29C | 0.715 0.010 75 | 6,6:1 sobre card |
+| accent | #D69A72 | 0.735 0.09 55 | Mismo terracota, 7:1 sobre card |
+| on-accent | #211711 | — | Tinta sobre el acento (FAB, send, CTA) |
+| profit | #86C493 | 0.765 0.095 150 | Salvia, 8,3:1 |
+| loss | #E5897F | 0.725 0.115 27 | Arcilla, 6,6:1 |
+
+**The Warm Graphite Rule.** Los neutros oscuros llevan una pizca del tono terracota (C ≈ 0.005), igual que los cálidos del claro. Prohibido el negro puro (#000/#0F0F0F) y el gris neutro de plantilla (#1A1A1A/#242424): con texto casi blanco dan ~17:1, que vibra y se siente duro y genérico.
+
+**Lighter Is Higher.** En oscuro la profundidad se comunica aclarando la superficie, en pasos chicos y parejos (L 0.20 → 0.23 → 0.27). Las sombras no se ven sobre grafito: el indicador del segmentado, la card destacada de Gold y los insets suben de luz o llevan borde, no sombra.
+
+**Ivory, Not White.** Texto en marfil tibio, nunca #FFF ni blanco frío azulado. El secundario cumple AA en todas las superficies; los hints suben a 85% de opacidad (no 60%) para no caer debajo de 4,5:1.
+
+**Muted Semantics.** Verde salvia y rojo arcilla, desaturados, con el mismo carácter editorial que los profundos del claro. Nada de verde semáforo (#5CB85C) ni rojo Material (#E57373).
+
+**Dim the Glow.** Todo halo o glow se multiplica por `glowScale` (0.45 en oscuro) y el halo de `AppBackgroundGradient` usa `haloStrength` (10% en oscuro contra 32% en claro). Sobre fondo oscuro un glow pleno se lee como neón y el lavado terracota como una mancha marrón.
+
+**Ink On Accent.** Sobre un relleno terracota va la tinta `onAccent` (oscura), nunca el texto principal (marfil, ~1,9:1) ni blanco (~2,4:1).
+
 ## Typography
 
 **Display / Body / Label Font:** Plus Jakarta Sans (bundled, weights 400–700) con fallback system-ui.
@@ -230,7 +260,7 @@ Componentes refinados y consistentes; estados hover/focus/disabled/loading en co
 ### Chat Composer (Porty)
 Variante propia del input del chat (`input-field-chat` + `button-send-chat`), separada del `inputDecorationTheme` global: los inputs de formularios y auth no cambian. Código: `AssistantComposerField` + `_SendButton` en `assistant_screen.dart`.
 - **Shape:** píldora, radius `pill` (26px = mitad del alto de 52px); al crecer a multilínea (máx. 4) queda estadio. Send button circular del mismo diámetro (52px).
-- **Background:** Pure Surface opaco (dark: surface-card #1A1A1A). Sin blur ni transparencia — la sensación de "flotante" sale del contraste con Warm Canvas + halo de `AppBackgroundGradient` y del aire alrededor, no de elevación.
+- **Background:** Pure Surface opaco (dark: surface-card #1F1D1B). Sin blur ni transparencia — la sensación de "flotante" sale del contraste con Warm Canvas + halo de `AppBackgroundGradient` y del aire alrededor, no de elevación.
 - **Aire:** 24px lateral (más que los 20px de página), 12px arriba, 20px abajo por encima del safe area.
 - **Reposo:** borde 1px Whisper Border, sin sombra.
 - **Focus:** borde Warm Accent 1.5px + glow terracota tenue (alpha 0.16, blur 10px), animado 180ms. Es feedback de interacción, no elevación: única sombra permitida en inputs y solo mientras hay foco.

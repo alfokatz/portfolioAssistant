@@ -21,7 +21,7 @@ class AppBootstrap extends StatefulWidget {
 
   /// Fondos del splash nativo (ver `flutter_native_splash` en pubspec.yaml).
   static const lightBackground = PortfolioColors.background;
-  static const darkBackground = Color(0xFF0F0F0F);
+  static const darkBackground = PortfolioColorsDark.background;
 
   @override
   State<AppBootstrap> createState() => _AppBootstrapState();

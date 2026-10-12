@@ -8,7 +8,6 @@ import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dar
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 
@@ -336,12 +335,15 @@ class _MicButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final foreground =
-        listening ? PortfolioColors.textPrimary : colors.textPrimary;
+        listening
+            ? (dark ? colors.onAccent : colors.textPrimary)
+            : colors.textPrimary;
     return Semantics(
       button: true,
       child: Material(
-        color: listening ? PortfolioColors.accentBlue : colors.surfaceCard,
+        color: listening ? colors.accentBlue : colors.surfaceCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppDimens.radiusPill),
           side:

@@ -101,12 +101,12 @@ dev_dependencies:
 # `dart run flutter_native_splash:create`.
 flutter_native_splash:
   color: "#FBFBFA"
-  color_dark: "#0F0F0F"
+  color_dark: "#171614"
   image: assets/porty-avatar/splash/porty_splash.png
   image_dark: assets/porty-avatar/splash/porty_splash.png
   android_12:
     color: "#FBFBFA"
-    color_dark: "#0F0F0F"
+    color_dark: "#171614"
     image: assets/porty-avatar/splash/porty_splash_android12.png
     image_dark: assets/porty-avatar/splash/porty_splash_android12.png
   web: false

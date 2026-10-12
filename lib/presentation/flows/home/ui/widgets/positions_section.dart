@@ -235,7 +235,7 @@ class _PositionDismissibleRow extends StatelessWidget {
         color: colors.loss.withValues(alpha: 0.85),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: AppDimens.cardPadding),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: Icon(Icons.delete_outline, color: colors.onAccent),
       ),
       child: row,
     );

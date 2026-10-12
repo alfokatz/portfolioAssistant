@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 void main() {
   late List<PortyHapticPattern> fired;
@@ -21,6 +22,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          theme: ThemeData(extensions: const [CustomColors.light]),
           home: Scaffold(body: PortfolioQaChatBubble(message: message)),
         ),
       ),
