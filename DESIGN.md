@@ -172,7 +172,7 @@ El oscuro no es el claro invertido ni un negro genérico: es la misma paleta Res
 | border | marfil 10% | — | Bordes y divisores |
 | text-primary | #E9E6E1 | 0.925 0.007 80 | 13,5:1 sobre card |
 | text-secondary | #A7A29C | 0.715 0.010 75 | 6,6:1 sobre card |
-| accent | #D69A72 | 0.735 0.09 55 | Mismo terracota, 7:1 sobre card |
+| accent | #C09479 | 0.70 0.065 52 | El mismo terracota, apagado (arcilla), 6,2:1 sobre card |
 | on-accent | #211711 | — | Tinta sobre el acento (FAB, send, CTA) |
 | profit | #86C493 | 0.765 0.095 150 | Salvia, 8,3:1 |
 | loss | #E5897F | 0.725 0.115 27 | Arcilla, 6,6:1 |
@@ -185,7 +185,9 @@ El oscuro no es el claro invertido ni un negro genérico: es la misma paleta Res
 
 **Muted Semantics.** Verde salvia y rojo arcilla, desaturados, con el mismo carácter editorial que los profundos del claro. Nada de verde semáforo (#5CB85C) ni rojo Material (#E57373).
 
-**Dim the Glow.** Todo halo o glow se multiplica por `glowScale` (0.45 en oscuro) y el halo de `AppBackgroundGradient` usa `haloStrength` (10% en oscuro contra 32% en claro). Sobre fondo oscuro un glow pleno se lee como neón y el lavado terracota como una mancha marrón.
+**No Gradients At Night.** En oscuro no hay degradés: el halo de `AppBackgroundGradient` usa `haloStrength` 0, la card del total va lisa y el relleno del gráfico apenas se insinúa. Los glows de foco se multiplican por `glowScale` (0.35). Sobre grafito cualquier lavado terracota se lee como neón o mancha marrón.
+
+**Muted Clay.** El terracota en oscuro baja de croma (arcilla, C 0.065): acento, FAB y Porty (`PortyAvatarPalette.brandDark`, que el avatar elige solo). Saturado, sobre fondo oscuro se ve flúor.
 
 **Ink On Accent.** Sobre un relleno terracota va la tinta `onAccent` (oscura), nunca el texto principal (marfil, ~1,9:1) ni blanco (~2,4:1).
 

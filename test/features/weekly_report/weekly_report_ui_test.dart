@@ -271,9 +271,10 @@ void main() {
       }
       expect(floats.length, greaterThan(1));
 
+      // Listo: Porty se va de la card (la Home ya lo tiene arriba).
       controller.emit(ready(fullReport(), fresh: true));
       await tester.pumpAndSettle();
-      expect(avatar(), const PortyFrame.still(PortyAvatarState.idle));
+      expect(find.byType(PortyAvatar), findsNothing);
     });
 
     testWidgets('Free with the tasting used: numbers, no S&P, Gold line', (

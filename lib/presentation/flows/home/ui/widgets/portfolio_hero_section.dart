@@ -7,7 +7,6 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/utils/home_chart_utils.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_line_chart.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
@@ -117,21 +116,21 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(0.9, -0.7),
-            radius: 1.2,
-            colors: [
-              // Brillo terracota en la esquina: en oscuro baja con
-              // `glowScale`, si no la card se veía manchada de marrón.
-              Color.lerp(
-                colors.surfaceCard,
-                colors.accentWarm,
-                0.22 * colors.glowScale,
-              )!,
-              colors.surfaceCard,
-            ],
-            stops: const [0.0, 0.85],
-          ),
+          // Brillo terracota en la esquina, solo en claro: en oscuro
+          // cualquier degradé naranja se ve flúor, y la card va lisa.
+          color: colors.surfaceCard,
+          gradient:
+              Theme.of(context).brightness == Brightness.dark
+                  ? null
+                  : RadialGradient(
+                    center: const Alignment(0.9, -0.7),
+                    radius: 1.2,
+                    colors: [
+                      Color.lerp(colors.surfaceCard, colors.accentWarm, 0.22)!,
+                      colors.surfaceCard,
+                    ],
+                    stops: const [0.0, 0.85],
+                  ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: colors.border),
         ),
@@ -235,19 +234,74 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
                 showStartReference: true,
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: SegmentedChoice<ChartTimeRange>(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: _RangeLabels(
                 selected: widget.selectedRange,
-                onChanged: widget.onRangeSelected,
-                options: [
-                  for (final range in ChartTimeRange.values)
-                    (value: range, label: range.label),
-                ],
+                onSelected: widget.onRangeSelected,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Los rangos del gráfico como una fila de etiquetas, sin caja (DESIGN.md,
+/// TimeRangeSelector): la activa en tinta y negrita, el resto en gris. Una
+/// caja con riel adentro de la card del total era caja dentro de caja.
+class _RangeLabels extends StatelessWidget {
+  const _RangeLabels({required this.selected, required this.onSelected});
+
+  final ChartTimeRange selected;
+  final ValueChanged<ChartTimeRange> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final base = Theme.of(context).textTheme.labelLarge;
+    final duration =
+        MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180);
+    return Row(
+      children: [
+        for (final range in ChartTimeRange.values)
+          Expanded(
+            child: Semantics(
+              button: true,
+              selected: range == selected,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+                onTap: () {
+                  if (range == selected) return;
+                  PortyHapticsService.maybeOf(context)?.selectionTap();
+                  onSelected(range);
+                },
+                child: SizedBox(
+                  height: AppDimens.touchTarget,
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: duration,
+                      curve: Curves.easeOutCubic,
+                      style: (base ?? const TextStyle()).copyWith(
+                        color:
+                            range == selected
+                                ? colors.textPrimary
+                                : colors.textSecondary,
+                        fontWeight:
+                            range == selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                      ),
+                      child: Text(range.label),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

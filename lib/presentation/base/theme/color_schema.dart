@@ -12,7 +12,7 @@ ColorScheme _buildColorScheme(Brightness brightness) {
       brightness: Brightness.dark,
       primary: PortfolioColorsDark.accent,
       onPrimary: PortfolioColorsDark.onAccent,
-      primaryContainer: Color(0xFF3C3129), // accent @ 16% sobre card
+      primaryContainer: Color(0xFF39302A), // accent @ 16% sobre card
       onPrimaryContainer: PortfolioColorsDark.accent,
       secondary: PortfolioColorsDark.benchmarkSp500,
       onSecondary: PortfolioColorsDark.background,

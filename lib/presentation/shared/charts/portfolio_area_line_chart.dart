@@ -95,9 +95,22 @@ class PortfolioAreaLineChart extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
+                // En oscuro la línea es marfil: el mismo 8% se leía como una
+                // banda clara, otra caja adentro de la card. Ahí apenas
+                // insinúa el área y se apaga hacia abajo.
                 colors: [
-                  effectiveLineColor.withValues(alpha: 0.08),
-                  effectiveLineColor.withValues(alpha: 0.02),
+                  effectiveLineColor.withValues(
+                    alpha:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? 0.04
+                            : 0.08,
+                  ),
+                  effectiveLineColor.withValues(
+                    alpha:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? 0
+                            : 0.02,
+                  ),
                 ],
               ),
             ),
