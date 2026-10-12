@@ -136,17 +136,17 @@ class _CardBody extends ConsumerWidget {
         children: [
           Row(
             children: [
-              // Porty aparece solo mientras escribe el informe (piensa,
-              // animado). Listo, no: la Home ya lo tiene arriba, y dos
-              // Porty a centímetros se repetían.
-              if (generating) ...[
-                const PortyAvatar(
-                  size: 40,
-                  state: PortyAvatarState.thinking,
-                  animated: true,
-                ),
-                const SizedBox(width: AppDimens.sp12),
-              ],
+              // Porty firma el informe: piensa (animado) mientras lo
+              // escribe y queda en reposo cuando está listo.
+              PortyAvatar(
+                size: 40,
+                state:
+                    generating
+                        ? PortyAvatarState.thinking
+                        : PortyAvatarState.idle,
+                animated: generating,
+              ),
+              const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

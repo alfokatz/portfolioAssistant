@@ -230,61 +230,99 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
   }
 }
 
-/// Los rangos del gráfico como una fila de etiquetas, sin caja (DESIGN.md,
-/// TimeRangeSelector): la activa en tinta y negrita, el resto en gris. Una
-/// caja con riel adentro de la card del total era caja dentro de caja.
+/// Los rangos del gráfico: una fila de etiquetas sin riel (una caja
+/// adentro de otra se leía pesada), y el elegido sobre una píldora que se
+/// desliza de uno a otro: blanca con borde fino en claro, un escalón más
+/// clara que el fondo en oscuro. Elegido en tinta y negrita; el resto en
+/// gris.
 class _RangeLabels extends StatelessWidget {
   const _RangeLabels({required this.selected, required this.onSelected});
 
   final ChartTimeRange selected;
   final ValueChanged<ChartTimeRange> onSelected;
 
+  static const _pillHeight = 34.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final base = Theme.of(context).textTheme.labelLarge;
     final duration =
         MediaQuery.disableAnimationsOf(context)
             ? Duration.zero
-            : const Duration(milliseconds: 180);
-    return Row(
-      children: [
-        for (final range in ChartTimeRange.values)
-          Expanded(
-            child: Semantics(
-              button: true,
-              selected: range == selected,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                onTap: () {
-                  if (range == selected) return;
-                  PortyHapticsService.maybeOf(context)?.selectionTap();
-                  onSelected(range);
-                },
-                child: SizedBox(
-                  height: AppDimens.touchTarget,
-                  child: Center(
-                    child: AnimatedDefaultTextStyle(
-                      duration: duration,
-                      curve: Curves.easeOutCubic,
-                      style: (base ?? const TextStyle()).copyWith(
-                        color:
-                            range == selected
-                                ? colors.textPrimary
-                                : colors.textSecondary,
-                        fontWeight:
-                            range == selected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                      ),
-                      child: Text(range.label),
-                    ),
+            : const Duration(milliseconds: 220);
+    const ranges = ChartTimeRange.values;
+    final index = ranges.indexOf(selected);
+    return SizedBox(
+      height: AppDimens.touchTarget,
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            // -1 → izquierda, 1 → derecha, repartido entre los rangos.
+            alignment: Alignment(-1 + 2 * index / (ranges.length - 1), 0),
+            child: FractionallySizedBox(
+              widthFactor: 1 / ranges.length,
+              child: Center(
+                child: Container(
+                  height: _pillHeight,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color:
+                        dark
+                            ? Color.lerp(
+                              colors.surfaceElevated,
+                              colors.textPrimary,
+                              0.08,
+                            )
+                            : colors.surfaceCard,
+                    borderRadius: BorderRadius.circular(_pillHeight / 2),
+                    border: Border.all(color: colors.border),
                   ),
                 ),
               ),
             ),
           ),
-      ],
+          Row(
+            children: [
+              for (final range in ranges)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: range == selected,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(_pillHeight / 2),
+                      onTap: () {
+                        if (range == selected) return;
+                        PortyHapticsService.maybeOf(context)?.selectionTap();
+                        onSelected(range);
+                      },
+                      child: Center(
+                        child: AnimatedDefaultTextStyle(
+                          duration: duration,
+                          curve: Curves.easeOutCubic,
+                          style: (base ?? const TextStyle()).copyWith(
+                            color:
+                                range == selected
+                                    ? colors.textPrimary
+                                    : colors.textSecondary,
+                            fontWeight:
+                                range == selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                          ),
+                          child: Text(range.label),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
