@@ -107,6 +107,11 @@ void main() {
         PortyPart.eyes,
         PortyPart.mouth,
       },
+      PortyAvatarState.serious: {
+        PortyPart.body,
+        PortyPart.eyes,
+        PortyPart.mouth,
+      },
       PortyAvatarState.error: {PortyPart.body, PortyPart.eyes, PortyPart.mouth},
     };
 

@@ -276,9 +276,21 @@ void main() {
       }
       expect(floats.length, greaterThan(1));
 
+      // +2,5 % en la semana: contento.
       controller.emit(ready(fullReport(), fresh: true));
       await tester.pumpAndSettle();
-      expect(avatar(), const PortyFrame.still(PortyAvatarState.idle));
+      expect(avatar(), const PortyFrame.still(PortyAvatarState.answered));
+    });
+
+    test('Porty on the card: happy if the week won, serious if flat, sad '
+        'if it lost', () {
+      expect(WeeklyReportCard.moodFor(2.5), PortyAvatarState.answered);
+      expect(WeeklyReportCard.moodFor(0.5), PortyAvatarState.answered);
+      expect(WeeklyReportCard.moodFor(0.3), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(0), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(-0.4), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(-0.5), PortyAvatarState.concerned);
+      expect(WeeklyReportCard.moodFor(-3), PortyAvatarState.concerned);
     });
 
     testWidgets('Free with the tasting used: numbers, no S&P, Gold line', (

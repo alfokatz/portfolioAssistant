@@ -520,13 +520,81 @@ void main() {
         'target_date': '2028-06-01',
         'goal_label': 'Auto',
       });
-      final result = await tool.run({'plan_id': plan['plan_id']});
+      // El usuario dice que sí en el turno siguiente (misma conversación).
+      final next = AssistantToolContext(
+        tier: SubscriptionTier.gold,
+        data: ctx.data,
+        summary: heldSummary,
+        now: DateTime.utc(2026, 9, 29),
+      );
+      final result = await SaveGoalTool(next).run({'plan_id': plan['plan_id']});
       expect(result['status'], 'ok');
       expect(prefs.goal, (
         label: 'Auto',
         targetAmount: 20000.0,
         targetDate: '2028-06-01',
       ));
+    });
+  });
+
+  group('a goal only after the user accepts it', () {
+    test('a new plan is not saved in the same turn it was calculated', () async {
+      final prefs = FakePreferences();
+      final yahoo = FakeYahooProxy(
+        results: {
+          'SGOV': dividendQuoteSummary(name: 'T-Bill ETF', yieldFraction: 0.04),
+          'VGSH': dividendQuoteSummary(name: 'Short ETF', yieldFraction: 0.04),
+        },
+      );
+      final ctx = _ctx(SubscriptionTier.gold, prefs: prefs, yahoo: yahoo);
+      final plan = await GetGoalProjectionTool(ctx).run({
+        'target_amount': 1500,
+        'target_date': '2027-06-01',
+        'goal_label': 'Computadora',
+        'goal_type': 'purchase',
+      });
+      final result = await SaveGoalTool(ctx).run({'plan_id': plan['plan_id']});
+      expect(result['status'], 'needs_confirmation');
+      expect(prefs.goal, isNull);
+
+      // Tampoco su compra mensual armada en el mismo turno.
+      final buy = await GetMonthlyBuyPlanTool(ctx).run({
+        'plan_id': plan['plan_id'],
+        'instruments': [
+          {'ticker': 'SGOV', 'asset_class': 'cash'},
+          {'ticker': 'VGSH', 'asset_class': 'bonds'},
+        ],
+      });
+      expect(buy['status'], 'ok');
+      expect(
+        (await SaveGoalTool(ctx).run({'plan_id': buy['plan_id']}))['status'],
+        'needs_confirmation',
+      );
+    });
+
+    test('changing a plan the user already saw can be saved right away', () async {
+      final ctx = _ctx(SubscriptionTier.gold);
+      final plan = await GetGoalProjectionTool(ctx).run({
+        'target_amount': 1500,
+        'target_date': '2027-06-01',
+        'goal_label': 'Computadora',
+        'goal_type': 'purchase',
+      });
+      // Turno siguiente: "sí, pero en 2 años" → plan cambiado + save_goal.
+      final next = AssistantToolContext(
+        tier: SubscriptionTier.gold,
+        data: ctx.data,
+        summary: heldSummary,
+        now: DateTime.utc(2026, 9, 29),
+      );
+      final changed = await GetGoalProjectionTool(next).run({
+        'base_plan_id': plan['plan_id'],
+        'target_date': '2028-06-01',
+      });
+      final result = await SaveGoalTool(
+        next,
+      ).run({'plan_id': changed['plan_id']});
+      expect(result['status'], 'ok');
     });
   });
 
