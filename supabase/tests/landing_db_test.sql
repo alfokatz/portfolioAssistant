@@ -118,9 +118,10 @@ insert into r values ('beto', public.landing_signup(
   'beto@example.com', 'a', 'gold', '{"utm_source":"meta"}',
   lower((select v ->> 'ref_code' from r where k = 'ana')), 'UY', 'anon-beto-0001', '/precios'));
 
--- Un código que no existe no se guarda.
+-- Un código que no existe no se guarda. Free guarda el plan pero no cuenta
+-- como precio fundador.
 insert into r values ('caro', public.landing_signup(
-  'caro@example.com', 'a', null, '{}', 'ZZZZZZ', null, 'anon-caro-0001', '/'));
+  'caro@example.com', 'a', 'free', '{}', 'ZZZZZZ', null, 'anon-caro-0001', '/precios'));
 
 -- Ana vuelve desde el modal y elige Premium: se actualiza el plan.
 insert into r values ('ana3', public.landing_signup(
@@ -134,6 +135,12 @@ begin
   end if;
   if (select intended_plan from public.waitlist where email = 'beto@example.com') <> 'gold' then
     raise exception 'fundador: no guardó intended_plan en el alta';
+  end if;
+  if (select intended_plan from public.waitlist where email = 'caro@example.com') <> 'free' then
+    raise exception 'fundador: no guardó intended_plan free';
+  end if;
+  if exists (select 1 from public.landing_events where event = 'founder_signup' and plan = 'free') then
+    raise exception 'fundador: Free no debe contar como founder_signup';
   end if;
   if (select referred_by from public.waitlist where email = 'caro@example.com') is not null then
     raise exception 'referido: guardó un código inexistente';

@@ -118,8 +118,9 @@ $$;
 
 -- Alta idempotente por email. Si el email ya está, devuelve su puesto sin
 -- duplicarlo y, si llega un plan, lo actualiza. Registra el evento `signup`
--- (solo la primera vez) y `founder_signup` (cada vez que llega un plan) del
--- lado del servidor, así las métricas no dependen de bloqueadores.
+-- (solo la primera vez) y `founder_signup` (cada vez que llega un plan pago:
+-- Free no tiene precio fundador) del lado del servidor, así las métricas no
+-- dependen de bloqueadores.
 -- Devuelve {position, ref_code, created}.
 create or replace function public.landing_signup(
   p_email text,
@@ -189,7 +190,7 @@ begin
         left(p_utm ->> 'utm_source', 100), left(p_utm ->> 'utm_medium', 100),
         left(p_utm ->> 'utm_campaign', 100), left(p_utm ->> 'utm_content', 100));
     end if;
-    if p_intended_plan is not null then
+    if p_intended_plan in ('premium', 'gold') then
       insert into public.landing_events (anon_id, variant, event, plan, path,
         utm_source, utm_medium, utm_campaign, utm_content)
       values (p_anon_id, p_variant, 'founder_signup', p_intended_plan, p_path,
