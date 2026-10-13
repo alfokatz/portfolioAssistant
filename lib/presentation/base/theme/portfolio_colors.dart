@@ -57,8 +57,8 @@ abstract final class PortfolioColors {
 ///   ni rojo Material.
 /// - **Sin degradés.** En oscuro no hay halo de fondo ni brillo en las
 ///   cards, y los glows de foco bajan (ver `CustomColors.glowScale`):
-///   sobre fondo oscuro cualquier degradé terracota se lee como neón, y un
-///   terracota saturado, como flúor.
+///   sobre fondo oscuro cualquier degradé terracota se lee como neón. El
+///   terracota es el de Porty con un punto menos de luz, para que no brille.
 abstract final class PortfolioColorsDark {
   // ── Fondos (grafito tibio, de abajo hacia arriba) ───────────────────────
   static const background = Color(0xFF171614); // oklch(0.200 0.004 70)
@@ -74,14 +74,15 @@ abstract final class PortfolioColorsDark {
   static const chartGrid = Color(0x0FFFF6EC); // ~6% marfil
   static const track = Color(0x14FFF6EC); // fondo de barras / anillos
 
-  // ── Acento: terracota apagado, tipo arcilla ─────────────────────────────
-  // Mismo tono que el del claro, con mucho menos croma: sobre grafito un
-  // terracota saturado se ve flúor (el FAB, Porty, las etiquetas). Sigue
-  // cumpliendo AA como texto (6,2:1 sobre card).
-  static const accent = Color(0xFFC09479); // oklch(0.70 0.065 52) · 6,2:1
-  static const accentDim = Color(0xFFA47C66); // oklch(0.62 0.06 50) · 4,5:1
-  static const onAccent = Color(0xFF211711); // tinta sobre el acento · 6,5:1
-  static const aiCardBorder = Color(0x4DC09479); // accent @ 30%
+  // ── Acento: el terracota de Porty, un punto más oscuro ──────────────────
+  // El mismo tono y croma que el del claro (es el color de Porty), con
+  // menos luz: el del claro tal cual brilla sobre grafito, y con poco croma
+  // (arcilla) dejaba de ser el color de Porty. Cumple AA como texto
+  // (5,7:1 sobre card).
+  static const accent = Color(0xFFCE8456); // oklch(0.68 0.11 52) · 5,7:1
+  static const accentDim = Color(0xFFB8764D); // oklch(0.625 0.10 52) · 4,5:1
+  static const onAccent = Color(0xFF211711); // tinta sobre el acento · 5,9:1
+  static const aiCardBorder = Color(0x4DCE8456); // accent @ 30%
 
   // ── Texto ────────────────────────────────────────────────────────────────
   static const textPrimary = Color(0xFFE9E6E1); // marfil · 13,5:1 en card

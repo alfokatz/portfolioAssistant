@@ -55,7 +55,7 @@ enum PortyThinkingStyle {
 }
 
 /// Colores de Porty. [brand] en claro; en oscuro el avatar usa solo
-/// [brandDark] (el mismo terracota, apagado).
+/// [brandDark] (el mismo terracota, un punto más oscuro).
 @immutable
 class PortyAvatarPalette {
   const PortyAvatarPalette({
@@ -78,10 +78,10 @@ class PortyAvatarPalette {
   );
 
   /// [brand] en modo oscuro (se elige solo, ver [PortyAvatar]): el mismo
-  /// terracota apagado del acento oscuro. El saturado se veía flúor sobre
-  /// el grafito. Ojos y boca a 6,5:1 contra el cuerpo.
+  /// terracota, un punto más oscuro (el acento oscuro), para que no brille
+  /// sobre el grafito. Ojos y boca a 5,9:1 contra el cuerpo.
   static const brandDark = PortyAvatarPalette(
-    body: Color(0xFFC09479),
+    body: Color(0xFFCE8456),
     features: Color(0xFF211711),
   );
 
