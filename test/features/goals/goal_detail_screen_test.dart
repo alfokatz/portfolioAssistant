@@ -80,6 +80,7 @@ Future<void> pumpGoalDetail(
   WidgetTester tester, {
   required UserGoal goal,
   Map<String, double> holdings = const {},
+  List<UserGoal> others = const [],
   ThemeData? theme,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 2200));
@@ -87,7 +88,7 @@ Future<void> pumpGoalDetail(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        goalsProvider.overrideWith((ref) => _Goals([goal])),
+        goalsProvider.overrideWith((ref) => _Goals([goal, ...others])),
         goalHoldingsProvider.overrideWithValue(holdings),
       ],
       child: RepaintBoundary(
@@ -139,6 +140,64 @@ void main() {
     // Solo VT (que tiene) lleva chevron; el último es el de Porty.
     expect(find.byIcon(Icons.chevron_right_rounded), findsNWidgets(2));
     expect(find.text('goal_counts_not_held'.tr()), findsOneWidget);
+  });
+
+  testWidgets('a holding shared with another goal says how much of it is '
+      'this goal\'s and why', (tester) async {
+    final goal = goalFixture();
+    // Otra meta con la mitad del monto, mismo plazo y mismo % en BND.
+    final other = UserGoal(
+      id: 'g2',
+      label: 'Fiesta',
+      type: GoalType.purchase,
+      targetAmount: 12500,
+      targetDate: goal.targetDate,
+      snapshot: GoalPlanSnapshot(
+        inputs: SavingsPlanInputs(
+          targetAmount: 12500,
+          months: 36,
+          currentAmount: 0,
+          // Un aporte mal cargado no le saca más parte.
+          monthlyContribution: 20000,
+          risk: RiskTolerance.aggressive,
+          startDate: goal.snapshot.inputs.startDate,
+        ),
+        buyPlan: const [
+          GoalBuyPlanEntry(
+            ticker: 'BND',
+            assetClassLabel: 'Bonos',
+            pct: 15,
+            monthlyAmount: 3000,
+          ),
+        ],
+      ),
+      status: GoalStatus.active,
+      createdAt: goal.createdAt,
+      linkedTickers: const {'BND'},
+    );
+    await pumpGoalDetail(
+      tester,
+      goal: goal,
+      others: [other],
+      holdings: {'BND': 900},
+    );
+    // A "Auto" (el doble de monto) le tocan 2/3 de los 900.
+    expect(
+      find.text(
+        'goal_counts_shared'.tr(
+          namedArgs: {
+            'share': QaFormat.money(600),
+            'total': QaFormat.money(900),
+            'goals': 'Fiesta',
+          },
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('goal_counts_shared_hint'.tr()),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ahead of plan: Porty smiles', (tester) async {
