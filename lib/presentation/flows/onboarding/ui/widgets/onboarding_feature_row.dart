@@ -32,10 +32,10 @@ class OnboardingFeatureRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: colors.accentBlue.withValues(alpha: 0.12),
+            color: colors.chip,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: colors.accentBlue, size: AppDimens.iconMd),
+          child: Icon(icon, color: colors.onChip, size: AppDimens.iconMd),
         ),
         const SizedBox(width: AppDimens.sp12),
         Expanded(

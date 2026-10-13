@@ -33,6 +33,6 @@ abstract final class GoalAnalysis {
         GoalProgressStatus.ahead ||
         GoalProgressStatus.onTrack => colors.profit,
         GoalProgressStatus.behind || GoalProgressStatus.overdue => colors.loss,
-        GoalProgressStatus.justStarted => colors.accentBlue,
+        GoalProgressStatus.justStarted => colors.onChip,
       };
 }
