@@ -42,9 +42,11 @@ class RememberAboutUserTool implements DataTool {
   @override
   String get description =>
       'Saves something DURABLE the user told you about THEMSELVES, so you '
-      'know them better in future conversations: goals and things they want '
-      'to buy or achieve ("quiero comprarme una MacBook Neo rosa", "quiero '
-      'viajar a Japón en 2027", "me quiero jubilar a los 60"), their '
+      'know them better in future conversations: goals they decided on '
+      '("quiero viajar a Japón en 2027", "me quiero jubilar a los 60") — NOT '
+      'a purchase or goal they only ask about ("¿cuánto tengo que juntar '
+      'para una compu?"): that is a one-off question until they accept '
+      'creating the goal —, their '
       'finances ("ahorro 200 por mes", "cobro en pesos", "tengo 1000 en el '
       'banco"), life situation ("soy estudiante", "tengo dos hijos", "tengo '
       '24 años") and investing preferences ("prefiero ETFs", "no quiero '

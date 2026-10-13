@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/goal_status_widgets.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -144,6 +145,9 @@ abstract final class PortfolioQaCatalogWidgets {
 
   static Widget qaBuyPlan(CatalogItemContext ctx) =>
       BuyPlanWidgets.qaBuyPlan(ctx);
+
+  static Widget qaGoalStatus(CatalogItemContext ctx) =>
+      GoalStatusWidgets.qaGoalStatus(ctx);
 }
 
 final class _AnswerTextData {

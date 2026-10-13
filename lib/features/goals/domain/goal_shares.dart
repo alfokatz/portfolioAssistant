@@ -1,12 +1,16 @@
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// Varias metas pueden contar la misma inversión (BND para la jubilación y
 /// para el auto). Para no sumar dos veces la misma plata, su valor de
 /// mercado se reparte entre las metas activas que la cuentan:
 ///
-/// - Proporcional a cuánto le asigna cada plan por mes (su compra mensual):
-///   si la jubilación pone 103 $/mes en BND y el auto 72 $/mes, a la
-///   jubilación le toca el 59 % de lo que hay en BND.
+/// - Proporcional a lo que cada plan NECESITA poner por mes en ella (el
+///   ahorro mensual necesario × el % de esa inversión en su compra): si la
+///   jubilación necesita 103 $/mes en BND y el auto 72 $/mes, a la
+///   jubilación le toca el 59 % de lo que hay en BND. No se usa el aporte
+///   que dijo el usuario: uno mal cargado (20.000 pesos tomados como
+///   dólares) se quedaba con casi toda la inversión.
 /// - En partes iguales si alguna de esas metas no la tiene en su plan (la
 ///   eligió a mano en "Qué cuenta").
 ///
@@ -62,8 +66,12 @@ abstract final class GoalShares {
         g,
   ];
 
-  static double _planWeight(UserGoal goal, String ticker) =>
-      goal.snapshot.buyPlan
-          .where((e) => e.ticker.toUpperCase() == ticker)
-          .fold(0.0, (a, e) => a + e.monthlyAmount);
+  static double _planWeight(UserGoal goal, String ticker) {
+    final pct = goal.snapshot.buyPlan
+        .where((e) => e.ticker.toUpperCase() == ticker)
+        .fold(0.0, (a, e) => a + e.pct);
+    if (pct <= 0) return 0;
+    final needed = goal.snapshot.plan.requiredMonthly[PlanScenario.base] ?? 0;
+    return needed * pct / 100;
+  }
 }

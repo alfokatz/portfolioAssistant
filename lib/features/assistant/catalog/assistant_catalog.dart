@@ -39,6 +39,7 @@ abstract final class AssistantCatalog {
     'QaInvestConfirm',
     'QaSavingsPlan',
     'QaBuyPlan',
+    'QaGoalStatus',
     'QaActionProposal',
   };
 
@@ -70,6 +71,7 @@ abstract final class AssistantCatalog {
     qaInvestOptionItem,
     qaInvestConfirmItem,
     qaSavingsPlanItem,
+    qaGoalStatusItem,
     qaBuyPlanItem,
     qaActionProposalItem,
   ];

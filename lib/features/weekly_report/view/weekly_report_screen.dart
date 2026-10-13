@@ -430,13 +430,18 @@ class _Movers extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // De la que más ganó a la que más perdió (también los informes
-    // guardados antes de que se ordenaran así).
+    // Cada fila cuenta qué hizo la ACCIÓN en la semana (viernes contra
+    // viernes), no cómo le fue a la posición del usuario: el número, la
+    // barra y el orden miden lo mismo. De la que más subió a la que más
+    // bajó (también en los informes ya guardados: el movimiento de la
+    // acción siempre se guardó).
     final movers = [...report.movers]
-      ..sort((a, b) => b.contributionPp.compareTo(a.contributionPp));
-    final maxAbs = movers
-        .map((m) => m.contributionPp.abs())
-        .fold(0.0, math.max);
+      ..sort((a, b) => b.movePct.compareTo(a.movePct));
+    final maxAbs = movers.map((m) => m.movePct.abs()).fold(0.0, math.max);
+    final upMost =
+        movers.length >= 2 && movers.first.movePct > 0 ? movers.first : null;
+    final downMost =
+        movers.length >= 2 && movers.last.movePct < 0 ? movers.last : null;
     final held = ref.watch(goalHoldingsProvider);
     final others = WeeklyReportFormat.others(report);
     return _Section(
@@ -447,6 +452,12 @@ class _Movers extends ConsumerWidget {
             mover: m,
             maxAbs: maxAbs,
             index: i,
+            role:
+                identical(m, upMost)
+                    ? 'weekly_report_role_up_most'.tr()
+                    : identical(m, downMost)
+                    ? 'weekly_report_role_down_most'.tr()
+                    : null,
             // Si todavía la tiene, la fila abre la posición.
             onTap:
                 (held[m.ticker.toUpperCase()] ?? 0) > 0
@@ -466,10 +477,15 @@ class _MoverRow extends StatelessWidget {
     required this.mover,
     required this.maxAbs,
     required this.index,
+    this.role,
     this.onTap,
   });
   final ReportMover mover;
   final double maxAbs;
+
+  /// "La que más subió" / "La que más bajó", si es la de arriba o la de
+  /// abajo de la lista.
+  final String? role;
 
   /// Posición en la lista: las barras crecen una detrás de otra.
   final int index;
@@ -480,27 +496,11 @@ class _MoverRow extends StatelessWidget {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final m = mover;
-    // El número y la barra dicen lo mismo: cómo le fue a SU posición. Un
-    // informe guardado antes de tener ese dato muestra el de la acción
-    // solo si va para el mismo lado que la barra.
-    final sameSide = (m.movePct >= 0) == (m.contributionPp >= 0);
-    final pct = m.positionPct ?? (sameSide ? m.movePct : null);
-    // Si compró en la semana, lo suyo y lo de la acción pueden diferir:
-    // se aclaran las dos cosas.
-    final stockDiffers =
-        m.boughtThisWeek &&
-        (pct == null || (m.movePct - pct).abs() >= 0.1);
-    final role = switch (m.role) {
-      MoverRole.addedMost => 'weekly_report_role_added_most'.tr(),
-      MoverRole.subtractedMost => 'weekly_report_role_subtracted_most'.tr(),
-      null => m.boughtThisWeek ? 'weekly_report_bought_this_week'.tr() : null,
-    };
+    final pct = m.movePct;
+    final role = this.role;
     final subtitle = [
       if (role != null) role,
-      if (stockDiffers)
-        'weekly_report_stock_move'.tr(
-          namedArgs: {'pct': WeeklyReportFormat.pct(m.movePct)},
-        ),
+      if (m.boughtThisWeek) 'weekly_report_bought_this_week'.tr(),
     ].join(' · ');
 
     final content = Column(
@@ -531,15 +531,14 @@ class _MoverRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (pct != null)
-              Text(
-                WeeklyReportFormat.pct(pct),
-                style: tt.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colors.pnlColor(m.contributionPp),
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+            Text(
+              WeeklyReportFormat.pct(pct),
+              style: tt.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colors.pnlColor(pct),
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
+            ),
             if (this.onTap != null) ...[
               const SizedBox(width: AppDimens.sp4),
               Icon(
@@ -552,7 +551,7 @@ class _MoverRow extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.sp8),
         _GrowingImpactBar(
-          contribution: m.contributionPp,
+          contribution: pct,
           maxAbs: maxAbs,
           index: index,
         ),
@@ -584,9 +583,10 @@ class _MoverRow extends StatelessWidget {
   }
 }
 
-/// La barra de impacto, que crece desde el centro la primera vez que se
-/// ve: una detrás de otra, de arriba hacia abajo. Comunica cuánto pesó cada
-/// una, no decora. Con reduce motion, aparece completa.
+/// La barra de cuánto se movió la acción en la semana, que crece desde el
+/// centro la primera vez que se ve: una detrás de otra, de arriba hacia
+/// abajo. Comunica cuánto subió o bajó cada una, no decora. Con reduce
+/// motion, aparece completa.
 class _GrowingImpactBar extends StatelessWidget {
   const _GrowingImpactBar({
     required this.contribution,

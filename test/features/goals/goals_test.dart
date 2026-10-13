@@ -148,7 +148,15 @@ void main() {
         'goal_label': 'MacBook',
         'goal_type': 'purchase',
       });
-      final result = await SaveGoalTool(c).run(const {});
+      // El usuario acepta crearla en el turno siguiente.
+      final next = AssistantToolContext(
+        tier: SubscriptionTier.premium,
+        data: c.data,
+        summary: heldSummary,
+        saveGoal: c.saveGoal,
+        now: DateTime(2026, 2, 2),
+      );
+      final result = await SaveGoalTool(next).run(const {});
       expect(result['status'], 'ok');
       expect(result['where'], 'the Metas tab');
       expect(saved.single.label, 'MacBook');

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_name_fix.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -15,8 +16,9 @@ enum DictationFailure {
 
 /// Dictado del chat de Porty: el reconocimiento de voz del sistema
 /// (`speech_to_text`), en el idioma de la app, con resultados parciales que
-/// se van escribiendo en el campo. El texto nunca se envía solo: el
-/// usuario lo revisa y toca enviar.
+/// se van escribiendo en el campo, con el nombre de Porty bien escrito
+/// ([PortyNameFix]). El texto nunca se envía solo: el usuario lo revisa y
+/// toca enviar.
 class ChatDictation extends ChangeNotifier {
   ChatDictation({SpeechToText? speech}) : _speech = speech ?? SpeechToText();
 
@@ -68,7 +70,7 @@ class ChatDictation extends ChangeNotifier {
     try {
       await _speech.listen(
         onResult: (SpeechRecognitionResult result) =>
-            _onText?.call(result.recognizedWords),
+            _onText?.call(PortyNameFix.fix(result.recognizedWords)),
         listenOptions: SpeechListenOptions(
           localeId: _localeId,
           listenFor: const Duration(seconds: 60),

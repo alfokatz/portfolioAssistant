@@ -28,6 +28,18 @@ class WeeklyReportCard extends ConsumerStatefulWidget {
 
   static const switchDuration = Duration(milliseconds: 220);
 
+  /// Hasta este movimiento (en %, para arriba o para abajo) la semana fue
+  /// "regular": Porty queda serio. Más allá, contento si ganó y triste si
+  /// perdió.
+  static const flatBand = 0.5;
+
+  /// La cara de Porty para una semana que movió la cartera [changePct] %.
+  static PortyAvatarState moodFor(double changePct) {
+    if (changePct >= flatBand) return PortyAvatarState.answered;
+    if (changePct <= -flatBand) return PortyAvatarState.concerned;
+    return PortyAvatarState.serious;
+  }
+
   @override
   ConsumerState<WeeklyReportCard> createState() => _WeeklyReportCardState();
 }
@@ -136,17 +148,19 @@ class _CardBody extends ConsumerWidget {
         children: [
           Row(
             children: [
-              // Porty aparece solo mientras escribe el informe (piensa,
-              // animado). Listo, no: la Home ya lo tiene arriba, y dos
-              // Porty a centímetros se repetían.
-              if (generating) ...[
-                const PortyAvatar(
-                  size: 40,
-                  state: PortyAvatarState.thinking,
-                  animated: true,
-                ),
-                const SizedBox(width: AppDimens.sp12),
-              ],
+              // Porty firma el informe: piensa (animado) mientras lo
+              // escribe y, listo, pone la cara de cómo le fue a la semana.
+              PortyAvatar(
+                size: 40,
+                state:
+                    generating
+                        ? PortyAvatarState.thinking
+                        : r == null
+                        ? PortyAvatarState.idle
+                        : WeeklyReportCard.moodFor(r.changePct),
+                animated: generating,
+              ),
+              const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

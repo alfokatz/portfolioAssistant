@@ -18,9 +18,12 @@ class SearchWebTool implements DataTool {
   @override
   String get description =>
       'Searches the web for a personal-finance FACT no other tool has: '
-      'mainly the current price of something the user wants to buy for a '
-      'purchase goal ("MacBook Neo rosa", "PlayStation 6", "pasaje a '
-      'Madrid"), or a fee, rate or cost they ask about. Returns answer (a '
+      'what something the user wants costs (a product, a trip, a party, a '
+      'service: "MacBook Neo rosa", "pasaje a Madrid", "fiesta para 200 '
+      'personas en Buenos Aires"), an exchange rate ("dólar oficial hoy '
+      'Argentina") to convert amounts they said in another currency, or a '
+      'fee, rate or cost they ask about. Use it BEFORE asking the user for '
+      'a fact like that; ask only if it finds nothing reliable. Returns answer (a '
       'short summary) and sources [{title, url}]. NEVER for stock prices, '
       'news or company data (use the market tools), never for off-topic '
       'questions, and only once per thing per conversation (reuse the '

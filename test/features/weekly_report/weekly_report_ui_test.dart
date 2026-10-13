@@ -276,10 +276,21 @@ void main() {
       }
       expect(floats.length, greaterThan(1));
 
-      // Listo: Porty se va de la card (la Home ya lo tiene arriba).
+      // +2,5 % en la semana: contento.
       controller.emit(ready(fullReport(), fresh: true));
       await tester.pumpAndSettle();
-      expect(find.byType(PortyAvatar), findsNothing);
+      expect(avatar(), const PortyFrame.still(PortyAvatarState.answered));
+    });
+
+    test('Porty on the card: happy if the week won, serious if flat, sad '
+        'if it lost', () {
+      expect(WeeklyReportCard.moodFor(2.5), PortyAvatarState.answered);
+      expect(WeeklyReportCard.moodFor(0.5), PortyAvatarState.answered);
+      expect(WeeklyReportCard.moodFor(0.3), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(0), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(-0.4), PortyAvatarState.serious);
+      expect(WeeklyReportCard.moodFor(-0.5), PortyAvatarState.concerned);
+      expect(WeeklyReportCard.moodFor(-3), PortyAvatarState.concerned);
     });
 
     testWidgets('Free with the tasting used: numbers, no S&P, Gold line', (
@@ -385,8 +396,8 @@ void main() {
         'weekly_report_comparison',
         'weekly_report_value_friday',
         'weekly_report_movers_section',
-        'weekly_report_role_added_most',
-        'weekly_report_role_subtracted_most',
+        'weekly_report_role_up_most',
+        'weekly_report_role_down_most',
         'weekly_report_upcoming_section',
         'weekly_report_eps_estimate',
         'weekly_report_investors_section',

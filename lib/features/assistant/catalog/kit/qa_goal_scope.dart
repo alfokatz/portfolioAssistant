@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 
 /// Canal para que la card del plan (y la de la compra mensual) guarde la
@@ -17,8 +18,14 @@ class QaGoalScope extends InheritedWidget {
     required this.onOpen,
     this.editedPlan,
     this.onPlanEdited,
+    this.statusFor,
     required super.child,
   });
+
+  /// Una meta guardada por nombre, con su progreso de hoy (la misma cuenta
+  /// que el detalle de la meta). `null` si no hay una con ese nombre.
+  final ({UserGoal goal, GoalProgress progress})? Function(String label)?
+  statusFor;
 
   /// La edición que el usuario hizo en la card del plan [planId] (un
   /// resultado recalculado), si la hay. Vive en la conversación: la card

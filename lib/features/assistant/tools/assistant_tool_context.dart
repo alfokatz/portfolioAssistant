@@ -190,6 +190,12 @@ class AssistantToolContext {
   /// Guarda la meta en la pestaña Metas. `null` fuera de la app.
   final Future<UserGoal> Function(GoalDraft draft)? saveGoal;
 
+  /// Planes de una meta NUEVA calculados en este turno: el usuario todavía
+  /// no vio la card ni dijo que la quiere como meta, así que save_goal no
+  /// los guarda (contar "¿cuánto junto para una compu?" no es pedir una
+  /// meta). Cambiar un plan que ya vio, o una meta guardada, no entra acá.
+  final unconfirmedPlans = <String>{};
+
   /// Fija lo que el usuario tiene para la meta fuera de la app y devuelve
   /// la meta al día.
   final Future<UserGoal?> Function(String goalId, double amount)?

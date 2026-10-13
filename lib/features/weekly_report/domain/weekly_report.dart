@@ -97,12 +97,13 @@ class WeeklyReport {
     // La variante bloqueada nunca lleva datos de Gold (earnings, noticias,
     // inversores), aunque el input los traiga.
     final goldData = variant != WeeklyReportVariant.numbersLocked;
-    // De la que más ganó a la que más perdió (lo que sumó arriba, lo que
-    // restó abajo).
-    final rows = [...input.rows]
-      ..sort((a, b) => b.contributionPp.compareTo(a.contributionPp));
-    final mostUp = rows.where((r) => r.contributionPp > 0).firstOrNull;
-    final mostDown = rows.where((r) => r.contributionPp < 0).lastOrNull;
+    // Qué hizo cada acción en la semana: de la que más subió a la que más
+    // bajó (las filas son las de más impacto; el orden y las etiquetas,
+    // por el movimiento de la acción).
+    double move(WeeklyPositionMove p) => WeeklyReportInput.moveOf(p);
+    final rows = [...input.rows]..sort((a, b) => move(b).compareTo(move(a)));
+    final mostUp = rows.where((r) => move(r) > 0).firstOrNull;
+    final mostDown = rows.where((r) => move(r) < 0).lastOrNull;
 
     ReportNews? newsFor(String? id, {String? title}) {
       final item = id == null ? null : newsById[id];
@@ -133,7 +134,6 @@ class WeeklyReport {
           ReportMover(
             ticker: p.ticker,
             movePct: WeeklyReportInput.moveOf(p),
-            positionPct: p.positionPct,
             contributionPp: p.contributionPp,
             boughtThisWeek: p.boughtThisWeek,
             role:
@@ -294,7 +294,6 @@ class ReportMover {
     required this.movePct,
     required this.contributionPp,
     required this.boughtThisWeek,
-    this.positionPct,
     this.role,
     this.why,
     this.source,
@@ -303,16 +302,9 @@ class ReportMover {
   final String ticker;
 
   /// Movimiento semanal de la acción (viernes contra viernes), sin importar
-  /// cuándo compró el usuario.
+  /// cuándo compró el usuario. Es lo que muestra la fila: número, barra y
+  /// orden.
   final double movePct;
-
-  /// Cómo le fue a la posición del usuario en la semana (desde su compra si
-  /// compró en la semana). Es lo que muestra la fila, porque es lo mismo
-  /// que dibuja la barra: con solo [movePct], una compra a mitad de semana
-  /// salía "+3,9%" en verde con la barra en rojo (la acción subió en la
-  /// semana, pero desde el precio de compra bajó). `null` en informes
-  /// guardados antes de este dato.
-  final double? positionPct;
 
   /// Cuánto empujó (o frenó) a la cartera: lo dibuja la barra, no se
   /// muestra como número.
@@ -329,7 +321,6 @@ class ReportMover {
     'move_pct': movePct,
     'contribution_pp': contributionPp,
     'bought_this_week': boughtThisWeek,
-    if (positionPct != null) 'position_pct': positionPct,
     'role': role?.name,
     'why': why,
     'source': source?.toJson(),
@@ -340,7 +331,6 @@ class ReportMover {
     movePct: _num(j['move_pct'])!,
     contributionPp: _num(j['contribution_pp'])!,
     boughtThisWeek: j['bought_this_week'] == true,
-    positionPct: _num(j['position_pct']),
     role: MoverRole.values.where((r) => r.name == j['role']).firstOrNull,
     why: j['why'] as String?,
     source:

@@ -75,10 +75,10 @@ class GoalDetailScreen extends ConsumerWidget {
     final locale = Localizations.localeOf(context);
     final goals = ref.watch(goalsProvider).goals;
     // Las inversiones que comparte con otras metas, solo con su parte.
-    final holdings = GoalShares.holdingsFor(
-      goal,
-      goals,
-      ref.watch(goalHoldingsProvider),
+    final allHoldings = ref.watch(goalHoldingsProvider);
+    final holdings = GoalShares.holdingsFor(goal, goals, allHoldings);
+    final shares = goal.linkedTickers.any(
+      (t) => GoalShares.othersCounting(goal, t, goals).isNotEmpty,
     );
     final progress = GoalProgress.of(goal, DateTime.now(), holdings: holdings);
     final date = DateFormat.yMMMM(
@@ -147,6 +147,7 @@ class GoalDetailScreen extends ConsumerWidget {
             goal: goal,
             goals: goals,
             holdings: holdings,
+            allHoldings: allHoldings,
             onEditOutside:
                 () => _editOutside(context, ref, goal.externalSavings),
             onEditLinks: () => _editLinks(context, goal),
@@ -157,7 +158,11 @@ class GoalDetailScreen extends ConsumerWidget {
             child: Text(
               goal.linkedTickers.isEmpty
                   ? 'goal_counts_hint_empty'.tr()
-                  : 'goal_counts_hint'.tr(),
+                  : [
+                    'goal_counts_hint'.tr(),
+                    // Por qué le toca esa parte de una inversión compartida.
+                    if (shares) 'goal_counts_shared_hint'.tr(),
+                  ].join(' '),
               style: tt.bodySmall?.copyWith(
                 color: colors.textSecondary,
                 height: 1.4,
@@ -726,6 +731,7 @@ class _CountsCard extends StatelessWidget {
     required this.goal,
     required this.goals,
     required this.holdings,
+    required this.allHoldings,
     required this.onEditOutside,
     required this.onEditLinks,
   });
@@ -737,6 +743,9 @@ class _CountsCard extends StatelessWidget {
 
   /// Ya repartidas: lo que le toca a esta meta de cada inversión.
   final Map<String, double> holdings;
+
+  /// Sin repartir: lo que vale cada inversión entera.
+  final Map<String, double> allHoldings;
   final VoidCallback onEditOutside;
   final VoidCallback onEditLinks;
 
@@ -768,15 +777,24 @@ class _CountsCard extends StatelessWidget {
             _CountRow(
               leading: QaTickerAvatar(ticker: t, size: 36),
               title: t,
+              subtitleMaxLines: 2,
               subtitle: switch (GoalShares.othersCounting(goal, t, goals)) {
-                // Compartida: con qué metas y qué parte le toca a esta.
-                final others when others.isNotEmpty => 'goal_counts_shared'.tr(
-                  namedArgs: {
-                    'goals': others.map((g) => g.label).join(', '),
-                    'pct':
-                        '${(GoalShares.shareOf(goal, t, goals) * 100).round()}',
-                  },
-                ),
+                // Compartida: cuánto de lo que tiene le toca a esta meta y
+                // con qué metas la comparte.
+                final others when others.isNotEmpty =>
+                  (allHoldings[t] ?? 0) > 0
+                      ? 'goal_counts_shared'.tr(
+                        namedArgs: {
+                          'share': QaFormat.money(holdings[t] ?? 0),
+                          'total': QaFormat.money(allHoldings[t] ?? 0),
+                          'goals': others.map((g) => g.label).join(', '),
+                        },
+                      )
+                      : 'goal_counts_shared_not_held'.tr(
+                        namedArgs: {
+                          'goals': others.map((g) => g.label).join(', '),
+                        },
+                      ),
                 _ =>
                   (holdings[t] ?? 0) > 0
                       ? names[t]
@@ -857,6 +875,7 @@ class _CountRow extends StatelessWidget {
     required this.title,
     required this.trailing,
     this.subtitle,
+    this.subtitleMaxLines = 1,
     this.trailingIcon,
     this.onTap,
   });
@@ -864,6 +883,7 @@ class _CountRow extends StatelessWidget {
   final Widget leading;
   final String title;
   final String? subtitle;
+  final int subtitleMaxLines;
   final Widget trailing;
   final IconData? trailingIcon;
   final VoidCallback? onTap;
@@ -897,7 +917,7 @@ class _CountRow extends StatelessWidget {
                 if (subtitle != null)
                   Text(
                     subtitle!,
-                    maxLines: 1,
+                    maxLines: subtitleMaxLines,
                     overflow: TextOverflow.ellipsis,
                     style: tt.bodySmall?.copyWith(color: colors.textSecondary),
                   ),

@@ -31,6 +31,10 @@ enum PortyAvatarState {
   /// que [error].
   concerned,
 
+  /// Serio, ni contento ni triste: boca recta y ojos atentos. Para algo
+  /// que no salió ni bien ni mal (una semana sin grandes cambios).
+  serious,
+
   /// Error, sin datos o tope de consultas: un "no" corto y queda quieto.
   error,
 }
@@ -51,7 +55,7 @@ enum PortyThinkingStyle {
 }
 
 /// Colores de Porty. [brand] en claro; en oscuro el avatar usa solo
-/// [brandDark] (el mismo terracota, apagado).
+/// [brandDark] (el mismo terracota, un punto más oscuro).
 @immutable
 class PortyAvatarPalette {
   const PortyAvatarPalette({
@@ -74,10 +78,10 @@ class PortyAvatarPalette {
   );
 
   /// [brand] en modo oscuro (se elige solo, ver [PortyAvatar]): el mismo
-  /// terracota apagado del acento oscuro. El saturado se veía flúor sobre
-  /// el grafito. Ojos y boca a 6,5:1 contra el cuerpo.
+  /// terracota, un punto más oscuro (el acento oscuro), para que no brille
+  /// sobre el grafito. Ojos y boca a 5,9:1 contra el cuerpo.
   static const brandDark = PortyAvatarPalette(
-    body: Color(0xFFC09479),
+    body: Color(0xFFCE8456),
     features: Color(0xFF211711),
   );
 
@@ -601,6 +605,7 @@ class _PortyAvatarState extends State<PortyAvatar>
         // si se monta ya pensando.
         _thinkingAt = initial ? _now : _stateAt;
       case PortyAvatarState.answering:
+      case PortyAvatarState.serious:
         break;
     }
   }
@@ -766,7 +771,8 @@ class _PortyAvatarState extends State<PortyAvatar>
       PortyAvatarState.idle ||
       PortyAvatarState.answering ||
       PortyAvatarState.answered ||
-      PortyAvatarState.concerned => _Pose(scale: breath),
+      PortyAvatarState.concerned ||
+      PortyAvatarState.serious => _Pose(scale: breath),
       PortyAvatarState.thinking when _pulse => _pulsePose(t),
       PortyAvatarState.thinking => _Pose(
         rotation: PortyAvatarMotion.thinkLeanDegrees * math.pi / 180,
@@ -1101,6 +1107,13 @@ class PortyAvatarPainter extends CustomPainter {
         ..moveTo(30, 41.5)
         ..lineTo(38, 41.5);
 
+  /// Boca recta, un poco más arriba que la de error: serio sin parecer que
+  /// algo falló.
+  static final Path _seriousMouth =
+      Path()
+        ..moveTo(29.8, 41)
+        ..lineTo(38.4, 41);
+
   /// Ojos de cada estado: (cx izquierdo, cy, r); el derecho está 12 a la
   /// derecha.
   static (double, double, double) _eyes(PortyAvatarState state) =>
@@ -1109,6 +1122,7 @@ class PortyAvatarPainter extends CustomPainter {
         PortyAvatarState.thinking => (32, 26, 3.4),
         PortyAvatarState.answered => (28, 29, 3.6),
         PortyAvatarState.concerned => (28, 30.5, 3.4),
+        PortyAvatarState.serious => (28, 30, 3.4),
         PortyAvatarState.error => (28, 31, 3.1),
       };
 
@@ -1287,6 +1301,8 @@ class PortyAvatarPainter extends CustomPainter {
         }
       case PortyAvatarState.error:
         canvas.drawPath(_flatMouth, stroke);
+      case PortyAvatarState.serious:
+        canvas.drawPath(_seriousMouth, stroke);
       case PortyAvatarState.idle:
         canvas.drawPath(_restSmile, stroke);
       case PortyAvatarState.thinking:

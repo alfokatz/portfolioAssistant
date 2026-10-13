@@ -216,7 +216,9 @@ class GetGoalProjectionTool implements DataTool {
       'monthly_contribution': {
         'type': 'number',
         'description':
-            'Monthly amount in USD the user said they can save, if stated.',
+            'Monthly amount in USD the user said they can save, if stated. '
+            'Said in another currency (pesos) → convert it with a rate from '
+            'search_web first; never pass it unconverted.',
       },
       'current_savings': {
         'type': 'number',
@@ -292,9 +294,36 @@ class GetGoalProjectionTool implements DataTool {
         ToolArgs.number(args, 'monthly_contribution') ??
         baseInputs?.monthlyContribution ??
         await prefs.getMonthlyContribution();
+    double? savedSoFar;
+    if (savedGoal != null) {
+      savedSoFar = savedGoal.savedWith(
+        GoalShares.holdingsFor(savedGoal, ctx.savedGoals, ctx.holdingsByTicker),
+      );
+    }
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
     final statedAmount = _positive(ToolArgs.number(args, 'target_amount'));
+    // Un aporte por mes tan grande como la meta entera no es en dólares:
+    // "puedo destinar 20.000" (pesos) para una fiesta de 5.000 USD salía
+    // como "Llegás" con 14.000 $/mes en SGOV.
+    final statedMonthly = _positive(
+      ToolArgs.number(args, 'monthly_contribution'),
+    );
+    final target = statedAmount ?? base?.targetAmount;
+    if (statedMonthly != null &&
+        target != null &&
+        statedMonthly >= target &&
+        retirement != true &&
+        args['goal_type'] != 'retirement') {
+      return {
+        'status': 'invalid',
+        'reason': 'monthly_contribution_not_usd',
+        'message':
+            'monthly_contribution ($statedMonthly) is as big as the whole '
+            'goal ($target USD): it is surely in another currency. Convert '
+            'it to USD with a rate from search_web, or omit it.',
+      };
+    }
     final result = <String, Object?>{
       'status': 'ok',
       'as_of': ctx.asOf,
@@ -313,7 +342,12 @@ class GetGoalProjectionTool implements DataTool {
                   p['starting_capital_source'] == 'stated'
                       ? baseInputs?.currentAmount
                       : null,
-            ),
+            ) ??
+            // Rehacer el plan de una meta guardada parte de lo que ya
+            // juntó (lo de afuera + su parte de las inversiones asignadas),
+            // no de 0: visto, "¿cómo va mi viaje?" daba "Hoy tenés 0 $"
+            // con 4.500 $ juntados.
+            savedSoFar,
         desiredMonthlyIncome:
             _positive(ToolArgs.number(args, 'desired_monthly_income')) ??
             (statedAmount == null ? baseInputs?.desiredMonthlyIncome : null),
@@ -344,7 +378,12 @@ class GetGoalProjectionTool implements DataTool {
       'investor_profile': InvestorProfileContext.build(profile, ctx.now),
     };
     final planId = result[GoalProjectionBuilder.planIdKey];
-    if (planId is String) ctx.data.plans.record(planId, result);
+    if (planId is String) {
+      ctx.data.plans.record(planId, result);
+      if (savedGoal == null && basePlan == null) {
+        ctx.unconfirmedPlans.add(planId);
+      }
+    }
     return result;
   }
 
@@ -368,9 +407,12 @@ class SaveGoalTool implements DataTool {
   String get description =>
       'Saves a goal WITH its plan in the user\'s "Metas" tab (where they '
       'see its progress, computed automatically from the holdings that count '
-      'for it, and the plan). Call it when the '
-      'user accepts saving it ("sí, guardala", "guardá esta meta"), passing '
-      'the plan_id of the plan you built (a get_goal_projection or '
+      'for it, and the plan). ONLY after the user explicitly accepted '
+      'creating the goal ("sí, creala", "guardá esta meta") in reply to '
+      'your question — asking how much to save for something is not '
+      'asking for a goal. Pass '
+      'the plan_id of the plan you built in an EARLIER turn (a '
+      'get_goal_projection or '
       'get_monthly_buy_plan result; the buy plan one also saves the monthly '
       'purchase). Never ask for the amount or date again: they come from the '
       'plan. A saved goal with the same name is updated with the new plan. '
@@ -403,6 +445,17 @@ class SaveGoalTool implements DataTool {
       return {
         'status': 'needs_plan',
         'reason': 'Call get_goal_projection first: there is no plan yet.',
+      };
+    }
+    // Un plan nuevo de este mismo turno: el usuario todavía no dijo que lo
+    // quiere como meta.
+    if (ctx.unconfirmedPlans.contains(base?[GoalProjectionBuilder.planIdKey])) {
+      return {
+        'status': 'needs_confirmation',
+        'reason':
+            'The user has not said they want this plan as a goal. Show the '
+            'card and ASK if they want to save it as a goal; save only after '
+            'they say yes in a later message.',
       };
     }
     final label = ToolArgs.string(args, 'goal_label');
@@ -657,7 +710,12 @@ class GetMonthlyBuyPlanTool implements DataTool {
     if (yieldPct is num) ctx.data.plans.dividendYield = yieldPct / 100;
     final planId = result[GoalProjectionBuilder.planIdKey];
     final stored = {...result, 'investor_profile': base['investor_profile']};
-    if (planId is String) ctx.data.plans.record(planId, stored);
+    if (planId is String) {
+      ctx.data.plans.record(planId, stored);
+      if (ctx.unconfirmedPlans.contains(base[GoalProjectionBuilder.planIdKey])) {
+        ctx.unconfirmedPlans.add(planId);
+      }
+    }
     return {...stored, 'as_of': ctx.asOf};
   }
 }

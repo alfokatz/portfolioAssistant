@@ -279,7 +279,12 @@ abstract final class AssistantAnswerReview {
       changed = true;
     }
 
-    if (_withPlanCard(list, components, root, evidence)) {
+    if (_goalStatusInsteadOfPlan(list, components, root, evidence)) {
+      changed = true;
+      components
+        ..clear()
+        ..addAll(list.whereType<Map<String, dynamic>>());
+    } else if (_withPlanCard(list, components, root, evidence)) {
       changed = true;
       components
         ..clear()
@@ -330,6 +335,76 @@ abstract final class AssistantAnswerReview {
       return call;
     }
     return null;
+  }
+
+  /// Lo que cambia un plan en get_goal_projection: sin ninguno de estos,
+  /// una llamada con `goal_id` solo rehízo el plan de una meta guardada tal
+  /// como estaba.
+  static const _planChanges = {
+    'target_amount',
+    'target_date',
+    'goal_label',
+    'base_plan_id',
+    'is_retirement',
+    'goal_type',
+    'monthly_contribution',
+    'current_savings',
+    'desired_monthly_income',
+    'income_strategy',
+    'risk',
+  };
+
+  /// "¿Cómo va mi meta Viaje a Japón?" se responde con la meta como está
+  /// hoy (`QaGoalStatus`), no con un plan nuevo. Si el modelo igual rehízo
+  /// el plan de una meta guardada sin cambiarle nada, la card del plan (con
+  /// "Confirmar y actualizar meta", que nadie pidió) se reemplaza por la del
+  /// estado de la meta. Visto: contestaba con el plan inicial desde 0 $ y
+  /// lo proponía de nuevo.
+  static bool _goalStatusInsteadOfPlan(
+    List list,
+    List<Map<String, dynamic>> components,
+    Map<String, dynamic>? root,
+    TurnEvidence evidence,
+  ) {
+    final call = _turnPlan(evidence);
+    if (call == null || root == null || root['children'] is! List) {
+      return false;
+    }
+    final goalId = '${call.args['goal_id'] ?? ''}'.trim();
+    if (goalId.isEmpty ||
+        call.args.keys.any(
+          (k) => _planChanges.contains(k) && call.args[k] != null,
+        )) {
+      return false;
+    }
+    final active = call.result['active_goal'];
+    final label = active is Map ? '${active['label'] ?? ''}'.trim() : '';
+    if (label.isEmpty) return false;
+
+    const id = 'goalStatus';
+    final plans = {
+      for (final c in components)
+        if (c['component'] == 'QaSavingsPlan' || c['component'] == 'QaBuyPlan')
+          c['id'],
+    };
+    final hasStatus = components.any((c) => c['component'] == 'QaGoalStatus');
+    if (plans.isEmpty && hasStatus) return false;
+    list.removeWhere((c) => c is Map && plans.contains(c['id']));
+    final children = [
+      for (final child in root['children'] as List)
+        if (!plans.contains(child)) child,
+    ];
+    if (!hasStatus) {
+      list.add({'id': id, 'component': 'QaGoalStatus', 'goal': label});
+      final introAt = children.lastIndexWhere(
+        (child) => components.any(
+          (c) => c['id'] == child && c['component'] == 'QaAnswerText',
+        ),
+      );
+      children.insert(introAt < 0 ? 0 : introAt + 1, id);
+    }
+    root['children'] = children;
+    return true;
   }
 
   /// Si en ESTE turno se calculó un plan completo, la respuesta lo muestra
