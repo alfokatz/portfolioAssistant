@@ -487,13 +487,20 @@ class _SaleRow extends StatelessWidget {
                 fontFeatures: tabular,
               ),
             ),
-            const SizedBox(height: 2),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             if (p == null)
               const SkeletonBlock(width: 44, height: 18, radius: 4)
             else
               PnlBadge(percent: p.pnlPercent, compact: true),
           ],
+        ),
+        // Se toca para ver el detalle de la venta (como las filas del
+        // home). El skeleton lo lleva igual, así las columnas no se corren.
+        const SizedBox(width: AppDimens.sp4),
+        Icon(
+          Icons.chevron_right_rounded,
+          size: AppDimens.iconMd,
+          color: colors.textSecondary,
         ),
       ],
     );
