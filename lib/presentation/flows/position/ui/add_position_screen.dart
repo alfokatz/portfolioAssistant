@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.d
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -15,7 +16,7 @@ import 'package:portfolio_assistant/presentation/flows/position/states/add_posit
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_date_field.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
@@ -50,6 +51,11 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
   /// precio: así aparece la confirmación con el logo y el nombre.
   final _tickerFocus = FocusNode();
 
+  /// El ticker cuya búsqueda de precio ya terminó (con o sin precio): de
+  /// eso depende lo que dice Porty. Si el usuario lo cambia, vuelve a
+  /// pedirlo.
+  String? _lookedUp;
+
   @override
   void initState() {
     _args = AddPositionArgs(
@@ -68,7 +74,9 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     _tickerFocus.addListener(() {
       if (!_tickerFocus.hasFocus) _lookUpTicker();
     });
-    if (widget.prefilledPrice != null) {
+    if (widget.prefilledTicker?.trim().isNotEmpty == true) {
+      // Con el ticker ya puesto (desde el chat o una card), Porty lo busca
+      // de entrada para confirmar cuál es.
       runAfterPostFrameCallback(
         () => ref.read(addPositionProvider(_args).notifier).fetchCurrentPrice(),
       );
@@ -120,10 +128,9 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
       case AddPositionInvalidInputResult():
         return;
       case AddPositionFailureResult(:final error):
-        ref.read(alertProvider.notifier).showError(
-              title: 'error'.tr(),
-              message: error.message,
-            );
+        ref
+            .read(alertProvider.notifier)
+            .showError(title: 'error'.tr(), message: error.message);
       case AddPositionSuccessResult():
         await ref.read(homeProvider.notifier).refresh(silent: true);
         if (!mounted) return;
@@ -143,18 +150,15 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
     if (shares == null) return null;
 
     return Padding(
-      padding: const EdgeInsets.only(
-        top: AppDimens.sp8,
-        left: AppDimens.sp4,
-      ),
+      padding: const EdgeInsets.only(top: AppDimens.sp8, left: AppDimens.sp4),
       child: Text(
         'position_shares_equivalent'.tr(
           namedArgs: {'shares': AppNumberFormat.shares(shares)},
         ),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.accentBlue,
-              fontWeight: FontWeight.w500,
-            ),
+          color: colors.accentBlue,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -273,9 +277,66 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
   }
 
   void _syncPriceController(AddPositionState state) {
-    if (_priceController.text != state.priceText && state.priceText.isNotEmpty) {
+    if (_priceController.text != state.priceText &&
+        state.priceText.isNotEmpty) {
       _priceController.text = state.priceText;
     }
+  }
+
+  /// Lo que dice Porty arriba del formulario: pide el ticker, lo busca,
+  /// confirma qué compañía es y a cuánto está, o avisa si no la encuentra.
+  Widget _portyLine(AddPositionState state, String ticker) {
+    if (ticker.isEmpty || (_lookedUp != ticker && !state.loadingCurrent)) {
+      return PortySays(
+        messageKey: 'intro',
+        message: Text('add_position_porty_intro'.tr()),
+      );
+    }
+    // Mientras busca un ticker nuevo. Las búsquedas que dispara el precio
+    // (el mismo ticker) no la cambian: la frase no parpadea al escribir.
+    if (state.loadingCurrent && _lookedUp != ticker) {
+      return PortySays(
+        messageKey: 'looking',
+        mood: PortyAvatarState.thinking,
+        message: Text(
+          'add_position_porty_looking'.tr(namedArgs: {'ticker': ticker}),
+        ),
+      );
+    }
+    final price = state.currentPrice;
+    if (price == null && state.loadingCurrent) {
+      return PortySays(
+        messageKey: 'looking',
+        mood: PortyAvatarState.thinking,
+        message: Text(
+          'add_position_porty_looking'.tr(namedArgs: {'ticker': ticker}),
+        ),
+      );
+    }
+    if (price == null) {
+      return PortySays(
+        messageKey: 'not_found:$ticker',
+        mood: PortyAvatarState.concerned,
+        message: Text(
+          'add_position_porty_not_found'.tr(namedArgs: {'ticker': ticker}),
+        ),
+      );
+    }
+    return QaBrandBuilder(
+      ticker: ticker,
+      builder: (context, brand) {
+        final name = brand.name?.isNotEmpty == true ? brand.name! : ticker;
+        return PortySays(
+          messageKey: 'found:$ticker',
+          mood: PortyAvatarState.answered,
+          message: Text(
+            'add_position_porty_found'.tr(
+              namedArgs: {'name': name, 'price': AppNumberFormat.money(price)},
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -286,11 +347,17 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
 
     ref.listen(addPositionProvider(_args), (previous, next) {
       _syncPriceController(next);
+      // Terminó una búsqueda: Porty ya puede decir si la encontró.
+      if (previous?.loadingCurrent == true && !next.loadingCurrent) {
+        setState(() => _lookedUp = next.tickerText.trim().toUpperCase());
+      }
     });
     _syncPriceController(state);
 
     final tt = Theme.of(context).textTheme;
     final ticker = state.tickerText.trim().toUpperCase();
+    final found =
+        ticker.isNotEmpty && _lookedUp == ticker && state.currentPrice != null;
     // Los logos usan la paleta del kit de Porty.
     QaColors.resolve(Theme.of(context).brightness);
 
@@ -301,152 +368,142 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             AppDimens.pageHorizontal,
-            AppDimens.sp8,
+            AppDimens.sp12,
             AppDimens.pageHorizontal,
             AppDimens.sp48,
           ),
           children: [
-            _Card(
-              title: 'add_position_what'.tr(),
-              child: MotionAwareSize(
-                duration: const Duration(milliseconds: 220),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _tickerController,
-                      focusNode: _tickerFocus,
-                      decoration: InputDecoration(
-                        labelText: 'position_ticker'.tr(),
-                        hintText: 'AAPL',
-                      ),
-                      textCapitalization: TextCapitalization.characters,
-                      textInputAction: TextInputAction.next,
-                      validator:
-                          (v) =>
-                              v == null || v.trim().isEmpty
-                                  ? 'field_required'.tr()
-                                  : null,
-                      onChanged: notifier.setTickerText,
-                    ),
-                    // Confirmación: el ticker existe (hay precio) y es esta
-                    // compañía.
-                    if (ticker.isNotEmpty && state.currentPrice != null) ...[
-                      const SizedBox(height: AppDimens.sp12),
-                      _TickerConfirmation(
-                        key: ValueKey(ticker),
-                        ticker: ticker,
-                        price: state.currentPrice!,
-                      ),
-                    ],
-                  ],
+            _portyLine(state, ticker),
+            const SizedBox(height: AppDimens.sp24),
+            // El ticker es la respuesta a la pregunta de Porty: el campo
+            // grande, y con el logo adentro cuando lo encontró.
+            TextFormField(
+              controller: _tickerController,
+              focusNode: _tickerFocus,
+              style: tt.titleLarge?.copyWith(
+                color: colors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+              decoration: InputDecoration(
+                labelText: 'position_ticker'.tr(),
+                hintText: 'AAPL',
+                prefixIcon:
+                    found
+                        ? Padding(
+                          padding: const EdgeInsets.only(
+                            left: AppDimens.sp12,
+                            right: AppDimens.sp8,
+                          ),
+                          child: QaTickerAvatar(ticker: ticker, size: 30),
+                        )
+                        : null,
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 0,
+                  minHeight: 0,
                 ),
               ),
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.next,
+              validator:
+                  (v) =>
+                      v == null || v.trim().isEmpty
+                          ? 'field_required'.tr()
+                          : null,
+              onChanged: notifier.setTickerText,
             ),
-            const SizedBox(height: AppDimens.sp16),
-            _Card(
-              title: 'close_position_details'.tr(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PositionDateField(
-                    label: 'position_purchase_date'.tr(),
-                    date: state.purchaseDate,
-                    onTap: () => _pickDate(notifier),
-                  ),
-                  const SizedBox(height: AppDimens.sp12),
-                  TextFormField(
-                    controller: _priceController,
-                    decoration: InputDecoration(
-                      labelText: 'position_purchase_price'.tr(),
-                      prefixText: r'$ ',
-                      suffixIcon: DelayedLoaderVisibility(
-                        loading: state.loadingPrice,
-                        builder:
-                            (context, showSpinner) =>
-                                showSpinner
-                                    ? Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: ButtonSpinner.small(
-                                        color: colors.accentBlue,
-                                      ),
-                                    )
-                                    : IconButton(
-                                      tooltip: 'close_position_price_refresh'
-                                          .tr(),
-                                      onPressed:
-                                          state.loadingPrice
-                                              ? null
-                                              : notifier.fetchPriceForDate,
-                                      icon: const Icon(Icons.refresh_rounded),
-                                    ),
-                      ),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (v) {
-                      final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return 'invalid_number'.tr();
-                      return null;
-                    },
-                    onChanged: (value) {
-                      notifier.setPriceText(value);
-                      notifier.fetchCurrentPrice();
-                    },
-                  ),
-                  const SizedBox(height: AppDimens.sp8),
-                  Text(
-                    'add_position_price_hint'.tr(),
-                    style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-                  ),
-                ],
+            const SizedBox(height: AppDimens.sp32),
+            _SectionTitle('add_position_when'.tr()),
+            PositionDateField(
+              label: 'position_purchase_date'.tr(),
+              date: state.purchaseDate,
+              onTap: () => _pickDate(notifier),
+            ),
+            const SizedBox(height: AppDimens.sp12),
+            TextFormField(
+              controller: _priceController,
+              decoration: InputDecoration(
+                labelText: 'position_purchase_price'.tr(),
+                prefixText: r'$ ',
+                suffixIcon: DelayedLoaderVisibility(
+                  loading: state.loadingPrice,
+                  builder:
+                      (context, showSpinner) =>
+                          showSpinner
+                              ? Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: ButtonSpinner.small(
+                                  color: colors.accentBlue,
+                                ),
+                              )
+                              : IconButton(
+                                tooltip: 'close_position_price_refresh'.tr(),
+                                onPressed:
+                                    state.loadingPrice
+                                        ? null
+                                        : notifier.fetchPriceForDate,
+                                icon: const Icon(Icons.refresh_rounded),
+                              ),
+                ),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (v) {
+                final n = double.tryParse(v ?? '');
+                if (n == null || n <= 0) return 'invalid_number'.tr();
+                return null;
+              },
+              onChanged: (value) {
+                notifier.setPriceText(value);
+                notifier.fetchCurrentPrice();
+              },
+            ),
+            const SizedBox(height: AppDimens.sp8),
+            Text(
+              'add_position_price_hint'.tr(),
+              style: tt.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                height: 1.45,
               ),
             ),
-            const SizedBox(height: AppDimens.sp16),
-            _Card(
-              title: 'add_position_how_much'.tr(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SegmentedChoice<BuyInputMode>(
-                    selected: state.mode,
-                    onChanged: notifier.setMode,
-                    options: [
-                      (
-                        value: BuyInputMode.shares,
-                        label: 'position_amount_type_shares'.tr(),
-                      ),
-                      (
-                        value: BuyInputMode.usd,
-                        label: 'position_amount_type_usd'.tr(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppDimens.sp12),
-                  TextFormField(
-                    controller: _quantityController,
-                    decoration: InputDecoration(
-                      labelText:
-                          state.mode == BuyInputMode.shares
-                              ? 'position_quantity'.tr()
-                              : 'position_invested_amount'.tr(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (v) {
-                      final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return 'invalid_number'.tr();
-                      return null;
-                    },
-                    onChanged: notifier.setQuantityText,
-                  ),
-                  if (_sharesEquivalentHint(context, notifier) != null)
-                    _sharesEquivalentHint(context, notifier)!,
-                ],
-              ),
+            const SizedBox(height: AppDimens.sp32),
+            _SectionTitle('add_position_how_much'.tr()),
+            SegmentedChoice<BuyInputMode>(
+              selected: state.mode,
+              onChanged: notifier.setMode,
+              options: [
+                (
+                  value: BuyInputMode.shares,
+                  label: 'position_amount_type_shares'.tr(),
+                ),
+                (
+                  value: BuyInputMode.usd,
+                  label: 'position_amount_type_usd'.tr(),
+                ),
+              ],
             ),
+            const SizedBox(height: AppDimens.sp12),
+            TextFormField(
+              controller: _quantityController,
+              decoration: InputDecoration(
+                labelText:
+                    state.mode == BuyInputMode.shares
+                        ? 'position_quantity'.tr()
+                        : 'position_invested_amount'.tr(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (v) {
+                final n = double.tryParse(v ?? '');
+                if (n == null || n <= 0) return 'invalid_number'.tr();
+                return null;
+              },
+              onChanged: notifier.setQuantityText,
+            ),
+            if (_sharesEquivalentHint(context, notifier) case final hint?) hint,
             // Mientras llega el precio actual, la vista previa misma con los
             // valores en skeleton (no una barra de progreso aparte).
             DelayedLoaderVisibility(
@@ -480,52 +537,27 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
   }
 }
 
-/// Logo, nombre y precio de hoy del ticker escrito: confirma que existe y
-/// que es la compañía que el usuario quería.
-class _TickerConfirmation extends StatelessWidget {
-  const _TickerConfirmation({
-    super.key,
-    required this.ticker,
-    required this.price,
-  });
+/// Título de un paso del formulario: texto fuerte sobre el fondo, sin caja.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
 
-  final String ticker;
-  final double price;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return QaBrandBuilder(
-      ticker: ticker,
-      builder:
-          (context, brand) => Row(
-            children: [
-              QaTickerAvatar(ticker: ticker, brand: brand, size: 32),
-              const SizedBox(width: AppDimens.sp12),
-              Expanded(
-                child: Text(
-                  brand.name?.isNotEmpty == true ? brand.name! : ticker,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodyMedium?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppDimens.sp8),
-              Text(
-                'add_position_price_today'.tr(
-                  namedArgs: {'price': AppNumberFormat.money(price)},
-                ),
-                style: tt.bodySmall?.copyWith(
-                  color: colors.textSecondary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppDimens.sp12),
+      child: Semantics(
+        header: true,
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: context.customColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
           ),
+        ),
+      ),
     );
   }
 }
