@@ -27,6 +27,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.onAccent,
     required this.inset,
     required this.track,
+    required this.chip,
+    required this.onChip,
     required this.haloStrength,
     required this.glowScale,
   });
@@ -60,6 +62,15 @@ class CustomColors extends ThemeExtension<CustomColors> {
 
   /// Fondo de barras de progreso y anillos.
   final Color track;
+
+  /// Círculo de un ícono de fila (Ajustes, Metas, "Contale a Porty") y su
+  /// ícono ([onChip]); [onChip] también es el color de una etiqueta
+  /// neutra como "Recién empezás". En claro, terracota sobre su tinte; en
+  /// oscuro, neutro sobre un escalón de grafito: diez círculos terracota
+  /// por pantalla sobre el grafito se leían flúor (el acento queda para
+  /// acciones: FAB, "Editar", switches).
+  final Color chip;
+  final Color onChip;
 
   /// Cuánto del acento tiñe el halo superior de `AppBackgroundGradient`
   /// (0–1). En oscuro es 0: cualquier lavado terracota sobre el grafito se
@@ -95,6 +106,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
     onAccent: Colors.white,
     inset: Color(0xFFF7F6F3),
     track: Color(0x0F000000),
+    chip: Color(0x1FD98E5D), // accentBlue @ 12%
+    onChip: PortfolioColors.accentBlue,
     haloStrength: 0.32,
     glowScale: 1,
   );
@@ -122,6 +135,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
     onAccent: PortfolioColorsDark.onAccent,
     inset: PortfolioColorsDark.inset,
     track: PortfolioColorsDark.track,
+    chip: PortfolioColorsDark.surfaceElevated,
+    onChip: PortfolioColorsDark.textSecondary,
     haloStrength: 0,
     glowScale: 0.35,
   );
@@ -149,6 +164,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? onAccent,
     Color? inset,
     Color? track,
+    Color? chip,
+    Color? onChip,
     double? haloStrength,
     double? glowScale,
   }) {
@@ -174,6 +191,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
       onAccent: onAccent ?? this.onAccent,
       inset: inset ?? this.inset,
       track: track ?? this.track,
+      chip: chip ?? this.chip,
+      onChip: onChip ?? this.onChip,
       haloStrength: haloStrength ?? this.haloStrength,
       glowScale: glowScale ?? this.glowScale,
     );
@@ -204,6 +223,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
       onAccent: Color.lerp(onAccent, other.onAccent, t)!,
       inset: Color.lerp(inset, other.inset, t)!,
       track: Color.lerp(track, other.track, t)!,
+      chip: Color.lerp(chip, other.chip, t)!,
+      onChip: Color.lerp(onChip, other.onChip, t)!,
       haloStrength: lerpDouble(haloStrength, other.haloStrength, t)!,
       glowScale: lerpDouble(glowScale, other.glowScale, t)!,
     );

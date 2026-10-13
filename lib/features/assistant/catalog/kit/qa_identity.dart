@@ -305,7 +305,9 @@ class QaCardTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? QaColors.accentBlue;
+    // Sin color propio, el círculo neutro de la app (terracota en claro,
+    // grafito en oscuro); con color (verde/rojo de un estado), su tinte.
+    final color = iconColor ?? QaColors.onChip;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -316,7 +318,10 @@ class QaCardTitle extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color:
+                  iconColor == null
+                      ? QaColors.chip
+                      : color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 18, color: color),

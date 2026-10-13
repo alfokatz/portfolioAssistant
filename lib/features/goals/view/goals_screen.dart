@@ -396,7 +396,7 @@ class _GoalIcon extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: colors.accentBlue.withValues(alpha: 0.12),
+        color: colors.chip,
         shape: BoxShape.circle,
       ),
       child: Icon(
@@ -406,7 +406,7 @@ class _GoalIcon extends StatelessWidget {
           GoalType.other => Icons.flag_outlined,
         },
         size: 20,
-        color: colors.accentBlue,
+        color: colors.onChip,
       ),
     );
   }

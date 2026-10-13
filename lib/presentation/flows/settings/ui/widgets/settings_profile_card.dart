@@ -50,13 +50,13 @@ class SettingsProfileCard extends StatelessWidget {
               height: 52,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: colors.accentBlue.withValues(alpha: 0.14),
+                color: colors.chip,
                 shape: BoxShape.circle,
               ),
               child: Text(
                 initials(name, email),
                 style: tt.titleMedium?.copyWith(
-                  color: colors.accentBlue,
+                  color: colors.onChip,
                   fontWeight: FontWeight.w700,
                 ),
               ),

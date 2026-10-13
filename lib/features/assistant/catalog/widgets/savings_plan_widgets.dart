@@ -365,7 +365,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                   : Icons.flag_outlined,
           trailing: QaTag(
             _inputs.shortTerm ? 'Corto plazo' : _riskName(_inputs.risk),
-            color: QaColors.accentBlue,
+            color: QaColors.onChip,
           ),
         ),
         if (data.edited) _editedNote(),

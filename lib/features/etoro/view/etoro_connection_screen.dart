@@ -435,10 +435,10 @@ class _IconBubble extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: colors.accentBlue.withValues(alpha: 0.12),
+        color: colors.chip,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 18, color: colors.accentBlue),
+      child: Icon(icon, size: 18, color: colors.onChip),
     );
   }
 }

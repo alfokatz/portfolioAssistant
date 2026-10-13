@@ -39,6 +39,8 @@ abstract final class QaColors {
   static Color get onAccent => _c.onAccent;
   static Color get inset => _c.inset;
   static Color get track => _c.track;
+  static Color get chip => _c.chip;
+  static Color get onChip => _c.onChip;
   static double get glowScale => _c.glowScale;
 }
 

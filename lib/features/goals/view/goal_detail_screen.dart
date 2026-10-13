@@ -509,7 +509,7 @@ class _PlanCard extends StatelessWidget {
                 inputs.shortTerm
                     ? 'goal_plan_short_term'.tr()
                     : _riskName(inputs.risk),
-                color: colors.accentBlue,
+                color: colors.onChip,
               ),
             ],
           ),
@@ -820,13 +820,13 @@ class _CountsCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: colors.accentBlue.withValues(alpha: 0.12),
+                color: colors.chip,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.account_balance_outlined,
                 size: AppDimens.iconMd,
-                color: colors.accentBlue,
+                color: colors.onChip,
               ),
             ),
             title: 'goal_outside_title'.tr(),

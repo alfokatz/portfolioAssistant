@@ -189,6 +189,8 @@ El oscuro no es el claro invertido ni un negro genérico: es la misma paleta Res
 
 **Porty's Terracotta, Dimmed.** En oscuro el terracota es el mismo que el del claro (mismo tono y croma: es el color de Porty) con un punto menos de luz (L 0.71 → 0.68): acento, FAB y Porty (`PortyAvatarPalette.brandDark`, que el avatar elige solo). Tal cual, sobre grafito brilla; con poco croma (arcilla) se ve lavado y deja de ser Porty.
 
+**Quiet Chips.** En oscuro los círculos de ícono de las filas (Ajustes, Metas, títulos de las cards del chat) y las etiquetas neutras ("Recién empezás", el riesgo del plan) no van en terracota: ícono gris tibio sobre un escalón de grafito (tokens `chip` / `onChip`; en claro siguen en terracota sobre su tinte). El acento queda para acciones: FAB, enviar, "Editar", "Armar una meta", switches. Diez círculos terracota por pantalla sobre el grafito se leen flúor aunque el color sea el correcto.
+
 **Ink On Accent.** Sobre un relleno terracota va la tinta `onAccent` (oscura), nunca el texto principal (marfil, ~1,9:1) ni blanco (~2,4:1).
 
 ## Typography
