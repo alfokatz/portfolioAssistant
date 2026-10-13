@@ -61,7 +61,8 @@ class NewsContextClient {
       if (sources.isNotEmpty) 'sources': sources,
       if (body['as_of'] != null) 'searched_at': body['as_of'],
     };
-    _cache.put(key, result);
+    // Lo vacío no: el servidor ya lo guarda solo 10 min y vuelve a buscar.
+    if (result['status'] == 'ok') _cache.put(key, result);
     return result;
   }
 }

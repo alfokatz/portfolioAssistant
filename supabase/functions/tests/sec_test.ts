@@ -118,6 +118,8 @@ Deno.test("nombre para la prensa: sin sufijos societarios", () => {
   assertEquals(pressName("Apple Inc."), "Apple");
   assertEquals(pressName("MERCADOLIBRE INC"), "Mercadolibre");
   assertEquals(pressName("Alibaba Group Holding Ltd"), "Alibaba");
+  assertEquals(pressName("AMAZON COM INC"), "Amazon");
+  assertEquals(pressName("Netflix Inc"), "Netflix");
 });
 
 // ---------------------------------------------------------------------------

@@ -35,12 +35,15 @@ Deno.test("assignByName: cada titular va con la empresa que nombra", () => {
 });
 
 Deno.test("gdeltUrl: nombres con OR y ventana del informe", () => {
-  const url = new URL(gdeltUrl(["Nvidia", "Mercado Libre"], ["reuters.com"], {
+  const url = new URL(gdeltUrl(["Nvidia", "Mercado Libre"], ["reuters.com", "bloomberg.com", "finance.yahoo.com"], {
     from: new Date("2026-10-05T00:00:00Z"),
     to: new Date("2026-10-10T00:00:00Z"),
   }));
-  // Sin dominios en la consulta (GDELT rechaza las largas): se filtra después.
-  assertEquals(url.searchParams.get("query"), '(Nvidia OR "Mercado Libre") (sourcelang:english OR sourcelang:spanish)');
+  // Solo los permitidos que GDELT indexa bien (con los 28 la rechaza por larga).
+  assertEquals(
+    url.searchParams.get("query"),
+    '(Nvidia OR "Mercado Libre") (domain:reuters.com OR domain:yahoo.com) (sourcelang:english OR sourcelang:spanish)',
+  );
   assertEquals(url.searchParams.get("maxrecords"), "250");
   assertEquals(url.searchParams.get("startdatetime"), "20261005000000");
   assertEquals(url.searchParams.get("mode"), "ArtList");

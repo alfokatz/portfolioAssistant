@@ -16,12 +16,26 @@ export const gdeltConfig = {
   /// la tool del chat corta los titulares a los 10 s.
   maxWaitMs: 7_000,
   timeoutMs: 15_000,
-  /// Sin filtro de medios en la consulta (GDELT rechaza consultas largas:
-  /// "Your query was too short or too long" con 28 dominios): se piden más
-  /// notas y se filtra contra la allowlist en el servidor.
   maxRecords: 250,
-  /// Dominios dentro de la consulta. 0 = ninguno (filtro solo en el servidor).
-  maxDomainsPerQuery: 0,
+  /// Dominios dentro de la consulta. Sin ninguno, las 250 notas más nuevas
+  /// que nombran a la empresa casi nunca son de un medio permitido y la
+  /// respuesta quedaba vacía (NFLX, AMZN: 2026-10-13). Con los 28 de la
+  /// allowlist GDELT la rechaza ("Your query was too short or too long"):
+  /// van los de [queryDomains] que estén permitidos, hasta este tope, y el
+  /// resto se sigue filtrando en el servidor.
+  maxDomainsPerQuery: 8,
+  /// Medios permitidos que GDELT indexa bien (abiertos, mucho volumen), en
+  /// orden de preferencia. Bloomberg, WSJ, FT o Barron's casi no aparecen.
+  queryDomains: [
+    "reuters.com",
+    "apnews.com",
+    "cnbc.com",
+    "marketwatch.com",
+    "yahoo.com",
+    "forbes.com",
+    "businessinsider.com",
+    "infobae.com",
+  ],
 };
 
 export class GdeltUnavailable extends Error {}
@@ -42,7 +56,7 @@ export function pressName(title: string): string {
     .replace(/\s*\/[A-Z]{2}\/?$/, "")
     .replace(/[,.]/g, " ")
     .replace(
-      /\b(inc|incorporated|corp|corporation|co|company|ltd|limited|plc|sa|s a|nv|n v|ag|se|holdings?|group|the|class [a-z]|adr|ads|de cv|sab|lp|llc)\b/gi,
+      /\b(inc|incorporated|corp|corporation|co|com|company|ltd|limited|plc|sa|s a|nv|n v|ag|se|holdings?|group|the|class [a-z]|adr|ads|de cv|sab|lp|llc)\b/gi,
       " ",
     )
     .replace(/\s+/g, " ")
@@ -69,7 +83,9 @@ export function gdeltUrl(
 ): string {
   const terms = names.map((n) => (n.includes(" ") ? `"${n}"` : n));
   const nameClause = terms.length > 1 ? `(${terms.join(" OR ")})` : terms[0];
-  const inQuery = domains.slice(0, gdeltConfig.maxDomainsPerQuery);
+  const inQuery = gdeltConfig.queryDomains
+    .filter((q) => domains.some((d) => d === q || d.endsWith(`.${q}`)))
+    .slice(0, gdeltConfig.maxDomainsPerQuery);
   const domainClause = inQuery.length > 0
     ? ` (${inQuery.map((d) => `domain:${d}`).join(" OR ")})`
     : "";
