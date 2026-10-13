@@ -216,7 +216,9 @@ class GetGoalProjectionTool implements DataTool {
       'monthly_contribution': {
         'type': 'number',
         'description':
-            'Monthly amount in USD the user said they can save, if stated.',
+            'Monthly amount in USD the user said they can save, if stated. '
+            'Said in another currency (pesos) → convert it with a rate from '
+            'search_web first; never pass it unconverted.',
       },
       'current_savings': {
         'type': 'number',
@@ -301,6 +303,27 @@ class GetGoalProjectionTool implements DataTool {
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
     final statedAmount = _positive(ToolArgs.number(args, 'target_amount'));
+    // Un aporte por mes tan grande como la meta entera no es en dólares:
+    // "puedo destinar 20.000" (pesos) para una fiesta de 5.000 USD salía
+    // como "Llegás" con 14.000 $/mes en SGOV.
+    final statedMonthly = _positive(
+      ToolArgs.number(args, 'monthly_contribution'),
+    );
+    final target = statedAmount ?? base?.targetAmount;
+    if (statedMonthly != null &&
+        target != null &&
+        statedMonthly >= target &&
+        retirement != true &&
+        args['goal_type'] != 'retirement') {
+      return {
+        'status': 'invalid',
+        'reason': 'monthly_contribution_not_usd',
+        'message':
+            'monthly_contribution ($statedMonthly) is as big as the whole '
+            'goal ($target USD): it is surely in another currency. Convert '
+            'it to USD with a rate from search_web, or omit it.',
+      };
+    }
     final result = <String, Object?>{
       'status': 'ok',
       'as_of': ctx.asOf,

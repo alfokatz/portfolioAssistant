@@ -572,6 +572,30 @@ void main() {
       );
     });
 
+    test('a monthly contribution as big as the whole goal is rejected as '
+        'another currency', () async {
+      final result = await GetGoalProjectionTool(
+        _ctx(SubscriptionTier.gold),
+      ).run({
+        'target_amount': 5000,
+        'target_date': '2027-10-01',
+        'goal_label': 'Fiesta 200 personas',
+        'goal_type': 'purchase',
+        'monthly_contribution': 20000,
+      });
+      expect(result['status'], 'invalid');
+      expect(result['reason'], 'monthly_contribution_not_usd');
+
+      final ok = await GetGoalProjectionTool(_ctx(SubscriptionTier.gold)).run({
+        'target_amount': 5000,
+        'target_date': '2027-10-01',
+        'goal_label': 'Fiesta 200 personas',
+        'goal_type': 'purchase',
+        'monthly_contribution': 14,
+      });
+      expect(ok['status'], 'ok');
+    });
+
     test('changing a plan the user already saw can be saved right away', () async {
       final ctx = _ctx(SubscriptionTier.gold);
       final plan = await GetGoalProjectionTool(ctx).run({
