@@ -54,14 +54,23 @@ Future<void> _pump(WidgetTester tester, List<ClosedPosition> sales) async {
 }
 
 void main() {
-  testWidgets('the total of every sale on top; the latest sale first', (
+  // Porty respira y parpadea en loop: sin esto, pumpAndSettle no termina.
+  setUp(() => PortyAvatar.ambientMotion = false);
+  tearDown(() => PortyAvatar.ambientMotion = true);
+
+  testWidgets('Porty sums up every sale on top; the latest sale first', (
     tester,
   ) async {
     await _pump(tester, [
       _sale('TSLA', 250, 165, 5), // -85
       _sale('AAPL', 180, 300, 6), // +120
     ]);
-    expect(find.text('+\$35.00'), findsOneWidget); // resultado total
+    // El resultado total va dentro de la frase de Porty (sin traducciones
+    // la frase es la key; el monto entra en el lugar de {amount}).
+    expect(
+      find.text('closed_positions_verdict_gain', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('\$430.00'), findsOneWidget); // lo que pagaste
     expect(find.text('\$465.00'), findsOneWidget); // lo que recibiste
     expect(find.text('-\$85.00'), findsOneWidget);
@@ -72,19 +81,34 @@ void main() {
     );
   });
 
+  test('the summary adds every sale and names the best one', () {
+    final s = ClosedPositionsSummary.of([
+      _sale('TSLA', 250, 165, 5),
+      _sale('AAPL', 180, 300, 6),
+    ]);
+    expect(s.pnl, 35);
+    expect(s.best?.ticker, 'AAPL');
+    // Una sola venta, o ninguna ganadora: no hay "mejor" que nombrar.
+    expect(ClosedPositionsSummary.of([_sale('AAPL', 1, 2, 6)]).best, isNull);
+    expect(
+      ClosedPositionsSummary.of([
+        _sale('TSLA', 250, 165, 5),
+        _sale('NIO', 10, 5, 6),
+      ]).best,
+      isNull,
+    );
+  });
+
   testWidgets('without sales, Porty explains what will show up here', (
     tester,
   ) async {
     await _pump(tester, const []);
     expect(find.text('closed_positions_empty'), findsOneWidget);
     expect(find.text('closed_positions_empty_body'), findsOneWidget);
-    expect(find.text('closed_positions_sales'), findsNothing);
+    expect(find.text('closed_positions_total_cost'), findsNothing);
   });
 
   group('sale detail', () {
-    setUp(() => PortyAvatar.ambientMotion = false);
-    tearDown(() => PortyAvatar.ambientMotion = true);
-
     Future<void> pumpRouter(
       WidgetTester tester,
       List<ClosedPosition> sales, {
