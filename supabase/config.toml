@@ -480,3 +480,8 @@ verify_jwt = false
 # Valida el JWT del usuario ella misma, como finnhub.
 [functions.web-search]
 verify_jwt = false
+
+# Landing de validación (repo porty-web): formulario público sin usuario. La
+# función valida, aplica rate limit por IP y escribe con la service role.
+[functions.landing]
+verify_jwt = false
