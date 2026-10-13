@@ -82,13 +82,13 @@ class TellPortyPromptCards extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: colors.accentBlue.withValues(alpha: 0.12),
+                            color: colors.chip,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             prompt.icon,
                             size: 18,
-                            color: colors.accentBlue,
+                            color: colors.onChip,
                           ),
                         ),
                         const SizedBox(width: AppDimens.sp12),

@@ -78,13 +78,13 @@ class OnboardingPlanTag extends StatelessWidget {
         vertical: 2,
       ),
       decoration: BoxDecoration(
-        color: colors.accentBlue.withValues(alpha: 0.12),
+        color: colors.chip,
         borderRadius: BorderRadius.circular(AppDimens.radiusSm),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colors.accentBlue,
+          color: colors.onChip,
           fontWeight: FontWeight.w700,
         ),
       ),

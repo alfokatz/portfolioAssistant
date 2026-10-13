@@ -54,13 +54,13 @@ class OnboardingGoalPreview extends StatelessWidget {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: colors.accentBlue.withValues(alpha: 0.12),
+                        color: colors.chip,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.flight_takeoff_rounded,
                         size: 20,
-                        color: colors.accentBlue,
+                        color: colors.onChip,
                       ),
                     ),
                     const SizedBox(width: AppDimens.sp12),
