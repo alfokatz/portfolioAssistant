@@ -164,7 +164,7 @@
   "assistant_action_saved_sell": "{ticker} sale saved",
   "assistant_action_saved_delete": "{ticker} position deleted",
   "portfolio_qa_input_hint": "Type your question...",
-  "portfolio_qa_chip_intro": "You could start with:",
+  "portfolio_qa_chip_intro": "You could start with",
   "portfolio_qa_no_positions": "Add open or closed positions so I can answer using your data.",
   "portfolio_qa_chip_today": "How is my portfolio doing today?",
   "portfolio_qa_chip_risk": "Where is my risk concentrated?",

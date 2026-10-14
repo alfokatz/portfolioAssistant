@@ -164,7 +164,7 @@
   "assistant_action_saved_sell": "Venta de {ticker} registrada",
   "assistant_action_saved_delete": "Posición de {ticker} borrada",
   "portfolio_qa_input_hint": "Escribí tu pregunta...",
-  "portfolio_qa_chip_intro": "Podés empezar por acá:",
+  "portfolio_qa_chip_intro": "Podés empezar por acá",
   "portfolio_qa_no_positions": "Agregá posiciones abiertas o cerradas para poder responder con tus datos.",
   "portfolio_qa_chip_today": "¿Cómo va mi portfolio hoy?",
   "portfolio_qa_chip_risk": "¿Dónde tengo más riesgo?",

@@ -269,6 +269,14 @@ Variante propia del input del chat (`input-field-chat` + `button-send-chat`), se
 - **Reposo:** borde 1px Whisper Border, sin sombra.
 - **Focus:** borde Warm Accent 1.5px + glow terracota tenue (alpha 0.16, blur 10px), animado 180ms. Es feedback de interacción, no elevación: única sombra permitida en inputs y solo mientras hay foco.
 
+### Sugerencias iniciales del chat (Porty)
+El chat vacío ofrece preguntas para empezar. Código: `AssistantStarterSuggestions` (`assistant_starter_suggestions.dart`).
+- **Forma:** un solo grupo como los de Ajustes: card Pure Surface, borde 1px Whisper Border, radius 14px, filas separadas por divisores alineados al texto. No una pila de cajas grises iguales (se leían deshabilitadas y repetían el mismo bloque cuatro veces).
+- **Fila:** círculo de 32px con el ícono del tipo de pregunta (cartera, concepto, mercado, inversión) en los tokens `chip` / `onChip`; texto bodyMedium w500 Charcoal Ink (hasta 2 líneas); flecha ↗ en textSecondary a la derecha, la misma de los chips de seguimiento de las cards: tocar envía la pregunta. Alto mínimo 56px.
+- **Encabezado:** "Podés empezar por acá" en labelLarge textSecondary, sin dos puntos, alineado como el título de un grupo de Ajustes.
+- **Deshabilitado** (turno en curso, auto-typing): filas al 50% de opacidad, animado 180ms.
+- **Acento:** el destello terracota no se repite por fila; el terracota queda para enviar y para Porty.
+
 ### Confirmaciones (`ConfirmSheet`)
 Nunca un `AlertDialog` de Material. Una hoja desde abajo, como "Desconectar eToro": Porty arriba (preocupado si la acción destruye algo), título y explicación centrados, botón lleno de 52 px / radius 14 que dice exactamente lo que pasa ("Borrar meta", "Eliminar AAPL", nunca "Aceptar") en Deep Loss Red si destruye y en Charcoal Ink si no, y "Cancelar" debajo en texto secundario. Código: `ConfirmSheet.show` (`presentation/shared/widgets/confirm_sheet.dart`).
 

@@ -32,7 +32,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_ad
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_suggestion_chip.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_starter_suggestions.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
@@ -57,6 +57,15 @@ import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.da
 /// `true` una vez que el avatar del header hizo su entrada en esta sesión de
 /// la app: volver al chat no la repite. Global (no autoDispose) a propósito.
 final portyChatEntrancePlayedProvider = StateProvider<bool>((ref) => false);
+
+/// Ícono de cada sugerencia inicial según su tipo de pregunta (ver
+/// `AssistantProvider.chipKeys`).
+const _starterIcons = <String, IconData>{
+  'portfolio_qa_chip_today': Icons.pie_chart_outline_rounded,
+  'assistant_learn_chip_diversify': Icons.lightbulb_outline_rounded,
+  'assistant_explore_chip_nvda': Icons.show_chart_rounded,
+  'assistant_invest_chip_budget': Icons.savings_outlined,
+};
 
 class AssistantScreen extends StatefulHookConsumerWidget {
   const AssistantScreen({super.key, this.question});
@@ -761,36 +770,46 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                     ),
                           ),
                         if (state.messages.length <= 1) ...[
-                          const SizedBox(height: 4),
+                          const SizedBox(height: AppDimens.sp8),
                           FadeSlideIn(
                             skipAnimation: state.introRevealed,
-                            child: Text(
-                              'portfolio_qa_chip_intro'.tr(),
-                              style: Theme.of(
-                                context,
-                              ).textTheme.labelMedium?.copyWith(
-                                color: context.customColors.textSecondary,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: AppDimens.sp4,
+                                bottom: AppDimens.sp8,
+                              ),
+                              child: Text(
+                                'portfolio_qa_chip_intro'.tr(),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.labelLarge?.copyWith(
+                                  color: context.customColors.textSecondary,
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: AppDimens.sp12),
-                          for (final (i, key) in notifier.chipKeys.indexed) ...[
-                            if (i > 0) const SizedBox(height: 8),
-                            FadeSlideIn(
-                              skipAnimation: state.introRevealed,
-                              delay: Duration(milliseconds: 60 * (i + 1)),
-                              child: AssistantSuggestionChip(
-                                label: key.tr(),
-                                onTap:
-                                    state.isWaiting ||
-                                            service == null ||
-                                            _isAutoTyping
-                                        ? null
-                                        : () =>
-                                            _startAutoType(notifier, key.tr()),
-                              ),
+                          FadeSlideIn(
+                            skipAnimation: state.introRevealed,
+                            delay: const Duration(milliseconds: 60),
+                            child: AssistantStarterSuggestions(
+                              suggestions: [
+                                for (final key in notifier.chipKeys)
+                                  (
+                                    label: key.tr(),
+                                    icon:
+                                        _starterIcons[key] ??
+                                        Icons.chat_bubble_outline_rounded,
+                                  ),
+                              ],
+                              onSelected:
+                                  state.isWaiting ||
+                                          service == null ||
+                                          _isAutoTyping
+                                      ? null
+                                      : (text) =>
+                                          _startAutoType(notifier, text),
                             ),
-                          ],
+                          ),
                         ],
                       ],
                     ),
