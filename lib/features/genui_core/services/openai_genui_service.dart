@@ -142,7 +142,7 @@ typedef TurnAbortCheck = Object? Function(List<ToolCallRecord> roundCalls);
 /// ([AiProxyClient]) con el JWT del usuario y el id del turno. La key de
 /// OpenAI, la cuota y los topes viven en el servidor.
 class OpenAIGenUiService {
-  static const defaultModel = 'gpt-4.1-mini';
+  static const defaultModel = 'gpt-6-luna';
   static const maxRateLimitRetries = 3;
 
   /// Rondas con tools por turno; después, una ronda más con

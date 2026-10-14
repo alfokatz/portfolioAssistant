@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { handle, queryKey } from "../web-search/handler.ts";
+import { handle, queryKey, withoutCiteMarkers } from "../web-search/handler.ts";
 import { createUser, db, deps, fakeFetch } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
@@ -12,17 +12,24 @@ function req(jwt: string | null, body: unknown): Request {
   });
 }
 
-const openAiAnswer = (content: string) =>
+const openAiAnswer = (text: string) =>
   Response.json({
-    choices: [{
-      message: {
-        content,
-        annotations: [
-          { type: "url_citation", url_citation: { url: "https://www.apple.com/macbook-neo/", title: "MacBook Neo" } },
-          { type: "url_citation", url_citation: { url: "https://www.apple.com/macbook-neo/", title: "dup" } },
-        ],
+    status: "completed",
+    output: [
+      { type: "web_search_call", status: "completed" },
+      {
+        type: "message",
+        content: [{
+          type: "output_text",
+          text,
+          annotations: [
+            { type: "url_citation", url: "https://www.apple.com/macbook-neo/", title: "MacBook Neo" },
+            { type: "url_citation", url: "https://www.apple.com/macbook-neo/", title: "dup" },
+          ],
+        }],
       },
-    }],
+    ],
+    usage: { input_tokens: 2000, output_tokens: 300 },
   });
 
 Deno.test("sin JWT → 401 y OpenAI no se llama", async () => {
@@ -45,6 +52,8 @@ Deno.test("busca con la key del servidor, devuelve fuentes sin repetir y cachea 
   assertEquals(body.status, "ok");
   assertEquals(body.sources, [{ title: "MacBook Neo", url: "https://www.apple.com/macbook-neo/" }]);
   assertEquals((f.calls[0].init?.headers as Record<string, string>).Authorization, "Bearer sk-server");
+  assertEquals(f.calls[0].url, "https://api.openai.com/v1/responses");
+  assertEquals((f.calls[0].body as Record<string, unknown>).model, "gpt-6-luna");
 
   const second = await handle(req(b.jwt, { query: `  ${query.toUpperCase()} ` }), d);
   assertEquals(second.headers.get("x-cache"), "hit");
@@ -72,4 +81,12 @@ Deno.test("tope diario del plan (free = 3)", async () => {
   }
   assertEquals(statuses, [200, 200, 200, 429]);
   assertEquals(f.calls.length, 3);
+});
+
+Deno.test("el texto sale sin marcadores de cita (las fuentes van aparte)", () => {
+  assertEquals(
+    withoutCiteMarkers("El iPhone 17 cuesta $799 USD. ([apple.com](https://www.apple.com/x?utm_source=openai))"),
+    "El iPhone 17 cuesta $799 USD.",
+  );
+  assertEquals(withoutCiteMarkers("Según [Apple](https://apple.com), 799 USD."), "Según Apple, 799 USD.");
 });

@@ -49,7 +49,70 @@ export const config = {
   maxReportRounds: 6,
   /// El informe es JSON de prosa corta: ~900 tokens esperados.
   maxReportOutputTokens: 2000,
+  /// Modelos que OpenAI apaga → su reemplazo. Las versiones de la app ya
+  /// publicadas piden gpt-4.1-mini (apagado el 2027-01-14).
+  modelReplacements: { "gpt-4.1-mini": "gpt-6-luna" } as Record<string, string>,
+  /// Paso gradual a GPT-6 (guía de migración de OpenAI): el secret
+  /// GPT6_ROLLOUT_PERCENT (0-100, default 100) decide qué parte de los
+  /// usuarios usa GPT-6; el resto sigue con [rolloutFallbackModel]. Cada
+  /// usuario cae siempre en el mismo grupo. Desde [rolloutEndsAt] (apagado
+  /// del modelo viejo) es 100 sí o sí.
+  rolloutFallbackModel: "gpt-4.1-mini",
+  rolloutEndsAt: Date.parse("2027-01-14T00:00:00Z"),
 };
+
+/// Porcentaje de usuarios en GPT-6 según GPT6_ROLLOUT_PERCENT.
+export function rolloutPercent(deps: Pick<Deps, "env" | "now">): number {
+  if (deps.now() >= config.rolloutEndsAt) return 100;
+  const raw = Number(deps.env("GPT6_ROLLOUT_PERCENT") ?? "100");
+  return Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 100;
+}
+
+/// 0-99, estable por usuario (FNV-1a del id).
+export function rolloutBucket(userId: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < userId.length; i++) {
+    h ^= userId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) % 100;
+}
+
+/// Reescribe un modelo retirado y, en GPT-6:
+/// - `reasoning_effort: none`: el default es `medium`, y Chat Completions
+///   solo acepta tools con `none` (developers.openai.com/api/docs/guides/latest-model);
+/// - `service_tier: fast`: ~125 tokens/s contra ~60 del estándar (medido el
+///   2026-10-14), al doble de precio — sigue más barato que gpt-4.1-mini;
+/// - punto de caché explícito al final del system prompt: GPT-6 cachea en
+///   puntos fijos, y el implícito cae después de PORTFOLIO_BRIEF, que cambia
+///   en cada turno; sin esto el prompt (~13K tokens) no se cacheaba nunca
+///   entre turnos (medido: 0 % → 99 %).
+/// Devuelve el modelo que se va a usar. No cambia el texto del prompt (el
+/// hash de la allowlist se calcula igual sobre partes de texto).
+export function applyModelPolicy(
+  body: Record<string, unknown>,
+  rollout: { userId: string; percent: number } = { userId: "", percent: 100 },
+): string {
+  const asked = typeof body.model === "string" ? body.model : "";
+  let model = config.modelReplacements[asked] ?? asked;
+  if (model.startsWith("gpt-6") && rolloutBucket(rollout.userId) >= rollout.percent) {
+    model = config.rolloutFallbackModel;
+  }
+  body.model = model;
+  if (model.startsWith("gpt-6")) {
+    body.reasoning_effort = "none";
+    body.service_tier = "fast";
+    const first = Array.isArray(body.messages) ? (body.messages as ChatMessage[])[0] : undefined;
+    if (first?.role === "system") {
+      first.content = [{
+        type: "text",
+        text: textOf(first.content),
+        prompt_cache_breakpoint: { mode: "explicit" },
+      }];
+    }
+  }
+  return model;
+}
 
 /// Hashes SHA-256 de los system prompts que publica la app (uno por
 /// versión en circulación). Los genera el test de Flutter
@@ -185,7 +248,7 @@ export async function handle(
   }
   if (purpose !== "chat") return typedError(400, "invalid_purpose", "Unknown x-porty-purpose");
 
-  const model = typeof body.model === "string" ? body.model : "";
+  const model = applyModelPolicy(body, { userId, percent: rolloutPercent(deps) });
   const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
   const problem = await promptProblem(
     messages,
@@ -322,7 +385,7 @@ async function handleReport(
     return typedError(400, "stream_not_allowed", "The weekly report is not streamed");
   }
 
-  const model = typeof body.model === "string" ? body.model : "";
+  const model = applyModelPolicy(body, { userId, percent: rolloutPercent(deps) });
   const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
   if (messages.length < 2 || messages[0].role !== "system") {
     return typedError(403, "prompt_not_allowed", "the first message must be the report prompt");

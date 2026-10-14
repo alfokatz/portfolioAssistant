@@ -1343,7 +1343,7 @@ void main() {
         final recorder = _UsageRecorder();
         final service = AssistantOpenAiService(
           proxy: proxy,
-          model: env['OPENAI_MODEL'] ?? 'gpt-4.1-mini',
+          model: env['OPENAI_MODEL'] ?? 'gpt-6-luna',
           httpClient: recorder,
         );
         // Una por caso, como en la app (vive toda la conversación): los

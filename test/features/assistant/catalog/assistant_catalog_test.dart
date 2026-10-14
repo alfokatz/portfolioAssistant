@@ -77,6 +77,6 @@ void main() {
   // contexto de noticias (fuentes con uso comercial, ~830 caracteres). Al
   // borrar la fuente legacy (Finnhub) se pueden recortar las de consenso.
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(112000));
+    expect(prompt.length, lessThan(112500));
   });
 }

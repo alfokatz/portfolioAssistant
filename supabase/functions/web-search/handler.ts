@@ -11,20 +11,24 @@
 //   modelo de Porty solo puede citar lo que viene acá.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
+import { readResponse } from "../_shared/openai_responses.ts";
 
 export const config = {
-  openAiUrl: "https://api.openai.com/v1/chat/completions",
-  /// Modelo con búsqueda web de Chat Completions (override: WEB_SEARCH_MODEL).
-  defaultModel: "gpt-4o-mini-search-preview",
+  openAiUrl: "https://api.openai.com/v1/responses",
+  /// Modelo con la tool `web_search` de Responses (override:
+  /// WEB_SEARCH_MODEL). gpt-4o-mini-search-preview se apagó el 2026-07-23.
+  defaultModel: "gpt-6-luna",
   cacheTtlSeconds: 24 * 60 * 60,
   ratePerMinute: 10,
   maxQueryLength: 200,
   maxSources: 4,
-  maxAnswerTokens: 350,
-  /// Costo estimado por búsqueda (modelo search-preview de Chat Completions:
-  /// la búsqueda se cobra por llamada; tokens de gpt-4o-mini aparte).
-  searchCallUsd: 0.025,
-  tokenPricesPerM: [0.15, 0.6] as [number, number],
+  /// Incluye el razonamiento (effort low): la respuesta en sí son ~100
+  /// tokens, pero con un tope bajo news-context quedaba cortada o vacía.
+  maxOutputTokens: 1_500,
+  /// Costo estimado: la búsqueda se cobra por llamada (como en
+  /// news-context) y los tokens de gpt-6-luna aparte (US$ por millón).
+  searchCallUsd: 0.01,
+  tokenPricesPerM: [0.10, 0.50] as [number, number],
 };
 
 const systemPrompt =
@@ -44,18 +48,25 @@ export function queryKey(query: string): string {
 type Source = { title: string; url: string };
 
 /// Las fuentes que citó el modelo (url_citation), sin repetidas.
-export function sourcesOf(message: Record<string, unknown> | undefined): Source[] {
-  const annotations = (message?.annotations as Record<string, unknown>[] | undefined) ?? [];
+export function sourcesOf(annotations: { url: string; title?: string }[]): Source[] {
   const seen = new Set<string>();
   const out: Source[] = [];
-  for (const a of annotations) {
-    const c = a?.url_citation as { url?: string; title?: string } | undefined;
-    if (!c?.url || seen.has(c.url)) continue;
+  for (const c of annotations) {
+    if (seen.has(c.url)) continue;
     seen.add(c.url);
     out.push({ title: c.title ?? new URL(c.url).hostname, url: c.url });
     if (out.length === config.maxSources) break;
   }
   return out;
+}
+
+/// Sin los marcadores "([medio](url))" que el modelo deja en el texto: las
+/// fuentes viajan aparte, en `sources`.
+export function withoutCiteMarkers(text: string): string {
+  return text
+    .replace(/\s*\(\[[^\]]*\]\([^)]*\)\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .trim();
 }
 
 export async function handle(req: Request, deps: Deps): Promise<Response> {
@@ -109,13 +120,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: deps.env("WEB_SEARCH_MODEL") ?? config.defaultModel,
-        web_search_options: { search_context_size: "low" },
-        max_completion_tokens: config.maxAnswerTokens,
+        instructions: systemPrompt,
+        input: query,
+        tools: [{ type: "web_search", search_context_size: "low" }],
+        reasoning: { effort: "low" },
+        max_output_tokens: config.maxOutputTokens,
         store: false,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: query },
-        ],
       }),
     });
   } catch (e) {
@@ -126,19 +136,17 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     console.error("[web-search] upstream", upstream.status, await upstream.text());
     return typedError(502, "upstream_failed", "Search failed");
   }
-  const completion = await upstream.json();
-  const cost = config.searchCallUsd +
-    (Number(completion?.usage?.prompt_tokens ?? 0) * config.tokenPricesPerM[0] +
-        Number(completion?.usage?.completion_tokens ?? 0) * config.tokenPricesPerM[1]) / 1e6;
+  const out = readResponse(await upstream.json());
+  const cost = config.searchCallUsd * Math.max(out.searchCalls, 1) +
+    (out.inputTokens * config.tokenPricesPerM[0] + out.outputTokens * config.tokenPricesPerM[1]) / 1e6;
   const record = await deps.db.rpc("record_web_search_usage", {
     p_user_id: userId,
     p_turn_id: req.headers.get("x-porty-turn-id"),
-    p_calls: 1,
+    p_calls: Math.max(out.searchCalls, 1),
     p_cost_usd: Number(cost.toFixed(6)),
   });
   if (record.error) console.error("[web-search] record usage", record.error.message);
-  const message = completion?.choices?.[0]?.message as Record<string, unknown> | undefined;
-  const answer = typeof message?.content === "string" ? message.content.trim() : "";
+  const answer = withoutCiteMarkers(out.text);
 
   const body = answer === "" || answer.includes("FUERA_DE_TEMA")
     ? { status: answer === "" ? "empty" : "off_topic", query }
@@ -146,7 +154,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       status: "ok",
       query,
       answer,
-      sources: sourcesOf(message),
+      sources: sourcesOf(out.annotations),
       as_of: new Date(deps.now()).toISOString(),
     };
   if (body.status === "ok") {

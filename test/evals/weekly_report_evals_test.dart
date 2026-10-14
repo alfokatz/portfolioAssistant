@@ -539,7 +539,7 @@ void main() {
             user['jwt'] as String,
             anonKey: Platform.environment['EVAL_ANON_KEY'],
           ),
-          model: Platform.environment['EVAL_MODEL'] ?? 'gpt-4.1-mini',
+          model: Platform.environment['EVAL_MODEL'] ?? 'gpt-6-luna',
         );
         // El servidor valida la semana del header (la reservada); los datos
         // del caso son de una semana fija.

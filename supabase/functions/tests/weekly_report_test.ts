@@ -159,7 +159,7 @@ function reportReq(
 }
 
 const reportBody = (extra: Record<string, unknown> = {}) => ({
-  model: "gpt-4.1-mini",
+  model: "gpt-6-luna",
   messages: [
     { role: "system", content: reportPrompt },
     { role: "user", content: '{"week":{}}' },
@@ -186,6 +186,7 @@ Deno.test("con claim: reenvía a OpenAI, NO cobra cuota y registra el costo como
   assertEquals(await monthlyUsed(user.id), before);
   const sent = f.calls[0].body as Record<string, unknown>;
   assertEquals(sent.max_completion_tokens, config.maxReportOutputTokens);
+  assertEquals(sent.reasoning_effort, "none");
   const { data: usage } = await db.from("ai_turn_usage").select("purpose, prompt_tokens, charged_at").eq("turn_id", turnId).single();
   assertEquals(usage, { purpose: "weekly_report", prompt_tokens: 9000, charged_at: null });
 });

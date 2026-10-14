@@ -1,6 +1,6 @@
 # Asistente Porty: arquitectura con tool calling
 
-**Estado:** implementado (2026-09-29) · **Modelo:** `gpt-4.1-mini` (override con `OPENAI_MODEL`) · **API:** OpenAI Chat Completions
+**Estado:** implementado (2026-09-29) · **Modelo:** `gpt-6-luna` con `reasoning_effort: none` desde 2026-10-14, antes `gpt-4.1-mini` (override con `OPENAI_MODEL`; ver [runbook](../runbooks/gpt6-luna-migration.md)) · **API:** OpenAI Chat Completions
 **Diseño y decisiones:** [plan de migración](../superpowers/plans/2026-09-29-tool-calling-migration.md) · [investigación genui / `ClientFunction`](../superpowers/research/2026-09-28-genui-client-function-research.md)
 
 Este documento describe cómo funciona hoy el asistente y dónde está cada pieza. Para entender por qué se eligió cada cosa, está el plan de migración.

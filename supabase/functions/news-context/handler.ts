@@ -21,6 +21,7 @@ import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/com
 import { goldAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
+import { readResponse, type ResponsesOutput } from "../_shared/openai_responses.ts";
 
 export const config = {
   openAiUrl: "https://api.openai.com/v1/responses",
@@ -46,6 +47,7 @@ export const config = {
     "gpt-4.1": [2, 8],
     "gpt-5-mini": [0.25, 2],
     "gpt-5": [1.25, 10],
+    "gpt-6-luna": [0.1, 0.5],
   } as Record<string, [number, number]>,
 };
 
@@ -119,42 +121,6 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
     ? `What happened with ${subject} in the last 7 days, and why does it matter?`
     : `¿Qué pasó con ${subject} en los últimos 7 días y por qué importa?`;
   return { instructions, input };
-}
-
-type ResponsesOutput = {
-  /// `incomplete` = se cortó (p. ej. el razonamiento se comió el tope).
-  status: string;
-  text: string;
-  annotations: { url: string; title?: string }[];
-  searchCalls: number;
-  inputTokens: number;
-  outputTokens: number;
-};
-
-// deno-lint-ignore no-explicit-any
-export function readResponse(body: any): ResponsesOutput {
-  let text = "";
-  const annotations: { url: string; title?: string }[] = [];
-  let searchCalls = 0;
-  for (const item of Array.isArray(body?.output) ? body.output : []) {
-    if (item?.type === "web_search_call") searchCalls++;
-    if (item?.type !== "message") continue;
-    for (const part of Array.isArray(item.content) ? item.content : []) {
-      if (part?.type !== "output_text") continue;
-      text += String(part.text ?? "");
-      for (const a of Array.isArray(part.annotations) ? part.annotations : []) {
-        if (a?.type === "url_citation" && typeof a.url === "string") annotations.push({ url: a.url, title: a.title });
-      }
-    }
-  }
-  return {
-    status: String(body?.status ?? ""),
-    text: text.trim(),
-    annotations,
-    searchCalls,
-    inputTokens: Number(body?.usage?.input_tokens ?? 0),
-    outputTokens: Number(body?.usage?.output_tokens ?? 0),
-  };
 }
 
 /// Viñetas limpias: sin marcadores de cita "([medio](url))" que el modelo a

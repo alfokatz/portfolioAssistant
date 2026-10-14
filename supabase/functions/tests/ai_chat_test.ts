@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { config, handle } from "../ai-chat/handler.ts";
+import { applyModelPolicy, config, handle, rolloutBucket, rolloutPercent } from "../ai-chat/handler.ts";
 import { sha256Hex } from "../_shared/common.ts";
 import { createUser, db, deps, fakeFetch, monthlyUsed } from "./helpers.ts";
 
@@ -9,7 +9,7 @@ const env = { OPENAI_API_KEY: "sk-test-server-side" };
 
 function body(extra: Record<string, unknown> = {}, messages?: unknown[]) {
   return {
-    model: "gpt-4.1-mini",
+    model: "gpt-6-luna",
     messages: messages ?? [
       { role: "system", content: SYSTEM },
       { role: "system", content: "PORTFOLIO_BRIEF — cartera: {}" },
@@ -64,8 +64,8 @@ Deno.test("un turno con varias rondas y un reintento cobra UNA consulta, y regis
   assertEquals(data.round_count, 3);
   assertEquals(Number(data.prompt_tokens), 72000);
   assertEquals(Number(data.cached_tokens), 60000);
-  // 3 × (4000×0,40 + 20000×0,10 + 300×1,60) / 1e6
-  assertEquals(Number(data.cost_usd).toFixed(6), (3 * (4000 * 0.4 + 20000 * 0.1 + 300 * 1.6) / 1e6).toFixed(6));
+  // 3 × (4000×0,20 + 20000×0,02 + 300×1,00) / 1e6 (gpt-6-luna, tarifa fast)
+  assertEquals(Number(data.cost_usd).toFixed(6), (3 * (4000 * 0.2 + 20000 * 0.02 + 300 * 1.0) / 1e6).toFixed(6));
   assert(data.charged_at);
   // La key del servidor es la que viaja a OpenAI; el cliente nunca la tuvo.
   assertEquals((f.calls[0].init?.headers as Record<string, string>).Authorization, "Bearer sk-test-server-side");
@@ -124,6 +124,24 @@ Deno.test("max_tokens acotado y parámetros forzados por el servidor", async () 
   assertEquals(sent.max_tokens, undefined);
   assertEquals(sent.n, 1);
   assertEquals(sent.store, false);
+});
+
+Deno.test("gpt-4.1-mini (apps viejas) se reescribe a gpt-6-luna con reasoning_effort none", async () => {
+  const user = await createUser("gold");
+  const turn = `turn-${crypto.randomUUID()}`;
+  const f = fakeFetch(finalReply);
+  const r = await handle(req(user.jwt, turn, body({ model: "gpt-4.1-mini", reasoning_effort: "high" })), deps(f.fetch, env), { allowedPromptHashes: hashes });
+  assertEquals(r.status, 200);
+  await r.text();
+  const sent = f.calls[0].body as Record<string, unknown>;
+  assertEquals(sent.model, "gpt-6-luna");
+  assertEquals(sent.reasoning_effort, "none");
+  assertEquals(sent.service_tier, "fast");
+  // Punto de caché explícito al final del system prompt, con el mismo texto.
+  const first = (sent.messages as { role: string; content: unknown }[])[0];
+  assertEquals(first.content, [{ type: "text", text: SYSTEM, prompt_cache_breakpoint: { mode: "explicit" } }]);
+  const data = (await db.from("ai_turn_usage").select("model").eq("turn_id", turn).single()).data!;
+  assertEquals(data.model, "gpt-6-luna");
 });
 
 Deno.test("body demasiado grande → 413", async () => {
@@ -214,4 +232,28 @@ Deno.test("un 429 de OpenAI pasa tal cual y el reintento del mismo turno cobra u
   assertEquals(retry.status, 200);
   await retry.text();
   assertEquals(await monthlyUsed(user.id), 1);
+});
+
+Deno.test("paso gradual: GPT6_ROLLOUT_PERCENT reparte por usuario, estable, y se apaga el 2027-01-14", () => {
+  const users = Array.from({ length: 1000 }, (_, i) => `user-${i}`);
+  const inLuna = (percent: number) =>
+    users.filter((u) => applyModelPolicy({ model: "gpt-6-luna", messages: [] }, { userId: u, percent }) === "gpt-6-luna").length;
+  assertEquals(inLuna(0), 0);
+  assertEquals(inLuna(100), 1000);
+  const ten = inLuna(10);
+  assert(ten > 60 && ten < 140, `10 % → ${ten} de 1000`);
+  // El mismo usuario siempre cae en el mismo grupo, pida el modelo viejo o el nuevo.
+  const u = users.find((x) => rolloutBucket(x) >= 10)!;
+  const oldApp = { model: "gpt-4.1-mini", messages: [{ role: "system", content: "x" }] };
+  assertEquals(applyModelPolicy(oldApp, { userId: u, percent: 10 }), "gpt-4.1-mini");
+  assertEquals((oldApp as Record<string, unknown>).reasoning_effort, undefined);
+  assertEquals(applyModelPolicy({ model: "gpt-6-luna", messages: [] }, { userId: u, percent: 10 }), "gpt-4.1-mini");
+
+  const before = Date.parse("2026-11-01T00:00:00Z");
+  const after = Date.parse("2027-01-14T00:00:00Z");
+  const env = (v?: string) => (k: string) => (k === "GPT6_ROLLOUT_PERCENT" ? v : undefined);
+  assertEquals(rolloutPercent({ env: env(), now: () => before }), 100);
+  assertEquals(rolloutPercent({ env: env("25"), now: () => before }), 25);
+  assertEquals(rolloutPercent({ env: env("basura"), now: () => before }), 100);
+  assertEquals(rolloutPercent({ env: env("0"), now: () => after }), 100);
 });

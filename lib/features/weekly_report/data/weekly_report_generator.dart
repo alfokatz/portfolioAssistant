@@ -56,7 +56,7 @@ class WeeklyReportGenerator {
   final http.Client _client;
   final String _model;
 
-  static const defaultModel = 'gpt-4.1-mini';
+  static const defaultModel = 'gpt-6-luna';
   static const temperature = 0.4;
   static const maxOutputTokens = 1500;
   static const timeout = Duration(seconds: 40);
