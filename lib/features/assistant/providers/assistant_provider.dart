@@ -84,15 +84,36 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
   bool _profileNudgeShown = false;
 
-  static const List<String> _starterChipKeys = [
-    'portfolio_qa_chip_today',
-    'assistant_learn_chip_diversify',
-    'assistant_explore_chip_nvda',
-    'assistant_invest_chip_budget',
-  ];
+  /// Sugerencias iniciales según el plan: cada una se responde con lo que el
+  /// plan incluye (ninguna lleva a un paywall gastando una consulta) y
+  /// parten de la cartera del usuario antes que de un ticker cualquiera.
+  /// Cubren lo que promete el saludo: cartera, conceptos, mercado y metas.
+  @visibleForTesting
+  static List<String> starterChipKeysFor(SubscriptionTier tier) =>
+      switch (tier) {
+        SubscriptionTier.free => const [
+          'portfolio_qa_chip_today',
+          'assistant_chip_diversified',
+          'assistant_chip_best_position',
+          'portfolio_qa_chip_risk',
+        ],
+        SubscriptionTier.premium => const [
+          'portfolio_qa_chip_today',
+          'assistant_chip_diversified',
+          'assistant_explore_chip_compare',
+          'assistant_chip_goal',
+        ],
+        SubscriptionTier.gold => const [
+          'portfolio_qa_chip_today',
+          'assistant_chip_why_moved',
+          'assistant_chip_diversified',
+          'assistant_chip_goal',
+        ],
+      };
 
-  /// Sugerencias iniciales, una de cada tipo de pregunta.
-  List<String> get chipKeys => _starterChipKeys;
+  /// Sugerencias iniciales del plan actual (ver [starterChipKeysFor]).
+  List<String> get chipKeys =>
+      starterChipKeysFor(ref.read(subscriptionProvider).tier);
 
   /// La conversación de Porty (sus surfaces). `null` hasta `bootstrap`.
   AssistantOpenAiService? get service => _service;

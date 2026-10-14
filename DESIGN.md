@@ -276,6 +276,7 @@ El chat vacío ofrece preguntas para empezar. Código: `AssistantStarterSuggesti
 - **Encabezado:** "Podés empezar por acá" en labelLarge textSecondary, sin dos puntos, alineado como el título de un grupo de Ajustes.
 - **Deshabilitado** (turno en curso, auto-typing): filas al 50% de opacidad, animado 180ms.
 - **Acento:** el destello terracota no se repite por fila; el terracota queda para enviar y para Porty.
+- **Contenido:** cuatro preguntas que cubren lo que promete el saludo (cartera, conceptos, mercado, metas), elegidas por plan (`AssistantProvider.starterChipKeysFor`). Ninguna lleva a un paywall: gastar una consulta para ver "esto es Premium" es la peor primera impresión. Preferir preguntas sobre la cartera del usuario ("¿Estoy bien diversificado?") antes que genéricas ("¿Qué es diversificar?") o sobre un ticker al azar, y nada que suene a dato para operar ("Tengo $500 para invertir en tech"). Sin jerga (P&L) en las sugerencias.
 
 ### Confirmaciones (`ConfirmSheet`)
 Nunca un `AlertDialog` de Material. Una hoja desde abajo, como "Desconectar eToro": Porty arriba (preocupado si la acción destruye algo), título y explicación centrados, botón lleno de 52 px / radius 14 que dice exactamente lo que pasa ("Borrar meta", "Eliminar AAPL", nunca "Aceptar") en Deep Loss Red si destruye y en Charcoal Ink si no, y "Cancelar" debajo en texto secundario. Código: `ConfirmSheet.show` (`presentation/shared/widgets/confirm_sheet.dart`).

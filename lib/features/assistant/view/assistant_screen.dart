@@ -62,9 +62,12 @@ final portyChatEntrancePlayedProvider = StateProvider<bool>((ref) => false);
 /// `AssistantProvider.chipKeys`).
 const _starterIcons = <String, IconData>{
   'portfolio_qa_chip_today': Icons.pie_chart_outline_rounded,
-  'assistant_learn_chip_diversify': Icons.lightbulb_outline_rounded,
-  'assistant_explore_chip_nvda': Icons.show_chart_rounded,
-  'assistant_invest_chip_budget': Icons.savings_outlined,
+  'assistant_chip_diversified': Icons.donut_large_rounded,
+  'assistant_chip_best_position': Icons.trending_up_rounded,
+  'portfolio_qa_chip_risk': Icons.shield_outlined,
+  'assistant_explore_chip_compare': Icons.show_chart_rounded,
+  'assistant_chip_why_moved': Icons.article_outlined,
+  'assistant_chip_goal': Icons.flag_outlined,
 };
 
 class AssistantScreen extends StatefulHookConsumerWidget {
