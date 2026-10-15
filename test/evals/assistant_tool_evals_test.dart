@@ -791,6 +791,21 @@ final _cases = <_Case>[
         ),
       ];
     }),
+  // "¿Cómo puedo diversificar?" respondía solo con texto (2026-10-15): tiene
+  // que terminar en candidatos concretos, elegidos por lo que le falta a ESTA
+  // cartera (el `gap`), no solo los ETFs más conocidos.
+  _Case('invest-diversify', ['¿Cómo puedo diversificar?'], (t, _) {
+    final ran = t.calls.where((c) => c.name == 'get_invest_candidates');
+    final gap = ran.isEmpty ? '' : '${ran.first.args['gap'] ?? ''}';
+    return [
+      ..._expect(ran.isNotEmpty, 'no propuso candidatos: $t'),
+      ..._expect(
+        gap.trim().length >= 15,
+        'sin diagnóstico de la cartera: "$gap"',
+      ),
+      ..._expect(t.components.contains('QaInvestOption'), 'sin cards de ideas'),
+    ];
+  }),
   _Case(
     'G8-news-after-invest',
     ['Tengo \$500 para invertir en energía renovable', '¿y las noticias?'],

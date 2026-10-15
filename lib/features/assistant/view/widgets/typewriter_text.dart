@@ -23,6 +23,7 @@ class TypewriterText extends StatefulWidget {
     this.play = true,
     this.skipAnimation = false,
     this.onWordRevealed,
+    this.builder,
   });
 
   final String text;
@@ -53,6 +54,10 @@ class TypewriterText extends StatefulWidget {
   /// Corre inline en el tick del controller: tiene que ser barato y no
   /// bloquear (ej. un haptic fire-and-forget con su propio throttle).
   final VoidCallback? onWordRevealed;
+
+  /// Cómo se dibuja la parte visible (por defecto, un `Text` con [style]):
+  /// p. ej. con párrafos y viñetas. Recibe el texto hasta donde va.
+  final Widget Function(BuildContext context, String visible)? builder;
 
   @override
   State<TypewriterText> createState() => _TypewriterTextState();
@@ -160,11 +165,11 @@ class _TypewriterTextState extends State<TypewriterText>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
+          final visible = widget.text.substring(0, _visibleChars);
           return ExcludeSemantics(
-            child: Text(
-              widget.text.substring(0, _visibleChars),
-              style: widget.style,
-            ),
+            child:
+                widget.builder?.call(context, visible) ??
+                Text(visible, style: widget.style),
           );
         },
       ),

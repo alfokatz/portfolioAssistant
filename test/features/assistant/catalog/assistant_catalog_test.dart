@@ -76,7 +76,10 @@ void main() {
   // 2026-10-11: 110.000 → 112.000 por las reglas de datos de la SEC y del
   // contexto de noticias (fuentes con uso comercial, ~830 caracteres). Al
   // borrar la fuente legacy (Finnhub) se pueden recortar las de consenso.
+  // 2026-10-15: 112.500 → 114.000 por el formato del texto (viñetas y
+  // párrafos en vez de bloques) y el diagnóstico de la cartera antes de
+  // recomendar (+1,2K caracteres ≈ +300 tokens, casi todo cacheado).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(112500));
+    expect(prompt.length, lessThan(114000));
   });
 }

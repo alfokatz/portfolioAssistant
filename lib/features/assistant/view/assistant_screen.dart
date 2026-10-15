@@ -10,6 +10,7 @@ import 'package:genui/genui.dart' show SurfaceDefinition;
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_streamed_text_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/answer_text_body.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
@@ -955,8 +956,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           _scheduleFollow();
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              preview.text,
+            child: AnswerTextBody(
+              text: AnswerTextFormat.normalize(preview.text),
               style: PortfolioQaCatalogWidgets.answerTextStyle,
             ),
           );
