@@ -281,7 +281,7 @@ El chat vacío ofrece preguntas para empezar. Código: `AssistantStarterSuggesti
 ### Metas (Porty)
 La pestaña Metas tiene la forma de las pantallas donde Porty acompaña (Posiciones cerradas, Agregar posición), no una pila de cards. Código: `GoalsScreen` + `GoalsVerdict` (`features/goals/view/`).
 - **Arriba, Porty:** `PortySays` con una frase sobre TODAS las metas juntas, armada con los números de `GoalProgress` (nunca la escribe el modelo). Lo que más pide atención va primero: una vencida, después la atrasada que más aporte necesita, después "vas en camino" con el aporte del mes entre todas. Cara: preocupado si algo viene atrasado o vencido, contento si van en camino, tranquilo si todas recién se guardaron. Con más de una meta, una nota: "Entre todas llevás X de Y".
-- **Las metas:** un solo grupo ("En curso", y otro "Logradas") con filas separadas por divisores alineados al texto, como Ajustes. Fila:
+- **Las metas:** filas directo sobre el fondo, sin card ("Earn every card"), agrupadas en "En curso" y "Logradas" y separadas por divisores alineados al texto, como las ventas de Posiciones cerradas. Alineadas al margen de la página. Fila:
   - **Anillo de 52px** (trazo 4px, color del veredicto, fondo `textSecondary` al 16%, un avance mínimo se ve como un punto) alrededor de un disco `chip` con el ícono de lo que es la meta (`GoalIcon`, familia *rounded*: avión para un viaje, auto, compu, celular, casa, escudo para emergencia, chanchito para "juntar"…; sin pista, el del tipo). El mismo ícono va en las cards del chat.
   - **Renglón 1:** nombre (16px w700) y, a la derecha, el porcentaje (16px w700 tabular; verde si está cumplida).
   - **Renglón 2:** lo juntado en w700 + "de Y" en secundario, y a la derecha el aporte por mes.

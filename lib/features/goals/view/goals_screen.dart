@@ -233,7 +233,7 @@ class _GroupTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: AppDimens.sp4, bottom: AppDimens.sp8),
+    padding: const EdgeInsets.only(bottom: AppDimens.sp4),
     child: Semantics(
       header: true,
       child: Align(
@@ -251,8 +251,9 @@ class _GroupTitle extends StatelessWidget {
   );
 }
 
-/// Una sola superficie con las filas separadas por divisores alineados al
-/// texto (como los grupos de Ajustes y las sugerencias del chat).
+/// Las filas directo sobre el fondo, separadas por divisores alineados al
+/// texto, como las ventas de Posiciones cerradas: sin caja ("Earn every
+/// card"). La frase de Porty y las metas se leen como una sola cosa.
 class _Group extends StatelessWidget {
   const _Group({required this.children});
 
@@ -261,33 +262,29 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (final (i, child) in children.indexed) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                indent: _rowPadding + _GoalRing.size + AppDimens.sp12,
-                endIndent: _rowPadding,
-                color: colors.border,
-              ),
-            child,
-          ],
+    return Column(
+      children: [
+        for (final (i, child) in children.indexed) ...[
+          if (i > 0)
+            Divider(
+              height: 1,
+              thickness: 1,
+              indent: _GoalRing.size + _ringGap,
+              color: colors.border,
+            ),
+          child,
         ],
-      ),
+      ],
     );
   }
 }
 
+/// Alto de aire arriba y abajo de cada fila (a los costados, el margen de
+/// la página).
 const _rowPadding = AppDimens.sp16;
+
+/// Entre el anillo y el texto.
+const _ringGap = AppDimens.sp16 - 2;
 
 /// Una meta: a la izquierda su anillo (cuánto lleva, del color del
 /// veredicto) con el ícono de lo que es (un avión, un auto…) sobre un disco
@@ -470,7 +467,7 @@ class _GoalRow extends ConsumerWidget {
     }
 
     final row = Padding(
-      padding: const EdgeInsets.all(_rowPadding),
+      padding: const EdgeInsets.symmetric(vertical: _rowPadding),
       child: Row(
         children: [
           g == null
@@ -484,7 +481,7 @@ class _GoalRow extends ConsumerWidget {
                 color: statusColor,
                 icon: GoalIcon.forGoal(g.goal),
               ),
-          const SizedBox(width: AppDimens.sp16 - 2),
+          const SizedBox(width: _ringGap),
           Expanded(child: content),
         ],
       ),
@@ -727,10 +724,7 @@ class _ActionRow extends StatelessWidget {
               minHeight: AppDimens.touchTarget + AppDimens.sp16,
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _rowPadding,
-                vertical: AppDimens.sp12,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
               child: Row(
                 children: [
                   Container(
@@ -754,7 +748,7 @@ class _ActionRow extends StatelessWidget {
                       color: accent ? colors.accentBlue : colors.onChip,
                     ),
                   ),
-                  const SizedBox(width: AppDimens.sp12),
+                  const SizedBox(width: _ringGap),
                   Expanded(
                     child: Text(
                       label,
