@@ -135,11 +135,36 @@ abstract final class AnalysisProseCheck {
     return false;
   }
 
-  /// Oraciones de [text] (por puntuación final).
+  /// Oraciones de [text] (por puntuación final, y cada renglón aparte: una
+  /// viñeta sin punto final es su propia oración).
   static List<String> sentences(String text) => [
-    for (final s in text.split(RegExp(r'(?<=[.!?])\s+')))
+    for (final s in text.split(RegExp(r'(?<=[.!?])\s+|\n+')))
       if (s.trim().isNotEmpty) s.trim(),
   ];
+
+  static final _bulletMark = RegExp(r'^\s*[•\-–]\s+');
+
+  /// [text] con solo las oraciones que pasan [keep], respetando renglones,
+  /// viñetas y párrafos (antes se unía todo en una línea: se perdía el
+  /// formato, y una viñeta sin punto arrastraba al texto entero). Un
+  /// renglón que queda vacío se saca.
+  static String keepSentences(String text, bool Function(String) keep) {
+    final out = <String>[];
+    for (final line in text.split('\n')) {
+      if (line.trim().isEmpty) {
+        if (out.isNotEmpty && out.last.isNotEmpty) out.add('');
+        continue;
+      }
+      final mark = _bulletMark.firstMatch(line)?.group(0) ?? '';
+      final kept = sentences(line.substring(mark.length)).where(keep);
+      if (kept.isEmpty) continue;
+      out.add('${mark.isEmpty ? '' : '• '}${kept.join(' ')}');
+    }
+    while (out.isNotEmpty && out.last.isEmpty) {
+      out.removeLast();
+    }
+    return out.join('\n');
+  }
 
   /// Problemas de una oración: números sin respaldo y/o consejo.
   static List<String> problemsIn(String sentence, Iterable<double> backing) {
@@ -167,7 +192,7 @@ abstract final class AnalysisProseCheck {
 
   /// [text] sin las oraciones que tienen problemas.
   static String clean(String text, Iterable<double> backing) =>
-      sentences(text).where((s) => problemsIn(s, backing).isEmpty).join(' ');
+      keepSentences(text, (s) => problemsIn(s, backing).isEmpty);
 
   /// Cuántos números de [text] aparecen también en [widgetNumbers] (la
   /// frase que acompaña a una card no debería repetirlos).

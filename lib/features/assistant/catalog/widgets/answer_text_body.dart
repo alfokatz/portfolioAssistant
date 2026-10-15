@@ -4,28 +4,45 @@ import 'package:flutter/material.dart';
 /// renglón en blanco y viñetas ("• " o "- ") con sangría colgante.
 abstract final class AnswerTextFormat {
   /// Desde este largo, un bloque sin saltos de línea se parte en párrafos.
-  static const longBlock = 260;
+  static const longBlock = 220;
 
-  /// Oraciones por párrafo al partir un bloque largo.
-  static const sentencesPerParagraph = 2;
+  /// Largo máximo de un párrafo al partir un bloque largo: se arma con
+  /// oraciones enteras hasta este largo (y siempre al menos una).
+  static const paragraphChars = 200;
 
   /// Red de seguridad para una respuesta larga escrita de corrido (el prompt
-  /// pide párrafos o viñetas, pero el modelo no siempre cumple): la parte en
-  /// párrafos de [sentencesPerParagraph] oraciones. Un texto que ya trae
+  /// pide párrafos o viñetas, pero el modelo no siempre cumple; con Luna,
+  /// dos oraciones de 200 caracteres cada una): la parte en párrafos de
+  /// hasta [paragraphChars], con oraciones enteras. Un texto que ya trae
   /// saltos de línea, o uno corto, queda igual.
   static String normalize(String text) {
-    // Sin markdown (el prompt lo pide; si igual llega, no se ven asteriscos).
-    final trimmed = text.replaceAll('**', '').trim();
+    // Sin markdown (el prompt lo pide; si igual llega, no se ven asteriscos)
+    // y sin punto y coma: cada parte es su propia oración, más fácil de leer
+    // (y la red de seguridad puede cortar ahí el párrafo).
+    final trimmed = withoutSemicolons(text.replaceAll('**', '')).trim();
     if (trimmed.length < longBlock || trimmed.contains('\n')) return trimmed;
     final sentences = splitSentences(trimmed);
-    if (sentences.length <= sentencesPerParagraph) return trimmed;
+    if (sentences.length < 2) return trimmed;
     final paragraphs = <String>[];
-    for (var i = 0; i < sentences.length; i += sentencesPerParagraph) {
-      final end = (i + sentencesPerParagraph).clamp(0, sentences.length);
-      paragraphs.add(sentences.sublist(i, end).join(' '));
+    var current = '';
+    for (final sentence in sentences) {
+      if (current.isNotEmpty &&
+          current.length + 1 + sentence.length > paragraphChars) {
+        paragraphs.add(current);
+        current = sentence;
+      } else {
+        current = current.isEmpty ? sentence : '$current $sentence';
+      }
     }
+    if (current.isNotEmpty) paragraphs.add(current);
     return paragraphs.join('\n\n');
   }
+
+  /// "…de VOO; además, tiene…" → "…de VOO. Además, tiene…".
+  static String withoutSemicolons(String text) => text.replaceAllMapped(
+    RegExp(r';\s+(\S)'),
+    (m) => '. ${m[1]!.toUpperCase()}',
+  );
 
   /// Oraciones de [text]: corta después de `.`, `?` o `!` seguidos de un
   /// espacio y una mayúscula ("…cartera. En el último año…", "…fuerza.

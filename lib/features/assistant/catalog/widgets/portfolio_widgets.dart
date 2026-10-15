@@ -127,6 +127,16 @@ abstract final class PortfolioWidgets {
 
   static final _othersColor = QaColors.textSecondary.withValues(alpha: 0.3);
 
+  /// Plata que entró (+) o salió (−) de la cartera en el período: lo que
+  /// cambió el valor y no es ganancia ni pérdida. `null` si es despreciable
+  /// (menos de 1 $ o del 0,5 % del valor).
+  static double? _periodFlows(_PeriodChangeData data) {
+    if (data.valueStart <= 0 || data.valueEnd <= 0) return null;
+    final flows = data.valueEnd - data.valueStart - data.changeAbs;
+    final threshold = math.max(1.0, data.valueEnd * 0.005);
+    return flows.abs() < threshold ? null : flows;
+  }
+
   /// Cambio del portfolio completo en una ventana. El label del período
   /// aparece primero y el número después (reveal en dos etapas); la curva
   /// del período se carga del lado del cliente y, si no hay datos, la card
@@ -139,6 +149,10 @@ abstract final class PortfolioWidgets {
             : QaPalette.trend(data.changeAbs);
     final hasRange = data.valueStart > 0 && data.valueEnd > 0;
     final label = data.periodLabel.isEmpty ? 'En el período' : data.periodLabel;
+    // El cambio no cuenta como ganancia la plata que entró o salió en el
+    // período, pero "Al inicio" y "Ahora" sí la incluyen: sin decirlo, la
+    // card mostraba 5.605 → 6.568 con "-37 $".
+    final flows = _periodFlows(data);
 
     final first = QaSectionLabel(label);
     final second = Column(
@@ -191,6 +205,17 @@ abstract final class PortfolioWidgets {
               ],
             ),
           ),
+          if (flows != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              flows > 0
+                  ? 'Incluye ${QaFormat.money(flows)} que sumaste en el '
+                      'período: no cuentan como ganancia.'
+                  : 'Incluye ${QaFormat.money(-flows)} que retiraste en el '
+                      'período: no cuentan como pérdida.',
+              style: QaText.caption,
+            ),
+          ],
         ],
         QaFollowUpBar(
           items: [

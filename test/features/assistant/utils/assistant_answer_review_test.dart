@@ -223,6 +223,41 @@ void main() {
     expect(out, contains('la que mejor le fue'));
   });
 
+  test('a card number repeated in one line drops only that line, keeping '
+      'bullets and paragraphs', () {
+    // "¿Por qué se movió mi cartera?": antes, sin punto al final de las
+    // viñetas, todo era UNA oración, y el "37" de la card borraba el texto
+    // entero (quedaba "Así cambió el valor de tu portfolio…").
+    final normalized = _answer([
+      _intro(
+        'Tu cartera bajó 37 \$ en la semana\n'
+        '• MSFT: Estados Unidos le prohibió contratos con firmas indias\n'
+        '- GOOGL: presentó su nuevo modelo de IA\n\n'
+        'SGOV quedó estable.',
+      ),
+      {
+        'id': 'p',
+        'component': 'QaPeriodChange',
+        'periodLabel': 'últimos 7 días',
+        'changeAbs': -37.2,
+        'changePct': -0.6,
+        'valueStart': 5605,
+        'valueEnd': 6568,
+      },
+    ]);
+    final out = AssistantAnswerReview.postProcess(normalized, _evidence);
+    final components =
+        ((jsonDecode(out) as Map)['updateComponents'] as Map)['components']
+            as List;
+    final intro = components.cast<Map>().firstWhere((c) => c['id'] == 'a');
+    expect(
+      intro['text'],
+      '• MSFT: Estados Unidos le prohibió contratos con firmas indias\n'
+      '• GOOGL: presentó su nuevo modelo de IA\n\n'
+      'SGOV quedó estable.',
+    );
+  });
+
   test('postProcess drops what the model did not fix', () {
     final normalized = _answer([
       _intro('Aquí tienes: P/E 11,63x y margen neto 30,16%.'),

@@ -106,6 +106,25 @@ void main() {
       expect(find.text('\$24,351'), findsOneWidget);
     });
 
+    testWidgets('money added in the period is said, not hidden in the '
+        'start → end values', (tester) async {
+      // La captura: 5.605 → 6.568 con "-37 $" (se sumó plata en la semana).
+      await _pump(tester, 'QaPeriodChange', {
+        'periodLabel': 'últimos 7 días',
+        'changeAbs': -37,
+        'changePct': -0.6,
+        'valueStart': 5605,
+        'valueEnd': 6568,
+      });
+      expect(
+        find.text(
+          'Incluye \$1,000 que sumaste en el período: no cuentan como '
+          'ganancia.',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('loss without range + natural follow-up question', (
       tester,
     ) async {
