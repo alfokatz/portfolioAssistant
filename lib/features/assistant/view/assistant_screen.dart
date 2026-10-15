@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:genui/genui.dart' show SurfaceDefinition;
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_streamed_text_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/answer_text_body.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
@@ -940,8 +943,26 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     } else if (message.isGenUiSurface && message.isStreaming) {
       // Mientras Porty piensa, la fila es solo su avatar (pulsando, ver
       // _MessageAvatar): el lugar exacto donde va a empezar la respuesta.
+      // Con streaming, ahí mismo aparece su texto mientras lo escribe; las
+      // cards llegan con la respuesta completa.
       contentKey = const ValueKey('thinking');
-      content = const SizedBox(height: _MessageAvatar.size);
+      content = ValueListenableBuilder<AnswerPreview?>(
+        valueListenable: notifier.preview,
+        builder: (context, preview, _) {
+          if (preview == null || preview.surfaceId != message.surfaceId) {
+            return const SizedBox(height: _MessageAvatar.size);
+          }
+          // La fila crece: el seguimiento del scroll la acompaña.
+          _scheduleFollow();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AnswerTextBody(
+              text: AnswerTextFormat.normalize(preview.text),
+              style: PortfolioQaCatalogWidgets.answerTextStyle,
+            ),
+          );
+        },
+      );
     } else if (message.isGenUiSurface) {
       contentKey = const ValueKey('surface');
       final surface = QaPlanScope(
@@ -1008,20 +1029,23 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                       message.surfaceId == _speakingSurfaceId
                           ? () => _finishSpeaking(service, message.surfaceId!)
                           : null,
-                  child: PortfolioQaAssistantSurface(
-                    surfaceId: message.surfaceId!,
-                    surfaceContext: service.controller.contextFor(
-                      message.surfaceId!,
+                  child: QaStreamedTextScope(
+                    text: notifier.streamedTextFor(message.surfaceId!),
+                    child: PortfolioQaAssistantSurface(
+                      surfaceId: message.surfaceId!,
+                      surfaceContext: service.controller.contextFor(
+                        message.surfaceId!,
+                      ),
+                      startFullyRevealed: message.hasRevealed,
+                      onFullyRevealed: () {
+                        if (message.surfaceId == _followSurfaceId) {
+                          _finishFollowing();
+                        }
+                        // Respuesta sin texto: deja de hablar al terminar las cards.
+                        _finishSpeaking(service, message.surfaceId!);
+                        notifier.markRevealed(message.surfaceId!);
+                      },
                     ),
-                    startFullyRevealed: message.hasRevealed,
-                    onFullyRevealed: () {
-                      if (message.surfaceId == _followSurfaceId) {
-                        _finishFollowing();
-                      }
-                      // Respuesta sin texto: deja de hablar al terminar las cards.
-                      _finishSpeaking(service, message.surfaceId!);
-                      notifier.markRevealed(message.surfaceId!);
-                    },
                   ),
                 ),
               ),

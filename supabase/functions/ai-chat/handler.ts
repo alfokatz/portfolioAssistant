@@ -226,6 +226,12 @@ export async function handle(
   const userId = jwt ? await deps.authenticate(jwt) : null;
   if (!userId) return typedError(401, "unauthorized", "Missing or invalid JWT");
 
+  // La app lo manda al abrir Porty: arranca la función (y la clave pública
+  // de los JWT) antes de la primera pregunta. Sin OpenAI ni base.
+  if (req.headers.get("x-porty-purpose") === "warmup") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   const turnId = req.headers.get("x-porty-turn-id") ?? "";
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(turnId)) {
     return typedError(400, "invalid_turn_id", "x-porty-turn-id header required");
@@ -305,7 +311,8 @@ export async function handle(
         const parsed = JSON.parse(text);
         const message = parsed?.choices?.[0]?.message ?? {};
         const final = !(Array.isArray(message.tool_calls) && message.tool_calls.length > 0);
-        await recordRound(deps, userId, turnId, model, usageOf(parsed.usage), final);
+        // Después de responder: la app no espera el registro de uso.
+        deps.background(recordRound(deps, userId, turnId, model, usageOf(parsed.usage), final));
       } catch (e) {
         console.error("could not parse OpenAI response", String(e));
       }

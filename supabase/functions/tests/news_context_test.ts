@@ -4,7 +4,7 @@
 // url_citation).
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { bullets, cacheKey, handle, parseBody } from "../news-context/handler.ts";
+import { bullets, cacheKey, handle, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
 import { createUser, db, deps, fakeFetch } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
@@ -58,9 +58,10 @@ async function turnRow(userId: string): Promise<string> {
   return turnId;
 }
 
-Deno.test("parseBody/cacheKey: 1-3 tickers o un tema; la clave ignora orden y signos", () => {
+Deno.test("parseBody/cacheKey: 1-5 tickers o un tema; la clave ignora orden y signos", () => {
   assertEquals(parseBody({}), null);
-  assertEquals(parseBody({ tickers: ["A", "B", "C", "D"] }), null);
+  assertEquals(parseBody({ tickers: ["A", "B", "C", "D", "E", "F"] }), null);
+  assertEquals(parseBody({ tickers: ["A", "B", "C", "D", "E"] })?.tickers.length, 5);
   const a = parseBody({ tickers: ["nvda", "amd"], question: "¿Qué pasó?" })!;
   const b = parseBody({ tickers: ["AMD", "NVDA"], question: "que paso" })!;
   assertEquals(cacheKey(a), cacheKey(b));
@@ -70,6 +71,29 @@ Deno.test("parseBody/cacheKey: 1-3 tickers o un tema; la clave ignora orden y si
 Deno.test("bullets: limpia marcadores de cita del texto", () => {
   assertEquals(bullets(answer)[0], "Nvidia presentó un nuevo chip para centros de datos.");
   assertEquals(bullets("SIN_NOVEDADES"), []);
+});
+
+Deno.test("bullets: listas numeradas, guiones largos, negritas y párrafos sin viñetas", () => {
+  assertEquals(bullets("Resumen:\n1. **MSFT** (2026-10-13): Microsoft subió.\n2) GOOGL (2026-10-12): Alphabet cayó."), [
+    "MSFT (2026-10-13): Microsoft subió.",
+    "GOOGL (2026-10-12): Alphabet cayó.",
+  ]);
+  assertEquals(bullets("– Uno.\n— Dos."), ["Uno.", "Dos."]);
+  assertEquals(bullets("Microsoft presentó resultados.\n\nAlphabet anunció recompras."), [
+    "Microsoft presentó resultados.",
+    "Alphabet anunció recompras.",
+  ]);
+});
+
+Deno.test("prompts: con varias empresas pide ticker y fecha en cada viñeta y cubrir todas", () => {
+  const b = parseBody({ tickers: ["MSFT", "GOOGL", "VOO"] })!;
+  const { instructions } = prompts(b, "2026-10-15");
+  assert(instructions.includes('"- MSFT (2026-10-15): ..."'));
+  assert(instructions.includes("Cover EACH company"));
+  assert(instructions.includes("8 bullets at most"));
+  const one = prompts(parseBody({ tickers: ["MSFT"] })!, "2026-10-15").instructions;
+  assert(one.includes("5 bullets at most"));
+  assert(!one.includes("Cover EACH company"));
 });
 
 Deno.test("news-context: sin JWT 401; Free y Premium 403 sin llamar a OpenAI", async () => {
@@ -143,4 +167,60 @@ Deno.test("news-context: sin novedades → empty (y no inventa viñetas)", async
   const body = await r.json();
   assertEquals(body.status, "empty");
   assertEquals(body.summary, []);
+  // Sin resumen no viajan fuentes (la app las mostraría bajo "no hay noticias").
+  assertEquals(body.citations, []);
+});
+
+Deno.test("partsOf: sin pregunta, una parte por empresa (con su nombre); con pregunta, todo junto", () => {
+  const b = parseBody({ tickers: ["MSFT", "GOOGL"], names: { MSFT: "Microsoft" } })!;
+  const parts = partsOf(b);
+  assertEquals(parts.map((p) => p.tickers), [["MSFT"], ["GOOGL"]]);
+  assertEquals(parts[0].names, { MSFT: "Microsoft" });
+  assertEquals(cacheKey(parts[0]), cacheKey(parseBody({ tickers: ["MSFT"] })!));
+  assertEquals(partsOf(parseBody({ tickers: ["MSFT", "GOOGL"], question: "¿Qué pasó?" })!).length, 1);
+});
+
+Deno.test("mergeParts: viñetas con ticker, citas intercaladas sin repetir, vacías afuera", () => {
+  const part = (subject: string, summary: string[], urls: string[]): NewsContext => ({
+    status: summary.length ? "ok" : "empty",
+    subject,
+    summary,
+    citations: urls.map((url) => ({ title: url, url, source: "Reuters", domain: "reuters.com" })),
+    as_of: "2026-10-15T00:00:00Z",
+  });
+  const merged = mergeParts([
+    part("Microsoft (MSFT)", ["(2026-10-13): Subió.", "(2026-10-12): Anunció algo.", "(2026-10-11): Otro.", "(2026-10-10): Cuarto."], ["https://r.com/a", "https://r.com/b"]),
+    part("Alphabet (GOOGL)", ["(2026-10-14): Bajó."], ["https://r.com/c", "https://r.com/a"]),
+    part("Duolingo (DUOL)", [], []),
+  ], ["MSFT", "GOOGL", "DUOL"], "2026-10-15T00:00:00Z");
+  assertEquals(merged.status, "ok");
+  assertEquals(merged.summary, [
+    "MSFT (2026-10-13): Subió.",
+    "MSFT (2026-10-12): Anunció algo.",
+    "MSFT (2026-10-11): Otro.",
+    "GOOGL (2026-10-14): Bajó.",
+  ]);
+  assertEquals(merged.citations.map((c) => c.url), ["https://r.com/a", "https://r.com/c", "https://r.com/b"]);
+});
+
+Deno.test("news-context sin pregunta: una búsqueda por empresa, en paralelo, y caché por empresa", async () => {
+  const u = await createUser("gold");
+  const a = `A${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const b = `B${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const f = fakeFetch(() => responsesAnswer(answer));
+  const d = deps(f.fetch, env);
+
+  const r = await handle(req(u.jwt, { tickers: [a, b], names: { [a]: "Alfa", [b]: "Beta" } }, await turnRow(u.id)), d);
+  assertEquals(r.status, 200);
+  const body = await r.json();
+  assertEquals(body.status, "ok");
+  assertEquals(f.calls.length, 2);
+  assert(body.summary.some((l: string) => l.startsWith(a)));
+  assert(body.summary.some((l: string) => l.startsWith(b)));
+
+  // Otra consulta con una de esas empresas: sale de caché, sin buscar.
+  const again = await handle(req(u.jwt, { tickers: [b] }, await turnRow(u.id)), d);
+  assertEquals(again.headers.get("x-cache"), "hit");
+  await again.body?.cancel();
+  assertEquals(f.calls.length, 2);
 });

@@ -48,12 +48,20 @@ class GetInvestCandidatesTool implements DataTool {
   Map<String, Object?> get parameters => const {
     'type': 'object',
     'properties': {
+      'gap': {
+        'type': 'string',
+        'description':
+            'Write it FIRST: what THIS portfolio lacks or has too much of, '
+            'from PORTFOLIO_BRIEF (overlaps, overweight sector or region, '
+            'missing asset classes), in one sentence. The candidates must '
+            'close it. "No portfolio data" if they hold nothing.',
+      },
       'theme': {
         'type': 'string',
         'description':
             'What the user wants to invest in, in their words ("energía '
             'renovable", "algo defensivo", "ideas en general"). Write it '
-            'FIRST, then choose tickers that fit it.',
+            'after `gap` and before the tickers.',
       },
       'tickers': {
         'type': 'array',
@@ -81,7 +89,7 @@ class GetInvestCandidatesTool implements DataTool {
             'portfolio value.',
       },
     },
-    'required': ['theme', 'tickers'],
+    'required': ['gap', 'theme', 'tickers'],
     'additionalProperties': false,
   };
 

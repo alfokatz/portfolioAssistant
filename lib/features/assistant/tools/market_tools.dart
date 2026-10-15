@@ -166,8 +166,7 @@ class GetFundamentalsTool implements DataTool {
   String get name => 'get_fundamentals';
 
   @override
-  String get description =>
-      ctx.secData ? _secDescription : _legacyDescription;
+  String get description => ctx.secData ? _secDescription : _legacyDescription;
 
   static const _legacyDescription =
       'Company fundamentals for 1-3 tickers: company_name, industry, '
@@ -225,8 +224,7 @@ class GetEarningsTool implements DataTool {
   String get name => 'get_earnings';
 
   @override
-  String get description =>
-      ctx.secData ? _secDescription : _legacyDescription;
+  String get description => ctx.secData ? _secDescription : _legacyDescription;
 
   static const _legacyDescription =
       'Earnings for 1-3 tickers: next_report (date ISO, date_label, '
@@ -300,12 +298,18 @@ class GetNewsTool implements SlowDataTool {
       'for news, or asks WHY a ticker moved (the only allowed source of '
       'causes). status: ok | empty (no recent news) | failed | locked.';
 
+  /// v2: "¿por qué se movió mi cartera?" pide las que más movieron, en UNA
+  /// búsqueda (una por turno): con 3 quedaba afuera media cartera.
+  static const maxContextTickers = 5;
+
   static const _contextDescription =
-      'News for 1-3 tickers. news: up to 3 recent headlines from reputable '
+      'News for 1-5 tickers (for the whole portfolio: its biggest movers, '
+      'in ONE call). news: up to 3 recent headlines from reputable '
       'outlets (ticker, title, url — copy it verbatim into the widget —, '
       'source, published_at; snippet is empty). context: {summary: short '
       'sentences on what happened in the last 7 days and why it matters, '
-      'from a web search restricted to reputable outlets; sources: [{title, '
+      'each starting with its ticker (several tickers) and date, from a web '
+      'search restricted to reputable outlets; sources: [{title, '
       'url, source}]} — the app shows the sources as links, never paste '
       'URLs in your text. Use it when the user asks for news, or asks WHY a '
       'ticker moved (the only allowed source of causes: base the "why" on '
@@ -322,7 +326,15 @@ class GetNewsTool implements SlowDataTool {
           ? const {
             'type': 'object',
             'properties': {
-              'tickers': _tickersSchema,
+              'tickers': {
+                'type': 'array',
+                'description':
+                    'US stock or ETF tickers, uppercase (e.g. ["AAPL"]). 1 '
+                    'to 5.',
+                'items': {'type': 'string'},
+                'minItems': 1,
+                'maxItems': maxContextTickers,
+              },
               'question': {
                 'type': 'string',
                 'description':
@@ -338,7 +350,10 @@ class GetNewsTool implements SlowDataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    final tickers = ToolArgs.tickers(args);
+    final tickers = ToolArgs.tickers(
+      args,
+      max: ctx.secData ? maxContextTickers : 3,
+    );
     if (tickers.isEmpty) return ToolArgs.invalid();
     final locked = ctx.gate(PlanFeature.news, tickers);
     if (locked != null) return locked;
@@ -361,11 +376,11 @@ class GetNewsTool implements SlowDataTool {
       context = const {'status': 'limit', 'reason': 'turn_limit'};
     } else {
       ctx.newsContextCalls++;
-      final names = <String, String>{};
-      for (final t in tickers) {
-        final name = await news.companyName(t);
-        if (name != null) names[t] = name;
-      }
+      final found = await Future.wait(tickers.map(news.companyName));
+      final names = <String, String>{
+        for (var i = 0; i < tickers.length; i++)
+          if (found[i] != null) tickers[i]: found[i]!,
+      };
       context = await ctx.data.newsContext.fetch(
         tickers,
         names: names,

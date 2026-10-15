@@ -446,6 +446,13 @@ class ScriptedOpenAi {
     if (status is int) {
       return http.Response(jsonEncode(message['__body']), status);
     }
+    if (body['stream'] == true) {
+      return http.Response(
+        sseOf(message),
+        200,
+        headers: {'content-type': 'text/event-stream; charset=utf-8'},
+      );
+    }
     return http.Response(
       jsonEncode({
         'id': 'chatcmpl-$index',
@@ -466,6 +473,64 @@ class ScriptedOpenAi {
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
   });
+
+  /// [message] como lo manda OpenAI con `stream: true`: el texto en
+  /// pedazos de [chunk] caracteres, cada tool call en dos (id y nombre,
+  /// después los argumentos), el chunk de uso y `[DONE]`.
+  static String sseOf(Map<String, Object?> message, {int chunk = 7}) {
+    final events = <Map<String, Object?>>[];
+    Map<String, Object?> delta(Map<String, Object?> d) => {
+      'object': 'chat.completion.chunk',
+      'choices': [
+        {'index': 0, 'delta': d, 'finish_reason': null},
+      ],
+    };
+    events.add(delta({'role': 'assistant', 'content': ''}));
+    final content = message['content'];
+    if (content is String) {
+      for (var i = 0; i < content.length; i += chunk) {
+        final end = i + chunk > content.length ? content.length : i + chunk;
+        events.add(delta({'content': content.substring(i, end)}));
+      }
+    }
+    final calls = message['tool_calls'];
+    if (calls is List) {
+      for (final (i, call) in calls.cast<Map>().indexed) {
+        final function = call['function'] as Map;
+        events.add(
+          delta({
+            'tool_calls': [
+              {
+                'index': i,
+                'id': call['id'],
+                'type': 'function',
+                'function': {'name': function['name'], 'arguments': ''},
+              },
+            ],
+          }),
+        );
+        events.add(
+          delta({
+            'tool_calls': [
+              {
+                'index': i,
+                'function': {'arguments': function['arguments']},
+              },
+            ],
+          }),
+        );
+      }
+    }
+    events.add({
+      'object': 'chat.completion.chunk',
+      'choices': <Object>[],
+      'usage': {'prompt_tokens': 10, 'completion_tokens': 5},
+    });
+    return [
+      for (final e in events) 'data: ${jsonEncode(e)}\n\n',
+      'data: [DONE]\n\n',
+    ].join();
+  }
 
   List<String> rolesOf(int request) => [
     for (final m in (requests[request]['messages'] as List).cast<Map>())

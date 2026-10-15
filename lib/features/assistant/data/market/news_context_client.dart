@@ -55,10 +55,12 @@ class NewsContextClient {
             'source': '${c['source'] ?? ''}',
           },
     ];
+    final ok = body['status'] == 'ok' && summary.isNotEmpty;
     final result = <String, Object?>{
-      'status': body['status'] == 'ok' && summary.isNotEmpty ? 'ok' : 'empty',
-      if (summary.isNotEmpty) 'summary': summary,
-      if (sources.isNotEmpty) 'sources': sources,
+      'status': ok ? 'ok' : 'empty',
+      if (ok) 'summary': summary,
+      // Sin resumen no hay fuentes: se mostraban bajo un "no hay noticias".
+      if (ok && sources.isNotEmpty) 'sources': sources,
       if (body['as_of'] != null) 'searched_at': body['as_of'],
     };
     // Lo vacío no: el servidor ya lo guarda solo 10 min y vuelve a buscar.

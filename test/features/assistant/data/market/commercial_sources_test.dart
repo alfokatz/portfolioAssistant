@@ -271,6 +271,21 @@ void main() {
       final limit = await client.fetch(['AMD']);
       expect(limit, {'status': 'limit', 'reason': 'daily_limit'});
     });
+
+    test('empty: no sources (they showed under "no news")', () async {
+      final client = NewsContextClient(
+        client: FakeEdgeClient(
+          (_, _) => const EdgeResponse(200, {
+            'status': 'empty',
+            'summary': <String>[],
+            'citations': [
+              {'title': 'T', 'url': 'https://www.reuters.com/a', 'source': 'R'},
+            ],
+          }),
+        ),
+      );
+      expect(await client.fetch(['NVDA']), {'status': 'empty'});
+    });
   });
 
   group('get_news v2', () {
@@ -324,6 +339,34 @@ void main() {
       expect((second['context'] as Map)['status'], 'limit');
       expect(edge.calls.where((c) => c.path == 'news-context').length, 1);
       expect(ctx.secData, isTrue);
+    });
+
+    test('the whole portfolio: up to 5 tickers in one web search', () async {
+      final edge = FakeEdgeClient(
+        (path, _) => const EdgeResponse(200, {'status': 'empty', 'by_ticker': {}}),
+      );
+      final ctx = AssistantToolContext(
+        tier: SubscriptionTier.gold,
+        newsProvider: NewsProvider.v2,
+        data: AssistantDataSources(
+          quoteRepository: CountingQuoteRepository(),
+          preferences: FakePreferences(),
+          newsProvider: NewsProvider.v2,
+          news: NewsFetcher(
+            headlines: GdeltHeadlinesRepositoryImpl(
+              client: edge,
+              batchWindow: Duration.zero,
+            ),
+            brandRepository: _NoBrands(),
+          ),
+          newsContext: NewsContextClient(client: edge),
+        ),
+      );
+      await GetNewsTool(ctx).run({
+        'tickers': ['AAPL', 'MSFT', 'GOOGL', 'DUOL', 'VOO', 'SGOV'],
+      });
+      final sent = edge.calls.singleWhere((c) => c.path == 'news-context');
+      expect(sent.args['tickers'], ['AAPL', 'MSFT', 'GOOGL', 'DUOL', 'VOO']);
     });
 
     test('legacy keeps the old description and parameters', () {

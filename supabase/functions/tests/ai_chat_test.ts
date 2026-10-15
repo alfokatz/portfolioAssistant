@@ -40,6 +40,25 @@ const toolReply = () =>
     usage,
   });
 
+Deno.test("warmup: con sesión responde 204 sin OpenAI ni base; sin sesión 401", async () => {
+  const f = fakeFetch(finalReply);
+  const noDb = new Proxy({}, { get: () => { throw new Error("no debería tocar la base"); } });
+  const d = {
+    ...deps(f.fetch, env),
+    db: noDb as typeof db,
+    authenticate: async (jwt: string) => (jwt === "ok" ? "user-1" : null),
+  };
+  const warm = (jwt: string | null) =>
+    new Request("http://local/functions/v1/ai-chat", {
+      method: "POST",
+      headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), "x-porty-purpose": "warmup" },
+    });
+  const r = await handle(warm("ok"), d, { allowedPromptHashes: hashes });
+  assertEquals(r.status, 204);
+  assertEquals((await handle(warm(null), d, { allowedPromptHashes: hashes })).status, 401);
+  assertEquals(f.calls.length, 0);
+});
+
 Deno.test("sin JWT o con JWT inválido → 401 y OpenAI no se llama", async () => {
   const f = fakeFetch(finalReply);
   const d = deps(f.fetch, env);
@@ -59,6 +78,8 @@ Deno.test("un turno con varias rondas y un reintento cobra UNA consulta, y regis
     assertEquals(r.status, 200);
     await r.text();
   }
+  // El registro de uso corre después de responder (background).
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 1);
   const data = (await db.from("ai_turn_usage").select("*").eq("turn_id", turn).single()).data!;
   assertEquals(data.round_count, 3);
@@ -74,8 +95,10 @@ Deno.test("un turno con varias rondas y un reintento cobra UNA consulta, y regis
 Deno.test("un turno cortado antes de responder (solo tool calls) no cobra", async () => {
   const user = await createUser("free");
   const f = fakeFetch(toolReply);
-  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body()), deps(f.fetch, env), { allowedPromptHashes: hashes });
+  const d = deps(f.fetch, env);
+  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body()), d, { allowedPromptHashes: hashes });
   await r.text();
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 0);
 });
 
@@ -231,6 +254,7 @@ Deno.test("un 429 de OpenAI pasa tal cual y el reintento del mismo turno cobra u
   const retry = await handle(req(user.jwt, turn, body()), d, { allowedPromptHashes: hashes });
   assertEquals(retry.status, 200);
   await retry.text();
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 1);
 });
 

@@ -107,6 +107,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
+    ContentDeltaCallback? onContent,
   }) {
     return runTurn(
       userText: question,
@@ -115,6 +116,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       abortCheck: abortCheck,
       onActivity: onActivity,
       beforeRound: beforeRound,
+      onContent: onContent,
       pinnedContext: pinnedContextFor(portfolioBrief),
       context:
           'SURFACE_ID (usar exactamente en createSurface y '
