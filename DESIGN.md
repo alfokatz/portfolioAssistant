@@ -278,6 +278,20 @@ El chat vacío ofrece preguntas para empezar. Código: `AssistantStarterSuggesti
 - **Acento:** el destello terracota no se repite por fila; el terracota queda para enviar y para Porty.
 - **Contenido:** cuatro preguntas que cubren lo que promete el saludo (cartera, conceptos, mercado, metas), elegidas por plan (`AssistantProvider.starterChipKeysFor`). Ninguna lleva a un paywall: gastar una consulta para ver "esto es Premium" es la peor primera impresión. Preferir preguntas sobre la cartera del usuario ("¿Estoy bien diversificado?") antes que genéricas ("¿Qué es diversificar?") o sobre un ticker al azar, y nada que suene a dato para operar ("Tengo $500 para invertir en tech"). Sin jerga (P&L) en las sugerencias.
 
+### Metas (Porty)
+La pestaña Metas tiene la forma de las pantallas donde Porty acompaña (Posiciones cerradas, Agregar posición), no una pila de cards. Código: `GoalsScreen` + `GoalsVerdict` (`features/goals/view/`).
+- **Arriba, Porty:** `PortySays` con una frase sobre TODAS las metas juntas, armada con los números de `GoalProgress` (nunca la escribe el modelo). Lo que más pide atención va primero: una vencida, después la atrasada que más aporte necesita, después "vas en camino" con el aporte del mes entre todas. Cara: preocupado si algo viene atrasado o vencido, contento si van en camino, tranquilo si todas recién se guardaron. Con más de una meta, una nota: "Entre todas llevás X de Y".
+- **Las metas:** filas directo sobre el fondo, sin card ("Earn every card"), agrupadas en "En curso" y "Logradas" y separadas por divisores alineados al texto, como las ventas de Posiciones cerradas. Alineadas al margen de la página. Fila:
+  - **Anillo de 52px** (trazo 4px, color del veredicto, fondo `textSecondary` al 16%, un avance mínimo se ve como un punto) alrededor de un disco `chip` con el ícono de lo que es la meta (`GoalIcon`, familia *rounded*: avión para un viaje, auto, compu, celular, casa, escudo para emergencia, chanchito para "juntar"…; sin pista, el del tipo). El mismo ícono va en las cards del chat.
+  - **Renglón 1:** nombre (16px w700) y, a la derecha, el porcentaje (16px w700 tabular; verde si está cumplida).
+  - **Renglón 2:** lo juntado en w700 + "de Y" en secundario, y a la derecha el aporte por mes.
+  - **Renglón 3, a todo el ancho:** punto de 6px y veredicto en su color + "faltan 16 meses" / "faltan 8 años" (meses hasta los dos años, después años redondeados).
+  - Tocar abre el detalle, mantener apretada sus opciones, deslizar a la izquierda la borra con confirmación.
+- **Armar otra:** la última fila del grupo, con el + en terracota (en oscuro, círculo en grafito y solo el ícono en terracota) y la flecha ↗ de las sugerencias del chat: abre el chat con la pregunta.
+- **Sin metas:** Porty explica qué hace ("Contame qué querés lograr y te armo un plan…") y debajo, "Podés empezar por una de estas": cuatro ideas (fondo de emergencia, viaje, comprarse algo, jubilación) como filas que abren el chat con esa pregunta. Nunca una caja vacía con un botón.
+- **Cargando:** skeleton con la misma estructura (Porty + filas), no un loader en el medio.
+- **Títulos de grupo:** labelLarge `textSecondary` en minúscula inicial, nunca mayúsculas espaciadas.
+
 ### Confirmaciones (`ConfirmSheet`)
 Nunca un `AlertDialog` de Material. Una hoja desde abajo, como "Desconectar eToro": Porty arriba (preocupado si la acción destruye algo), título y explicación centrados, botón lleno de 52 px / radius 14 que dice exactamente lo que pasa ("Borrar meta", "Eliminar AAPL", nunca "Aceptar") en Deep Loss Red si destruye y en Charcoal Ink si no, y "Cancelar" debajo en texto secundario. Código: `ConfirmSheet.show` (`presentation/shared/widgets/confirm_sheet.dart`).
 

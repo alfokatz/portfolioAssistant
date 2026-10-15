@@ -46,7 +46,9 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
   }) : _holdings = holdings ?? (() => const {}),
        _heldTickers =
            heldTickers ??
-           (holdings == null ? (() => const {}) : () => holdings().keys.toSet()),
+           (holdings == null
+               ? (() => const {})
+               : () => holdings().keys.toSet()),
        _clock = clock ?? DateTime.now,
        super(const GoalsState());
 
@@ -65,11 +67,7 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
     } catch (e) {
       debugPrint('[Goals] load: $e');
       if (mounted) {
-        state = GoalsState(
-          goals: state.goals,
-          loaded: true,
-          loadFailed: true,
-        );
+        state = GoalsState(goals: state.goals, loaded: true, loadFailed: true);
       }
       return state.goals;
     }
@@ -165,10 +163,7 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
       if (goal == null) continue;
       final draft = GoalReplan.rebase(
         goal,
-        GoalReplan.capital(
-          goal,
-          GoalShares.holdingsFor(goal, goals, holdings),
-        ),
+        GoalReplan.capital(goal, GoalShares.holdingsFor(goal, goals, holdings)),
         _clock(),
       );
       if (draft == null) continue;

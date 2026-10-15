@@ -310,11 +310,11 @@ abstract final class AssistantAnswerReview {
       for (final c in components) {
         if (c['component'] != 'QaAnswerText' || c['text'] is! String) continue;
         final text = c['text'] as String;
-        final kept = AnalysisProseCheck.sentences(text).where(
+        final kept = AnalysisProseCheck.keepSentences(
+          text,
           (s) => AnalysisProseCheck.repeatedNumbers(s, widgetNumbers) == 0,
         );
-        final next =
-            kept.isNotEmpty ? kept.join(' ') : _fallbackIntro(components);
+        final next = kept.isNotEmpty ? kept : _fallbackIntro(components);
         if (next != text) {
           c['text'] = next;
           changed = true;

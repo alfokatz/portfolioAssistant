@@ -31,6 +31,7 @@ class _Goals extends GoalsNotifier {
 
 /// "Auto": 25 mil en 3 años, guardada hace 6 meses con VT y BND.
 UserGoal goalFixture({
+  String label = 'Auto',
   double outside = 0,
   Set<String> linked = const {'VT', 'BND'},
   List<GoalBuyPlanEntry> extra = const [],
@@ -39,7 +40,7 @@ UserGoal goalFixture({
   final start = DateTime(now.year, now.month - 6, now.day);
   return UserGoal(
     id: 'g1',
-    label: 'Auto',
+    label: label,
     type: GoalType.purchase,
     targetAmount: 25000,
     targetDate: DateTime(start.year + 3, start.month, start.day),

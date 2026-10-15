@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_s
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_analysis.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_icon.dart';
 import 'package:portfolio_assistant/features/goals/view/goals_screen.dart'
     show GoalProgressBar;
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -77,10 +78,8 @@ class QaGoalStatusCard extends StatelessWidget {
           subtitle: 'goals_card_subtitle'.tr(
             namedArgs: {'amount': QaFormat.money(goal.targetAmount), 'date': date},
           ),
-          icon:
-              goal.type == GoalType.retirement
-                  ? Icons.beach_access_outlined
-                  : Icons.flag_outlined,
+          // El de lo que es (un viaje, un auto…), igual que en Metas.
+          icon: GoalIcon.forGoal(goal),
           trailing: QaTag(GoalAnalysis.statusLabel(p.status), color: statusColor),
         ),
         const SizedBox(height: QaSpace.sectionGap),
