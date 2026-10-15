@@ -166,8 +166,7 @@ class GetFundamentalsTool implements DataTool {
   String get name => 'get_fundamentals';
 
   @override
-  String get description =>
-      ctx.secData ? _secDescription : _legacyDescription;
+  String get description => ctx.secData ? _secDescription : _legacyDescription;
 
   static const _legacyDescription =
       'Company fundamentals for 1-3 tickers: company_name, industry, '
@@ -225,8 +224,7 @@ class GetEarningsTool implements DataTool {
   String get name => 'get_earnings';
 
   @override
-  String get description =>
-      ctx.secData ? _secDescription : _legacyDescription;
+  String get description => ctx.secData ? _secDescription : _legacyDescription;
 
   static const _legacyDescription =
       'Earnings for 1-3 tickers: next_report (date ISO, date_label, '
@@ -378,11 +376,11 @@ class GetNewsTool implements SlowDataTool {
       context = const {'status': 'limit', 'reason': 'turn_limit'};
     } else {
       ctx.newsContextCalls++;
-      final names = <String, String>{};
-      for (final t in tickers) {
-        final name = await news.companyName(t);
-        if (name != null) names[t] = name;
-      }
+      final found = await Future.wait(tickers.map(news.companyName));
+      final names = <String, String>{
+        for (var i = 0; i < tickers.length; i++)
+          if (found[i] != null) tickers[i]: found[i]!,
+      };
       context = await ctx.data.newsContext.fetch(
         tickers,
         names: names,

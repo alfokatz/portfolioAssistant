@@ -11,9 +11,11 @@
 //
 // - No se baja ni se copia el texto de ningún artículo: el contexto y las
 //   citas los trae la búsqueda web.
-// - Caché compartida por (tickers|tema, pregunta, idioma), 45 min: un hit no
-//   gasta cupo ni llama a OpenAI.
-// - Topes: 1 búsqueda por turno y un tope diario por plan
+// - Caché compartida de 45 min: sin pregunta, POR EMPRESA (cada una se busca
+//   aparte y en paralelo, ver [partsOf]); con pregunta, por (tickers|tema,
+//   pregunta, idioma). Un hit no gasta cupo ni llama a OpenAI.
+// - Topes: 1 pedido por turno (sin pregunta, hasta 5 búsquedas: una por
+//   empresa que no estaba en caché) y un tope diario de pedidos por plan
 //   (`plan_limits.news_context_per_day`).
 // - Costo: cada búsqueda se suma al turno en `ai_turn_usage`.
 
@@ -206,6 +208,132 @@ async function allowlist(deps: Deps): Promise<Map<string, string>> {
   return new Map((data ?? []).map((r: { domain: string; name: string }) => [r.domain, r.name]));
 }
 
+/// Sin pregunta, cada empresa se busca y se cachea por separado: "noticias
+/// de MSFT", la cartera de un usuario y la de otro reusan la misma entrada,
+/// y las búsquedas que faltan corren en paralelo (tarda la más lenta, no la
+/// suma). Con pregunta, una sola búsqueda con todo junto.
+export function partsOf(b: Body): Body[] {
+  if (b.question !== null || b.tickers.length <= 1) return [b];
+  return b.tickers.map((t) => ({ ...b, tickers: [t], names: b.names[t] ? { [t]: b.names[t] } : {} }));
+}
+
+/// Viñetas por empresa al juntar partes: las primeras de cada una.
+const bulletsPerTicker = 3;
+
+/// Junta los resultados de cada empresa en uno: viñetas con su ticker
+/// adelante y citas intercaladas (una de cada empresa por vuelta). Con
+/// [split] false (una sola parte en el pedido) devuelve esa parte tal cual.
+export function mergeParts(results: NewsContext[], tickers: string[], asOf: string, split = true): NewsContext {
+  if (!split && results.length === 1) return results[0];
+  const summary: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status !== "ok") return;
+    for (const line of r.summary.slice(0, bulletsPerTicker)) {
+      summary.push(line.startsWith(tickers[i]) ? line : `${tickers[i]} ${line}`);
+    }
+  });
+  const citations: Citation[] = [];
+  const seen = new Set<string>();
+  const lists = results.map((r) => (r.status === "ok" ? r.citations : []));
+  for (let round = 0; citations.length < config.maxCitations; round++) {
+    let added = false;
+    for (const list of lists) {
+      const c = list[round];
+      if (!c) continue;
+      added = true;
+      if (seen.has(c.url) || citations.length >= config.maxCitations) continue;
+      seen.add(c.url);
+      citations.push(c);
+    }
+    if (!added) break;
+  }
+  const ok = summary.length > 0 && citations.length > 0;
+  return {
+    status: ok ? "ok" : "empty",
+    subject: results.map((r) => r.subject).join(", "),
+    summary: ok ? summary : [],
+    citations: ok ? citations : [],
+    as_of: asOf,
+  };
+}
+
+type Search = { result: NewsContext | null; calls: number; cost: number };
+
+/// Una búsqueda web para [b]. `result` null = falló o se cortó (no se cachea).
+async function search(
+  deps: Deps,
+  b: Body,
+  ctx: { apiKey: string; model: string; allow: Map<string, string>; today: string },
+): Promise<Search> {
+  const { instructions, input } = prompts(b, ctx.today);
+  let upstream: Response;
+  try {
+    upstream = await deps.fetch(config.openAiUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(config.timeoutMs),
+      body: JSON.stringify({
+        model: ctx.model,
+        instructions,
+        input,
+        tools: [{
+          type: "web_search",
+          search_context_size: "low",
+          ...(ctx.allow.size > 0 ? { filters: { allowed_domains: [...ctx.allow.keys()].slice(0, 100) } } : {}),
+          ...(b.lang === "es" ? { user_location: { type: "approximate", country: "AR" } } : {}),
+        }],
+        tool_choice: "required",
+        // gpt-6-luna razona en `medium` por default: más lento y se come el
+        // tope de salida antes de escribir.
+        ...(/^gpt-[56]/.test(ctx.model) ? { reasoning: { effort: "low" } } : {}),
+        max_output_tokens: config.maxOutputTokens,
+        store: false,
+      }),
+    });
+  } catch (e) {
+    console.error("[news-context] fetch", e);
+    return { result: null, calls: 0, cost: 0 };
+  }
+  if (!upstream.ok) {
+    console.error("[news-context] upstream", upstream.status, await upstream.text());
+    return { result: null, calls: 0, cost: 0 };
+  }
+  const out = readResponse(await upstream.json());
+  const calls = Math.max(out.searchCalls, 1);
+  const cost = costUsd(ctx.model, out);
+  if (out.text === "") {
+    // Cortada antes de escribir: no es "sin novedades", no se cachea.
+    console.error("[news-context] no text", out.status, out.outputTokens);
+    return { result: null, calls, cost };
+  }
+  const summary = out.text.trim().startsWith("SIN_NOVEDADES") ? [] : bullets(out.text);
+  const citations = citationsOf(out.annotations, ctx.allow);
+  if (summary.length === 0 || citations.length === 0) {
+    console.log(JSON.stringify({
+      fn: "news-context",
+      empty: out.text.includes("SIN_NOVEDADES") ? "sin_novedades" : summary.length === 0 ? "no_bullets" : "no_citations",
+      annotations: out.annotations.length,
+      status: out.status,
+    }));
+  }
+  const ok = summary.length > 0 && citations.length > 0;
+  return {
+    result: {
+      status: ok ? "ok" : "empty",
+      subject: subjectOf(b),
+      // Sin resumen no hay fuentes: la app las mostraba debajo de un "no
+      // encontré noticias" y parecía una contradicción.
+      summary: ok ? summary : [],
+      citations: ok ? citations : [],
+      as_of: new Date(deps.now()).toISOString(),
+    },
+    calls,
+    cost,
+  };
+}
+
+const ttlOf = (c: NewsContext) => (c.status === "empty" ? config.emptyCacheTtlSeconds : config.cacheTtlSeconds);
+
 export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return typedError(405, "method_not_allowed", "POST only");
@@ -234,118 +362,94 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (rate.data === false) return typedError(429, "rate_limited", "Too many requests");
 
   const started = Date.now();
-  const key = cacheKey(body);
-  const hit = await readCache<NewsContext>(deps, key);
-  const ttl = hit?.body.status === "empty" ? config.emptyCacheTtlSeconds : config.cacheTtlSeconds;
-  if (hit && hit.ageSeconds < ttl) {
+  const parts = partsOf(body);
+  const split = parts.length > 1;
+  const tickers = parts.map((p) => p.tickers[0] ?? "");
+  const keys = parts.map(cacheKey);
+  const hits = await Promise.all(keys.map((k) => readCache<NewsContext>(deps, k)));
+  const missing = parts.map((_, i) => i).filter((i) => {
+    const hit = hits[i];
+    return !hit || hit.ageSeconds >= ttlOf(hit.body);
+  });
+  const asOf = () => new Date(deps.now()).toISOString();
+  /// Lo que haya en caché (vigente o vencido) de cada parte, junto.
+  const fromCache = () => {
+    const have = hits.map((h, i) => (h ? i : -1)).filter((i) => i >= 0);
+    return have.length === 0 ? null : mergeParts(have.map((i) => hits[i]!.body), have.map((i) => tickers[i]), asOf(), split);
+  };
+  if (missing.length === 0) {
     log("hit", started, 0);
-    return json(200, hit.body, { "x-cache": "hit" });
+    return json(200, fromCache(), { "x-cache": "hit" });
   }
 
   const turnId = req.headers.get("x-porty-turn-id");
   const used = await deps.db.rpc("turn_web_search_calls", { p_user_id: userId, p_turn_id: turnId });
   if (Number(used.data ?? 0) >= 1) {
-    if (hit) return json(200, hit.body, { "x-cache": "stale" });
+    const cached = fromCache();
+    if (cached) return json(200, cached, { "x-cache": "stale" });
     return typedError(429, "turn_limit", "One news search per turn");
   }
   const daily = await deps.db.rpc("news_context_hit", { p_user_id: userId });
   if (daily.data !== true) {
-    if (hit) return json(200, hit.body, { "x-cache": "stale" });
+    const cached = fromCache();
+    if (cached) return json(200, cached, { "x-cache": "stale" });
     return typedError(429, "daily_limit", "Daily news search limit reached");
   }
 
   const apiKey = deps.env("OPENAI_API_KEY");
   if (!apiKey) return typedError(503, "unavailable", "OpenAI key not configured");
   // Sin nombre, la búsqueda por ticker sola trae poco ("MELI"): el de la SEC.
-  for (const t of body.tickers) {
-    if (body.names[t]) continue;
-    try {
-      const row = await resolveCik(deps, t);
-      if (row) body.names[t] = pressName(row.title);
-    } catch {
-      // sin nombre: se busca por ticker
-    }
-  }
-  const allow = await allowlist(deps);
-  const model = deps.env("NEWS_CONTEXT_MODEL") ?? config.defaultModel;
-  const today = new Date(deps.now()).toISOString().slice(0, 10);
-  const { instructions, input } = prompts(body, today);
-
-  let upstream: Response;
-  try {
-    upstream = await deps.fetch(config.openAiUrl, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(config.timeoutMs),
-      body: JSON.stringify({
-        model,
-        instructions,
-        input,
-        tools: [{
-          type: "web_search",
-          search_context_size: "low",
-          ...(allow.size > 0 ? { filters: { allowed_domains: [...allow.keys()].slice(0, 100) } } : {}),
-          ...(body.lang === "es" ? { user_location: { type: "approximate", country: "AR" } } : {}),
-        }],
-        tool_choice: "required",
-        // gpt-6-luna razona en `medium` por default: más lento y se come el
-        // tope de salida antes de escribir.
-        ...(/^gpt-[56]/.test(model) ? { reasoning: { effort: "low" } } : {}),
-        max_output_tokens: config.maxOutputTokens,
-        store: false,
-      }),
-    });
-  } catch (e) {
-    console.error("[news-context] fetch", e);
-    return stale(hit) ?? typedError(502, "upstream_failed", "Search failed");
-  }
-  if (!upstream.ok) {
-    console.error("[news-context] upstream", upstream.status, await upstream.text());
-    return stale(hit) ?? typedError(502, "upstream_failed", "Search failed");
-  }
-  const out = readResponse(await upstream.json());
-  const cost = costUsd(model, out);
-  const record = await deps.db.rpc("record_web_search_usage", {
-    p_user_id: userId,
-    p_turn_id: turnId,
-    p_calls: Math.max(out.searchCalls, 1),
-    p_cost_usd: cost,
-  });
-  if (record.error) console.error("[news-context] record usage", record.error.message);
-
-  if (out.text === "") {
-    // Cortada antes de escribir: no es "sin novedades", no se cachea.
-    console.error("[news-context] no text", out.status, out.outputTokens);
-    return stale(hit) ?? typedError(502, "upstream_failed", "Search returned no answer");
-  }
-  const summary = out.text.trim().startsWith("SIN_NOVEDADES") ? [] : bullets(out.text);
-  const citations = citationsOf(out.annotations, allow);
-  if (summary.length === 0 || citations.length === 0) {
-    console.log(JSON.stringify({
-      fn: "news-context",
-      empty: out.text.includes("SIN_NOVEDADES") ? "sin_novedades" : summary.length === 0 ? "no_bullets" : "no_citations",
-      annotations: out.annotations.length,
-      status: out.status,
-    }));
-  }
-  const ok = summary.length > 0 && citations.length > 0;
-  const result: NewsContext = {
-    status: ok ? "ok" : "empty",
-    subject: subjectOf(body),
-    // Sin resumen no hay fuentes: la app las mostraba debajo de un "no
-    // encontré noticias" y parecía una contradicción.
-    summary: ok ? summary : [],
-    citations: ok ? citations : [],
-    as_of: new Date(deps.now()).toISOString(),
+  const unnamed = [...new Set(missing.flatMap((i) => parts[i].tickers))].filter((t) => !body!.names[t]);
+  const [allow] = await Promise.all([
+    allowlist(deps),
+    ...unnamed.map(async (t) => {
+      try {
+        const row = await resolveCik(deps, t);
+        if (!row) return;
+        const name = pressName(row.title);
+        body!.names[t] = name;
+        for (const p of parts) if (p.tickers.includes(t)) p.names[t] = name;
+      } catch {
+        // sin nombre: se busca por ticker
+      }
+    }),
+  ]);
+  const ctx = {
+    apiKey,
+    allow: allow as Map<string, string>,
+    model: deps.env("NEWS_CONTEXT_MODEL") ?? config.defaultModel,
+    today: new Date(deps.now()).toISOString().slice(0, 10),
   };
-  // Lo vacío también se cachea: evita repetir una búsqueda sin novedades.
-  await writeCache(deps, key, result);
-  log("miss", started, Math.max(out.searchCalls, 1), cost);
-  return json(200, result, { "x-cache": "miss" });
-}
+  const searches = await Promise.all(missing.map((i) => search(deps, parts[i], ctx)));
 
-function stale(hit: { body: NewsContext } | null): Response | null {
-  return hit ? json(200, hit.body, { "x-cache": "stale" }) : null;
+  const calls = searches.reduce((n, s) => n + s.calls, 0);
+  const cost = Number(searches.reduce((n, s) => n + s.cost, 0).toFixed(6));
+  if (calls > 0) {
+    const record = await deps.db.rpc("record_web_search_usage", {
+      p_user_id: userId,
+      p_turn_id: turnId,
+      p_calls: calls,
+      p_cost_usd: cost,
+    });
+    if (record.error) console.error("[news-context] record usage", record.error.message);
+  }
+
+  const results: (NewsContext | null)[] = hits.map((h) => h?.body ?? null);
+  let searched = 0;
+  await Promise.all(missing.map((i, j) => {
+    const r = searches[j].result;
+    if (!r) return; // falló: queda el dato vencido, si había
+    results[i] = r;
+    searched++;
+    // Lo vacío también se cachea: evita repetir una búsqueda sin novedades.
+    return writeCache(deps, keys[i], r);
+  }));
+  const have = results.map((r, i) => (r ? i : -1)).filter((i) => i >= 0);
+  if (have.length === 0) return typedError(502, "upstream_failed", "Search failed");
+  log(searched === missing.length ? "miss" : "partial", started, calls, cost);
+  return json(200, mergeParts(have.map((i) => results[i]!), have.map((i) => tickers[i]), asOf(), split), {
+    "x-cache": searched === 0 ? "stale" : "miss",
+  });
 }
 
 /// Una línea por pedido (sin usuario ni pregunta) para medir caché, latencia

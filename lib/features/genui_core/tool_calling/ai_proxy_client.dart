@@ -27,6 +27,7 @@ class AiProxyConfig {
     required this.endpoint,
     required this.accessToken,
     this.anonKey,
+    this.region,
   });
 
   /// La de la app: la edge function `ai-chat` del proyecto de Supabase del
@@ -37,7 +38,22 @@ class AiProxyConfig {
       endpoint: Uri.parse('$base/functions/v1/ai-chat'),
       anonKey: dotenv.env['SUPABASE_ANON_KEY']?.trim(),
       accessToken: supabaseAccessToken,
+      region: functionsRegion(),
     );
+  }
+
+  /// Región fija para las edge functions (`SUPABASE_FUNCTIONS_REGION` en el
+  /// `.env`, p. ej. `us-east-1`): la de la base de datos. Por default
+  /// Supabase corre la función en la región más cercana al usuario, y desde
+  /// Argentina cada RPC a la base (2-3 por ronda de Porty) cruzaba el
+  /// continente. Sin la variable no se manda nada (comportamiento anterior).
+  static String? functionsRegion() {
+    try {
+      final region = dotenv.maybeGet('SUPABASE_FUNCTIONS_REGION')?.trim();
+      return region == null || region.isEmpty ? null : region;
+    } catch (_) {
+      return null; // `.env` sin cargar (tests)
+    }
   }
 
   /// Sesión fija (tests, evals contra el proxy local).
@@ -70,6 +86,9 @@ class AiProxyConfig {
 
   /// Anon key del proyecto (pública por diseño; la pide el gateway).
   final String? anonKey;
+
+  /// Header `x-region` (ver [functionsRegion]).
+  final String? region;
 }
 
 /// Redirige los requests de Chat Completions que arma `dart_openai` al proxy
@@ -107,7 +126,8 @@ class AiProxyClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    if (!request.url.path.endsWith('/chat/completions') || request is! http.Request) {
+    if (!request.url.path.endsWith('/chat/completions') ||
+        request is! http.Request) {
       return _inner.send(request);
     }
     final token = await config.accessToken();
@@ -121,6 +141,7 @@ class AiProxyClient extends http.BaseClient {
             'Authorization': 'Bearer $token',
             if (config.anonKey != null) 'apikey': config.anonKey!,
             if (turnId != null) 'x-porty-turn-id': turnId!,
+            if (config.region != null) 'x-region': config.region!,
           })
           ..body = request.body;
     final response = await _inner.send(proxied);

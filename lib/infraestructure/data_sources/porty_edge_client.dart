@@ -33,7 +33,9 @@ class PortyEdgeClient {
     String? baseUrl,
     Future<String?> Function()? accessToken,
     String? anonKey,
+    String? region,
   }) : _dio = dio ?? _createDio(),
+       _region = region ?? AiProxyConfig.functionsRegion(),
        _baseUrl = baseUrl ?? _defaultBaseUrl(),
        _accessToken = accessToken ?? AiProxyConfig.supabaseAccessToken,
        _anonKey = anonKey ?? _env('SUPABASE_ANON_KEY');
@@ -42,6 +44,7 @@ class PortyEdgeClient {
   final String _baseUrl;
   final Future<String?> Function() _accessToken;
   final String? _anonKey;
+  final String? _region;
 
   static String _defaultBaseUrl() {
     final supabase = _env('SUPABASE_URL') ?? '';
@@ -98,6 +101,7 @@ class PortyEdgeClient {
             if (token != null) 'Authorization': 'Bearer $token',
             if (_anonKey != null) 'apikey': _anonKey,
             if (turnId != null) 'x-porty-turn-id': turnId,
+            if (_region != null) 'x-region': _region,
           },
         ),
       );

@@ -271,30 +271,44 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       // rechaza el turno con un error tipado (ver `ProxyLimitException`).
       // El refresh sigue: el plan con el que se habilitan las tools tiene
       // que ser el actual (p. ej. recién cambiado por el webhook).
-      await subscription.refresh();
-
       final data = _data ??= ref.read(assistantDepsProvider).createData();
+      // Todo lo que el turno necesita antes de la primera ronda se pide a la
+      // vez: son lecturas independientes, y en serie sumaban 0,5-1,5 s por
+      // consulta (ver docs/superpowers/research/2026-10-15-porty-latencia.md).
+      final newsProviderF = data.newsProvider();
+      final closedF = _fetchClosedPositions();
+      final profileF = _profileForTurn();
+      final memoriesF = _memoriesForTurn();
+      final goalsF = _goalsForTurn();
+      await Future.wait<Object?>([
+        subscription.refresh(),
+        newsProviderF,
+        closedF,
+        profileF,
+        memoriesF,
+        goalsF,
+      ]);
+
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
         data: data,
-        newsProvider: await data.newsProvider(),
+        newsProvider: await newsProviderF,
         summary: ref.read(homeProvider).summary,
         history: ref.read(homeProvider).history,
-        closedPositions: await _fetchClosedPositions(),
+        closedPositions: await closedF,
         loadInvestorProfile:
             () => ref.read(investorProfileProvider.notifier).refresh(),
-        investorProfile: await _profileForTurn(),
+        investorProfile: await profileF,
         actionsThisConversation: [
           for (final MapEntry(key: id, value: progress)
               in state.actionProposals.entries)
             progress.toBrief(id),
         ],
         loadPriceAlerts: _priceAlertsForTool,
-        userMemories: await _memoriesForTurn(),
+        userMemories: await memoriesF,
         saveMemory: _saveMemory,
-        deleteMemory:
-            (id) => ref.read(userMemoryProvider.notifier).remove(id),
-        savedGoals: await _goalsForTurn(),
+        deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),
+        savedGoals: await goalsF,
         saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
         updateGoalSavings: (goalId, amount) async {
           await ref
@@ -591,8 +605,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   Future<double?> actionPriceOn(String ticker, DateTime date) async {
     try {
       final data = _data ??= ref.read(assistantDepsProvider).createData();
-      return (await ActionPrices.closeOn(data.quoteRepository, ticker, date))
-          .close;
+      return (await ActionPrices.closeOn(
+        data.quoteRepository,
+        ticker,
+        date,
+      )).close;
     } catch (_) {
       return null;
     }

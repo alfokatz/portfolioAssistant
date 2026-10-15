@@ -8,7 +8,7 @@ export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-porty-turn-id, " +
-    "x-porty-purpose, x-porty-report-week",
+    "x-porty-purpose, x-porty-report-week, x-region",
 };
 
 export function json(
@@ -55,9 +55,14 @@ export function defaultDeps(): Deps {
   return {
     db,
     authenticate: async (jwt: string) => {
-      const { data, error } = await db.auth.getUser(jwt);
-      if (error || !data.user) return null;
-      return data.user.id;
+      // Con claves de firma asimétricas (JWT Signing Keys) getClaims verifica
+      // la firma localmente, con la clave pública cacheada: sin el viaje al
+      // servidor de Auth que hacía getUser en cada pedido (cada ronda de
+      // Porty). Con la clave simétrica legacy consulta al servidor, como antes.
+      const { data, error } = await db.auth.getClaims(jwt);
+      const claims = data?.claims;
+      if (error || !claims?.sub || claims.role !== "authenticated") return null;
+      return claims.sub;
     },
     fetch: (input, init) => fetch(input, init),
     env: (name) => Deno.env.get(name),

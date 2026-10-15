@@ -65,9 +65,9 @@ export async function goldAllowed(
     const { data } = await deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: null });
     return data === true;
   }
-  for (const ticker of tickers) {
-    const { data } = await deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: ticker });
-    if (data !== true) return false;
-  }
-  return true;
+  // Una RPC por ticker, a la vez (en serie sumaban un viaje a la base cada uno).
+  const checks = await Promise.all(
+    tickers.map((ticker) => deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: ticker })),
+  );
+  return checks.every(({ data }) => data === true);
 }

@@ -1,6 +1,6 @@
 # Porty: cómo bajar el tiempo de respuesta sin perder calidad
 
-**Fecha:** 2026-10-15 · **Estado:** investigación, nada implementado todavía
+**Fecha:** 2026-10-15 · **Estado:** D y C1 implementados (ver §5); el resto, propuesto
 
 Hoy una consulta tarda 10-15 s, y más de 20 s cuando busca noticias. Este documento muestra en qué se va ese tiempo y qué se puede cambiar, ordenado por impacto. Ningún cambio toca qué datos ve el modelo ni qué responde. Lo que cambia es cuánto texto escribe, cuántas cosas se esperan una detrás de otra y cuándo ve el usuario la respuesta.
 
@@ -112,6 +112,17 @@ Hoy `ai_turn_usage` tiene tokens y rondas, pero no tiempos. Hace falta agregar:
 Con eso se ve el p50/p90 de cada tramo y se confirma (o corrige) la tabla del §1 antes de invertir en B o en A1.
 
 ---
+
+## 5. Implementado (2026-10-15)
+
+- **D, app:** `submitMessage` pide a la vez la suscripción, las posiciones cerradas, el perfil, las memorias, las metas y la fuente de noticias.
+- **D, proxy:** `ai_record_round` corre después de responder (`deps.background`), también sin streaming. El hash del prompt **no** se paralelizó: es ~1 ms de CPU, y hacerlo en paralelo con `ai_begin_request` crearía filas de turno para prompts rechazados.
+- **D, auth:** `authenticate` usa `auth.getClaims(jwt)` (exige `sub` y `role = authenticated`). Para que no consulte al servidor de Auth hay que **activar las JWT Signing Keys asimétricas** en el proyecto (Dashboard → Project Settings → JWT Keys). Con la clave legacy se comporta como antes. Diferencia con `getUser`: un usuario borrado o bloqueado sigue pasando hasta que vence su JWT (1 h por default).
+- **D, región:** variable opcional `SUPABASE_FUNCTIONS_REGION` en `assets/env/.env.*` (p. ej. `us-east-1`, la región de la base). Con ella, `ai-chat` y las funciones de datos (`PortyEdgeClient`) mandan `x-region`. Sin ella, todo sigue igual. Confirmar la región de la base en el Dashboard antes de setearla.
+- **D, varios:** `goldAllowed` hace las RPC por ticker en paralelo; `get_news` busca los nombres de las empresas en paralelo.
+- **C1:** `news-context` sin pregunta busca **cada empresa por separado, en paralelo**, con caché por empresa (`partsOf` / `mergeParts`). Si una falla, las otras responden igual. Con tope de turno o diario, se sirve lo que haya en caché. Ojo, costo: una consulta de cartera con 5 empresas sin caché son 5 búsquedas en vez de 1 (~US$ 0,05 en vez de ~0,01). La caché compartida lo compensa a medida que se repiten empresas.
+
+**Pendiente:** C2, el precalentado. Es una decisión de costo: con N tickers distintos en las carteras Gold, cuesta ~N × US$ 0,012 por corrida. Conviene activarlo detrás de un flag en `app_config` y con un tope de tickers (los más tenidos).
 
 ## Fuentes
 

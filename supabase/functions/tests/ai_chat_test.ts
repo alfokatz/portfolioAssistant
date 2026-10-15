@@ -59,6 +59,8 @@ Deno.test("un turno con varias rondas y un reintento cobra UNA consulta, y regis
     assertEquals(r.status, 200);
     await r.text();
   }
+  // El registro de uso corre después de responder (background).
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 1);
   const data = (await db.from("ai_turn_usage").select("*").eq("turn_id", turn).single()).data!;
   assertEquals(data.round_count, 3);
@@ -74,8 +76,10 @@ Deno.test("un turno con varias rondas y un reintento cobra UNA consulta, y regis
 Deno.test("un turno cortado antes de responder (solo tool calls) no cobra", async () => {
   const user = await createUser("free");
   const f = fakeFetch(toolReply);
-  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body()), deps(f.fetch, env), { allowedPromptHashes: hashes });
+  const d = deps(f.fetch, env);
+  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body()), d, { allowedPromptHashes: hashes });
   await r.text();
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 0);
 });
 
@@ -231,6 +235,7 @@ Deno.test("un 429 de OpenAI pasa tal cual y el reintento del mismo turno cobra u
   const retry = await handle(req(user.jwt, turn, body()), d, { allowedPromptHashes: hashes });
   assertEquals(retry.status, 200);
   await retry.text();
+  await d.settle();
   assertEquals(await monthlyUsed(user.id), 1);
 });
 

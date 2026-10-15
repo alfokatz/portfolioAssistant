@@ -103,6 +103,33 @@ void main() {
     },
   );
 
+  test('x-region only when a functions region is configured', () async {
+    Future<String?> regionHeader(String? region) async {
+      String? seen = 'unset';
+      final client = AiProxyClient(
+        AiProxyConfig(
+          endpoint: endpoint,
+          accessToken: () async => 'jwt',
+          region: region,
+        ),
+        MockClient((req) async {
+          seen = req.headers['x-region'];
+          return http.Response('{}', 200);
+        }),
+      );
+      await client.send(
+        http.Request(
+          'POST',
+          Uri.parse('https://api.openai.com/v1/chat/completions'),
+        )..body = '{}',
+      );
+      return seen;
+    }
+
+    expect(await regionHeader('us-east-1'), 'us-east-1');
+    expect(await regionHeader(null), isNull);
+  });
+
   group('server typed errors', () {
     Future<Object?> errorFor(int status, Map<String, Object?> body) async {
       final client = AiProxyClient(

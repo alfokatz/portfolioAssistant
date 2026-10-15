@@ -305,7 +305,8 @@ export async function handle(
         const parsed = JSON.parse(text);
         const message = parsed?.choices?.[0]?.message ?? {};
         const final = !(Array.isArray(message.tool_calls) && message.tool_calls.length > 0);
-        await recordRound(deps, userId, turnId, model, usageOf(parsed.usage), final);
+        // Después de responder: la app no espera el registro de uso.
+        deps.background(recordRound(deps, userId, turnId, model, usageOf(parsed.usage), final));
       } catch (e) {
         console.error("could not parse OpenAI response", String(e));
       }
