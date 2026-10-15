@@ -103,6 +103,33 @@ void main() {
     },
   );
 
+  test('warmUp: one authenticated ping to ai-chat, at most every 5 minutes, '
+      'never throwing', () async {
+    AiProxyClient.resetWarmUp();
+    final seen = <http.BaseRequest>[];
+    final client = AiProxyClient(
+      AiProxyConfig.fixed(endpoint, 'user-jwt', anonKey: 'anon'),
+      MockClient((req) async {
+        seen.add(req);
+        return http.Response('', 204);
+      }),
+    );
+    await client.warmUp();
+    await client.warmUp();
+    expect(seen, hasLength(1));
+    expect(seen.single.url, endpoint);
+    expect(seen.single.headers['x-porty-purpose'], 'warmup');
+    expect(seen.single.headers['Authorization'], 'Bearer user-jwt');
+
+    AiProxyClient.resetWarmUp();
+    final failing = AiProxyClient(
+      AiProxyConfig.fixed(endpoint, 'jwt'),
+      MockClient((_) async => throw Exception('offline')),
+    );
+    await failing.warmUp(); // no tira
+    AiProxyClient.resetWarmUp();
+  });
+
   test('x-region only when a functions region is configured', () async {
     Future<String?> regionHeader(String? region) async {
       String? seen = 'unset';
@@ -138,8 +165,10 @@ void main() {
       )..turnId = 'turn-12345678';
       try {
         final r = await client.send(
-          http.Request('POST', Uri.parse('https://api.openai.com/v1/chat/completions'))
-            ..body = '{}',
+          http.Request(
+            'POST',
+            Uri.parse('https://api.openai.com/v1/chat/completions'),
+          )..body = '{}',
         );
         return r.statusCode;
       } catch (e) {
@@ -151,7 +180,10 @@ void main() {
       final e = await errorFor(402, {
         'error': {'type': 'quota_exceeded', 'message': 'x'},
       });
-      expect(e, isA<ProxyLimitException>().having((e) => e.isQuota, 'isQuota', true));
+      expect(
+        e,
+        isA<ProxyLimitException>().having((e) => e.isQuota, 'isQuota', true),
+      );
     });
 
     test('429 daily_limit → ProxyLimitException.isDailyLimit', () async {

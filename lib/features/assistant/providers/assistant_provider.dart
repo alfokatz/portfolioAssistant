@@ -27,6 +27,7 @@ import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_cont
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
+import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -129,9 +130,61 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (mounted) _activity.value = value;
   }
 
+  // Igual que [_activity]: cambia con cada pedazo de la respuesta y solo le
+  // importa a la fila del turno en curso.
+  final _preview = ValueNotifier<AnswerPreview?>(null);
+
+  /// Con streaming: el texto de Porty del turno en curso mientras se
+  /// escribe (solo el texto; las cards llegan con la respuesta completa).
+  ValueListenable<AnswerPreview?> get preview => _preview;
+
+  /// El texto que ya se vio en la vista previa de cada respuesta: la
+  /// respuesta final no lo vuelve a tipear (ver `QaStreamedTextScope`).
+  final _streamedTexts = <String, String>{};
+
+  String? streamedTextFor(String surfaceId) => _streamedTexts[surfaceId];
+
+  /// Cada cuánto se recalcula la vista previa (llegan ~100 pedazos por
+  /// segundo; la pantalla no necesita más que esto).
+  static const _previewInterval = Duration(milliseconds: 60);
+
+  /// `onContent` del turno de [surfaceId]: el texto de la respuesta a medias.
+  ContentDeltaCallback _previewSink(String surfaceId) {
+    final clock = Stopwatch()..start();
+    var last = Duration.zero - _previewInterval;
+    _lastRaw = null;
+    return (raw) {
+      _lastRaw = raw;
+      if (!mounted || clock.elapsed - last < _previewInterval) return;
+      final text = AnswerStreamPreview.textOf(raw);
+      if (text.isEmpty) return;
+      last = clock.elapsed;
+      _preview.value = AnswerPreview(surfaceId, text);
+    };
+  }
+
+  /// Fin del turno de [surfaceId]: lo que se vio queda anotado y la vista
+  /// previa se apaga.
+  void _closePreview(String surfaceId) {
+    final shown = _preview.value;
+    if (shown != null && shown.surfaceId == surfaceId) {
+      // El texto entero de lo último que llegó (la vista previa se
+      // actualiza cada [_previewInterval] y pudo quedar un pedazo atrás).
+      final raw = _lastRaw;
+      final full = raw == null ? '' : AnswerStreamPreview.textOf(raw);
+      _streamedTexts[surfaceId] = full.isEmpty ? shown.text : full;
+    }
+    _lastRaw = null;
+    if (mounted) _preview.value = null;
+  }
+
+  /// La respuesta a medias más reciente del turno en curso.
+  String? _lastRaw;
+
   @override
   void dispose() {
     _activity.dispose();
+    _preview.dispose();
     super.dispose();
   }
 
@@ -161,6 +214,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
     _ensureService();
     state = state.copyWith(isServiceReady: true);
+    // Arranca la función del proxy mientras el usuario lee o escribe.
+    if (ref.read(assistantDepsProvider).warmUpOnOpen) {
+      unawaited(_service!.warmUp());
+    }
     // La app pudo quedar abierta de domingo a lunes: semana nueva, cortesía
     // nueva. Sin Supabase (tests), no hace nada.
     try {
@@ -280,8 +337,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final profileF = _profileForTurn();
       final memoriesF = _memoriesForTurn();
       final goalsF = _goalsForTurn();
+      final streamingF = _streamingForTurn();
       await Future.wait<Object?>([
         subscription.refresh(),
+        streamingF,
         newsProviderF,
         closedF,
         profileF,
@@ -349,6 +408,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           conversation: service.conversation,
           targetSurfaceId: surfaceId,
           send: () async {
+            service.streaming = await streamingF;
             outcome = await service.ask(
               question: trimmed,
               portfolioBrief: PortfolioBrief.build(ctx),
@@ -359,6 +419,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
               onActivity: _setActivity,
               beforeRound: courtesy.beforeRound,
+              onContent: service.streaming ? _previewSink(surfaceId) : null,
             );
           },
         );
@@ -368,6 +429,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           rememberedFacts: ctx.rememberedFacts,
         );
         if (notices.profileNudge != null) _profileNudgeShown = true;
+        _closePreview(surfaceId);
         state = state.copyWith(
           messages: AssistantMessageSync.applyTurnReady(
             state.messages,
@@ -424,6 +486,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         }
       }
     } finally {
+      // Fallback, aviso o error: la vista previa (si hubo) no queda colgada.
+      if (mounted) _preview.value = null;
       // Se libera siempre, sin importar por qué rama se salió, así el guard
       // y `isWaiting` nunca quedan trabados en `true`.
       _sendGuard.release();
@@ -871,6 +935,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// Si este turno va con streaming (interruptor del servidor). Nunca
+  /// frena el turno: si falla, sin streaming.
+  Future<bool> _streamingForTurn() async {
+    final enabled = ref.read(assistantDepsProvider).streamingEnabled;
+    if (enabled == null) return false;
+    try {
+      return await enabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// La memoria de Porty para PORTFOLIO_BRIEF: una sola lectura por
   /// conversación (las tools la mantienen al día). Nunca frena el turno.
   Future<List<UserMemory>> _memoriesForTurn() async {
@@ -920,3 +996,12 @@ final assistantProvider = StateNotifierProvider.autoDispose
       ref.onDispose(provider.disposeResources);
       return provider;
     });
+
+/// El texto de Porty de la respuesta [surfaceId] mientras se escribe.
+@immutable
+class AnswerPreview {
+  const AnswerPreview(this.surfaceId, this.text);
+
+  final String surfaceId;
+  final String text;
+}

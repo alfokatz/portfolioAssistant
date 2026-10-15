@@ -40,6 +40,25 @@ const toolReply = () =>
     usage,
   });
 
+Deno.test("warmup: con sesión responde 204 sin OpenAI ni base; sin sesión 401", async () => {
+  const f = fakeFetch(finalReply);
+  const noDb = new Proxy({}, { get: () => { throw new Error("no debería tocar la base"); } });
+  const d = {
+    ...deps(f.fetch, env),
+    db: noDb as typeof db,
+    authenticate: async (jwt: string) => (jwt === "ok" ? "user-1" : null),
+  };
+  const warm = (jwt: string | null) =>
+    new Request("http://local/functions/v1/ai-chat", {
+      method: "POST",
+      headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), "x-porty-purpose": "warmup" },
+    });
+  const r = await handle(warm("ok"), d, { allowedPromptHashes: hashes });
+  assertEquals(r.status, 204);
+  assertEquals((await handle(warm(null), d, { allowedPromptHashes: hashes })).status, 401);
+  assertEquals(f.calls.length, 0);
+});
+
 Deno.test("sin JWT o con JWT inválido → 401 y OpenAI no se llama", async () => {
   const f = fakeFetch(finalReply);
   const d = deps(f.fetch, env);

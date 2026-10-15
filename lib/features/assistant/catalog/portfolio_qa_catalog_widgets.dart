@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/goal_status_widgets.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_streamed_text_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
@@ -22,13 +23,14 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_p
 /// por dominio en `widgets/market_widgets.dart`, `portfolio_widgets.dart`,
 /// `fund_widgets.dart` y `advice_widgets.dart`.
 abstract final class PortfolioQaCatalogWidgets {
+  /// El estilo del texto de Porty (también el de la vista previa mientras
+  /// se escribe, para que no cambie nada al llegar la respuesta).
+  static TextStyle get answerTextStyle =>
+      TextStyle(color: QaColors.textPrimary, fontSize: 15, height: 1.45);
+
   static Widget qaAnswerText(CatalogItemContext ctx) {
     final data = _AnswerTextData.fromMap(ctx.data as JsonMap);
-    final style = TextStyle(
-      color: QaColors.textPrimary,
-      fontSize: 15,
-      height: 1.45,
-    );
+    final style = answerTextStyle;
 
     // El texto de Porty es siempre el primer paso del reveal de la surface
     // (slot 0, reclamado automáticamente al montar) — recién cuando termina
@@ -55,6 +57,11 @@ abstract final class PortfolioQaCatalogWidgets {
                   text: data.text,
                   style: style,
                   play: active,
+                  // Ya se leyó mientras se escribía: no se tipea de nuevo.
+                  skipAnimation: QaStreamedTextScope.wasShown(
+                    context,
+                    data.text,
+                  ),
                   onComplete: () {
                     onFinished();
                     // El avatar del header deja de hablar (ver PortyMood).

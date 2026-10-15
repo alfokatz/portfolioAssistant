@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -109,6 +110,41 @@ class AiProxyClient extends http.BaseClient {
 
   /// Turno en curso: lo fija el servicio antes de cada ronda.
   String? turnId;
+
+  static const warmUpEvery = Duration(minutes: 5);
+  static DateTime? _lastWarmUp;
+
+  @visibleForTesting
+  static void resetWarmUp() => _lastWarmUp = null;
+
+  /// Despierta la función `ai-chat` (arranque en frío, JWKS) y deja abierta
+  /// la conexión TLS de este cliente, para que la primera pregunta no pague
+  /// eso. No llega a OpenAI ni a la base y no tira: si falla, el turno sigue
+  /// igual que siempre. Como mucho uno cada [warmUpEvery] (la función queda
+  /// despierta unos minutos; más seguido serían invocaciones de más).
+  Future<void> warmUp() async {
+    final now = DateTime.now();
+    final last = _lastWarmUp;
+    if (last != null && now.difference(last) < warmUpEvery) return;
+    _lastWarmUp = now;
+    try {
+      final token = await config.accessToken();
+      if (token == null || token.isEmpty) return;
+      final request = http.Request('POST', config.endpoint)
+        ..headers.addAll({
+          'Authorization': 'Bearer $token',
+          if (config.anonKey != null) 'apikey': config.anonKey!,
+          if (config.region != null) 'x-region': config.region!,
+          'x-porty-purpose': 'warmup',
+        });
+      final response = await _inner
+          .send(request)
+          .timeout(const Duration(seconds: 10));
+      await response.stream.drain<void>();
+    } catch (_) {
+      // Sin red o sin función: no importa, es solo una ayuda.
+    }
+  }
 
   static const _serverLimitTypes = {
     'quota_exceeded',

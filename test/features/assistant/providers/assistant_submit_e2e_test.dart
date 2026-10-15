@@ -141,6 +141,7 @@ class _Harness {
     SubscriptionTier tier,
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
+    bool streaming = false,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
@@ -174,6 +175,7 @@ class _Harness {
                   httpClient: api.client,
                 ),
             createData: () => fakeDataSources(quotes: quotes),
+            streamingEnabled: streaming ? () async => true : null,
           ),
         ),
       ],
@@ -227,8 +229,9 @@ void main() {
     SubscriptionTier tier,
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
+    bool streaming = false,
   }) {
-    final h = _Harness(tier, script, used: used);
+    final h = _Harness(tier, script, used: used, streaming: streaming);
     addTearDown(h.dispose);
     return h;
   }
@@ -258,6 +261,50 @@ void main() {
     // La consulta la descuenta el proxy al responder, no la app.
     expect(h.subscriptionRepo.consumed, isEmpty);
     expect(h.quotes.priceCalls, isEmpty);
+  });
+
+  group('streaming (app_config.porty_streaming)', () {
+    test('off by default: requests are not streamed', () async {
+      final h = harness(SubscriptionTier.free, [_answer('Tu cartera vale 600.')]);
+      await h.notifier.submitMessage('¿Cómo está mi cartera?');
+      expect(h.api.requests.single.containsKey('stream'), isFalse);
+    });
+
+    test('on: same turn and same answer; the text shows while it is written '
+        'and is not typed again at the end', () async {
+      const text = 'AAPL subió 2 % en la semana, en línea con el mercado.';
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer(text),
+      ], streaming: true);
+      final previews = <String>[];
+      void listener() {
+        final p = h.notifier.preview.value;
+        if (p != null) previews.add(p.text);
+      }
+
+      h.notifier.preview.addListener(listener);
+      await h.notifier.submitMessage('¿Cómo le fue a AAPL esta semana?');
+      h.notifier.preview.removeListener(listener);
+
+      // Mismo turno: ronda de tools + respuesta, ambas con streaming.
+      expect(h.api.requests, hasLength(2));
+      expect(h.api.requests.every((r) => r['stream'] == true), isTrue);
+      expect(h.quotes.priceCalls, ['AAPL']);
+      expect(h.api.rolesOf(1), ['system', 'system', 'user', 'assistant', 'tool']);
+      // Misma respuesta final, por el camino de siempre.
+      expect(h.lastAnswer.isStreaming, isFalse);
+      expect(h.lastAnswer.isFallback, isFalse);
+      // Lo que se vio era siempre el principio del texto final.
+      expect(previews, isNotEmpty);
+      expect(previews.every(text.startsWith), isTrue);
+      // Terminado: la vista previa se apaga y el texto queda anotado para
+      // no tipearlo de nuevo.
+      expect(h.notifier.preview.value, isNull);
+      expect(h.notifier.streamedTextFor(h.lastAnswer.surfaceId!), text);
+    });
   });
 
   test('free user asking for a ticker they do not hold: the model asks for '

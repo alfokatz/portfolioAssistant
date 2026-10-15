@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/chat_completion_stream.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/conversation_log.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/openai_body_patch_client.dart';
@@ -21,6 +22,8 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
 export 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
+export 'package:portfolio_assistant/features/genui_core/tool_calling/chat_completion_stream.dart'
+    show ContentDeltaCallback;
 export 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 
 /// Resultado de un turno: qué tools corrieron (para cuota, avisos y
@@ -132,9 +135,10 @@ typedef TurnAbortCheck = Object? Function(List<ToolCallRecord> roundCalls);
 ///    el sanitizer/normalizer/dispatch de siempre hacia genui (que solo
 ///    renderiza — genui no participa de la decisión de datos).
 ///
-/// Sin streaming: la respuesta A2UI solo sirve completa (se sanea y
-/// despacha al final), así que un `create` no cambia lo que ve el usuario,
-/// un turno sin tools sigue siendo 1 llamada, y la respuesta trae `usage`.
+/// La respuesta A2UI solo se despacha completa (se sanea, se controla y se
+/// despacha al final). Con [streaming] los requests se leen a medida que
+/// llegan y `onContent` de [runTurn] ve el texto mientras se escribe (para
+/// una vista previa), pero genui recibe exactamente lo mismo, al final.
 ///
 /// Por defecto usa [defaultModel]; override con `OPENAI_MODEL` en `.env`.
 ///
@@ -233,6 +237,16 @@ class OpenAIGenUiService {
   bool isDisposed = false;
   StreamSubscription<ChatMessage>? _debugResubmitSubscription;
 
+  /// Pedir las respuestas con streaming (ver [ChatCompletionStream]): el
+  /// turno es el mismo y genui recibe lo mismo, al final; lo único que
+  /// cambia es que `onContent` de [runTurn] ve el texto mientras se escribe.
+  /// Lo decide el llamador antes de cada turno (interruptor del servidor).
+  bool streaming = false;
+
+  /// El `onContent` del turno en curso (null fuera de un turno: la
+  /// reparación de genui no muestra vista previa).
+  ContentDeltaCallback? _onContent;
+
   // Tools y surface del último turno: los reusa la reparación que dispara
   // genui tras una validación fallida (llega sin surfaceId ni tools).
   List<DataTool> _lastTools = const [];
@@ -261,9 +275,11 @@ class OpenAIGenUiService {
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
+    ContentDeltaCallback? onContent,
   }) {
     return _sendQueue.run(() async {
       log.pinnedContext = pinnedContext;
+      _onContent = onContent;
       try {
         return await _runTurn(
           userText: userText,
@@ -279,6 +295,8 @@ class OpenAIGenUiService {
         // existió para el modelo, igual que uno cortado por el paywall.
         log.dropLastTurn();
         rethrow;
+      } finally {
+        _onContent = null;
       }
     });
   }
@@ -560,27 +578,38 @@ class OpenAIGenUiService {
       // proxy cobra una consulta por turno.
       _proxyClient.turnId = log.currentTurn?.id;
       try {
-        final response = await OpenAI.instance.chat
-            .create(
-              model: model,
-              messages: [...log.render(), ...extra],
-              tools:
-                  tools.isEmpty
-                      ? null
-                      : [for (final tool in tools) tool.toOpenAi()],
-              toolChoice: tools.isEmpty ? null : toolChoice,
-              temperature: _temperature,
-              client: _httpClient,
-            )
-            .timeout(
-              timeout,
-              onTimeout:
-                  () =>
-                      throw TimeoutException(
-                        'El modelo tardó demasiado en responder.',
-                      ),
-            );
-        return response.choices.first.message;
+        final messages = [...log.render(), ...extra];
+        final openAiTools =
+            tools.isEmpty ? null : [for (final tool in tools) tool.toOpenAi()];
+        final reply =
+            streaming
+                ? ChatCompletionStream.create(
+                  client: _httpClient,
+                  model: model,
+                  messages: messages,
+                  tools: openAiTools,
+                  toolChoice: tools.isEmpty ? null : toolChoice,
+                  temperature: _temperature,
+                  onContent: _onContent,
+                )
+                : OpenAI.instance.chat
+                    .create(
+                      model: model,
+                      messages: messages,
+                      tools: openAiTools,
+                      toolChoice: tools.isEmpty ? null : toolChoice,
+                      temperature: _temperature,
+                      client: _httpClient,
+                    )
+                    .then((response) => response.choices.first.message);
+        return await reply.timeout(
+          timeout,
+          onTimeout:
+              () =>
+                  throw TimeoutException(
+                    'El modelo tardó demasiado en responder.',
+                  ),
+        );
       } on RequestFailedException catch (e) {
         final canRetry =
             isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
@@ -750,6 +779,9 @@ class OpenAIGenUiService {
     }
     return interactionJson;
   }
+
+  /// Ver [AiProxyClient.warmUp].
+  Future<void> warmUp() => _proxyClient.warmUp();
 
   void dispose() {
     isDisposed = true;

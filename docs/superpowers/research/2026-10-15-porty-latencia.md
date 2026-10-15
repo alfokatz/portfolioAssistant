@@ -124,6 +124,16 @@ Con eso se ve el p50/p90 de cada tramo y se confirma (o corrige) la tabla del §
 
 **Pendiente:** C2, el precalentado. Es una decisión de costo: con N tickers distintos en las carteras Gold, cuesta ~N × US$ 0,012 por corrida. Conviene activarlo detrás de un flag en `app_config` y con un tope de tickers (los más tenidos).
 
+## 6. Implementado (2026-10-15, segunda parte)
+
+- **Despertar el proxy (gratis):** al abrir Porty, la app manda a `ai-chat` un pedido con `x-porty-purpose: warmup`. El proxy valida la sesión y responde 204, sin OpenAI ni base. Arranca la función, carga la clave pública de los JWT y deja abierta la conexión TLS para la primera pregunta.
+- **Streaming detrás de un interruptor (`app_config.porty_streaming`, apagado):**
+  - Con el interruptor prendido, cada ronda se pide con `stream: true` (`ChatCompletionStream`). El turno, las tools y lo que recibe genui no cambian.
+  - Mientras llega la respuesta, la fila de Porty muestra **solo el texto** (`QaAnswerText`), con el mismo estilo. Las cards con datos aparecen con la respuesta completa, después de los controles de siempre (sanitizer, grounding, layout): nunca queda en pantalla un número que después se corrige.
+  - El texto que ya se leyó no se vuelve a tipear al final (`QaStreamedTextScope`). Si el control lo reescribió, se tipea el nuevo.
+  - Activación: `{"percent": 0-100, "users": [uuid...]}`. Con `users` lo probás con tu cuenta antes de abrirlo a un porcentaje; el reparto por usuario es el mismo que el de `GPT6_ROLLOUT_PERCENT`. La app relee el valor cada 10 min, y con `percent: 0` y `users: []` todo vuelve a ser como antes.
+  - Costo: el mismo (mismos tokens).
+
 ## Fuentes
 
 - [OpenAI: Latency optimization](https://developers.openai.com/api/docs/guides/latency-optimization): los 7 principios, y "generar menos tokens" como el principal.
