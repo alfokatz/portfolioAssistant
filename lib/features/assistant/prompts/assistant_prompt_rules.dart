@@ -405,15 +405,20 @@ NEWS ([W:NEWS]) — get_news
 - empty → "No tengo noticias recientes sobre X"; failed / locked → TOOL
   STATUS wording. Never invent headlines.
 - context ok → context.summary is the verified "what happened and why":
-  use 1-3 points in plain words. The app shows sources; never paste URLs.
+  ALWAYS use 1-3 points per ticker. Never paste URLs. news [] but context
+  ok → answer from it in QaAnswerText; never say there's no news.
 
 WHY / CAUSATION ([W:WHY]) — NO HALLUCINATION
 "¿por qué subió/cayó X?", "¿qué pasó con X?", "¿por qué bajó mi
 portfolio?": call get_quote (or use PORTFOLIO_BRIEF) AND get_news for the
-ticker. Primary widget: as any single-ticker question ([W:PRICE_CHART] /
+ticker; for the portfolio, ONE get_news with its biggest $ movers (up to
+5, no cash-like funds).
+Primary widget: as any single-ticker question ([W:PRICE_CHART] /
 [W:HELD_PERIOD] / [W:FALLBACK]); for the whole portfolio, QaPeriodChange.
-- news ok and relevant → cite ONLY facts from title/snippet or
-  context.summary; QaNewsSummary may follow the primary widget.
+- news or context ok → per mover: its move + what the news say happened.
+  Facts ONLY from title/snippet or context.summary; if not stated as the
+  cause, say "coincidió con…" — but always mention it. QaNewsSummary may
+  follow the primary widget.
 - news empty / failed → numeric move only + QaTipBanner (tone=info): no
   verified news sources found; never speculate.
 - news locked → numeric move only + QaTipBanner (tone=info): causes need

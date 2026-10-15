@@ -4,7 +4,7 @@
 // url_citation).
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { bullets, cacheKey, handle, parseBody } from "../news-context/handler.ts";
+import { bullets, cacheKey, handle, parseBody, prompts } from "../news-context/handler.ts";
 import { createUser, db, deps, fakeFetch } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
@@ -58,9 +58,10 @@ async function turnRow(userId: string): Promise<string> {
   return turnId;
 }
 
-Deno.test("parseBody/cacheKey: 1-3 tickers o un tema; la clave ignora orden y signos", () => {
+Deno.test("parseBody/cacheKey: 1-5 tickers o un tema; la clave ignora orden y signos", () => {
   assertEquals(parseBody({}), null);
-  assertEquals(parseBody({ tickers: ["A", "B", "C", "D"] }), null);
+  assertEquals(parseBody({ tickers: ["A", "B", "C", "D", "E", "F"] }), null);
+  assertEquals(parseBody({ tickers: ["A", "B", "C", "D", "E"] })?.tickers.length, 5);
   const a = parseBody({ tickers: ["nvda", "amd"], question: "¿Qué pasó?" })!;
   const b = parseBody({ tickers: ["AMD", "NVDA"], question: "que paso" })!;
   assertEquals(cacheKey(a), cacheKey(b));
@@ -70,6 +71,29 @@ Deno.test("parseBody/cacheKey: 1-3 tickers o un tema; la clave ignora orden y si
 Deno.test("bullets: limpia marcadores de cita del texto", () => {
   assertEquals(bullets(answer)[0], "Nvidia presentó un nuevo chip para centros de datos.");
   assertEquals(bullets("SIN_NOVEDADES"), []);
+});
+
+Deno.test("bullets: listas numeradas, guiones largos, negritas y párrafos sin viñetas", () => {
+  assertEquals(bullets("Resumen:\n1. **MSFT** (2026-10-13): Microsoft subió.\n2) GOOGL (2026-10-12): Alphabet cayó."), [
+    "MSFT (2026-10-13): Microsoft subió.",
+    "GOOGL (2026-10-12): Alphabet cayó.",
+  ]);
+  assertEquals(bullets("– Uno.\n— Dos."), ["Uno.", "Dos."]);
+  assertEquals(bullets("Microsoft presentó resultados.\n\nAlphabet anunció recompras."), [
+    "Microsoft presentó resultados.",
+    "Alphabet anunció recompras.",
+  ]);
+});
+
+Deno.test("prompts: con varias empresas pide ticker y fecha en cada viñeta y cubrir todas", () => {
+  const b = parseBody({ tickers: ["MSFT", "GOOGL", "VOO"] })!;
+  const { instructions } = prompts(b, "2026-10-15");
+  assert(instructions.includes('"- MSFT (2026-10-15): ..."'));
+  assert(instructions.includes("Cover EACH company"));
+  assert(instructions.includes("8 bullets at most"));
+  const one = prompts(parseBody({ tickers: ["MSFT"] })!, "2026-10-15").instructions;
+  assert(one.includes("5 bullets at most"));
+  assert(!one.includes("Cover EACH company"));
 });
 
 Deno.test("news-context: sin JWT 401; Free y Premium 403 sin llamar a OpenAI", async () => {
@@ -143,4 +167,6 @@ Deno.test("news-context: sin novedades → empty (y no inventa viñetas)", async
   const body = await r.json();
   assertEquals(body.status, "empty");
   assertEquals(body.summary, []);
+  // Sin resumen no viajan fuentes (la app las mostraría bajo "no hay noticias").
+  assertEquals(body.citations, []);
 });

@@ -32,7 +32,9 @@ export const config = {
   /// Sin novedades: se vuelve a buscar antes (puede haber sido un mal momento).
   emptyCacheTtlSeconds: 10 * 60,
   ratePerMinute: 10,
-  maxTickers: 3,
+  /// "¿Por qué se movió mi cartera?" pide las que más movieron: con 3 quedaban
+  /// afuera la mitad de las posiciones de una cartera chica.
+  maxTickers: 5,
   maxQuestionLength: 240,
   maxCitations: 8,
   /// Incluye el razonamiento de gpt-5-mini (~500 tokens con effort low):
@@ -106,10 +108,14 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
   const instructions = [
     `Today is ${today}. You brief a retail investor inside a personal-finance app, using web search.`,
     `Answer in ${language}, as bullet points: each line starts with "- " and is ONE short sentence.`,
+    b.tickers.length > 1
+      ? `Start every bullet with the ticker it is about and the date of the event, like "- MSFT (${today}): ...". Cover EACH company asked (search each one separately); skip a company only if it had no news.`
+      : `Start every bullet with the date of the event, like "- (${today}): ...".`,
     b.question
       ? "Answer the user's question in 1-5 bullets. If it asks for a date or a figure, give it exactly as the sources state it and say if it is not confirmed."
-      : "Write 5-8 bullets about what happened in the LAST 7 DAYS and why it matters for an investor, most important first.",
-    "Only facts specifically about the company or topic asked (never about unrelated things with a similar name).",
+      : `Write ${Math.min(8, 3 + 2 * b.tickers.length)} bullets at most about what happened in the LAST 7 DAYS and why it matters for an investor (including what moved the stock price, if reported), most important first.`,
+    "Only facts specifically about the company or topic asked (never about unrelated things with a similar name). Never use articles older than 7 days unless the question asks about an older fact.",
+    "For an ETF, report what moved its market or sector this week (e.g. the S&P 500 for an S&P 500 ETF), from articles about it.",
     "Every bullet must be backed by a cited news ARTICLE (never a quote, price-history or market-data page). Prefer original reporting from major outlets. Paraphrase; never copy article text.",
     "Never give buy/sell/hold recommendations or price targets of your own; you may report what analysts said, attributed.",
     'If you find nothing relevant and recent, reply exactly: SIN_NOVEDADES',
@@ -123,15 +129,20 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
   return { instructions, input };
 }
 
+/// Viñetas: "- ", "• ", "* ", "– " o listas numeradas ("1. ", "2) ").
+const bulletMark = /^(?:[-•*–—]|\d{1,2}[.)])\s+/;
+
 /// Viñetas limpias: sin marcadores de cita "([medio](url))" que el modelo a
-/// veces deja en el texto (las citas van aparte, clickeables).
+/// veces deja en el texto (las citas van aparte, clickeables) ni negritas.
+/// Sin ninguna viñeta (el modelo respondió en párrafos), cada párrafo es una.
 export function bullets(text: string): string[] {
-  return text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => /^[-•*]\s+/.test(l))
+  const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  const marked = lines.filter((l) => bulletMark.test(l));
+  const picked = marked.length > 0 ? marked : lines.filter((l) => !l.includes("SIN_NOVEDADES") && !l.endsWith(":"));
+  return picked
     .map((l) =>
-      l.replace(/^[-•*]\s+/, "")
+      l.replace(bulletMark, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
         .replace(/\s*\(\[[^\]]*\]\([^)]*\)\)/g, "")
         .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
         .replace(/\s+/g, " ")
@@ -209,7 +220,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   } catch {
     body = null;
   }
-  if (!body) return typedError(400, "invalid_body", "tickers (1-3) or topic expected");
+  if (!body) return typedError(400, "invalid_body", "tickers (1-5) or topic expected");
 
   if (!(await goldAllowed(deps, userId, body.tickers))) {
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
@@ -277,7 +288,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
           ...(body.lang === "es" ? { user_location: { type: "approximate", country: "AR" } } : {}),
         }],
         tool_choice: "required",
-        ...(model.startsWith("gpt-5") ? { reasoning: { effort: "low" } } : {}),
+        // gpt-6-luna razona en `medium` por default: más lento y se come el
+        // tope de salida antes de escribir.
+        ...(/^gpt-[56]/.test(model) ? { reasoning: { effort: "low" } } : {}),
         max_output_tokens: config.maxOutputTokens,
         store: false,
       }),
@@ -305,7 +318,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     console.error("[news-context] no text", out.status, out.outputTokens);
     return stale(hit) ?? typedError(502, "upstream_failed", "Search returned no answer");
   }
-  const summary = out.text.includes("SIN_NOVEDADES") ? [] : bullets(out.text);
+  const summary = out.text.trim().startsWith("SIN_NOVEDADES") ? [] : bullets(out.text);
   const citations = citationsOf(out.annotations, allow);
   if (summary.length === 0 || citations.length === 0) {
     console.log(JSON.stringify({
@@ -315,11 +328,14 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       status: out.status,
     }));
   }
+  const ok = summary.length > 0 && citations.length > 0;
   const result: NewsContext = {
-    status: summary.length > 0 && citations.length > 0 ? "ok" : "empty",
+    status: ok ? "ok" : "empty",
     subject: subjectOf(body),
-    summary: citations.length > 0 ? summary : [],
-    citations,
+    // Sin resumen no hay fuentes: la app las mostraba debajo de un "no
+    // encontré noticias" y parecía una contradicción.
+    summary: ok ? summary : [],
+    citations: ok ? citations : [],
     as_of: new Date(deps.now()).toISOString(),
   };
   // Lo vacío también se cachea: evita repetir una búsqueda sin novedades.
