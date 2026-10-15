@@ -3,10 +3,6 @@ abstract class PreferencesManager {
 
   Future<String?> getToken();
 
-  Future<double?> getRiskProfile();
-
-  Future<void> saveRiskProfile(double value);
-
   Future<void> saveGoal({
     required String label,
     required double targetAmount,
@@ -18,4 +14,8 @@ abstract class PreferencesManager {
   Future<void> saveMonthlyContribution(double amount);
 
   Future<double?> getMonthlyContribution();
+
+  bool hasCompletedOnboarding();
+
+  Future<void> setOnboardingCompleted({required bool completed});
 }

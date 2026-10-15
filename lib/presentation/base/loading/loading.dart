@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
+import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 
-String loadingAnimation = 'assets/animations/loading_animation.json';
-
+/// Carga de pantalla completa de `ContentStateWidget`: Porty pensando (ver
+/// [PortyLoader]), nunca un spinner.
 class Loading extends StatelessWidget {
-  const Loading({
-    super.key,
-  });
+  const Loading({super.key, this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -14,13 +14,7 @@ class Loading extends StatelessWidget {
     return SizedBox(
       width: size.width,
       height: size.height,
-      child: Center(
-        child: Lottie.asset(
-          loadingAnimation,
-          animate: true,
-          repeat: true,
-        ),
-      ),
+      child: PortyLoader(message: message),
     );
   }
 }

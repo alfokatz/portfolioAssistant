@@ -1,5 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:flutter/material.dart';
 
 /// Helpers for Y-axis reference labels on fl_chart widgets.
 abstract final class ChartAxisHelper {
@@ -48,6 +48,7 @@ abstract final class ChartAxisHelper {
   static FlGridData horizontalGrid({
     required double minY,
     required double maxY,
+    required Color gridColor,
     int divisions = 4,
   }) {
     final interval = (maxY - minY) / divisions;
@@ -55,8 +56,8 @@ abstract final class ChartAxisHelper {
       show: true,
       drawVerticalLine: false,
       horizontalInterval: interval > 0 ? interval : 1,
-      getDrawingHorizontalLine: (_) => const FlLine(
-        color: PortfolioColors.chartGrid,
+      getDrawingHorizontalLine: (_) => FlLine(
+        color: gridColor,
         strokeWidth: 1,
       ),
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:flutter/services.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Campo de texto estilizado para formularios de autenticación.
 class AuthTextField extends StatelessWidget {
@@ -15,6 +17,13 @@ class AuthTextField extends StatelessWidget {
     this.validator,
     this.onFieldSubmitted,
     this.autocorrect = true,
+    this.focusNode,
+    this.autofillHints,
+    this.forceErrorText,
+    this.onChanged,
+    this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
+    this.enableSuggestions = true,
   });
 
   final TextEditingController controller;
@@ -27,70 +36,97 @@ class AuthTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onFieldSubmitted;
   final bool autocorrect;
+  final FocusNode? focusNode;
+  final Iterable<String>? autofillHints;
 
-  static const _radius = 14.0;
+  /// Error que no sale del [validator] (ej. el del servidor al pedir el
+  /// reset de contraseña): se pinta igual que uno de validación.
+  final String? forceErrorText;
+  final ValueChanged<String>? onChanged;
+
+  /// Tope duro de caracteres (sin contador visible): corta el pegado de
+  /// textos enormes antes de que lleguen a la validación o al servidor.
+  final int? maxLength;
+  final TextCapitalization textCapitalization;
+
+  /// `false` en contraseñas: el teclado no las aprende ni las sugiere.
+  final bool enableSuggestions;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
+      autofillHints: autofillHints,
+      forceErrorText: forceErrorText,
+      // Por campo y no por Form: tocar un campo no marca en rojo los que
+      // el usuario todavía no llenó.
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      onChanged: onChanged,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       obscureText: obscureText,
       autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions && !obscureText,
+      textCapitalization: textCapitalization,
+      inputFormatters: [
+        if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+      ],
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: PortfolioColors.textPrimary,
+            color: colors.textPrimary,
           ),
-      cursorColor: PortfolioColors.accentBlue,
+      cursorColor: colors.accentBlue,
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: PortfolioColors.textSecondary,
+              color: colors.textSecondary,
             ),
         filled: true,
-        fillColor: PortfolioColors.surfaceElevated,
+        fillColor: colors.surfaceCard,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: AppDimens.cardPadding,
+          vertical: AppDimens.sp16,
         ),
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: PortfolioColors.textSecondary,
-                size: 22,
+                color: colors.textSecondary,
+                size: AppDimens.iconMd,
               )
             : null,
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(color: PortfolioColors.border),
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          borderSide: BorderSide(color: colors.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(
-            color: PortfolioColors.accentBlue,
-            width: 1.4,
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          borderSide: BorderSide(
+            color: colors.accentBlue,
+            width: 1.5,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(color: PortfolioColors.loss),
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          borderSide: BorderSide(color: colors.loss),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(
-            color: PortfolioColors.loss,
-            width: 1.4,
+          borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+          borderSide: BorderSide(
+            color: colors.loss,
+            width: 1.5,
           ),
         ),
         errorStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: PortfolioColors.loss,
+              color: colors.loss,
             ),
       ),
     );
