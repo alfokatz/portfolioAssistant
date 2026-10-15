@@ -137,6 +137,8 @@ List<UserGoal> _mixed() => [
     monthsAgo: 3,
     saved: 2400,
   ),
+  _goal('e', 'iPhone 17 Pro', 1400, months: 8, monthsAgo: 2, saved: 330),
+  _goal('f', 'Depto propio', 90000, months: 96, monthsAgo: 1, saved: 1200),
   _goal(
     'c',
     'Jubilación',

@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_analysis.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_icon.dart';
 import 'package:portfolio_assistant/features/goals/view/goals_verdict.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -288,11 +289,13 @@ class _Group extends StatelessWidget {
 
 const _rowPadding = AppDimens.sp16;
 
-/// Una meta: su anillo de progreso (del color del veredicto, con el ícono
-/// del tipo adentro), nombre, cuánto lleva de cuánto y para cuándo; a la
-/// derecha, cómo viene y el aporte por mes. Tocar abre el detalle;
-/// mantener apretada, sus opciones; deslizar a la izquierda, borrarla (con
-/// confirmación). Con [goal] en `null` es su propio skeleton.
+/// Una meta: a la izquierda su anillo (cuánto lleva, del color del
+/// veredicto) con el ícono de lo que es (un avión, un auto…) sobre un disco
+/// suave; al medio, el nombre, cuánto lleva de cuánto y cómo viene con el
+/// tiempo que falta; a la derecha, el porcentaje y el aporte por mes. Tocar
+/// abre el detalle; mantener apretada, sus opciones; deslizar a la
+/// izquierda, borrarla (con confirmación). Con [goal] en `null` es su
+/// propio skeleton.
 class _GoalRow extends ConsumerWidget {
   const _GoalRow({required this.goal});
 
@@ -310,38 +313,165 @@ class _GoalRow extends ConsumerWidget {
         p == null
             ? colors.textSecondary
             : GoalAnalysis.statusColor(p.status, colors);
-
-    String? amounts;
-    String? detail;
-    if (g != null) {
-      amounts = 'goals_card_saved'.tr(
-        namedArgs: {
-          'saved': QaFormat.money(g.progress.saved),
-          'target': QaFormat.money(g.progress.target),
-        },
-      );
-      final date = DateFormat.yMMM(
-        Localizations.localeOf(context).toLanguageTag(),
-      ).format(g.goal.targetDate);
-      // Cumplida: ya no hay aporte, solo para cuándo era.
-      detail =
-          achieved
-              ? date
-              : '${'goals_card_monthly'.tr(namedArgs: {'monthly': QaFormat.money(g.progress.plannedMonthly)})} · $date';
-    }
-
+    final locale = Localizations.localeOf(context);
     final secondary = tt.bodySmall?.copyWith(
       color: colors.textSecondary,
       height: 1.35,
       fontFeatures: tabular,
     );
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: _rowPadding,
-        vertical: AppDimens.sp16,
-      ),
-      child: Row(
+
+    final title = tt.titleMedium?.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.2,
+      height: 1.25,
+      color: colors.textPrimary,
+    );
+    final amount = tt.bodyMedium?.copyWith(
+      color: colors.textSecondary,
+      height: 1.3,
+      fontFeatures: tabular,
+    );
+    final pct = tt.titleMedium?.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.3,
+      height: 1.25,
+      color: achieved ? statusColor : colors.textPrimary,
+      fontFeatures: tabular,
+    );
+
+    /// Un renglón con algo a la izquierda (que se corta si no entra) y un
+    /// dato a la derecha.
+    Widget line(Widget start, Widget? end) => Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Expanded(child: start),
+        if (end != null) ...[const SizedBox(width: AppDimens.sp12), end],
+      ],
+    );
+
+    final Widget content;
+    if (g == null) {
+      content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          line(
+            SkeletonText(null, placeholder: 'Viaje a Japón', style: title),
+            SkeletonText(null, placeholder: '00 %', style: pct),
+          ),
+          const SizedBox(height: AppDimens.sp4),
+          line(
+            SkeletonText(
+              null,
+              placeholder: '0.000 \$ de 00.000 \$',
+              style: amount,
+            ),
+            SkeletonText(null, placeholder: '000 \$/mes', style: secondary),
+          ),
+          const SizedBox(height: AppDimens.sp6),
+          SkeletonText(
+            null,
+            placeholder: 'En camino · faltan 0 meses',
+            style: secondary,
+          ),
+        ],
+      );
+    } else {
+      final progress = g.progress;
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Nombre y cuánto de la meta lleva.
+          line(
+            Text(
+              g.goal.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: title,
+            ),
+            Text(GoalAnalysis.percent(progress.fraction), style: pct),
+          ),
+          const SizedBox(height: AppDimens.sp4),
+          // Lo juntado manda (el total, en segundo plano) y el aporte.
+          line(
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: QaFormat.money(progress.saved),
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(
+                    text:
+                        ' ${'goals_of_target'.tr(namedArgs: {'target': QaFormat.money(progress.target)})}',
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: amount,
+            ),
+            achieved
+                ? null
+                : Text(
+                  'goals_card_monthly'.tr(
+                    namedArgs: {
+                      'monthly': QaFormat.money(progress.plannedMonthly),
+                    },
+                  ),
+                  style: secondary,
+                ),
+          ),
+          const SizedBox(height: AppDimens.sp6),
+          // Cómo viene, con un punto de su color, y cuánto falta: todo el
+          // ancho, para que no se corte.
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppDimens.sp6),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: GoalAnalysis.statusLabel(progress.status),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            ' · ${GoalAnalysis.timeLeft(g.goal, progress, locale)}',
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: secondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    final row = Padding(
+      padding: const EdgeInsets.all(_rowPadding),
+      child: Row(
         children: [
           g == null
               ? const SkeletonBlock(
@@ -352,61 +482,10 @@ class _GoalRow extends ConsumerWidget {
               : _GoalRing(
                 fraction: g.progress.fraction,
                 color: statusColor,
-                icon: _iconFor(g.goal.type),
+                icon: GoalIcon.forGoal(g.goal),
               ),
-          const SizedBox(width: AppDimens.sp12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Nombre y cómo viene, en el mismo renglón.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: SkeletonText(
-                        g?.goal.label,
-                        placeholder: 'Viaje a Japón',
-                        style: tt.titleSmall?.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textPrimary,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppDimens.sp8),
-                    SkeletonText(
-                      p == null ? null : GoalAnalysis.statusLabel(p.status),
-                      placeholder: 'En camino',
-                      style: tt.labelMedium?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppDimens.sp4),
-                SkeletonText(
-                  amounts,
-                  placeholder: '0.000 \$ de 00.000 \$',
-                  style: tt.bodyMedium?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: tabular,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                SkeletonText(
-                  detail,
-                  placeholder: '000 \$/mes · oct 2028',
-                  style: secondary,
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(width: AppDimens.sp16 - 2),
+          Expanded(child: content),
         ],
       ),
     );
@@ -442,7 +521,7 @@ class _GoalRow extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.delete_outline, color: colors.loss),
+                  Icon(Icons.delete_outline_rounded, color: colors.loss),
                   const SizedBox(width: AppDimens.sp6),
                   Text(
                     'goal_delete_confirm'.tr(),
@@ -462,15 +541,10 @@ class _GoalRow extends ConsumerWidget {
   }
 }
 
-IconData _iconFor(GoalType type) => switch (type) {
-  GoalType.purchase => Icons.shopping_bag_outlined,
-  GoalType.retirement => Icons.beach_access_outlined,
-  GoalType.other => Icons.flag_outlined,
-};
-
-/// Cuánto lleva una meta, como un anillo alrededor del ícono de su tipo:
-/// la vuelta completa es el monto. Un avance mínimo se ve igual (un punto),
-/// para que "recién empezás" y "llevás algo" no se confundan.
+/// Cuánto lleva una meta, como un anillo alrededor del ícono de lo que es
+/// (sobre un disco suave, como una medalla): la vuelta completa es el
+/// monto. Un avance mínimo se ve igual (un punto), para que "recién
+/// empezás" y "llevás algo" no se confundan.
 class _GoalRing extends StatelessWidget {
   const _GoalRing({
     required this.fraction,
@@ -482,8 +556,11 @@ class _GoalRing extends StatelessWidget {
   final Color color;
   final IconData icon;
 
-  static const size = 44.0;
-  static const stroke = 3.5;
+  static const size = 52.0;
+  static const stroke = 4.0;
+
+  /// Aire entre el anillo y el disco del ícono.
+  static const gap = 4.0;
 
   @override
   Widget build(BuildContext context) {
@@ -508,8 +585,15 @@ class _GoalRing extends StatelessWidget {
                 ),
                 child: child,
               ),
-          child: Center(
-            child: Icon(icon, size: AppDimens.iconMd - 2, color: colors.onChip),
+          child: Padding(
+            padding: const EdgeInsets.all(stroke + gap),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.chip,
+                shape: BoxShape.circle,
+              ),
+              child: Center(child: Icon(icon, size: 20, color: colors.onChip)),
+            ),
           ),
         ),
       ),
@@ -577,7 +661,7 @@ final _ideas = <_Idea>[
   (
     label: 'goals_idea_emergency',
     question: 'goals_idea_emergency_q',
-    icon: Icons.health_and_safety_outlined,
+    icon: Icons.health_and_safety_rounded,
   ),
   (
     label: 'goals_idea_trip',
@@ -587,12 +671,12 @@ final _ideas = <_Idea>[
   (
     label: 'goals_idea_purchase',
     question: 'goals_idea_purchase_q',
-    icon: Icons.shopping_bag_outlined,
+    icon: Icons.shopping_bag_rounded,
   ),
   (
     label: 'goals_idea_retirement',
     question: 'goals_idea_retirement_q',
-    icon: Icons.beach_access_outlined,
+    icon: Icons.beach_access_rounded,
   ),
 ];
 

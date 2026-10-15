@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_ca
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_icon.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 
 /// Qué responde la card arriba de todo; el resto del plan queda en "Ver
@@ -359,10 +360,11 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           subtitle:
               '${QaFormat.money(_inputs.targetAmount)} en '
               '${_horizon(_inputs.months)}',
-          icon:
-              retirementLike
-                  ? Icons.beach_access_outlined
-                  : Icons.flag_outlined,
+          // El de lo que es (un viaje, un auto…), igual que en Metas.
+          icon: GoalIcon.of(
+            data.label,
+            retirementLike ? GoalType.retirement : GoalType.other,
+          ),
           trailing: QaTag(
             _inputs.shortTerm ? 'Corto plazo' : _riskName(_inputs.risk),
             color: QaColors.onChip,

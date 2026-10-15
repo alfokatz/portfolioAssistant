@@ -95,10 +95,11 @@ class GoalPlanSnapshot {
     final raw = json['buy_plan'];
     return GoalPlanSnapshot(
       inputs: inputs,
-      buyPlan: [
-        for (final e in raw is List ? raw : const [])
-          GoalBuyPlanEntry.fromJson(e),
-      ].whereType<GoalBuyPlanEntry>().toList(),
+      buyPlan:
+          [
+            for (final e in raw is List ? raw : const [])
+              GoalBuyPlanEntry.fromJson(e),
+          ].whereType<GoalBuyPlanEntry>().toList(),
     );
   }
 }
@@ -254,7 +255,8 @@ class GoalDraft {
     // plan: la meta siempre se guarda diciendo en qué invertir.
     final buyItems = result['items'];
     final suggested = plan is Map ? plan['suggested_instruments'] : null;
-    final items = buyItems is List && buyItems.isNotEmpty ? buyItems : suggested;
+    final items =
+        buyItems is List && buyItems.isNotEmpty ? buyItems : suggested;
     final planId = result[GoalProjectionBuilder.planIdKey];
     return GoalDraft(
       label: label.isEmpty ? 'Mi meta' : label,
@@ -269,10 +271,11 @@ class GoalDraft {
       targetDate: date,
       snapshot: GoalPlanSnapshot(
         inputs: inputs,
-        buyPlan: [
-          for (final i in items is List ? items : const [])
-            GoalBuyPlanEntry.fromJson(i),
-        ].whereType<GoalBuyPlanEntry>().toList(),
+        buyPlan:
+            [
+              for (final i in items is List ? items : const [])
+                GoalBuyPlanEntry.fromJson(i),
+            ].whereType<GoalBuyPlanEntry>().toList(),
       ),
       planKey: planId is String ? planId : null,
     );
