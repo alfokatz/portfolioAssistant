@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
@@ -1095,6 +1096,84 @@ final _cases = <_Case>[
       ..._expect(t.aborted != null, 'esperaba paywall (short-circuit)'),
     ],
   ),
+  // ── Plan de cartera y lista de seguimiento (piloto de answer_guide) ──
+  // Mismos casos antes y después de mover las reglas al resultado de la
+  // tool: comparar pasadas y tokens (ver
+  // docs/superpowers/research/2026-10-16-prompt-escalable.md).
+  _Case(
+    'plan-drift',
+    ['¿Me alejé de mi plan de cartera?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_allocation_plan'), 'no leyó el plan: $t'),
+      ..._expect(
+        t.components.where((c) => c != 'Column').every((c) => c == 'QaAnswerText'),
+        'solo QaAnswerText: ${t.components}',
+      ),
+      ..._expect(t.text.contains('AAPL') && t.text.contains('NVDA'), 'faltan tickers'),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+    ],
+  ),
+  _Case(
+    'plan-contribution',
+    ['¿Cómo reparto 1000 dólares para acercarme a mi plan?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('get_allocation_plan', (a) => a['contribution_usd'] == 1000),
+        'no pidió el reparto de 1000: $t',
+      ),
+      ..._expect(t.text.contains('AAPL'), 'falta el ticker que necesita el aporte'),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+      ..._expect(
+        RegExp(r'acerc', caseSensitive: false).hasMatch(t.text),
+        'no habló de acercarse al plan',
+      ),
+    ],
+  ),
+  _Case(
+    'plan-free-locked',
+    ['¿Me alejé de mi plan de cartera?'],
+    tier: SubscriptionTier.free,
+    (t, _) => [
+      ..._expect(
+        '${t.aborted}' == '${PaywallReason.modeLocked}',
+        'esperaba el paywall de Premium, fue ${t.aborted}',
+      ),
+    ],
+  ),
+  _Case(
+    'watchlist-list',
+    ['¿Cómo vienen las acciones que sigo?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_watchlist'), 'no leyó la lista: $t'),
+      ..._expect(t.text.contains('AMZN'), 'falta AMZN'),
+    ],
+  ),
+  _Case(
+    'watchlist-add',
+    ['Seguí Microsoft'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('add_to_watchlist', (a) => '${a['ticker']}'.toUpperCase() == 'MSFT'),
+        'no agregó MSFT: $t',
+      ),
+      ..._expect(t.text.length < 220, 'respuesta larga: ${t.text}'),
+    ],
+  ),
+  _Case(
+    'watchlist-add-held',
+    ['Agregá Apple a mi lista de seguimiento'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        RegExp(r'alerta', caseSensitive: false).hasMatch(t.text),
+        'no ofreció una alerta para lo que ya tiene: ${t.text}',
+      ),
+    ],
+  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -1417,6 +1496,22 @@ void main() {
                   updatedAt: DateTime.now(),
                 ),
             deleteMemory: (_) async {},
+            // Plan y lista fijos para los casos plan-* y watchlist-*.
+            loadAllocationPlan:
+                () async => const AllocationPlan(
+                  targets: {'AAPL': 70, 'NVDA': 30},
+                ),
+            loadWatchlist:
+                () async => [
+                  {
+                    'ticker': 'AMZN',
+                    'price': 182.5,
+                    'day_change_pct': -1.8,
+                    'since_added_pct': 6.4,
+                    'alerts_on': true,
+                  },
+                ],
+            addToWatchlist: (_) async {},
           );
           final courtesy = WeeklyFreeAnalysisGrant(
             ctx: ctx,
