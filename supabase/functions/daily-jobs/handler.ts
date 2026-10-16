@@ -129,7 +129,16 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
     } else {
       const calendar = await fetchCalendar(deps, addDays(today, -2), addDays(today, 2));
       if (wanted.has(jobHours.earningsTomorrow)) {
-        rows.push(...earningsTomorrowRows(usersAt.get(jobHours.earningsTomorrow) ?? [], calendar));
+        const tomorrowUsers = usersAt.get(jobHours.earningsTomorrow) ?? [];
+        const golds = tomorrowUsers.filter((u) => u.tier === "gold" && u.symbols.length > 0);
+        // Los pesos solo si alguien presenta mañana (una consulta por corrida).
+        const anyTomorrow = golds.some((u) =>
+          calendar.some((e) => e.date === addDays(u.local_date, 1) && u.symbols.includes(e.symbol))
+        );
+        const weights = anyTomorrow && deps.store.holdingWeights
+          ? await deps.store.holdingWeights(golds.map((u) => u.user_id))
+          : undefined;
+        rows.push(...earningsTomorrowRows(tomorrowUsers, calendar, weights));
       }
       for (const h of jobHours.earningsResult) {
         if (wanted.has(h)) rows.push(...earningsResultRows(usersAt.get(h) ?? [], calendar));

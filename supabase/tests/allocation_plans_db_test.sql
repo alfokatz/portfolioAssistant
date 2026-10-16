@@ -152,6 +152,23 @@ begin
   if v_count <> 0 then raise exception 'free still listed'; end if;
 end $$;
 
+-- ── Pesos para el aviso de resultados (20261016000300) ────────────────────
+
+do $$
+declare
+  v_voo numeric;
+  v_bnd numeric;
+begin
+  -- VOO: 3 × 500 = 1500; BND: 10 × 70 = 700. Total 2200.
+  select weight_pct into v_voo from public.push_holding_weights(
+    array['00000000-0000-0000-0000-0000000000c1'::uuid]) where symbol = 'VOO';
+  select weight_pct into v_bnd from public.push_holding_weights(
+    array['00000000-0000-0000-0000-0000000000c1'::uuid]) where symbol = 'BND';
+  if v_voo <> 68.2 or v_bnd <> 31.8 then
+    raise exception 'weights: VOO % BND %', v_voo, v_bnd;
+  end if;
+end $$;
+
 select 'ALLOCATION_DB_TEST_OK' as result;
 
 rollback;

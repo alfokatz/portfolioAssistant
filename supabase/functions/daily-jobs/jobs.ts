@@ -69,21 +69,44 @@ export function weeklyReportRows(users: LocalUser[], reportEnabled: boolean): Ou
 
 const isGold = (u: LocalUser) => u.tier === "gold";
 
+/// Peso (%) de cada acción en la cartera de cada usuario
+/// (`push_holding_weights`): usuario → símbolo → peso.
+export type HoldingWeights = Map<string, Map<string, number>>;
+
 /// Las acciones de su cartera que presentan resultados mañana, en una sola
-/// notificación.
-export function earningsTomorrowRows(users: LocalUser[], calendar: EarningsEntry[]): OutboxInsert[] {
+/// notificación, con lo que hace falta para el resumen: cuánto pesa cada
+/// una, la ganancia por acción esperada y si es antes o después del
+/// mercado (F5 de 2026-10-16-porty-siguiente-nivel.md).
+export function earningsTomorrowRows(
+  users: LocalUser[],
+  calendar: EarningsEntry[],
+  weights: HoldingWeights = new Map(),
+): OutboxInsert[] {
   const out: OutboxInsert[] = [];
   for (const u of users.filter(isGold)) {
     const tomorrow = addDays(u.local_date, 1);
     const held = new Set(u.symbols);
-    const symbols = [...new Set(calendar.filter((e) => e.date === tomorrow && held.has(e.symbol)).map((e) => e.symbol))]
-      .sort();
+    const entries = new Map<string, EarningsEntry>();
+    for (const e of calendar) {
+      if (e.date === tomorrow && held.has(e.symbol) && !entries.has(e.symbol)) entries.set(e.symbol, e);
+    }
+    const symbols = [...entries.keys()].sort();
     if (symbols.length === 0) continue;
+    const userWeights = weights.get(u.user_id);
     out.push({
       user_id: u.user_id,
       kind: "earnings_tomorrow",
       dedupe_key: `earnings_tomorrow:${tomorrow}`,
-      data: { symbols, date: tomorrow },
+      data: {
+        symbols,
+        date: tomorrow,
+        items: symbols.map((symbol) => ({
+          symbol,
+          weight_pct: userWeights?.get(symbol) ?? null,
+          eps_estimate: entries.get(symbol)!.epsEstimate,
+          hour: entries.get(symbol)!.hour,
+        })),
+      },
     });
   }
   return out;

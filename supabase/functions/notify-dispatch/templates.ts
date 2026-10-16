@@ -25,6 +25,8 @@ export type RenderOptions = { locale: Locale; showAmounts: boolean };
 type Data = Record<string, unknown>;
 
 const num = (v: unknown): number => (typeof v === "number" ? v : Number(v));
+/// Como [num], pero lo que falta (null, undefined, "") es NaN y no 0.
+const optNum = (v: unknown): number => (v === null || v === undefined || v === "" ? NaN : num(v));
 const str = (v: unknown): string => (typeof v === "string" ? v : String(v ?? ""));
 
 export function money(value: number): string {
@@ -69,6 +71,46 @@ const askPorty = (question: string): Pick<Rendered, "route" | "routeArgs"> => ({
   route: "assistant",
   routeArgs: { question },
 });
+
+type EarningsItem = { symbol: string; weight: number; eps: number; hour: string };
+
+/// Una acción: "Pesa 18% en tu cartera; se espera una ganancia por acción de
+/// $0.85, después del cierre." Varias: "Pesan: NVDA 18% · AAPL 6%." Sin
+/// datos (versión vieja del productor): la invitación de siempre.
+function earningsTomorrowBody(items: EarningsItem[], es: boolean): string {
+  const invite = es ? "Tocá para ver el resumen de Porty." : "Tap for Porty's briefing.";
+  if (items.length === 0) return es ? "Tocá para ver qué se espera." : "Tap to see what's expected.";
+  if (items.length === 1) {
+    const i = items[0];
+    const parts: string[] = [];
+    if (Number.isFinite(i.weight)) {
+      parts.push(es ? `Pesa ${percent(i.weight, false, 0)} en tu cartera` : `It's ${percent(i.weight, false, 0)} of your portfolio`);
+    }
+    if (Number.isFinite(i.eps)) {
+      parts.push(
+        es
+          ? `se espera una ganancia por acción de ${money(i.eps)}`
+          : `expected earnings per share: ${money(i.eps)}`,
+      );
+    }
+    const when = i.hour === "bmo"
+      ? es ? "antes de la apertura" : "before the open"
+      : i.hour === "amc"
+      ? es ? "después del cierre" : "after the close"
+      : "";
+    if (parts.length === 0) return (when ? `${capitalize(when)}. ` : "") + invite;
+    const sentence = capitalize(parts.join("; ")) + (when ? `, ${when}` : "") + ".";
+    return `${sentence} ${invite}`;
+  }
+  const weighted = items.filter((i) => Number.isFinite(i.weight)).sort((a, b) => b.weight - a.weight);
+  if (weighted.length === 0) return invite;
+  const line = weighted.map((i) => `${i.symbol} ${percent(i.weight, false, 0)}`).join(" · ");
+  return `${es ? "Pesan" : "Weights"}: ${line}. ${invite}`;
+}
+
+function capitalize(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
 
 export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
   const es = opts.locale === "es";
@@ -212,17 +254,21 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       const symbols = (Array.isArray(data.symbols) ? data.symbols : []).map(str).filter(Boolean);
       const list = joinList(symbols, opts.locale);
       const one = symbols.length === 1;
+      const items = (Array.isArray(data.items) ? data.items : []).map((i) => ({
+        symbol: str((i as Data).symbol),
+        weight: optNum((i as Data).weight_pct),
+        eps: optNum((i as Data).eps_estimate),
+        hour: str((i as Data).hour),
+      }));
       return {
         title: es
           ? `${list} ${one ? "presenta" : "presentan"} resultados mañana`
           : `${list} ${one ? "reports" : "report"} earnings tomorrow`,
-        body: es
-          ? "Tocá para ver qué se espera."
-          : "Tap to see what's expected.",
+        body: earningsTomorrowBody(items, es),
         ...askPorty(
           es
-            ? `¿Qué se espera de los resultados de ${list}?`
-            : `What's expected from ${list}'s earnings?`,
+            ? `Armame un resumen antes de los resultados de ${list}: qué se espera, qué conviene mirar y cuánto pesa en mi cartera.`
+            : `Give me a briefing before ${list}'s earnings: what's expected, what to watch and how much it weighs in my portfolio.`,
         ),
       };
     }

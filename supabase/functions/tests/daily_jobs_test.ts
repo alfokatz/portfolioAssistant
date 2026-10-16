@@ -59,7 +59,14 @@ Deno.test("earnings: mañana, solo Gold y solo lo que tiene, en una notificació
     calendar,
   );
   assertEquals(rows.length, 1);
-  assertEquals(rows[0].data, { symbols: ["AAPL", "MSFT"], date: "2026-10-18" });
+  assertEquals(rows[0].data, {
+    symbols: ["AAPL", "MSFT"],
+    date: "2026-10-18",
+    items: [
+      { symbol: "AAPL", weight_pct: null, eps_estimate: 1.43, hour: "amc" },
+      { symbol: "MSFT", weight_pct: null, eps_estimate: 3.1, hour: "amc" },
+    ],
+  });
   assertEquals(rows[0].dedupe_key, "earnings_tomorrow:2026-10-18");
 });
 
@@ -260,4 +267,28 @@ Deno.test("corrida: lunes 10 lee los planes solo de Premium/Gold con posiciones"
   const summary = await runDailyJobs(deps, [10]);
   assertEquals(asked, [["u1"]]);
   assertEquals(summary.queued, { allocation_drift: 1 });
+});
+
+// ── Resumen antes de los resultados (F5 de 2026-10-16-porty-siguiente-nivel.md) ──
+
+Deno.test("earnings: mañana lleva cuánto pesa cada una en la cartera", () => {
+  const weights = new Map([["u1", new Map([["AAPL", 18.4], ["MSFT", 6]])]]);
+  const rows = earningsTomorrowRows([user({ symbols: ["AAPL", "MSFT"] })], calendar, weights);
+  const items = rows[0].data.items as { symbol: string; weight_pct: number }[];
+  assertEquals(items.map((i) => [i.symbol, i.weight_pct]), [["AAPL", 18.4], ["MSFT", 6]]);
+});
+
+Deno.test("corrida: 19 h pide los pesos una vez y solo si alguien presenta mañana", async () => {
+  const { deps, store } = jobsDeps("2026-10-17T22:00:00Z");
+  store.users.set(19, [user({ symbols: ["AAPL"] }), user({ user_id: "u9", symbols: ["KO"] })]);
+  const asked: string[][] = [];
+  const withWeights = store as unknown as { holdingWeights: (ids: string[]) => Promise<Map<string, Map<string, number>>> };
+  withWeights.holdingWeights = (ids) => {
+    asked.push(ids);
+    return Promise.resolve(new Map([["u1", new Map([["AAPL", 22]])]]));
+  };
+  await runDailyJobs(deps, [19]);
+  assertEquals(asked, [["u1", "u9"]]);
+  const row = store.enqueued.find((r) => r.kind === "earnings_tomorrow")!;
+  assertEquals((row.data.items as { weight_pct: number }[])[0].weight_pct, 22);
 });
