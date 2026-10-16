@@ -79,7 +79,9 @@ void main() {
   // 2026-10-15: 112.500 → 114.000 por el formato del texto (viñetas y
   // párrafos en vez de bloques) y el diagnóstico de la cartera antes de
   // recomendar (+1,2K caracteres ≈ +300 tokens, casi todo cacheado).
+  // 114.200: "¿estoy muy concentrado?" muestra la concentración en vez de
+  // ideas para invertir (+100 caracteres).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(114000));
+    expect(prompt.length, lessThan(114200));
   });
 }
