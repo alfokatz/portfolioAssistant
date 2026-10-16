@@ -120,7 +120,12 @@ class _Case {
 class _TurnLog {
   final calls = <ToolCallRecord>[];
   final components = <String>[];
+
+  /// Respuesta cruda del modelo (incluye el JSON de A2UI).
   String text = '';
+
+  /// Solo lo que el usuario lee en los QaAnswerText, para medir largos.
+  String answerText = '';
 
   /// Propiedades del QaCompanyAnalysis TAL COMO SE MUESTRA (post-proceso).
   Map<String, Object?>? analysis;
@@ -1160,7 +1165,7 @@ final _cases = <_Case>[
         t.called('add_to_watchlist', (a) => '${a['ticker']}'.toUpperCase() == 'MSFT'),
         'no agregó MSFT: $t',
       ),
-      ..._expect(t.text.length < 220, 'respuesta larga: ${t.text}'),
+      ..._expect(t.answerText.length < 220, 'respuesta larga: ${t.answerText}'),
     ],
   ),
   _Case(
@@ -1551,6 +1556,10 @@ void main() {
                   final component = surface!.components['$id'];
                   final type = component?.type;
                   if (type != null) log.components.add(type);
+                  final shown = component?.properties['text'];
+                  if (type == 'QaAnswerText' && shown is String) {
+                    log.answerText += shown;
+                  }
                   if (type == 'QaCompanyAnalysis') {
                     log.analysis = Map<String, Object?>.from(
                       component!.properties,
@@ -1637,7 +1646,7 @@ void main() {
         ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report));
       }
       // ignore: avoid_print
-      print('EVALS: ${_cases.length - failures}/${_cases.length} passed');
+      print('EVALS: ${report.length - failures}/${report.length} passed');
     },
     skip:
         enabled
