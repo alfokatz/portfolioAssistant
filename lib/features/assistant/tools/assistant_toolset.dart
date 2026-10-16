@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/web_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
@@ -35,6 +36,7 @@ abstract final class AssistantToolset {
     // Al final: proponen operaciones, nunca escriben (ver ActionTools).
     ...ActionTools.build(ctx),
     ...AlertTools.build(ctx),
+    ...PlanTools.build(ctx),
     ...MemoryTools.build(ctx),
     SearchWebTool(ctx),
   ];

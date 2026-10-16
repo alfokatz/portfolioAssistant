@@ -12,6 +12,7 @@
 | F4 | ✅ | Migración `watchlist_items` (+ `plan_limits.watchlist`), pantalla, entrada en la Home, `watchlist_move` en `market-watch` |
 | F5 | ✅ | `push_holding_weights`; `earnings_tomorrow` con peso, EPS esperado y horario, y pedido de resumen a Porty |
 | F6 | ✅ | Migración y edge function `binance-sync`, pantalla, marca, auto-sync. **Bloqueante antes de lanzar:** confirmar que Binance responde desde la región del proyecto (runbook §0) |
+| F7 | ✅ | Porty usa el plan y la lista: `get_allocation_plan` (desvío y reparto de un aporte), `get_watchlist` y `add_to_watchlist` (`lib/features/assistant/tools/plan_tools.dart`). Prompt nuevo: hash en `allowed_system_prompts.json` → **desplegar `ai-chat` antes de publicar la app**. Tope del prompt 114.000 → 115.000 |
 
 Validación (2026-10-16): `flutter analyze` sin avisos nuevos; `flutter test` 1264 en verde (el único rojo, `test/widget_test.dart`, ya fallaba antes); Deno: tests puros en verde (los de integración necesitan `supabase start`); tests SQL (`supabase/tests/*.sql`, incluidos los 3 nuevos) en verde contra Postgres 16 con los esquemas de Supabase simulados.
 
@@ -35,7 +36,7 @@ Seis mejoras para que Porty sea útil todos los días, no solo cuando el usuario
 | F5 | **Resumen antes de los resultados** de sus acciones | Gold | La notificación de "mañana presenta" ya existe; le falta el contexto |
 | F6 | **Binance** de solo lectura | Premium | Segunda conexión automática, sin aprobación del exchange |
 
-Fuera de alcance: IBKR por OAuth (depende del trámite de `docs/superpowers/research/2026-10-16-ibkr-onboarding.md`; mientras tanto su CSV/Flex entra por F1) y que Porty, el asistente, use los datos nuevos (plan de cartera, lista) como herramientas. Queda como siguiente paso.
+Fuera de alcance: IBKR por OAuth (depende del trámite de `docs/superpowers/research/2026-10-16-ibkr-onboarding.md`; mientras tanto su CSV/Flex entra por F1).
 
 ## Principios (los de siempre, aplicados acá)
 
@@ -191,7 +192,7 @@ Cada fase deja `flutter analyze` sin errores nuevos, `flutter test` y los tests 
 ## Despliegue (pendiente, fuera del repo)
 
 1. `supabase db push` (migraciones nuevas).
-2. `supabase functions deploy statement-import binance-sync daily-jobs market-watch notify-dispatch`.
+2. `supabase functions deploy statement-import binance-sync daily-jobs market-watch notify-dispatch ai-chat` (`ai-chat` por el hash del prompt nuevo, antes de publicar la app).
 3. Secrets: ninguno nuevo obligatorio (`STATEMENT_IMPORT_MODEL` es opcional).
 4. Confirmar que Binance responde desde la región del proyecto (ver F6).
 5. Publicar la app (dependencia nueva `file_picker`: revisar permisos de iOS/Android).

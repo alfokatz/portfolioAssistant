@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
+import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provider.dart';
 import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -364,6 +366,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             progress.toBrief(id),
         ],
         loadPriceAlerts: _priceAlertsForTool,
+        loadAllocationPlan: () async {
+          await ref.read(allocationProvider.notifier).load();
+          return ref.read(allocationProvider).saved;
+        },
+        loadWatchlist: _watchlistForTool,
+        addToWatchlist:
+            (ticker) => ref.read(watchlistProvider.notifier).add(ticker),
         userMemories: await memoriesF,
         saveMemory: _saveMemory,
         deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),
@@ -803,6 +812,27 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   /// Para list_price_alerts: lo mínimo que necesita el modelo.
+  Future<List<Map<String, Object?>>> _watchlistForTool() async {
+    final notifier = ref.read(watchlistProvider.notifier);
+    await notifier.load();
+    await notifier.refreshQuotes();
+    final state = ref.read(watchlistProvider);
+    double? round2(double? v) =>
+        v == null ? null : (v * 100).roundToDouble() / 100;
+    return [
+      for (final item in state.items)
+        {
+          'ticker': item.symbol,
+          'price': state.quotes[item.symbol]?.price,
+          'day_change_pct': round2(state.quotes[item.symbol]?.dayChangePct),
+          'since_added_pct': round2(
+            state.quotes[item.symbol]?.sinceAddedPct(item.addedPrice),
+          ),
+          'alerts_on': item.notify,
+        },
+    ];
+  }
+
   Future<List<Map<String, Object?>>> _priceAlertsForTool() async {
     final notifier = ref.read(priceAlertsProvider.notifier);
     await notifier.load();
