@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/features/display_currency/view/fx_breakdown_sheet.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
@@ -185,6 +186,9 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       periodPnlPercent: periodPnl.percent,
                       selectedRange: state.selectedRange,
                       onRangeSelected: notifier.selectTimeRange,
+                      secondaryLine: DisplayCurrencyLine(
+                        totalUsd: summary.totalValue,
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),

@@ -29,6 +29,10 @@ class PortfolioHeroSection extends StatefulWidget {
   final ChartTimeRange selectedRange;
   final ValueChanged<ChartTimeRange> onRangeSelected;
 
+  /// Debajo de la variación: el total en la moneda que eligió el usuario
+  /// (ver `DisplayCurrencyLine`). Se oculta mientras se recorre el gráfico.
+  final Widget? secondaryLine;
+
   const PortfolioHeroSection({
     super.key,
     required this.summary,
@@ -37,6 +41,7 @@ class PortfolioHeroSection extends StatefulWidget {
     required this.periodPnlPercent,
     required this.selectedRange,
     required this.onRangeSelected,
+    this.secondaryLine,
   });
 
   const PortfolioHeroSection.skeleton({
@@ -46,7 +51,8 @@ class PortfolioHeroSection extends StatefulWidget {
        history = const [],
        periodPnlAbsolute = 0,
        periodPnlPercent = 0,
-       onRangeSelected = _ignoreRange;
+       onRangeSelected = _ignoreRange,
+       secondaryLine = null;
 
   static void _ignoreRange(ChartTimeRange _) {}
 
@@ -189,6 +195,15 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
                     ],
                   ],
                 ),
+                if (widget.secondaryLine != null && !skeleton)
+                  // Mismo alto recorriendo o no: el gráfico no salta.
+                  Visibility(
+                    visible: scrub == null,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: widget.secondaryLine!,
+                  ),
                 const SizedBox(height: 12),
               ],
             ),

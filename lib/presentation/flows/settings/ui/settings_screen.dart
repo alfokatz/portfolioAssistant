@@ -5,6 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
@@ -94,6 +96,34 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
 
     if (selected != null && mounted) {
       await context.setLocale(selected);
+    }
+  }
+
+  Future<void> _showCurrencyPicker() async {
+    final current = ref.read(displayCurrencyProvider);
+    final selected = await showModalBottomSheet<DisplayCurrency>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (ctx) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.8,
+            ),
+            child: SettingsPickerSheet(
+              title: 'settings_currency'.tr(),
+              children: [
+                for (final c in DisplayCurrency.values)
+                  SettingsPickerOption(
+                    label: '${c.labelKey.tr()} (${c.code})',
+                    isSelected: c == current,
+                    onTap: () => Navigator.of(ctx).pop(c),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (selected != null && mounted) {
+      await ref.read(displayCurrencyProvider.notifier).set(selected);
     }
   }
 
@@ -227,6 +257,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final etoro = ref.watch(etoroConnectionProvider);
     final push = ref.watch(pushControllerProvider);
     final alerts = ref.watch(priceAlertsProvider);
+    final displayCurrency = ref.watch(displayCurrencyProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -302,6 +333,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   label: 'settings_language'.tr(),
                   value: _languageLabel(context.locale),
                   onTap: _showLanguagePicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.currency_exchange_rounded,
+                  label: 'settings_currency'.tr(),
+                  value: displayCurrency.code,
+                  subtitle:
+                      displayCurrency.isUsd
+                          ? null
+                          : 'settings_currency_subtitle'.tr(),
+                  onTap: _showCurrencyPicker,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
