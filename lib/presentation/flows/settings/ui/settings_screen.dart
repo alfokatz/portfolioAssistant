@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_pr
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
@@ -367,6 +368,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _etoroLabel(etoro),
                   onTap:
                       () => context.pushNamed(EtoroRouter.connectionRouteName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.upload_file_rounded,
+                  label: 'import_entry_cta'.tr(),
+                  subtitle: 'import_settings_subtitle'.tr(),
+                  onTap:
+                      () => context.pushNamed(StatementImportRouter.routeName),
                 ),
               ],
             ),
