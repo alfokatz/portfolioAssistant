@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -32,6 +33,37 @@ abstract final class PlanTools {
 
 double _round1(double v) => (v * 10).roundToDouble() / 10;
 
+/// Cómo responder con cada resultado (ver [AnswerGuide]). En inglés, como el
+/// resto de las instrucciones al modelo.
+abstract final class PlanGuides {
+  static const planOk =
+      'QaAnswerText only: one sentence, then one "• " line per ticker '
+      '(ticker: hoy X% · objetivo Y%), off_plan first, up to 8. With '
+      'contribution: one "• " line per split item (ticker: \$amount) instead. '
+      'The plan is the user\'s own targets: say "para acercarte a tu plan"; '
+      'never "te conviene" or "comprá", never judge a target.';
+  static const planEmpty =
+      'QaAnswerText: they have no plan yet; they create it in Ajustes → Mi '
+      'plan de cartera. You can\'t create it.';
+  static const watchlistOk =
+      'QaAnswerText only: one sentence, then one "• " line per item '
+      '(ticker: price · day_change_pct · since_added_pct), up to 8.';
+  static const watchlistEmpty =
+      'QaAnswerText: their watchlist is empty; they can ask you to follow a '
+      'ticker ("seguí AMZN").';
+  static const addOk =
+      'QaAnswerText, one short sentence: you follow it now and will let them '
+      'know if it moves sharply during the day.';
+  static const addHeld =
+      'QaAnswerText: they already own it, so it doesn\'t go on the '
+      'watchlist; offer a price alert instead.';
+  static const addAlready = 'QaAnswerText: it is already on their watchlist.';
+  static const addLimit =
+      'QaAnswerText: their plan allows up to `limit` tickers on the watchlist.';
+  static const addUnknown =
+      'Check the ticker with search_symbol, or ask which company they mean.';
+}
+
 class GetAllocationPlanTool implements DataTool {
   GetAllocationPlanTool(this.ctx);
 
@@ -47,10 +79,8 @@ class GetAllocationPlanTool implements DataTool {
       'drift_threshold (points), off_plan (tickers beyond the threshold). '
       'contribution_usd → also how to split that amount to get closer to '
       'their plan, buying only (split: {ticker, amount_usd}); pass it only '
-      'when they name an amount. Read-only: you can\'t create or edit the '
-      'plan. status: ok (most off-plan first) | empty (no plan yet: they '
-      'create it in Ajustes → Mi plan de cartera) | locked (part of '
-      'Premium: say so in one sentence) | failed.';
+      'when they name an amount. Read-only. status: ok | empty | locked '
+      '(Premium) | failed.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -80,7 +110,10 @@ class GetAllocationPlanTool implements DataTool {
       return {'status': 'failed', 'reason': 'unavailable'};
     }
     if (plan == null || plan.isEmpty) {
-      return {'status': 'empty', 'as_of': ctx.asOf};
+      return AnswerGuide.attach({
+        'status': 'empty',
+        'as_of': ctx.asOf,
+      }, PlanGuides.planEmpty);
     }
 
     final values = ctx.holdingsByTicker;
@@ -94,7 +127,7 @@ class GetAllocationPlanTool implements DataTool {
               amount: amount,
             )
             : const <String, double>{};
-    return {
+    return AnswerGuide.attach({
       'status': 'ok',
       'drift_threshold': plan.driftThreshold,
       'weekly_alert': plan.notify,
@@ -123,7 +156,7 @@ class GetAllocationPlanTool implements DataTool {
           ],
         },
       'as_of': ctx.asOf,
-    };
+    }, PlanGuides.planOk);
   }
 }
 
@@ -139,8 +172,7 @@ class GetWatchlistTool implements DataTool {
   String get description =>
       'The user\'s WATCHLIST (tickers they follow but don\'t own): items '
       '{ticker, price, day_change_pct, since_added_pct, alerts_on}. '
-      'status: ok | empty (they can ask you to follow a ticker) | locked '
-      '(part of Premium) | failed.';
+      'status: ok | empty | locked (Premium) | failed.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -158,11 +190,11 @@ class GetWatchlistTool implements DataTool {
     if (load == null) return {'status': 'failed', 'reason': 'unavailable'};
     try {
       final items = await load();
-      return {
+      return AnswerGuide.attach({
         'status': items.isEmpty ? 'empty' : 'ok',
         'items': items,
         'as_of': ctx.asOf,
-      };
+      }, items.isEmpty ? PlanGuides.watchlistEmpty : PlanGuides.watchlistOk);
     } catch (_) {
       return {'status': 'failed', 'reason': 'unavailable'};
     }
@@ -181,11 +213,8 @@ class AddToWatchlistTool implements DataTool {
   String get description =>
       'Adds ONE ticker to the user\'s watchlist, only when they ask for it '
       '("seguí AMZN", "agregá Nvidia a mi lista"). Porty then notifies them '
-      'if it moves sharply during the day (say so on ok). status: ok | '
-      'already_there | '
-      'held (they own it: suggest propose_price_alert instead) | '
-      'limit_reached (limit = their plan\'s maximum) | unknown_symbol '
-      '(check it with search_symbol) | locked (Premium) | failed.';
+      'if it moves sharply during the day. status: ok | already_there | '
+      'held | limit_reached | unknown_symbol | locked (Premium) | failed.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -222,22 +251,35 @@ class AddToWatchlistTool implements DataTool {
     }
     final ticker = tickers.first;
     if (ctx.heldTickers.contains(ticker)) {
-      return {'status': 'held', 'ticker': ticker};
+      return AnswerGuide.attach({
+        'status': 'held',
+        'ticker': ticker,
+      }, PlanGuides.addHeld);
     }
     final add = ctx.addToWatchlist;
     if (add == null) return {'status': 'failed', 'reason': 'unavailable'};
     try {
       await add(ticker);
-      return {'status': 'ok', 'ticker': ticker, 'as_of': ctx.asOf};
+      return AnswerGuide.attach({
+        'status': 'ok',
+        'ticker': ticker,
+        'as_of': ctx.asOf,
+      }, PlanGuides.addOk);
     } on WatchlistUnknownSymbol {
-      return {'status': 'unknown_symbol', 'ticker': ticker};
+      return AnswerGuide.attach({
+        'status': 'unknown_symbol',
+        'ticker': ticker,
+      }, PlanGuides.addUnknown);
     } on WatchlistDuplicate {
-      return {'status': 'already_there', 'ticker': ticker};
+      return AnswerGuide.attach({
+        'status': 'already_there',
+        'ticker': ticker,
+      }, PlanGuides.addAlready);
     } on WatchlistLimitReached {
-      return {
+      return AnswerGuide.attach({
         'status': 'limit_reached',
         'limit': PlanMatrix.of(ctx.tier).watchlistLimit,
-      };
+      }, PlanGuides.addLimit);
     } catch (_) {
       return {'status': 'failed', 'reason': 'unavailable'};
     }

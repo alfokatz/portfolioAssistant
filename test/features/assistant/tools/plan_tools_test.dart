@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
@@ -162,6 +163,54 @@ void main() {
         (await AddToWatchlistTool(_ctx()).run({}))['status'],
         'needs_input',
       );
+    });
+  });
+
+  group('answer_guide (instrucciones justo a tiempo)', () {
+    String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
+
+    test('cada resultado útil trae su guía; locked y failed no', () async {
+      const plan = AllocationPlan(targets: {'AAPL': 50, 'NVDA': 50});
+      expect(
+        guideOf(await GetAllocationPlanTool(_ctx(plan: plan)).run({})),
+        PlanGuides.planOk,
+      );
+      expect(
+        guideOf(await GetAllocationPlanTool(_ctx()).run({})),
+        PlanGuides.planEmpty,
+      );
+      expect(
+        guideOf(await GetWatchlistTool(_ctx()).run({})),
+        PlanGuides.watchlistEmpty,
+      );
+      expect(
+        guideOf(
+          await AddToWatchlistTool(
+            _ctx(add: (_) async {}),
+          ).run({'ticker': 'AMZN'}),
+        ),
+        PlanGuides.addOk,
+      );
+      expect(
+        guideOf(
+          await AddToWatchlistTool(
+            _ctx(add: (_) async {}),
+          ).run({'ticker': 'AAPL'}),
+        ),
+        PlanGuides.addHeld,
+      );
+      // Lo general (locked, failed) lo resuelve el prompt.
+      expect(
+        guideOf(
+          await GetWatchlistTool(_ctx(tier: SubscriptionTier.free)).run({}),
+        ),
+        isNull,
+      );
+    });
+
+    test('la guía del plan no deja recomendar', () {
+      expect(PlanGuides.planOk, contains('para acercarte a tu plan'));
+      expect(PlanGuides.planOk, contains('never "te conviene"'));
     });
   });
 }
