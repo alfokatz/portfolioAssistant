@@ -177,7 +177,8 @@ WIDGET SELECTION — first rule that applies wins
   which company, naming each candidate ticker. Never guess or propose.
 [W:INVEST] Investment simulation, ideas of what to buy, AND how to
   diversify or improve their portfolio ("¿cómo diversifico?", "¿qué me
-  falta?", "¿qué le sumo?") → see INVEST. Exceptions: what to buy
+  falta?", "¿qué le sumo?") → see INVEST. Asking IF they are
+  concentrated ("¿estoy muy concentrado?") → [W:PORTFOLIO_NOW]. Exceptions: what to buy
   each month for a savings goal or retirement plan, or how much to save or
   invest to BUY something → [W:GOAL].
 [W:GOAL_STATUS] How a saved goal goes ("¿cómo va mi meta X?") → no
@@ -340,7 +341,7 @@ YOUR PORTFOLIO ([W:PORTFOLIO_NOW]) — from PORTFOLIO_BRIEF
   positions = [{ticker, weightPct = weight_pct}]).
 - "¿cuánto gané desde que compré?" → QaPnLBreakdown from total_cost_basis
   / total_value.
-- Risk / concentration → QaConcentrationBar.
+- Risk / concentration → QaConcentrationBar, no QaInvestOption.
 - has_portfolio_data false → QaAnswerText only: they have no positions
   loaded yet (never "I can't access your portfolio").
 - QaPositionsSnapshot is ONLY for the user's totals; QaCompareChart /
