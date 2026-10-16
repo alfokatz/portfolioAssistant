@@ -42,6 +42,10 @@ enum PlanFeature {
   /// Conectar la cuenta de eToro (solo lectura) y que la cartera se
   /// actualice sola. El servidor (etoro-sync) también lo exige.
   brokerSync,
+
+  /// Plan de cartera: asignación objetivo, desvío y cómo repartir el
+  /// próximo aporte. La base también lo exige (`allocation_plans`).
+  allocationPlan,
 }
 
 /// Un plan: qué incluye, sus límites y cómo se presenta.
@@ -95,6 +99,7 @@ abstract final class PlanMatrix {
     PlanFeature.goals,
     PlanFeature.portfolioActions,
     PlanFeature.brokerSync,
+    PlanFeature.allocationPlan,
   };
 
   static const _gold = {
@@ -125,6 +130,7 @@ abstract final class PlanMatrix {
         PlanFeature.goals,
         PlanFeature.benchmark,
         PlanFeature.brokerSync,
+        PlanFeature.allocationPlan,
       ],
       // Free tiene 1 alerta; Premium, 20 (ver priceAlertLimit). No es una
       // PlanFeature porque no se bloquea: cambia el tope.
@@ -175,6 +181,7 @@ abstract final class PlanMatrix {
     PlanFeature.earnings => 'plan_feature_earnings',
     PlanFeature.fundamentals => 'plan_feature_fundamentals',
     PlanFeature.brokerSync => 'plan_feature_broker_sync',
+    PlanFeature.allocationPlan => 'plan_feature_allocation_plan',
   };
 
   /// Claves de marketing del plan, en el orden en que se muestran.

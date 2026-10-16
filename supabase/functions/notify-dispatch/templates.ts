@@ -227,6 +227,49 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       };
     }
 
+    case "allocation_drift": {
+      const items = (Array.isArray(data.items) ? data.items : [])
+        .map((i) => ({
+          symbol: str((i as Data).symbol),
+          current: num((i as Data).current_pct),
+          target: num((i as Data).target_pct),
+        }))
+        .filter((i) => i.symbol && Number.isFinite(i.current) && Number.isFinite(i.target))
+        .slice(0, 2);
+      const line = items
+        .map((i) =>
+          es
+            ? `${i.symbol} pesa ${percent(i.current, false, 0)} (tu objetivo: ${percent(i.target, false, 0)})`
+            : `${i.symbol} is ${percent(i.current, false, 0)} (your target: ${percent(i.target, false, 0)})`
+        )
+        .join("; ");
+      return {
+        title: es ? "Tu cartera se alejó de tu plan" : "Your portfolio drifted from your plan",
+        body: (line ? `${line}. ` : "") +
+          (es ? "Tocá para ver cómo volver a tu plan." : "Tap to see how to get back to your plan."),
+        route: "allocation",
+        routeArgs: {},
+      };
+    }
+
+    case "watchlist_move": {
+      const symbol = str(data.symbol);
+      const change = num(data.change_pct);
+      const since = num(data.since_added_pct);
+      const up = change >= 0;
+      const sinceText = Number.isFinite(since)
+        ? es ? `Desde que la agregaste: ${percent(since, true)}. ` : `Since you added it: ${percent(since, true)}. `
+        : "";
+      return {
+        title: es
+          ? `${symbol}, de tu lista, ${up ? "sube" : "baja"} ${percent(change)} hoy`
+          : `${symbol}, on your watchlist, is ${up ? "up" : "down"} ${percent(change)} today`,
+        body: sinceText +
+          (es ? "Tocá para preguntarle a Porty qué está pasando." : "Tap to ask Porty what's going on."),
+        ...askPorty(es ? `¿Qué está pasando con ${symbol}?` : `What's going on with ${symbol}?`),
+      };
+    }
+
     case "earnings_result": {
       const symbol = str(data.symbol);
       const actual = num(data.eps_actual);

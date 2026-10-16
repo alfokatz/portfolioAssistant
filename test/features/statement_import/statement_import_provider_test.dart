@@ -12,7 +12,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
-import 'package:portfolio_assistant/features/statement_import/view/import_row_edit_sheet.dart';
+import 'package:portfolio_assistant/shared/utils/user_number.dart';
 
 class _FakeClient implements StatementImportClient {
   _FakeClient(this.respond);

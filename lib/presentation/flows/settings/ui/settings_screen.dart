@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -307,6 +308,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _investorProfileLabel(investorProfile),
                   onTap:
                       () => context.pushNamed(InvestorProfileRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.donut_large_rounded,
+                  label: 'allocation_title'.tr(),
+                  subtitle: 'allocation_settings_subtitle'.tr(),
+                  onTap: () => context.pushNamed(AllocationRouter.routeName),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/features/allocation/view/allocation_drift_banner.dart';
 import 'package:portfolio_assistant/features/display_currency/view/fx_breakdown_sheet.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -192,6 +193,9 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),
+                  // Solo si la cartera se alejó del plan (Premium). Trae
+                  // su propio espacio inferior.
+                  const AllocationDriftBanner(),
                   // Informe semanal de Porty (se oculta solo sin
                   // posiciones). Trae su propio espacio inferior.
                   _enter(

@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dar
 import 'package:portfolio_assistant/presentation/base/theme/fade_through_page.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_router.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
@@ -115,6 +116,7 @@ class AppRouter {
         PortyOutfitRouter.getRoute(),
         ...EtoroRouter.getRoutes(),
         StatementImportRouter.getRoute(),
+        AllocationRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
         ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),

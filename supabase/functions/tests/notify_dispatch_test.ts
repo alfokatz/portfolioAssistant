@@ -209,6 +209,8 @@ Deno.test("plantillas: ningún texto da consejos ni usa tono de casino", () => {
     ["etoro_reconnect", {}],
     ["earnings_tomorrow", { symbols: ["AAPL"] }],
     ["earnings_result", { symbol: "AAPL", surprise: "miss" }],
+    ["allocation_drift", { items: [{ symbol: "VOO", current_pct: 62, target_pct: 50 }] }],
+    ["watchlist_move", { symbol: "AMZN", change_pct: -6.1, since_added_pct: -12 }],
   ];
   for (const locale of ["es", "en"] as const) {
     for (const [kind, data] of samples) {
@@ -303,4 +305,32 @@ Deno.test("handler: solo con el secreto del cron", async () => {
   assertEquals((await handle(req("s3cret"), { ...deps, sender: null })).status, 503);
   // Sin CRON_SECRET configurado nadie entra.
   assertEquals((await handle(req("s3cret"), { ...deps, env: () => undefined })).status, 401);
+});
+
+Deno.test("plantillas: plan de cartera y lista de seguimiento", () => {
+  const drift = render("allocation_drift", {
+    items: [
+      { symbol: "VOO", current_pct: 62.4, target_pct: 50 },
+      { symbol: "BND", current_pct: 28, target_pct: 40 },
+      { symbol: "NVDA", current_pct: 9.6, target_pct: 10 },
+    ],
+  }, { locale: "es", showAmounts: false });
+  assertEquals(drift.title, "Tu cartera se alejó de tu plan");
+  assertEquals(
+    drift.body,
+    "VOO pesa 62% (tu objetivo: 50%); BND pesa 28% (tu objetivo: 40%). Tocá para ver cómo volver a tu plan.",
+  );
+  assertEquals(drift.route, "allocation");
+
+  const watch = render("watchlist_move", { symbol: "AMZN", change_pct: -6.14, since_added_pct: -12 }, {
+    locale: "en",
+    showAmounts: false,
+  });
+  assertEquals(watch.title, "AMZN, on your watchlist, is down 6.1% today");
+  assertEquals(watch.body, "Since you added it: -12.0%. Tap to ask Porty what's going on.");
+  assertEquals(watch.route, "assistant");
+  assertEquals(watch.routeArgs.question, "What's going on with AMZN?");
+  // Sin el dato desde que la agregó, solo la invitación.
+  const bare = render("watchlist_move", { symbol: "AMZN", change_pct: 7 }, { locale: "es", showAmounts: false });
+  assertEquals(bare.body, "Tocá para preguntarle a Porty qué está pasando.");
 });

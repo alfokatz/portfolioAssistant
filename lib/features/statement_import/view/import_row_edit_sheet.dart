@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/features/statement_import/domain/import_row.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/shared/utils/user_number.dart';
 
 /// Lo que el usuario corrigió de una fila.
 class ImportRowEdit {
@@ -19,23 +20,6 @@ class ImportRowEdit {
   final double quantity;
   final double? purchasePrice;
   final DateTime? purchaseDate;
-}
-
-/// Acepta "1.234,5", "1,234.5" y "1234.5".
-double? parseUserNumber(String raw) {
-  var s = raw.trim().replaceAll(' ', '');
-  if (s.isEmpty) return null;
-  final lastComma = s.lastIndexOf(',');
-  final lastDot = s.lastIndexOf('.');
-  if (lastComma >= 0 && lastDot >= 0) {
-    s =
-        lastComma > lastDot
-            ? s.replaceAll('.', '').replaceAll(',', '.')
-            : s.replaceAll(',', '');
-  } else if (lastComma >= 0) {
-    s = s.replaceAll(',', '.');
-  }
-  return double.tryParse(s);
 }
 
 /// Corregir una fila de la vista previa: ticker, cantidad, precio y fecha.

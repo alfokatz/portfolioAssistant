@@ -6,6 +6,8 @@
 //   confirmado y una fecha estimada no alcanza para avisar;
 // - 12:00 y 19:00 → resultados que ya salieron (Gold, F6): legacy, por el
 //   calendario de Finnhub; v2, por el 8-K con ítem 2.02 presentado a la SEC;
+// - lunes 10:00 → la cartera se alejó del plan del usuario (Premium,
+//   F3 de docs/superpowers/plans/2026-10-16-porty-siguiente-nivel.md);
 // - 04:00 UTC → limpieza (push_purge).
 //
 // POST /functions/v1/daily-jobs con `x-cron-secret`. Body opcional
@@ -18,6 +20,7 @@ import type { PushSender } from "../notify-dispatch/fcm.ts";
 import type { DispatchStore } from "../notify-dispatch/store.ts";
 import {
   addDays,
+  allocationDriftRows,
   type EarningsEntry,
   earningsResultRows,
   earningsTomorrowRows,
@@ -83,7 +86,10 @@ async function fetchCalendar(deps: JobsDeps, from: string, to: string): Promise<
 
 export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promise<JobsSummary> {
   const now = deps.now();
-  const wanted = new Set(onlyHours ?? [jobHours.weeklyReport, jobHours.earningsTomorrow, ...jobHours.earningsResult]);
+  const wanted = new Set(
+    onlyHours ??
+      [jobHours.weeklyReport, jobHours.allocationDrift, jobHours.earningsTomorrow, ...jobHours.earningsResult],
+  );
   const summary: JobsSummary = { hours: [...wanted].sort((a, b) => a - b), queued: {}, dispatched: 0, purged: false };
   const rows: OutboxInsert[] = [];
 
@@ -92,6 +98,16 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
 
   if (wanted.has(jobHours.weeklyReport)) {
     rows.push(...weeklyReportRows(usersAt.get(jobHours.weeklyReport) ?? [], await deps.store.weeklyReportEnabled()));
+  }
+
+  if (wanted.has(jobHours.allocationDrift) && deps.store.allocationInputs) {
+    const mondays = (usersAt.get(jobHours.allocationDrift) ?? []).filter((u) =>
+      u.local_dow === 1 && u.symbols.length > 0 && u.tier !== "free"
+    );
+    if (mondays.length > 0) {
+      const inputs = await deps.store.allocationInputs(mondays.map((u) => u.user_id));
+      rows.push(...allocationDriftRows(mondays, inputs));
+    }
   }
 
   const earningsUsers = [jobHours.earningsTomorrow, ...jobHours.earningsResult]
