@@ -2,6 +2,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/features/allocation/view/allocation_drift_banner.dart';
+import 'package:portfolio_assistant/features/display_currency/view/fx_breakdown_sheet.dart';
+import 'package:portfolio_assistant/features/watchlist/view/watchlist_entry_card.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
@@ -185,9 +188,15 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       periodPnlPercent: periodPnl.percent,
                       selectedRange: state.selectedRange,
                       onRangeSelected: notifier.selectTimeRange,
+                      secondaryLine: DisplayCurrencyLine(
+                        totalUsd: summary.totalValue,
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),
+                  // Solo si la cartera se alejó del plan (Premium). Trae
+                  // su propio espacio inferior.
+                  const AllocationDriftBanner(),
                   // Informe semanal de Porty (se oculta solo sin
                   // posiciones). Trae su propio espacio inferior.
                   _enter(
@@ -236,6 +245,8 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                       // Cripto, CFD, efectivo…: aparte, sin
                                       // sumar al total (se oculta si no hay).
                                       const EtoroExtrasCard(),
+                                      // Lo que sigue sin tenerlo.
+                                      const WatchlistEntryCard(),
                                     ],
                                   ),
                       insights:

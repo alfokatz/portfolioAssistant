@@ -9,7 +9,14 @@ import { resetSession, yahooSessionConfig } from "../_shared/yahoo_session.ts";
 import { type AlertRow, type AlertUpdate, evaluateAlert, thresholdPrice } from "../market-watch/alerts.ts";
 import { handle, type MarketDeps, runMarketWatch } from "../market-watch/handler.ts";
 import { marketDate, marketPhase } from "../market-watch/market_clock.ts";
-import { computeMoves, type Holding, type UserMoves } from "../market-watch/moves.ts";
+import {
+  computeMoves,
+  type Holding,
+  type UserMoves,
+  type WatchItem,
+  watchlistMoves,
+  watchlistOutboxRows,
+} from "../market-watch/moves.ts";
 import { fetchQuotes, parseYahooQuotes, type Quote, quotesConfig } from "../market-watch/quotes.ts";
 import type { MarketStore } from "../market-watch/store.ts";
 import { FakeSender, MemoryDispatchStore } from "./push_fakes.ts";
@@ -334,4 +341,57 @@ Deno.test("handler: secreto del cron y force para probar fuera de horario", asyn
   assertEquals((await (await handle(req("s3cret"), deps)).json()).skipped, "market_closed");
   const forced = await (await handle(req("s3cret", { force: true }), deps)).json();
   assertEquals(forced.alertsFired, 1);
+});
+
+// ── Lista de seguimiento (F4 de 2026-10-16-porty-siguiente-nivel.md) ──
+
+const watch = (symbol: string, over: Partial<WatchItem> = {}): WatchItem => ({
+  user_id: "u1",
+  symbol,
+  added_price: null,
+  sensitivity: "normal",
+  ...over,
+});
+
+Deno.test("lista: umbral por tipo y sensibilidad, uno por usuario (el mayor), desde que la agregó", () => {
+  const quotes = new Map([
+    ["AMZN", quote("AMZN", 94, 100)],
+    ["TSLA", quote("TSLA", 91, 100)],
+    ["SPY", quote("SPY", 97.5, 100, { quoteType: "ETF" })],
+    ["BTC-USD", quote("BTC-USD", 80, 100, { quoteType: "CRYPTOCURRENCY" })],
+  ]);
+  const moves = watchlistMoves([
+    watch("AMZN", { added_price: 120 }),
+    watch("TSLA"),
+    watch("SPY"),
+    watch("BTC-USD"),
+    watch("AMZN", { user_id: "u2", sensitivity: "low" }),
+    watch("SPY", { user_id: "u3", sensitivity: "high" }),
+  ], quotes);
+  assertEquals(moves, [
+    { user_id: "u1", symbol: "TSLA", change_pct: -9, since_added_pct: null, direction: "down" },
+    { user_id: "u3", symbol: "SPY", change_pct: -2.5, since_added_pct: null, direction: "down" },
+  ]);
+  const amzn = watchlistMoves([watch("AMZN", { added_price: 120 })], quotes)[0];
+  assertEquals(amzn.since_added_pct, -21.67);
+  assertEquals(watchlistOutboxRows("2026-10-13", [amzn])[0].dedupe_key, "watchlist_move:AMZN:2026-10-13:down");
+});
+
+Deno.test("corrida: la lista se cotiza junto con lo demás y avisa", async () => {
+  const { deps, store, dispatch, sender } = marketDeps(tuesday11);
+  const queued: unknown[] = [];
+  const withWatch = store as unknown as {
+    watchItems: () => Promise<WatchItem[]>;
+    enqueue: (rows: { user_id: string; kind: string; data: Record<string, unknown> }[]) => Promise<number>;
+  };
+  withWatch.watchItems = () => Promise.resolve([watch("NVDA", { added_price: 100 })]);
+  withWatch.enqueue = (rows) => {
+    queued.push(...rows);
+    for (const r of rows) dispatch.add(r.user_id, r.kind, r.data);
+    return Promise.resolve(rows.length);
+  };
+  const r = await runMarketWatch(deps);
+  assertEquals(r.watchQueued, 1);
+  assertEquals(queued.length, 1);
+  assertEquals(sender.sent.map((m) => m.title), ["NVDA, de tu lista, baja 7.0% hoy"]);
 });

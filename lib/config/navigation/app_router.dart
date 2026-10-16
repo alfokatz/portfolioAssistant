@@ -7,13 +7,17 @@ import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dar
 import 'package:portfolio_assistant/presentation/base/theme/fade_through_page.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/error_page/nav/error_router.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
+import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
@@ -113,6 +117,10 @@ class AppRouter {
         GoalsRouter.getDetailRoute(),
         PortyOutfitRouter.getRoute(),
         ...EtoroRouter.getRoutes(),
+        StatementImportRouter.getRoute(),
+        AllocationRouter.getRoute(),
+        WatchlistRouter.getRoute(),
+        BinanceRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
         ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),

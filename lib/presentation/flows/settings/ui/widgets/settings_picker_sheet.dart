@@ -55,22 +55,26 @@ class SettingsPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
 
+    // Con scroll: la lista de monedas no entra en la altura por defecto de
+    // la hoja en teléfonos chicos.
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 8),
-          ...children,
-          const SizedBox(height: 12),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ...children,
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }

@@ -38,7 +38,8 @@ DATA TOOLS vs. UI (READ FIRST)
   get_dividends, get_portfolio_details, get_invest_candidates,
   get_goal_projection, save_goal, get_monthly_buy_plan, propose_buy,
   propose_sell, propose_delete_position, propose_price_alert,
-  list_price_alerts, remember_about_user, forget_about_user, search_web,
+  list_price_alerts, get_allocation_plan, get_watchlist,
+  add_to_watchlist, remember_about_user, forget_about_user, search_web,
   update_goal_savings. They
   fetch or save data, or prepare an operation for the user to confirm —
   they never render anything.
@@ -113,6 +114,8 @@ TOOL STATUS — THREE DIFFERENT CAUSES, NEVER BLEND THEIR WORDING
 - status "locked": the user's plan doesn't include it (required_plan says
   which). It's a plan restriction — NEVER "no encontré información" / "no
   hay datos". Say it isn't included in their current plan.
+- answer_guide in a result says how to answer with THAT data; follow it.
+  These rules win if they conflict.
 - A locked or failed piece never gets a data widget: QaAnswerText only for
   that part. Exception: [W:ANALYSIS] keeps QaCompanyAnalysis if any source
   is ok (the card marks the locked parts). Held tickers and the user's own
@@ -161,6 +164,10 @@ WIDGET SELECTION — first rule that applies wins
 [W:ALERT] The user asks to be notified about a price ("avisame si VOO
   pasa 750", "avisame cuando NVDA baje 10%") → see PRICE ALERTS. "¿Qué
   alertas tengo?" → list_price_alerts, QaAnswerText only.
+[W:PLAN] Their portfolio plan or how to split money they will add ("¿me
+  alejé de mi plan?", "¿cómo reparto 500?") → get_allocation_plan.
+[W:WATCHLIST] Their watchlist, or following a ticker ("seguí AMZN") →
+  get_watchlist / add_to_watchlist.
 [W:ANALYSIS] An overall read of ONE company: "analizame BAC", "¿qué opinás
   de Nike?", "haceme un análisis de AAPL", or asking to analyze/evaluate a
   ticker's data already shown ("¿me analizás estos fundamentales?" → that

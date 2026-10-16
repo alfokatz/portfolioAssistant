@@ -79,7 +79,10 @@ void main() {
   // 2026-10-15: 112.500 → 114.000 por el formato del texto (viñetas y
   // párrafos en vez de bloques) y el diagnóstico de la cartera antes de
   // recomendar (+1,2K caracteres ≈ +300 tokens, casi todo cacheado).
+  // 2026-10-16: 114.000 → 115.000 por el plan de cartera y la lista de
+  // seguimiento (get_allocation_plan, get_watchlist, add_to_watchlist:
+  // ~800 caracteres; el detalle va en la descripción de cada tool).
   test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(114000));
+    expect(prompt.length, lessThan(115000));
   });
 }

@@ -209,6 +209,9 @@ Deno.test("plantillas: ningún texto da consejos ni usa tono de casino", () => {
     ["etoro_reconnect", {}],
     ["earnings_tomorrow", { symbols: ["AAPL"] }],
     ["earnings_result", { symbol: "AAPL", surprise: "miss" }],
+    ["allocation_drift", { items: [{ symbol: "VOO", current_pct: 62, target_pct: 50 }] }],
+    ["watchlist_move", { symbol: "AMZN", change_pct: -6.1, since_added_pct: -12 }],
+    ["earnings_tomorrow", { symbols: ["NVDA"], items: [{ symbol: "NVDA", weight_pct: 18, eps_estimate: 0.85, hour: "amc" }] }],
   ];
   for (const locale of ["es", "en"] as const) {
     for (const [kind, data] of samples) {
@@ -303,4 +306,67 @@ Deno.test("handler: solo con el secreto del cron", async () => {
   assertEquals((await handle(req("s3cret"), { ...deps, sender: null })).status, 503);
   // Sin CRON_SECRET configurado nadie entra.
   assertEquals((await handle(req("s3cret"), { ...deps, env: () => undefined })).status, 401);
+});
+
+Deno.test("plantillas: plan de cartera y lista de seguimiento", () => {
+  const drift = render("allocation_drift", {
+    items: [
+      { symbol: "VOO", current_pct: 62.4, target_pct: 50 },
+      { symbol: "BND", current_pct: 28, target_pct: 40 },
+      { symbol: "NVDA", current_pct: 9.6, target_pct: 10 },
+    ],
+  }, { locale: "es", showAmounts: false });
+  assertEquals(drift.title, "Tu cartera se alejó de tu plan");
+  assertEquals(
+    drift.body,
+    "VOO pesa 62% (tu objetivo: 50%); BND pesa 28% (tu objetivo: 40%). Tocá para ver cómo volver a tu plan.",
+  );
+  assertEquals(drift.route, "allocation");
+
+  const watch = render("watchlist_move", { symbol: "AMZN", change_pct: -6.14, since_added_pct: -12 }, {
+    locale: "en",
+    showAmounts: false,
+  });
+  assertEquals(watch.title, "AMZN, on your watchlist, is down 6.1% today");
+  assertEquals(watch.body, "Since you added it: -12.0%. Tap to ask Porty what's going on.");
+  assertEquals(watch.route, "assistant");
+  assertEquals(watch.routeArgs.question, "What's going on with AMZN?");
+  // Sin el dato desde que la agregó, solo la invitación.
+  const bare = render("watchlist_move", { symbol: "AMZN", change_pct: 7 }, { locale: "es", showAmounts: false });
+  assertEquals(bare.body, "Tocá para preguntarle a Porty qué está pasando.");
+});
+
+Deno.test("plantillas: resumen antes de los resultados", () => {
+  const one = render("earnings_tomorrow", {
+    symbols: ["NVDA"],
+    items: [{ symbol: "NVDA", weight_pct: 18.4, eps_estimate: 0.85, hour: "amc" }],
+  }, { locale: "es", showAmounts: false });
+  assertEquals(one.title, "NVDA presenta resultados mañana");
+  assertEquals(
+    one.body,
+    "Pesa 18% en tu cartera; se espera una ganancia por acción de $0.85, después del cierre. Tocá para ver el resumen de Porty.",
+  );
+  assertEquals(
+    one.routeArgs.question,
+    "Armame un resumen antes de los resultados de NVDA: qué se espera, qué conviene mirar y cuánto pesa en mi cartera.",
+  );
+
+  const en = render("earnings_tomorrow", {
+    symbols: ["NVDA"],
+    items: [{ symbol: "NVDA", weight_pct: null, eps_estimate: null, hour: "bmo" }],
+  }, { locale: "en", showAmounts: false });
+  assertEquals(en.body, "Before the open. Tap for Porty's briefing.");
+
+  const many = render("earnings_tomorrow", {
+    symbols: ["AAPL", "MSFT"],
+    items: [
+      { symbol: "AAPL", weight_pct: 6, eps_estimate: 1.4, hour: "amc" },
+      { symbol: "MSFT", weight_pct: 12.2, eps_estimate: 3.1, hour: "amc" },
+    ],
+  }, { locale: "es", showAmounts: false });
+  assertEquals(many.body, "Pesan: MSFT 12% · AAPL 6%. Tocá para ver el resumen de Porty.");
+
+  // Filas viejas (sin items): el texto de antes.
+  const legacy = render("earnings_tomorrow", { symbols: ["AAPL"] }, { locale: "es", showAmounts: false });
+  assertEquals(legacy.body, "Tocá para ver qué se espera.");
 });

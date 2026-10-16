@@ -19,6 +19,7 @@ sealed class PushRoute {
       'etoro' => const PushRouteEtoro(),
       'notification_settings' => const PushRouteNotificationSettings(),
       'alerts' => const PushRoutePriceAlerts(),
+      'allocation' => const PushRouteAllocation(),
       'ticker' when arg('ticker') != null => PushRouteTicker(
         arg('ticker')!,
         alertId: arg('alert_id'),
@@ -47,6 +48,11 @@ class PushRouteNotificationSettings extends PushRoute {
 
 class PushRoutePriceAlerts extends PushRoute {
   const PushRoutePriceAlerts();
+}
+
+/// El plan de cartera (la cartera se alejó del plan).
+class PushRouteAllocation extends PushRoute {
+  const PushRouteAllocation();
 }
 
 /// El detalle de la posición si la tiene; si no, la lista de alertas.

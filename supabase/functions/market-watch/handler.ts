@@ -1,7 +1,8 @@
 // market-watch: cada 5 minutos con el mercado de EE.UU. abierto (pg_cron).
-// 1. Cotiza en lote los símbolos de las alertas activas y de las carteras
-//    de quien quiere movimientos fuertes.
-// 2. Evalúa las alertas (F2) y los movimientos fuertes (F4).
+// 1. Cotiza en lote los símbolos de las alertas activas, de las carteras
+//    de quien quiere movimientos fuertes y de sus listas de seguimiento.
+// 2. Evalúa las alertas (F2), los movimientos fuertes (F4) y los de la
+//    lista de seguimiento (F4 de 2026-10-16-porty-siguiente-nivel.md).
 // 3. Si algo quedó en el outbox, lo despacha en la misma corrida.
 //
 // POST /functions/v1/market-watch con `x-cron-secret`. Body opcional
@@ -14,7 +15,7 @@ import type { PushSender } from "../notify-dispatch/fcm.ts";
 import type { DispatchStore } from "../notify-dispatch/store.ts";
 import { evaluateAlert } from "./alerts.ts";
 import { marketDate, marketPhase } from "./market_clock.ts";
-import { benchmarkSymbol, computeMoves } from "./moves.ts";
+import { benchmarkSymbol, computeMoves, watchlistMoves, watchlistOutboxRows } from "./moves.ts";
 import { fetchQuotes } from "./quotes.ts";
 import type { MarketStore } from "./store.ts";
 
@@ -32,6 +33,7 @@ export type MarketSummary = {
   alertsFired: number;
   movesUsers: number;
   movesQueued: number;
+  watchQueued: number;
   dispatched: number;
   skipped?: string;
 };
@@ -63,6 +65,7 @@ export async function runMarketWatch(deps: MarketDeps, opts: { force?: boolean }
     alertsFired: 0,
     movesUsers: 0,
     movesQueued: 0,
+    watchQueued: 0,
     dispatched: 0,
   };
   if (phase === "closed" && !opts.force) return { ...summary, skipped: "market_closed" };
@@ -71,9 +74,12 @@ export async function runMarketWatch(deps: MarketDeps, opts: { force?: boolean }
   // Los movimientos, recién 30 minutos después de la apertura.
   const watchMoves = phase === "open" || opts.force === true;
   const holdings = watchMoves ? await deps.store.holdings() : [];
+  const watchItems = watchMoves && deps.store.watchItems ? await deps.store.watchItems() : [];
 
   const alertSymbols = new Set(alerts.map((a) => a.symbol));
-  const symbols = [...new Set([...alertSymbols, ...holdings.map((h) => h.symbol)])];
+  const symbols = [
+    ...new Set([...alertSymbols, ...holdings.map((h) => h.symbol), ...watchItems.map((w) => w.symbol)]),
+  ];
   if (holdings.length > 0) symbols.push(benchmarkSymbol);
   summary.symbols = symbols.length;
   if (symbols.length === 0) return summary;
@@ -102,9 +108,12 @@ export async function runMarketWatch(deps: MarketDeps, opts: { force?: boolean }
     const moves = computeMoves(holdings, quotes);
     summary.movesUsers = moves.length;
     summary.movesQueued = await deps.store.enqueueMoves(date, moves);
+    if (watchItems.length > 0 && deps.store.enqueue) {
+      summary.watchQueued = await deps.store.enqueue(watchlistOutboxRows(date, watchlistMoves(watchItems, quotes)));
+    }
   }
 
-  if ((summary.alertsFired > 0 || summary.movesQueued > 0) && deps.sender) {
+  if ((summary.alertsFired > 0 || summary.movesQueued > 0 || summary.watchQueued > 0) && deps.sender) {
     const d = await runDispatch(deps.dispatchStore, deps.sender, deps.now);
     summary.dispatched = d.sent;
   }

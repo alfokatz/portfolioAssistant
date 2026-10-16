@@ -36,6 +36,8 @@ export type EarningsEntry = {
 /// A qué hora local corre cada cosa.
 export const jobHours = {
   weeklyReport: 9,
+  /// Los lunes: la cartera se alejó del plan del usuario (Premium).
+  allocationDrift: 10,
   earningsTomorrow: 19,
   /// Los resultados se miran dos veces (los de antes de la apertura y los de
   /// después del cierre del día anterior); la clave de duplicados evita
@@ -67,21 +69,44 @@ export function weeklyReportRows(users: LocalUser[], reportEnabled: boolean): Ou
 
 const isGold = (u: LocalUser) => u.tier === "gold";
 
+/// Peso (%) de cada acción en la cartera de cada usuario
+/// (`push_holding_weights`): usuario → símbolo → peso.
+export type HoldingWeights = Map<string, Map<string, number>>;
+
 /// Las acciones de su cartera que presentan resultados mañana, en una sola
-/// notificación.
-export function earningsTomorrowRows(users: LocalUser[], calendar: EarningsEntry[]): OutboxInsert[] {
+/// notificación, con lo que hace falta para el resumen: cuánto pesa cada
+/// una, la ganancia por acción esperada y si es antes o después del
+/// mercado (F5 de 2026-10-16-porty-siguiente-nivel.md).
+export function earningsTomorrowRows(
+  users: LocalUser[],
+  calendar: EarningsEntry[],
+  weights: HoldingWeights = new Map(),
+): OutboxInsert[] {
   const out: OutboxInsert[] = [];
   for (const u of users.filter(isGold)) {
     const tomorrow = addDays(u.local_date, 1);
     const held = new Set(u.symbols);
-    const symbols = [...new Set(calendar.filter((e) => e.date === tomorrow && held.has(e.symbol)).map((e) => e.symbol))]
-      .sort();
+    const entries = new Map<string, EarningsEntry>();
+    for (const e of calendar) {
+      if (e.date === tomorrow && held.has(e.symbol) && !entries.has(e.symbol)) entries.set(e.symbol, e);
+    }
+    const symbols = [...entries.keys()].sort();
     if (symbols.length === 0) continue;
+    const userWeights = weights.get(u.user_id);
     out.push({
       user_id: u.user_id,
       kind: "earnings_tomorrow",
       dedupe_key: `earnings_tomorrow:${tomorrow}`,
-      data: { symbols, date: tomorrow },
+      data: {
+        symbols,
+        date: tomorrow,
+        items: symbols.map((symbol) => ({
+          symbol,
+          weight_pct: userWeights?.get(symbol) ?? null,
+          eps_estimate: entries.get(symbol)!.epsEstimate,
+          hour: entries.get(symbol)!.hour,
+        })),
+      },
     });
   }
   return out;
@@ -135,4 +160,69 @@ export function parseFinnhubCalendar(body: unknown): EarningsEntry[] {
       epsActual: num(e.epsActual),
       epsEstimate: num(e.epsEstimate),
     }));
+}
+
+/// El plan de cartera de un usuario y lo que tiene (de
+/// `allocation_drift_inputs`).
+export type AllocationInput = {
+  user_id: string;
+  /// {SÍMBOLO: porcentaje}, suman 100.
+  targets: Record<string, number>;
+  /// Puntos de desvío que disparan el aviso.
+  drift_threshold: number;
+  holdings: { symbol: string; quantity: number; price: number | null }[];
+};
+
+export type DriftItem = { symbol: string; current_pct: number; target_pct: number };
+
+/// Peso actual contra objetivo de cada símbolo (lo que tiene sin objetivo
+/// cuenta con objetivo 0), del más desviado al menos. Vacío si no se puede
+/// valuar la cartera.
+export function allocationDrift(input: AllocationInput): DriftItem[] {
+  const values = new Map<string, number>();
+  for (const h of input.holdings) {
+    const symbol = h.symbol.toUpperCase();
+    if (!(h.quantity > 0) || h.price === null || !(h.price > 0)) continue;
+    values.set(symbol, (values.get(symbol) ?? 0) + h.quantity * h.price);
+  }
+  const total = [...values.values()].reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return [];
+  const symbols = new Set([...values.keys(), ...Object.keys(input.targets).map((s) => s.toUpperCase())]);
+  const targetOf = (s: string) => Number(Object.entries(input.targets).find(([k]) => k.toUpperCase() === s)?.[1] ?? 0);
+  return [...symbols]
+    .map((symbol) => ({
+      symbol,
+      current_pct: round1(((values.get(symbol) ?? 0) / total) * 100),
+      target_pct: round1(targetOf(symbol)),
+    }))
+    .sort((a, b) =>
+      Math.abs(b.current_pct - b.target_pct) - Math.abs(a.current_pct - a.target_pct) ||
+      a.symbol.localeCompare(b.symbol)
+    );
+}
+
+/// Lunes a las 10: si algo se alejó del plan más que el umbral, un aviso con
+/// lo que más se desvió (hasta 3). Uno por semana.
+export function allocationDriftRows(users: LocalUser[], inputs: AllocationInput[]): OutboxInsert[] {
+  const byUser = new Map(inputs.map((i) => [i.user_id, i]));
+  const out: OutboxInsert[] = [];
+  for (const u of users) {
+    if (u.local_dow !== 1) continue;
+    const input = byUser.get(u.user_id);
+    if (!input) continue;
+    const drift = allocationDrift(input);
+    const over = drift.filter((d) => Math.abs(d.current_pct - d.target_pct) >= input.drift_threshold);
+    if (over.length === 0) continue;
+    out.push({
+      user_id: u.user_id,
+      kind: "allocation_drift",
+      dedupe_key: `allocation_drift:${u.local_date}`,
+      data: { items: over.slice(0, 3), threshold: input.drift_threshold },
+    });
+  }
+  return out;
+}
+
+function round1(v: number): number {
+  return Math.round(v * 10) / 10;
 }

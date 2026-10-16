@@ -6,18 +6,40 @@ enum PositionSource {
   /// Importada de eToro: de solo lectura en Porty, se actualiza sola.
   etoro,
 
+  /// Importada de Binance (saldo de cripto): de solo lectura, se actualiza
+  /// sola.
+  binance,
+
   /// Solo en una posición agregada por ticker (ver
-  /// `PortfolioCalculator.aggregateByTicker`) cuando hay compras de los dos
-  /// orígenes.
-  mixed;
+  /// `PortfolioCalculator.aggregateByTicker`) cuando hay compras manuales e
+  /// importadas de eToro.
+  mixed,
+
+  /// Como [mixed], con lo importado de Binance.
+  mixedBinance;
 
   static PositionSource fromWire(String? value) => switch (value) {
     'etoro' => PositionSource.etoro,
+    'binance' => PositionSource.binance,
     _ => PositionSource.manual,
   };
 
   /// Tiene algo importado (no se puede editar, cerrar ni borrar entero).
   bool get hasImported => this != PositionSource.manual;
+
+  /// Lo importado viene de Binance (para la marca y los textos).
+  bool get isBinance =>
+      this == PositionSource.binance || this == PositionSource.mixedBinance;
+
+  /// La agregada de varias compras: si todas tienen el mismo origen, ese;
+  /// si no, la mezcla con el bróker que aparezca.
+  static PositionSource combine(Set<PositionSource> sources) {
+    if (sources.length == 1) return sources.first;
+    return sources.contains(PositionSource.binance) &&
+            !sources.contains(PositionSource.etoro)
+        ? PositionSource.mixedBinance
+        : PositionSource.mixed;
+  }
 }
 
 class Position {

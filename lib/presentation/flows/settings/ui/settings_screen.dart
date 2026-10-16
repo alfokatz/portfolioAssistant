@@ -5,12 +5,19 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
@@ -57,6 +64,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     runAfterPostFrameCallback(() {
       ref.read(investorProfileProvider.notifier).refresh();
       ref.read(etoroConnectionProvider.notifier).load();
+      ref.read(binanceProvider.notifier).load();
       ref.read(pushControllerProvider.notifier).refreshPermission();
       ref.read(priceAlertsProvider.notifier).load();
     });
@@ -93,6 +101,34 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
 
     if (selected != null && mounted) {
       await context.setLocale(selected);
+    }
+  }
+
+  Future<void> _showCurrencyPicker() async {
+    final current = ref.read(displayCurrencyProvider);
+    final selected = await showModalBottomSheet<DisplayCurrency>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (ctx) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.8,
+            ),
+            child: SettingsPickerSheet(
+              title: 'settings_currency'.tr(),
+              children: [
+                for (final c in DisplayCurrency.values)
+                  SettingsPickerOption(
+                    label: '${c.labelKey.tr()} (${c.code})',
+                    isSelected: c == current,
+                    onTap: () => Navigator.of(ctx).pop(c),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (selected != null && mounted) {
+      await ref.read(displayCurrencyProvider.notifier).set(selected);
     }
   }
 
@@ -140,6 +176,23 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
             : 'etoro_settings_connected_synced'.tr(
               namedArgs: {
                 'when': EtoroSyncTime.relative(connection.lastSyncAt!),
+              },
+            ),
+    };
+  }
+
+  /// Estado de Binance en una línea (null hasta que se sepa).
+  String? _binanceLabel(BinanceState state) {
+    if (!state.loaded) return null;
+    return switch (state.connection.status) {
+      BinanceStatus.notConnected => 'binance_settings_not_connected'.tr(),
+      BinanceStatus.reconnectRequired => 'binance_settings_reconnect'.tr(),
+      BinanceStatus.connected =>
+        state.connection.lastSyncAt == null
+            ? 'binance_settings_connected'.tr()
+            : 'etoro_settings_connected_synced'.tr(
+              namedArgs: {
+                'when': EtoroSyncTime.relative(state.connection.lastSyncAt!),
               },
             ),
     };
@@ -226,6 +279,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final etoro = ref.watch(etoroConnectionProvider);
     final push = ref.watch(pushControllerProvider);
     final alerts = ref.watch(priceAlertsProvider);
+    final displayCurrency = ref.watch(displayCurrencyProvider);
+    final binance = ref.watch(binanceProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -278,6 +333,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
+                  icon: Icons.donut_large_rounded,
+                  label: 'allocation_title'.tr(),
+                  subtitle: 'allocation_settings_subtitle'.tr(),
+                  onTap: () => context.pushNamed(AllocationRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
                   icon: Icons.bookmark_border_rounded,
                   label: 'settings_porty_memory'.tr(),
                   subtitle: 'settings_porty_memory_subtitle'.tr(),
@@ -301,6 +363,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   label: 'settings_language'.tr(),
                   value: _languageLabel(context.locale),
                   onTap: _showLanguagePicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.currency_exchange_rounded,
+                  label: 'settings_currency'.tr(),
+                  value: displayCurrency.code,
+                  subtitle:
+                      displayCurrency.isUsd
+                          ? null
+                          : 'settings_currency_subtitle'.tr(),
+                  onTap: _showCurrencyPicker,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
@@ -367,6 +440,21 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _etoroLabel(etoro),
                   onTap:
                       () => context.pushNamed(EtoroRouter.connectionRouteName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.currency_bitcoin_rounded,
+                  label: 'binance_title'.tr(),
+                  subtitle: _binanceLabel(binance),
+                  onTap: () => context.pushNamed(BinanceRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.upload_file_rounded,
+                  label: 'import_entry_cta'.tr(),
+                  subtitle: 'import_settings_subtitle'.tr(),
+                  onTap:
+                      () => context.pushNamed(StatementImportRouter.routeName),
                 ),
               ],
             ),

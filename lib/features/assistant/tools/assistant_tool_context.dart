@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/domain/managers/preferences_manager.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetcher.dart';
@@ -123,6 +124,9 @@ class AssistantToolContext {
     this.investorProfile,
     this.actionsThisConversation = const [],
     this.loadPriceAlerts,
+    this.loadAllocationPlan,
+    this.loadWatchlist,
+    this.addToWatchlist,
     this.userMemories = const [],
     this.saveMemory,
     this.deleteMemory,
@@ -164,6 +168,18 @@ class AssistantToolContext {
   /// Las alertas de precio del usuario (list_price_alerts), ya en el
   /// formato del resultado de la tool; `null` fuera de la app.
   final Future<List<Map<String, Object?>>> Function()? loadPriceAlerts;
+
+  /// El plan de cartera guardado (get_allocation_plan); `null` si nunca
+  /// armó uno. La función es `null` fuera de la app.
+  final Future<AllocationPlan?> Function()? loadAllocationPlan;
+
+  /// La lista de seguimiento (get_watchlist), ya en el formato del
+  /// resultado de la tool; `null` fuera de la app.
+  final Future<List<Map<String, Object?>>> Function()? loadWatchlist;
+
+  /// Agrega un ticker a la lista (add_to_watchlist). Tira lo mismo que
+  /// `WatchlistNotifier.add`. `null` fuera de la app.
+  final Future<void> Function(String ticker)? addToWatchlist;
 
   /// Lo que Porty sabe del usuario al empezar el turno (más recientes
   /// primero): va en `user_memory` del brief, con la referencia de

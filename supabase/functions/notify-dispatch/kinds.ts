@@ -13,7 +13,9 @@ export type Kind =
   | "weekly_report"
   | "etoro_reconnect"
   | "earnings_tomorrow"
-  | "earnings_result";
+  | "earnings_result"
+  | "allocation_drift"
+  | "watchlist_move";
 
 /// Preferencia del usuario que la controla (columna de
 /// `notification_preferences`).
@@ -123,6 +125,26 @@ export const kinds: Record<Kind, KindMeta> = {
     quiet: "defer",
     maxAgeMinutes: 24 * 60,
     androidChannel: "reports",
+    interruption: "active",
+  },
+  // Sin preferencia propia: se apaga en la pantalla del plan de cartera
+  // (`allocation_plans.notify`), que es donde el usuario lo ve.
+  allocation_drift: {
+    pref: null,
+    category: "automatic",
+    minTier: "premium",
+    quiet: "defer",
+    maxAgeMinutes: 24 * 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  watchlist_move: {
+    pref: "big_moves",
+    category: "automatic",
+    minTier: "premium",
+    quiet: "drop",
+    maxAgeMinutes: 60,
+    androidChannel: "portfolio",
     interruption: "active",
   },
 };

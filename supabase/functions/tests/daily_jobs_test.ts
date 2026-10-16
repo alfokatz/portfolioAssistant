@@ -5,6 +5,9 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { handle, type JobsDeps, runDailyJobs } from "../daily-jobs/handler.ts";
 import {
+  type AllocationInput,
+  allocationDrift,
+  allocationDriftRows,
   earningsResultRows,
   earningsTomorrowRows,
   type LocalUser,
@@ -56,7 +59,14 @@ Deno.test("earnings: mañana, solo Gold y solo lo que tiene, en una notificació
     calendar,
   );
   assertEquals(rows.length, 1);
-  assertEquals(rows[0].data, { symbols: ["AAPL", "MSFT"], date: "2026-10-18" });
+  assertEquals(rows[0].data, {
+    symbols: ["AAPL", "MSFT"],
+    date: "2026-10-18",
+    items: [
+      { symbol: "AAPL", weight_pct: null, eps_estimate: 1.43, hour: "amc" },
+      { symbol: "MSFT", weight_pct: null, eps_estimate: 3.1, hour: "amc" },
+    ],
+  });
   assertEquals(rows[0].dedupe_key, "earnings_tomorrow:2026-10-18");
 });
 
@@ -202,4 +212,83 @@ Deno.test("corrida v2: no avisa 'mañana' (fecha estimada) y los resultados sale
   assertEquals(r.queued, { earnings_result: 1 });
   assertEquals(sender.sent[0].title, "AAPL presentó resultados");
   assertEquals(sender.sent[0].body, "Ya publicó sus resultados del trimestre. Tocá para ver cómo le fue.");
+});
+
+// ── Plan de cartera (F3 de 2026-10-16-porty-siguiente-nivel.md) ──
+
+const plan = (over: Partial<AllocationInput> = {}): AllocationInput => ({
+  user_id: "u1",
+  targets: { VOO: 60, BND: 40 },
+  drift_threshold: 5,
+  holdings: [
+    { symbol: "VOO", quantity: 10, price: 500 }, // 5000
+    { symbol: "BND", quantity: 20, price: 70 }, // 1400
+    { symbol: "NVDA", quantity: 1, price: 600 }, // 600, sin objetivo
+  ],
+  ...over,
+});
+
+Deno.test("plan: desvío contra el objetivo, lo que no tiene objetivo cuenta con 0", () => {
+  const d = allocationDrift(plan());
+  // Total 7000: VOO 71.4%, BND 20%, NVDA 8.6%.
+  assertEquals(d, [
+    { symbol: "BND", current_pct: 20, target_pct: 40 },
+    { symbol: "VOO", current_pct: 71.4, target_pct: 60 },
+    { symbol: "NVDA", current_pct: 8.6, target_pct: 0 },
+  ]);
+  // Sin precios no hay desvío que calcular.
+  assertEquals(allocationDrift(plan({ holdings: [{ symbol: "VOO", quantity: 1, price: null }] })), []);
+});
+
+Deno.test("plan: avisa los lunes si pasa el umbral, una vez por semana", () => {
+  const monday = user({ local_dow: 1, local_date: "2026-10-19", tier: "premium" });
+  const rows = allocationDriftRows([monday, user({ user_id: "u2", local_dow: 2 })], [plan()]);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].kind, "allocation_drift");
+  assertEquals(rows[0].dedupe_key, "allocation_drift:2026-10-19");
+  assertEquals((rows[0].data.items as unknown[]).length, 3);
+  // Dentro del umbral: nada.
+  const tight = plan({ targets: { VOO: 70, BND: 20, NVDA: 10 } });
+  assertEquals(allocationDriftRows([monday], [tight]), []);
+});
+
+Deno.test("corrida: lunes 10 lee los planes solo de Premium/Gold con posiciones", async () => {
+  const { deps, store } = jobsDeps("2026-10-19T13:00:00Z");
+  const asked: string[][] = [];
+  store.users.set(10, [
+    user({ local_dow: 1, local_date: "2026-10-19", tier: "premium" }),
+    user({ user_id: "free", local_dow: 1, local_date: "2026-10-19", tier: "free" }),
+  ]);
+  const withPlans = store as unknown as { allocationInputs: (ids: string[]) => Promise<AllocationInput[]> };
+  withPlans.allocationInputs = (ids) => {
+    asked.push(ids);
+    return Promise.resolve([plan()]);
+  };
+  const summary = await runDailyJobs(deps, [10]);
+  assertEquals(asked, [["u1"]]);
+  assertEquals(summary.queued, { allocation_drift: 1 });
+});
+
+// ── Resumen antes de los resultados (F5 de 2026-10-16-porty-siguiente-nivel.md) ──
+
+Deno.test("earnings: mañana lleva cuánto pesa cada una en la cartera", () => {
+  const weights = new Map([["u1", new Map([["AAPL", 18.4], ["MSFT", 6]])]]);
+  const rows = earningsTomorrowRows([user({ symbols: ["AAPL", "MSFT"] })], calendar, weights);
+  const items = rows[0].data.items as { symbol: string; weight_pct: number }[];
+  assertEquals(items.map((i) => [i.symbol, i.weight_pct]), [["AAPL", 18.4], ["MSFT", 6]]);
+});
+
+Deno.test("corrida: 19 h pide los pesos una vez y solo si alguien presenta mañana", async () => {
+  const { deps, store } = jobsDeps("2026-10-17T22:00:00Z");
+  store.users.set(19, [user({ symbols: ["AAPL"] }), user({ user_id: "u9", symbols: ["KO"] })]);
+  const asked: string[][] = [];
+  const withWeights = store as unknown as { holdingWeights: (ids: string[]) => Promise<Map<string, Map<string, number>>> };
+  withWeights.holdingWeights = (ids) => {
+    asked.push(ids);
+    return Promise.resolve(new Map([["u1", new Map([["AAPL", 22]])]]));
+  };
+  await runDailyJobs(deps, [19]);
+  assertEquals(asked, [["u1", "u9"]]);
+  const row = store.enqueued.find((r) => r.kind === "earnings_tomorrow")!;
+  assertEquals((row.data.items as { weight_pct: number }[])[0].weight_pct, 22);
 });
