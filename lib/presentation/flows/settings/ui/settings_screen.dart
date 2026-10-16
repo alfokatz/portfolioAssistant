@@ -6,6 +6,9 @@ import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.da
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -61,6 +64,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     runAfterPostFrameCallback(() {
       ref.read(investorProfileProvider.notifier).refresh();
       ref.read(etoroConnectionProvider.notifier).load();
+      ref.read(binanceProvider.notifier).load();
       ref.read(pushControllerProvider.notifier).refreshPermission();
       ref.read(priceAlertsProvider.notifier).load();
     });
@@ -177,6 +181,23 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     };
   }
 
+  /// Estado de Binance en una línea (null hasta que se sepa).
+  String? _binanceLabel(BinanceState state) {
+    if (!state.loaded) return null;
+    return switch (state.connection.status) {
+      BinanceStatus.notConnected => 'binance_settings_not_connected'.tr(),
+      BinanceStatus.reconnectRequired => 'binance_settings_reconnect'.tr(),
+      BinanceStatus.connected =>
+        state.connection.lastSyncAt == null
+            ? 'binance_settings_connected'.tr()
+            : 'etoro_settings_connected_synced'.tr(
+              namedArgs: {
+                'when': EtoroSyncTime.relative(state.connection.lastSyncAt!),
+              },
+            ),
+    };
+  }
+
   /// Una línea con el estado del permiso, solo si hay algo que hacer.
   String? _notificationsLabel(PushState push) {
     if (!push.loaded) return null;
@@ -259,6 +280,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final push = ref.watch(pushControllerProvider);
     final alerts = ref.watch(priceAlertsProvider);
     final displayCurrency = ref.watch(displayCurrencyProvider);
+    final binance = ref.watch(binanceProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -418,6 +440,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _etoroLabel(etoro),
                   onTap:
                       () => context.pushNamed(EtoroRouter.connectionRouteName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.currency_bitcoin_rounded,
+                  label: 'binance_title'.tr(),
+                  subtitle: _binanceLabel(binance),
+                  onTap: () => context.pushNamed(BinanceRouter.routeName),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

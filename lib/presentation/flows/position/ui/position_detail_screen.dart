@@ -8,7 +8,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
@@ -348,7 +348,13 @@ class _DetailList extends StatelessWidget {
           ),
           const SizedBox(height: AppDimens.sp32),
           if (imported.isNotEmpty) ...[
-            enter(EtoroSyncNote(syncedAt: lastSync, partial: !allImported)),
+            enter(
+              EtoroSyncNote(
+                syncedAt: lastSync,
+                partial: !allImported,
+                binance: imported.any((l) => l.position.source.isBinance),
+              ),
+            ),
             if (!allImported) const SizedBox(height: AppDimens.sp24),
           ],
           // Con alguna compra importada, "cerrar todo" no aplica: las
@@ -661,7 +667,7 @@ class _PurchaseRow extends StatelessWidget {
                   ),
                   if (lot?.position.isReadOnly ?? false) ...[
                     const SizedBox(width: AppDimens.sp6),
-                    const EtoroSourceBadge(),
+                    BrokerSourceBadge(source: lot!.position.source),
                   ],
                 ],
               ),

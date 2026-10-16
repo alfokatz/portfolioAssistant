@@ -1,6 +1,26 @@
 # Porty, siguiente nivel: importador, moneda, plan de cartera, seguimiento, resultados y Binance
 
-**Fecha:** 2026-10-16 · **Estado:** plan; implementación en la rama `claude/porty-next-level` (ver "Estado de implementación") · **Base:** `feature/ui_redesign`
+**Fecha:** 2026-10-16 · **Estado:** F1–F6 implementadas y probadas en local; nada desplegado · **Rama:** `claude/porty-next-level` · **Base:** `feature/ui_redesign` · **Runbook nuevo:** `docs/runbooks/binance-sync.md`
+
+## Estado de implementación
+
+| Fase | Estado | Notas |
+|---|---|---|
+| F1 | ✅ | `statement-import` (CSV sin IA, PDF/otros con IA y cupo), pantalla de importación, entradas en la Home vacía y Ajustes. Dependencia nueva `file_picker` |
+| F2 | ✅ | Ajustes → Moneda; línea debajo del total y hoja con el desglose. Preferencia en el teléfono |
+| F3 | ✅ | Migración `allocation_plans`, pantalla, aviso en la Home, aviso de los lunes en `daily-jobs`. `PlanFeature.allocationPlan` (Premium) |
+| F4 | ✅ | Migración `watchlist_items` (+ `plan_limits.watchlist`), pantalla, entrada en la Home, `watchlist_move` en `market-watch` |
+| F5 | ✅ | `push_holding_weights`; `earnings_tomorrow` con peso, EPS esperado y horario, y pedido de resumen a Porty |
+| F6 | ✅ | Migración y edge function `binance-sync`, pantalla, marca, auto-sync. **Bloqueante antes de lanzar:** confirmar que Binance responde desde la región del proyecto (runbook §0) |
+
+Validación (2026-10-16): `flutter analyze` sin avisos nuevos; `flutter test` 1264 en verde (el único rojo, `test/widget_test.dart`, ya fallaba antes); Deno: tests puros en verde (los de integración necesitan `supabase start`); tests SQL (`supabase/tests/*.sql`, incluidos los 3 nuevos) en verde contra Postgres 16 con los esquemas de Supabase simulados.
+
+### Cambios respecto del plan, decididos al implementar
+
+- **Notificaciones nuevas** (`allocation_drift`, `watchlist_move`): una migración aparte (`20261016000100_push_new_kinds.sql`) suma los tipos al outbox y al tope diario. `allocation_drift` no tiene preferencia propia: se apaga en la pantalla del plan.
+- **Lista de seguimiento:** un aviso por usuario y corrida (el mayor movimiento), para que una lista larga no llene el teléfono.
+- **Binance:** el trigger de solo lectura de eToro pasa a cubrir todo lo que no es manual. La posición agregada que mezcla manual y Binance es `PositionSource.mixedBinance` (para la marca y los textos).
+- **Hoja de opciones de Ajustes:** ahora scrollea (la lista de monedas no entraba).
 
 ## Resumen
 
