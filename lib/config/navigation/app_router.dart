@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_route
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
+import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
@@ -117,6 +118,7 @@ class AppRouter {
         ...EtoroRouter.getRoutes(),
         StatementImportRouter.getRoute(),
         AllocationRouter.getRoute(),
+        WatchlistRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
         ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),

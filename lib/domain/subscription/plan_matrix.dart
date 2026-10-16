@@ -55,6 +55,7 @@ class PlanSpec {
     required this.monthlyQueries,
     required this.positionLimit,
     required this.priceAlertLimit,
+    required this.watchlistLimit,
     required this.highlights,
     this.extraMarketingKeys = const [],
   });
@@ -72,6 +73,10 @@ class PlanSpec {
   /// en Supabase, que es el que manda (un trigger corta con
   /// `alert_limit_reached`).
   final int priceAlertLimit;
+
+  /// Tickers en la lista de seguimiento. Espejo de `plan_limits.watchlist`
+  /// en Supabase, que es el que manda (`watchlist_limit_reached`).
+  final int watchlistLimit;
 
   /// Qué se destaca en el paywall y en la pantalla de suscripción, en orden.
   /// Solo lo NUEVO respecto del plan de abajo (el de arriba incluye todo).
@@ -117,6 +122,8 @@ abstract final class PlanMatrix {
       positionLimit: 10,
       // Una, para conocer la feature (decisión D1 del plan de push).
       priceAlertLimit: 1,
+      // Precios de lo que no tiene: Premium.
+      watchlistLimit: 0,
       highlights: [PlanFeature.ownPortfolio],
     ),
     SubscriptionTier.premium: PlanSpec(
@@ -124,6 +131,7 @@ abstract final class PlanMatrix {
       monthlyQueries: 500,
       positionLimit: null,
       priceAlertLimit: 20,
+      watchlistLimit: 30,
       highlights: [
         PlanFeature.marketData,
         PlanFeature.investSimulation,
@@ -141,6 +149,7 @@ abstract final class PlanMatrix {
       monthlyQueries: 1000,
       positionLimit: null,
       priceAlertLimit: 50,
+      watchlistLimit: 100,
       highlights: [
         PlanFeature.companyAnalysis,
         PlanFeature.news,
