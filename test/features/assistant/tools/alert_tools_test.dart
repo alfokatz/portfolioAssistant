@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 
 import '../fakes/assistant_fakes.dart';
@@ -40,6 +41,10 @@ AssistantToolContext _ctx({
   now: DateTime(2026, 10, 13),
 );
 
+/// El resultado sin su `answer_guide` (lo cubre el grupo de guías).
+Map<String, Object?> _data(Map<String, Object?> result) =>
+    {...result}..remove(AnswerGuide.key);
+
 void main() {
   group('propose_price_alert', () {
     test('prepares the card (Free too: the limit is checked on confirm)', () async {
@@ -61,7 +66,7 @@ void main() {
 
     test('missing target or direction → needs_input', () async {
       final result = await ProposePriceAlertTool(_ctx()).run({'ticker': 'AAPL'});
-      expect(result, {
+      expect(_data(result), {
         'status': 'needs_input',
         'missing': ['target'],
       });
@@ -128,6 +133,30 @@ void main() {
 
       final none = await ListPriceAlertsTool(_ctx()).run(const {});
       expect(none['status'], 'failed');
+    });
+  });
+
+  group('answer_guide', () {
+    String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
+
+    test('ok, needs_input e invalid traen su guía', () async {
+      final ok = await ProposePriceAlertTool(
+        _ctx(),
+      ).run({'ticker': 'VOO', 'condition': 'above', 'target': 750});
+      expect(guideOf(ok), AlertGuides.ok);
+      expect(ActionProposal.fromToolResult(ok)!.ticker, 'VOO');
+      expect(
+        guideOf(await ProposePriceAlertTool(_ctx()).run({'ticker': 'AAPL'})),
+        AlertGuides.needsInput,
+      );
+      expect(
+        guideOf(
+          await ProposePriceAlertTool(
+            _ctx(),
+          ).run({'ticker': 'VOO', 'condition': 'pct_up', 'target': 95}),
+        ),
+        AlertGuides.invalid,
+      );
     });
   });
 }

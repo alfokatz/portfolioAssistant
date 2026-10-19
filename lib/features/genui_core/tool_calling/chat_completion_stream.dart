@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 /// Texto de la respuesta acumulado hasta ahora (crece con cada chunk).
 typedef ContentDeltaCallback = void Function(String contentSoFar);
 
+/// Por qué terminó la respuesta (`stop`, `tool_calls`, `length`…).
+typedef FinishReasonCallback = void Function(String finishReason);
+
 /// Un request de Chat Completions con `stream: true`, leído a medida que
 /// llega. Devuelve el mismo mensaje que `OpenAI.instance.chat.create` (texto
 /// y tool calls armados con `fromMap`), así el loop de tools no cambia: lo
@@ -30,6 +33,7 @@ abstract final class ChatCompletionStream {
     Object? toolChoice,
     double? temperature,
     ContentDeltaCallback? onContent,
+    FinishReasonCallback? onFinish,
   }) async {
     final request =
         http.Request('POST', _url)
@@ -72,7 +76,10 @@ abstract final class ChatCompletionStream {
       }
       final choices = chunk['choices'];
       if (choices is! List || choices.isEmpty) continue; // chunk de usage
-      final delta = (choices.first as Map)['delta'];
+      final choice = choices.first as Map;
+      final finish = choice['finish_reason'];
+      if (finish is String) onFinish?.call(finish);
+      final delta = choice['delta'];
       if (delta is! Map) continue;
       final text = delta['content'];
       if (text is String && text.isNotEmpty) {

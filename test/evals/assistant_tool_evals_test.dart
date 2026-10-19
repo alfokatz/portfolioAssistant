@@ -164,6 +164,10 @@ class _TurnLog {
   Object? aborted;
   int ms = 0;
 
+  /// Rondas cortadas por el tope de tokens de salida (`finish_reason:
+  /// length`).
+  int truncatedRounds = 0;
+
   bool called(String name, [bool Function(Map<String, Object?> args)? where]) =>
       calls.any((c) => c.name == name && (where == null || where(c.args)));
 
@@ -1544,6 +1548,15 @@ void main() {
             log.evidence = service.evidenceFor(surfaceId);
             final raw = service.log.currentTurn?.finalText ?? '';
             log.text = raw;
+            log.truncatedRounds =
+                service.log.currentTurn?.truncatedRounds ?? 0;
+            // EVAL_DUMP_DIR: guarda la respuesta cruda de los turnos que
+            // llegaron al tope de salida, para ver en qué se desbocó.
+            final dumpDir = Platform.environment['EVAL_DUMP_DIR'];
+            if (log.truncatedRounds > 0 && dumpDir != null) {
+              Directory(dumpDir).createSync(recursive: true);
+              File('$dumpDir/${c.id}_$i.txt').writeAsStringSync(raw);
+            }
             // Lo que ve el usuario: la surface ya despachada (post normalizer
             // y guard de layout), no el texto crudo del modelo.
             final surface = service.controller.registry.getSurface(surfaceId);
@@ -1615,6 +1628,10 @@ void main() {
           'turns': [for (final l in logs) l.toString()],
           'requests': usage.length,
           'http_statuses': recorder.statuses,
+          'truncated_rounds': logs.fold<int>(
+            0,
+            (s, l) => s + l.truncatedRounds,
+          ),
           'prompt_tokens': usage.fold<int>(
             0,
             (s, u) => s + (u['prompt_tokens'] as int? ?? 0),

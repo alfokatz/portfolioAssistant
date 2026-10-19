@@ -40,16 +40,49 @@ class AssistantOpenAiService extends OpenAIGenUiService {
   /// `PromptBuilder` ya agrega `catalog.systemPromptFragments` por su
   /// cuenta; pasarlos también como argumento los duplicaba (~8,9K tokens
   /// repetidos en cada request).
-  static String systemPromptFor(Catalog catalog) =>
-      PromptBuilder.custom(
-        catalog: catalog,
-        allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
-        technicalPossibilities: const TechnicalPossibilities(
-          codeExecution: false,
-          toolCall: false,
-          functionCall: false,
-        ),
-      ).systemPromptJoined();
+  static String systemPromptFor(Catalog catalog) => _compactSchemas(
+    PromptBuilder.custom(
+      catalog: catalog,
+      allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
+      technicalPossibilities: const TechnicalPossibilities(
+        codeExecution: false,
+        toolCall: false,
+        functionCall: false,
+      ),
+    ).systemPromptJoined(),
+  );
+
+  /// Mensajes A2UI que la app no permite (`createAndUpdate` sin data
+  /// model): describirlos solo invita al modelo a usarlos.
+  static const _unusedMessages = {
+    'UpdateDataModelMessage',
+    'DeleteSurfaceMessage',
+  };
+
+  /// Los esquemas JSON de la UI son casi la mitad del prompt, y genui los
+  /// manda indentados: minificados dicen lo mismo con ~35 % menos tokens.
+  /// También saca del esquema de mensajes los que no se permiten.
+  static String _compactSchemas(String prompt) => prompt.replaceAllMapped(
+    RegExp(
+      r'(-----(COMMON_TYPES|CATALOG_SCHEMA|MESSAGE_SCHEMA)_START-----\n)'
+      r'(.*?)'
+      r'(\n-----\2_END-----)',
+      dotAll: true,
+    ),
+    (m) {
+      final schema = jsonDecode(m.group(3)!) as Map<String, Object?>;
+      if (m.group(2) == 'MESSAGE_SCHEMA') {
+        final defs = schema[r'$defs'] as Map<String, Object?>;
+        _unusedMessages.forEach(defs.remove);
+        (schema['oneOf'] as List).removeWhere(
+          (ref) => _unusedMessages.any(
+            (name) => (ref as Map)[r'$ref'] == '#/\$defs/$name',
+          ),
+        );
+      }
+      return '${m.group(1)}${jsonEncode(schema)}${m.group(4)}';
+    },
+  );
 
   /// Cómo usar `user_profile` sin volverse repetitivo: solo cuando cambia
   /// la respuesta, y la experiencia se nota en el tono, no se nombra.

@@ -1,6 +1,6 @@
 # Un prompt que no crezca con cada funcionalidad
 
-**Fecha:** 2026-10-16 · **Estado:** piloto implementado (plan de cartera y lista de seguimiento); falta correr los evals contra el modelo real.
+**Fecha:** 2026-10-16 · **Estado:** piloto medido con el modelo real (recomendado adoptar); pasos 2-4 implementados y medidos: juntos empeoran la batería, ver "Pasos 3 y 4 con el modelo real".
 
 ## El problema
 
@@ -85,14 +85,57 @@ Cada estado necesita su prompt en el allowlist del proxy local: los dos hashes y
 - los tokens de salida por turno (`ai_turn_usage.completion_tokens`) no suben;
 - correrlo 2-3 veces, porque los evals no son determinísticos.
 
+### Resultado con el modelo real (2026-10-16)
+
+Proxy local, gpt-6-luna, 57942bc (ANTES) vs. 744a51f (DESPUÉS).
+
+| | ANTES | DESPUÉS |
+|---|---|---|
+| Casos del piloto, 3 corridas (sin `watchlist-add`, ver abajo) | 13/15 | **15/15** |
+| Batería completa, 1 corrida | 57/67 | 57/67 |
+| Salida por turno, casos del piloto | 209 | **156** |
+| Salida por turno, toda la batería (sin turnos cortados por el tope) | ~281 | ~290 |
+
+- **Las cuatro "regresiones" de la batería no son del piloto.** `chat-hola` y `chat-gracias` pasaron 2/2 al repetir. `portfolio-now` y `generic-es-bueno-fundamentals` también fallan en ANTES (1/3 y 2/3).
+- **`watchlist-add` fallaba siempre por el chequeo:** medía el stream crudo de A2UI, no el texto. Arreglado en `c3f24cb`.
+- **El 2-3 % de los turnos llega al tope de 3.000 tokens de salida** (`maxOutputTokens` del proxy), en los dos estados y en casos distintos cada vez. Esos turnos tardan ~14,5 s y se llevan el 20-25 % de toda la salida. Ver el paso 7.
+- **Costo de una corrida completa:** ~US$ 0,21. Cada corrida completa necesita su propio usuario de `eval_user.ts` (100 consultas por día).
+
+### Pasos 3 y 4 con el modelo real (2026-10-16)
+
+Batería completa, corridas intercaladas, un usuario de eval por corrida. Base = `c3f24cb`.
+
+| Variante | Corridas | Pasan | Entrada por caso | Salida por caso | Turnos en el tope |
+|---|---|---|---|---|---|
+| Base | 3 | 182/201 (90,5 %) | 89.413 | 411 | 4 |
+| Solo esquemas minificados | 2 | 119/134 (88,8 %) | 73.407 | 351 | 0 |
+| Solo guías nuevas | 2 | 118/134 (88,1 %) | 90.183 | 370 | 1 |
+| Las dos juntas | 3 | 171/201 (85,1 %) | 75.936 | 373 | 1 |
+
+- **Cada cambio solo queda dentro del ruido** (la base va de 86,6 % a 94 % entre corridas). **Juntos bajan ~5 puntos:** sus tres corridas quedan en el piso de la base o por debajo.
+- **La minificación rompe un caso concreto:** `C-bac-estos-fundamentales` ("analizame estos fundamentales" después de mostrarlos) pasa 0/5 con esquemas minificados y 4/5 sin ellos. El modelo no llama a `get_news` y no arma `QaCompanyAnalysis`. `conceptual-etf-spy` también empeora (0/2).
+- **Las guías no rompen su propio dominio:** metas, acciones y alertas no empeoran. Las fallas de esa variante son de charla (`chat-hola`, `chat-gracias`, `chat-heroe` 0/2), que no usan esas tools: probablemente ruido.
+- **Lo que ahorra cada uno:** la minificación baja ~18 % la entrada y es la que importa en costo. Las guías casi no ahorran tokens (−900 fijos); su valor es que el prompt no crezca.
+- **El turno cortado por el tope** escribe una respuesta A2UI completa y válida y después repite `"}` hasta los 3.000 tokens. Pasa el chequeo porque la app ignora la basura del final.
+
 ## Próximos pasos, en orden
 
-1. **Correr el piloto** con el criterio de arriba.
-2. **Presupuesto en tokens por bloque:** reemplazar el tope en caracteres por uno en tokens para reglas, esquemas y tools por separado.
-3. **Minificar los esquemas** en `systemPromptFor` y sacar los mensajes A2UI que la app no permite. Correr los evals.
-4. **Si el piloto sale bien,** pasar las reglas de respuesta de las secciones más acotadas a `answer_guide`: alertas, posiciones cerradas, acciones, metas. Las de elección de widget y grounding se quedan en el prompt.
+1. ✅ **Correr el piloto** con el criterio de arriba.
+2. ✅ **Presupuesto en tokens por bloque** (`test/features/assistant/catalog/prompt_budget_test.dart`): reemplazó al tope global en caracteres. Los tokens se estiman con caracteres por token medidos con o200k en cada bloque; `supabase/functions/scripts/prompt_tokens.ts` los mide de verdad.
+3. ⚠️ **Esquemas minificados** en `systemPromptFor`, sin `updateDataModel` ni `deleteSurface`: de 15.147 a 9.149 tokens. Medido: rompe `C-bac-estos-fundamentales`. No adoptar tal cual.
+4. ⚠️ **Acciones, alertas y metas pasaron a `answer_guide`** (`ActionGuides`, `AlertGuides`, `GoalGuides`). Medido: dentro del ruido solo, peor junto con el paso 3. Posiciones cerradas se quedó en el prompt: casi todo se responde desde PORTFOLIO_BRIEF, sin tool, y el resto es elección de widget.
+
+   | Bloque | Al empezar | Ahora |
+   |---|---|---|
+   | Reglas | 9.868 | 9.126 |
+   | Esquemas | 15.147 | 9.149 |
+   | Texto de genui | 1.190 | 1.190 |
+   | Tools | 6.271 | 6.088 |
+   | **Total fijo por pedido** | **32.476** | **25.553 (−21 %)** |
+
 5. **Widgets desde la evidencia,** empezando por los de esquema más grande (`QaEarningsCalendar`, `QaCompanyAnalysis`, `QaPriceChart`, `QaFundamentals`), junto con el plan de latencia.
 6. **Ablación** de los bloques de reglas más grandes.
+7. **Respuestas cortadas por el tope:** la app ya registra `finish_reason: length` (`TurnRecord.truncatedRounds`, `[GenUI/truncated]` en el log de debug) y los evals lo reportan (`truncated_rounds`). Con `EVAL_DUMP_DIR` guardan el texto crudo de esos turnos. Mirar qué escribe el modelo antes de decidir: bajar el tope rompería respuestas legítimas de hasta ~2.200 tokens (análisis de empresa).
 
 ## Cómo se midió
 

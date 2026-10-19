@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -89,6 +90,10 @@ ActionProposal _proposal(Map<String, Object?> result) {
   expect(result['status'], 'ok', reason: '$result');
   return ActionProposal.fromToolResult(result)!;
 }
+
+/// El resultado sin su `answer_guide` (lo cubre el grupo de guías).
+Map<String, Object?> _data(Map<String, Object?> result) =>
+    {...result}..remove(AnswerGuide.key);
 
 void main() {
   group('plan', () {
@@ -226,7 +231,7 @@ void main() {
 
     test('missing data → needs_input listing all of it', () async {
       final tool = ProposeBuyTool(_ctx());
-      expect(await tool.run({'ticker': 'AAPL'}), {
+      expect(_data(await tool.run({'ticker': 'AAPL'})), {
         'status': 'needs_input',
         'missing': ['quantity', 'date'],
       });
@@ -250,7 +255,7 @@ void main() {
       final result = await ProposeBuyTool(
         _ctx(),
       ).run({'ticker': 'AAPL', 'shares': 1, 'date': '2026-09-30'});
-      expect(result, {'status': 'invalid', 'reason': 'future_date'});
+      expect(_data(result), {'status': 'invalid', 'reason': 'future_date'});
     });
 
     test('zero or negative quantity → invalid', () async {
@@ -335,14 +340,14 @@ void main() {
       final result = await ProposeSellTool(
         _ctx(),
       ).run({'ticker': 'MSFT', 'all': true, 'date': '2026-09-25'});
-      expect(result, {'status': 'invalid', 'reason': 'not_held'});
+      expect(_data(result), {'status': 'invalid', 'reason': 'not_held'});
     });
 
     test('more than held → invalid with held_shares', () async {
       final result = await ProposeSellTool(
         _ctx(),
       ).run({'ticker': 'TSLA', 'shares': 20, 'date': '2026-09-25'});
-      expect(result, {
+      expect(_data(result), {
         'status': 'invalid',
         'reason': 'exceeds_holdings',
         'held_shares': 15.0,
@@ -358,7 +363,7 @@ void main() {
     });
 
     test('missing quantity and date → needs_input', () async {
-      expect(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'}), {
+      expect(_data(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'})), {
         'status': 'needs_input',
         'missing': ['quantity', 'date'],
       });
@@ -416,10 +421,54 @@ void main() {
     });
 
     test('without ticker → needs_input', () async {
-      expect(await ProposeDeletePositionTool(_ctx()).run({}), {
+      expect(_data(await ProposeDeletePositionTool(_ctx()).run({})), {
         'status': 'needs_input',
         'missing': ['ticker'],
       });
+    });
+  });
+
+  group('answer_guide', () {
+    String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
+
+    test('ok, needs_input e invalid traen su guía; locked no', () async {
+      expect(
+        guideOf(
+          await ProposeBuyTool(
+            _ctx(quotes: _Quotes()),
+          ).run({'ticker': 'AAPL', 'shares': 10, 'date': '2026-09-28'}),
+        ),
+        ActionGuides.ok,
+      );
+      expect(
+        guideOf(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'})),
+        ActionGuides.needsInput,
+      );
+      expect(
+        guideOf(
+          await ProposeSellTool(
+            _ctx(),
+          ).run({'ticker': 'MSFT', 'all': true, 'date': '2026-09-25'}),
+        ),
+        ActionGuides.invalid,
+      );
+      // La card lee el mismo resultado: la guía no la rompe.
+      expect(
+        _proposal(
+          await ProposeBuyTool(
+            _ctx(quotes: _Quotes()),
+          ).run({'ticker': 'AAPL', 'shares': 10, 'date': '2026-09-28'}),
+        ).ticker,
+        'AAPL',
+      );
+      expect(
+        guideOf(
+          await ProposeBuyTool(
+            _ctx(tier: SubscriptionTier.free),
+          ).run({'ticker': 'AAPL', 'shares': 1, 'date': '2026-09-28'}),
+        ),
+        isNull,
+      );
     });
   });
 }

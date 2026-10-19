@@ -581,6 +581,7 @@ class OpenAIGenUiService {
         final messages = [...log.render(), ...extra];
         final openAiTools =
             tools.isEmpty ? null : [for (final tool in tools) tool.toOpenAi()];
+        String? finishReason;
         final reply =
             streaming
                 ? ChatCompletionStream.create(
@@ -591,6 +592,7 @@ class OpenAIGenUiService {
                   toolChoice: tools.isEmpty ? null : toolChoice,
                   temperature: _temperature,
                   onContent: _onContent,
+                  onFinish: (reason) => finishReason = reason,
                 )
                 : OpenAI.instance.chat
                     .create(
@@ -601,8 +603,11 @@ class OpenAIGenUiService {
                       temperature: _temperature,
                       client: _httpClient,
                     )
-                    .then((response) => response.choices.first.message);
-        return await reply.timeout(
+                    .then((response) {
+                      finishReason = response.choices.first.finishReason;
+                      return response.choices.first.message;
+                    });
+        final message = await reply.timeout(
           timeout,
           onTimeout:
               () =>
@@ -610,6 +615,11 @@ class OpenAIGenUiService {
                     'El modelo tardó demasiado en responder.',
                   ),
         );
+        if (finishReason == 'length') {
+          log.currentTurn?.truncatedRounds++;
+          GenUiDebugLog.outputTruncated(_textOf(message).length);
+        }
+        return message;
       } on RequestFailedException catch (e) {
         final canRetry =
             isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;

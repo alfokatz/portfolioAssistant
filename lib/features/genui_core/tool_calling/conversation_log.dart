@@ -51,6 +51,10 @@ class TurnRecord {
 
   /// Respuesta final cruda del modelo (A2UI). `null` si el turno falló.
   String? finalText;
+
+  /// Rondas que cortó el tope de tokens de salida (`finish_reason:
+  /// length`): el modelo se desbocó y el turno tardó de más.
+  int truncatedRounds = 0;
 }
 
 /// Historial de la conversación para Chat Completions, armado por turnos.

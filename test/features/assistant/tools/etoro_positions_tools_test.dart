@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/utils/portfolio_context_builder.dart';
 
@@ -38,6 +39,10 @@ AssistantToolContext _ctx() => AssistantToolContext(
   summary: _summary,
   now: DateTime(2026, 9, 29),
 );
+
+/// El resultado sin su `answer_guide` (lo cubre el grupo de guías).
+Map<String, Object?> _data(Map<String, Object?> result) =>
+    {...result}..remove(AnswerGuide.key);
 
 void main() {
   test('el asistente ve TODA la cartera, con el origen de lo importado', () {
@@ -82,7 +87,7 @@ void main() {
       'all': true,
       'date': '2026-09-25',
     });
-    expect(sell, {'status': 'invalid', 'reason': 'managed_by_broker'});
+    expect(_data(sell), {'status': 'invalid', 'reason': 'managed_by_broker'});
 
     final delete = await ProposeDeletePositionTool(_ctx()).run({'ticker': 'VOO'});
     expect(delete['reason'], 'managed_by_broker');

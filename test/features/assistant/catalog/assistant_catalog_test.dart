@@ -57,32 +57,6 @@ void main() {
     expect(prompt, isNot(contains('ASSISTANT_SNAPSHOT')));
   });
 
-  // ~4 caracteres por token en este prompt (JSON schema + inglés): el
-  // unificado anterior medía 173.767 caracteres / 32.086 tokens. Si esto
-  // falla, alguien volvió a inflar el prompt — medirlo antes de subir el
-  // límite.
-  // 2026-09-29: subido de 95.000 a 100.000 para QaCompanyAnalysis (+3,9K
-  // caracteres ≈ +1K tokens). Medido con la eval real: 98.660 caracteres =
-  // 24.310 prompt tokens; ~92% se cachea, así que son < US$0,0004 por turno.
-  // 2026-10-05: subido a 103.000 para get_etf_holdings + QaEtfHoldings y
-  // el grounding con conocimiento general: de 99.989 a 101.992 caracteres
-  // (+2K ≈ +500 tokens, casi todo cacheado).
-  // 2026-10-08: subido a 106.000 para las acciones de Porty (propose_* +
-  // QaActionProposal + [W:ACTION]): de 101.992 a 104.432 caracteres
-  // (+2,4K ≈ +600 tokens, casi todo cacheado).
-  // 2026-10-11: subido a 110.000 para la personalización (alcance solo
-  // finanzas, continuidad, metas de compra, memoria + sus dos tools): de
-  // ~104.400 a 108.343 caracteres (+3,9K ≈ +1K tokens, casi todo cacheado).
-  // 2026-10-11: 110.000 → 112.000 por las reglas de datos de la SEC y del
-  // contexto de noticias (fuentes con uso comercial, ~830 caracteres). Al
-  // borrar la fuente legacy (Finnhub) se pueden recortar las de consenso.
-  // 2026-10-15: 112.500 → 114.000 por el formato del texto (viñetas y
-  // párrafos en vez de bloques) y el diagnóstico de la cartera antes de
-  // recomendar (+1,2K caracteres ≈ +300 tokens, casi todo cacheado).
-  // 2026-10-16: 114.000 → 115.000 por el plan de cartera y la lista de
-  // seguimiento (get_allocation_plan, get_watchlist, add_to_watchlist:
-  // ~800 caracteres; el detalle va en la descripción de cada tool).
-  test('the system prompt stays small', () {
-    expect(prompt.length, lessThan(115000));
-  });
+  // El tamaño del prompt lo controla prompt_budget_test.dart (tokens por
+  // bloque), que reemplazó al tope global en caracteres.
 }

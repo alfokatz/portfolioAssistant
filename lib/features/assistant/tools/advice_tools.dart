@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builde
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
@@ -142,6 +143,61 @@ class GetInvestCandidatesTool implements DataTool {
   static String? profileStatusOf(Map<String, Object?> result) {
     final profile = result['investor_profile'];
     return profile is Map ? profile['status'] as String? : null;
+  }
+}
+
+/// Cómo responder con cada resultado de las metas (ver [AnswerGuide]). Qué
+/// widget y qué `focus` lleva el plan sigue en el prompt ([W:GOAL]): se
+/// decide por la pregunta, no por el resultado.
+abstract final class GoalGuides {
+  static const incomplete =
+      'QaAnswerText ONLY, no data widget: ask for what missing lists, in ONE '
+      'short question. Retirement with an age but no date → ask their '
+      'current age.';
+  static const complete =
+      'QaAnswerText: 2-3 sentences that explain the plan like an advisor '
+      'would, WITH its numbers (only from this result, rounded for reading: '
+      '"1,03 millones", "900 mil", "2.150 por mes"); the why, not only the '
+      'what. focus income → ALWAYS compare BOTH ways to collect it: living '
+      'off dividends (~dividend_yield, capital untouched) needs '
+      'income.dividends.capital_needed; withdrawing 4% a year needs less '
+      '(income.withdraw_4pct.capital_needed) but lasts ~years_lasting years; '
+      'then which one the plan uses and the monthly savings to get there. '
+      'savings/growth → the monthly savings and how much of the result is '
+      'interest (total_growth) vs. what they put in (total_contributed). '
+      'progress → how far along they are and if their contribution is '
+      'enough. on_track null → never say they are "en camino". Name '
+      'suggested_instruments with their amounts ("146 por mes en SGOV y 62 '
+      'en VGSH"). Never recalculate; it is a simulation, not a guarantee; no '
+      'buy/sell orders.';
+  static const shortTermPurchase =
+      ' short_term_purchase: cash and short bonds, no stocks — say why (they '
+      'need the money soon and stocks could be down right then). The '
+      'interest is small: say so honestly; the monthly habit gets them '
+      'there.';
+  static const notSaved =
+      ' It is NOT a saved goal: end QaAnswerText ASKING if they want it as a '
+      'goal (card button or "sí"); never say it is saved.';
+  static const buyPlan =
+      'QaAnswerText + QaBuyPlan {buyPlanId: buy_plan_id}. Text: 2-3 '
+      'sentences with its numbers — monthly amount, what goes to ETFs vs. '
+      'stocks, weighted yield vs. the 3.5% assumption and how the goal '
+      'changed (plan_before → plan_after). It is an example to simulate, not '
+      'a buy recommendation.';
+  static const saved =
+      'QaAnswerText, one sentence: it is saved in the Metas tab, where its '
+      'progress updates by itself.';
+
+  /// La guía de un plan de `get_goal_projection`: [fromSavedGoal] = rehace
+  /// una meta ya guardada (no hay que ofrecer guardarla).
+  static String forProjection(
+    Map<String, Object?> result, {
+    required bool fromSavedGoal,
+  }) {
+    if (result['has_complete_goal'] != true) return incomplete;
+    return '$complete'
+        '${result['short_term_purchase'] == true ? shortTermPurchase : ''}'
+        '${fromSavedGoal ? '' : notSaved}';
   }
 }
 
@@ -392,7 +448,10 @@ class GetGoalProjectionTool implements DataTool {
         ctx.unconfirmedPlans.add(planId);
       }
     }
-    return result;
+    return AnswerGuide.attach(
+      result,
+      GoalGuides.forProjection(result, fromSavedGoal: savedGoal != null),
+    );
   }
 
   static double? _positive(double? v) => v != null && v > 0 ? v : null;
@@ -488,12 +547,12 @@ class SaveGoalTool implements DataTool {
     if (save == null) return {'status': 'ok', 'saved': true};
     try {
       final goal = await save(toSave);
-      return {
+      return AnswerGuide.attach({
         'status': 'ok',
         'saved': true,
         'label': goal.label,
         'where': 'the Metas tab',
-      };
+      }, GoalGuides.saved);
     } on GoalLimitReached {
       return {
         'status': 'invalid',
@@ -724,6 +783,9 @@ class GetMonthlyBuyPlanTool implements DataTool {
         ctx.unconfirmedPlans.add(planId);
       }
     }
-    return {...stored, 'as_of': ctx.asOf};
+    return AnswerGuide.attach({
+      ...stored,
+      'as_of': ctx.asOf,
+    }, GoalGuides.buyPlan);
   }
 }
