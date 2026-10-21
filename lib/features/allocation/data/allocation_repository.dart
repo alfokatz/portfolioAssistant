@@ -40,7 +40,7 @@ class AllocationRepository {
       final row =
           await client
               .from(_table)
-              .select('targets, drift_threshold, notify')
+              .select('targets, drift_threshold, notify, notify_frequency')
               .maybeSingle();
       return row == null ? null : AllocationPlan.fromRow(row);
     } on PostgrestException {

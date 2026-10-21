@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/allocation/view/allocation_screen.d
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/notifications/domain/push_route.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 
 class _Repo implements AllocationRepository {
@@ -108,32 +109,118 @@ void main() {
     });
   });
 
+  group('reparto del asistente', () {
+    test('mover uno reparte la diferencia entre los demás y suma 100', () {
+      final r = AllocationMath.rebalance(
+        targets: const {'VOO': 50, 'BND': 30, 'NVDA': 20},
+        ticker: 'VOO',
+        value: 70,
+      );
+      // Sobran 30 entre BND y NVDA, en proporción 30:20.
+      expect(r, {'VOO': 70, 'BND': 18, 'NVDA': 12});
+      expect(r.values.fold<int>(0, (a, b) => a + b), 100);
+    });
+
+    test('los fijos no se mueven y ponen el techo', () {
+      final r = AllocationMath.rebalance(
+        targets: const {'VOO': 50, 'BND': 30, 'NVDA': 20},
+        ticker: 'VOO',
+        value: 90,
+        locked: {'BND'},
+      );
+      expect(r, {'VOO': 70, 'BND': 30, 'NVDA': 0});
+      // Si todos los demás están fijos, no hay a quién pasarle nada.
+      final stuck = AllocationMath.rebalance(
+        targets: const {'VOO': 60, 'BND': 40},
+        ticker: 'VOO',
+        value: 10,
+        locked: {'BND'},
+      );
+      expect(stuck, {'VOO': 60, 'BND': 40});
+    });
+
+    test('si los demás estaban en 0, reparte en partes iguales', () {
+      final r = AllocationMath.rebalance(
+        targets: const {'VOO': 100, 'BND': 0, 'QQQ': 0},
+        ticker: 'VOO',
+        value: 60,
+      );
+      expect(r, {'VOO': 60, 'BND': 20, 'QQQ': 20});
+    });
+
+    test('arranque: pesos de hoy para lo que tiene, 0 para lo nuevo', () {
+      expect(
+        AllocationMath.initialSplit(
+          tickers: const ['VOO', 'BND', 'QQQ'],
+          values: const {'VOO': 600, 'BND': 400, 'NVDA': 1000},
+        ),
+        {'VOO': 60, 'BND': 40, 'QQQ': 0},
+      );
+      expect(
+        AllocationMath.initialSplit(tickers: const ['A', 'B', 'C'], values: {}),
+        {'A': 34, 'B': 33, 'C': 33},
+      );
+      expect(AllocationMath.equalSplit(const ['A', 'B']), {'A': 50, 'B': 50});
+      expect(AllocationMath.remove(const {'A': 50, 'B': 30, 'C': 20}, 'A'), {
+        'B': 60,
+        'C': 40,
+      });
+    });
+
+    test('cómo quedaría la cartera después del aporte', () {
+      final after = AllocationMath.weightsAfter(
+        values: const {'VOO': 600, 'BND': 400},
+        split: const {'BND': 1000},
+      );
+      expect(after['VOO'], closeTo(30, 0.01));
+      expect(after['BND'], closeTo(70, 0.01));
+    });
+
+    test('frecuencia del aviso: de/hacia la base, semanal por defecto', () {
+      expect(
+        AllocationPlan.fromRow({
+          'targets': {'VOO': 100},
+          'notify_frequency': 'monthly',
+        }).frequency,
+        AllocationAlertFrequency.monthly,
+      );
+      expect(
+        AllocationPlan.fromRow({'targets': {}}).frequency,
+        AllocationAlertFrequency.weekly,
+      );
+      expect(
+        const AllocationPlan(
+          frequency: AllocationAlertFrequency.monthly,
+        ).toRow()['notify_frequency'],
+        'monthly',
+      );
+    });
+  });
+
   group('AllocationNotifier', () {
-    test('carga, edita, no guarda si no suma 100, guarda', () async {
+    test('carga, no guarda si no suma 100, guarda', () async {
       final repo = _Repo();
       final n = AllocationNotifier(repo);
       await n.load();
       expect(n.state.loaded, isTrue);
-      expect(n.state.draft.isEmpty, isTrue);
-      n.startFromCurrent({'VOO': 600, 'BND': 400});
-      expect(n.state.draft.targets, {'VOO': 60.0, 'BND': 40.0});
-      n.setTarget('voo', 70);
-      expect(n.state.draft.sumsTo100, isFalse);
-      expect(await n.save(), isFalse);
-      n.normalize();
-      expect(n.state.draft.targetSum, 100);
-      expect(await n.save(), isTrue);
+      expect(n.state.saved.isEmpty, isTrue);
+      expect(
+        await n.save(const AllocationPlan(targets: {'VOO': 70, 'BND': 40})),
+        isFalse,
+      );
+      const plan = AllocationPlan(targets: {'VOO': 60, 'BND': 40});
+      expect(await n.save(plan), isTrue);
       expect(repo.saves, 1);
-      expect(n.state.dirty, isFalse);
-      n.setTarget('BND', 0);
-      expect(n.state.draft.targets.containsKey('BND'), isFalse);
+      expect(n.state.saved, plan);
     });
 
     test('la base dice que es de Premium', () async {
       final n = AllocationNotifier(_Repo(failWith: const AllocationLocked()));
       await n.load();
-      n.startFromCurrent({'VOO': 1});
-      expect(await n.save(), isFalse);
+      expect(
+        await n.save(const AllocationPlan(targets: {'VOO': 100})),
+        isFalse,
+      );
       expect(n.state.error, AllocationError.locked);
     });
   });
@@ -146,6 +233,8 @@ void main() {
   });
 
   group('pantalla', () {
+    late _Repo repo;
+
     Future<void> pump(
       WidgetTester tester, {
       required SubscriptionTier tier,
@@ -154,13 +243,12 @@ void main() {
       tester.view.physicalSize = const Size(320, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      repo = _Repo(stored: stored);
       final theme = ProviderContainer().read(themeDataLightProvider);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            allocationRepositoryProvider.overrideWithValue(
-              _Repo(stored: stored),
-            ),
+            allocationRepositoryProvider.overrideWithValue(repo),
             goalHoldingsProvider.overrideWithValue(const {
               'VOO': 5000,
               'BND': 1400,
@@ -168,39 +256,89 @@ void main() {
             }),
             subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
           ],
-          child: MaterialApp(theme: theme, home: const AllocationScreen()),
+          child: MaterialApp(
+            theme: theme,
+            // Alguien escucha las alertas (si no, el provider se descarta
+            // antes de que se cierre el aviso de "guardado").
+            home: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(alertProvider);
+                return const AllocationScreen();
+              },
+            ),
+          ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
     }
 
-    testWidgets('Free ve el paywall, no el editor', (tester) async {
+    Future<void> tapText(WidgetTester tester, String text) async {
+      await tester.tap(find.text(text));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    testWidgets('Free ve qué es y el botón a los planes', (tester) async {
       await pump(tester, tier: SubscriptionTier.free);
       expect(find.text('allocation_locked_body'), findsOneWidget);
-      expect(find.text('allocation_save'), findsNothing);
+      expect(find.text('allocation_see_plans'), findsOneWidget);
+      expect(find.text('allocation_start'), findsNothing);
     });
 
-    testWidgets('Premium sin plan: arrancar con los pesos de hoy', (
+    testWidgets('Premium sin plan: lo arma de a pasos y lo guarda', (
       tester,
     ) async {
       await pump(tester, tier: SubscriptionTier.premium);
-      await tester.tap(find.text('allocation_start_current'));
-      await tester.pumpAndSettle();
-      expect(find.text('VOO'), findsOneWidget);
-      expect(find.text('allocation_sum_ok'), findsOneWidget);
-      expect(find.text('allocation_save'), findsOneWidget);
+      await tapText(tester, 'allocation_start');
+
+      // Paso 1: lo que ya tiene viene marcado; saca NVDA.
+      expect(find.text('allocation_pick_porty'), findsOneWidget);
+      await tapText(tester, 'NVDA');
+      expect(find.text('allocation_pick_left_out'), findsOneWidget);
+      await tapText(tester, 'allocation_wizard_next');
+
+      // Paso 2: arranca con los pesos de hoy y siempre suma 100.
+      expect(find.text('allocation_split_total'), findsOneWidget);
+      expect(find.text('78%'), findsOneWidget); // VOO 5000 / 6400
+      expect(find.text('22%'), findsOneWidget);
+      await tapText(tester, 'allocation_preset_equal');
+      expect(find.text('50%'), findsNWidgets(2));
+      await tapText(tester, 'allocation_wizard_next');
+
+      // Paso 3: avisos, con el ejemplo de sus tickers.
+      expect(find.text('allocation_margin_title'), findsOneWidget);
+      expect(find.text('allocation_bands_title'), findsOneWidget);
+      await tapText(tester, 'allocation_frequency_monthly');
+      await tapText(tester, 'allocation_wizard_review');
+
+      // Paso 4: repaso y guardar.
+      expect(find.text('allocation_review_porty'), findsOneWidget);
+      await tapText(tester, 'allocation_save');
+      expect(repo.saves, 1);
+      expect(repo.stored!.targets, {'VOO': 50.0, 'BND': 50.0});
+      expect(repo.stored!.frequency, AllocationAlertFrequency.monthly);
+      // Vuelve al tablero.
+      expect(find.text('allocation_compare_title'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      // Que se cierre el aviso de "guardado".
+      await tester.pump(const Duration(seconds: 6));
     });
 
-    testWidgets('con plan: desvíos y reparto del aporte', (tester) async {
+    testWidgets('con plan: cómo viene y dónde poner el próximo aporte', (
+      tester,
+    ) async {
       await pump(
         tester,
         tier: SubscriptionTier.premium,
         stored: const AllocationPlan(targets: {'VOO': 60, 'BND': 40}),
       );
-      expect(find.text('BND'), findsOneWidget);
+      // BND pesa 22% y el plan dice 40%: el mayor desvío.
+      expect(find.text('allocation_status_off_under'), findsOneWidget);
+      expect(find.text('allocation_row_under'), findsWidgets);
+      await tapText(tester, 'allocation_contribution_cta');
       await tester.enterText(find.byType(TextField), '1000');
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(find.text('allocation_contribution_result'), findsOneWidget);
       expect(find.text('\$1,000.00'), findsOneWidget);
       expect(tester.takeException(), isNull);

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/allocation/data/allocation_repository.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
@@ -12,25 +11,15 @@ class AllocationState {
     this.saving = false,
     this.error,
     this.saved = const AllocationPlan(),
-    this.draft = const AllocationPlan(),
   });
 
   final bool loaded;
   final bool saving;
   final AllocationError? error;
 
-  /// Lo último guardado (vacío si nunca armó el plan).
+  /// Lo último guardado (vacío si nunca armó el plan). Lo que el usuario
+  /// está editando vive en el asistente de pasos, no acá.
   final AllocationPlan saved;
-
-  /// Lo que está editando en la pantalla.
-  final AllocationPlan draft;
-
-  bool get dirty =>
-      !mapEquals(saved.targets, draft.targets) ||
-      saved.driftThreshold != draft.driftThreshold ||
-      saved.notify != draft.notify;
-
-  bool get canSave => dirty && !saving && draft.sumsTo100;
 
   AllocationState copyWith({
     bool? loaded,
@@ -38,17 +27,15 @@ class AllocationState {
     AllocationError? error,
     bool clearError = false,
     AllocationPlan? saved,
-    AllocationPlan? draft,
   }) => AllocationState(
     loaded: loaded ?? this.loaded,
     saving: saving ?? this.saving,
     error: clearError ? null : (error ?? this.error),
     saved: saved ?? this.saved,
-    draft: draft ?? this.draft,
   );
 }
 
-/// El plan de cartera: carga, edición y guardado.
+/// El plan de cartera: carga y guardado.
 class AllocationNotifier extends StateNotifier<AllocationState> {
   AllocationNotifier(this._repo) : super(const AllocationState());
 
@@ -58,63 +45,22 @@ class AllocationNotifier extends StateNotifier<AllocationState> {
     try {
       final plan = await _repo.load() ?? const AllocationPlan();
       if (!mounted) return;
-      // Si estaba editando, no le pisa lo que tocó.
-      state = state.copyWith(
-        loaded: true,
-        saved: plan,
-        draft: state.dirty ? state.draft : plan,
-        clearError: true,
-      );
+      state = state.copyWith(loaded: true, saved: plan, clearError: true);
     } on AllocationFailure {
       if (!mounted) return;
       state = state.copyWith(loaded: true, error: AllocationError.unavailable);
     }
   }
 
-  void setTarget(String ticker, double pct) {
-    final key = ticker.trim().toUpperCase();
-    if (key.isEmpty) return;
-    final targets = {...state.draft.targets};
-    if (pct <= 0) {
-      targets.remove(key);
-    } else {
-      targets[key] = pct.clamp(0, 100).toDouble();
-    }
-    _setDraft(state.draft.copyWith(targets: targets));
-  }
-
-  /// Arranca (o reemplaza) el plan con los pesos de hoy.
-  void startFromCurrent(Map<String, double> values) {
-    _setDraft(
-      state.draft.copyWith(targets: AllocationMath.fromCurrentWeights(values)),
-    );
-  }
-
-  /// Escala los objetivos para que sumen 100.
-  void normalize() {
-    _setDraft(
-      state.draft.copyWith(
-        targets: AllocationMath.roundTo100(state.draft.targets),
-      ),
-    );
-  }
-
-  void setThreshold(double points) =>
-      _setDraft(state.draft.copyWith(driftThreshold: points));
-
-  void setNotify(bool notify) =>
-      _setDraft(state.draft.copyWith(notify: notify));
-
-  void discard() => state = state.copyWith(draft: state.saved);
-
-  /// `true` si se guardó.
-  Future<bool> save() async {
-    if (!state.canSave) return false;
+  /// Guarda [plan] (los objetivos tienen que sumar 100). `true` si se
+  /// guardó; si no, [AllocationState.error] dice por qué.
+  Future<bool> save(AllocationPlan plan) async {
+    if (state.saving || !plan.sumsTo100) return false;
     state = state.copyWith(saving: true, clearError: true);
     try {
-      await _repo.save(state.draft);
+      await _repo.save(plan);
       if (!mounted) return true;
-      state = state.copyWith(saving: false, saved: state.draft);
+      state = state.copyWith(saving: false, saved: plan);
       return true;
     } on AllocationLocked {
       if (mounted) {
@@ -129,10 +75,6 @@ class AllocationNotifier extends StateNotifier<AllocationState> {
       }
     }
     return false;
-  }
-
-  void _setDraft(AllocationPlan draft) {
-    state = state.copyWith(draft: draft, clearError: true);
   }
 }
 

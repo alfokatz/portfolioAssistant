@@ -170,6 +170,9 @@ export type AllocationInput = {
   targets: Record<string, number>;
   /// Puntos de desvío que disparan el aviso.
   drift_threshold: number;
+  /// "weekly": todos los lunes; "monthly": el primer lunes del mes. Sin
+  /// dato (base sin la migración de la frecuencia), semanal.
+  notify_frequency?: "weekly" | "monthly" | null;
   holdings: { symbol: string; quantity: number; price: number | null }[];
 };
 
@@ -202,7 +205,8 @@ export function allocationDrift(input: AllocationInput): DriftItem[] {
 }
 
 /// Lunes a las 10: si algo se alejó del plan más que el umbral, un aviso con
-/// lo que más se desvió (hasta 3). Uno por semana.
+/// lo que más se desvió (hasta 3). Uno por semana, o uno por mes (el primer
+/// lunes) si el usuario lo eligió así.
 export function allocationDriftRows(users: LocalUser[], inputs: AllocationInput[]): OutboxInsert[] {
   const byUser = new Map(inputs.map((i) => [i.user_id, i]));
   const out: OutboxInsert[] = [];
@@ -210,6 +214,7 @@ export function allocationDriftRows(users: LocalUser[], inputs: AllocationInput[
     if (u.local_dow !== 1) continue;
     const input = byUser.get(u.user_id);
     if (!input) continue;
+    if (input.notify_frequency === "monthly" && Number(u.local_date.slice(8, 10)) > 7) continue;
     const drift = allocationDrift(input);
     const over = drift.filter((d) => Math.abs(d.current_pct - d.target_pct) >= input.drift_threshold);
     if (over.length === 0) continue;

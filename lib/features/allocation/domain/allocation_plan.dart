@@ -1,11 +1,25 @@
 import 'dart:math' as math;
 
+/// Cada cuánto revisa Porty si la cartera se alejó del plan (siempre un
+/// lunes a las 10, hora local; ver `daily-jobs`).
+enum AllocationAlertFrequency {
+  /// Todos los lunes.
+  weekly,
+
+  /// El primer lunes de cada mes.
+  monthly;
+
+  static AllocationAlertFrequency parse(Object? raw) =>
+      raw == 'monthly' ? monthly : weekly;
+}
+
 /// El plan de cartera del usuario: cuánto quiere de cada ticker.
 class AllocationPlan {
   const AllocationPlan({
     this.targets = const {},
     this.driftThreshold = 5,
     this.notify = true,
+    this.frequency = AllocationAlertFrequency.weekly,
   });
 
   /// {TICKER: porcentaje}. Vacío = todavía no armó el plan.
@@ -14,8 +28,11 @@ class AllocationPlan {
   /// Puntos de desvío a partir de los que avisa (y la Home lo marca).
   final double driftThreshold;
 
-  /// Aviso semanal si se aleja del plan.
+  /// Aviso (notificación) si se aleja del plan.
   final bool notify;
+
+  /// Cada cuánto se revisa para el aviso.
+  final AllocationAlertFrequency frequency;
 
   bool get isEmpty => targets.isEmpty;
 
@@ -35,6 +52,7 @@ class AllocationPlan {
       },
       driftThreshold: (row['drift_threshold'] as num?)?.toDouble() ?? 5,
       notify: row['notify'] as bool? ?? true,
+      frequency: AllocationAlertFrequency.parse(row['notify_frequency']),
     );
   }
 
@@ -45,17 +63,39 @@ class AllocationPlan {
     },
     'drift_threshold': driftThreshold,
     'notify': notify,
+    'notify_frequency': frequency.name,
   };
 
   AllocationPlan copyWith({
     Map<String, double>? targets,
     double? driftThreshold,
     bool? notify,
+    AllocationAlertFrequency? frequency,
   }) => AllocationPlan(
     targets: targets ?? this.targets,
     driftThreshold: driftThreshold ?? this.driftThreshold,
     notify: notify ?? this.notify,
+    frequency: frequency ?? this.frequency,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      other is AllocationPlan &&
+      _sameTargets(other.targets, targets) &&
+      other.driftThreshold == driftThreshold &&
+      other.notify == notify &&
+      other.frequency == frequency;
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAllUnordered(targets.entries.map((e) => '${e.key}:${e.value}')),
+    driftThreshold,
+    notify,
+    frequency,
+  );
+
+  static bool _sameTargets(Map<String, double> a, Map<String, double> b) =>
+      a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
 }
 
 /// Un ticker del plan: lo que vale hoy, su peso y su objetivo.
@@ -137,6 +177,102 @@ abstract final class AllocationMath {
     };
   }
 
+  /// Lo que pesaría cada ticker (en %) después de sumar [split] a [values].
+  static Map<String, double> weightsAfter({
+    required Map<String, double> values,
+    required Map<String, double> split,
+  }) {
+    final after = <String, double>{
+      for (final e in values.entries)
+        if (e.value > 0) e.key: e.value,
+    };
+    for (final e in split.entries) {
+      after[e.key] = (after[e.key] ?? 0) + math.max(0, e.value);
+    }
+    final total = after.values.fold(0.0, (a, b) => a + b);
+    if (!(total > 0)) return const {};
+    return {for (final e in after.entries) e.key: e.value / total * 100};
+  }
+
+  /// Partes iguales entre [tickers], en enteros que suman 100.
+  static Map<String, int> equalSplit(List<String> tickers) =>
+      _largestRemainder({for (final t in tickers) t: 1});
+
+  /// El reparto con el que arranca el paso "¿cuánto de cada una?": lo que
+  /// ya tiene, con sus pesos de hoy (entre lo elegido); lo nuevo, en 0. Si
+  /// no tiene nada de lo elegido, partes iguales.
+  static Map<String, int> initialSplit({
+    required List<String> tickers,
+    required Map<String, double> values,
+  }) {
+    if (tickers.isEmpty) return const {};
+    final held = {
+      for (final t in tickers)
+        if ((values[t] ?? 0) > 0) t: values[t]!,
+    };
+    if (held.isEmpty) return equalSplit(tickers);
+    final split = _largestRemainder(held);
+    return {for (final t in tickers) t: split[t] ?? 0};
+  }
+
+  /// Mueve [ticker] a [value] y reparte la diferencia entre los demás que
+  /// no están en [locked], en proporción a lo que ya tenían (o en partes
+  /// iguales si estaban todos en 0), para que el total siga en 100. El
+  /// valor se limita a lo que dejan libre los fijos; si no hay a quién
+  /// pasarle la diferencia, no se mueve.
+  static Map<String, int> rebalance({
+    required Map<String, int> targets,
+    required String ticker,
+    required int value,
+    Set<String> locked = const {},
+  }) {
+    if (!targets.containsKey(ticker)) return targets;
+    final others = [
+      for (final t in targets.keys)
+        if (t != ticker) t,
+    ];
+    final free = [
+      for (final t in others)
+        if (!locked.contains(t)) t,
+    ];
+    final fixedSum = others
+        .where(locked.contains)
+        .fold(0, (a, t) => a + targets[t]!);
+    if (free.isEmpty) {
+      return {...targets, ticker: math.max(0, 100 - fixedSum)};
+    }
+    final v = value.clamp(0, math.max(0, 100 - fixedSum)).toInt();
+    final left = 100 - fixedSum - v;
+    final freeSum = free.fold(0, (a, t) => a + targets[t]!);
+    final shares =
+        freeSum > 0
+            ? _largestRemainder({
+              for (final t in free) t: targets[t]!.toDouble(),
+            }, total: left)
+            : _largestRemainder({for (final t in free) t: 1}, total: left);
+    return {
+      for (final t in targets.keys)
+        t:
+            t == ticker
+                ? v
+                : locked.contains(t)
+                ? targets[t]!
+                : shares[t] ?? 0,
+    };
+  }
+
+  /// Saca [ticker] y le pasa lo suyo a los demás (en proporción).
+  static Map<String, int> remove(Map<String, int> targets, String ticker) {
+    final rest = {...targets}..remove(ticker);
+    if (rest.isEmpty) return const {};
+    final sum = rest.values.fold(0, (a, b) => a + b);
+    return sum > 0
+        ? _largestRemainder({
+          for (final e in rest.entries) e.key: e.value.toDouble(),
+        })
+        : equalSplit(rest.keys.toList());
+  }
+
   /// Objetivos iguales a los pesos de hoy (para empezar el plan),
   /// redondeados a enteros que suman 100.
   static Map<String, double> fromCurrentWeights(Map<String, double> values) {
@@ -179,6 +315,33 @@ abstract final class AllocationMath {
         if (e.value > 0) e.key: e.value.toDouble(),
     };
   }
+}
+
+/// Reparte [total] (100 por defecto) en enteros proporcionales a
+/// [weights] (método del mayor resto). Los pesos ≤ 0 quedan en 0.
+Map<String, int> _largestRemainder(
+  Map<String, num> weights, {
+  int total = 100,
+}) {
+  final sum = weights.values.where((w) => w > 0).fold(0.0, (a, b) => a + b);
+  if (!(sum > 0) || total <= 0) return {for (final k in weights.keys) k: 0};
+  final exact = {
+    for (final e in weights.entries)
+      e.key: e.value > 0 ? e.value / sum * total : 0.0,
+  };
+  final floors = {for (final e in exact.entries) e.key: e.value.floor()};
+  var left = total - floors.values.fold(0, (a, b) => a + b);
+  final byRemainder =
+      exact.keys.where((k) => weights[k]! > 0).toList()..sort((a, b) {
+        final c = (exact[b]! - floors[b]!).compareTo(exact[a]! - floors[a]!);
+        return c != 0 ? c : a.compareTo(b);
+      });
+  for (final k in byRemainder) {
+    if (left <= 0) break;
+    floors[k] = floors[k]! + 1;
+    left--;
+  }
+  return floors;
 }
 
 double _round(double v, int decimals) {

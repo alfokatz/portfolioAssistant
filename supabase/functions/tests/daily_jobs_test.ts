@@ -252,6 +252,17 @@ Deno.test("plan: avisa los lunes si pasa el umbral, una vez por semana", () => {
   assertEquals(allocationDriftRows([monday], [tight]), []);
 });
 
+Deno.test("desvío mensual: solo el primer lunes del mes", () => {
+  const monthly = plan({ notify_frequency: "monthly" });
+  const first = user({ local_dow: 1, local_date: "2026-11-02" });
+  const third = user({ local_dow: 1, local_date: "2026-10-19" });
+  assertEquals(allocationDriftRows([first], [monthly]).length, 1);
+  assertEquals(allocationDriftRows([third], [monthly]), []);
+  // Semanal (o sin dato): todos los lunes.
+  assertEquals(allocationDriftRows([third], [plan({ notify_frequency: "weekly" })]).length, 1);
+  assertEquals(allocationDriftRows([third], [plan({ notify_frequency: null })]).length, 1);
+});
+
 Deno.test("corrida: lunes 10 lee los planes solo de Premium/Gold con posiciones", async () => {
   const { deps, store } = jobsDeps("2026-10-19T13:00:00Z");
   const asked: string[][] = [];
