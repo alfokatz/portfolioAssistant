@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart'
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/allocation_plan_card_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
@@ -720,6 +721,9 @@ abstract final class AssistantAnswerReview {
       'QaEtfHoldings' =>
         'Estas son las principales posiciones de ${ticker ?? 'el fondo'}, con '
             'cuánto pesa cada una, y cómo se reparte entre sectores.',
+      'QaAllocationPlan' =>
+        'Este es tu plan de cartera contra cómo está hoy tu cartera; si '
+            'pediste repartir un aporte, cuánto va a cada una.',
       'QaEarningsCalendar' =>
         'Esto resume los resultados de $of: su próximo reporte y cómo le fue '
             'frente a lo que esperaba el mercado.',
@@ -787,6 +791,10 @@ abstract final class AssistantAnswerReview {
         // El texto del plan SÍ explica con sus números (ver
         // [_planProseProblems]): no se sacan por repetir la card.
         continue;
+      } else if (c['component'] == 'QaAllocationPlan') {
+        // Como el ETF: los números los pone la app desde la tool.
+        final d = AllocationPlanCardData.from(evidence);
+        if (d != null) out.addAll(d.backingNumbers);
       } else if (c['component'] == 'QaEtfHoldings') {
         // Como el análisis: los pesos los pone la app, no están en el JSON.
         final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');

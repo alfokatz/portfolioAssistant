@@ -5,11 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
@@ -65,14 +69,33 @@ class _Quotes implements QuoteRepository {
   Future<List<PriceCandle>> getIntradayCandles(String ticker) async => const [];
 }
 
+/// Sin logos: los avatares muestran el monograma (y no reintentan).
+class _NoBrandRepo implements CompanyBrandRepository {
+  @override
+  Future<CompanyBrand?> getBrand(String ticker) async =>
+      CompanyBrand(ticker: ticker);
+}
+
+class _FailingClient implements StatementImportClient {
+  @override
+  Future<StatementReadResult> read({
+    required String filename,
+    required Uint8List bytes,
+  }) async => throw const StatementImportException('nothing_found');
+}
+
 class _Positions implements PositionRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
+  setUpAll(() => PortyAvatar.ambientMotion = false);
+  tearDownAll(() => PortyAvatar.ambientMotion = true);
+
   Future<StatementImportNotifier> pump(
     WidgetTester tester, {
+    StatementImportClient? client,
     double width = 320,
     double height = 700,
     double textScale = 1,
@@ -85,9 +108,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          companyBrandLoaderProvider.overrideWithValue(
+            CompanyBrandLoader(_NoBrandRepo()),
+          ),
           statementImportProvider.overrideWith((ref) {
             return notifier = StatementImportNotifier(
-              client: _Client(),
+              client: client ?? _Client(),
               pick:
                   () async =>
                       PickedStatement(name: 'x.pdf', bytes: Uint8List(1)),
@@ -118,7 +144,10 @@ void main() {
 
   testWidgets('inicio: explica y ofrece elegir el archivo', (tester) async {
     await pump(tester);
-    expect(find.text('import_intro_title'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_intro_porty'), findsOneWidget);
+    expect(find.text('statement_import_format_csv_title'), findsOneWidget);
+    expect(find.text('statement_import_format_pdf_title'), findsOneWidget);
     expect(find.text('import_pick_file'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -134,10 +163,30 @@ void main() {
     expect(find.text('AAPL'), findsOneWidget);
     expect(find.text('SAN.MC'), findsOneWidget);
     // Ya la tiene, precio en otra moneda y ticker desconocido.
-    expect(find.text('import_info_held'), findsOneWidget);
-    expect(find.text('import_issue_price'), findsOneWidget);
-    expect(find.text('import_issue_ticker'), findsOneWidget);
+    expect(find.text('statement_import_preview_porty'), findsOneWidget);
+    expect(find.text('statement_import_tag_held'), findsOneWidget);
+    expect(find.text('statement_import_tag_price'), findsOneWidget);
+    expect(find.text('statement_import_tag_currency'), findsOneWidget);
+    expect(find.text('statement_import_tag_ticker'), findsOneWidget);
     expect(find.text('import_fill_dates'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Descartar una fila la marca como fuera de la importación.
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_tag_excluded'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('error: Porty dice qué pasó y ofrece elegir otro archivo', (
+    tester,
+  ) async {
+    final notifier = await pump(tester, client: _FailingClient());
+    await notifier.pickAndRead();
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_error_nothing_found'), findsOneWidget);
+    expect(find.text('statement_import_pick_again'), findsOneWidget);
+    expect(find.text('statement_import_intro_porty'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

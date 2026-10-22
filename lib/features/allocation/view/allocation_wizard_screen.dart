@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
 import 'package:portfolio_assistant/features/allocation/view/widgets/allocation_widgets.dart';
@@ -15,6 +16,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
 import 'package:portfolio_assistant/shared/utils/user_number.dart';
 
 enum AllocationStep { pick, split, alerts, review }
@@ -195,7 +197,12 @@ class _AllocationWizardScreenState
   }
 
   Future<void> _addTicker() async {
-    final ticker = await _AddTickerSheet.show(context, existing: _candidates);
+    final ticker = await TickerSearchSheet.show(
+      context,
+      title: 'allocation_add'.tr(),
+      existing: _candidates.toSet(),
+      existingLabel: 'allocation_add_taken'.tr(),
+    );
     if (ticker == null || !mounted) return;
     setState(() {
       _candidates = [..._candidates, ticker];
@@ -656,15 +663,15 @@ class _SplitStep extends StatelessWidget {
                   runSpacing: AppDimens.sp8,
                   children: [
                     if (today != null)
-                      ChoiceChip(
-                        label: Text('allocation_preset_today'.tr()),
+                      _PresetPill(
+                        label: 'allocation_preset_today'.tr(),
                         selected: same(today),
-                        onSelected: (_) => onPreset(today),
+                        onTap: () => onPreset(today),
                       ),
-                    ChoiceChip(
-                      label: Text('allocation_preset_equal'.tr()),
+                    _PresetPill(
+                      label: 'allocation_preset_equal'.tr(),
                       selected: same(equal),
-                      onSelected: (_) => onPreset(equal),
+                      onTap: () => onPreset(equal),
                     ),
                   ],
                 ),
@@ -701,6 +708,71 @@ class _SplitStep extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Un atajo del reparto ("Como está hoy", "Partes iguales"). Elegido:
+/// fondo del acento tenue, borde y texto del acento; si no, como una card.
+/// Siempre texto con contraste (el chip del tema deja el texto gris).
+class _PresetPill extends StatelessWidget {
+  const _PresetPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+      side: BorderSide(color: selected ? colors.accentBlue : colors.border),
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? colors.chip : colors.surfaceCard,
+        shape: shape,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: shape,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selected) ...[
+                    Icon(
+                      Icons.check_rounded,
+                      size: AppDimens.iconSm,
+                      color: colors.accentBlue,
+                    ),
+                    const SizedBox(width: AppDimens.sp6),
+                  ],
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color:
+                            selected ? colors.accentBlue : colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -846,7 +918,9 @@ class _SplitRow extends StatelessWidget {
                     enabled && !locked
                         ? (v) {
                           if (v.round() != pct) {
-                            HapticFeedback.selectionClick();
+                            PortyHapticsService.maybeOf(
+                              context,
+                            )?.selectionTap();
                             onChanged(v.round());
                           }
                         }
@@ -949,104 +1023,6 @@ class _PercentSheetState extends State<_PercentSheet> {
               const SizedBox(height: AppDimens.sp20),
               PositionPrimaryButton(
                 label: 'allocation_target_save'.tr(),
-                onPressed: _save,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Sumar un ticker que todavía no tiene.
-class _AddTickerSheet extends StatefulWidget {
-  const _AddTickerSheet({required this.existing});
-
-  final List<String> existing;
-
-  static Future<String?> show(
-    BuildContext context, {
-    required List<String> existing,
-  }) => showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => _AddTickerSheet(existing: existing),
-  );
-
-  @override
-  State<_AddTickerSheet> createState() => _AddTickerSheetState();
-}
-
-class _AddTickerSheetState extends State<_AddTickerSheet> {
-  final _ticker = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final ticker = _ticker.text.trim().toUpperCase();
-    if (!RegExp(r'^[A-Z0-9.\-^=]{1,15}$').hasMatch(ticker)) {
-      setState(() => _error = 'allocation_error_ticker'.tr());
-      return;
-    }
-    if (widget.existing.contains(ticker)) {
-      setState(() => _error = 'allocation_error_duplicate'.tr());
-      return;
-    }
-    Navigator.of(context).pop(ticker);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppDimens.pageHorizontal,
-            0,
-            AppDimens.pageHorizontal,
-            AppDimens.sp16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'allocation_add'.tr(),
-                style: tt.titleLarge?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppDimens.sp6),
-              Text(
-                'allocation_add_body'.tr(),
-                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-              ),
-              const SizedBox(height: AppDimens.sp16),
-              TextField(
-                controller: _ticker,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                onSubmitted: (_) => _save(),
-                decoration: InputDecoration(
-                  labelText: 'import_edit_ticker'.tr(),
-                  helperText: 'import_edit_ticker_help'.tr(),
-                  errorText: _error,
-                ),
-              ),
-              const SizedBox(height: AppDimens.sp20),
-              PositionPrimaryButton(
-                label: 'allocation_add_confirm'.tr(),
                 onPressed: _save,
               ),
             ],

@@ -1116,10 +1116,13 @@ final _cases = <_Case>[
     (t, _) => [
       ..._expect(t.called('get_allocation_plan'), 'no leyó el plan: $t'),
       ..._expect(
-        t.components.where((c) => c != 'Column').every((c) => c == 'QaAnswerText'),
-        'solo QaAnswerText: ${t.components}',
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
       ),
-      ..._expect(t.text.contains('AAPL') && t.text.contains('NVDA'), 'faltan tickers'),
+      ..._expect(
+        t.text.contains('AAPL') || t.text.contains('NVDA'),
+        'no nombró el mayor desvío',
+      ),
       ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
     ],
   ),
@@ -1131,6 +1134,10 @@ final _cases = <_Case>[
       ..._expect(
         t.called('get_allocation_plan', (a) => a['contribution_usd'] == 1000),
         'no pidió el reparto de 1000: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
       ),
       ..._expect(t.text.contains('AAPL'), 'falta el ticker que necesita el aporte'),
       ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),

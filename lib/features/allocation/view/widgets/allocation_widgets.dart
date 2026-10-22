@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -255,7 +256,9 @@ class AlertSettingsEditor extends StatelessWidget {
                 activeColor: colors.accentBlue,
                 inactiveColor: colors.track,
                 onChanged: (v) {
-                  if (v.round() != points) HapticFeedback.selectionClick();
+                  if (v.round() != points) {
+                    PortyHapticsService.maybeOf(context)?.selectionTap();
+                  }
                   onThreshold(v.roundToDouble());
                 },
               ),

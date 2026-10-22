@@ -34,6 +34,7 @@ abstract final class AssistantGroundingCheck {
     'QaCompanyAnalysis': {'get_quote', 'get_fundamentals'},
     'QaEarningsCalendar': {'get_earnings'},
     'QaEtfHoldings': {'get_etf_holdings'},
+    'QaAllocationPlan': {'get_allocation_plan'},
     'QaNewsSummary': {'get_news'},
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},

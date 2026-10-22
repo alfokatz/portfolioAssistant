@@ -268,6 +268,8 @@ class _Dashboard extends StatelessWidget {
         worst != null &&
         worst.drift.abs() >= plan.driftThreshold;
 
+    // Cara de siempre: alejarse del plan no es una mala noticia (la cara
+    // contenta o triste es solo para cómo le fue a la cartera en la semana).
     final (mood, message, footnote) =
         !hasHoldings
             ? (
@@ -277,7 +279,7 @@ class _Dashboard extends StatelessWidget {
             )
             : offPlan
             ? (
-              PortyAvatarState.concerned,
+              PortyAvatarState.idle,
               (worst.targetPct == 0
                       ? 'allocation_status_off_outside'
                       : worst.drift > 0
@@ -293,7 +295,7 @@ class _Dashboard extends StatelessWidget {
               'allocation_status_off_note'.tr(),
             )
             : (
-              PortyAvatarState.answered,
+              PortyAvatarState.idle,
               'allocation_status_ok'.tr(),
               'allocation_status_ok_note'.tr(
                 namedArgs: {'points': '${plan.driftThreshold.round()}'},

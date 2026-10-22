@@ -37,11 +37,13 @@ double _round1(double v) => (v * 10).roundToDouble() / 10;
 /// resto de las instrucciones al modelo.
 abstract final class PlanGuides {
   static const planOk =
-      'QaAnswerText only: one sentence, then one "• " line per ticker '
-      '(ticker: hoy X% · objetivo Y%), off_plan first, up to 8. With '
-      'contribution: one "• " line per split item (ticker: \$amount) instead. '
-      'The plan is the user\'s own targets: say "para acercarte a tu plan"; '
-      'never "te conviene" or "comprá", never judge a target.';
+      'QaAllocationPlan (no props: the app draws every ticker, bar and '
+      'amount from this result) + QaAnswerText with 1-2 sentences, no '
+      'bullets: the biggest gap from off_plan (or that everything is within '
+      'the drift_threshold margin); with contribution, that the amount goes '
+      'mostly to what is below the plan, buying only. Don\'t repeat the '
+      'rows. The plan is the user\'s own targets: say "para acercarte a tu '
+      'plan"; never "te conviene" or "comprá", never judge a target.';
   static const planEmpty =
       'QaAnswerText: they have no plan yet; they create it in Ajustes → Mi '
       'plan de cartera. You can\'t create it.';
@@ -132,6 +134,9 @@ class GetAllocationPlanTool implements DataTool {
       'drift_threshold': plan.driftThreshold,
       'weekly_alert': plan.notify,
       'max_drift_pts': _round1(AllocationMath.maxDrift(rows)),
+      'portfolio_value_usd': _round1(
+        values.values.where((v) => v > 0).fold(0.0, (a, b) => a + b),
+      ),
       'off_plan': [
         for (final r in rows)
           if (r.drift.abs() >= plan.driftThreshold) r.ticker,

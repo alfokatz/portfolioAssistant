@@ -1,5 +1,6 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/allocation_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
@@ -750,6 +751,31 @@ final CatalogItem qaEtfHoldingsItem = CatalogItem(
     "id": "holdings",
     "component": "QaEtfHoldings",
     "ticker": "XLF"
+  }
+]
+''',
+  ],
+);
+
+/// El plan de cartera del usuario contra hoy (y el reparto de un aporte si
+/// se pidió). El modelo no pasa datos: la app pone todo desde
+/// `get_allocation_plan` (ver `AllocationPlanWidgets`).
+final CatalogItem qaAllocationPlanItem = CatalogItem(
+  name: 'QaAllocationPlan',
+  dataSchema: S.object(
+    description:
+        'El plan de cartera del usuario vs. hoy, y el reparto del aporte si '
+        'lo pediste. Sin props: la app pone todo desde get_allocation_plan.',
+    properties: {},
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, AllocationPlanWidgets.qaAllocationPlan),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "plan",
+    "component": "QaAllocationPlan"
   }
 ]
 ''',

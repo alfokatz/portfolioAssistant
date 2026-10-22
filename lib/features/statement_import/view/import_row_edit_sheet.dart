@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -131,24 +132,43 @@ class _ImportRowEditSheetState extends State<ImportRowEditSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  'import_edit_title'.tr(),
-                  style: tt.titleLarge?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
+              Row(
+                children: [
+                  ExcludeSemantics(
+                    child: QaTickerAvatar(ticker: widget.row.ticker, size: 40),
                   ),
-                ),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(
+                          header: true,
+                          child: Text(
+                            'import_edit_title'.tr(),
+                            style: tt.titleLarge?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.row.name == null
+                              ? widget.row.ticker
+                              : '${widget.row.ticker} · ${widget.row.name}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyMedium?.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (widget.row.name != null) ...[
-                const SizedBox(height: AppDimens.sp4),
-                Text(
-                  widget.row.name!,
-                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-                ),
-              ],
               const SizedBox(height: AppDimens.sp20),
               TextField(
                 controller: _ticker,
@@ -159,7 +179,7 @@ class _ImportRowEditSheetState extends State<ImportRowEditSheet> {
                   helperMaxLines: 2,
                 ),
               ),
-              const SizedBox(height: AppDimens.sp12),
+              const SizedBox(height: AppDimens.sp20),
               TextField(
                 controller: _quantity,
                 keyboardType: const TextInputType.numberWithOptions(

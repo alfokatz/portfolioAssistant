@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/subscription/ui/subscription_paywal
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart' show goalHoldingsProvider;
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
+import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_format.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -262,7 +263,12 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppDimens.sp12),
-            const PortyAvatar(size: 48),
+            // La misma cara que en la card de la Home: cómo le fue a la
+            // cartera esta semana.
+            PortyAvatar(
+              size: 48,
+              state: WeeklyReportCard.moodFor(report.changePct),
+            ),
           ],
         ),
         const SizedBox(height: AppDimens.sp24),

@@ -281,22 +281,31 @@ class _Group extends StatelessWidget {
 
 /// Alto de aire arriba y abajo de cada fila (a los costados, el margen de
 /// la página).
-const _rowPadding = AppDimens.sp16;
+const _rowPadding = AppDimens.sp20 - 2;
 
 /// Entre el anillo y el texto.
 const _ringGap = AppDimens.sp16 - 2;
 
-/// Una meta: a la izquierda su anillo (cuánto lleva, del color del
-/// veredicto) con el ícono de lo que es (un avión, un auto…) sobre un disco
-/// suave; al medio, el nombre, cuánto lleva de cuánto y cómo viene con el
-/// tiempo que falta; a la derecha, el porcentaje y el aporte por mes. Tocar
-/// abre el detalle; mantener apretada, sus opciones; deslizar a la
-/// izquierda, borrarla (con confirmación). Con [goal] en `null` es su
-/// propio skeleton.
+/// Una meta, en limpio: a la izquierda su anillo (cuánto lleva, del color
+/// de cómo viene) con el ícono de lo que es; al medio, el nombre y cuánto
+/// lleva de cuánto. El estado solo aparece, como etiqueta, cuando hay algo
+/// que mirar (adelantada, atrasada, vencida o cumplida): "en camino" es lo
+/// esperable y no hace falta decirlo en cada fila. El aporte por mes, el
+/// porcentaje y el tiempo que falta están en el detalle. Tocar abre el
+/// detalle; mantener apretada, sus opciones; deslizar a la izquierda,
+/// borrarla (con confirmación). Con [goal] en `null` es su propio skeleton.
 class _GoalRow extends ConsumerWidget {
   const _GoalRow({required this.goal});
 
   final _Goal? goal;
+
+  /// Los estados que merecen etiqueta en la lista.
+  static const _flagged = {
+    GoalProgressStatus.ahead,
+    GoalProgressStatus.behind,
+    GoalProgressStatus.overdue,
+    GoalProgressStatus.achieved,
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -305,17 +314,10 @@ class _GoalRow extends ConsumerWidget {
     const tabular = [FontFeature.tabularFigures()];
     final g = goal;
     final p = g?.progress;
-    final achieved = g?.goal.status == GoalStatus.achieved;
     final statusColor =
         p == null
             ? colors.textSecondary
             : GoalAnalysis.statusColor(p.status, colors);
-    final locale = Localizations.localeOf(context);
-    final secondary = tt.bodySmall?.copyWith(
-      color: colors.textSecondary,
-      height: 1.35,
-      fontFeatures: tabular,
-    );
 
     final title = tt.titleMedium?.copyWith(
       fontSize: 16,
@@ -329,49 +331,18 @@ class _GoalRow extends ConsumerWidget {
       height: 1.3,
       fontFeatures: tabular,
     );
-    final pct = tt.titleMedium?.copyWith(
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.3,
-      height: 1.25,
-      color: achieved ? statusColor : colors.textPrimary,
-      fontFeatures: tabular,
-    );
-
-    /// Un renglón con algo a la izquierda (que se corta si no entra) y un
-    /// dato a la derecha.
-    Widget line(Widget start, Widget? end) => Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Expanded(child: start),
-        if (end != null) ...[const SizedBox(width: AppDimens.sp12), end],
-      ],
-    );
 
     final Widget content;
     if (g == null) {
       content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          line(
-            SkeletonText(null, placeholder: 'Viaje a Japón', style: title),
-            SkeletonText(null, placeholder: '00 %', style: pct),
-          ),
+          SkeletonText(null, placeholder: 'Viaje a Japón', style: title),
           const SizedBox(height: AppDimens.sp4),
-          line(
-            SkeletonText(
-              null,
-              placeholder: '0.000 \$ de 00.000 \$',
-              style: amount,
-            ),
-            SkeletonText(null, placeholder: '000 \$/mes', style: secondary),
-          ),
-          const SizedBox(height: AppDimens.sp6),
           SkeletonText(
             null,
-            placeholder: 'En camino · faltan 0 meses',
-            style: secondary,
+            placeholder: '0.000 \$ de 00.000 \$',
+            style: amount,
           ),
         ],
       );
@@ -380,91 +351,45 @@ class _GoalRow extends ConsumerWidget {
       content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Nombre y cuánto de la meta lleva.
-          line(
-            Text(
-              g.goal.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: title,
-            ),
-            Text(GoalAnalysis.percent(progress.fraction), style: pct),
+          Text(
+            g.goal.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: title,
           ),
           const SizedBox(height: AppDimens.sp4),
-          // Lo juntado manda (el total, en segundo plano) y el aporte.
-          line(
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: QaFormat.money(progress.saved),
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: QaFormat.money(progress.saved),
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  TextSpan(
-                    text:
-                        ' ${'goals_of_target'.tr(namedArgs: {'target': QaFormat.money(progress.target)})}',
-                  ),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: amount,
+                ),
+                TextSpan(
+                  text:
+                      ' ${'goals_of_target'.tr(namedArgs: {'target': QaFormat.money(progress.target)})}',
+                ),
+              ],
             ),
-            achieved
-                ? null
-                : Text(
-                  'goals_card_monthly'.tr(
-                    namedArgs: {
-                      'monthly': QaFormat.money(progress.plannedMonthly),
-                    },
-                  ),
-                  style: secondary,
-                ),
-          ),
-          const SizedBox(height: AppDimens.sp6),
-          // Cómo viene, con un punto de su color, y cuánto falta: todo el
-          // ancho, para que no se corte.
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: AppDimens.sp6),
-              Flexible(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: GoalAnalysis.statusLabel(progress.status),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      TextSpan(
-                        text:
-                            ' · ${GoalAnalysis.timeLeft(g.goal, progress, locale)}',
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: secondary,
-                ),
-              ),
-            ],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: amount,
           ),
         ],
       );
     }
+
+    final status = p?.status;
+    final flag =
+        status != null && _flagged.contains(status)
+            ? _StatusTag(
+              label: GoalAnalysis.statusLabel(status),
+              color: statusColor,
+            )
+            : null;
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: _rowPadding),
@@ -483,6 +408,17 @@ class _GoalRow extends ConsumerWidget {
               ),
           const SizedBox(width: _ringGap),
           Expanded(child: content),
+          if (flag != null) ...[const SizedBox(width: AppDimens.sp12), flag],
+          if (g != null) ...[
+            const SizedBox(width: AppDimens.sp8),
+            ExcludeSemantics(
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: AppDimens.iconMd,
+                color: colors.textSecondary.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -536,6 +472,31 @@ class _GoalRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// La etiqueta de estado de una meta que pide atención (o que se cumplió):
+/// texto del color del estado sobre su tinte, sin borde.
+class _StatusTag extends StatelessWidget {
+  const _StatusTag({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+    ),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: color,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 /// Cuánto lleva una meta, como un anillo alrededor del ícono de lo que es

@@ -196,7 +196,9 @@ void main() {
           child: MaterialApp(theme: theme, home: const BinanceScreen()),
         ),
       );
-      await tester.pumpAndSettle();
+      // Porty respira (animación sin fin): avanzar el tiempo a mano.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
     }
 
     testWidgets('Premium sin conectar: pasos y formulario', (tester) async {
@@ -238,7 +240,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('binance_imported'), findsOneWidget);
+      expect(find.text('binance_status_imported'), findsOneWidget);
       expect(find.text('binance_estimated_cost'), findsOneWidget);
       expect(find.text('binance_sync_now'), findsOneWidget);
       expect(find.text('binance_disconnect'), findsOneWidget);

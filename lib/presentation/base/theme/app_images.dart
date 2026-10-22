@@ -12,6 +12,7 @@ class AppImages {
   static const String _googleIconPath = 'assets/images/google_icon.svg';
   static const String _etoroLogoPath = 'assets/images/etoro_logo.svg';
   static const String _etoroMarkPath = 'assets/images/etoro_mark.svg';
+  static const String _binanceMarkPath = 'assets/images/binance_mark.svg';
 
   /// Proporción del wordmark de eToro (ancho / alto).
   static const double etoroLogoAspect = 107 / 20;
@@ -109,6 +110,10 @@ class AppImages {
   );
 
   /// El ícono de eToro ("‹e›" en verde), sin fondo. Proporción 40,5 × 20.
+  /// El símbolo de Binance (los rombos amarillos), cuadrado.
+  static SvgPicture binanceMark({Key? key, double size = 20}) =>
+      SvgPicture.asset(_binanceMarkPath, key: key, width: size, height: size);
+
   static SvgPicture etoroMark({Key? key, double width = 20}) =>
       SvgPicture.asset(
         _etoroMarkPath,

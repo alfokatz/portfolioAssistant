@@ -13,6 +13,16 @@ import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provi
 import 'package:portfolio_assistant/features/watchlist/view/watchlist_screen.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+import 'package:portfolio_assistant/domain/entities/company_brand.dart';
+import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
+import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/symbol_search_repository.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
 
 final _today = DateTime(2026, 10, 16, 15);
 
@@ -153,42 +163,71 @@ void main() {
   });
 
   group('pantalla', () {
+    setUpAll(() => PortyAvatar.ambientMotion = false);
+    tearDownAll(() => PortyAvatar.ambientMotion = true);
+
+    late _Repo repo;
+
     Future<void> pump(
       WidgetTester tester, {
       required SubscriptionTier tier,
       List<WatchlistItem> items = const [],
+      Map<String, double> held = const {},
     }) async {
       tester.view.physicalSize = const Size(320, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      repo = _Repo(List.of(items));
       final theme = ProviderContainer().read(themeDataLightProvider);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            watchlistRepositoryProvider.overrideWithValue(
-              _Repo(List.of(items)),
-            ),
+            watchlistRepositoryProvider.overrideWithValue(repo),
             quoteRepositoryProvider.overrideWithValue(_Quotes()),
             subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
+            goalHoldingsProvider.overrideWithValue(held),
+            symbolSearchRepositoryProvider.overrideWithValue(_Search()),
+            getCurrentPriceUseCaseProvider.overrideWithValue(
+              GetCurrentPriceUseCase(quoteRepository: _Quotes()),
+            ),
+            companyBrandLoaderProvider.overrideWithValue(
+              CompanyBrandLoader(_NoBrandRepo()),
+            ),
           ],
-          child: MaterialApp(theme: theme, home: const WatchlistScreen()),
+          child: MaterialApp(
+            theme: theme,
+            // Alguien escucha las alertas (si no, el provider se descarta
+            // antes de que se cierre el aviso).
+            home: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(alertProvider);
+                return const WatchlistScreen();
+              },
+            ),
+          ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settle(tester);
     }
 
-    testWidgets('Free: explica que es de Premium', (tester) async {
+    testWidgets('Free: Porty explica para qué sirve y lleva a los planes', (
+      tester,
+    ) async {
       await pump(tester, tier: SubscriptionTier.free);
-      expect(find.text('watchlist_locked_title'), findsOneWidget);
+      expect(find.text('watchlist_intro_porty'), findsOneWidget);
+      expect(find.text('watchlist_locked_body'), findsOneWidget);
+      expect(find.text('watchlist_see_plans'), findsOneWidget);
       expect(find.byTooltip('watchlist_add'), findsNothing);
     });
 
-    testWidgets('Premium vacía: invita a agregar', (tester) async {
+    testWidgets('Premium vacía: invita a buscar una acción', (tester) async {
       await pump(tester, tier: SubscriptionTier.premium);
-      expect(find.text('watchlist_empty_title'), findsOneWidget);
+      expect(find.text('watchlist_add_first'), findsOneWidget);
+      expect(find.text('watchlist_point_alerts_title'), findsOneWidget);
     });
 
-    testWidgets('Premium con tickers: precio, día y acciones', (tester) async {
+    testWidgets('con tickers: Porty cuenta el mayor movimiento, filas y '
+        'acciones', (tester) async {
       await pump(
         tester,
         tier: SubscriptionTier.premium,
@@ -201,13 +240,68 @@ void main() {
           ),
         ],
       );
-      expect(find.text('AMZN'), findsOneWidget);
+      // Con la fecha de hoy, el cierre anterior es la última vela (110): el
+      // día no se movió y Porty dice que la lista está tranquila.
+      expect(find.text('watchlist_porty_calm'), findsOneWidget);
+      expect(find.text('AMZN'), findsWidgets);
       expect(find.text('\$110.00'), findsOneWidget);
-      expect(find.text('watchlist_since_added'), findsOneWidget);
-      await tester.tap(find.text('AMZN'));
-      await tester.pumpAndSettle();
+      expect(find.text('watchlist_count'), findsOneWidget);
+      await tester.tap(find.text('AMZN').first);
+      await settle(tester);
+      expect(find.text('watchlist_action_ask'), findsOneWidget);
       expect(find.text('watchlist_action_remove'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('agregar: busca por nombre, marca lo que ya tiene y lo suma', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.premium,
+        held: const {'AAPL': 1000},
+      );
+      await tester.tap(find.text('watchlist_add_first'));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField), 'a');
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
+      // AAPL ya está en la cartera: marcada, no se elige.
+      expect(find.text('watchlist_taken_held'), findsOneWidget);
+      await tester.tap(find.text('AMZN'));
+      await settle(tester);
+      expect(repo.items.map((i) => i.symbol), ['AMZN']);
+      expect(find.text('watchlist_porty_calm'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
+    });
   });
+}
+
+Future<void> settle(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
+}
+
+class _Search implements SymbolSearchRepository {
+  @override
+  Future<Either<HttpError, List<SymbolSearchResult>>> search(String q) async =>
+      const Right([
+        SymbolSearchResult(
+          symbol: 'AMZN',
+          description: 'AMAZON.COM INC',
+          type: 'Common Stock',
+        ),
+        SymbolSearchResult(
+          symbol: 'AAPL',
+          description: 'APPLE INC',
+          type: 'Common Stock',
+        ),
+      ]);
+}
+
+/// Sin logos: los avatares muestran el monograma (y no reintentan).
+class _NoBrandRepo implements CompanyBrandRepository {
+  @override
+  Future<CompanyBrand?> getBrand(String ticker) async =>
+      CompanyBrand(ticker: ticker);
 }

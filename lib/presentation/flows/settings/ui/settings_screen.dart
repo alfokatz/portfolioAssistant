@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/allocation/nav/allocation_router.da
 import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
 import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -444,6 +445,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 const SettingsDivider(),
                 SettingsNavRow(
                   icon: Icons.currency_bitcoin_rounded,
+                  leading: const ExcludeSemantics(child: BinanceAppIcon()),
                   label: 'binance_title'.tr(),
                   subtitle: _binanceLabel(binance),
                   onTap: () => context.pushNamed(BinanceRouter.routeName),
