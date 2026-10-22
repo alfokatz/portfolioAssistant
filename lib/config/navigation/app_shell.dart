@@ -14,9 +14,9 @@ import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_b
 
 /// Shell around the three tabbed sections (Home, Assistant, Settings).
 ///
-/// Each branch keeps its own [Navigator] alive inside the
-/// `StatefulShellRoute.indexedStack` in app_router.dart — switching tabs
-/// swaps *visibility*, not the widget tree, so a screen's scroll position,
+/// Each branch keeps its own [Navigator] alive inside the swipeable
+/// [ShellBranchPager] that app_router.dart gives the `StatefulShellRoute` —
+/// switching tabs moves pages, it doesn't rebuild them, so a screen's scroll position,
 /// local state and cached provider data all survive a tab switch instead
 /// of being torn down and rebuilt (which is what made "Inicio" feel like a
 /// reload every time you tapped back to it).
@@ -86,105 +86,14 @@ class AppShell extends ConsumerWidget with BaseScreen {
           );
         },
       ),
-      body: _DropInTabContent(
-        tabIndex: navigationShell.currentIndex,
-        // Al abrir la app y al volver a ella, eToro se pone al día solo.
-        // Tocar una notificación abre su pantalla (también desde cerrada).
-        child: PushOpenListener(
-          child: EtoroAutoSync(child: BinanceAutoSync(child: navigationShell)),
-        ),
+      // Las pestañas se pasan deslizando (ShellBranchPager, armado en
+      // app_router.dart). Al abrir la app y al volver a ella, eToro y Binance
+      // se ponen al día solos. Tocar una notificación abre su pantalla
+      // (también desde cerrada).
+      body: PushOpenListener(
+        child: EtoroAutoSync(child: BinanceAutoSync(child: navigationShell)),
       ),
     );
   }
 }
 
-/// Plays a short "drop in, settle with a little bounce" entrance whenever
-/// [tabIndex] changes — the IndexedStack under the shell swaps which
-/// branch is visible instantly (that's the point: no rebuild, no reload),
-/// so this purely cosmetic wrapper is what gives the switch some life.
-/// It never re-keys or rebuilds [child]: only its transform/opacity move,
-/// so every branch's own navigator, scroll position and provider state
-/// stay exactly as they were.
-class _DropInTabContent extends StatefulWidget {
-  const _DropInTabContent({required this.tabIndex, required this.child});
-
-  final int tabIndex;
-  final Widget child;
-
-  @override
-  State<_DropInTabContent> createState() => _DropInTabContentState();
-}
-
-class _DropInTabContentState extends State<_DropInTabContent>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _drop;
-  late final Animation<double> _fade;
-  bool _started = false;
-
-  static const _dropDistance = 32.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 480),
-    );
-    _drop = Tween<double>(
-      begin: -_dropDistance,
-      end: 0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // `MediaQuery.disableAnimationsOf` needs an inherited widget, which
-    // isn't safely readable from `initState` — this is the earliest safe
-    // spot, gated so the first play only fires once.
-    if (_started) return;
-    _started = true;
-    _play();
-  }
-
-  @override
-  void didUpdateWidget(covariant _DropInTabContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tabIndex != widget.tabIndex) _play();
-  }
-
-  void _play() {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder:
-          (context, child) => Opacity(
-            opacity: _fade.value.clamp(0.0, 1.0),
-            child: Transform.translate(
-              offset: Offset(0, _drop.value),
-              child: child,
-            ),
-          ),
-    );
-  }
-}

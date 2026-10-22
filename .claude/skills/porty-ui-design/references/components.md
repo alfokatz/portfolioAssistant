@@ -56,3 +56,4 @@ Convención: `static Future<T?> show(BuildContext context, ...)` en la clase de 
 - **Filas**: alto mínimo 44–56, círculo de ícono 32–36 con `chip`/`onChip`, título w500–w700, valor/sub en `textSecondary`, flecha o chevron en `textSecondary`. Tap abre, long-press opciones, swipe-izquierda borra con `ConfirmSheet`.
 - **Hero numérico**: label secundario → número display tabular → fila PnL → gráfico sin card.
 - **Login / transiciones de estado de la app**: `FadeThroughPage`.
+- **Gestos horizontales dentro de una pestaña del shell**: las pestañas se pasan deslizando (`lib/config/navigation/shell_branch_pager.dart`). Un gesto horizontal propio (Dismissible, scrub de gráfico, carrusel) le gana al cambio de pestaña en su zona: usarlo solo donde el usuario lo espera (filas que se borran, gráficos) y no cubrir toda la pantalla con uno.

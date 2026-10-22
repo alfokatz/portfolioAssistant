@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_shell.dart';
+import 'package:portfolio_assistant/config/navigation/shell_branch_pager.dart';
 import 'package:portfolio_assistant/config/navigation/go_router_refresh.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
@@ -97,12 +98,19 @@ class AppRouter {
         ),
         ...AuthRouter.getRoutes(),
         OnboardingRouter.getRoute(),
-        StatefulShellRoute.indexedStack(
+        StatefulShellRoute(
           // Se entra al shell solo desde login u onboarding: fade, no slide.
           pageBuilder:
               (context, state, navigationShell) => FadeThroughPage<void>(
                 key: state.pageKey,
                 child: AppShell(navigationShell: navigationShell),
+              ),
+          // Las pestañas se pasan deslizando el dedo, como en Instagram.
+          navigatorContainerBuilder:
+              (context, navigationShell, children) => ShellBranchPager(
+                currentIndex: navigationShell.currentIndex,
+                onPageSwiped: navigationShell.goBranch,
+                children: children,
               ),
           branches: [
             StatefulShellBranch(routes: [HomeRouter.getRoute()]),
