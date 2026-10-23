@@ -392,6 +392,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadAppSettings: _settingsForTool,
         loadConnectedAccounts: _accountsForTool,
         loadAccountOverview: _accountOverviewForTool,
+        pendingRequest: _pendingRequest,
         queriesLeftThisMonth: () {
           final sub = ref.read(subscriptionProvider);
           final left = sub.queriesLimit - sub.queriesUsed;
@@ -450,6 +451,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
               onContent: service.streaming ? _previewSink(surfaceId) : null,
             );
           },
+        );
+        _pendingRequest = AssistantTurnPolicy.pendingRequest(
+          outcome ?? const TurnOutcome([]),
         );
         final notices = AssistantTurnPolicy.noticesFor(
           outcome ?? const TurnOutcome([]),
@@ -1163,6 +1167,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   static const _watchlistQuotesWait = Duration(seconds: 5);
+
+  /// La acción que el último turno dejó esperando un dato (ver
+  /// [AssistantTurnPolicy.pendingRequest]); vive lo que la conversación.
+  Map<String, Object?>? _pendingRequest;
 
   /// Para get_app_settings: la cuenta además de los ajustes.
   Future<Map<String, Object?>> _accountOverviewForTool() async {

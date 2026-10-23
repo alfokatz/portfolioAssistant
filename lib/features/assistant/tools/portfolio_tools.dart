@@ -29,6 +29,9 @@ abstract final class PortfolioBrief {
   /// Las metas guardadas en la pestaña Metas, con cómo van.
   static const savedGoalsKey = 'saved_goals';
 
+  /// La acción que quedó esperando un dato del usuario.
+  static const pendingRequestKey = 'pending_request';
+
   /// Su plan y cuántas consultas le quedan este mes.
   static const accountKey = 'account';
 
@@ -68,6 +71,9 @@ abstract final class PortfolioBrief {
       if (ctx.queriesLeftThisMonth != null)
         'queries_left_this_month': ctx.queriesLeftThisMonth,
     };
+    if (ctx.pendingRequest case final pending?) {
+      map[pendingRequestKey] = pending;
+    }
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;
     }

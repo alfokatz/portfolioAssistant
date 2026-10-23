@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
@@ -421,7 +422,57 @@ abstract final class AssistantAnswerReview {
         }
       }
     }
+    // Una propuesta lista del turno (propose_* ok) sin su card en la
+    // respuesta: la app la agrega. El usuario nunca se queda sin la card
+    // de algo que Porty preparó (visto en evals: "preparé…" sin la card).
+    if (_appendMissingProposals(list, components, evidence)) changed = true;
     return changed ? jsonEncode(message) : line;
+  }
+
+  /// Agrega a [list] (y a los hijos de la raíz) un `QaActionProposal` por
+  /// cada propuesta `ok` de este turno que no está en [components].
+  /// `true` si agregó alguna.
+  static bool _appendMissingProposals(
+    List<dynamic> list,
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) {
+    final root = components.where((c) => c['id'] == 'root').firstOrNull;
+    final children = root?['children'];
+    if (root == null || children is! List) return false;
+    final shownIds = {
+      for (final c in components)
+        if (c['component'] == 'QaActionProposal') '${c['proposalId']}',
+    };
+    final ready = [
+      for (final call in evidence.turnCalls)
+        if (ActionTools.proposalTools.contains(call.name) &&
+            call.status == 'ok' &&
+            call.result[ActionProposal.toolResultIdKey] is String)
+          call,
+    ];
+    // La misma propuesta repetida en el turno (misma tool y args, visto en
+    // evals) cuenta una vez: si ya se ve una, no se agrega la otra.
+    String keyOf(ToolCallRecord c) => '${c.name}${jsonEncode(c.args)}';
+    final shownKeys = {
+      for (final c in ready)
+        if (shownIds.contains(c.result[ActionProposal.toolResultIdKey]))
+          keyOf(c),
+    };
+    var added = false;
+    for (final call in ready) {
+      if (!shownKeys.add(keyOf(call))) continue;
+      final id = call.result[ActionProposal.toolResultIdKey] as String;
+      final componentId = 'proposal_$id';
+      list.add({
+        'id': componentId,
+        'component': 'QaActionProposal',
+        'proposalId': id,
+      });
+      children.add(componentId);
+      added = true;
+    }
+    return added;
   }
 
   /// El último resultado de ESTE turno con un plan completo para mostrar.

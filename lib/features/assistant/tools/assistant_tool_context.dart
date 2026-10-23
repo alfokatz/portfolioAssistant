@@ -130,6 +130,7 @@ class AssistantToolContext {
     this.loadConnectedAccounts,
     this.loadAccountOverview,
     this.queriesLeftThisMonth,
+    this.pendingRequest,
     this.loadWeeklyReport,
     this.userMemories = const [],
     this.saveMemory,
@@ -195,6 +196,10 @@ class AssistantToolContext {
 
   /// Consultas a Porty que le quedan este mes (`account` del brief).
   final int? queriesLeftThisMonth;
+
+  /// La acción que el turno anterior dejó esperando un dato (ver
+  /// `AssistantTurnPolicy.pendingRequest`).
+  final Map<String, Object?>? pendingRequest;
 
   /// El informe semanal de esta semana tal como lo ve el usuario (`null`
   /// si todavía no está); la función es `null` fuera de la app.

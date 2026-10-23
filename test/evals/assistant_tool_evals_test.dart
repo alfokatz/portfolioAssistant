@@ -45,6 +45,7 @@ import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.d
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -228,6 +229,9 @@ class _Symbols extends FakeSymbolSearchRepository {
     ],
     'amazon': [
       SymbolSearchResult(symbol: 'AMZN', description: 'AMAZON.COM INC', type: 'Common Stock'),
+    ],
+    'netflix': [
+      SymbolSearchResult(symbol: 'NFLX', description: 'NETFLIX INC', type: 'Common Stock'),
     ],
     'nvidia': [
       SymbolSearchResult(symbol: 'NVDA', description: 'NVIDIA CORP', type: 'Common Stock'),
@@ -1268,6 +1272,82 @@ final _cases = <_Case>[
   ),
 ];
 
+/// Cada atajo que ofrece una card del chat (`QaFollowUp('label',
+/// 'pregunta')` en `lib/features/assistant/catalog`), leído del código: si
+/// se suma una card con un atajo nuevo, entra solo. Porty tiene que
+/// contestar de verdad: sin error, sin rendirse y con texto. Lo que diga
+/// depende del contexto (varios atajos suponen una card previa), así que no
+/// se exige una tool en particular.
+List<_Case> _followUpCases() {
+  final questions = <String>{};
+  final chip = RegExp(r"QaFollowUp\(\s*'([^']+)',\s*'([^'$]+)'");
+  for (final f in Directory('lib/features/assistant/catalog')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'))) {
+    for (final m in chip.allMatches(f.readAsStringSync())) {
+      questions.add(m.group(2)!);
+    }
+  }
+  final sorted = questions.toList()..sort();
+  return [
+    for (final (i, q) in sorted.indexed)
+      _Case(
+        'chip-${i + 1}',
+        [q],
+        tier: SubscriptionTier.premium,
+        (t, _) => [
+          ..._expect(
+            t.answerText.trim().isNotEmpty,
+            'no contestó nada a "$q"',
+          ),
+        ],
+      ),
+  ];
+}
+
+/// Pedidos incompletos: Porty pregunta lo que falta (o lo resuelve) y con
+/// la respuesta del usuario lo hace.
+final _vagueCases = <_Case>[
+  for (final (id, turns, tool, argsOk) in [
+    (
+      'follow-other',
+      // AMZN ya está en la lista de prueba: Netflix es una nueva.
+      ['Quiero seguir otra acción', 'Netflix'],
+      'propose_watch',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NFLX',
+    ),
+    (
+      'alert-which',
+      ['Quiero crear una alerta de precio', 'Para NVDA si baja un 10%'],
+      'propose_price_alert',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NVDA',
+    ),
+    (
+      'sell-which',
+      ['Quiero registrar una venta', 'Vendí todas mis NVDA hoy'],
+      'propose_sell',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NVDA',
+    ),
+  ])
+    _Case(
+      'vague-$id',
+      turns,
+      tier: SubscriptionTier.premium,
+      (t, all) => [
+        ..._expect(
+          all.first.answerText.trim().isNotEmpty,
+          'no contestó el pedido incompleto',
+        ),
+        ..._expect(t.called(tool, argsOk), 'no lo hizo con la respuesta: $t'),
+        ..._expect(
+          t.components.contains('QaActionProposal'),
+          'sin la card para confirmar: ${t.components}',
+        ),
+      ],
+    ),
+];
+
 /// Un pedido de acción: llama a [tool] con lo esperado, muestra la card y
 /// no dice que ya lo hizo.
 List<_Case> _actionCase(
@@ -1540,7 +1620,16 @@ void main() {
           newsContext: NewsContextClient(client: edge),
         );
       }
-      final cases = newsV2 ? _newsV2Cases : _cases;
+      // EVAL_SUITE=followups: los atajos de todas las cards y los pedidos
+      // incompletos (aparte: la batería normal ya usa casi todo el cupo
+      // diario del usuario de prueba).
+      final followUps = Platform.environment['EVAL_SUITE'] == 'followups';
+      final cases =
+          newsV2
+              ? _newsV2Cases
+              : followUps
+              ? [..._followUpCases(), ..._vagueCases]
+              : _cases;
       final report = <Map<String, Object?>>[];
       var failures = 0;
 
@@ -1601,9 +1690,13 @@ void main() {
                 );
         final logs = <_TurnLog>[];
         var courtesyLeft = c.weeklyFree;
+        // Como la app: la acción que un turno deja a medias viaja en el
+        // brief del siguiente (`pending_request`).
+        Map<String, Object?>? pending;
         for (var i = 0; i < c.turns.length; i++) {
           final log = _TurnLog();
           final ctx = AssistantToolContext(
+            pendingRequest: pending,
             tier: c.tier,
             summary: heldSummary,
             data: caseData,
@@ -1691,6 +1784,7 @@ void main() {
               beforeRound: courtesy.beforeRound,
             );
             log.calls.addAll(outcome.toolCalls);
+            pending = AssistantTurnPolicy.pendingRequest(outcome);
             log.quotaWeight = AssistantTurnPolicy.quotaWeight(outcome);
             log.evidence = service.evidenceFor(surfaceId);
             final raw = service.log.currentTurn?.finalText ?? '';
@@ -1710,6 +1804,11 @@ void main() {
             final root = surface?.components['root'];
             if (root != null) {
               log.components.add(root.type);
+              // El fallback de la app es un Text suelto en la raíz.
+              final rootText = root.properties['text'];
+              if (root.type == 'Text' && rootText is String) {
+                log.answerText += rootText;
+              }
               final children = root.properties['children'];
               if (children is List) {
                 for (final id in children) {
@@ -1753,6 +1852,13 @@ void main() {
           // negativos — "no propuso nada" — pasaban con el turno caído).
           for (final l in logs)
             if (l.aborted is String) '${l.aborted}',
+          // Porty nunca se rinde: el mensaje genérico de error cuenta como
+          // falla en TODOS los casos (si falta un dato, tiene que preguntar).
+          for (final l in logs)
+            if ('${l.text}${l.answerText}'.contains(
+              LlmJsonSanitizer.defaultFallbackMessage,
+            ))
+              'se rindió: "${LlmJsonSanitizer.defaultFallbackMessage}"',
           ...c.check(logs.last, logs),
         ];
         // Regla de LAYOUT: como máximo un widget de datos (QaNewsSummary puede

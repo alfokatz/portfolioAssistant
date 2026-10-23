@@ -381,7 +381,10 @@ void main() {
         'Amazon in Talks to Acquire Decart AI',
         'Amazon Launches Alexa+ Tablet',
       ]);
-      expect(items.first['url'], 'https://www.bloomberg.com/news/amazon-decart');
+      expect(
+        items.first['url'],
+        'https://www.bloomberg.com/news/amazon-decart',
+      );
       expect(items.first['source'], 'Bloomberg');
       expect(items.first['dateLabel'], 'ayer');
       expect(items.last['summaryLine'], 'The tablet runs Google apps.');
@@ -403,7 +406,12 @@ void main() {
         'card answers, or without headlines', () {
       final shown = _answer([
         _intro('Noticias de AMZN.'),
-        {'id': 'n', 'component': 'QaNewsSummary', 'ticker': 'AMZN', 'items': []},
+        {
+          'id': 'n',
+          'component': 'QaNewsSummary',
+          'ticker': 'AMZN',
+          'items': [],
+        },
       ]);
       expect(
         AssistantAnswerReview.postProcess(
@@ -422,7 +430,11 @@ void main() {
       const empty = ToolCallRecord(
         name: 'get_news',
         args: {},
-        result: {'status': 'ok', 'news': [], 'context': {'status': 'ok'}},
+        result: {
+          'status': 'ok',
+          'news': [],
+          'context': {'status': 'ok'},
+        },
       );
       expect(
         AssistantAnswerReview.postProcess(
@@ -542,6 +554,69 @@ void main() {
         TurnEvidence(calls: [plan]),
       );
       expect(out, isNot(contains('QaSavingsPlan')));
+    });
+  });
+
+  group('proposal card', () {
+    const watch = ToolCallRecord(
+      name: 'propose_watch',
+      args: {'ticker': 'NFLX'},
+      result: {'status': 'ok', 'proposal_id': 'p1'},
+    );
+
+    test('a ready proposal without its card gets the card', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Listo, preparé seguir NFLX.')]),
+        const TurnEvidence(calls: [watch], turnCalls: [watch]),
+      );
+      final update = (jsonDecode(out) as Map)['updateComponents'] as Map;
+      final components = (update['components'] as List).cast<Map>();
+      final root = components.firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'proposal_p1']);
+      expect(
+        components.firstWhere((c) => c['id'] == 'proposal_p1')['proposalId'],
+        'p1',
+      );
+    });
+
+    test('not added twice when the model already shows it', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('Listo.'),
+          {'id': 'x', 'component': 'QaActionProposal', 'proposalId': 'p1'},
+        ]),
+        const TurnEvidence(calls: [watch], turnCalls: [watch]),
+      );
+      expect('QaActionProposal'.allMatches(out).length, 1);
+    });
+
+    test('the same proposal repeated in the turn shows one card', () {
+      const again = ToolCallRecord(
+        name: 'propose_watch',
+        args: {'ticker': 'NFLX'},
+        result: {'status': 'ok', 'proposal_id': 'p2'},
+      );
+      final shown = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('Listo.'),
+          {'id': 'x', 'component': 'QaActionProposal', 'proposalId': 'p1'},
+        ]),
+        const TurnEvidence(calls: [watch, again], turnCalls: [watch, again]),
+      );
+      expect(shown, isNot(contains('p2')));
+      final none = AssistantAnswerReview.postProcess(
+        _answer([_intro('Listo.')]),
+        const TurnEvidence(calls: [watch, again], turnCalls: [watch, again]),
+      );
+      expect('"QaActionProposal"'.allMatches(none).length, 1);
+    });
+
+    test('a proposal from an earlier turn is not added', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Hola.')]),
+        const TurnEvidence(calls: [watch]),
+      );
+      expect(out, isNot(contains('QaActionProposal')));
     });
   });
 }
