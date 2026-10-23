@@ -215,7 +215,8 @@ List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
   ..._expect(t.quotaWeight == 1, 'cuota ${t.quotaWeight}, no 1'),
 ];
 
-/// Búsqueda de símbolos fija para los casos de acciones: "Apple" → AAPL;
+/// Búsqueda de símbolos fija para los casos de acciones: "Apple" → AAPL,
+/// "Amazon" → AMZN (dejar de seguir);
 /// "Alphabet" es ambigua a propósito (GOOGL / GOOG, dos clases de acción).
 class _Symbols extends FakeSymbolSearchRepository {
   static const _byName = <String, List<SymbolSearchResult>>{
@@ -224,6 +225,9 @@ class _Symbols extends FakeSymbolSearchRepository {
     ],
     'microsoft': [
       SymbolSearchResult(symbol: 'MSFT', description: 'MICROSOFT CORP', type: 'Common Stock'),
+    ],
+    'amazon': [
+      SymbolSearchResult(symbol: 'AMZN', description: 'AMAZON.COM INC', type: 'Common Stock'),
     ],
     'nvidia': [
       SymbolSearchResult(symbol: 'NVDA', description: 'NVIDIA CORP', type: 'Common Stock'),
@@ -1173,8 +1177,12 @@ final _cases = <_Case>[
     tier: SubscriptionTier.premium,
     (t, _) => [
       ..._expect(
-        t.called('add_to_watchlist', (a) => '${a['ticker']}'.toUpperCase() == 'MSFT'),
-        'no agregó MSFT: $t',
+        t.called('propose_watch', (a) => '${a['ticker']}'.toUpperCase() == 'MSFT'),
+        'no propuso seguir MSFT: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaActionProposal'),
+        'sin la card para confirmar: ${t.components}',
       ),
       ..._expect(t.answerText.length < 220, 'respuesta larga: ${t.answerText}'),
     ],
@@ -1187,6 +1195,85 @@ final _cases = <_Case>[
       ..._expect(
         RegExp(r'alerta', caseSensitive: false).hasMatch(t.text),
         'no ofreció una alerta para lo que ya tiene: ${t.text}',
+      ),
+    ],
+  ),
+  // ── Porty sabe todo lo de la app ─────────────────────────────────────
+  _Case(
+    'know-weekly-report',
+    ['¿Qué dice mi informe semanal?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_weekly_report'), 'no leyó el informe: $t'),
+      ..._expect(t.text.contains('NVDA'), 'no contó lo que más se movió'),
+    ],
+  ),
+  _Case(
+    'know-queries-left',
+    ['¿Cuántas consultas me quedan este mes?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_app_settings'), 'no leyó la cuenta: $t'),
+      ..._expect(t.text.contains('380'), 'no dijo cuántas le quedan: ${t.text}'),
+    ],
+  ),
+  // ── Porty hace todo lo de la app (propose_* con card) ────────────────
+  ..._actionCase(
+    'unfollow',
+    'Dejá de seguir Amazon',
+    'propose_watch',
+    (a) => a['action'] == 'unfollow',
+  ),
+  ..._actionCase(
+    'alert-delete',
+    'Borrá mi alerta de VOO',
+    'propose_alert_change',
+    (a) => a['change'] == 'delete',
+  ),
+  ..._actionCase(
+    'allocation-set',
+    'Quiero que mi plan de cartera sea 60% VOO y 40% BND',
+    'propose_allocation_plan',
+    (a) => (a['targets'] as List?)?.length == 2,
+  ),
+  ..._actionCase(
+    'settings-dark',
+    'Poné la app en modo oscuro y no me avises más de resultados',
+    'propose_settings_change',
+    (a) => a['theme'] == 'dark' && a['notify_earnings'] == false,
+  ),
+  ..._actionCase(
+    'broker-sync',
+    'Actualizá mi cuenta de eToro',
+    'propose_broker_action',
+    (a) => a['broker'] == 'etoro' && a['action'] == 'sync',
+  ),
+];
+
+/// Un pedido de acción: llama a [tool] con lo esperado, muestra la card y
+/// no dice que ya lo hizo.
+List<_Case> _actionCase(
+  String id,
+  String question,
+  String tool,
+  bool Function(Map<String, Object?> args) argsOk,
+) => [
+  _Case(
+    'action-$id',
+    [question],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called(tool, argsOk), 'no llamó $tool como esperaba: $t'),
+      ..._expect(
+        t.components.contains('QaActionProposal'),
+        'sin la card para confirmar: ${t.components}',
+      ),
+      ..._expect(
+        !RegExp(
+          r'\b(listo|hecho|ya (lo|la) (borré|cambié|actualicé))\b',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'dijo que ya lo hizo: ${t.text}',
       ),
     ],
   ),
@@ -1527,7 +1614,42 @@ void main() {
                     'alerts_on': true,
                   },
                 ],
-            addToWatchlist: (_) async {},
+            loadPriceAlerts:
+                () async => [
+                  {
+                    'id': 'alert-voo',
+                    'symbol': 'VOO',
+                    'condition': 'above',
+                    'target': 750,
+                    'status': 'active',
+                  },
+                ],
+            loadAppSettings:
+                () async => {
+                  'theme': 'system',
+                  'notify_earnings': true,
+                  'currency': 'USD',
+                },
+            loadConnectedAccounts:
+                () async => {'etoro': 'connected', 'binance': 'not_connected'},
+            loadAccountOverview:
+                () async => {
+                  'plan': 'premium',
+                  'queries_used_this_month': 120,
+                  'queries_limit_this_month': 500,
+                },
+            loadWeeklyReport:
+                () async => {
+                  'week': '2026-10-19',
+                  'change_pct': 2.4,
+                  'change_abs': 312.5,
+                  'value_end': 13350,
+                  'movers': [
+                    {'ticker': 'NVDA', 'pct': 6.1},
+                    {'ticker': 'AAPL', 'pct': -1.2},
+                  ],
+                  'reading': 'Semana buena, empujada por NVDA.',
+                },
           );
           final courtesy = WeeklyFreeAnalysisGrant(
             ctx: ctx,

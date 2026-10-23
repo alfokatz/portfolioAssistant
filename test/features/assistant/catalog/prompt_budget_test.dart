@@ -25,7 +25,10 @@ const _budgets = {
   'rules': (tokens: 9400, charsPerToken: 3.78),
   'schemas': (tokens: 9400, charsPerToken: 4.17),
   'genui': (tokens: 1250, charsPerToken: 4.59),
-  'tools': (tokens: 6300, charsPerToken: 4.19),
+  // 2026-10-22: 6300 → 6800 para que Porty haga todo lo de la app desde el
+  // chat (propose_* de lista, alertas, metas, plan, ajustes y cuentas, ya
+  // fusionadas y con descripciones mínimas). Es prefijo cacheado.
+  'tools': (tokens: 6800, charsPerToken: 4.19),
 };
 
 void main() {

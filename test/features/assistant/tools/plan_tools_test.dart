@@ -10,8 +10,8 @@ import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_cont
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
-import 'package:portfolio_assistant/features/watchlist/data/watchlist_repository.dart';
-import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provider.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 
 import '../fakes/assistant_fakes.dart';
 
@@ -29,19 +29,24 @@ class _Quotes implements QuoteRepository {
   Future<List<PriceCandle>> getIntradayCandles(String t) async => const [];
 }
 
+class _NoQuotes extends _Quotes {
+  @override
+  Future<Either<HttpError, double>> getCurrentPrice(String t) async =>
+      Left(HttpError(code: 'quote_error'));
+}
+
 AssistantToolContext _ctx({
   SubscriptionTier tier = SubscriptionTier.premium,
   AllocationPlan? plan,
   List<Map<String, Object?>> watchlist = const [],
-  Future<void> Function(String)? add,
+  QuoteRepository? quotes,
 }) => AssistantToolContext(
   tier: tier,
-  data: fakeDataSources(quotes: _Quotes()),
+  data: fakeDataSources(quotes: quotes ?? _Quotes()),
   // AAPL y NVDA, USD 300 cada una.
   summary: heldSummary,
   loadAllocationPlan: () async => plan,
   loadWatchlist: () async => watchlist,
-  addToWatchlist: add,
   now: DateTime(2026, 10, 16),
 );
 
@@ -121,48 +126,79 @@ void main() {
     });
   });
 
-  group('add_to_watchlist', () {
-    test('agrega en mayúsculas', () async {
-      final added = <String>[];
-      final r = await AddToWatchlistTool(
-        _ctx(add: (t) async => added.add(t)),
-      ).run({'ticker': 'amzn'});
+  group('propose_watch', () {
+    test('propone (no agrega) con el precio de hoy, en mayúsculas', () async {
+      final r = await ProposeWatchTool(_ctx()).run({'ticker': 'amzn'});
       expect(r['status'], 'ok');
-      expect(added, ['AMZN']);
+      expect(r['kind'], 'watch');
+      expect(r['ticker'], 'AMZN');
+      expect(r['price'], 100);
+      expect(r['notify'], isTrue);
+      expect(r[ActionProposal.toolResultIdKey], isA<String>());
+      final p = ActionProposal.fromToolResult(r)!;
+      expect(p.kind, ActionKind.watch);
+      expect(p.watchNotify, isTrue);
     });
 
-    test('lo que ya tiene en cartera no va a la lista', () async {
-      final added = <String>[];
-      final r = await AddToWatchlistTool(
-        _ctx(add: (t) async => added.add(t)),
-      ).run({'ticker': 'NVDA'});
-      expect(r['status'], 'held');
-      expect(added, isEmpty);
+    test('lo que ya tiene o ya sigue no se propone', () async {
+      expect(
+        (await ProposeWatchTool(_ctx()).run({'ticker': 'NVDA'}))['status'],
+        'held',
+      );
+      expect(
+        (await ProposeWatchTool(
+          _ctx(
+            watchlist: [
+              {'ticker': 'AMZN'},
+            ],
+          ),
+        ).run({'ticker': 'amzn'}))['status'],
+        'already_there',
+      );
     });
 
-    test('errores del repositorio a estados', () async {
-      Future<String?> statusFor(Object error) async =>
-          (await AddToWatchlistTool(
-                _ctx(add: (_) async => throw error),
-              ).run({'ticker': 'AMZN'}))['status']
-              as String?;
-      expect(await statusFor(const WatchlistUnknownSymbol()), 'unknown_symbol');
-      expect(await statusFor(const WatchlistDuplicate()), 'already_there');
-      expect(await statusFor(const WatchlistLimitReached()), 'limit_reached');
-      expect(await statusFor(const WatchlistUnavailable()), 'failed');
+    test('tope del plan y ticker sin cotización', () async {
+      expect(
+        (await ProposeWatchTool(
+          _ctx(
+            watchlist: [
+              for (var i = 0; i < 30; i++) {'ticker': 'T$i'},
+            ],
+          ),
+        ).run({'ticker': 'AMZN'}))['status'],
+        'limit_reached',
+      );
+      expect(
+        (await ProposeWatchTool(
+          _ctx(quotes: _NoQuotes()),
+        ).run({'ticker': 'ZZZZ'}))['status'],
+        'unknown_symbol',
+      );
     });
 
     test('Free bloqueada y sin ticker pide el dato', () async {
       expect(
-        (await AddToWatchlistTool(
+        (await ProposeWatchTool(
           _ctx(tier: SubscriptionTier.free),
         ).run({'ticker': 'AMZN'}))['status'],
         'locked',
       );
-      expect(
-        (await AddToWatchlistTool(_ctx()).run({}))['status'],
-        'needs_input',
-      );
+      expect((await ProposeWatchTool(_ctx()).run({}))['status'], 'needs_input');
+    });
+
+    test('dejar de seguir pasa por la misma tool', () async {
+      final r = await ProposeWatchTool(
+        _ctx(
+          watchlist: [
+            {'ticker': 'AMZN', 'alerts_on': true},
+          ],
+        ),
+      ).run({'ticker': 'AMZN', 'action': 'unfollow'});
+      expect(r['op'], 'unwatch');
+    });
+
+    test('es una tool de propuesta (la card la reconoce)', () {
+      expect(ActionTools.proposalTools, contains(PlanTools.proposeWatch));
     });
   });
 
@@ -184,19 +220,11 @@ void main() {
         PlanGuides.watchlistEmpty,
       );
       expect(
-        guideOf(
-          await AddToWatchlistTool(
-            _ctx(add: (_) async {}),
-          ).run({'ticker': 'AMZN'}),
-        ),
-        PlanGuides.addOk,
+        guideOf(await ProposeWatchTool(_ctx()).run({'ticker': 'AMZN'})),
+        ActionGuides.ok,
       );
       expect(
-        guideOf(
-          await AddToWatchlistTool(
-            _ctx(add: (_) async {}),
-          ).run({'ticker': 'AAPL'}),
-        ),
+        guideOf(await ProposeWatchTool(_ctx()).run({'ticker': 'AAPL'})),
         PlanGuides.addHeld,
       );
       // Lo general (locked, failed) lo resuelve el prompt.

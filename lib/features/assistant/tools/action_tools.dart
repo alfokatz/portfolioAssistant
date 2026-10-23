@@ -3,6 +3,8 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
@@ -31,7 +33,12 @@ abstract final class ActionTools {
 
   /// Todas las tools cuyo resultado `ok` es una card `QaActionProposal`
   /// (las de la cartera y la de alertas de precio).
-  static const proposalTools = {...names, AlertTools.proposePriceAlert};
+  static const proposalTools = {
+    ...names,
+    AlertTools.proposePriceAlert,
+    PlanTools.proposeWatch,
+    ...ManageTools.names,
+  };
 
   static List<DataTool> build(AssistantToolContext ctx) => [
     ProposeBuyTool(ctx),
@@ -191,8 +198,7 @@ abstract class _ProposeTool implements DataTool {
   List<ActionLot> _lotsOf(String ticker) {
     final lots = [
       for (final v in ctx.summary?.lots ?? const [])
-        if (v.position.ticker.toUpperCase() == ticker &&
-            !v.position.isReadOnly)
+        if (v.position.ticker.toUpperCase() == ticker && !v.position.isReadOnly)
           ActionLot(
             id: v.position.id,
             quantity: v.position.quantity,

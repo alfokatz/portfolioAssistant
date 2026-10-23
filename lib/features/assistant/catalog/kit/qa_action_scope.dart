@@ -21,6 +21,13 @@ class QaActionScope extends InheritedWidget {
     this.onOpenPosition,
     this.onOpenClosedPosition,
     this.onOpenAlerts,
+    this.onOpenWatchlist,
+    this.onOpenGoal,
+    this.onOpenGoals,
+    this.onOpenAllocation,
+    this.onOpenSettings,
+    this.onOpenMemory,
+    this.onOpenBroker,
     required super.child,
   });
 
@@ -55,6 +62,28 @@ class QaActionScope extends InheritedWidget {
   /// "Ver mis alertas" después de crear una alerta; sin él, no se muestra.
   final VoidCallback? onOpenAlerts;
 
+  /// "Ver mi lista" después de seguir un ticker; sin él, no se muestra.
+  final VoidCallback? onOpenWatchlist;
+
+  /// "Ver la meta" después de cambiarla (con su id).
+  final ValueChanged<String>? onOpenGoal;
+
+  /// "Ver mis metas" después de borrar una.
+  final VoidCallback? onOpenGoals;
+
+  /// "Ver mi plan" después de guardar el plan de cartera.
+  final VoidCallback? onOpenAllocation;
+
+  /// "Ver ajustes" después de cambiarlos; `notifications`: si se tocó
+  /// alguna notificación (lleva a esa pantalla).
+  final void Function({required bool notifications})? onOpenSettings;
+
+  /// "Ver lo que sé de vos" después de borrar la memoria.
+  final VoidCallback? onOpenMemory;
+
+  /// La pantalla de la cuenta conectada (`etoro` | `binance`).
+  final ValueChanged<String>? onOpenBroker;
+
   static QaActionScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<QaActionScope>();
 
@@ -67,5 +96,12 @@ class QaActionScope extends InheritedWidget {
       (oldWidget.onOpenPosition == null) != (onOpenPosition == null) ||
       (oldWidget.onOpenClosedPosition == null) !=
           (onOpenClosedPosition == null) ||
-      (oldWidget.onOpenAlerts == null) != (onOpenAlerts == null);
+      (oldWidget.onOpenAlerts == null) != (onOpenAlerts == null) ||
+      (oldWidget.onOpenWatchlist == null) != (onOpenWatchlist == null) ||
+      (oldWidget.onOpenGoal == null) != (onOpenGoal == null) ||
+      (oldWidget.onOpenGoals == null) != (onOpenGoals == null) ||
+      (oldWidget.onOpenAllocation == null) != (onOpenAllocation == null) ||
+      (oldWidget.onOpenSettings == null) != (onOpenSettings == null) ||
+      (oldWidget.onOpenMemory == null) != (onOpenMemory == null) ||
+      (oldWidget.onOpenBroker == null) != (onOpenBroker == null);
 }

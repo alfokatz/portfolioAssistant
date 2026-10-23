@@ -1,11 +1,13 @@
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
-import 'package:portfolio_assistant/features/watchlist/data/watchlist_repository.dart';
-import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provider.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:uuid/uuid.dart';
 
 /// El plan de cartera y la lista de seguimiento desde el chat (siguiente
 /// paso de docs/superpowers/plans/2026-10-16-porty-siguiente-nivel.md).
@@ -14,20 +16,19 @@ import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provi
 ///   si pide, cómo repartir un aporte. Solo lectura: el plan se edita en
 ///   su pantalla.
 /// - `get_watchlist`: la lista con precio, día y desde que se agregó.
-/// - `add_to_watchlist`: agrega un ticker. Escritura de bajo riesgo (como
-///   la memoria): no mueve plata y se quita en un toque, así que no lleva
-///   card de confirmación.
+/// - `propose_watch`: prepara seguir un ticker; el usuario lo confirma en
+///   la card `QaActionProposal` (como las demás acciones de Porty).
 abstract final class PlanTools {
   static const getAllocationPlan = 'get_allocation_plan';
   static const getWatchlist = 'get_watchlist';
-  static const addToWatchlist = 'add_to_watchlist';
+  static const proposeWatch = 'propose_watch';
 
-  static const names = {getAllocationPlan, getWatchlist, addToWatchlist};
+  static const names = {getAllocationPlan, getWatchlist, proposeWatch};
 
   static List<DataTool> build(AssistantToolContext ctx) => [
     GetAllocationPlanTool(ctx),
     GetWatchlistTool(ctx),
-    AddToWatchlistTool(ctx),
+    ProposeWatchTool(ctx),
   ];
 }
 
@@ -45,17 +46,15 @@ abstract final class PlanGuides {
       'rows. The plan is the user\'s own targets: say "para acercarte a tu '
       'plan"; never "te conviene" or "comprá", never judge a target.';
   static const planEmpty =
-      'QaAnswerText: they have no plan yet; they create it in Ajustes → Mi '
-      'plan de cartera. You can\'t create it.';
+      'QaAnswerText: they have no plan yet; offer to set it up right here '
+      '(ask how much they want of each investment) or in Ajustes → Mi plan '
+      'de cartera.';
   static const watchlistOk =
       'QaAnswerText only: one sentence, then one "• " line per item '
       '(ticker: price · day_change_pct · since_added_pct), up to 8.';
   static const watchlistEmpty =
       'QaAnswerText: their watchlist is empty; they can ask you to follow a '
       'ticker ("seguí AMZN").';
-  static const addOk =
-      'QaAnswerText, one short sentence: you follow it now and will let them '
-      'know if it moves sharply during the day.';
   static const addHeld =
       'QaAnswerText: they already own it, so it doesn\'t go on the '
       'watchlist; offer a price alert instead.';
@@ -206,30 +205,33 @@ class GetWatchlistTool implements DataTool {
   }
 }
 
-class AddToWatchlistTool implements DataTool {
-  AddToWatchlistTool(this.ctx);
+/// Seguir un ticker: prepara una card para que el usuario lo confirme
+/// (como `propose_price_alert`); nunca agrega nada. Antes de proponer
+/// revisa lo que se sabe sin escribir: que tenga cotización, que no lo siga
+/// ya, que no lo tenga en cartera y que le quede lugar en el plan.
+class ProposeWatchTool implements DataTool {
+  ProposeWatchTool(this.ctx);
 
   final AssistantToolContext ctx;
 
   @override
-  String get name => PlanTools.addToWatchlist;
+  String get name => PlanTools.proposeWatch;
 
   @override
   String get description =>
-      'Adds ONE ticker to the user\'s watchlist, only when they ask for it '
-      '("seguí AMZN", "agregá Nvidia a mi lista"). Porty then notifies them '
-      'if it moves sharply during the day. status: ok | already_there | '
-      'held | limit_reached | unknown_symbol | locked (Premium) | failed.';
+      'Card to confirm a WATCHLIST change: follow a ticker ("seguí AMZN"), '
+      'unfollow it, or turn its sharp-move alerts on/off. status: ok | '
+      'already_there | not_on_watchlist | no_change | held | limit_reached '
+      '| unknown_symbol | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
     'type': 'object',
     'properties': {
-      'ticker': {
+      'ticker': {'type': 'string'},
+      'action': {
         'type': 'string',
-        'description':
-            'US ticker. If the user named a company and the ticker is not '
-            'known yet, call search_symbol first.',
+        'enum': ['follow', 'unfollow', 'alerts_on', 'alerts_off'],
       },
     },
     'required': ['ticker'],
@@ -241,6 +243,14 @@ class AddToWatchlistTool implements DataTool {
     if (!ctx.marketDataAllowed) {
       return ctx.lockedFeature(PlanFeature.marketData);
     }
+    // Dejar de seguir y los avisos: otra card (ver ProposeWatchlistChange).
+    final action = ToolArgs.string(args, 'action') ?? 'follow';
+    if (action != 'follow') {
+      return ProposeWatchlistChangeTool(ctx).run({
+        'ticker': args['ticker'],
+        'change': action == 'unfollow' ? 'remove' : action,
+      });
+    }
     final raw = ToolArgs.string(args, 'ticker');
     final tickers =
         raw == null
@@ -249,10 +259,10 @@ class AddToWatchlistTool implements DataTool {
               'tickers': [raw],
             }, max: 1);
     if (tickers.isEmpty) {
-      return {
+      return ActionGuides.attachTo({
         'status': 'needs_input',
         'missing': ['ticker'],
-      };
+      });
     }
     final ticker = tickers.first;
     if (ctx.heldTickers.contains(ticker)) {
@@ -261,32 +271,49 @@ class AddToWatchlistTool implements DataTool {
         'ticker': ticker,
       }, PlanGuides.addHeld);
     }
-    final add = ctx.addToWatchlist;
-    if (add == null) return {'status': 'failed', 'reason': 'unavailable'};
-    try {
-      await add(ticker);
-      return AnswerGuide.attach({
-        'status': 'ok',
-        'ticker': ticker,
-        'as_of': ctx.asOf,
-      }, PlanGuides.addOk);
-    } on WatchlistUnknownSymbol {
+
+    final load = ctx.loadWatchlist;
+    if (load != null) {
+      try {
+        final items = await load();
+        final symbols = {
+          for (final i in items) '${i['ticker'] ?? ''}'.toUpperCase(),
+        };
+        if (symbols.contains(ticker)) {
+          return AnswerGuide.attach({
+            'status': 'already_there',
+            'ticker': ticker,
+          }, PlanGuides.addAlready);
+        }
+        final limit = PlanMatrix.of(ctx.tier).watchlistLimit;
+        if (items.length >= limit) {
+          return AnswerGuide.attach({
+            'status': 'limit_reached',
+            'limit': limit,
+          }, PlanGuides.addLimit);
+        }
+      } catch (_) {
+        // Sin la lista no se puede revisar: el alta lo vuelve a controlar.
+      }
+    }
+
+    final quote = await ctx.data.quoteRepository.getCurrentPrice(ticker);
+    final price = quote.fold<double?>((_) => null, (p) => p > 0 ? p : null);
+    if (price == null) {
       return AnswerGuide.attach({
         'status': 'unknown_symbol',
         'ticker': ticker,
       }, PlanGuides.addUnknown);
-    } on WatchlistDuplicate {
-      return AnswerGuide.attach({
-        'status': 'already_there',
-        'ticker': ticker,
-      }, PlanGuides.addAlready);
-    } on WatchlistLimitReached {
-      return AnswerGuide.attach({
-        'status': 'limit_reached',
-        'limit': PlanMatrix.of(ctx.tier).watchlistLimit,
-      }, PlanGuides.addLimit);
-    } catch (_) {
-      return {'status': 'failed', 'reason': 'unavailable'};
     }
+    return ActionGuides.attachTo({
+      ...ActionProposal(
+        id: const Uuid().v4(),
+        kind: ActionKind.watch,
+        ticker: ticker,
+        price: price,
+        priceSource: PriceSource.closeOnDate,
+      ).toToolResult(),
+      'as_of': ctx.asOf,
+    });
   }
 }

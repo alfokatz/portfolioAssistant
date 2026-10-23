@@ -15,12 +15,19 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_sco
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
@@ -204,8 +211,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     ]).animate(_pulseController);
     _textController.addListener(_handleTextChanged);
     super.initState();
-    _activity = ref.read(assistantProvider(_args).notifier).activity
-      ..addListener(_handleActivity);
+    _activity =
+        ref.read(assistantProvider(_args).notifier).activity
+          ..addListener(_handleActivity);
     if (_playEntrance) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -506,9 +514,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Future<UserGoal?> _saveGoal(GoalDraft draft) async {
     try {
       final goal = await ref.read(goalsProvider.notifier).save(draft);
-      ref
-          .read(alertProvider.notifier)
-          .showSuccess(message: 'goal_saved'.tr());
+      ref.read(alertProvider.notifier).showSuccess(message: 'goal_saved'.tr());
       return goal;
     } on GoalLimitReached {
       ref
@@ -932,9 +938,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     if (notice != null) {
       contentKey = const ValueKey('notice');
       content = AssistantQuietNotice(notice: notice);
-    } else if (message.isGenUiSurface &&
-        message.isStreaming &&
-        !waitGateOpen) {
+    } else if (message.isGenUiSurface && message.isStreaming && !waitGateOpen) {
       // El placeholder ya existe en el estado (se agrega junto con el
       // mensaje del usuario), pero visualmente espera a que la burbuja del
       // usuario termine su propio typewriter antes de mostrar a Porty esperando.
@@ -994,6 +998,22 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                 proposals: ref.watch(assistantProvider(_args)).actionProposals,
                 onConfirm: (draft) async {
                   await notifier.executeAction(draft);
+                  // El idioma necesita el contexto de la pantalla.
+                  final language =
+                      draft.manageTarget.changes[AppSettingKeys.language];
+                  if (language is String &&
+                      mounted &&
+                      ref
+                              .read(assistantProvider(_args))
+                              .actionProgress(draft.proposalId)
+                              .status ==
+                          ActionProposalStatus.done) {
+                    await context.setLocale(
+                      language == 'en'
+                          ? const Locale('en', 'US')
+                          : const Locale('es', 'ES'),
+                    );
+                  }
                   // Recién creada una alerta: sin permiso no sirve (plan de
                   // push §6, el momento de más intención).
                   if (draft.kind != ActionKind.alert || !mounted) return;
@@ -1023,7 +1043,29 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                       sale,
                     ).navigate(context: context),
                 onOpenAlerts:
-                    () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                    () =>
+                        context.pushNamed(NotificationsRouter.alertsRouteName),
+                onOpenWatchlist:
+                    () => context.pushNamed(WatchlistRouter.routeName),
+                onOpenGoal: (id) => GoalsRouter.openDetail(context, id),
+                onOpenGoals: () => context.goNamed(GoalsRouter.routeName),
+                onOpenAllocation:
+                    () => context.pushNamed(AllocationRouter.routeName),
+                onOpenSettings:
+                    ({required bool notifications}) =>
+                        notifications
+                            ? context.pushNamed(
+                              NotificationsRouter.settingsRouteName,
+                            )
+                            : context.goNamed(SettingsRouter.settingsRouteName),
+                onOpenMemory:
+                    () => context.pushNamed(PortyMemoryRouter.routeName),
+                onOpenBroker:
+                    (broker) => context.pushNamed(
+                      broker == 'binance'
+                          ? BinanceRouter.routeName
+                          : EtoroRouter.connectionRouteName,
+                    ),
                 child: PortyVoiceScope(
                   onDoneSpeaking:
                       message.surfaceId == _speakingSurfaceId
@@ -1102,7 +1144,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     // mismo lugar y tamaño que en el mensaje final), y el contenido al lado.
     // El avatar del turno en curso actúa (piensa, habla, sonríe); el resto
     // del historial queda quieto.
-    final live = message.surfaceId != null && message.surfaceId == _turnSurfaceId;
+    final live =
+        message.surfaceId != null && message.surfaceId == _turnSurfaceId;
     final avatar =
         live
             ? ValueListenableBuilder<PortyAvatarState>(
@@ -1140,7 +1183,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         ),
       };
     } else {
-      body = Padding(padding: const EdgeInsets.only(left: indent), child: content);
+      body = Padding(
+        padding: const EdgeInsets.only(left: indent),
+        child: content,
+      );
     }
     return fade(
       const ValueKey('row'),
