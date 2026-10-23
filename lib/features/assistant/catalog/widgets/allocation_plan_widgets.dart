@@ -258,7 +258,17 @@ class _PlanRow extends StatelessWidget {
         ),
         if (status != null) ...[
           const SizedBox(width: 8),
-          QaTag(status, color: off ? QaColors.accentWarm : QaColors.profit),
+          QaTag(
+            status,
+            // Fuera del plan (objetivo 0) y dentro del margen: ni bien ni
+            // mal, gris; pasado del margen, el tono de aviso.
+            color:
+                off
+                    ? QaColors.accentWarm
+                    : row.targetPct == 0
+                    ? null
+                    : QaColors.profit,
+          ),
         ],
       ],
     );

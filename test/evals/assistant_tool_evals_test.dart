@@ -1168,7 +1168,10 @@ final _cases = <_Case>[
     tier: SubscriptionTier.premium,
     (t, _) => [
       ..._expect(t.called('get_watchlist'), 'no leyó la lista: $t'),
-      ..._expect(t.text.contains('AMZN'), 'falta AMZN'),
+      ..._expect(
+        t.components.contains('QaWatchlist'),
+        'sin la card de la lista: ${t.components}',
+      ),
     ],
   ),
   _Case(
@@ -1205,7 +1208,22 @@ final _cases = <_Case>[
     tier: SubscriptionTier.premium,
     (t, _) => [
       ..._expect(t.called('get_weekly_report'), 'no leyó el informe: $t'),
-      ..._expect(t.text.contains('NVDA'), 'no contó lo que más se movió'),
+      ..._expect(
+        t.components.contains('QaWeeklyReport'),
+        'sin la card del informe: ${t.components}',
+      ),
+    ],
+  ),
+  _Case(
+    'know-alerts-list',
+    ['¿Qué alertas de precio tengo?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('list_price_alerts'), 'no leyó las alertas: $t'),
+      ..._expect(
+        t.components.contains('QaInfoList'),
+        'sin la card genérica: ${t.components}',
+      ),
     ],
   ),
   _Case(

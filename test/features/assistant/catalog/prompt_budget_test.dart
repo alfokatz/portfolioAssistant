@@ -23,7 +23,9 @@ import 'prompt_blocks.dart';
 const _budgets = {
   // bloque: (tokens, caracteres por token medidos)
   'rules': (tokens: 9400, charsPerToken: 3.78),
-  'schemas': (tokens: 9400, charsPerToken: 4.17),
+  // 2026-10-23: 9400 → 9600 por QaWatchlist, QaWeeklyReport (sin props) y
+  // QaInfoList (la card genérica): casi todo es lo fijo de cada item.
+  'schemas': (tokens: 9600, charsPerToken: 4.17),
   'genui': (tokens: 1250, charsPerToken: 4.59),
   // 2026-10-22: 6300 → 6800 para que Porty haga todo lo de la app desde el
   // chat (propose_* de lista, alertas, metas, plan, ajustes y cuentas, ya

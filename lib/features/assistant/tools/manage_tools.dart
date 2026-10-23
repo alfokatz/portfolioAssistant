@@ -93,8 +93,9 @@ abstract final class ManageGuides {
       'QaAnswerText: they have no portfolio plan yet; ask how much they want '
       'of each investment.';
   static const settings =
-      'QaAnswerText only: answer what they asked about their account or '
-      'settings in plain words (a toggle is "prendido"/"apagado").';
+      'One fact asked → QaAnswerText only. Several → QaAnswerText (one '
+      'sentence) + QaInfoList, one row per item (a toggle: value '
+      '"Prendido"/"Apagado"). Plain words.';
   static const noMemory = 'QaAnswerText: you have nothing saved about them.';
   static const brokerNotConnected =
       'QaAnswerText: that account isn\'t connected (accounts says how each '

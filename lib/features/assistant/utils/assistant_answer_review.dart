@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart'
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/buy_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/data/user/user_data_cards.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/allocation_plan_card_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
@@ -42,13 +43,18 @@ abstract final class AssistantAnswerReview {
     if (stalePlan != null) return AnswerCorrection(stalePlan);
     final phantom = _phantomAction(components, evidence);
     if (phantom != null) return AnswerCorrection(phantom);
+    final promise = _emptyPromise(components, evidence);
+    if (promise != null) return AnswerCorrection(promise);
     final missing = _missingAnalysisTools(components, evidence);
     if (missing != null) return AnswerCorrection(missing);
     final skipped = _analysisNotShown(components, evidence);
     if (skipped != null) {
       return AnswerCorrection(skipped, requiresTools: false);
     }
-    final problems = <String>[..._planProseProblems(components, evidence)];
+    final problems = <String>[
+      ..._planProseProblems(components, evidence),
+      ..._infoListProblems(components, evidence),
+    ];
     for (final c in components) {
       if (c['component'] != 'QaCompanyAnalysis') continue;
       final data = CompanyAnalysisData.from(evidence, '${c['ticker'] ?? ''}');
@@ -103,6 +109,32 @@ abstract final class AssistantAnswerReview {
         'saying you prepared anything).';
   }
 
+  /// "Voy a revisar tu plan para ver…" sin haber llamado ninguna tool en el
+  /// turno: prometió y no hizo (visto en evals con "¿cuántas consultas me
+  /// quedan?"). Se le pide que lo consulte ahora.
+  static String? _emptyPromise(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) {
+    if (evidence.turnCalls.isNotEmpty) return null;
+    final promises = components.any(
+      (c) =>
+          c['component'] == 'QaAnswerText' &&
+          c['text'] is String &&
+          _promise.hasMatch(c['text'] as String),
+    );
+    if (!promises) return null;
+    return 'You said you would check something but called no tool. Call the '
+        'tool that has it now (get_app_settings, get_portfolio_details, '
+        'get_watchlist…) and answer with the data.';
+  }
+
+  static final _promise = RegExp(
+    r'\b(voy a|d[eé]jame|ahora)\s+(revisar|consultar|fijarme|mirar|buscar|'
+    r'chequear|ver)\b',
+    caseSensitive: false,
+  );
+
   static final _actionClaim = RegExp(
     r'prepar[eé]\s+(la|una|tu)\s+(operaci[oó]n|compra|venta|alerta)|'
     r'revisal[ao]\s+y\s+confirmal[ao]',
@@ -145,6 +177,46 @@ abstract final class AssistantAnswerReview {
       }
     }
     return null;
+  }
+
+  /// Todos los números de los resultados de las tools a la vista y del
+  /// brief: el respaldo de la card genérica `QaInfoList`.
+  static List<double> _evidenceNumbers(TurnEvidence evidence) => [
+    for (final call in evidence.calls)
+      for (final n in AnalysisProseCheck.numbersIn(jsonEncode(call.result)))
+        n.value,
+    if (evidence.pinnedContext case final brief?)
+      for (final n in AnalysisProseCheck.numbersIn(brief)) n.value,
+  ];
+
+  static const _infoListFields = ['title', 'detail', 'value'];
+
+  /// Cada número de una `QaInfoList` tiene que estar en lo que trajeron las
+  /// tools (la card la llena el modelo).
+  static Iterable<String> _infoListProblems(
+    List<Map<String, dynamic>> components,
+    TurnEvidence evidence,
+  ) sync* {
+    final lists = components.where((c) => c['component'] == 'QaInfoList');
+    if (lists.isEmpty) return;
+    final backing = _evidenceNumbers(evidence);
+    for (final c in lists) {
+      for (final r in (c['rows'] as List? ?? const [])) {
+        if (r is! Map) continue;
+        for (final f in _infoListFields) {
+          final v = r[f];
+          if (v is! String) continue;
+          final unbacked = [
+            for (final n in AnalysisProseCheck.numbersIn(v))
+              if (!AnalysisProseCheck.isBacked(n, backing)) n.value,
+          ];
+          if (unbacked.isNotEmpty) {
+            yield 'QaInfoList row "${r['title']}" has numbers not in the tool '
+                'results ($unbacked)';
+          }
+        }
+      }
+    }
   }
 
   /// Los números del texto que acompaña al plan: tienen que salir del
@@ -210,6 +282,33 @@ abstract final class AssistantAnswerReview {
     if (list is! List) return line;
     final components = list.whereType<Map<String, dynamic>>().toList();
     var changed = false;
+
+    // Si el modelo no corrigió la card genérica: afuera las filas con
+    // números sin respaldo.
+    if (components.any((c) => c['component'] == 'QaInfoList')) {
+      final backing = _evidenceNumbers(evidence);
+      for (final c in components) {
+        if (c['component'] != 'QaInfoList') continue;
+        final rows = c['rows'];
+        if (rows is! List) continue;
+        final kept = [
+          for (final r in rows)
+            if (r is Map &&
+                _infoListFields.every(
+                  (f) =>
+                      r[f] is! String ||
+                      AnalysisProseCheck.numbersIn(
+                        r[f] as String,
+                      ).every((n) => AnalysisProseCheck.isBacked(n, backing)),
+                ))
+              r,
+        ];
+        if (kept.length != rows.length) {
+          c['rows'] = kept;
+          changed = true;
+        }
+      }
+    }
 
     for (final c in components) {
       if (c['component'] != 'QaCompanyAnalysis') continue;
@@ -721,6 +820,12 @@ abstract final class AssistantAnswerReview {
       'QaEtfHoldings' =>
         'Estas son las principales posiciones de ${ticker ?? 'el fondo'}, con '
             'cuánto pesa cada una, y cómo se reparte entre sectores.',
+      'QaWatchlist' =>
+        'Esta es tu lista de seguimiento: precio de hoy, el día y cuánto '
+            'cambió cada una desde que la agregaste.',
+      'QaWeeklyReport' =>
+        'Este es tu informe de la semana: cuánto se movió tu cartera, lo que '
+            'más la movió y lo que dice Porty.',
       'QaAllocationPlan' =>
         'Este es tu plan de cartera contra cómo está hoy tu cartera; si '
             'pediste repartir un aporte, cuánto va a cada una.',
@@ -791,6 +896,12 @@ abstract final class AssistantAnswerReview {
         // El texto del plan SÍ explica con sus números (ver
         // [_planProseProblems]): no se sacan por repetir la card.
         continue;
+      } else if (c['component'] == 'QaWatchlist') {
+        final d = WatchlistCardData.from(evidence);
+        if (d != null) out.addAll(d.backingNumbers);
+      } else if (c['component'] == 'QaWeeklyReport') {
+        final d = WeeklyReportCardData.from(evidence);
+        if (d != null) out.addAll(d.backingNumbers);
       } else if (c['component'] == 'QaAllocationPlan') {
         // Como el ETF: los números los pone la app desde la tool.
         final d = AllocationPlanCardData.from(evidence);

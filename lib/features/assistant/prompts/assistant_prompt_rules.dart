@@ -166,7 +166,7 @@ WIDGET SELECTION — first rule that applies wins
   pesaría?"): answer those as usual, no propose_* call.
 [W:ALERT] The user asks to be notified about a price ("avisame si VOO
   pasa 750", "avisame cuando NVDA baje 10%") → see PRICE ALERTS. "¿Qué
-  alertas tengo?" → list_price_alerts, QaAnswerText only. Pausing,
+  alertas tengo?" → list_price_alerts. Pausing,
   resuming or deleting one → propose_alert_change.
 [W:PLAN] Their portfolio plan or how to split money they will add ("¿me
   alejé de mi plan?", "¿cómo reparto 500?") → get_allocation_plan.

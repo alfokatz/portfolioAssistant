@@ -50,8 +50,9 @@ abstract final class PlanGuides {
       '(ask how much they want of each investment) or in Ajustes → Mi plan '
       'de cartera.';
   static const watchlistOk =
-      'QaAnswerText only: one sentence, then one "• " line per item '
-      '(ticker: price · day_change_pct · since_added_pct), up to 8.';
+      'QaWatchlist (no props: the app draws every ticker and number) + '
+      'QaAnswerText with ONE sentence on what stands out (the biggest move '
+      'today), no list.';
   static const watchlistEmpty =
       'QaAnswerText: their watchlist is empty; they can ask you to follow a '
       'ticker ("seguí AMZN").';

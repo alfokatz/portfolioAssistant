@@ -29,6 +29,9 @@ abstract final class PortfolioBrief {
   /// Las metas guardadas en la pestaña Metas, con cómo van.
   static const savedGoalsKey = 'saved_goals';
 
+  /// Su plan y cuántas consultas le quedan este mes.
+  static const accountKey = 'account';
+
   /// Cuántos datos de la memoria viajan por turno (los más recientes).
   static const maxMemoriesInBrief = 30;
 
@@ -60,6 +63,11 @@ abstract final class PortfolioBrief {
     if (ctx.savedGoals.isNotEmpty) {
       map[savedGoalsKey] = GoalTools.brief(ctx);
     }
+    map[accountKey] = {
+      'plan': ctx.tier.name,
+      if (ctx.queriesLeftThisMonth != null)
+        'queries_left_this_month': ctx.queriesLeftThisMonth,
+    };
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;
     }

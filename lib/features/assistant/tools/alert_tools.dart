@@ -37,6 +37,10 @@ abstract final class AlertGuides {
   static const needsInput =
       'QaAnswerText only: ask for EVERYTHING in missing in ONE short '
       'question.';
+  static const list =
+      'QaAnswerText (one sentence) + QaInfoList icon "alert": one row per '
+      'alert (title like "VOO sube a \$750", detail: once/daily and status, '
+      'ticker).';
   static const invalid =
       'QaAnswerText only: already_met → the price is already there '
       '(current_price): say so and ask for another target; percent_range → '
@@ -189,11 +193,14 @@ class ListPriceAlertsTool implements DataTool {
     if (load == null) return {'status': 'failed', 'reason': 'unavailable'};
     try {
       final alerts = await load();
-      return {
+      final result = {
         'status': alerts.isEmpty ? 'empty' : 'ok',
         'alerts': alerts,
         'as_of': ctx.asOf,
       };
+      return alerts.isEmpty
+          ? result
+          : AnswerGuide.attach(result, AlertGuides.list);
     } catch (_) {
       return {'status': 'failed', 'reason': 'unavailable'};
     }

@@ -1,5 +1,7 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/info_list_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/user_data_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/allocation_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
@@ -776,6 +778,79 @@ final CatalogItem qaAllocationPlanItem = CatalogItem(
   {
     "id": "plan",
     "component": "QaAllocationPlan"
+  }
+]
+''',
+  ],
+);
+
+/// La lista de seguimiento (`get_watchlist`). Sin props: la app la arma.
+final CatalogItem qaWatchlistItem = CatalogItem(
+  name: 'QaWatchlist',
+  dataSchema: S.object(
+    description: 'No props.',
+    properties: {},
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, UserDataWidgets.qaWatchlist),
+  exampleData: [
+    () => '''[{"id": "w", "component": "QaWatchlist"}]''',
+  ],
+);
+
+/// El informe semanal (`get_weekly_report`). Sin props: la app lo arma.
+final CatalogItem qaWeeklyReportItem = CatalogItem(
+  name: 'QaWeeklyReport',
+  dataSchema: S.object(
+    description: 'No props.',
+    properties: {},
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, UserDataWidgets.qaWeeklyReport),
+  exampleData: [
+    () => '''[{"id": "r", "component": "QaWeeklyReport"}]''',
+  ],
+);
+
+/// La card genérica para lo que no tiene card propia (ver
+/// `InfoListWidgets`). Cada número tiene que estar en una tool del turno.
+final CatalogItem qaInfoListItem = CatalogItem(
+  name: 'QaInfoList',
+  dataSchema: S.object(
+    description: 'Generic list when no other widget fits.',
+    properties: {
+      'title': S.string(),
+      'icon': S.string(enumValues: InfoListWidgets.icons.keys.toList()),
+      'rows': S.list(
+        items: S.object(
+          properties: {
+            'title': S.string(),
+            'detail': S.string(),
+            'value': S.string(),
+            'tone': S.string(enumValues: InfoListWidgets.tones.toList()),
+            'ticker': S.string(),
+            'question': S.string(),
+          },
+          required: ['title'],
+        ),
+        maxItems: 8,
+      ),
+      'footnote': S.string(),
+    },
+    required: ['title', 'rows'],
+  ),
+  widgetBuilder: (ctx) => guardedCatalogWidget(ctx, InfoListWidgets.qaInfoList),
+  exampleData: [
+    () => '''
+[
+  {
+    "id": "l",
+    "component": "QaInfoList",
+    "title": "Tus alertas",
+    "icon": "alert",
+    "rows": [
+      {"title": "VOO sube a \$750", "detail": "Una vez", "ticker": "VOO"}
+    ]
   }
 ]
 ''',

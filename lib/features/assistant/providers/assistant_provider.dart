@@ -392,6 +392,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadAppSettings: _settingsForTool,
         loadConnectedAccounts: _accountsForTool,
         loadAccountOverview: _accountOverviewForTool,
+        queriesLeftThisMonth: () {
+          final sub = ref.read(subscriptionProvider);
+          final left = sub.queriesLimit - sub.queriesUsed;
+          return left < 0 ? 0 : left;
+        }(),
         loadWeeklyReport: _weeklyReportForTool,
         userMemories: await memoriesF,
         saveMemory: _saveMemory,

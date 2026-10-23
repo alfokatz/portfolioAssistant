@@ -15,8 +15,9 @@ abstract final class ReportTools {
 
 abstract final class ReportGuides {
   static const ok =
-      'QaAnswerText only: answer from THIS report (what they see on Home); '
-      'cite its numbers and its reading, never recalculate.';
+      'QaWeeklyReport (no props: the app draws it) + QaAnswerText with 1-2 '
+      'sentences answering what they asked from THIS report; never '
+      'recalculate.';
   static const notReady =
       'QaAnswerText: this week\'s report isn\'t ready yet; it shows up on '
       'their Home when it is. Offer what you can answer now from the '

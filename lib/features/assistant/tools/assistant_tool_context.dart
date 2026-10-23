@@ -129,6 +129,7 @@ class AssistantToolContext {
     this.loadAppSettings,
     this.loadConnectedAccounts,
     this.loadAccountOverview,
+    this.queriesLeftThisMonth,
     this.loadWeeklyReport,
     this.userMemories = const [],
     this.saveMemory,
@@ -191,6 +192,9 @@ class AssistantToolContext {
   /// conectadas (con su última actualización) y metas cumplidas; `null`
   /// fuera de la app.
   final Future<Map<String, Object?>> Function()? loadAccountOverview;
+
+  /// Consultas a Porty que le quedan este mes (`account` del brief).
+  final int? queriesLeftThisMonth;
 
   /// El informe semanal de esta semana tal como lo ve el usuario (`null`
   /// si todavía no está); la función es `null` fuera de la app.
