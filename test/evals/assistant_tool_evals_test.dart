@@ -27,6 +27,7 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:dartz/dartz.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
@@ -105,11 +106,16 @@ class _Case {
     this.check, {
     this.tier = SubscriptionTier.gold,
     this.weeklyFree = false,
+    this.screen,
   });
 
   final String id;
   final List<String> turns;
   final SubscriptionTier tier;
+
+  /// La pantalla desde donde se abrió el chat con el primer turno (como
+  /// `askFromOutside(screen:)` en la app): `screen_context` en el brief.
+  final PortyScreenContext? screen;
 
   /// El usuario tiene disponible el análisis Gold de cortesía de la semana.
   final bool weeklyFree;
@@ -1270,6 +1276,73 @@ final _cases = <_Case>[
     'propose_broker_action',
     (a) => a['broker'] == 'etoro' && a['action'] == 'sync',
   ),
+  // screen_context (fase 1 de "Porty en toda la app"): la pregunta llega
+  // desde una pantalla y no nombra lo que el usuario está mirando.
+  _Case(
+    'screen-position-why',
+    ['¿Por qué bajó?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(
+        t.tickersOf('get_news').contains('NVDA') ||
+            t.tickersOf('get_quote').contains('NVDA'),
+        'no buscó NVDA: $t',
+      ),
+      ..._expect(
+        !t.tickersOf('get_news').contains('AAPL'),
+        'buscó AAPL, que no es la pantalla: $t',
+      ),
+      ..._expect(
+        !RegExp(r'¿(de )?(qué|cuál) (acción|ticker|empresa)', caseSensitive: false)
+            .hasMatch(t.answerText),
+        'preguntó de qué acción: ${t.answerText}',
+      ),
+      ..._expect(
+        !RegExp(r'estás (en|mirando)|veo que', caseSensitive: false)
+            .hasMatch(t.answerText),
+        'mencionó la pantalla: ${t.answerText}',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-position-weight-free',
+    ['¿Cuánto pesa en mi cartera?'],
+    tier: SubscriptionTier.free,
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(t.answerText.contains('NVDA'), 'no habló de NVDA: ${t.answerText}'),
+      ..._expect(
+        RegExp(r'50\s?%').hasMatch(t.answerText),
+        'no dijo que pesa 50%: ${t.answerText}',
+      ),
+      ..._expect(
+        !t.calls.any((c) => c.status == 'locked'),
+        'pidió algo bloqueado en Free: $t',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-other-ticker-wins',
+    ['¿Cómo viene AAPL esta semana?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(t.answerText.contains('AAPL'), 'no habló de AAPL: ${t.answerText}'),
+      ..._expect(
+        !t.tickersOf('get_quote').contains('NVDA') &&
+            !t.tickersOf('get_news').contains('NVDA'),
+        'usó NVDA en vez de lo que preguntó: $t',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-followup-same-ticker',
+    ['¿Por qué bajó?', '¿Y cómo están sus fundamentales?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => _expect(
+      t.tickersOf('get_fundamentals').contains('NVDA'),
+      'el seguimiento no fue sobre NVDA: $t',
+    ),
+  ),
 ];
 
 /// Cada atajo que ofrece una card del chat (`QaFollowUp('label',
@@ -1697,6 +1770,10 @@ void main() {
           final log = _TurnLog();
           final ctx = AssistantToolContext(
             pendingRequest: pending,
+            screenContext:
+                i < PortyScreenContext.maxTurns
+                    ? c.screen?.toBrief(turnsAgo: i)
+                    : null,
             tier: c.tier,
             summary: heldSummary,
             data: caseData,
