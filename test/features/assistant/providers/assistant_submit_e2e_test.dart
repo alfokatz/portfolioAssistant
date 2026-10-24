@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
@@ -143,6 +144,7 @@ class _Harness {
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
     bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
@@ -174,6 +176,7 @@ class _Harness {
                   proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
                   model: 'gpt-4.1-mini',
                   httpClient: api.client,
+                  variant: variant,
                 ),
             createData: () => fakeDataSources(quotes: quotes),
             streamingEnabled: streaming ? () async => true : null,
@@ -231,8 +234,15 @@ void main() {
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
     bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
   }) {
-    final h = _Harness(tier, script, used: used, streaming: streaming);
+    final h = _Harness(
+      tier,
+      script,
+      used: used,
+      streaming: streaming,
+      variant: variant,
+    );
     addTearDown(h.dispose);
     return h;
   }
@@ -704,6 +714,71 @@ void main() {
         });
       },
     );
+  });
+
+  // Fase 3 (docs/superpowers/research/2026-10-24-porty-escalable.md): con
+  // el prompt lean, las reglas y esquemas de un área viajan con el
+  // resultado de su tool.
+  group('lean prompt (area_spec)', () {
+    List<Map> toolMessages(Map<String, dynamic> request) => [
+      for (final m in (request['messages'] as List).cast<Map>())
+        if (m['role'] == 'tool') m,
+    ];
+
+    test('the news rules and card schema come with get_news, once while '
+        'visible; the system prompt does not carry them', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _call('get_news', {
+          'tickers': ['AAPL'],
+        }, id: 'call_2'),
+        _answer(),
+      ], variant: PromptVariant.lean);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      await h.notifier.submitMessage('¿Y de AAPL?');
+
+      expect(h.api.requests, hasLength(4));
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains(AreaSpecs.leanRule.trim().split('\n').first));
+      expect(system, isNot(contains('NEWS ([W:NEWS]) — get_news')));
+
+      final first = toolMessages(h.api.requests[1]).single;
+      final firstResult = jsonDecode(_textOf(first)) as Map;
+      final spec = firstResult['area_spec'] as Map;
+      expect(spec['rules'], startsWith('NEWS ([W:NEWS]) — get_news'));
+      expect((spec['widgets'] as Map).keys, ['QaNewsSummary']);
+
+      // Segundo turno: el resultado anterior (con su spec) sigue a la vista.
+      final second = toolMessages(h.api.requests[3]);
+      expect(second, hasLength(2));
+      expect(
+        (jsonDecode(_textOf(second.last)) as Map).containsKey('area_spec'),
+        isFalse,
+      );
+      expect(h.lastAnswer.isFallback, isFalse);
+    });
+
+    test('the classic prompt keeps everything in the prefix and adds no '
+        'area_spec', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains('NEWS ([W:NEWS]) — get_news'));
+      final result =
+          jsonDecode(_textOf(toolMessages(h.api.requests[1]).single)) as Map;
+      expect(result.containsKey('area_spec'), isFalse);
+    });
   });
 
   group('turn activity (Porty header status)', () {

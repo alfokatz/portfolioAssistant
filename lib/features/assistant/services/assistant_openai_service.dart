@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
@@ -17,6 +19,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     super.httpClient,
     required super.systemPrompt,
     required super.catalog,
+    this.variant = PromptVariant.classic,
   }) : super(
          postProcess: AssistantAnswerReview.postProcess,
          answerCheck: AssistantAnswerReview.check,
@@ -26,16 +29,42 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     AiProxyConfig? proxy,
     String? model,
     http.Client? httpClient,
+    PromptVariant variant = PromptVariant.classic,
   }) {
     final catalog = AssistantCatalog.build();
     return AssistantOpenAiService._(
       proxy: proxy,
       model: model,
       httpClient: httpClient,
-      systemPrompt: systemPromptFor(catalog),
+      systemPrompt:
+          variant == PromptVariant.lean
+              ? systemPromptFor(AssistantCatalog.build(variant: variant))
+              : systemPromptFor(catalog),
+      // Para mostrar, siempre el catálogo completo: un widget diferido
+      // llega descripto en su `area_spec`.
       catalog: catalog,
+      variant: variant,
     );
   }
+
+  /// Con qué prompt corre esta conversación (ver [PromptVariant]).
+  final PromptVariant variant;
+
+  /// Los esquemas de los widgets, como los describe el prompt clásico (de
+  /// ahí salen los de `area_spec`).
+  static final Map<String, Object?> _widgetSchemas = AreaSpecs.widgetSchemas(
+    systemPromptFor(AssistantCatalog.build()),
+  );
+
+  /// Con el prompt lean: el `area_spec` de cada tool que difiere algo.
+  ResultExtrasFor? get _resultExtras =>
+      variant == PromptVariant.lean
+          ? (record) => AreaSpecs.extraFor(
+            record,
+            rules: assistantPromptRules,
+            schemas: _widgetSchemas,
+          )
+          : null;
 
   /// `PromptBuilder` ya agrega `catalog.systemPromptFragments` por su
   /// cuenta; pasarlos también como argumento los duplicaba (~8,9K tokens
@@ -163,6 +192,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       onActivity: onActivity,
       beforeRound: beforeRound,
       onContent: onContent,
+      resultExtras: _resultExtras,
       pinnedContext: pinnedContextFor(portfolioBrief),
       context:
           'SURFACE_ID (usar exactamente en createSurface y '

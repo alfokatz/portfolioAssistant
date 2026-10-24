@@ -55,6 +55,10 @@ class TurnRecord {
   /// Rondas que cortó el tope de tokens de salida (`finish_reason:
   /// length`): el modelo se desbocó y el turno tardó de más.
   int truncatedRounds = 0;
+
+  /// Claves de los [ResultExtra] que viajaron en los resultados de este
+  /// turno.
+  final Set<String> extraKeys = {};
 }
 
 /// Historial de la conversación para Chat Completions, armado por turnos.
@@ -115,6 +119,21 @@ class ConversationLog {
     ))
       ...turn.calls,
   ];
+
+  /// Claves de los [ResultExtra] que el modelo tiene a la vista: las de los
+  /// turnos cuyas rondas todavía se reenvían (mismo criterio que [render]).
+  Set<String> get visibleExtraKeys {
+    final keys = <String>{};
+    for (var i = 0; i < turns.length; i++) {
+      final turn = turns[i];
+      final isCurrent = i == turns.length - 1;
+      final raw = turns.length - 1 - i < rawTurns;
+      if (isCurrent || (raw && turn.finalText != null)) {
+        keys.addAll(turn.extraKeys);
+      }
+    }
+    return keys;
+  }
 
   /// Saca el último turno (rollback de un turno cortado antes de responder,
   /// ej. paywall).

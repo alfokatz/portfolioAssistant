@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Interruptor de la respuesta en streaming (el texto de Porty aparece
-/// mientras se escribe). Lo decide el servidor, `app_config.porty_streaming`:
+/// Un interruptor de Porty que se prende por usuario desde el servidor, sin
+/// publicar la app: una fila de `app_config` ([key]) con
 ///
 /// ```json
 /// {"percent": 0, "users": ["<uuid>", ...]}
@@ -12,15 +12,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - `percent` (0-100): qué parte del resto lo tiene. Cada usuario cae
 ///   siempre en el mismo grupo (hash de su id, como `GPT6_ROLLOUT_PERCENT`).
 ///
-/// Falla cerrado: sin red, sin la fila o con un valor raro, apagado (la
-/// respuesta se muestra entera al final, como siempre).
-class PortyStreamingConfig {
-  PortyStreamingConfig({
+/// Falla cerrado: sin red, sin la fila o con un valor raro, apagado (lo de
+/// siempre).
+class PortyRolloutFlag {
+  PortyRolloutFlag(
+    this.key, {
     Future<Object?> Function()? read,
     this.ttl = const Duration(minutes: 10),
-  }) : _read = read ?? _readFromSupabase;
+  }) : _read = read ?? (() => _readFromSupabase(key));
 
-  static final instance = PortyStreamingConfig();
+  /// La respuesta en streaming (el texto aparece mientras se escribe).
+  static final streaming = PortyRolloutFlag('porty_streaming');
+
+  /// El prompt lean (`PromptVariant.lean`): lo que cada área necesita
+  /// después de traer sus datos viaja con el resultado de la tool.
+  static final leanPrompt = PortyRolloutFlag('porty_lean_prompt');
+
+  /// La fila de `app_config`.
+  final String key;
 
   final Future<Object?> Function() _read;
   final Duration ttl;
@@ -29,7 +38,7 @@ class PortyStreamingConfig {
   DateTime? _readAt;
   Future<Object?>? _inFlight;
 
-  /// Si [userId] tiene el streaming prendido. Nunca tira.
+  /// Si [userId] lo tiene prendido. Nunca tira.
   Future<bool> enabledFor(String? userId) async {
     if (userId == null || userId.isEmpty) return false;
     return isEnabled(await _load(), userId);
@@ -70,17 +79,17 @@ class PortyStreamingConfig {
       _value = await _read().timeout(const Duration(seconds: 4));
       _readAt = DateTime.now();
     } catch (e) {
-      if (kDebugMode) debugPrint('[PortyStreaming] off: $e');
+      if (kDebugMode) debugPrint('[PortyRolloutFlag] $key off: $e');
     }
     return _value;
   }
 
-  static Future<Object?> _readFromSupabase() async {
+  static Future<Object?> _readFromSupabase(String key) async {
     final row =
         await Supabase.instance.client
             .from('app_config')
             .select('value')
-            .eq('key', 'porty_streaming')
+            .eq('key', key)
             .maybeSingle();
     return row?['value'];
   }

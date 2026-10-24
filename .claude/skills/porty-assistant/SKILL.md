@@ -18,6 +18,7 @@ Referencia larga: `docs/architecture/porty-assistant-tool-calling.md` (si choca 
 | Loop genérico (sin negocio) | `lib/features/genui_core/` |
 | Tools por grupo | `lib/features/assistant/tools/{market,portfolio,advice,action,alert,plan,memory,web}_tools.dart` |
 | Orden de tools (fijo) | `tools/assistant_toolset.dart` → `AssistantToolset.build` |
+| Áreas (dueño y presupuesto de cada tool y widget; qué se difiere) | `areas/porty_areas.dart` + `areas/area_specs.dart` (prompt lean, `area_spec`) |
 | Contexto, gating, paywalls | `tools/assistant_tool_context.dart` (`ctx.gate`, `ctx.lockedFeature`, `ctx.allows`) |
 | Instrucciones por resultado | `tools/answer_guide.dart` → `AnswerGuide.attach(result, guide)` |
 | Fetchers de datos (sin LLM) | `lib/features/assistant/data/<area>/` |
@@ -36,6 +37,7 @@ Referencia larga: `docs/architecture/porty-assistant-tool-calling.md` (si choca 
 4. **Las tools nunca lanzan.** Devuelven `status`: `ok` | `empty` | `failed` | `locked` (+ `required_plan`) | `needs_retry`, más `as_of`. `locked` nunca se redacta como "no hay datos".
 5. **Lo que el prompt no garantiza, lo garantiza código** (grounding, layout guard, normalizer). Cada guarda salió de una falla medida en evals.
 6. **Instrucciones específicas van en el resultado de la tool** (`answer_guide`), no en el system prompt, que debe ser determinístico (sin fechas ni datos del usuario).
+7. **Crecer sin agrandar el prefijo.** Cada tool y widget es de un área con presupuesto de tokens fijos (`test/features/assistant/areas/porty_areas_test.dart`). Lo que solo hace falta después de traer los datos (reglas de respuesta, esquema de la card) se declara como `DeferredSpec`: con el prompt lean (`app_config.porty_lean_prompt`) viaja con el resultado de la tool. Sin router previo ni subagentes en el chat: ver `docs/superpowers/research/2026-10-24-porty-escalable.md`.
 
 ## Flujos
 

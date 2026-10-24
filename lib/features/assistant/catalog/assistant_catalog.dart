@@ -1,5 +1,7 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/areas/porty_areas.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
@@ -84,20 +86,30 @@ abstract final class AssistantCatalog {
     qaActionProposalItem,
   ];
 
-  static Catalog build() {
+  /// [variant] lean: el catálogo para ARMAR EL PROMPT, sin los widgets que
+  /// viajan con el resultado de su tool (`area_spec`) y con las reglas lean.
+  /// Para mostrar las respuestas se usa siempre el completo.
+  static Catalog build({PromptVariant variant = PromptVariant.classic}) {
     final base = BasicCatalogItems.asCatalog();
     final unused = [
       for (final item in base.items)
         if (!basicComponentNames.contains(item.name)) item,
     ];
+    final lean = variant == PromptVariant.lean;
+    final deferred = lean ? PortyAreas.deferredWidgets : const <String>{};
     return base
         .copyWithout(itemsToRemove: unused)
         .copyWith(
-          newItems: items,
+          newItems: [
+            for (final item in items)
+              if (!deferred.contains(item.name)) item,
+          ],
           systemPromptFragments: [
             criticalOutputFormatRules,
             ...base.systemPromptFragments,
-            assistantPromptRules,
+            lean
+                ? AreaSpecs.leanRules(assistantPromptRules)
+                : assistantPromptRules,
           ],
         );
   }

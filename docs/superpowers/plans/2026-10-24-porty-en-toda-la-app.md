@@ -1,6 +1,6 @@
 # Porty en toda la app (fase 1 de "asistente integral")
 
-**Fecha:** 2026-10-24 · **Estado:** fases 1 y 2 implementadas y probadas en local; nada desplegado · **Rama:** `claude/porty-next-level`
+**Fecha:** 2026-10-24 · **Estado:** fases 1, 2 y 3 implementadas y probadas en local; nada desplegado · **Rama:** `claude/porty-next-level`
 
 ## Por qué
 
@@ -12,7 +12,7 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 |---|---|---|
 | 1 | Porty en cada pantalla, con `screen_context` y preguntas de la pantalla | ✅ esta |
 | 2 | Bandeja de Porty en la Home y resumen de la mañana | ✅ |
-| 3 | Enrutador por áreas (que el prompt no crezca con cada feature) | pendiente |
+| 3 | Áreas con presupuesto y prompt lean (que el prompt no crezca con cada feature) | ✅ (lean apagado hasta medirlo) |
 | 4 | Conversaciones guardadas y memoria episódica | pendiente |
 | 5 | Patrimonio neto, flujo mensual e impuestos | pendiente |
 | 6 | Automatizaciones y flujos guiados | pendiente |
@@ -81,8 +81,18 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 - Deno: `tests/daily_jobs_test.ts` (señales, lunes, Free, duplicados por mes, corrida a las 8) y `tests/notify_dispatch_test.ts` (plantilla en los dos idiomas).
 - SQL: `supabase/tests/morning_brief_db_test.sql`, contra Postgres 16 con stubs de auth/vault/roles y las 38 migraciones aplicadas. También pasan los 6 tests SQL que ya existían.
 
+## Fase 3: qué hace
+
+Detalle y evaluación (incluidos el router previo y los subagentes, descartados para el chat): `docs/superpowers/research/2026-10-24-porty-escalable.md`.
+
+- **Registro de áreas** (`lib/features/assistant/areas/`): cada tool y widget tiene un área dueña y cada área, un presupuesto de tokens fijos. Lo controla un test.
+- **Prompt lean**, apagado (`app_config.porty_lean_prompt` en 0 %). Lo que research, inversión y metas solo necesitan después de traer sus datos viaja con el resultado de la tool (`area_spec`). Son −3.325 tokens fijos por pedido (−12 %), y un área nueva suma ~200-400 tokens fijos en vez de 1.500-3.000.
+- **El prompt clásico no cambió:** mismo hash, no hay que desplegar `ai-chat` por esta fase. El hash lean ya está en el allowlist para cuando se prenda.
+- **Evals:** `EVAL_PROMPT_VARIANT=lean` y `EVAL_PREFIX` para comparar A/B antes de prender.
+
 ## Despliegue (pendiente, en este orden)
 
 1. `supabase db push`: migración `20261024000000_morning_brief.sql`. **Antes que la app**, porque la app nueva guarda `morning_brief` en `notification_preferences`.
 2. `supabase functions deploy daily-jobs notify-dispatch`.
-3. Publicar la app. `ai-chat` no cambia: el hash del prompt es el mismo.
+3. Publicar la app. El prompt clásico no cambia.
+4. Fase 3: la migración `20261024000100_porty_lean_prompt.sql` va con el `db push` del paso 1. Antes de prender el flag, `supabase functions deploy ai-chat` (allowlist con el hash lean) y medir con evals (ver la investigación).

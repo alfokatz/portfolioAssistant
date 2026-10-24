@@ -266,6 +266,8 @@ class OpenAIGenUiService {
   /// primera ronda de tools. [onActivity] avisa en qué anda el turno
   /// (esperando al modelo, qué tools corren, armando la respuesta) — solo
   /// para mostrarlo; no emite `idle`, el fin del turno lo marca el llamador.
+  /// [resultExtras] suma datos a lo que el modelo lee de cada resultado
+  /// (ver [ResultExtra]); la evidencia del turno no los ve.
   Future<TurnOutcome> runTurn({
     required String userText,
     required String surfaceId,
@@ -276,6 +278,7 @@ class OpenAIGenUiService {
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
     ContentDeltaCallback? onContent,
+    ResultExtrasFor? resultExtras,
   }) {
     return _sendQueue.run(() async {
       log.pinnedContext = pinnedContext;
@@ -289,6 +292,7 @@ class OpenAIGenUiService {
           abortCheck: abortCheck,
           onActivity: onActivity,
           beforeRound: beforeRound,
+          resultExtras: resultExtras,
         );
       } on ProxyLimitException {
         // El servidor no dejó responder (cuota, tope diario…): el turno no
@@ -317,6 +321,32 @@ class OpenAIGenUiService {
     );
   }
 
+  /// El texto de cada resultado para el modelo: el resultado y, si
+  /// corresponde, su [ResultExtra] — una vez por clave mientras siga a la
+  /// vista (ver `ConversationLog.visibleExtraKeys`).
+  List<String> _withExtras(
+    List<ToolCallRecord> records,
+    ResultExtrasFor? extrasFor,
+    TurnRecord turn,
+  ) {
+    if (extrasFor == null) {
+      return [for (final r in records) jsonEncode(r.result)];
+    }
+    final visible = log.visibleExtraKeys;
+    return [
+      for (final r in records)
+        () {
+          final extra = extrasFor(r);
+          if (extra == null || visible.contains(extra.key)) {
+            return jsonEncode(r.result);
+          }
+          visible.add(extra.key);
+          turn.extraKeys.add(extra.key);
+          return jsonEncode({...r.result, ...extra.fields});
+        }(),
+    ];
+  }
+
   Future<TurnOutcome> _runTurn({
     required String userText,
     required String surfaceId,
@@ -325,6 +355,7 @@ class OpenAIGenUiService {
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
+    ResultExtrasFor? resultExtras,
   }) async {
     _lastTools = tools;
     _lastSurfaceId = surfaceId;
@@ -379,6 +410,7 @@ class OpenAIGenUiService {
         final records = await executor.runAll(calls);
         onActivity?.call(TurnActivity.composing);
         turn.calls.addAll(records);
+        final contents = _withExtras(records, resultExtras, turn);
         turn.exchanges.add(
           ToolExchange(
             call: message,
@@ -388,7 +420,7 @@ class OpenAIGenUiService {
                   role: OpenAIChatMessageRole.tool,
                   content: [
                     OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                      jsonEncode(records[i].result),
+                      contents[i],
                     ),
                   ],
                   toolCallId: calls[i].id!,

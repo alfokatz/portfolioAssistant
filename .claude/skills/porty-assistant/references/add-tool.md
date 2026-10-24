@@ -7,6 +7,10 @@ Copiar este checklist y marcarlo:
 - [ ] 2. Fetch de datos en features/assistant/data/<area>/ (sin LLM)
 - [ ] 3. PlanFeature nuevo en PlanMatrix (si es paga) + ctx.gate
 - [ ] 4. Agregada AL FINAL de AssistantToolset.build
+- [ ] 4b. Asignada a un área en lib/features/assistant/areas/porty_areas.dart
+         (con sus widgets); si su regla de respuesta o su card solo hacen
+         falta con sus datos → DeferredSpec (viaja en area_spec con el
+         prompt lean). El presupuesto del área no se sube sin pensarlo
 - [ ] 5. Regla [W:…] o AnswerGuide si el modelo necesita guía
 - [ ] 6. Grounding: _requires si alimenta un widget
 - [ ] 7. Hash del allowlist regenerado

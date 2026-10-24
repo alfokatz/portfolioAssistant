@@ -4,6 +4,10 @@
 //   RUN_ASSISTANT_EVALS=1 EVAL_PROXY_JWT=<jwt> \
 //     flutter test test/evals/assistant_tool_evals_test.dart
 //
+// EVAL_PROMPT_VARIANT=lean corre con el prompt lean (`PromptVariant.lean`,
+// fase 3 de docs/superpowers/plans/2026-10-24-porty-en-toda-la-app.md);
+// EVAL_PREFIX=research-,goal- corre solo los casos cuyo id empieza así.
+//
 // Pasa por el proxy `ai-chat` igual que la app (la key de OpenAI está en el
 // servidor, nunca acá): por defecto el local de `supabase functions serve`
 // (EVAL_PROXY_URL para otro), con el JWT de un usuario de prueba
@@ -27,6 +31,7 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:dartz/dartz.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
@@ -1707,8 +1712,15 @@ void main() {
       var failures = 0;
 
       final only = Platform.environment['EVAL_ONLY'];
+      final prefixes = Platform.environment['EVAL_PREFIX']?.split(',');
+      final variant =
+          Platform.environment['EVAL_PROMPT_VARIANT'] == 'lean'
+              ? PromptVariant.lean
+              : PromptVariant.classic;
       for (final c in cases.where(
-        (c) => only == null || only.split(',').contains(c.id),
+        (c) =>
+            (only == null || only.split(',').contains(c.id)) &&
+            (prefixes == null || prefixes.any(c.id.startsWith)),
       )) {
         // EVAL_CASE_DELAY_S: pausa entre casos para no chocar con el límite
         // de tokens por minuto de la key (sin esto, las latencias medidas
@@ -1722,6 +1734,7 @@ void main() {
           proxy: proxy,
           model: env['OPENAI_MODEL'] ?? 'gpt-6-luna',
           httpClient: recorder,
+          variant: variant,
         );
         // Una por caso, como en la app (vive toda la conversación): los
         // casos de varios turnos necesitan el plan del turno anterior.
@@ -1952,6 +1965,7 @@ void main() {
         final usage = recorder.usages;
         report.add({
           'id': c.id,
+          'prompt_variant': variant.name,
           'pass': problems.isEmpty,
           'problems': problems,
           'layout_ok': layoutOk,

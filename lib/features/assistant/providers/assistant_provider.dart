@@ -245,6 +245,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
     }
 
+    _leanPrompt = await _leanPromptForConversation();
     _ensureService();
     state = state.copyWith(isServiceReady: true);
     // Arranca la función del proxy mientras el usuario lee o escribe.
@@ -319,9 +320,27 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return screen.toBrief(turnsAgo: _screenTurns);
   }
 
+  /// Si esta conversación usa el prompt lean (`PromptVariant.lean`). Se
+  /// decide una vez, al abrir el chat: cambiar de prompt a mitad de una
+  /// conversación rompería la caché y dejaría `area_spec` sin su regla.
+  bool _leanPrompt = false;
+
+  Future<bool> _leanPromptForConversation() async {
+    final enabled = ref.read(assistantDepsProvider).leanPromptEnabled;
+    if (enabled == null) return false;
+    try {
+      return await enabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _ensureService() {
     if (_service != null) return;
-    final service = ref.read(assistantDepsProvider).createService();
+    final deps = ref.read(assistantDepsProvider);
+    final service =
+        (_leanPrompt ? deps.createLeanService : null)?.call() ??
+        deps.createService();
     _service = service;
     _subscription =
         GenUiConversationSubscription()
