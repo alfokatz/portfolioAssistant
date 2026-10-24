@@ -2,7 +2,7 @@
 //
 //   deno test --allow-env tests/daily_jobs_test.ts
 
-import { assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals } from "jsr:@std/assert@1";
 import { handle, type JobsDeps, runDailyJobs } from "../daily-jobs/handler.ts";
 import {
   type AllocationInput,
@@ -11,6 +11,7 @@ import {
   earningsResultRows,
   earningsTomorrowRows,
   type LocalUser,
+  morningBriefRows,
   type OutboxInsert,
   parseFinnhubCalendar,
   surprise,
@@ -302,4 +303,83 @@ Deno.test("corrida: 19 h pide los pesos una vez y solo si alguien presenta maña
   assertEquals(asked, [["u1", "u9"]]);
   const row = store.enqueued.find((r) => r.kind === "earnings_tomorrow")!;
   assertEquals((row.data.items as { weight_pct: number }[])[0].weight_pct, 22);
+});
+
+// ── Resumen de la mañana (fase 2 de 2026-10-24-porty-en-toda-la-app.md) ──
+
+const weightsOf = (entries: Record<string, Record<string, number>>) =>
+  new Map(Object.entries(entries).map(([u, w]) => [u, new Map(Object.entries(w))]));
+
+const tuesday = (over: Partial<LocalUser> = {}) =>
+  user({ local_dow: 2, local_date: "2026-10-20", tier: "premium", ...over });
+
+Deno.test("resumen: concentración desde 25% (como la app), nunca con una sola acción", () => {
+  const rows = morningBriefRows(
+    [tuesday(), tuesday({ user_id: "solo" }), tuesday({ user_id: "spread" })],
+    weightsOf({
+      u1: { NVDA: 62, AAPL: 38 },
+      solo: { NVDA: 100 },
+      spread: { A: 20, B: 20, C: 20, D: 20, E: 20 },
+    }),
+    [],
+  );
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].kind, "morning_brief");
+  assertEquals(rows[0].dedupe_key, "morning_brief:2026-10:concentration:NVDA");
+  assertEquals(rows[0].data, {
+    signals: [{ kind: "concentration", symbol: "NVDA", weight_pct: 62 }],
+    count: 1,
+  });
+});
+
+Deno.test("resumen: el desvío del plan va primero (Premium); los lunes lo avisa allocation_drift; Free no lo tiene", () => {
+  const weights = weightsOf({ u1: { VOO: 71.4, BND: 20, NVDA: 8.6 } });
+  const [paid] = morningBriefRows([tuesday()], weights, [plan()]);
+  const signals = paid.data.signals as { kind: string; symbol: string }[];
+  assertEquals(signals.map((s) => `${s.kind}:${s.symbol}`), ["drift:BND", "concentration:VOO"]);
+  assertEquals(paid.dedupe_key, "morning_brief:2026-10:concentration:VOO|drift:BND");
+
+  const monday = morningBriefRows([tuesday({ local_dow: 1, local_date: "2026-10-19" })], weights, [plan()]);
+  assertEquals((monday[0].data.signals as { kind: string }[]).map((s) => s.kind), ["concentration"]);
+
+  const free = morningBriefRows([tuesday({ tier: "free" })], weights, [plan()]);
+  assertEquals((free[0].data.signals as { kind: string }[]).map((s) => s.kind), ["concentration"]);
+});
+
+Deno.test("resumen: lo mismo no se repite en el mes; algo nuevo sí avisa", () => {
+  const weights = weightsOf({ u1: { NVDA: 62, AAPL: 38 } });
+  const day1 = morningBriefRows([tuesday()], weights, [])[0];
+  const day2 = morningBriefRows([tuesday({ local_date: "2026-10-21", local_dow: 3 })], weights, [])[0];
+  assertEquals(day1.dedupe_key, day2.dedupe_key);
+  const nextMonth = morningBriefRows([tuesday({ local_date: "2026-11-03" })], weights, [])[0];
+  assert(nextMonth.dedupe_key !== day1.dedupe_key);
+  const withDrift = morningBriefRows([tuesday()], weights, [plan()])[0];
+  assert(withDrift.dedupe_key !== day1.dedupe_key);
+});
+
+Deno.test("corrida: 8 h pide los pesos de quien tiene 2+ acciones y los planes solo de los pagos", async () => {
+  const { deps, store } = jobsDeps("2026-10-20T11:00:00Z");
+  store.users.set(8, [
+    tuesday(),
+    tuesday({ user_id: "free", tier: "free" }),
+    tuesday({ user_id: "solo", symbols: ["NVDA"] }),
+  ]);
+  const askedWeights: string[][] = [];
+  const askedPlans: string[][] = [];
+  const s = store as unknown as {
+    holdingWeights: (ids: string[]) => Promise<Map<string, Map<string, number>>>;
+    allocationInputs: (ids: string[]) => Promise<AllocationInput[]>;
+  };
+  s.holdingWeights = (ids) => {
+    askedWeights.push(ids);
+    return Promise.resolve(weightsOf({ u1: { NVDA: 62, AAPL: 38 }, free: { NVDA: 30, AAPL: 30, KO: 40 } }));
+  };
+  s.allocationInputs = (ids) => {
+    askedPlans.push(ids);
+    return Promise.resolve([]);
+  };
+  const summary = await runDailyJobs(deps, [8]);
+  assertEquals(askedWeights, [["u1", "free"]]);
+  assertEquals(askedPlans, [["u1"]]);
+  assertEquals(summary.queued, { morning_brief: 2 });
 });

@@ -1,6 +1,6 @@
 # Porty en toda la app (fase 1 de "asistente integral")
 
-**Fecha:** 2026-10-24 · **Estado:** fase 1 implementada y probada en local · **Rama:** `claude/porty-next-level`
+**Fecha:** 2026-10-24 · **Estado:** fases 1 y 2 implementadas y probadas en local; nada desplegado · **Rama:** `claude/porty-next-level`
 
 ## Por qué
 
@@ -11,7 +11,7 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | Porty en cada pantalla, con `screen_context` y preguntas de la pantalla | ✅ esta |
-| 2 | Bandeja de insights calculados en el servidor y resumen diario | pendiente |
+| 2 | Bandeja de Porty en la Home y resumen de la mañana | ✅ |
 | 3 | Enrutador por áreas (que el prompt no crezca con cada feature) | pendiente |
 | 4 | Conversaciones guardadas y memoria episódica | pendiente |
 | 5 | Patrimonio neto, flujo mensual e impuestos | pendiente |
@@ -55,5 +55,34 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 ## Fuera de esta fase
 
 - **Responder dentro de la hoja**, sin ir a la pestaña del chat: hoy la pregunta abre el chat. Requiere que la conversación se pueda mostrar en dos lugares (la pantalla del chat es de ~1.400 líneas); conviene hacerlo junto con la fase 4 (conversaciones guardadas).
-- **Comentarios de Porty con datos de cada pantalla** (`PortySays` con números reales en el detalle de posición, lista y plan): van con la fase 2, que calcula esos insights en el servidor.
+- **Comentarios de Porty con datos dentro de cada pantalla** (detalle de posición, lista, plan): la bandeja de la fase 2 los junta en la Home; repartirlos en cada pantalla queda para después.
 - Evals con el modelo real para `screen_context` (cuestan plata: correrlas con OK).
+
+## Fase 2: qué hace
+
+### Bandeja en la Home ("Hoy te marco 3 cosas")
+
+- **Dónde se calcula: en la app**, no en el servidor como decía la propuesta. `PortyInsightsBuilder` (`lib/features/porty_inbox/domain/`) usa lo que la app ya tiene cargado: cartera, plan, metas (`GoalProgress`) y alertas. Así los números son exactamente los que el usuario ve en cada pantalla, sin tabla nueva y sin esperar a un job.
+- **Qué marca** (puro, sin modelo, sin consulta): desvío del plan (umbral del usuario), meta vencida, meta atrasada (con cuánto por mes para llegar), meta al 90 % o más, concentración (una acción desde 25 % con al menos dos posiciones), alerta de precio fijo a menos de 3 % sin saltar, pérdida desde la compra de −20 % o peor en algo que pesa 5 % o más.
+- **Orden:** meta vencida (90) > desvío (80–89) > meta atrasada (70–85) > concentración (60–80) > alerta cercana (55–64) > meta casi cumplida (50) > pérdida (40–60). Hasta 3.
+- **UI:** `PortyInboxSection` reemplaza al `AllocationDriftBanner` debajo del total. Porty con una frase y la cara según lo que marca (preocupado si algo pide atención, contento si todo es bueno). Cada fila abre el chat con su pregunta y su pantalla (`screen_context`). Deslizar la oculta 7 días (SharedPreferences). Sin nada para marcar, no ocupa lugar.
+- **Nunca un consejo:** cada fila es un dato y una pregunta ("¿Es mucho que NVDA pese 45 % de mi cartera?"), no "vendé".
+
+### Resumen de la mañana (push `morning_brief`)
+
+- `daily-jobs` a las 8 locales, para quien tiene 2 o más acciones: lo que el servidor puede calcular con los mismos umbrales que la app. Concentración (`push_holding_weights`, todos los planes) y desvío del plan (`allocation_drift_inputs`, Premium/Gold con avisos del plan prendidos; los lunes no, porque lo avisa `allocation_drift` a las 10).
+- **Pocas y buenas:** la clave de duplicados es `morning_brief:<YYYY-MM>:<señales>`. La misma situación avisa una vez por mes; algo nuevo avisa ese día. Automática: tope diario, horario de silencio (se difiere, vale 6 h) y preferencia propia `morning_brief` (prendida por defecto, en Ajustes → Notificaciones).
+- Texto: "Porty te marca 2 cosas hoy · VOO pesa 71% (tu objetivo: 60%). Y una cosa más. Tocá para verlo." Lleva a la Home, donde está la bandeja.
+
+### Pruebas (fase 2)
+
+- `test/features/porty_inbox/`: cada regla, el orden, el tope, lo oculto y que vuelve a la semana; la sección (vacía, claro y oscuro a ancho de SE, deslizar para ocultar).
+- `test/screenshots/porty_inbox_screenshots_test.dart` (con `RUN_SCREENSHOTS=1`).
+- Deno: `tests/daily_jobs_test.ts` (señales, lunes, Free, duplicados por mes, corrida a las 8) y `tests/notify_dispatch_test.ts` (plantilla en los dos idiomas).
+- SQL: `supabase/tests/morning_brief_db_test.sql`, contra Postgres 16 con stubs de auth/vault/roles y las 38 migraciones aplicadas. También pasan los 6 tests SQL que ya existían.
+
+## Despliegue (pendiente, en este orden)
+
+1. `supabase db push`: migración `20261024000000_morning_brief.sql`. **Antes que la app**, porque la app nueva guarda `morning_brief` en `notification_preferences`.
+2. `supabase functions deploy daily-jobs notify-dispatch`.
+3. Publicar la app. `ai-chat` no cambia: el hash del prompt es el mismo.

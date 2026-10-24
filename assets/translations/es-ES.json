@@ -1481,5 +1481,7 @@
   "porty_inbox_alert_near_question": "¿Cómo viene {ticker} esta semana?",
   "porty_inbox_deep_loss_title": "{ticker} acumula {pnl} desde que la compraste",
   "porty_inbox_deep_loss_detail": "Pesa {weight} de tu cartera",
-  "porty_inbox_deep_loss_question": "¿Qué pasó con {ticker} desde que la compré?"
+  "porty_inbox_deep_loss_question": "¿Qué pasó con {ticker} desde que la compré?",
+  "notifications_morning_brief": "Lo que Porty te marca",
+  "notifications_morning_brief_desc": "A las 8, si ve algo nuevo en tu cartera: una acción que pesa mucho o que te alejaste de tu plan"
 }

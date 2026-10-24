@@ -43,6 +43,8 @@ export const jobHours = {
   /// después del cierre del día anterior); la clave de duplicados evita
   /// repetir.
   earningsResult: [12, 19],
+  /// Todos los días: lo que Porty marca en la cartera (si hay algo nuevo).
+  morningBrief: 8,
 };
 
 export function addDays(date: string, days: number): string {
@@ -230,4 +232,61 @@ export function allocationDriftRows(users: LocalUser[], inputs: AllocationInput[
 
 function round1(v: number): number {
   return Math.round(v * 10) / 10;
+}
+
+/// Una cosa que Porty marca en el resumen de la mañana. Los mismos umbrales
+/// que la bandeja de la app (`PortyInsightsBuilder`): ahí el usuario ve el
+/// detalle al tocar la notificación.
+export type BriefSignal =
+  | { kind: "concentration"; symbol: string; weight_pct: number }
+  | { kind: "drift"; symbol: string; current_pct: number; target_pct: number };
+
+/// Peso desde el que una sola acción es concentración (como la app).
+export const concentrationPct = 25;
+
+function signalId(s: BriefSignal): string {
+  return `${s.kind}:${s.symbol}`;
+}
+
+/// Las 8 de cada día: lo que Porty ve en la cartera, de lo más importante a
+/// lo menos (el desvío del plan antes que la concentración, como en la
+/// app). Sale una vez por mes por cada conjunto de señales: lo mismo no se
+/// repite todos los días, pero algo nuevo sí avisa. Los lunes el desvío lo
+/// avisa `allocation_drift` a las 10: no va dos veces.
+export function morningBriefRows(
+  users: LocalUser[],
+  weights: HoldingWeights,
+  inputs: AllocationInput[],
+): OutboxInsert[] {
+  const plans = new Map(inputs.map((i) => [i.user_id, i]));
+  const out: OutboxInsert[] = [];
+  for (const u of users) {
+    const signals: BriefSignal[] = [];
+
+    const input = plans.get(u.user_id);
+    if (input && u.tier !== "free" && u.local_dow !== 1) {
+      const worst = allocationDrift(input)[0];
+      if (worst && Math.abs(worst.current_pct - worst.target_pct) >= input.drift_threshold) {
+        signals.push({ kind: "drift", ...worst });
+      }
+    }
+
+    const mine = weights.get(u.user_id);
+    if (mine && mine.size >= 2) {
+      const [symbol, weight] = [...mine.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+      if (weight >= concentrationPct) {
+        signals.push({ kind: "concentration", symbol, weight_pct: round1(weight) });
+      }
+    }
+
+    if (signals.length === 0) continue;
+    const ids = signals.map(signalId).sort().join("|");
+    out.push({
+      user_id: u.user_id,
+      kind: "morning_brief",
+      dedupe_key: `morning_brief:${u.local_date.slice(0, 7)}:${ids}`,
+      data: { signals, count: signals.length },
+    });
+  }
+  return out;
 }

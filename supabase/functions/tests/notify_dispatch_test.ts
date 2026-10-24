@@ -370,3 +370,23 @@ Deno.test("plantillas: resumen antes de los resultados", () => {
   const legacy = render("earnings_tomorrow", { symbols: ["AAPL"] }, { locale: "es", showAmounts: false });
   assertEquals(legacy.body, "Tocá para ver qué se espera.");
 });
+
+Deno.test("plantillas: resumen de la mañana", () => {
+  const one = render("morning_brief", {
+    signals: [{ kind: "concentration", symbol: "NVDA", weight_pct: 62.4 }],
+    count: 1,
+  }, { locale: "es", showAmounts: false });
+  assertEquals(one.title, "Porty te marca algo hoy");
+  assertEquals(one.body, "NVDA pesa 62% de tu cartera. Tocá para verlo.");
+  assertEquals(one.route, "home");
+
+  const two = render("morning_brief", {
+    signals: [
+      { kind: "drift", symbol: "VOO", current_pct: 71.4, target_pct: 60 },
+      { kind: "concentration", symbol: "VOO", weight_pct: 71.4 },
+    ],
+    count: 2,
+  }, { locale: "en", showAmounts: false });
+  assertEquals(two.title, "Porty noticed 2 things today");
+  assertEquals(two.body, "VOO is 71% (your target: 60%). And one more thing. Tap to see it.");
+});

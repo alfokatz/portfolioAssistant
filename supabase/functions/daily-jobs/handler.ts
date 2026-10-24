@@ -8,6 +8,8 @@
 //   calendario de Finnhub; v2, por el 8-K con ítem 2.02 presentado a la SEC;
 // - lunes 10:00 → la cartera se alejó del plan del usuario (Premium,
 //   F3 de docs/superpowers/plans/2026-10-16-porty-siguiente-nivel.md);
+// - todos los días 8:00 → lo que Porty marca en la cartera, si hay algo
+//   nuevo (docs/superpowers/plans/2026-10-24-porty-en-toda-la-app.md);
 // - 04:00 UTC → limpieza (push_purge).
 //
 // POST /functions/v1/daily-jobs con `x-cron-secret`. Body opcional
@@ -26,6 +28,7 @@ import {
   earningsTomorrowRows,
   jobHours,
   type LocalUser,
+  morningBriefRows,
   type OutboxInsert,
   parseFinnhubCalendar,
   weeklyReportRows,
@@ -88,7 +91,13 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
   const now = deps.now();
   const wanted = new Set(
     onlyHours ??
-      [jobHours.weeklyReport, jobHours.allocationDrift, jobHours.earningsTomorrow, ...jobHours.earningsResult],
+      [
+        jobHours.morningBrief,
+        jobHours.weeklyReport,
+        jobHours.allocationDrift,
+        jobHours.earningsTomorrow,
+        ...jobHours.earningsResult,
+      ],
   );
   const summary: JobsSummary = { hours: [...wanted].sort((a, b) => a - b), queued: {}, dispatched: 0, purged: false };
   const rows: OutboxInsert[] = [];
@@ -107,6 +116,20 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
     if (mondays.length > 0) {
       const inputs = await deps.store.allocationInputs(mondays.map((u) => u.user_id));
       rows.push(...allocationDriftRows(mondays, inputs));
+    }
+  }
+
+  if (wanted.has(jobHours.morningBrief)) {
+    // Con una sola acción no hay concentración ni plan que comparar.
+    const morning = (usersAt.get(jobHours.morningBrief) ?? []).filter((u) => u.symbols.length >= 2);
+    if (morning.length > 0) {
+      const ids = morning.map((u) => u.user_id);
+      const paid = morning.filter((u) => u.tier !== "free" && u.local_dow !== 1).map((u) => u.user_id);
+      const [weights, inputs] = await Promise.all([
+        deps.store.holdingWeights ? deps.store.holdingWeights(ids) : Promise.resolve(new Map()),
+        paid.length > 0 && deps.store.allocationInputs ? deps.store.allocationInputs(paid) : Promise.resolve([]),
+      ]);
+      rows.push(...morningBriefRows(morning, weights, inputs));
     }
   }
 

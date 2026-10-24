@@ -1481,5 +1481,7 @@
   "porty_inbox_alert_near_question": "How is {ticker} doing this week?",
   "porty_inbox_deep_loss_title": "{ticker} is {pnl} since you bought it",
   "porty_inbox_deep_loss_detail": "It's {weight} of your portfolio",
-  "porty_inbox_deep_loss_question": "What happened with {ticker} since I bought it?"
+  "porty_inbox_deep_loss_question": "What happened with {ticker} since I bought it?",
+  "notifications_morning_brief": "What Porty notices",
+  "notifications_morning_brief_desc": "At 8 a.m., if something new shows up in your portfolio: a stock that weighs a lot or drifting from your plan"
 }

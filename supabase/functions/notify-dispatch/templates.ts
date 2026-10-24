@@ -316,6 +316,37 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       };
     }
 
+    case "morning_brief": {
+      const signals = (Array.isArray(data.signals) ? data.signals : []) as Data[];
+      const top = signals[0];
+      const symbol = str(top?.symbol);
+      const line = !top
+        ? ""
+        : str(top.kind) === "drift"
+        ? es
+          ? `${symbol} pesa ${percent(num(top.current_pct), false, 0)} (tu objetivo: ${percent(num(top.target_pct), false, 0)}).`
+          : `${symbol} is ${percent(num(top.current_pct), false, 0)} (your target: ${percent(num(top.target_pct), false, 0)}).`
+        : es
+        ? `${symbol} pesa ${percent(num(top.weight_pct), false, 0)} de tu cartera.`
+        : `${symbol} is ${percent(num(top.weight_pct), false, 0)} of your portfolio.`;
+      const more = signals.length - 1;
+      const moreText = more <= 0 ? "" : es
+        ? more === 1 ? " Y una cosa más." : ` Y ${more} cosas más.`
+        : more === 1
+        ? " And one more thing."
+        : ` And ${more} more things.`;
+      return {
+        title: signals.length > 1
+          ? es ? `Porty te marca ${signals.length} cosas hoy` : `Porty noticed ${signals.length} things today`
+          : es
+          ? "Porty te marca algo hoy"
+          : "Porty noticed something today",
+        body: `${line}${moreText} ` + (es ? "Tocá para verlo." : "Tap to see it."),
+        route: "home",
+        routeArgs: {},
+      };
+    }
+
     case "earnings_result": {
       const symbol = str(data.symbol);
       const actual = num(data.eps_actual);

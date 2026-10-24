@@ -15,7 +15,8 @@ export type Kind =
   | "earnings_tomorrow"
   | "earnings_result"
   | "allocation_drift"
-  | "watchlist_move";
+  | "watchlist_move"
+  | "morning_brief";
 
 /// Preferencia del usuario que la controla (columna de
 /// `notification_preferences`).
@@ -25,7 +26,8 @@ export type PrefKey =
   | "portfolio_moves"
   | "weekly_report"
   | "earnings"
-  | "service";
+  | "service"
+  | "morning_brief";
 
 export type KindMeta = {
   pref: PrefKey | null;
@@ -144,6 +146,17 @@ export const kinds: Record<Kind, KindMeta> = {
     minTier: "premium",
     quiet: "drop",
     maxAgeMinutes: 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  // A las 8 locales; si cae en el silencio, sale al terminar (sigue
+  // valiendo esa mañana, después ya no).
+  morning_brief: {
+    pref: "morning_brief",
+    category: "automatic",
+    minTier: "free",
+    quiet: "defer",
+    maxAgeMinutes: 6 * 60,
     androidChannel: "portfolio",
     interruption: "active",
   },
