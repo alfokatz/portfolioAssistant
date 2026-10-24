@@ -16,6 +16,8 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// El detalle de una venta: cuánto ganaste o perdiste, qué vendiste y a
 /// cuánto, y una pregunta lista para Porty. Se abre desde la lista de
@@ -103,6 +105,14 @@ class _ClosedPositionDetailScreenState
     QaColors.resolve(Theme.of(context).brightness);
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          PortyAskButton(
+            screen: PortyScreenContext(
+              PortyScreen.closedPosition,
+              ticker: widget.ticker,
+            ),
+          ),
+        ],
         title: AnimatedOpacity(
           opacity: _titleInBar ? 1 : 0,
           duration:
@@ -175,6 +185,10 @@ class _DetailList extends StatelessWidget {
               onTap:
                   () => GotoAssistant(
                     initialQuestion: question,
+                    screen: PortyScreenContext(
+                      PortyScreen.closedPosition,
+                      ticker: ticker,
+                    ),
                   ).navigate(context: context),
             ),
           ),

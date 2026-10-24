@@ -21,6 +21,7 @@ import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.da
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// Pestaña Metas, con la forma de las pantallas donde Porty acompaña
 /// (Posiciones cerradas, Agregar posición): arriba Porty dice en una frase
@@ -608,6 +609,7 @@ class _NewGoalRow extends StatelessWidget {
     onTap:
         () => GotoAssistant(
           initialQuestion: 'goals_new_question'.tr(),
+          screen: const PortyScreenContext(PortyScreen.goals),
         ).navigate(context: context),
   );
 }

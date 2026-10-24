@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_c
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -602,6 +603,107 @@ void main() {
       expect(userMessages(h), ['¿Cómo viene AAPL?']);
       expect(h.api.requests, hasLength(1));
     });
+    // El brief de cada pedido es el JSON del contexto fijo (mensaje 1),
+    // desde la primera llave.
+    Map<String, Object?>? screenOf(Map<String, dynamic> request) {
+      final pinned = _textOf((request['messages'] as List)[1] as Map);
+      final brief = jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      return (brief['screen_context'] as Map?)?.cast<String, Object?>();
+    }
+
+    test('the screen it was asked from travels in the brief and ages out '
+        'after a few turns', () async {
+      final h = harness(SubscriptionTier.free, [
+        for (var i = 0; i < 4; i++) _answer(),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Por qué bajó?',
+        screen: const PortyScreenContext.position('nvda'),
+      );
+      await untilTurnsDone(h, 1);
+      for (final q in ['¿Y sus dividendos?', '¿Y la semana?', 'Gracias']) {
+        await h.notifier.submitMessage(q);
+      }
+
+      expect(h.api.requests, hasLength(4));
+      expect(screenOf(h.api.requests[0]), {
+        'screen': 'position_detail',
+        'ticker': 'NVDA',
+        'turns_ago': 0,
+      });
+      expect(
+        _textOf((h.api.requests[0]['messages'] as List)[1] as Map),
+        contains('Sobre screen_context'),
+      );
+      expect(screenOf(h.api.requests[1])?['turns_ago'], 1);
+      expect(screenOf(h.api.requests[2])?['turns_ago'], 2);
+      expect(screenOf(h.api.requests[3]), isNull);
+      expect(
+        _textOf((h.api.requests[3]['messages'] as List)[1] as Map),
+        isNot(contains('screen_context')),
+      );
+    });
+
+    test('a question from outside without a screen (Home, a push) clears '
+        'the previous one', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Llego a tiempo?',
+        screen: const PortyScreenContext(
+          PortyScreen.goalDetail,
+          goalLabel: 'Viaje a Japón',
+        ),
+      );
+      await untilTurnsDone(h, 1);
+      h.notifier.askFromOutside('¿Cómo está mi cartera hoy?');
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0])?['goal'], 'Viaje a Japón');
+      expect(screenOf(h.api.requests[1]), isNull);
+    });
+
+    test('a question queued during a running turn keeps its own screen; '
+        'the running turn does not take it', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside(
+        '¿Qué tan lejos estoy?',
+        screen: const PortyScreenContext(PortyScreen.allocation),
+      );
+      await running;
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0]), isNull);
+      expect(screenOf(h.api.requests[1])?['screen'], 'allocation_plan');
+    });
+
+    test(
+      'before the chat is ready, bootstrap sends it with its screen',
+      () async {
+        final h = harness(SubscriptionTier.free, [_answer()]);
+
+        h.notifier.askFromOutside(
+          '¿Qué hizo desde que la vendí?',
+          screen: const PortyScreenContext(
+            PortyScreen.closedPosition,
+            ticker: 'TSLA',
+          ),
+        );
+        await h.notifier.bootstrap();
+
+        expect(screenOf(h.api.requests.single), {
+          'screen': 'closed_position',
+          'ticker': 'TSLA',
+          'turns_ago': 0,
+        });
+      },
+    );
   });
 
   group('turn activity (Porty header status)', () {

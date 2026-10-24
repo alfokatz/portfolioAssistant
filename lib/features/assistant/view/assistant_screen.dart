@@ -188,7 +188,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void initState() {
-    _args = AssistantArgs(initialQuestion: widget.question?.question);
+    _args = AssistantArgs(
+      initialQuestion: widget.question?.question,
+      initialScreen: widget.question?.screen,
+    );
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -238,7 +241,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       if (!mounted) return;
       ref
           .read(assistantProvider(_args).notifier)
-          .askFromOutside(request.question);
+          .askFromOutside(request.question, screen: request.screen);
     });
   }
 

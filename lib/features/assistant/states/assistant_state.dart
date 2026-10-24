@@ -1,11 +1,15 @@
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 class AssistantArgs {
-  const AssistantArgs({this.initialQuestion});
+  const AssistantArgs({this.initialQuestion, this.initialScreen});
 
   final String? initialQuestion;
+
+  /// Desde qué pantalla llegó [initialQuestion] (ver [PortyScreenContext]).
+  final PortyScreenContext? initialScreen;
 }
 
 /// Una pregunta para Porty que llega desde fuera del chat (chips de Home,
@@ -14,9 +18,13 @@ class AssistantArgs {
 /// en el shell, así que la pantalla se entera por `didUpdateWidget` y tiene
 /// que distinguir un toque nuevo aunque repita la misma pregunta.
 class AssistantQuestionRequest {
-  AssistantQuestionRequest(this.question);
+  AssistantQuestionRequest(this.question, {this.screen});
 
   final String question;
+
+  /// La pantalla desde donde se preguntó; `null` si no es de una en
+  /// particular (Home, una notificación).
+  final PortyScreenContext? screen;
 }
 
 /// Estado del asistente: un único hilo de conversación con Porty.

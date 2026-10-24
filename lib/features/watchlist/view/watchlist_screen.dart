@@ -22,6 +22,8 @@ import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dar
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// Tickers que el usuario sigue sin tenerlos, con la forma de Metas: el
 /// título grande, Porty contando cómo se movió la lista hoy y una fila por
@@ -122,6 +124,10 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
             initialQuestion: 'watchlist_ask_question'.tr(
               namedArgs: {'ticker': item.symbol},
             ),
+            screen: PortyScreenContext(
+              PortyScreen.watchlist,
+              ticker: item.symbol,
+            ),
           ).navigate(context: context);
         case _Action.toggleNotify:
           await notifier.setNotify(item, !item.notify);
@@ -184,6 +190,10 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          if (state.items.isNotEmpty)
+            const PortyAskButton(
+              screen: PortyScreenContext(PortyScreen.watchlist),
+            ),
           if (limit > 0 && state.items.isNotEmpty)
             IconButton(
               tooltip: 'watchlist_add'.tr(),

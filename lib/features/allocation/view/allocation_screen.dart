@@ -20,6 +20,8 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// "Mi plan de cartera". Sin plan, Porty cuenta de qué se trata y abre el
 /// armado de a pasos ([AllocationWizardScreen]); con plan, cómo viene la
@@ -98,7 +100,16 @@ class _AllocationScreenState extends ConsumerState<AllocationScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('allocation_title'.tr())),
+      appBar: AppBar(
+        title: Text('allocation_title'.tr()),
+        actions: [
+          // Solo con un plan guardado: sin plan no hay sobre qué preguntar.
+          if (allowed && !state.saved.isEmpty)
+            const PortyAskButton(
+              screen: PortyScreenContext(PortyScreen.allocation),
+            ),
+        ],
+      ),
       body: SafeArea(top: false, child: body),
     );
   }
@@ -393,6 +404,9 @@ class _Dashboard extends StatelessWidget {
                                 'amount': AppNumberFormat.money(amount),
                               },
                             ),
+                            screen: const PortyScreenContext(
+                              PortyScreen.allocation,
+                            ),
                           ).navigate(context: context),
                     ),
                 icon: const Icon(Icons.calculate_outlined),
@@ -448,6 +462,7 @@ class _Dashboard extends StatelessWidget {
             onPressed:
                 () => GotoAssistant(
                   initialQuestion: 'allocation_ask_plan'.tr(),
+                  screen: const PortyScreenContext(PortyScreen.allocation),
                 ).navigate(context: context),
             icon: const Icon(Icons.chat_bubble_outline_rounded),
             label: Text('allocation_ask_porty'.tr()),

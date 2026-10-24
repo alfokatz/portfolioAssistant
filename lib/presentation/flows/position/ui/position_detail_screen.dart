@@ -27,6 +27,8 @@ import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_siz
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 class PositionDetailScreen extends StatefulHookConsumerWidget {
   const PositionDetailScreen({super.key, required this.ticker, this.seed});
@@ -151,6 +153,7 @@ class _PositionDetailScreenState
           onAskPorty:
               (question) => GotoAssistant(
                 initialQuestion: question,
+                screen: PortyScreenContext.position(widget.ticker),
               ).navigate(context: context),
           animateEntrance: !_seeded,
         ),
@@ -201,6 +204,7 @@ class _PositionDetailScreenState
     return Scaffold(
       appBar: AppBar(
         actions: [
+          PortyAskButton(screen: PortyScreenContext.position(widget.ticker)),
           IconButton(
             tooltip: 'price_alert_create_tooltip'.tr(),
             onPressed:

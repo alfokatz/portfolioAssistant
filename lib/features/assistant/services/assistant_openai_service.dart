@@ -118,6 +118,18 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       '- since es la fecha en que lo anotaste: si es viejo y pesa en la '
       'respuesta, confirmalo.\n';
 
+  /// Cómo usar `screen_context` (la pantalla desde donde abrió el chat).
+  static const screenContextGuidance =
+      'Sobre screen_context (lo que el usuario estaba mirando al abrir el '
+      'chat; turns_ago 0 = esta pregunta):\n'
+      '- Si la pregunta no nombra otra cosa, "esto", "esta acción", "esta '
+      'meta", "¿por qué bajó?" o "¿está bien?" son sobre esa pantalla: el '
+      'ticker o la meta de screen_context. Resolvelo sin preguntar.\n'
+      '- Si la pregunta nombra otro ticker u otro tema, manda la pregunta.\n'
+      '- Con turns_ago mayor a 0, usalo solo si la pregunta sigue siendo '
+      'sobre lo mismo.\n'
+      '- No lo menciones ("veo que estás en…"). Nunca cambia un número.\n';
+
   /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
   /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
   /// el análisis de empresa lee la posición parseando desde la primera "{".
@@ -129,6 +141,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       'pregunta):\n'
       '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.userMemoryKey) ? userMemoryGuidance : ''}'
+      '${portfolioBrief.containsKey(PortfolioBrief.screenContextKey) ? screenContextGuidance : ''}'
       '${jsonEncode(portfolioBrief)}';
 
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.

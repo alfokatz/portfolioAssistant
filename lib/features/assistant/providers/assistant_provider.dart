@@ -38,6 +38,7 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.d
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -84,7 +85,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           ],
         ),
       ) {
-    _initialQuestion = args.initialQuestion;
+    if (args.initialQuestion case final q?) {
+      _initialQuestion = (text: q, screen: args.initialScreen);
+    }
   }
 
   final Ref ref;
@@ -95,11 +98,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   GenUiConversationSubscription? _subscription;
   AssistantDataSources? _data;
 
-  String? _initialQuestion;
+  _OutsideQuestion? _initialQuestion;
 
   /// Pregunta llegada de afuera mientras corría un turno: sale apenas
   /// termina (ver [askFromOutside]).
-  String? _queuedQuestion;
+  _OutsideQuestion? _queuedQuestion;
+
+  /// La pantalla desde donde se abrió el chat por última vez (ver
+  /// [PortyScreenContext]) y cuántos turnos pasaron desde entonces.
+  PortyScreenContext? _screen;
+  int _screenTurns = 0;
+
+  /// La pregunta de afuera que está por salir cambia [_screen] (también a
+  /// `null`: una pregunta de la Home no es sobre la pantalla anterior).
+  bool _screenPending = false;
+  PortyScreenContext? _pendingScreen;
 
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
@@ -252,10 +265,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     } catch (_) {}
 
-    final question = _initialQuestion?.trim();
+    final question = _initialQuestion;
     _initialQuestion = null;
-    if (question != null && question.isNotEmpty) {
-      await submitMessage(question);
+    if (question != null && question.text.trim().isNotEmpty) {
+      await _submitFromOutside(question);
     }
   }
 
@@ -263,16 +276,47 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// informe) con la pantalla de Porty ya montada. Si la conversación
   /// todavía se está preparando, la toma `bootstrap`; si hay un turno en
   /// curso, sale cuando termina (la última tocada gana).
-  void askFromOutside(String question) {
+  ///
+  /// [screen] es lo que el usuario estaba mirando (ver
+  /// [PortyScreenContext]); `null` si la pregunta no es de una pantalla.
+  void askFromOutside(String question, {PortyScreenContext? screen}) {
     final trimmed = question.trim();
     if (trimmed.isEmpty) return;
+    final outside = (text: trimmed, screen: screen);
     if (!state.isServiceReady) {
-      _initialQuestion = trimmed;
+      _initialQuestion = outside;
     } else if (state.isWaiting) {
-      _queuedQuestion = trimmed;
+      _queuedQuestion = outside;
     } else {
-      unawaited(submitMessage(trimmed));
+      unawaited(_submitFromOutside(outside));
     }
+  }
+
+  Future<void> _submitFromOutside(_OutsideQuestion question) {
+    _screenPending = true;
+    _pendingScreen = question.screen;
+    return submitMessage(question.text);
+  }
+
+  /// El `screen_context` de este turno: la pantalla de la pregunta de
+  /// afuera que sale ahora o, en los turnos siguientes, la misma con
+  /// `turns_ago` sumando, hasta [PortyScreenContext.maxTurns].
+  Map<String, Object?>? _screenForTurn() {
+    if (_screenPending) {
+      _screen = _pendingScreen;
+      _screenTurns = 0;
+      _screenPending = false;
+      _pendingScreen = null;
+    } else if (_screen != null) {
+      _screenTurns++;
+    }
+    final screen = _screen;
+    if (screen == null) return null;
+    if (_screenTurns >= PortyScreenContext.maxTurns) {
+      _screen = null;
+      return null;
+    }
+    return screen.toBrief(turnsAgo: _screenTurns);
   }
 
   void _ensureService() {
@@ -336,6 +380,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // se prende en el mismo instante para que la UI refleje exactamente la
     // ventana en la que el guard está tomado.
     if (!_sendGuard.tryAcquire()) return;
+    // Con el lock ya tomado: la pantalla pendiente es de esta pregunta.
+    final screenContext = _screenForTurn();
     state = state.copyWith(clearError: true, isWaiting: true);
     _setActivity(TurnActivity.thinking);
 
@@ -393,6 +439,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadConnectedAccounts: _accountsForTool,
         loadAccountOverview: _accountOverviewForTool,
         pendingRequest: _pendingRequest,
+        screenContext: screenContext,
         queriesLeftThisMonth: () {
           final sub = ref.read(subscriptionProvider);
           final left = sub.queriesLimit - sub.queriesUsed;
@@ -528,7 +575,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final queued = _queuedQuestion;
       _queuedQuestion = null;
       if (queued != null && mounted) {
-        unawaited(Future.microtask(() => submitMessage(queued)));
+        unawaited(Future.microtask(() => _submitFromOutside(queued)));
       }
     }
   }
@@ -1480,3 +1527,6 @@ class AnswerPreview {
   final String surfaceId;
   final String text;
 }
+
+/// Una pregunta tocada fuera del chat y la pantalla desde donde llegó.
+typedef _OutsideQuestion = ({String text, PortyScreenContext? screen});

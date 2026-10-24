@@ -131,6 +131,7 @@ class AssistantToolContext {
     this.loadAccountOverview,
     this.queriesLeftThisMonth,
     this.pendingRequest,
+    this.screenContext,
     this.loadWeeklyReport,
     this.userMemories = const [],
     this.saveMemory,
@@ -200,6 +201,10 @@ class AssistantToolContext {
   /// La acción que el turno anterior dejó esperando un dato (ver
   /// `AssistantTurnPolicy.pendingRequest`).
   final Map<String, Object?>? pendingRequest;
+
+  /// Lo que el usuario estaba mirando al abrir el chat
+  /// (`PortyScreenContext.toBrief`); `null` si no vino de una pantalla.
+  final Map<String, Object?>? screenContext;
 
   /// El informe semanal de esta semana tal como lo ve el usuario (`null`
   /// si todavía no está); la función es `null` fuera de la app.

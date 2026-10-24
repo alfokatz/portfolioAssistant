@@ -26,6 +26,8 @@ import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dar
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// El informe semanal. Responde tres preguntas, en orden: ¿cómo me fue?
 /// (número, gráfico, mercado), ¿por qué? (qué movió la cartera) y ¿qué
@@ -100,6 +102,12 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     final benchmark = ref.watch(weeklyReportBenchmarkAllowedProvider);
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          if (report != null)
+            const PortyAskButton(
+              screen: PortyScreenContext(PortyScreen.weeklyReport),
+            ),
+        ],
         title: AnimatedOpacity(
           opacity: _titleInBar ? 1 : 0,
           duration:
@@ -861,6 +869,9 @@ class _Questions extends StatelessWidget {
                     PortyHapticsService.maybeOf(context)?.selectionTap();
                     GotoAssistant(
                       initialQuestion: q,
+                      screen: const PortyScreenContext(
+                        PortyScreen.weeklyReport,
+                      ),
                     ).navigate(context: context);
                   },
                   child: ConstrainedBox(

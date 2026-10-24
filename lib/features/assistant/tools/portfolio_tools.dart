@@ -32,6 +32,9 @@ abstract final class PortfolioBrief {
   /// La acción que quedó esperando un dato del usuario.
   static const pendingRequestKey = 'pending_request';
 
+  /// La pantalla desde donde abrió el chat (ver `PortyScreenContext`).
+  static const screenContextKey = 'screen_context';
+
   /// Su plan y cuántas consultas le quedan este mes.
   static const accountKey = 'account';
 
@@ -73,6 +76,9 @@ abstract final class PortfolioBrief {
     };
     if (ctx.pendingRequest case final pending?) {
       map[pendingRequestKey] = pending;
+    }
+    if (ctx.screenContext case final screen?) {
+      map[screenContextKey] = screen;
     }
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;
