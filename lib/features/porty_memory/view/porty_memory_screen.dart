@@ -11,6 +11,8 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 
 /// Ajustes → "Lo que Porty sabe de vos": todo lo que Porty anotó en el
 /// chat (y lo que el usuario agregó a mano), agrupado por tema. Cada dato
@@ -30,9 +32,20 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
   @override
   void initState() {
     super.initState();
-    runAfterPostFrameCallback(
-      () => ref.read(userMemoryProvider.notifier).load(),
-    );
+    runAfterPostFrameCallback(() {
+      ref.read(userMemoryProvider.notifier).load();
+      ref.read(portyTopicsProvider.notifier).load();
+    });
+  }
+
+  Future<void> _deleteTopic(PortyTopic topic) async {
+    try {
+      await ref.read(portyTopicsProvider.notifier).remove(topic.ticker);
+    } catch (_) {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'porty_memory_error'.tr());
+    }
   }
 
   Future<void> _delete(UserMemory memory) async {
@@ -55,6 +68,7 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
     if (!confirmed) return;
     try {
       await ref.read(userMemoryProvider.notifier).clear();
+      await ref.read(portyTopicsProvider.notifier).clear();
     } catch (_) {
       ref
           .read(alertProvider.notifier)
@@ -85,6 +99,7 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
     final tt = Theme.of(context).textTheme;
     final state = ref.watch(userMemoryProvider);
     final memories = state.memories;
+    final topics = ref.watch(portyTopicsProvider).topics;
 
     return Scaffold(
       appBar: AppBar(),
@@ -150,11 +165,17 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
                       ),
                       const SizedBox(height: AppDimens.sp16),
                     ],
+                  if (topics.isNotEmpty) ...[
+                    _TopicsCard(topics: topics, onDelete: _deleteTopic),
+                    const SizedBox(height: AppDimens.sp16),
+                  ],
                   if (memories.isNotEmpty) ...[
                     const SizedBox(height: AppDimens.sp8),
                     _SectionLabel('tell_porty_more'.tr()),
                     TellPortyPromptCards(onSelected: _tell),
                     const SizedBox(height: AppDimens.sp8),
+                  ],
+                  if (memories.isNotEmpty || topics.isNotEmpty)
                     Center(
                       child: TextButton(
                         onPressed: _clearAll,
@@ -166,7 +187,6 @@ class _PortyMemoryScreenState extends BaseStatefulWidget<PortyMemoryScreen> {
                         ),
                       ),
                     ),
-                  ],
                 ],
               ),
     );
@@ -243,6 +263,96 @@ class _CategoryCard extends StatelessWidget {
                       IconButton(
                         tooltip: 'porty_memory_delete'.tr(),
                         onPressed: () => onDelete(memory),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: AppDimens.iconMd,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// De qué acciones le habló a Porty (`porty_topics`): lo arma la app con
+/// cada charla. Se ven los más recientes y se borran de a uno.
+class _TopicsCard extends StatelessWidget {
+  const _TopicsCard({required this.topics, required this.onDelete});
+
+  final List<PortyTopic> topics;
+  final ValueChanged<PortyTopic> onDelete;
+
+  /// Cuántos se muestran: el resto sigue guardado (hasta 50).
+  static const visible = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final shown = topics.take(visible).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('porty_memory_topics'.tr()),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            border: Border.all(color: colors.border),
+          ),
+          child: Column(
+            children: [
+              for (final (i, topic) in shown.indexed) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: AppDimens.cardPadding,
+                    endIndent: AppDimens.cardPadding,
+                    color: colors.border,
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppDimens.cardPadding,
+                    top: AppDimens.sp8,
+                    bottom: AppDimens.sp8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${topic.ticker} · ${DateFormat.MMMd(Localizations.localeOf(context).toLanguageTag()).format(topic.lastAskedAt.toLocal())}',
+                              style: tt.bodyMedium?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              topic.question,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tt.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'porty_memory_delete'.tr(),
+                        onPressed: () => onDelete(topic),
                         icon: Icon(
                           Icons.close_rounded,
                           size: AppDimens.iconMd,

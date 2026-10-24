@@ -1,6 +1,6 @@
 # Porty en toda la app (fase 1 de "asistente integral")
 
-**Fecha:** 2026-10-24 · **Estado:** fases 1, 2 y 3 implementadas y probadas en local; nada desplegado · **Rama:** `claude/porty-next-level`
+**Fecha:** 2026-10-24 · **Estado:** fases 1 a 4 implementadas y probadas en local; la 5 se descartó; nada desplegado · **Rama:** `claude/porty-next-level`
 
 ## Por qué
 
@@ -13,8 +13,8 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 | 1 | Porty en cada pantalla, con `screen_context` y preguntas de la pantalla | ✅ esta |
 | 2 | Bandeja de Porty en la Home y resumen de la mañana | ✅ |
 | 3 | Áreas con presupuesto y prompt lean (que el prompt no crezca con cada feature) | ✅ (lean apagado hasta medirlo) |
-| 4 | Conversaciones guardadas y memoria episódica | pendiente |
-| 5 | Patrimonio neto, flujo mensual e impuestos | pendiente |
+| 4 | Memoria de conversaciones: de qué acciones hablaron, para retomarlo | ✅ |
+| 5 | ~~Patrimonio neto, flujo mensual e impuestos~~ | ❌ descartada: Porty es un asistente de nicho, de inversiones |
 | 6 | Automatizaciones y flujos guiados | pendiente |
 
 ## Fase 1: qué hace
@@ -90,9 +90,21 @@ Detalle y evaluación (incluidos el router previo y los subagentes, descartados 
 - **El prompt clásico no cambió:** mismo hash, no hay que desplegar `ai-chat` por esta fase. El hash lean ya está en el allowlist para cuando se prenda.
 - **Evals:** `EVAL_PROMPT_VARIANT=lean` y `EVAL_PREFIX` para comparar A/B antes de prender.
 
+## Fase 4: qué hace
+
+**Memoria de conversaciones, enfocada en inversiones.** Porty recuerda de qué acciones le habló el usuario, cuándo y a qué precio estaban (`porty_topics`). Lo arma la app con las tools de cada turno: sin modelo y sin costo.
+
+- **Qué se registra** (`PortyTopicsExtractor`): solo lo que pidió el usuario. Cuenta si el ticker está escrito en la pregunta, si salió de buscar un nombre ("¿qué pasa con Amazon?"), si es el de la pantalla o si el turno miró uno o dos tickers. No cuenta lo que eligió el modelo (candidatos de una idea, los que más movieron la cartera). Hasta 3 por turno, con el precio de `get_quote` si lo trajo. La tabla guarda una fila por ticker (la última vez), hasta 50.
+- **En el chat:** `recent_topics` en el brief (últimos 30 días, hasta 6), con una guía en el contexto del turno: retomar en una frase ("la última vez que me preguntaste por AMZN, el 14/10, estaba a $182"), nunca recitarlos y nunca calcular el cambio (dice los dos precios). No cambia el hash del prompt.
+- **En el chat vacío:** la primera sugerencia es "¿Cómo sigue AMZN desde la última vez?" si habló de algo en los últimos 14 días y su plan lo cubre.
+- **En la bandeja:** "MELI +10% desde que me preguntaste · Hace 10 días estaba a $2.000; hoy, a $2.200". Solo para lo que no tiene (lo que tiene lo cubre la cartera), desde 5%, Premium (precios de mercado) y a partir de los 2 días.
+- **Privacidad:** "Lo que Porty sabe de vos" muestra "De qué acciones hablamos" y se borran de a uno. "Olvidate de todo" (pantalla o chat) también los borra.
+- **Lo que no hace:** no restaura el hilo del chat al reabrir la app (las cards de genui no se guardan). La continuidad la dan los temas y la memoria; guardar el hilo completo queda para cuando haga falta.
+
 ## Despliegue (pendiente, en este orden)
 
 1. `supabase db push`: migración `20261024000000_morning_brief.sql`. **Antes que la app**, porque la app nueva guarda `morning_brief` en `notification_preferences`.
 2. `supabase functions deploy daily-jobs notify-dispatch`.
 3. Publicar la app. El prompt clásico no cambia.
-4. Fase 3: la migración `20261024000100_porty_lean_prompt.sql` va con el `db push` del paso 1. Antes de prender el flag, `supabase functions deploy ai-chat` (allowlist con el hash lean) y medir con evals (ver la investigación).
+4. Fase 4: `20261024000200_porty_topics.sql` va con el `db push` del paso 1, antes que la app.
+5. Fase 3: la migración `20261024000100_porty_lean_prompt.sql` va con el `db push` del paso 1. Antes de prender el flag, `supabase functions deploy ai-chat` (allowlist con el hash lean) y medir con evals (ver la investigación).

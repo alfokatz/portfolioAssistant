@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 
 /// "Hoy te marco 2 cosas": lo que Porty ve en la cartera, el plan, las metas
 /// y las alertas, en la Home y sin que el usuario pregunte. Cada fila abre el
@@ -56,6 +57,7 @@ class _PortyInboxSectionState extends ConsumerState<PortyInboxSection> {
           ref.read(priceAlertsProvider.notifier).load();
         }
       });
+      tryLoad(() => ref.read(portyTopicsProvider.notifier).ensureLoaded());
     });
   }
 
@@ -169,6 +171,7 @@ class _InsightRow extends StatelessWidget {
     PortyInsightKind.concentration => Icons.pie_chart_outline_rounded,
     PortyInsightKind.alertNear => Icons.notifications_active_outlined,
     PortyInsightKind.deepLoss => Icons.trending_down_rounded,
+    PortyInsightKind.topicMoved => Icons.history_rounded,
   };
 
   @override
@@ -282,6 +285,9 @@ abstract final class PortyInsightCopy {
       'target_price': _money(n['target']),
       'distance': _pct(n['distance'], decimals: 1),
       'pnl': AppNumberFormat.percent(n['pnl'] ?? 0, decimals: 0),
+      'change': AppNumberFormat.percent(n['change'] ?? 0),
+      'days': '${(n['days'] ?? 0).round()}',
+      'price_then': _money(n['price_then']),
     };
   }
 
@@ -293,6 +299,7 @@ abstract final class PortyInsightCopy {
     PortyInsightKind.concentration => 'concentration',
     PortyInsightKind.alertNear => 'alert_near',
     PortyInsightKind.deepLoss => 'deep_loss',
+    PortyInsightKind.topicMoved => 'topic_moved',
   };
 
   static String title(PortyInsight i) =>

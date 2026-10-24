@@ -159,6 +159,18 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       'sobre lo mismo.\n'
       '- No lo menciones ("veo que estás en…"). Nunca cambia un número.\n';
 
+  /// Cómo usar `recent_topics` (tickers de charlas anteriores): para
+  /// retomar un tema, no para recitarlo.
+  static const recentTopicsGuidance =
+      'Sobre recent_topics (tickers de los que el usuario te habló en charlas '
+      'anteriores: cuándo y a qué precio estaban):\n'
+      '- Si la pregunta es sobre uno de ellos, podés retomarlo en una frase '
+      '("la última vez que me preguntaste por AMZN, el 14/10, estaba a '
+      '\$182"); el precio de hoy sale de get_quote. No calcules el cambio '
+      'desde entonces: decí los dos precios.\n'
+      '- Si no es sobre ellos, ignoralo. Nunca los recites ni abras la '
+      'respuesta con ellos. Nunca cambia un número.\n';
+
   /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
   /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
   /// el análisis de empresa lee la posición parseando desde la primera "{".
@@ -171,6 +183,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.userMemoryKey) ? userMemoryGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.screenContextKey) ? screenContextGuidance : ''}'
+      '${portfolioBrief.containsKey(PortfolioBrief.recentTopicsKey) ? recentTopicsGuidance : ''}'
       '${jsonEncode(portfolioBrief)}';
 
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.

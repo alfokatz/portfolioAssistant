@@ -23,6 +23,10 @@ enum PortyInsightKind {
 
   /// Una posición con peso acumula una pérdida grande desde la compra.
   deepLoss,
+
+  /// Algo que el usuario le preguntó a Porty (y no tiene) se movió fuerte
+  /// desde entonces (`porty_topics`).
+  topicMoved,
 }
 
 /// Cómo se lee: pide atención, es un dato, o es una buena noticia. Decide
@@ -59,8 +63,9 @@ class PortyInsight {
   /// Identifica el insight para ocultarlo ("ya lo vi").
   String get id => '${kind.name}:$subject';
 
-  /// La pantalla de la que habla: viaja con la pregunta a Porty.
-  PortyScreenContext get screen => switch (kind) {
+  /// La pantalla de la que habla: viaja con la pregunta a Porty. `null`
+  /// si no es de ninguna (la pregunta ya nombra el ticker).
+  PortyScreenContext? get screen => switch (kind) {
     PortyInsightKind.allocationDrift => const PortyScreenContext(
       PortyScreen.allocation,
     ),
@@ -73,5 +78,6 @@ class PortyInsight {
     PortyInsightKind.concentration ||
     PortyInsightKind.alertNear ||
     PortyInsightKind.deepLoss => PortyScreenContext.position(ticker ?? ''),
+    PortyInsightKind.topicMoved => null,
   };
 }

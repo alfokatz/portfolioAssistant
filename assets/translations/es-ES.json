@@ -901,7 +901,7 @@
   "porty_memory_added": "Listo, lo anoté",
   "porty_memory_clear": "Borrar todo",
   "porty_memory_clear_title": "¿Borrar todo lo que sabe Porty?",
-  "porty_memory_clear_body": "Porty va a olvidar tus metas y lo que le contaste. Tu perfil de inversor y tu cartera no cambian.",
+  "porty_memory_clear_body": "Porty va a olvidar tus metas, lo que le contaste y de qué acciones hablaron. Tu perfil de inversor y tu cartera no cambian.",
   "porty_memory_clear_confirm": "Borrar todo",
   "porty_memory_cancel": "Cancelar",
   "porty_memory_delete": "Borrar",
@@ -1483,5 +1483,10 @@
   "porty_inbox_deep_loss_detail": "Pesa {weight} de tu cartera",
   "porty_inbox_deep_loss_question": "¿Qué pasó con {ticker} desde que la compré?",
   "notifications_morning_brief": "Lo que Porty te marca",
-  "notifications_morning_brief_desc": "A las 8, si ve algo nuevo en tu cartera: una acción que pesa mucho o que te alejaste de tu plan"
+  "notifications_morning_brief_desc": "A las 8, si ve algo nuevo en tu cartera: una acción que pesa mucho o que te alejaste de tu plan",
+  "porty_memory_topics": "De qué acciones hablamos",
+  "porty_inbox_topic_moved_title": "{ticker} {change} desde que me preguntaste",
+  "porty_inbox_topic_moved_detail": "Hace {days} días estaba a {price_then}; hoy, a {price}",
+  "porty_inbox_topic_moved_question": "¿Qué pasó con {ticker} desde la última vez que te pregunté?",
+  "assistant_chip_resume": "¿Cómo sigue {ticker} desde la última vez?"
 }

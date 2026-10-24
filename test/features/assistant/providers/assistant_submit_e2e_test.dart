@@ -37,6 +37,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../fakes/assistant_fakes.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
+import 'package:portfolio_assistant/features/porty_memory/data/porty_topics_repository.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 
 /// Punta a punta de `submitMessage`: cuota → placeholder → turno con tools
 /// (servicio y loop reales) → gating al ejecutar cada tool → A2UI al
@@ -138,6 +141,38 @@ class _LoadedHome extends HomeProvider {
   }
 }
 
+/// `porty_topics` en memoria: lo que registra cada turno vuelve en la
+/// próxima lectura, como la tabla.
+class _FakeTopics implements PortyTopicsRepository {
+  final touched = <List<PortyTopicDraft>>[];
+  final rows = <PortyTopic>[];
+
+  @override
+  Future<List<PortyTopic>> list() async => List.of(rows);
+
+  @override
+  Future<void> touch(List<PortyTopicDraft> drafts) async {
+    touched.add(drafts);
+    for (final d in drafts) {
+      rows
+        ..removeWhere((t) => t.ticker == d.ticker)
+        ..insert(
+          0,
+          PortyTopic(
+            ticker: d.ticker,
+            question: d.question,
+            lastAskedAt: DateTime.now(),
+            priceAt: d.priceAt,
+            held: d.held,
+          ),
+        );
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Harness {
   _Harness(
     SubscriptionTier tier,
@@ -151,6 +186,7 @@ class _Harness {
     container = ProviderContainer(
       overrides: [
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
+        portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
           _NoClosedPositions(),
         ),
@@ -192,6 +228,7 @@ class _Harness {
   final _FakeSubscriptionRepository subscriptionRepo;
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
+  final topics = _FakeTopics();
   late final ProviderContainer container;
 
   AssistantProvider get notifier =>
@@ -714,6 +751,67 @@ void main() {
         });
       },
     );
+  });
+
+  // Fase 4: de qué tickers habló el usuario, para retomarlo en otra charla.
+  group('conversation topics (porty_topics)', () {
+    test('a turn records the ticker it asked about, and the next turn '
+        'carries it in recent_topics with its guidance', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_quote', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Cómo viene NVDA?');
+      // El registro sale sin esperar a la respuesta.
+      for (var i = 0;
+          i < 100 && h.container.read(portyTopicsProvider).topics.isEmpty;
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(h.topics.touched.single.single.ticker, 'NVDA');
+      expect(h.topics.touched.single.single.held, isTrue);
+
+      await h.notifier.submitMessage('Gracias');
+      final pinned = _textOf((h.api.requests[2]['messages'] as List)[1] as Map);
+      expect(pinned, contains('Sobre recent_topics'));
+      final brief =
+          jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      final topics = (brief['recent_topics'] as List).cast<Map>();
+      expect(topics.single['ticker'], 'NVDA');
+      expect(topics.single['days_ago'], 0);
+      // El primer turno no tenía temas: sin bloque ni guía.
+      final first = _textOf((h.api.requests[0]['messages'] as List)[1] as Map);
+      expect(first, isNot(contains('recent_topics')));
+    });
+  });
+
+  group('resume the last conversation (empty chat)', () {
+    PortyTopic topic(String t, {int daysAgo = 2}) => PortyTopic(
+      ticker: t,
+      question: 'q',
+      lastAskedAt: DateTime.now().subtract(Duration(days: daysAgo)),
+    );
+
+    test('the most recent topic of the last 14 days; Free only if held',
+        () async {
+      final free = harness(SubscriptionTier.free, const []);
+      await free.container.read(subscriptionProvider.notifier).refresh();
+      expect(free.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+          'NVDA');
+      expect(free.notifier.resumeTopic([topic('AMZN')]), isNull);
+      expect(free.notifier.resumeTopic([topic('NVDA', daysAgo: 20)]), isNull);
+
+      final premium = harness(SubscriptionTier.premium, const []);
+      await premium.container.read(subscriptionProvider.notifier).refresh();
+      expect(
+        premium.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+        'AMZN',
+      );
+    });
   });
 
   // Fase 3 (docs/superpowers/research/2026-10-24-porty-escalable.md): con

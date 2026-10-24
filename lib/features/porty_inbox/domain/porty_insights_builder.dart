@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/porty_inbox/domain/porty_insight.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 
 /// Arma lo que Porty marca en la Home a partir de lo que la app ya tiene
 /// cargado (cartera, plan, metas, alertas). Puro y determinístico: los
@@ -11,6 +12,9 @@ import 'package:portfolio_assistant/features/porty_inbox/domain/porty_insight.da
 /// modelo ni gastar una consulta.
 ///
 /// Nunca dice qué hacer: cada insight es un dato y una pregunta para Porty.
+/// El precio de hoy de un tema de charla (ver `portyTopicPricesProvider`).
+typedef TopicPrice = ({PortyTopic topic, double price});
+
 abstract final class PortyInsightsBuilder {
   /// Cuántos se muestran como máximo: más que eso ya es una lista de tareas.
   static const max = 3;
@@ -29,6 +33,9 @@ abstract final class PortyInsightsBuilder {
   /// Avance de una meta desde el que "te falta poco".
   static const goalAlmostFraction = 0.9;
 
+  /// Cambio (en %) desde que el usuario preguntó por algo para marcarlo.
+  static const topicMovePct = 5.0;
+
   static List<PortyInsight> build({
     required PortfolioSummary? summary,
     required DateTime now,
@@ -36,18 +43,52 @@ abstract final class PortyInsightsBuilder {
     List<UserGoal> goals = const [],
     Map<String, double> holdings = const {},
     List<PriceAlert> alerts = const [],
+    List<TopicPrice> topicPrices = const [],
     Set<String> hidden = const {},
   }) {
     final all = <PortyInsight>[
       if (drift != null) _drift(drift),
       ..._goals(goals, holdings, now),
       if (summary != null) ..._portfolio(summary, alerts),
+      if (_topicMoved(topicPrices, now) case final moved?) moved,
     ];
     all.sort((a, b) => b.score.compareTo(a.score));
     return [
       for (final i in all)
         if (!hidden.contains(i.id)) i,
     ].take(max).toList();
+  }
+
+  /// El que más se movió desde que el usuario preguntó por él, si pasa
+  /// [topicMovePct]. El id lleva la fecha de la pregunta: si vuelve a
+  /// preguntar, es otro insight.
+  static PortyInsight? _topicMoved(List<TopicPrice> prices, DateTime now) {
+    PortyInsight? best;
+    for (final (:topic, :price) in prices) {
+      final then = topic.priceAt;
+      if (then == null || !(then > 0) || !(price > 0)) continue;
+      final change = (price - then) / then * 100;
+      if (change.abs() < topicMovePct) continue;
+      if (best != null && best.numbers['change']!.abs() >= change.abs()) {
+        continue;
+      }
+      final asked = topic.lastAskedAt.toLocal();
+      best = PortyInsight(
+        kind: PortyInsightKind.topicMoved,
+        subject:
+            '${topic.ticker}@${asked.year}-${asked.month}-${asked.day}',
+        tone: PortyInsightTone.neutral,
+        score: 45 + (change.abs() - topicMovePct).clamp(0, 15),
+        ticker: topic.ticker,
+        numbers: {
+          'change': change,
+          'days': now.difference(topic.lastAskedAt).inDays.toDouble(),
+          'price_then': then,
+          'price': price,
+        },
+      );
+    }
+    return best;
   }
 
   static PortyInsight _drift(AllocationRow row) => PortyInsight(

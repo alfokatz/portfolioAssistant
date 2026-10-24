@@ -132,6 +132,7 @@ class AssistantToolContext {
     this.queriesLeftThisMonth,
     this.pendingRequest,
     this.screenContext,
+    this.recentTopics = const [],
     this.loadWeeklyReport,
     this.userMemories = const [],
     this.saveMemory,
@@ -205,6 +206,9 @@ class AssistantToolContext {
   /// Lo que el usuario estaba mirando al abrir el chat
   /// (`PortyScreenContext.toBrief`); `null` si no vino de una pantalla.
   final Map<String, Object?>? screenContext;
+
+  /// Tickers de los que habló en charlas anteriores (`PortyTopic.toBrief`).
+  final List<Map<String, Object?>> recentTopics;
 
   /// El informe semanal de esta semana tal como lo ve el usuario (`null`
   /// si todavía no está); la función es `null` fuera de la app.

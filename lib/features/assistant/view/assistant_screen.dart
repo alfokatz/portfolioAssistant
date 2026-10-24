@@ -63,6 +63,7 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 
 /// `true` una vez que el avatar del header hizo su entrada en esta sesión de
 /// la app: volver al chat no la repite. Global (no autoDispose) a propósito.
@@ -808,13 +809,35 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                             delay: const Duration(milliseconds: 60),
                             child: AssistantStarterSuggestions(
                               suggestions: [
-                                for (final key in notifier.chipKeys)
+                                // La última charla primero, en lugar de la
+                                // última sugerencia fija (siguen siendo 4).
+                                if (notifier.resumeTopic(
+                                      ref.watch(portyTopicsProvider).topics,
+                                    )
+                                    case final topic?) ...[
                                   (
-                                    label: key.tr(),
-                                    icon:
-                                        _starterIcons[key] ??
-                                        Icons.chat_bubble_outline_rounded,
+                                    label: 'assistant_chip_resume'.tr(
+                                      namedArgs: {'ticker': topic.ticker},
+                                    ),
+                                    icon: Icons.history_rounded,
                                   ),
+                                  for (final key in notifier.chipKeys.take(
+                                    notifier.chipKeys.length - 1,
+                                  ))
+                                    (
+                                      label: key.tr(),
+                                      icon:
+                                          _starterIcons[key] ??
+                                          Icons.chat_bubble_outline_rounded,
+                                    ),
+                                ] else
+                                  for (final key in notifier.chipKeys)
+                                    (
+                                      label: key.tr(),
+                                      icon:
+                                          _starterIcons[key] ??
+                                          Icons.chat_bubble_outline_rounded,
+                                    ),
                               ],
                               onSelected:
                                   state.isWaiting ||

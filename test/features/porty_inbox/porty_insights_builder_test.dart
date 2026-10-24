@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_ca
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 import 'package:portfolio_assistant/features/porty_inbox/domain/porty_insight.dart';
 import 'package:portfolio_assistant/features/porty_inbox/domain/porty_insights_builder.dart';
 import 'package:portfolio_assistant/features/porty_inbox/providers/porty_inbox_provider.dart';
@@ -103,8 +104,8 @@ void main() {
       expect(_kinds(out), [PortyInsightKind.concentration]);
       expect(out.single.ticker, 'NVDA');
       expect(out.single.numbers['weight'], closeTo(60, 0.01));
-      expect(out.single.screen.screen, PortyScreen.positionDetail);
-      expect(out.single.screen.ticker, 'NVDA');
+      expect(out.single.screen!.screen, PortyScreen.positionDetail);
+      expect(out.single.screen!.ticker, 'NVDA');
 
       expect(
         PortyInsightsBuilder.build(summary: _summary({'NVDA': 600}), now: _now),
@@ -158,8 +159,8 @@ void main() {
       ]);
       expect(out.first.goalLabel, 'Viaje');
       expect(out.first.numbers['required']!, greaterThan(out.first.numbers['planned']!));
-      expect(out.first.screen.screen, PortyScreen.goalDetail);
-      expect(out.first.screen.goalLabel, 'Viaje');
+      expect(out.first.screen!.screen, PortyScreen.goalDetail);
+      expect(out.first.screen!.goalLabel, 'Viaje');
       expect(out.last.tone, PortyInsightTone.good);
     });
 
@@ -199,6 +200,57 @@ void main() {
         hidden: {all.first.id},
       );
       expect(_kinds(hidden), [PortyInsightKind.deepLoss]);
+    });
+  });
+
+  group('topicMoved (porty_topics)', () {
+    PortyTopic topic(String t, double? then, {int daysAgo = 10}) => PortyTopic(
+      ticker: t,
+      question: '¿Qué pasa con $t?',
+      lastAskedAt: _now.subtract(Duration(days: daysAgo)),
+      priceAt: then,
+    );
+
+    test('what moved 5% or more since they asked; the biggest move; no '
+        'screen (the question names the ticker)', () {
+      final out = PortyInsightsBuilder.build(
+        summary: null,
+        now: _now,
+        topicPrices: [
+          (topic: topic('AMZN', 200), price: 184), // −8 %
+          (topic: topic('KO', 70), price: 71), // +1,4 %: no
+          (topic: topic('MELI', 2000), price: 2200), // +10 %
+        ],
+      );
+      expect(_kinds(out), [PortyInsightKind.topicMoved]);
+      expect(out.single.ticker, 'MELI');
+      expect(out.single.numbers['change'], closeTo(10, 0.001));
+      expect(out.single.numbers['days'], 10);
+      expect(out.single.screen, isNull);
+    });
+
+    test('asking again makes it a new insight (the id carries the date)', () {
+      PortyInsight build(int daysAgo) =>
+          PortyInsightsBuilder.build(
+            summary: null,
+            now: _now,
+            topicPrices: [
+              (topic: topic('AMZN', 200, daysAgo: daysAgo), price: 180),
+            ],
+          ).single;
+      expect(build(10).id, isNot(build(3).id));
+      expect(build(10).id, startsWith('topicMoved:AMZN@'));
+    });
+
+    test('without the price of that day, nothing', () {
+      expect(
+        PortyInsightsBuilder.build(
+          summary: null,
+          now: _now,
+          topicPrices: [(topic: topic('AMZN', null), price: 180)],
+        ),
+        isEmpty,
+      );
     });
   });
 

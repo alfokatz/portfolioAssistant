@@ -901,7 +901,7 @@
   "porty_memory_added": "Done, noted",
   "porty_memory_clear": "Delete everything",
   "porty_memory_clear_title": "Delete everything Porty knows?",
-  "porty_memory_clear_body": "Porty will forget your goals and what you told it. Your investor profile and portfolio don't change.",
+  "porty_memory_clear_body": "Porty will forget your goals, what you told it and which stocks you talked about. Your investor profile and portfolio don't change.",
   "porty_memory_clear_confirm": "Delete everything",
   "porty_memory_cancel": "Cancel",
   "porty_memory_delete": "Delete",
@@ -1483,5 +1483,10 @@
   "porty_inbox_deep_loss_detail": "It's {weight} of your portfolio",
   "porty_inbox_deep_loss_question": "What happened with {ticker} since I bought it?",
   "notifications_morning_brief": "What Porty notices",
-  "notifications_morning_brief_desc": "At 8 a.m., if something new shows up in your portfolio: a stock that weighs a lot or drifting from your plan"
+  "notifications_morning_brief_desc": "At 8 a.m., if something new shows up in your portfolio: a stock that weighs a lot or drifting from your plan",
+  "porty_memory_topics": "Stocks we talked about",
+  "porty_inbox_topic_moved_title": "{ticker} {change} since you asked me",
+  "porty_inbox_topic_moved_detail": "{days} days ago it was {price_then}; today, {price}",
+  "porty_inbox_topic_moved_question": "What happened with {ticker} since I last asked you?",
+  "assistant_chip_resume": "How is {ticker} doing since last time?"
 }

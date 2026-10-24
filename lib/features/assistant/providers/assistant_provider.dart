@@ -68,6 +68,9 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
+import 'package:portfolio_assistant/features/assistant/utils/porty_topics_extractor.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
 /// modelo decide qué datos pedir (ver `AssistantToolset`), el plan del
@@ -148,6 +151,27 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// Sugerencias iniciales del plan actual (ver [starterChipKeysFor]).
   List<String> get chipKeys =>
       starterChipKeysFor(ref.read(subscriptionProvider).tier);
+
+  /// El ticker de la última charla (últimos 14 días) para ofrecer retomarla
+  /// en el chat vacío. Solo si el plan lo cubre: lo que tiene, siempre; lo
+  /// que no tiene, con datos de mercado (ninguna sugerencia lleva a un
+  /// paywall).
+  PortyTopic? resumeTopic(List<PortyTopic> topics, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final tier = ref.read(subscriptionProvider).tier;
+    final held = ref.read(homeProvider).summary?.valuations.map(
+          (v) => v.position.ticker.toUpperCase(),
+        ) ??
+        const <String>[];
+    for (final t in topics) {
+      if (today.difference(t.lastAskedAt) > const Duration(days: 14)) break;
+      if (held.contains(t.ticker) ||
+          PlanMatrix.allows(tier, PlanFeature.marketData)) {
+        return t;
+      }
+    }
+    return null;
+  }
 
   /// La conversación de Porty (sus surfaces). `null` hasta `bootstrap`.
   AssistantOpenAiService? get service => _service;
@@ -246,6 +270,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
 
     _leanPrompt = await _leanPromptForConversation();
+    // Para ofrecer retomar la última charla en el chat vacío.
+    unawaited(ref.read(portyTopicsProvider.notifier).ensureLoaded());
     _ensureService();
     state = state.copyWith(isServiceReady: true);
     // Arranca la función del proxy mientras el usuario lee o escribe.
@@ -422,6 +448,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final profileF = _profileForTurn();
       final memoriesF = _memoriesForTurn();
       final goalsF = _goalsForTurn();
+      final topicsF = _topicsForTurn();
       final streamingF = _streamingForTurn();
       await Future.wait<Object?>([
         subscription.refresh(),
@@ -431,6 +458,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         profileF,
         memoriesF,
         goalsF,
+        topicsF,
       ]);
 
       final ctx = AssistantToolContext(
@@ -470,6 +498,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),
         savedGoals: await goalsF,
         saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
+        recentTopics: [
+          for (final t in await topicsF) t.toBrief(DateTime.now()),
+        ],
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -520,6 +551,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
         _pendingRequest = AssistantTurnPolicy.pendingRequest(
           outcome ?? const TurnOutcome([]),
+        );
+        // De qué tickers habló (sin el modelo): Porty lo retoma en otra
+        // charla y la bandeja avisa si se movió fuerte desde entonces.
+        unawaited(
+          ref
+              .read(portyTopicsProvider.notifier)
+              .record(
+                PortyTopicsExtractor.extract(
+                  question: trimmed,
+                  calls: outcome?.toolCalls ?? const [],
+                  heldTickers: ctx.heldTickers,
+                  screenTicker: screenContext?['ticker'] as String?,
+                ),
+              ),
         );
         final notices = AssistantTurnPolicy.noticesFor(
           outcome ?? const TurnOutcome([]),
@@ -985,6 +1030,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           return await _applySettings(draft.manageTarget.changes);
         case ManageOp.memoryClear:
           await ref.read(userMemoryProvider.notifier).clear();
+          await ref.read(portyTopicsProvider.notifier).clear();
         case ManageOp.brokerSync || ManageOp.brokerDisconnect:
           return await _brokerAction(draft.manageTarget, op);
       }
@@ -1493,6 +1539,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   Future<List<UserMemory>> _memoriesForTurn() async {
     try {
       return await ref.read(userMemoryProvider.notifier).ensureLoaded();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Los tickers de charlas anteriores (últimos 30 días) para el brief.
+  /// Nunca frena el turno.
+  Future<List<PortyTopic>> _topicsForTurn() async {
+    try {
+      await ref.read(portyTopicsProvider.notifier).ensureLoaded();
+      return ref
+          .read(portyTopicsProvider)
+          .recent(DateTime.now())
+          .take(PortyTopic.maxInBrief)
+          .toList();
     } catch (_) {
       return const [];
     }
