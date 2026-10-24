@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.da
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
 import 'package:portfolio_assistant/shared/utils/user_number.dart';
+import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
 enum AllocationStep { pick, split, alerts, review }
 
@@ -73,6 +74,8 @@ class _AllocationWizardScreenState
   late double _threshold;
   late bool _notify;
   late AllocationAlertFrequency _frequency;
+  int? _contributionDay;
+  double? _contributionAmount;
 
   Map<String, double> get _values => ref.read(goalHoldingsProvider);
 
@@ -114,6 +117,8 @@ class _AllocationWizardScreenState
             .toDouble();
     _notify = initial?.notify ?? true;
     _frequency = initial?.frequency ?? AllocationAlertFrequency.weekly;
+    _contributionDay = initial?.contributionDay;
+    _contributionAmount = initial?.contributionAmount;
     _step = _picked.isEmpty ? AllocationStep.pick : widget.startAt;
     if (_step != AllocationStep.pick) _syncSplit();
     _pages = PageController(initialPage: _step.index);
@@ -138,6 +143,8 @@ class _AllocationWizardScreenState
     driftThreshold: _threshold,
     notify: _notify,
     frequency: _frequency,
+    contributionDay: _contributionDay,
+    contributionAmount: _contributionDay == null ? null : _contributionAmount,
   );
 
   bool get _dirty => widget.initial == null || _plan != widget.initial;
@@ -351,6 +358,13 @@ class _AllocationWizardScreenState
                   onThreshold: (v) => setState(() => _threshold = v),
                   onNotify: (v) => setState(() => _notify = v),
                   onFrequency: (v) => setState(() => _frequency = v),
+                  contributionDay: _contributionDay,
+                  contributionAmount: _contributionAmount,
+                  onContribution:
+                      (day, amount) => setState(() {
+                        _contributionDay = day;
+                        _contributionAmount = amount;
+                      }),
                 ),
               ],
             ),
@@ -1149,13 +1163,24 @@ class _ReviewStep extends StatelessWidget {
 }
 
 /// "Te aviso todos los lunes si algo se aleja más de 5 puntos de tu plan."
+/// Con recordatorio de aporte, suma la frase del aporte.
 String allocationAlertSummary(AllocationPlan plan) {
   final points = {'points': '${plan.driftThreshold.round()}'};
-  if (!plan.notify) {
-    return 'allocation_alert_summary_off'.tr(namedArgs: points);
-  }
-  return (plan.frequency == AllocationAlertFrequency.monthly
-          ? 'allocation_alert_summary_monthly'
-          : 'allocation_alert_summary_weekly')
-      .tr(namedArgs: points);
+  final alerts =
+      !plan.notify
+          ? 'allocation_alert_summary_off'.tr(namedArgs: points)
+          : (plan.frequency == AllocationAlertFrequency.monthly
+                  ? 'allocation_alert_summary_monthly'
+                  : 'allocation_alert_summary_weekly')
+              .tr(namedArgs: points);
+  final day = plan.contributionDay;
+  if (day == null) return alerts;
+  final amount = plan.contributionAmount;
+  final reminder =
+      amount == null
+          ? 'allocation_reminder_summary'.tr(namedArgs: {'day': '$day'})
+          : 'allocation_reminder_summary_amount'.tr(
+            namedArgs: {'day': '$day', 'amount': AppNumberFormat.money(amount)},
+          );
+  return '$alerts $reminder';
 }

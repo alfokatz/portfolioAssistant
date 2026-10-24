@@ -70,6 +70,13 @@ const _holdings = {'VOO': 5000.0, 'QQQ': 2200.0, 'BND': 1400.0, 'NVDA': 600.0};
 
 const _plan = AllocationPlan(targets: {'VOO': 50, 'QQQ': 20, 'BND': 30});
 
+/// El mismo plan con recordatorio de aporte (fase 6).
+const _planReminder = AllocationPlan(
+  targets: {'VOO': 50, 'QQQ': 20, 'BND': 30},
+  contributionDay: 5,
+  contributionAmount: 500,
+);
+
 /// Un plan que la cartera de [_holdings] cumple (dentro de ±10).
 const _planOk = AllocationPlan(
   targets: {'VOO': 50, 'QQQ': 25, 'BND': 15, 'NVDA': 10},
@@ -206,6 +213,22 @@ void main() {
       null,
       null,
     ),
+    'step3_alerts_reminder': (
+      const AllocationWizardScreen(
+        initial: _planReminder,
+        startAt: AllocationStep.alerts,
+      ),
+      null,
+      null,
+    ),
+    'step4_review_reminder': (
+      const AllocationWizardScreen(
+        initial: _planReminder,
+        startAt: AllocationStep.review,
+      ),
+      null,
+      null,
+    ),
     'step4_review': (
       const AllocationWizardScreen(
         initial: _plan,
@@ -233,6 +256,16 @@ void main() {
           ),
         );
         await settle(tester);
+        // El recordatorio de aporte queda al final del paso de avisos.
+        if (name == 'step3_alerts_reminder') {
+          await tester.scrollUntilVisible(
+            find.text('Monto (opcional)'),
+            300,
+            scrollable: find.byType(Scrollable).last,
+          );
+          await tester.drag(find.byType(Scrollable).last, const Offset(0, -150));
+          await settle(tester);
+        }
         if (tap != null) {
           await tester.tap(find.text(tap));
           await settle(tester);

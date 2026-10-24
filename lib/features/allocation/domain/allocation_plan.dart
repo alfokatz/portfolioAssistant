@@ -20,6 +20,8 @@ class AllocationPlan {
     this.driftThreshold = 5,
     this.notify = true,
     this.frequency = AllocationAlertFrequency.weekly,
+    this.contributionDay,
+    this.contributionAmount,
   });
 
   /// {TICKER: porcentaje}. Vacío = todavía no armó el plan.
@@ -33,6 +35,15 @@ class AllocationPlan {
 
   /// Cada cuánto se revisa para el aviso.
   final AllocationAlertFrequency frequency;
+
+  /// Día del mes (1-28) en que Porty le recuerda aportar y cómo repartirlo
+  /// (ver `daily-jobs`). `null` = sin recordatorio.
+  final int? contributionDay;
+
+  /// Cuánto aporta ese día; `null` si no lo dijo (el aviso sale igual).
+  final double? contributionAmount;
+
+  bool get hasContributionReminder => contributionDay != null;
 
   bool get isEmpty => targets.isEmpty;
 
@@ -53,6 +64,15 @@ class AllocationPlan {
       driftThreshold: (row['drift_threshold'] as num?)?.toDouble() ?? 5,
       notify: row['notify'] as bool? ?? true,
       frequency: AllocationAlertFrequency.parse(row['notify_frequency']),
+      contributionDay: switch (row['contribution_day']) {
+        final num d when d >= 1 && d <= 28 => d.toInt(),
+        _ => null,
+      },
+      contributionAmount: switch (row['contribution_amount']) {
+        final num a when a > 0 => a.toDouble(),
+        final String a when (double.tryParse(a) ?? 0) > 0 => double.parse(a),
+        _ => null,
+      },
     );
   }
 
@@ -64,6 +84,11 @@ class AllocationPlan {
     'drift_threshold': driftThreshold,
     'notify': notify,
     'notify_frequency': frequency.name,
+    'contribution_day': contributionDay,
+    'contribution_amount':
+        contributionDay == null || contributionAmount == null
+            ? null
+            : _round(contributionAmount!, 2),
   };
 
   AllocationPlan copyWith({
@@ -71,11 +96,20 @@ class AllocationPlan {
     double? driftThreshold,
     bool? notify,
     AllocationAlertFrequency? frequency,
+    int? Function()? contributionDay,
+    double? Function()? contributionAmount,
   }) => AllocationPlan(
     targets: targets ?? this.targets,
     driftThreshold: driftThreshold ?? this.driftThreshold,
     notify: notify ?? this.notify,
     frequency: frequency ?? this.frequency,
+    // Funciones: así se puede volver a null (apagar el recordatorio).
+    contributionDay:
+        contributionDay == null ? this.contributionDay : contributionDay(),
+    contributionAmount:
+        contributionAmount == null
+            ? this.contributionAmount
+            : contributionAmount(),
   );
 
   @override
@@ -84,7 +118,9 @@ class AllocationPlan {
       _sameTargets(other.targets, targets) &&
       other.driftThreshold == driftThreshold &&
       other.notify == notify &&
-      other.frequency == frequency;
+      other.frequency == frequency &&
+      other.contributionDay == contributionDay &&
+      other.contributionAmount == contributionAmount;
 
   @override
   int get hashCode => Object.hash(
@@ -92,6 +128,8 @@ class AllocationPlan {
     driftThreshold,
     notify,
     frequency,
+    contributionDay,
+    contributionAmount,
   );
 
   static bool _sameTargets(Map<String, double> a, Map<String, double> b) =>

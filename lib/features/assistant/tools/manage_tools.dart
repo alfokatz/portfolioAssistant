@@ -432,8 +432,9 @@ class ProposeAllocationPlanTool implements DataTool {
   @override
   String get description =>
       'Card to confirm the user\'s PORTFOLIO PLAN: targets = THEIR full plan '
-      '(% per ticker, sum 100; never choose them), or omit targets to change '
-      'only its alerts. status: ok | invalid (sum, no_plan) | locked.';
+      '(% per ticker, sum 100; never choose them); without targets, only its '
+      'alerts or monthly contribution reminder (contribution_day 1-28, 0 = '
+      'off). status: ok | invalid | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -460,6 +461,8 @@ class ProposeAllocationPlanTool implements DataTool {
         'type': 'string',
         'enum': ['weekly', 'monthly'],
       },
+      'contribution_day': {'type': 'integer'},
+      'contribution_amount': {'type': 'number'},
     },
     'additionalProperties': false,
   };
@@ -502,6 +505,18 @@ class ProposeAllocationPlanTool implements DataTool {
     final frequency = ToolArgs.string(args, 'frequency');
     if (frequency == 'weekly' || frequency == 'monthly') {
       params['frequency'] = frequency;
+    }
+    final day = ToolArgs.number(args, 'contribution_day');
+    if (day != null) {
+      if (day < 0 || day > 28 || day != day.roundToDouble()) {
+        return ToolArgs.invalid();
+      }
+      params['contribution_day'] = day.round();
+    }
+    final amount = ToolArgs.number(args, 'contribution_amount');
+    if (amount != null) {
+      if (amount <= 0 || amount > 10000000) return ToolArgs.invalid();
+      params['contribution_amount'] = amount;
     }
     if (params.isEmpty) {
       return ActionGuides.attachTo({

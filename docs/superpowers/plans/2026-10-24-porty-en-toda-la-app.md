@@ -1,6 +1,6 @@
 # Porty en toda la app (fase 1 de "asistente integral")
 
-**Fecha:** 2026-10-24 · **Estado:** fases 1 a 4 implementadas y probadas en local; la 5 se descartó; nada desplegado · **Rama:** `claude/porty-next-level`
+**Fecha:** 2026-10-24 · **Estado:** fases 1, 2, 3, 4 y 6 implementadas y probadas en local; la 5 se descartó; nada desplegado · **Rama:** `claude/porty-next-level`
 
 ## Por qué
 
@@ -15,7 +15,7 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 | 3 | Áreas con presupuesto y prompt lean (que el prompt no crezca con cada feature) | ✅ (lean apagado hasta medirlo) |
 | 4 | Memoria de conversaciones: de qué acciones hablaron, para retomarlo | ✅ |
 | 5 | ~~Patrimonio neto, flujo mensual e impuestos~~ | ❌ descartada: Porty es un asistente de nicho, de inversiones |
-| 6 | Automatizaciones y flujos guiados | pendiente |
+| 6 | Recordatorio de aporte mensual y rebalanceo guiado | ✅ |
 
 ## Fase 1: qué hace
 
@@ -101,10 +101,25 @@ Detalle y evaluación (incluidos el router previo y los subagentes, descartados 
 - **Privacidad:** "Lo que Porty sabe de vos" muestra "De qué acciones hablamos" y se borran de a uno. "Olvidate de todo" (pantalla o chat) también los borra.
 - **Lo que no hace:** no restaura el hilo del chat al reabrir la app (las cards de genui no se guardan). La continuidad la dan los temas y la memoria; guardar el hilo completo queda para cuando haga falta.
 
+## Fase 6: qué hace
+
+**Automatización: recordatorio de aporte mensual (Premium).** En el paso de avisos del plan de cartera (o pidiéndolo en el chat: "recordame el 5 de cada mes aportar 500"), el usuario elige un día del 1 al 28 y, si quiere, cuánto aporta.
+
+- **Ese día, a las 9 locales,** `daily-jobs` manda `contribution_reminder`: "Te toca aportar $500 · Para acercarte a tu plan: $300 a VOO y $200 a BND". Usa el mismo cálculo que la pantalla del plan (solo compras) y sale una vez por mes.
+- **Sin `show_amounts`,** la pantalla bloqueada no muestra dólares: "60% a VOO y 40% a BND".
+- **Al tocarla,** abre Porty con "Armame el aporte de $500 según mi plan".
+- **Lo pidió el usuario:** no cuenta para el tope diario y se apaga en el mismo plan.
+- **Chat:** `propose_allocation_plan` acepta `contribution_day` (0 lo apaga) y `contribution_amount`, con su card de confirmación como el resto. El bloque de tools pasó de 6.800 a 6.850 tokens de presupuesto; el área planning sigue dentro del suyo. No cambia el hash del prompt.
+
+**Flujo guiado: del reparto a las compras.** Cuando `get_allocation_plan` reparte un aporte (sin monto, usa el del recordatorio), su `answer_guide` le pide a Porty ofrecer anotar esas compras cuando el usuario las haga. Si dice que sí, sale un `propose_buy` por línea, y nunca antes de que diga que compró. Si no tiene recordatorio, ofrece crearlo, pero nunca las dos preguntas juntas. Va en el resultado de la tool: no cambia el prompt.
+
+**Lo que no entró:** la revisión mensual de cartera en segundo plano (el primer subagente nuevo que propone `docs/superpowers/research/2026-10-24-porty-escalable.md`). Es un trabajo con modelo, costo por usuario, allowlist y cuota propios, que escribe en la bandeja: conviene hacerlo como pieza aparte y Gold.
+
 ## Despliegue (pendiente, en este orden)
 
 1. `supabase db push`: migración `20261024000000_morning_brief.sql`. **Antes que la app**, porque la app nueva guarda `morning_brief` en `notification_preferences`.
 2. `supabase functions deploy daily-jobs notify-dispatch`.
 3. Publicar la app. El prompt clásico no cambia.
 4. Fase 4: `20261024000200_porty_topics.sql` va con el `db push` del paso 1, antes que la app.
+   Fase 6: `20261024000300_contribution_reminder.sql`, también antes que la app (la app guarda `contribution_day`), y `daily-jobs` + `notify-dispatch` en el deploy del paso 2.
 5. Fase 3: la migración `20261024000100_porty_lean_prompt.sql` va con el `db push` del paso 1. Antes de prender el flag, `supabase functions deploy ai-chat` (allowlist con el hash lean) y medir con evals (ver la investigación).

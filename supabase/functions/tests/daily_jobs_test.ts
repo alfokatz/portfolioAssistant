@@ -7,6 +7,9 @@ import { handle, type JobsDeps, runDailyJobs } from "../daily-jobs/handler.ts";
 import {
   type AllocationInput,
   allocationDrift,
+  type ContributionInput,
+  contributionReminderRows,
+  contributionSplit,
   allocationDriftRows,
   earningsResultRows,
   earningsTomorrowRows,
@@ -382,4 +385,72 @@ Deno.test("corrida: 8 h pide los pesos de quien tiene 2+ acciones y los planes s
   assertEquals(askedWeights, [["u1", "free"]]);
   assertEquals(askedPlans, [["u1"]]);
   assertEquals(summary.queued, { morning_brief: 2 });
+});
+
+// ── Recordatorio de aporte (fase 6) ──
+
+const contribution = (over: Partial<ContributionInput> = {}): ContributionInput => ({
+  user_id: "u1",
+  targets: { VOO: 60, BND: 40 },
+  contribution_day: 20,
+  contribution_amount: 500,
+  holdings: [
+    { symbol: "VOO", quantity: 10, price: 500 }, // 5000
+    { symbol: "BND", quantity: 20, price: 70 }, // 1400
+    { symbol: "NVDA", quantity: 1, price: 600 }, // 600, sin objetivo
+  ],
+  ...over,
+});
+
+Deno.test("aporte: el mismo reparto que la app, solo compras y sumando el aporte", () => {
+  // Total 7000 + 500 = 7500. A VOO le faltan max(0, 4500 − 5000) = 0; a BND,
+  // 3000 − 1400 = 1600: todo a BND.
+  assertEquals(contributionSplit(contribution().holdings, { VOO: 60, BND: 40 }, 500), [
+    { symbol: "BND", amount: 500 },
+  ]);
+  // Sin nada todavía: según los objetivos.
+  assertEquals(contributionSplit([], { VOO: 60, BND: 40 }, 1000), [
+    { symbol: "VOO", amount: 600 },
+    { symbol: "BND", amount: 400 },
+  ]);
+  // A los dos les falta: en proporción a lo que les falta, y suma el aporte.
+  const split = contributionSplit(
+    [{ symbol: "VOO", quantity: 1, price: 300 }, { symbol: "BND", quantity: 1, price: 300 }],
+    { VOO: 70, BND: 30 },
+    400,
+  );
+  // Después: 1000 → VOO 700 (faltan 400), BND 300 (faltan 0).
+  assertEquals(split, [{ symbol: "VOO", amount: 400 }]);
+  assertEquals(contributionSplit([], {}, 500), []);
+  assertEquals(contributionSplit([], { VOO: 100 }, 0), []);
+});
+
+Deno.test("aporte: solo el día que eligió (fecha local), una vez por mes; sin monto, sin reparto", () => {
+  const day20 = user({ local_date: "2026-10-20", tier: "premium" });
+  const rows = contributionReminderRows([day20, user({ user_id: "u2", local_date: "2026-10-20" })], [contribution()]);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].kind, "contribution_reminder");
+  assertEquals(rows[0].dedupe_key, "contribution_reminder:2026-10");
+  assertEquals(rows[0].data, { amount: 500, split: [{ symbol: "BND", amount: 500 }], more: 0 });
+
+  assertEquals(contributionReminderRows([user({ local_date: "2026-10-21" })], [contribution()]), []);
+  const noAmount = contributionReminderRows([day20], [contribution({ contribution_amount: null })]);
+  assertEquals(noAmount[0].data, { amount: null, split: [], more: 0 });
+});
+
+Deno.test("corrida: 9 h lee los recordatorios solo de Premium/Gold", async () => {
+  const { deps, store } = jobsDeps("2026-10-20T12:00:00Z");
+  store.users.set(9, [
+    user({ local_date: "2026-10-20", local_dow: 2, tier: "premium" }),
+    user({ user_id: "free", local_date: "2026-10-20", local_dow: 2, tier: "free" }),
+  ]);
+  const asked: string[][] = [];
+  const s = store as unknown as { contributionInputs: (ids: string[]) => Promise<ContributionInput[]> };
+  s.contributionInputs = (ids) => {
+    asked.push(ids);
+    return Promise.resolve([contribution()]);
+  };
+  const summary = await runDailyJobs(deps, [9]);
+  assertEquals(asked, [["u1"]]);
+  assertEquals(summary.queued, { contribution_reminder: 1 });
 });

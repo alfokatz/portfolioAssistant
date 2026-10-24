@@ -197,6 +197,46 @@ void main() {
     });
   });
 
+  group('recordatorio de aporte (fase 6)', () {
+    test('de/hacia la base; un día fuera de 1-28 no cuenta; sin día no se '
+        'guarda el monto', () {
+      final plan = AllocationPlan.fromRow({
+        'targets': {'VOO': 100},
+        'contribution_day': 5,
+        'contribution_amount': '500',
+      });
+      expect(plan.contributionDay, 5);
+      expect(plan.contributionAmount, 500);
+      expect(plan.hasContributionReminder, isTrue);
+      expect(plan.toRow()['contribution_day'], 5);
+      expect(plan.toRow()['contribution_amount'], 500);
+      expect(
+        AllocationPlan.fromRow({'contribution_day': 31}).contributionDay,
+        isNull,
+      );
+      expect(
+        const AllocationPlan(contributionAmount: 500).toRow()
+            ['contribution_amount'],
+        isNull,
+      );
+    });
+
+    test('copyWith puede apagarlo (volver a null) y dejarlo como estaba', () {
+      const plan = AllocationPlan(
+        targets: {'VOO': 100},
+        contributionDay: 5,
+        contributionAmount: 500,
+      );
+      expect(plan.copyWith(notify: false).contributionDay, 5);
+      final off = plan.copyWith(
+        contributionDay: () => null,
+        contributionAmount: () => null,
+      );
+      expect(off.hasContributionReminder, isFalse);
+      expect(off, isNot(plan));
+    });
+  });
+
   group('AllocationNotifier', () {
     test('carga, no guarda si no suma 100, guarda', () async {
       final repo = _Repo();

@@ -10,6 +10,8 @@
 //   F3 de docs/superpowers/plans/2026-10-16-porty-siguiente-nivel.md);
 // - todos los días 8:00 → lo que Porty marca en la cartera, si hay algo
 //   nuevo (docs/superpowers/plans/2026-10-24-porty-en-toda-la-app.md);
+// - 9:00 del día del mes que eligió → su aporte y cómo repartirlo (fase 6,
+//   Premium);
 // - 04:00 UTC → limpieza (push_purge).
 //
 // POST /functions/v1/daily-jobs con `x-cron-secret`. Body opcional
@@ -26,6 +28,7 @@ import {
   type EarningsEntry,
   earningsResultRows,
   earningsTomorrowRows,
+  contributionReminderRows,
   jobHours,
   type LocalUser,
   morningBriefRows,
@@ -93,6 +96,7 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
     onlyHours ??
       [
         jobHours.morningBrief,
+        jobHours.contributionReminder,
         jobHours.weeklyReport,
         jobHours.allocationDrift,
         jobHours.earningsTomorrow,
@@ -130,6 +134,14 @@ export async function runDailyJobs(deps: JobsDeps, onlyHours?: number[]): Promis
         paid.length > 0 && deps.store.allocationInputs ? deps.store.allocationInputs(paid) : Promise.resolve([]),
       ]);
       rows.push(...morningBriefRows(morning, weights, inputs));
+    }
+  }
+
+  if (wanted.has(jobHours.contributionReminder) && deps.store.contributionInputs) {
+    const paid = (usersAt.get(jobHours.contributionReminder) ?? []).filter((u) => u.tier !== "free");
+    if (paid.length > 0) {
+      const inputs = await deps.store.contributionInputs(paid.map((u) => u.user_id));
+      rows.push(...contributionReminderRows(paid, inputs));
     }
   }
 

@@ -1202,6 +1202,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           p['frequency'] == null
               ? null
               : AllocationAlertFrequency.parse(p['frequency']),
+      // 0 apaga el recordatorio; un monto solo, sin día, cambia el monto.
+      contributionDay: switch (p['contribution_day']) {
+        final num d when d == 0 => () => null,
+        final num d => () => d.round(),
+        _ => null,
+      },
+      contributionAmount: switch (p['contribution_amount']) {
+        final num a => () => a.toDouble(),
+        _ when p['contribution_day'] == 0 => () => null,
+        _ => null,
+      },
     );
     if (plan.isEmpty) return 'Todavía no tenés un plan: decime qué querés.';
     if (!plan.sumsTo100) return 'El plan tiene que sumar 100%.';

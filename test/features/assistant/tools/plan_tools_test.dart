@@ -90,6 +90,24 @@ void main() {
       ]);
     });
 
+    test('rebalanceo guiado (fase 6): sin monto usa el de su recordatorio, '
+        'avisa si lo tiene y guía a registrar las compras', () async {
+      final withReminder = AllocationPlan(
+        targets: plan.targets,
+        contributionDay: 1,
+        contributionAmount: 400,
+      );
+      final r = await GetAllocationPlanTool(_ctx(plan: withReminder)).run({});
+      expect((r['contribution'] as Map)['amount_usd'], 400);
+      expect(r['contribution_reminder'], {'day': 1, 'amount_usd': 400.0});
+      expect(r[AnswerGuide.key], contains('propose_buy'));
+
+      // Sin recordatorio ni monto: sin reparto ni guía de compras.
+      final bare = await GetAllocationPlanTool(_ctx(plan: plan)).run({});
+      expect(bare['contribution_reminder'], isNull);
+      expect(bare[AnswerGuide.key], PlanGuides.planOk);
+    });
+
     test('sin plan, Free y sin la app', () async {
       expect((await GetAllocationPlanTool(_ctx()).run({}))['status'], 'empty');
       final ctx = _ctx(tier: SubscriptionTier.free, plan: plan);

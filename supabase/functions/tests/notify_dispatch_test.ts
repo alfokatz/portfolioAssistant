@@ -390,3 +390,28 @@ Deno.test("plantillas: resumen de la mañana", () => {
   assertEquals(two.title, "Porty noticed 2 things today");
   assertEquals(two.body, "VOO is 71% (your target: 60%). And one more thing. Tap to see it.");
 });
+
+Deno.test("plantillas: recordatorio de aporte", () => {
+  const data = {
+    amount: 500,
+    split: [{ symbol: "VOO", amount: 300 }, { symbol: "BND", amount: 200 }],
+    more: 0,
+  };
+  // Sin show_amounts: el aporte es un monto del usuario, va en partes.
+  const hidden = render("contribution_reminder", data, { locale: "es", showAmounts: false });
+  assertEquals(hidden.title, "Te toca tu aporte del mes");
+  assertEquals(hidden.body, "Para acercarte a tu plan: 60% a VOO y 40% a BND. Tocá para armarlo con Porty.");
+
+  const es = render("contribution_reminder", data, { locale: "es", showAmounts: true });
+  assertEquals(es.title, "Te toca aportar $500.00");
+  assertEquals(es.body, "Para acercarte a tu plan: $300.00 a VOO y $200.00 a BND. Tocá para armarlo con Porty.");
+  assertEquals(es.route, "assistant");
+  assertEquals(es.routeArgs.question, "Armame el aporte de $500.00 según mi plan");
+
+  const bare = render("contribution_reminder", { amount: null, split: [], more: 0 }, {
+    locale: "en",
+    showAmounts: false,
+  });
+  assertEquals(bare.title, "Time for this month's contribution");
+  assertEquals(bare.body, "Tap to plan it with Porty.");
+});

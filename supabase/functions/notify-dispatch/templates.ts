@@ -316,6 +316,47 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       };
     }
 
+    case "contribution_reminder": {
+      const amount = optNum(data.amount);
+      const split = ((Array.isArray(data.split) ? data.split : []) as Data[])
+        .map((i) => ({ symbol: str(i.symbol), amount: num(i.amount) }))
+        .filter((i) => i.symbol && Number.isFinite(i.amount) && i.amount > 0);
+      const more = num(data.more);
+      const hasAmount = Number.isFinite(amount) && amount > 0;
+      // El aporte es un monto del usuario: en $ solo con show_amounts; si
+      // no, qué parte del aporte va a cada uno.
+      const showMoney = opts.showAmounts && hasAmount;
+      const items = split.map((i) => {
+        const part = showMoney ? money(i.amount) : percent((i.amount / amount) * 100, false, 0);
+        return es ? `${part} a ${i.symbol}` : `${part} to ${i.symbol}`;
+      });
+      if (more > 0) items.push(es ? `el resto a ${more} más` : `the rest to ${more} more`);
+      const splitText = items.length > 0 && hasAmount
+        ? (es
+          ? `Para acercarte a tu plan: ${joinList(items, opts.locale)}. `
+          : `To get closer to your plan: ${joinList(items, opts.locale)}. `)
+        : "";
+      return {
+        title: showMoney
+          ? es ? `Te toca aportar ${money(amount)}` : `Time to add ${money(amount)}`
+          : es
+          ? "Te toca tu aporte del mes"
+          : "Time for this month's contribution",
+        body: splitText +
+          (es ? "Tocá para armarlo con Porty." : "Tap to plan it with Porty."),
+        // La pregunta no se ve en la pantalla bloqueada: lleva el monto.
+        ...askPorty(
+          hasAmount
+            ? es
+              ? `Armame el aporte de ${money(amount)} según mi plan`
+              : `Plan my ${money(amount)} contribution according to my plan`
+            : es
+            ? "¿Cómo reparto mi aporte de este mes según mi plan?"
+            : "How should I split this month's contribution according to my plan?",
+        ),
+      };
+    }
+
     case "morning_brief": {
       const signals = (Array.isArray(data.signals) ? data.signals : []) as Data[];
       const top = signals[0];

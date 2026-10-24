@@ -137,8 +137,11 @@ enum ManageOp {
           'app para "${t.label}" (reemplaza lo anterior) y rehago el plan.',
     allocationSave =>
       t.targets.isEmpty
-          ? 'Cambio los avisos de tu plan: ${_alerts(t)}'
-          : 'Tu plan queda así: ${_split(t.targets)}. ${_alerts(t)}',
+          ? _onlyReminder(t)
+              ? _reminder(t)
+              : 'Cambio los avisos de tu plan: ${_alerts(t)}${_reminderSuffix(t)}'
+          : 'Tu plan queda así: ${_split(t.targets)}. ${_alerts(t)}'
+              '${_reminderSuffix(t)}',
     settingsChange => 'Cambio esto:\n${AppSettingKeys.describe(t.changes)}',
     memoryClear =>
       'Borro todo lo que anoté sobre vos. Tu cartera, tus metas y tu perfil '
@@ -191,8 +194,10 @@ enum ManageOp {
           '"${t.label}".',
     allocationSave =>
       t.targets.isEmpty
-          ? 'Listo: ${_alerts(t)}'
-          : 'Guardé tu plan: ${_split(t.targets)}.',
+          ? _onlyReminder(t)
+              ? 'Listo. ${_reminder(t)}'
+              : 'Listo: ${_alerts(t)}${_reminderSuffix(t)}'
+          : 'Guardé tu plan: ${_split(t.targets)}.${_reminderSuffix(t)}',
     settingsChange => 'Listo:\n${AppSettingKeys.describe(t.changes)}',
     memoryClear => 'Borré todo lo que sabía de vos.',
     brokerSync => 'Actualicé tu cuenta de ${_broker(t)}.',
@@ -245,6 +250,33 @@ String _alerts(ManageTarget t) {
     _ => threshold == null ? '' : 'te aviso si algo se aleja$margin.',
   };
 }
+
+/// Si la card solo cambia el recordatorio de aporte.
+bool _onlyReminder(ManageTarget t) {
+  final keys = t.params.keys.toSet();
+  return keys.isNotEmpty &&
+      keys.difference({'contribution_day', 'contribution_amount'}).isEmpty;
+}
+
+/// "El día 1 de cada mes te recuerdo aportar $500 y cómo repartirlo."
+String _reminder(ManageTarget t) {
+  final p = t.params;
+  final day = (p['contribution_day'] as num?)?.round();
+  final amount = (p['contribution_amount'] as num?)?.toDouble();
+  if (day == 0) return 'Apago el recordatorio de aporte.';
+  final money = amount == null ? '' : ' ${AppNumberFormat.money(amount)}';
+  if (day == null) {
+    return 'Tu aporte de cada mes pasa a ser de$money.';
+  }
+  return 'El día $day de cada mes te recuerdo aportar$money y cómo '
+      'repartirlo según tu plan.';
+}
+
+String _reminderSuffix(ManageTarget t) =>
+    t.params.containsKey('contribution_day') ||
+            t.params.containsKey('contribution_amount')
+        ? ' ${_reminder(t)}'
+        : '';
 
 /// "VOO, QQQ y BND".
 String _list(List<String> items) => switch (items.length) {

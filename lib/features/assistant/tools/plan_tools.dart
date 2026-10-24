@@ -45,6 +45,16 @@ abstract final class PlanGuides {
       'mostly to what is below the plan, buying only. Don\'t repeat the '
       'rows. The plan is the user\'s own targets: say "para acercarte a tu '
       'plan"; never "te conviene" or "comprá", never judge a target.';
+  /// Rebalanceo guiado (fase 6): del reparto a registrar las compras, y el
+  /// recordatorio para que pase todos los meses.
+  static const contributionFlow =
+      ' After the split, ONE short question offering to log those buys once '
+      'they make them ("¿Ya las hiciste? Te las anoto"). If they say yes, '
+      'one propose_buy per split line with its amount_usd, in parallel; '
+      'never before they say they bought. If contribution_reminder is null, '
+      'you may also offer to remind them every month (propose_allocation_plan '
+      'contribution_day, and the amount); never both questions in one '
+      'answer: the buys first.';
   static const planEmpty =
       'QaAnswerText: they have no plan yet; offer to set it up right here '
       '(ask how much they want of each investment) or in Ajustes → Mi plan '
@@ -120,7 +130,10 @@ class GetAllocationPlanTool implements DataTool {
 
     final values = ctx.holdingsByTicker;
     final rows = AllocationMath.rows(values: values, targets: plan.targets);
-    final amount = ToolArgs.number(args, 'contribution_usd');
+    // Sin monto, el de su recordatorio de aporte (si lo tiene).
+    final amount =
+        ToolArgs.number(args, 'contribution_usd') ??
+        (plan.hasContributionReminder ? plan.contributionAmount : null);
     final split =
         amount != null && amount > 0 && plan.sumsTo100
             ? AllocationMath.contribution(
@@ -150,6 +163,13 @@ class GetAllocationPlanTool implements DataTool {
             'drift_pts': _round1(r.drift),
           },
       ],
+      'contribution_reminder':
+          plan.hasContributionReminder
+              ? {
+                'day': plan.contributionDay,
+                if (plan.contributionAmount case final a?) 'amount_usd': a,
+              }
+              : null,
       if (amount != null && amount > 0)
         'contribution': {
           'amount_usd': amount,
@@ -161,7 +181,11 @@ class GetAllocationPlanTool implements DataTool {
           ],
         },
       'as_of': ctx.asOf,
-    }, PlanGuides.planOk);
+    },
+      split.isEmpty
+          ? PlanGuides.planOk
+          : PlanGuides.planOk + PlanGuides.contributionFlow,
+    );
   }
 }
 

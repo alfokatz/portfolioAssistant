@@ -1488,5 +1488,12 @@
   "porty_inbox_topic_moved_title": "{ticker} {change} since you asked me",
   "porty_inbox_topic_moved_detail": "{days} days ago it was {price_then}; today, {price}",
   "porty_inbox_topic_moved_question": "What happened with {ticker} since I last asked you?",
-  "assistant_chip_resume": "How is {ticker} doing since last time?"
+  "assistant_chip_resume": "How is {ticker} doing since last time?",
+  "allocation_reminder_title": "Remind me to invest every month",
+  "allocation_reminder_body": "That day I'll tell you how much to add and how to split it to get closer to your plan.",
+  "allocation_reminder_day": "Day of the month",
+  "allocation_reminder_amount": "Amount (optional)",
+  "allocation_reminder_note": "I only suggest buys, never sells. From 1 to 28 so every month has that day.",
+  "allocation_reminder_summary": "And on day {day} of each month I'll remind you to invest.",
+  "allocation_reminder_summary_amount": "And on day {day} of each month I'll remind you to invest {amount}."
 }

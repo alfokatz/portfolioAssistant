@@ -1488,5 +1488,12 @@
   "porty_inbox_topic_moved_title": "{ticker} {change} desde que me preguntaste",
   "porty_inbox_topic_moved_detail": "Hace {days} días estaba a {price_then}; hoy, a {price}",
   "porty_inbox_topic_moved_question": "¿Qué pasó con {ticker} desde la última vez que te pregunté?",
-  "assistant_chip_resume": "¿Cómo sigue {ticker} desde la última vez?"
+  "assistant_chip_resume": "¿Cómo sigue {ticker} desde la última vez?",
+  "allocation_reminder_title": "Recordame aportar todos los meses",
+  "allocation_reminder_body": "Ese día te aviso cuánto aportar y cómo repartirlo para acercarte a tu plan.",
+  "allocation_reminder_day": "Día del mes",
+  "allocation_reminder_amount": "Monto (opcional)",
+  "allocation_reminder_note": "Solo te sugiero compras, nunca ventas. Del 1 al 28 para que todos los meses tengan ese día.",
+  "allocation_reminder_summary": "Y el día {day} de cada mes te recuerdo aportar.",
+  "allocation_reminder_summary_amount": "Y el día {day} de cada mes te recuerdo aportar {amount}."
 }

@@ -45,6 +45,8 @@ export const jobHours = {
   earningsResult: [12, 19],
   /// Todos los días: lo que Porty marca en la cartera (si hay algo nuevo).
   morningBrief: 8,
+  /// El día del mes que eligió el usuario: su aporte y cómo repartirlo.
+  contributionReminder: 9,
 };
 
 export function addDays(date: string, days: number): string {
@@ -286,6 +288,72 @@ export function morningBriefRows(
       kind: "morning_brief",
       dedupe_key: `morning_brief:${u.local_date.slice(0, 7)}:${ids}`,
       data: { signals, count: signals.length },
+    });
+  }
+  return out;
+}
+
+/// Un plan con recordatorio de aporte (de `contribution_reminder_inputs`).
+export type ContributionInput = {
+  user_id: string;
+  targets: Record<string, number>;
+  /// 1-28.
+  contribution_day: number;
+  /// Cuánto aporta; null si no lo dijo (el aviso sale igual, sin reparto).
+  contribution_amount: number | null;
+  holdings: { symbol: string; quantity: number; price: number | null }[];
+};
+
+/// Cómo repartir [amount] para acercarse al plan, solo con compras. El
+/// mismo cálculo que la app (`AllocationMath.contribution`): a cada ticker
+/// le falta max(0, objetivo·(total + aporte) − valor), y el aporte se
+/// reparte en proporción a lo que falta. De mayor a menor, en centavos.
+export function contributionSplit(
+  holdings: ContributionInput["holdings"],
+  targets: Record<string, number>,
+  amount: number,
+): { symbol: string; amount: number }[] {
+  if (!(amount > 0)) return [];
+  const targetSum = Object.values(targets).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+  if (!(targetSum > 0)) return [];
+  const values = new Map<string, number>();
+  for (const h of holdings) {
+    if (!(h.quantity > 0) || h.price === null || !(h.price > 0)) continue;
+    const s = h.symbol.toUpperCase();
+    values.set(s, (values.get(s) ?? 0) + h.quantity * h.price);
+  }
+  const total = [...values.values()].reduce((a, b) => a + b, 0);
+  const after = total + amount;
+  const missing = Object.entries(targets)
+    .filter(([, t]) => t > 0)
+    .map(([symbol, t]) => ({
+      symbol: symbol.toUpperCase(),
+      missing: Math.max(0, (t / targetSum) * after - (values.get(symbol.toUpperCase()) ?? 0)),
+    }));
+  const missingSum = missing.reduce((a, m) => a + m.missing, 0);
+  if (!(missingSum > 0)) return [];
+  return missing
+    .filter((m) => m.missing > 0)
+    .map((m) => ({ symbol: m.symbol, amount: Math.round((amount * m.missing / missingSum) * 100) / 100 }))
+    .sort((a, b) => b.amount - a.amount || a.symbol.localeCompare(b.symbol));
+}
+
+/// El día que eligió cada usuario (fecha local): su aporte y el reparto
+/// (hasta 4 tickers). Uno por mes.
+export function contributionReminderRows(users: LocalUser[], inputs: ContributionInput[]): OutboxInsert[] {
+  const byUser = new Map(inputs.map((i) => [i.user_id, i]));
+  const out: OutboxInsert[] = [];
+  for (const u of users) {
+    const input = byUser.get(u.user_id);
+    if (!input) continue;
+    if (Number(u.local_date.slice(8, 10)) !== Number(input.contribution_day)) continue;
+    const amount = input.contribution_amount === null ? null : Number(input.contribution_amount);
+    const split = amount === null ? [] : contributionSplit(input.holdings, input.targets, amount);
+    out.push({
+      user_id: u.user_id,
+      kind: "contribution_reminder",
+      dedupe_key: `contribution_reminder:${u.local_date.slice(0, 7)}`,
+      data: { amount, split: split.slice(0, 4), more: Math.max(0, split.length - 4) },
     });
   }
   return out;

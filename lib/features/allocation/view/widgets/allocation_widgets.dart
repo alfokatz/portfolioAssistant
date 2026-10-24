@@ -167,6 +167,9 @@ class AlertSettingsEditor extends StatelessWidget {
     required this.onThreshold,
     required this.onNotify,
     required this.onFrequency,
+    this.contributionDay,
+    this.contributionAmount,
+    this.onContribution,
   });
 
   final double threshold;
@@ -182,6 +185,12 @@ class AlertSettingsEditor extends StatelessWidget {
   final ValueChanged<double> onThreshold;
   final ValueChanged<bool> onNotify;
   final ValueChanged<AllocationAlertFrequency> onFrequency;
+
+  /// Recordatorio de aporte: día del mes (1-28) y monto opcional. `null`
+  /// [onContribution] lo oculta.
+  final int? contributionDay;
+  final double? contributionAmount;
+  final void Function(int? day, double? amount)? onContribution;
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +379,146 @@ class AlertSettingsEditor extends StatelessWidget {
             ),
           ),
         ),
+        if (onContribution case final onContribution?) ...[
+          const SizedBox(height: AppDimens.sp12),
+          ContributionReminderEditor(
+            day: contributionDay,
+            amount: contributionAmount,
+            onChanged: onContribution,
+          ),
+        ],
       ],
+    );
+  }
+}
+
+/// "Recordame aportar todos los meses": un interruptor, el día del mes y,
+/// si quiere, cuánto. Ese día Porty le avisa cuánto aportar y cómo
+/// repartirlo para acercarse a su plan (`contribution_reminder`).
+class ContributionReminderEditor extends StatefulWidget {
+  const ContributionReminderEditor({
+    super.key,
+    required this.day,
+    required this.amount,
+    required this.onChanged,
+  });
+
+  final int? day;
+  final double? amount;
+  final void Function(int? day, double? amount) onChanged;
+
+  /// El día con el que arranca al prenderlo.
+  static const defaultDay = 1;
+
+  @override
+  State<ContributionReminderEditor> createState() =>
+      _ContributionReminderEditorState();
+}
+
+class _ContributionReminderEditorState
+    extends State<ContributionReminderEditor> {
+  late final _amount = TextEditingController(
+    text: switch (widget.amount) {
+      final a? => a == a.roundToDouble() ? '${a.round()}' : '$a',
+      _ => '',
+    },
+  );
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  double? _parse(String text) {
+    final v = double.tryParse(text.replaceAll(',', '.').trim());
+    return v != null && v > 0 ? v : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final day = widget.day;
+    final on = day != null;
+    return Material(
+      color: colors.surfaceCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        side: BorderSide(color: colors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppDimens.cardPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: on,
+              onChanged:
+                  (v) => widget.onChanged(
+                    v ? ContributionReminderEditor.defaultDay : null,
+                    v ? _parse(_amount.text) : null,
+                  ),
+              title: Text(
+                'allocation_reminder_title'.tr(),
+                style: tt.bodyMedium?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                'allocation_reminder_body'.tr(),
+                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+              ),
+            ),
+            if (on) ...[
+              const SizedBox(height: AppDimens.sp12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: day,
+                      decoration: InputDecoration(
+                        labelText: 'allocation_reminder_day'.tr(),
+                      ),
+                      items: [
+                        for (var d = 1; d <= 28; d++)
+                          DropdownMenuItem(value: d, child: Text('$d')),
+                      ],
+                      onChanged:
+                          (d) => widget.onChanged(d, _parse(_amount.text)),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(
+                    child: TextField(
+                      controller: _amount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'allocation_reminder_amount'.tr(),
+                        prefixText: '\$ ',
+                      ),
+                      style: tt.bodyMedium?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                      onChanged: (v) => widget.onChanged(day, _parse(v)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimens.sp8),
+              Text(
+                'allocation_reminder_note'.tr(),
+                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

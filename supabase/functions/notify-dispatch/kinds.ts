@@ -16,7 +16,8 @@ export type Kind =
   | "earnings_result"
   | "allocation_drift"
   | "watchlist_move"
-  | "morning_brief";
+  | "morning_brief"
+  | "contribution_reminder";
 
 /// Preferencia del usuario que la controla (columna de
 /// `notification_preferences`).
@@ -157,6 +158,17 @@ export const kinds: Record<Kind, KindMeta> = {
     minTier: "free",
     quiet: "defer",
     maxAgeMinutes: 6 * 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  // Lo pidió el usuario en su plan (y se apaga ahí): no cuenta para el
+  // tope diario ni tiene preferencia propia.
+  contribution_reminder: {
+    pref: null,
+    category: "requested",
+    minTier: "premium",
+    quiet: "defer",
+    maxAgeMinutes: 18 * 60,
     androidChannel: "portfolio",
     interruption: "active",
   },

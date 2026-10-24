@@ -30,7 +30,10 @@ const _budgets = {
   // 2026-10-22: 6300 → 6800 para que Porty haga todo lo de la app desde el
   // chat (propose_* de lista, alertas, metas, plan, ajustes y cuentas, ya
   // fusionadas y con descripciones mínimas). Es prefijo cacheado.
-  'tools': (tokens: 6800, charsPerToken: 4.19),
+  // 2026-10-24: 6800 → 6850 por el recordatorio de aporte mensual en
+  // propose_allocation_plan (fase 6; dos parámetros y media línea, ~45
+  // tokens). El área planning sigue en su presupuesto (porty_areas_test).
+  'tools': (tokens: 6850, charsPerToken: 4.19),
 };
 
 void main() {

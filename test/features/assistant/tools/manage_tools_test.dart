@@ -246,6 +246,41 @@ void main() {
       expect(p.manageTarget.targets, isEmpty);
     });
 
+    test('recordatorio de aporte (fase 6): día y monto en la card; 0 lo '
+        'apaga; un día imposible no pasa', () async {
+      const saved = AllocationPlan(targets: {'VOO': 100});
+      final on =
+          ActionProposal.fromToolResult(
+            await run({
+              'contribution_day': 5,
+              'contribution_amount': 500,
+            }, plan: saved),
+          )!;
+      expect(on.params['contribution_day'], 5);
+      expect(on.params['contribution_amount'], 500);
+      expect(
+        on.manageOp!.describe(on.manageTarget),
+        'El día 5 de cada mes te recuerdo aportar \$500.00 y cómo repartirlo '
+        'según tu plan.',
+      );
+      final off =
+          ActionProposal.fromToolResult(
+            await run({'contribution_day': 0}, plan: saved),
+          )!;
+      expect(
+        off.manageOp!.describe(off.manageTarget),
+        'Apago el recordatorio de aporte.',
+      );
+      expect(
+        (await run({'contribution_day': 31}, plan: saved))['reason'],
+        'invalid_arguments',
+      );
+      expect(
+        (await run({'contribution_day': 2.5}, plan: saved))['reason'],
+        'invalid_arguments',
+      );
+    });
+
     test('Free bloqueado y sin nada pide el dato', () async {
       expect(
         (await run({'alerts': 'on'}, tier: SubscriptionTier.free))['status'],
