@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/view/assistant_screen.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// El chat de Porty como hoja sobre la pantalla en la que está el usuario:
@@ -85,65 +86,82 @@ class _SheetFrame extends StatelessWidget {
   }
 }
 
-/// El acceso a Porty en la barra de arriba de una pantalla: Porty pensando
-/// con un globito de pregunta. Abre [PortyChatSheet] con lo que se está
-/// mirando.
+/// El acceso a Porty en la barra de arriba de una pantalla: una píldora
+/// con Porty (con su ropa) y "Preguntale". Abre [PortyChatSheet] con lo
+/// que se está mirando.
 class PortyAskButton extends StatelessWidget {
   const PortyAskButton({super.key, required this.screen});
 
   final PortyScreenContext screen;
 
-  static const _avatar = 30.0;
+  static const _height = 34.0;
+  static const _avatar = 24.0;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    return IconButton(
-      tooltip: 'porty_ask_tooltip'.tr(),
-      onPressed: () {
-        PortyHapticsService.maybeOf(context)?.selectionTap();
-        unawaited(PortyChatSheet.show(context, screen: screen));
-      },
-      icon: SizedBox.square(
-        dimension: _avatar + 4,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const Positioned(
-              left: 0,
-              bottom: 0,
-              child: ExcludeSemantics(
-                child: PortyAvatar(
-                  size: _avatar,
-                  state: PortyAvatarState.thinking,
-                ),
-              ),
-            ),
-            // El globito de pregunta: "preguntale".
-            Positioned(
-              right: -2,
-              top: -3,
-              child: Container(
-                width: 15,
-                height: 15,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
+    final label = 'porty_ask_pill'.tr();
+    void open() {
+      PortyHapticsService.maybeOf(context)?.selectionTap();
+      unawaited(PortyChatSheet.show(context, screen: screen));
+    }
+
+    // La píldora mide 34; el área tocable, 44 de alto (AppDimens.touchTarget).
+    // A la derecha, aire para no quedar pegada al borde de la barra.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: open,
+      child: SizedBox(
+        height: AppDimens.touchTarget,
+        child: Padding(
+          padding: const EdgeInsets.only(
+            left: AppDimens.sp4,
+            right: AppDimens.sp12,
+          ),
+          child: Center(
+            child: Tooltip(
+              message: 'porty_ask_tooltip'.tr(),
+              child: Semantics(
+                button: true,
+                label: 'porty_ask_tooltip'.tr(),
+                excludeSemantics: true,
+                child: Material(
                   color: colors.surfaceCard,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.border),
-                ),
-                child: Text(
-                  '?',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                    color: colors.accentBlue,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: colors.accentBlue.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: open,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: _height),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4, right: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const PortyAvatar(size: _avatar),
+                            const SizedBox(width: 6),
+                            Text(
+                              label,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.labelLarge?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

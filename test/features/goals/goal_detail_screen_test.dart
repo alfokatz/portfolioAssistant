@@ -131,15 +131,12 @@ void main() {
       'their detail, the rest do not', (tester) async {
     await pumpGoalDetail(tester, goal: goalFixture(), holdings: {'VT': 300});
 
-    // Los de la pantalla (el de la barra es el acceso a Porty, pensando).
+    // Los de la pantalla (el de la barra es la píldora "Preguntale").
     final inBar = find.descendant(
       of: find.byType(PortyAskButton),
       matching: find.byType(PortyAvatar),
     );
-    expect(
-      tester.widget<PortyAvatar>(inBar).state,
-      PortyAvatarState.thinking,
-    );
+    expect(inBar, findsOneWidget);
     final avatars = tester
         .widgetList<PortyAvatar>(find.byType(PortyAvatar))
         .where((a) => !tester.widgetList<PortyAvatar>(inBar).contains(a));

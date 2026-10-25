@@ -1485,5 +1485,6 @@
   "allocation_reminder_amount": "Amount (optional)",
   "allocation_reminder_note": "I only suggest buys, never sells. From 1 to 28 so every month has that day.",
   "allocation_reminder_summary": "And on day {day} of each month I'll remind you to invest.",
-  "allocation_reminder_summary_amount": "And on day {day} of each month I'll remind you to invest {amount}."
+  "allocation_reminder_summary_amount": "And on day {day} of each month I'll remind you to invest {amount}.",
+  "porty_ask_pill": "Ask Porty"
 }

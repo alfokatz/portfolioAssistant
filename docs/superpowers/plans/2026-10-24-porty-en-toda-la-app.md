@@ -29,7 +29,7 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 
 ### El chat como hoja sobre la pantalla (actualizado el 2026-10-25)
 
-- `PortyAskButton` (`lib/features/assistant/view/porty_chat_sheet.dart`): Porty pensando con un globito "?" en la barra de arriba (antes era una chispa genérica). Abre `PortyChatSheet`.
+- `PortyAskButton` (`lib/features/assistant/view/porty_chat_sheet.dart`): una píldora con Porty (con su ropa) y "Preguntale" en la barra de arriba (antes era una chispa genérica; se eligió entre 6 diseños, ver `test/screenshots/porty_icon_options_screenshots_test.dart`). Abre `PortyChatSheet`.
 - **`PortyChatSheet`:** el chat de Porty (`AssistantScreen` en modo `sheet`) en una hoja al 75 % de la pantalla (92 % con el teclado abierto), encima de donde estaba el usuario. Pregunta y lee la respuesta ahí. Al bajarla, sigue en la misma pantalla.
 - **Es la misma conversación que la pestaña** (`AssistantArgs.session`, que vive toda la sesión). La pregunta con la que se abre entra por `askFromOutside`. Lo que se escribe en la hoja viaja con la pantalla (`useScreenForNextQuestion`).
 - Las preguntas de la pantalla van arriba del campo, en una fila que se desliza, hasta que pregunta algo.

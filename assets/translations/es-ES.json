@@ -1485,5 +1485,6 @@
   "allocation_reminder_amount": "Monto (opcional)",
   "allocation_reminder_note": "Solo te sugiero compras, nunca ventas. Del 1 al 28 para que todos los meses tengan ese día.",
   "allocation_reminder_summary": "Y el día {day} de cada mes te recuerdo aportar.",
-  "allocation_reminder_summary_amount": "Y el día {day} de cada mes te recuerdo aportar {amount}."
+  "allocation_reminder_summary_amount": "Y el día {day} de cada mes te recuerdo aportar {amount}.",
+  "porty_ask_pill": "Preguntale"
 }
