@@ -62,9 +62,15 @@ class PositionSupabaseDataSource implements PositionRemoteDataSource {
     await _client.from(_table).delete().eq('id', id);
   }
 
+  /// Solo las manuales: las importadas de eToro son de solo lectura (la base
+  /// rechazaría el borrado entero si incluyera alguna).
   @override
   Future<void> deleteByTicker(String ticker) async {
-    await _client.from(_table).delete().eq('ticker', ticker);
+    await _client
+        .from(_table)
+        .delete()
+        .eq('ticker', ticker)
+        .eq('source', 'manual');
   }
 }
 

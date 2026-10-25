@@ -61,6 +61,10 @@ class PositionRepositoryImpl implements PositionRepository {
   @override
   Future<Either<HttpError, void>> deletePosition(String id) async {
     try {
+      final existing = await remoteDataSource.getById(id);
+      if (existing != null && existing.isReadOnly) {
+        return Left(readOnlyPositionError());
+      }
       await remoteDataSource.delete(id);
       return const Right(null);
     } catch (e) {
@@ -114,6 +118,7 @@ class PositionRepositoryImpl implements PositionRepository {
           HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
         );
       }
+      if (existing.isReadOnly) return Left(readOnlyPositionError());
       final updated = existing.copyWith(quantity: quantity);
       await remoteDataSource.save(updated);
       return Right(updated);
@@ -132,6 +137,13 @@ class PositionRepositoryImpl implements PositionRepository {
     }
   }
 }
+
+/// Una posición importada (eToro) no se edita, cierra ni borra desde Porty:
+/// se actualiza sola desde el bróker. La base también lo impide.
+HttpError readOnlyPositionError() => HttpError(
+  code: 'position_read_only',
+  message: 'Esta posición se actualiza desde eToro',
+);
 
 final positionRepositoryProvider = Provider<PositionRepository>(
   (ref) => PositionRepositoryImpl(

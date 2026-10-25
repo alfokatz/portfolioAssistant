@@ -34,12 +34,24 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
         if (positions.isEmpty) {
           return const Right([]);
         }
+        // Sin cotización, todo el ticker se valúa con el precio de eToro si
+        // alguno de sus lotes lo trae (también los manuales del mismo
+        // ticker); si no, cada lote a su precio de compra.
+        final brokerPrices = <String, double>{
+          for (final p in positions)
+            if (p.brokerPrice != null)
+              PortfolioCalculator.normalizeTicker(p.ticker): p.brokerPrice!,
+        };
         final valuations = <PositionValuation>[];
         for (final position in positions) {
           final priceResult =
               await quoteRepository.getCurrentPrice(position.ticker);
           final price = priceResult.fold(
-            (_) => position.purchasePrice,
+            (_) =>
+                brokerPrices[PortfolioCalculator.normalizeTicker(
+                  position.ticker,
+                )] ??
+                position.purchasePrice,
             (p) => p,
           );
           valuations.add(

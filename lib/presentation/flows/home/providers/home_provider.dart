@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/navigator.dart';
@@ -10,15 +12,16 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
-import 'package:portfolio_assistant/features/genui_core/models/gen_ui_flow_type.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/providers/base_state_notifier.dart';
-import 'package:portfolio_assistant/features/portfolio_qa/nav/portfolio_qa_nav.dart';
-import 'package:portfolio_assistant/features/genui_core/nav/genui_nav.dart';
+import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
+import 'package:portfolio_assistant/presentation/flows/home/data/home_portfolio_cache.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_action.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
+import 'package:portfolio_assistant/presentation/flows/position/states/position_detail_state.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_nav.dart';
 
 class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
@@ -27,6 +30,7 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   final GetBenchmarkComparisonUseCase getBenchmarkComparisonUseCase;
   final DeletePositionsByTickerUseCase deletePositionsByTickerUseCase;
   final GetClosedPositionsUseCase getClosedPositionsUseCase;
+  final HomePortfolioCache? cache;
 
   HomeProvider({
     required super.ref,
@@ -35,14 +39,36 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     required this.getBenchmarkComparisonUseCase,
     required this.deletePositionsByTickerUseCase,
     required this.getClosedPositionsUseCase,
-  }) : super(state: HomeState());
+    this.cache,
+  }) : super(state: _initialState(cache));
+
+  /// Con caché, la Home arranca con lo último que mostró (desde el primer
+  /// frame, sin skeleton) y [init] lo actualiza en el lugar.
+  static HomeState _initialState(HomePortfolioCache? cache) {
+    final snapshot = cache?.read();
+    if (snapshot == null) return HomeState();
+    return HomeState(
+      summary: snapshot.summary,
+      history: snapshot.history,
+      benchmark: snapshot.benchmark,
+      closedPositionsCount: snapshot.closedPositionsCount,
+      loading: false,
+      fromCache: true,
+    );
+  }
 
   Future<void> init() async {
     await refresh();
   }
 
+  /// Trae la cartera. Nunca vacía la pantalla: sin nada que mostrar, la
+  /// Home pone su skeleton ([HomeState.loading]); con datos (caché o carga
+  /// anterior) quedan en pantalla y se reemplazan en el lugar. [silent] se
+  /// conserva por compatibilidad: ya no hay loader de pantalla completa.
   Future<void> refresh({bool silent = false}) async {
-    if (!silent) showLoading();
+    if (state.summary == null && !state.loading) {
+      state = state.copyWith(loading: true);
+    }
     String? quoteError;
 
     final summaryResult = await getPortfolioSummaryUseCase();
@@ -54,21 +80,28 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
       valuations: [],
     );
 
-    summaryResult.fold(
-      (error) => quoteError = error.message,
-      (value) => summary = value,
-    );
+    var summaryOk = false;
+    summaryResult.fold((error) => quoteError = error.message, (value) {
+      summary = value;
+      summaryOk = true;
+    });
+    // Si falló pero ya había algo en pantalla (caché o una carga anterior),
+    // se queda eso con el aviso de error, en vez de ceros.
+    final previous = state.summary;
+    if (!summaryOk && previous != null) summary = previous;
 
     final historyResult = await getPortfolioHistoryUseCase();
     final benchmarkResult = await getBenchmarkComparisonUseCase();
     final closedResult = await getClosedPositionsUseCase();
 
-    final history = historyResult.fold((_) => <PortfolioHistoryPoint>[], (v) => v);
-    final benchmark =
-        benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
-    final closedCount =
-        closedResult.fold((_) => 0, (list) => list.length);
+    final history = historyResult.fold(
+      (_) => <PortfolioHistoryPoint>[],
+      (v) => v,
+    );
+    final benchmark = benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
+    final closedCount = closedResult.fold((_) => 0, (list) => list.length);
 
+    if (!mounted) return;
     reducer(
       action: LoadPortfolioAction(
         summary: summary,
@@ -78,24 +111,35 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
         closedPositionsCount: closedCount,
       ),
     );
-    if (!silent) showContent();
+    if (summaryOk) {
+      unawaited(
+        cache
+            ?.write(
+              HomeSnapshot(
+                summary: summary,
+                history: history,
+                benchmark: benchmark,
+                closedPositionsCount: closedCount,
+              ),
+            )
+            .catchError((_) {}),
+      );
+    }
   }
 
+  /// Borra todas las compras de [ticker]. La fila ya salió de la lista con
+  /// el swipe: la Home no se vacía ni muestra un loader mientras tanto.
   Future<bool> deletePositionsForTicker(String ticker) async {
-    showLoading();
     final result = await deletePositionsByTickerUseCase(params: ticker);
     return result.fold(
       (error) async {
-        showContent();
-        ref.read(alertProvider.notifier).showError(
-              title: 'error'.tr(),
-              message: error.message,
-            );
+        ref
+            .read(alertProvider.notifier)
+            .showError(title: 'error'.tr(), message: error.message);
         return false;
       },
       (_) async {
         await refresh(silent: true);
-        showContent();
         return true;
       },
     );
@@ -105,8 +149,31 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoAddPosition());
   }
 
+  /// Navega en el mismo frame, con lo que la home ya tiene cargado: el
+  /// detalle no espera ningún fetch para mostrarse.
+  void openPositionDetail(PositionValuation valuation) {
+    final ticker = PortfolioCalculator.normalizeTicker(
+      valuation.position.ticker,
+    );
+    final lots = [
+      for (final lot in state.summary?.lots ?? const <PositionValuation>[])
+        if (PortfolioCalculator.normalizeTicker(lot.position.ticker) == ticker)
+          lot,
+    ];
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(
+          GotoPositionDetail(
+            ticker: valuation.position.ticker,
+            seed: PositionDetailSeed.fromLots(lots),
+          ),
+        );
+  }
+
   void openClosePosition(PositionValuation valuation) {
-    ref.read(navigationProvider.notifier).navigate(
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(
           GotoClosePosition(
             positionId: valuation.position.id,
             ticker: valuation.position.ticker,
@@ -120,16 +187,15 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     ref.read(navigationProvider.notifier).navigate(GotoClosedPositions());
   }
 
-  void openGenUiFlow(GenUiFlowType flowType) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoGenUiFlow(flowType: flowType),
-        );
+  void openAssistant({String? initialQuestion}) {
+    ref
+        .read(navigationProvider.notifier)
+        .navigate(GotoAssistant(initialQuestion: initialQuestion));
   }
 
+  @Deprecated('Use openAssistant instead')
   void openPortfolioQa({String? initialQuestion}) {
-    ref.read(navigationProvider.notifier).navigate(
-          GotoPortfolioQa(initialQuestion: initialQuestion),
-        );
+    openAssistant(initialQuestion: initialQuestion);
   }
 
   void openSettings() {
@@ -140,8 +206,8 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     reducer(action: SelectTimeRangeAction(range));
   }
 
-  void showAllPositions() {
-    reducer(action: ToggleShowAllPositionsAction(true));
+  void togglePositionsExpanded() {
+    reducer(action: ToggleShowAllPositionsAction(!state.showAllPositions));
   }
 
   @override
@@ -155,6 +221,8 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
           quoteError: action.quoteError,
           closedPositionsCount: action.closedPositionsCount,
           clearQuoteError: action.quoteError == null,
+          loading: false,
+          fromCache: false,
         );
       case SelectTimeRangeAction():
         state = state.copyWith(selectedRange: action.range);
@@ -164,16 +232,18 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   }
 }
 
-final homeProvider =
-    StateNotifierProvider.autoDispose<HomeProvider, HomeState>(
+final homeProvider = StateNotifierProvider<HomeProvider, HomeState>(
   (ref) => HomeProvider(
     ref: ref,
     getPortfolioSummaryUseCase: ref.watch(getPortfolioSummaryUseCaseProvider),
     getPortfolioHistoryUseCase: ref.watch(getPortfolioHistoryUseCaseProvider),
-    getBenchmarkComparisonUseCase:
-        ref.watch(getBenchmarkComparisonUseCaseProvider),
-    deletePositionsByTickerUseCase:
-        ref.watch(deletePositionsByTickerUseCaseProvider),
+    getBenchmarkComparisonUseCase: ref.watch(
+      getBenchmarkComparisonUseCaseProvider,
+    ),
+    deletePositionsByTickerUseCase: ref.watch(
+      deletePositionsByTickerUseCaseProvider,
+    ),
     getClosedPositionsUseCase: ref.watch(getClosedPositionsUseCaseProvider),
+    cache: ref.watch(homePortfolioCacheProvider),
   ),
 );
