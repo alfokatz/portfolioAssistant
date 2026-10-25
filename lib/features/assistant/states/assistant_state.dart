@@ -6,6 +6,11 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 class AssistantArgs {
   const AssistantArgs({this.initialQuestion, this.initialScreen});
 
+  /// La conversación de Porty de la sesión: la misma en la pestaña y en el
+  /// chat que se abre como hoja sobre otra pantalla (`PortyChatSheet`).
+  /// Las preguntas de afuera llegan por `askFromOutside`, no por acá.
+  static const session = AssistantArgs();
+
   final String? initialQuestion;
 
   /// Desde qué pantalla llegó [initialQuestion] (ver [PortyScreenContext]).

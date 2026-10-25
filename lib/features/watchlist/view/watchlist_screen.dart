@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/notifications/view/create_price_alert_sheet.dart';
@@ -22,8 +21,8 @@ import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dar
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// Tickers que el usuario sigue sin tenerlos, con la forma de Metas: el
 /// título grande, Porty contando cómo se movió la lista hoy y una fila por
@@ -120,15 +119,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
             currentPrice: quote?.price,
           );
         case _Action.ask:
-          GotoAssistant(
-            initialQuestion: 'watchlist_ask_question'.tr(
+          PortyChatSheet.show(context, question: 'watchlist_ask_question'.tr(
               namedArgs: {'ticker': item.symbol},
             ),
             screen: PortyScreenContext(
               PortyScreen.watchlist,
               ticker: item.symbol,
-            ),
-          ).navigate(context: context);
+            ),);
         case _Action.toggleNotify:
           await notifier.setNotify(item, !item.notify);
         case _Action.remove:

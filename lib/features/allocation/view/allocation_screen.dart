@@ -7,7 +7,6 @@ import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.d
 import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
 import 'package:portfolio_assistant/features/allocation/view/allocation_wizard_screen.dart';
 import 'package:portfolio_assistant/features/allocation/view/widgets/allocation_widgets.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -20,8 +19,8 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// "Mi plan de cartera". Sin plan, Porty cuenta de qué se trata y abre el
 /// armado de a pasos ([AllocationWizardScreen]); con plan, cómo viene la
@@ -398,16 +397,14 @@ class _Dashboard extends StatelessWidget {
                       values: values,
                       targets: plan.targets,
                       onAskPorty:
-                          (amount) => GotoAssistant(
-                            initialQuestion: 'allocation_ask_contribution'.tr(
+                          (amount) => PortyChatSheet.show(context, question: 'allocation_ask_contribution'.tr(
                               namedArgs: {
                                 'amount': AppNumberFormat.money(amount),
                               },
                             ),
                             screen: const PortyScreenContext(
                               PortyScreen.allocation,
-                            ),
-                          ).navigate(context: context),
+                            ),),
                     ),
                 icon: const Icon(Icons.calculate_outlined),
                 label: Text('allocation_contribution_cta'.tr()),
@@ -460,10 +457,8 @@ class _Dashboard extends StatelessWidget {
         Center(
           child: TextButton.icon(
             onPressed:
-                () => GotoAssistant(
-                  initialQuestion: 'allocation_ask_plan'.tr(),
-                  screen: const PortyScreenContext(PortyScreen.allocation),
-                ).navigate(context: context),
+                () => PortyChatSheet.show(context, question: 'allocation_ask_plan'.tr(),
+                  screen: const PortyScreenContext(PortyScreen.allocation),),
             icon: const Icon(Icons.chat_bubble_outline_rounded),
             label: Text('allocation_ask_porty'.tr()),
           ),

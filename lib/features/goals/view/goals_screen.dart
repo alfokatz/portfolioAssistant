@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -22,6 +21,7 @@ import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// Pestaña Metas, con la forma de las pantallas donde Porty acompaña
 /// (Posiciones cerradas, Agregar posición): arriba Porty dice en una frase
@@ -607,10 +607,8 @@ class _NewGoalRow extends StatelessWidget {
     label: 'goals_new'.tr(),
     accent: true,
     onTap:
-        () => GotoAssistant(
-          initialQuestion: 'goals_new_question'.tr(),
-          screen: const PortyScreenContext(PortyScreen.goals),
-        ).navigate(context: context),
+        () => PortyChatSheet.show(context, question: 'goals_new_question'.tr(),
+          screen: const PortyScreenContext(PortyScreen.goals),),
   );
 }
 
@@ -650,9 +648,7 @@ class _IdeaRow extends StatelessWidget {
     icon: idea.icon,
     label: idea.label.tr(),
     onTap:
-        () => GotoAssistant(
-          initialQuestion: idea.question.tr(),
-        ).navigate(context: context),
+        () => PortyChatSheet.show(context, question: idea.question.tr(),),
   );
 }
 

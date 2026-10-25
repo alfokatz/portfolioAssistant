@@ -27,10 +27,14 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 - Una pregunta que llega mientras corre un turno guarda su pantalla con ella (`_OutsideQuestion`): el turno en curso no se la lleva.
 - Las instrucciones de cómo usarlo (`AssistantOpenAiService.screenContextGuidance`) van en el contexto fijo del turno, solo cuando hay `screen_context`: **no cambian el system prompt ni su hash**, no hace falta desplegar `ai-chat`.
 
-### Hoja "Preguntale a Porty"
+### El chat como hoja sobre la pantalla (actualizado el 2026-10-25)
 
-- `PortyAskSheet` + `PortyAskButton` (`lib/features/assistant/view/widgets/porty_ask_sheet.dart`): la chispa de Porty en la barra de arriba abre una hoja con Porty ("¿Qué querés saber de NVDA?"), hasta 3 preguntas de la pantalla y el campo del chat. Elegir o escribir abre el chat con la pregunta y su pantalla.
-- Reusa `PortySays`, `AssistantStarterSuggestions`, `AssistantComposerField` y `AssistantSendButton`: mismo lenguaje visual que el chat.
+- `PortyAskButton` (`lib/features/assistant/view/porty_chat_sheet.dart`): Porty pensando con un globito "?" en la barra de arriba (antes era una chispa genérica). Abre `PortyChatSheet`.
+- **`PortyChatSheet`:** el chat de Porty (`AssistantScreen` en modo `sheet`) en una hoja al 75 % de la pantalla (92 % con el teclado abierto), encima de donde estaba el usuario. Pregunta y lee la respuesta ahí. Al bajarla, sigue en la misma pantalla.
+- **Es la misma conversación que la pestaña** (`AssistantArgs.session`, que vive toda la sesión). La pregunta con la que se abre entra por `askFromOutside`. Lo que se escribe en la hoja viaja con la pantalla (`useScreenForNextQuestion`).
+- Las preguntas de la pantalla van arriba del campo, en una fila que se desliza, hasta que pregunta algo.
+- Mientras la hoja está abierta (`portyChatSheetOpenProvider`), la pestaña montada debajo no abre hojas propias (paywall): así no salen dos.
+- Todas las entradas a Porty desde una pantalla (pastillas, "Preguntarle a Porty", la bandeja de la Home, Metas, el aporte del plan, "Seguí con Porty") abren la hoja. Las notificaciones y las preguntas de la Home que ya existían siguen abriendo la pestaña.
 - Las preguntas las arma la app (`PortyScreenSuggestions`), no el modelo, y **ninguna lleva a un paywall**: el "por qué se movió" y el análisis solo con noticias / análisis de empresa (Gold); "qué hizo desde que la vendí" solo con datos de mercado (Premium).
 
 ### Dónde está
@@ -49,12 +53,10 @@ Porty era un lugar (la pestaña del chat), no una presencia: se entraba con `Got
 
 - `test/features/assistant/providers/assistant_submit_e2e_test.dart`: el `screen_context` llega al brief, envejece y se descarta, se borra con una pregunta sin pantalla, sobrevive a la cola y al bootstrap.
 - `test/features/assistant/utils/porty_screen_suggestions_test.dart`: 2–3 preguntas por pantalla y plan, gating, textos en los dos idiomas con sus placeholders.
-- `test/features/assistant/view/porty_ask_sheet_test.dart`: render en claro y oscuro a ancho de SE, elegir, escribir y cerrar sin elegir.
-- `test/screenshots/porty_ask_sheet_screenshots_test.dart` (con `RUN_SCREENSHOTS=1`).
+- `test/features/assistant/view/assistant_long_answer_reveal_test.dart` → "chat as a sheet": abre al 75 %, preguntas de la pantalla arriba del campo, responde ahí con `screen_context`, al cerrarla sigue la pantalla y la conversación. Capturas con `RUN_SCREENSHOTS=1 --plain-name screenshot`.
 
 ## Fuera de esta fase
 
-- **Responder dentro de la hoja**, sin ir a la pestaña del chat: hoy la pregunta abre el chat. Requiere que la conversación se pueda mostrar en dos lugares (la pantalla del chat es de ~1.400 líneas); conviene hacerlo junto con la fase 4 (conversaciones guardadas).
 - **Comentarios de Porty con datos dentro de cada pantalla** (detalle de posición, lista, plan): la bandeja de la fase 2 los junta en la Home; repartirlos en cada pantalla queda para después.
 - Evals con el modelo real para `screen_context` (cuestan plata: correrlas con OK).
 

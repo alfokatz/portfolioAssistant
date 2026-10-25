@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
@@ -26,8 +25,8 @@ import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dar
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// El informe semanal. Responde tres preguntas, en orden: ¿cómo me fue?
 /// (número, gráfico, mercado), ¿por qué? (qué movió la cartera) y ¿qué
@@ -867,12 +866,10 @@ class _Questions extends StatelessWidget {
                 child: InkWell(
                   onTap: () {
                     PortyHapticsService.maybeOf(context)?.selectionTap();
-                    GotoAssistant(
-                      initialQuestion: q,
+                    PortyChatSheet.show(context, question: q,
                       screen: const PortyScreenContext(
                         PortyScreen.weeklyReport,
-                      ),
-                    ).navigate(context: context);
+                      ),);
                   },
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(

@@ -5,7 +5,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
@@ -27,8 +26,8 @@ import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_siz
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 class PositionDetailScreen extends StatefulHookConsumerWidget {
   const PositionDetailScreen({super.key, required this.ticker, this.seed});
@@ -151,10 +150,8 @@ class _PositionDetailScreenState
           onCloseAll: notifier.closeAll,
           onCloseLot: notifier.closeLot,
           onAskPorty:
-              (question) => GotoAssistant(
-                initialQuestion: question,
-                screen: PortyScreenContext.position(widget.ticker),
-              ).navigate(context: context),
+              (question) => PortyChatSheet.show(context, question: question,
+                screen: PortyScreenContext.position(widget.ticker),),
           animateEntrance: !_seeded,
         ),
       );

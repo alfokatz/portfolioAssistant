@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
@@ -17,6 +16,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// "Hoy te marco 2 cosas": lo que Porty ve en la cartera, el plan, las metas
 /// y las alertas, en la Home y sin que el usuario pregunte. Cada fila abre el
@@ -63,10 +63,8 @@ class _PortyInboxSectionState extends ConsumerState<PortyInboxSection> {
 
   void _open(PortyInsight insight) {
     PortyHapticsService.maybeOf(context)?.selectionTap();
-    GotoAssistant(
-      initialQuestion: PortyInsightCopy.question(insight),
-      screen: insight.screen,
-    ).navigate(context: context);
+    PortyChatSheet.show(context, question: PortyInsightCopy.question(insight),
+      screen: insight.screen,);
   }
 
   @override

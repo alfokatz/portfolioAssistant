@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -16,8 +15,8 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_ask_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// El detalle de una venta: cuánto ganaste o perdiste, qué vendiste y a
 /// cuánto, y una pregunta lista para Porty. Se abre desde la lista de
@@ -183,13 +182,11 @@ class _DetailList extends StatelessWidget {
             child: PortyQuestionPill(
               question: question,
               onTap:
-                  () => GotoAssistant(
-                    initialQuestion: question,
+                  () => PortyChatSheet.show(context, question: question,
                     screen: PortyScreenContext(
                       PortyScreen.closedPosition,
                       ticker: ticker,
-                    ),
-                  ).navigate(context: context),
+                    ),),
             ),
           ),
         ],

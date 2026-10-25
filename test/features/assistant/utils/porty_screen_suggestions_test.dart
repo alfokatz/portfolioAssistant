@@ -86,8 +86,8 @@ void main() {
       expect(goal.first.args, {'goal': 'Viaje'});
     });
 
-    test('every question and every title has its text in Spanish and '
-        'English, with the placeholders it fills', () {
+    test('every question (and the button tooltip) has its text in Spanish '
+        'and English, with the placeholders it fills', () {
       Map<String, Object?> load(String locale) =>
           (jsonDecode(
                     File('assets/translations/$locale.json').readAsStringSync(),
@@ -104,21 +104,7 @@ void main() {
           }
         }
       }
-      for (final key in [
-        'porty_ask_tooltip',
-        'porty_ask_hint',
-        'porty_ask_suggestions_label',
-        'porty_ask_title_generic',
-        'porty_ask_title_goals',
-        'porty_ask_title_watchlist',
-        'porty_ask_title_allocation',
-        'porty_ask_title_report',
-      ]) {
-        used[key] = {};
-      }
-      used['porty_ask_title_ticker'] = {'ticker'};
-      used['porty_ask_title_closed'] = {'ticker'};
-      used['porty_ask_title_goal'] = {'goal'};
+      used['porty_ask_tooltip'] = {};
 
       for (final MapEntry(key: key, value: args) in used.entries) {
         for (final (name, file) in [('es', es), ('en', en)]) {

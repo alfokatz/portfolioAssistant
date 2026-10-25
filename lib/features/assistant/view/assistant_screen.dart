@@ -64,6 +64,9 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
+import 'package:portfolio_assistant/features/assistant/utils/porty_screen_suggestions.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// `true` una vez que el avatar del header hizo su entrada en esta sesión de
 /// la app: volver al chat no la repite. Global (no autoDispose) a propósito.
@@ -81,12 +84,34 @@ const _starterIcons = <String, IconData>{
   'assistant_chip_goal': Icons.flag_outlined,
 };
 
+/// Dónde se muestra el chat: la pestaña de Porty, o una hoja sobre la
+/// pantalla en la que estaba el usuario (`PortyChatSheet`). Es la misma
+/// conversación ([AssistantArgs.session]).
+enum AssistantPresentation { tab, sheet }
+
+/// Si hay un chat abierto como hoja: mientras tanto, la pestaña (montada
+/// debajo) no abre hojas por su cuenta (paywall), así no salen dos.
+final portyChatSheetOpenProvider = StateProvider<bool>((ref) => false);
+
 class AssistantScreen extends StatefulHookConsumerWidget {
-  const AssistantScreen({super.key, this.question});
+  const AssistantScreen({
+    super.key,
+    this.question,
+    this.presentation = AssistantPresentation.tab,
+    this.screen,
+  });
 
   /// Pregunta a enviar apenas se abre el chat (o, si la pestaña ya estaba
   /// montada, cuando llega una nueva — ver [didUpdateWidget]).
   final AssistantQuestionRequest? question;
+
+  final AssistantPresentation presentation;
+
+  /// Como hoja: la pantalla de abajo. Sus preguntas van arriba del campo y
+  /// lo que se escriba acá viaja con ella (`screen_context`).
+  final PortyScreenContext? screen;
+
+  bool get isSheet => presentation == AssistantPresentation.sheet;
 
   @override
   ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
@@ -189,10 +214,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void initState() {
-    _args = AssistantArgs(
-      initialQuestion: widget.question?.question,
-      initialScreen: widget.question?.screen,
-    );
+    _args = AssistantArgs.session;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -218,6 +240,14 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     _activity =
         ref.read(assistantProvider(_args).notifier).activity
           ..addListener(_handleActivity);
+    // La conversación es la de la sesión: la pregunta con la que se abrió
+    // entra como una de afuera (si todavía no está lista, la toma
+    // `bootstrap`).
+    if (widget.question case final q?) {
+      ref
+          .read(assistantProvider(_args).notifier)
+          .askFromOutside(q.question, screen: q.screen);
+    }
     if (_playEntrance) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -479,9 +509,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     );
   }
 
+  /// Como hoja: ya se preguntó algo desde acá (las preguntas de la pantalla
+  /// dejan de mostrarse).
+  bool _askedFromSheet = false;
+
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    if (widget.isSheet) {
+      notifier.useScreenForNextQuestion(widget.screen);
+      if (!_askedFromSheet) setState(() => _askedFromSheet = true);
+    }
     // Un resultado tardío del dictado no puede volver a llenar el campo.
     unawaited(ref.read(chatDictationProvider).cancel());
     _textController.clear();
@@ -685,7 +723,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       }
 
       final reason = next.paywallReason;
-      if (reason != null && reason != previous?.paywallReason) {
+      // Con el chat abierto como hoja, la hoja lo muestra: la pestaña no.
+      final sheetOpen = ref.read(portyChatSheetOpenProvider);
+      if (reason != null &&
+          reason != previous?.paywallReason &&
+          widget.isSheet == sheetOpen) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!context.mounted) return;
           SubscriptionPaywallSheet.show(
@@ -698,10 +740,24 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       }
     });
 
+    final sheetQuestions =
+        widget.isSheet && widget.screen != null && !_askedFromSheet
+            ? [
+              for (final q in PortyScreenSuggestions.forScreen(
+                widget.screen!,
+                subscription.tier,
+              ))
+                q.key.tr(namedArgs: q.args),
+            ]
+            : const <String>[];
+
     return Scaffold(
+      // Como hoja, el fondo y las esquinas son los de la hoja.
+      backgroundColor: widget.isSheet ? Colors.transparent : null,
       body: Column(
         children: [
           SafeArea(
+            top: !widget.isSheet,
             bottom: false,
             child: PortyHeader(
               activity: notifier.activity,
@@ -785,7 +841,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                       onTypingComplete: _openWaitGate,
                                     ),
                           ),
-                        if (state.messages.length <= 1) ...[
+                        // Como hoja con preguntas de la pantalla, esas van
+                        // arriba del campo en lugar de las de siempre.
+                        if (state.messages.length <= 1 &&
+                            sheetQuestions.isEmpty) ...[
                           const SizedBox(height: AppDimens.sp8),
                           FadeSlideIn(
                             skipAnimation: state.introRevealed,
@@ -884,7 +943,23 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                         // tocarlos no baja el teclado (tocar en cualquier
                         // otro lado, sí; ver AssistantComposerField).
                         child: TextFieldTapRegion(
-                          child: Row(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (sheetQuestions.isNotEmpty) ...[
+                                _SheetQuestions(
+                                  questions: sheetQuestions,
+                                  onSelected:
+                                      state.isWaiting ||
+                                              service == null ||
+                                              _isAutoTyping
+                                          ? null
+                                          : (q) => _startAutoType(notifier, q),
+                                ),
+                                const SizedBox(height: AppDimens.sp12),
+                              ],
+                              Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Expanded(
@@ -924,6 +999,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                           ),
                                 ),
                               ),
+                            ],
+                          ),
                             ],
                           ),
                         ),
@@ -1393,5 +1470,38 @@ class _RenderSizeReporter extends RenderProxyBox {
     _last = h;
     // No se puede llamar setState durante layout.
     WidgetsBinding.instance.addPostFrameCallback((_) => onHeightChanged(h));
+  }
+}
+
+/// Las preguntas de la pantalla de abajo, en una fila que se desliza,
+/// arriba del campo (chat como hoja). Desaparecen al preguntar algo.
+class _SheetQuestions extends StatelessWidget {
+  const _SheetQuestions({required this.questions, required this.onSelected});
+
+  final List<String> questions;
+
+  /// `null` las deshabilita (turno en curso, auto-typing).
+  final ValueChanged<String>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSelected = this.onSelected;
+    return SizedBox(
+      height: AppDimens.touchTarget,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: questions.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppDimens.sp8),
+        itemBuilder:
+            (_, i) => AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: onSelected == null ? 0.5 : 1,
+              child: PortyQuestionPill(
+                question: questions[i],
+                onTap: () => onSelected?.call(questions[i]),
+              ),
+            ),
+      ),
+    );
   }
 }

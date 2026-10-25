@@ -325,6 +325,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     return submitMessage(question.text);
   }
 
+  /// La próxima pregunta que se escriba es de [screen] (el chat abierto como
+  /// hoja sobre esa pantalla; ver `PortyChatSheet`).
+  void useScreenForNextQuestion(PortyScreenContext? screen) {
+    _screenPending = true;
+    _pendingScreen = screen;
+  }
+
   /// El `screen_context` de este turno: la pantalla de la pregunta de
   /// afuera que sale ahora o, en los turnos siguientes, la misma con
   /// `turns_ago` sumando, hasta [PortyScreenContext.maxTurns].
@@ -1605,6 +1612,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
 final assistantProvider = StateNotifierProvider.autoDispose
     .family<AssistantProvider, AssistantState, AssistantArgs>((ref, args) {
+      // La de la sesión vive mientras la app: cerrar la hoja del chat (o no
+      // haber abierto nunca la pestaña) no borra la conversación.
+      if (identical(args, AssistantArgs.session)) ref.keepAlive();
       final provider = AssistantProvider(ref: ref, args: args);
       ref.onDispose(provider.disposeResources);
       return provider;
