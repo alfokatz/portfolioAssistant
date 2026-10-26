@@ -258,6 +258,47 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     runAfterPostFrameCallback(
       () => ref.read(assistantProvider(_args).notifier).bootstrap(),
     );
+    if (widget.isSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openAtLatest());
+    }
+  }
+
+  /// Como hoja, la lista es nueva y arrancaría en el saludo: se abre en lo
+  /// último. Si la pregunta salió justo antes de abrir (con `question`), el
+  /// turno ya empezó y nadie lo vio empezar: se sigue desde acá.
+  void _openAtLatest() {
+    if (!mounted) return;
+    final messages = ref.read(assistantProvider(_args)).messages;
+    final last = messages.lastOrNull;
+    if (last != null && last.isStreaming && last.surfaceId != null) {
+      final questionIndex = messages.length - 2;
+      final question = questionIndex >= 0 ? messages[questionIndex] : null;
+      _followTurn(
+        last.surfaceId!,
+        question?.role == PortfolioQaRole.user
+            ? _tileIdOf(question!, questionIndex)
+            : null,
+      );
+      return;
+    }
+    _jumpToBottom();
+  }
+
+  /// Al fondo, frame a frame hasta que el alto deja de cambiar (la lista
+  /// arma sus filas a medida que bajan y el `maxScrollExtent` crece).
+  void _jumpToBottom([int pass = 0]) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final bottom = position.maxScrollExtent;
+    if ((position.pixels - bottom).abs() >= 1) position.jumpTo(bottom);
+    if (pass >= 8) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_scrollController.position.maxScrollExtent != bottom) {
+        _jumpToBottom(pass + 1);
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   // La pestaña de Porty queda montada en el shell: una pregunta tocada desde

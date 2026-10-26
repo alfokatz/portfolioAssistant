@@ -822,6 +822,63 @@ void main() {
       );
       expect(screen.container.read(portyChatSheetOpenProvider), isFalse);
     });
+
+    testWidgets('reopened over a long conversation, it opens at the latest '
+        'message, not at the greeting', (tester) async {
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final long = List.filled(30, 'Una línea más de la respuesta.').join(' ');
+      final screen = _Screen([
+        for (var i = 0; i < 3; i++) _answer('Respuesta $i. $long'),
+      ]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(
+        app(
+          screen,
+          home: Scaffold(
+            body: Builder(
+              builder:
+                  (context) => Center(
+                    child: TextButton(
+                      onPressed: () => PortyChatSheet.show(context),
+                      child: const Text('abrir'),
+                    ),
+                  ),
+            ),
+          ),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 20; i++) {
+          await tester.runAsync(() async {});
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+      }
+
+      final sheet = find.byWidgetPredicate(
+        (w) => w is AssistantScreen && w.isSheet,
+      );
+      await tester.tap(find.text('abrir'));
+      await settle();
+      for (var i = 0; i < 3; i++) {
+        await send(tester, 'Pregunta $i');
+        await runTurn(tester, screen);
+      }
+      Navigator.of(tester.element(sheet)).pop();
+      await settle();
+
+      await tester.tap(find.text('abrir'));
+      await settle();
+      final position =
+          tester
+              .widget<ListView>(
+                find.descendant(of: sheet, matching: find.byType(ListView)),
+              )
+              .controller!
+              .position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+    });
   });
 }
 

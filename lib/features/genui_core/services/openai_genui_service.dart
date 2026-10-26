@@ -183,6 +183,10 @@ class OpenAIGenUiService {
 
   static const _temperature = 0.35;
 
+  static const _shorterAnswer =
+      'Tu respuesta anterior se cortó por largo. Respondé de nuevo lo mismo, '
+      'más corto: menos texto y una sola card.';
+
   OpenAIGenUiService({
     AiProxyConfig? proxy,
     String? model,
@@ -506,8 +510,10 @@ class OpenAIGenUiService {
     }
   }
 
-  /// Aplica la respuesta final; si no deja una surface válida, reintenta
-  /// una sola vez la ronda final (las tools ya están en el historial).
+  /// Aplica la respuesta final; si no deja una surface válida, o llegó
+  /// vacía o rota (sin nada para mostrar), reintenta una sola vez la ronda
+  /// final (las tools ya están en el historial). Recién si el reintento
+  /// tampoco sirve sale el "No pude procesar tu consulta".
   Future<void> _finishTurn(
     TurnRecord turn,
     String raw,
@@ -517,12 +523,17 @@ class OpenAIGenUiService {
   ) async {
     var attempt = raw;
     for (var transient = 0; ; transient++) {
+      final lastTry = isDisposed || transient >= maxTransientRetries;
       try {
+        if (!lastTry && LlmJsonSanitizer.isUnreadable(attempt)) {
+          GenUiDebugLog.unreadableFinal(attempt.length);
+          throw StateError('Respuesta final vacía o cortada.');
+        }
         _applyFinal(attempt, surfaceId);
         turn.finalText = attempt;
         return;
       } on StateError {
-        if (isDisposed || transient >= maxTransientRetries) rethrow;
+        if (lastTry) rethrow;
         await Future<void>.delayed(_transientRetryBackoff);
         final retry = await _request(
           tools: tools,
@@ -530,6 +541,19 @@ class OpenAIGenUiService {
           timeout: roundTimeout,
           throttle: false,
           deadline: deadline,
+          // Cortada por el tope de salida: el mismo pedido se volvería a
+          // cortar.
+          extra: [
+            if (turn.truncatedRounds > 0)
+              OpenAIChatCompletionChoiceMessageModel(
+                role: OpenAIChatMessageRole.user,
+                content: [
+                  OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                    _shorterAnswer,
+                  ),
+                ],
+              ),
+          ],
         );
         attempt = _textOf(retry);
       }
