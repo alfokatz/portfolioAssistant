@@ -56,6 +56,7 @@ import 'package:portfolio_assistant/features/genui_core/services/openai_genui_se
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 
 import '../features/assistant/fakes/assistant_fakes.dart';
@@ -112,6 +113,8 @@ class _Case {
     this.tier = SubscriptionTier.gold,
     this.weeklyFree = false,
     this.screen,
+    this.plan = _evalPlan,
+    this.topics = const [],
   });
 
   final String id;
@@ -124,6 +127,12 @@ class _Case {
 
   /// El usuario tiene disponible el análisis Gold de cortesía de la semana.
   final bool weeklyFree;
+
+  /// Su plan de cartera (`get_allocation_plan`).
+  final AllocationPlan plan;
+
+  /// De qué tickers habló en charlas anteriores: `recent_topics` en el brief.
+  final List<PortyTopic> topics;
 
   /// Devuelve la lista de problemas (vacía = pasa) del ÚLTIMO turno.
   final List<String> Function(_TurnLog last, List<_TurnLog> all) check;
@@ -197,6 +206,10 @@ class _TurnLog {
 }
 
 List<String> _expect(bool ok, String problem) => ok ? const [] : [problem];
+
+/// Plan fijo de los casos plan-* y rebalance-*: AAPL 70 / NVDA 30 contra
+/// una cartera 50/50 (AAPL queda 20 puntos abajo).
+const _evalPlan = AllocationPlan(targets: {'AAPL': 70, 'NVDA': 30});
 
 List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
   ..._expect(
@@ -1317,7 +1330,7 @@ final _cases = <_Case>[
     (t, _) => [
       ..._expect(t.answerText.contains('NVDA'), 'no habló de NVDA: ${t.answerText}'),
       ..._expect(
-        RegExp(r'50\s?%').hasMatch(t.answerText),
+        RegExp(r'50\s?%|la mitad').hasMatch(t.answerText),
         'no dijo que pesa 50%: ${t.answerText}',
       ),
       ..._expect(
@@ -1347,6 +1360,112 @@ final _cases = <_Case>[
       t.tickersOf('get_fundamentals').contains('NVDA'),
       'el seguimiento no fue sobre NVDA: $t',
     ),
+  ),
+  // recent_topics (fase 4): retomar lo que charlaron, sin inventarlo.
+  _Case(
+    'topics-resume',
+    ['¿Qué pasó con la que te pregunté la semana pasada?'],
+    tier: SubscriptionTier.premium,
+    topics: [
+      PortyTopic(
+        ticker: 'AMZN',
+        question: '¿Cómo viene Amazon?',
+        lastAskedAt: DateTime.now().subtract(const Duration(days: 7)),
+        priceAt: 182,
+      ),
+      PortyTopic(
+        ticker: 'TSLA',
+        question: '¿Por qué bajó Tesla?',
+        lastAskedAt: DateTime.now().subtract(const Duration(days: 22)),
+        priceAt: 240,
+      ),
+    ],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_quote').contains('AMZN'), 'no trajo AMZN: $t'),
+      ..._expect(
+        !t.tickersOf('get_quote').contains('TSLA'),
+        'trajo TSLA, que no es de la semana pasada: $t',
+      ),
+      // El precio de hoy en los fakes es 150 para todo.
+      ..._expect(
+        t.answerText.contains('182') && t.answerText.contains('150'),
+        'no dijo los dos precios: ${t.answerText}',
+      ),
+      // 150 vs 182: -32 dólares, -17,6%.
+      ..._expect(
+        !RegExp(r'1[78]([,.]\d+)?\s?%|\b32\b').hasMatch(t.answerText),
+        'calculó el cambio desde entonces: ${t.answerText}',
+      ),
+    ],
+  ),
+  _Case(
+    'topics-no-invent',
+    ['¿Qué pasó con la que te pregunté la semana pasada?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.tickersOf('get_quote').isEmpty && t.tickersOf('get_news').isEmpty,
+        'inventó un ticker: $t',
+      ),
+      ..._expect(t.answerText.contains('?'), 'no preguntó cuál: ${t.answerText}'),
+    ],
+  ),
+  // Rebalanceo guiado (fase 6): primero el reparto del aporte (solo
+  // compras), nunca vender ni anotar compras que no hizo.
+  _Case(
+    'rebalance-guided',
+    ['¿Cómo rebalanceo?'],
+    tier: SubscriptionTier.premium,
+    // Sin monto en la pregunta: usa el de su recordatorio de aporte.
+    plan: const AllocationPlan(
+      targets: {'AAPL': 70, 'NVDA': 30},
+      contributionDay: 5,
+      contributionAmount: 300,
+    ),
+    // Sobre el texto crudo, como plan-*: la frase que repite un número de
+    // la card no se muestra (`AssistantAnswerReview`).
+    (t, _) {
+      final sell = RegExp(r'vend', caseSensitive: false).firstMatch(t.text);
+      final buy = RegExp(r'compr|aport', caseSensitive: false).firstMatch(t.text);
+      return [
+        ..._expect(t.called('get_allocation_plan'), 'no leyó el plan: $t'),
+        ..._expect(
+          t.components.contains('QaAllocationPlan'),
+          'sin la card del plan: ${t.components}',
+        ),
+        ..._expect(t.text.contains('AAPL'), 'no nombró lo que está bajo'),
+        ..._expect(
+          buy != null && (sell == null || buy.start < sell.start),
+          'no propuso comprar con el aporte antes de vender: ${t.text}',
+        ),
+        ..._expect(
+          !t.calls.any((c) => _actionTools.contains(c.name)),
+          'propuso una operación que no hizo: $t',
+        ),
+        ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+      ];
+    },
+  ),
+  _Case(
+    'rebalance-contribution',
+    ['Tengo 500 para invertir este mes'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('get_allocation_plan', (a) => a['contribution_usd'] == 500),
+        'no pidió el reparto de 500: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
+      ),
+      ..._expect(t.text.contains('AAPL'), 'no lo mandó a lo que está bajo'),
+      ..._expect(
+        !t.calls.any((c) => _actionTools.contains(c.name)),
+        'anotó compras que no hizo: $t',
+      ),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+    ],
   ),
 ];
 
@@ -1800,11 +1919,11 @@ void main() {
                   updatedAt: DateTime.now(),
                 ),
             deleteMemory: (_) async {},
-            // Plan y lista fijos para los casos plan-* y watchlist-*.
-            loadAllocationPlan:
-                () async => const AllocationPlan(
-                  targets: {'AAPL': 70, 'NVDA': 30},
-                ),
+            recentTopics: [
+              for (final topic in c.topics) topic.toBrief(DateTime.now()),
+            ],
+            // Lista fija para los casos watchlist-*.
+            loadAllocationPlan: () async => c.plan,
             loadWatchlist:
                 () async => [
                   {
