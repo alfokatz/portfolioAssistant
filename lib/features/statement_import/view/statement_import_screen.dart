@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.d
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
 import 'package:portfolio_assistant/features/statement_import/view/import_row_edit_sheet.dart';
@@ -25,11 +26,37 @@ import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart'
 /// pide el archivo (y explica qué sirve), piensa mientras lo lee, cuenta
 /// lo que encontró (cada fila se corrige o se descarta) y celebra al
 /// terminar. Si algo falla, lo dice él con qué hacer.
-class StatementImportScreen extends ConsumerWidget {
-  const StatementImportScreen({super.key});
+class StatementImportScreen extends ConsumerStatefulWidget {
+  const StatementImportScreen({super.key, this.startWriting = false});
+
+  /// Abre directo en "Escribilo" (desde el onboarding: "Contale a Porty qué
+  /// tenés").
+  final bool startWriting;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StatementImportScreen> createState() =>
+      _StatementImportScreenState();
+}
+
+class _StatementImportScreenState extends ConsumerState<StatementImportScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startWriting) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _write();
+      });
+    }
+  }
+
+  Future<void> _write() async {
+    final text = await _NoteSheet.show(context);
+    if (text == null || !mounted) return;
+    await ref.read(statementImportProvider.notifier).readNote(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(statementImportProvider);
     final notifier = ref.read(statementImportProvider.notifier);
     // Los avatares de ticker leen la paleta del chat.
@@ -39,6 +66,8 @@ class StatementImportScreen extends ConsumerWidget {
       ImportPhase.intro => _Intro(
         errorType: state.errorType,
         onPick: notifier.pickAndRead,
+        onPickScreenshot: notifier.pickScreenshotAndRead,
+        onWrite: _write,
       ),
       ImportPhase.reading => const _Reading(),
       ImportPhase.preview || ImportPhase.importing => _Preview(state: state),
@@ -104,6 +133,14 @@ String importErrorMessage(String type) => switch (type) {
   _ => 'statement_import_error_unavailable'.tr(),
 };
 
+/// Sufijo de los textos que dicen de dónde salió ("en tu archivo", "en tu
+/// captura", "en lo que escribiste").
+String _originSuffix(ImportOrigin origin) => switch (origin) {
+  ImportOrigin.file => '',
+  ImportOrigin.screenshot => '_screenshot',
+  ImportOrigin.note => '_note',
+};
+
 bool _isQuota(String? type) =>
     type == 'quota_exceeded' || type == 'daily_quota_exceeded';
 
@@ -149,10 +186,17 @@ class _Layout extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Intro extends ConsumerWidget {
-  const _Intro({required this.errorType, required this.onPick});
+  const _Intro({
+    required this.errorType,
+    required this.onPick,
+    required this.onPickScreenshot,
+    required this.onWrite,
+  });
 
   final String? errorType;
   final Future<void> Function() onPick;
+  final Future<void> Function() onPickScreenshot;
+  final VoidCallback onWrite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -168,14 +212,18 @@ class _Intro extends ConsumerWidget {
             : quota || error == 'rate_limited'
             ? PortyAvatarState.error
             : PortyAvatarState.concerned;
-    // Si el archivo era el problema, el botón invita a elegir otro.
-    final pickLabel =
+    // Si el archivo era el problema, la fila invita a elegir otro.
+    final fileTitle =
         switch (error) {
           'file_too_large' ||
           'unsupported_type' ||
           'nothing_found' => 'statement_import_pick_again',
-          _ => 'import_pick_file',
+          _ => 'statement_import_way_file_title',
         }.tr();
+    void tap(VoidCallback action) {
+      PortyHapticsService.maybeOf(context)?.selectionTap();
+      action();
+    }
 
     return _Layout(
       content: [
@@ -214,65 +262,146 @@ class _Intro extends ConsumerWidget {
             ),
           ),
         const SizedBox(height: AppDimens.sp24),
-        _SectionLabel('statement_import_formats_title'.tr()),
+        _SectionLabel('statement_import_ways_title'.tr()),
         const SizedBox(height: AppDimens.sp8),
         _Card(
           child: Column(
             children: [
               _FormatRow(
-                icon: Icons.table_chart_outlined,
-                title: 'statement_import_format_csv_title'.tr(),
-                body: 'statement_import_format_csv_body'.tr(),
+                icon: Icons.description_outlined,
+                title: fileTitle,
+                body: 'statement_import_way_file_body'.tr(),
+                onTap: () => tap(onPick),
               ),
               Divider(height: 1, indent: 64, color: colors.border),
               _FormatRow(
-                icon: Icons.auto_awesome_outlined,
-                title: 'statement_import_format_pdf_title'.tr(),
-                body: 'statement_import_format_pdf_body'.tr(),
+                icon: Icons.screenshot_outlined,
+                title: 'statement_import_way_screenshot_title'.tr(),
+                body: 'statement_import_way_screenshot_body'.tr(),
+                onTap: () => tap(onPickScreenshot),
+              ),
+              Divider(height: 1, indent: 64, color: colors.border),
+              _FormatRow(
+                icon: Icons.edit_note_rounded,
+                title: 'statement_import_way_write_title'.tr(),
+                body: 'statement_import_way_write_body'.tr(),
+                onTap: () => tap(onWrite),
               ),
             ],
           ),
         ),
         const SizedBox(height: AppDimens.sp16),
         _Note(
-          icon: Icons.edit_note_rounded,
+          icon: Icons.fact_check_outlined,
           text: 'import_intro_point_review'.tr(),
         ),
       ],
-      bottom: Column(
+      bottom: Text.rich(
+        TextSpan(
+          children: [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.only(right: AppDimens.sp4),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  size: 13,
+                  color: colors.textSecondary,
+                ),
+              ),
+            ),
+            TextSpan(text: 'import_intro_point_privacy'.tr()),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        style: tt.bodySmall?.copyWith(
+          color: colors.textSecondary,
+          height: 1.45,
+        ),
+      ),
+    );
+  }
+}
+
+/// "Escribilo": Porty pide la cartera como le salga ("10 VOO, 2000 dólares
+/// en QQQ y algo de NVDA") y después sale la misma vista previa para
+/// revisar. Devuelve el texto o `null` si cerró la hoja.
+class _NoteSheet extends StatefulWidget {
+  const _NoteSheet();
+
+  static Future<String?> show(BuildContext context) =>
+      showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => const _NoteSheet(),
+      );
+
+  @override
+  State<_NoteSheet> createState() => _NoteSheetState();
+}
+
+class _NoteSheetState extends State<_NoteSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final text = _controller.text.trim();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppDimens.pageHorizontal,
+        AppDimens.sp8,
+        AppDimens.pageHorizontal,
+        AppDimens.sp16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PositionPrimaryButton(
-            label: pickLabel,
-            onPressed: () {
-              PortyHapticsService.maybeOf(context)?.selectionTap();
-              onPick();
-            },
+          PortySays(
+            messageKey: 'note',
+            message: Text('statement_import_note_porty'.tr()),
           ),
-          const SizedBox(height: AppDimens.sp12),
-          Text.rich(
-            TextSpan(
-              children: [
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: AppDimens.sp4),
-                    child: Icon(
-                      Icons.lock_outline_rounded,
-                      size: 13,
-                      color: colors.textSecondary,
-                    ),
-                  ),
-                ),
-                TextSpan(text: 'import_intro_point_privacy'.tr()),
-              ],
+          const SizedBox(height: AppDimens.sp16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 6,
+            maxLength: StatementImportClient.maxNoteChars,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'statement_import_note_hint'.tr(),
+              counterText: '',
             ),
-            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppDimens.sp8),
+          Text(
+            'statement_import_note_cost'.tr(),
             style: tt.bodySmall?.copyWith(
               color: colors.textSecondary,
               height: 1.45,
             ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+          PositionPrimaryButton(
+            label: 'statement_import_note_send'.tr(),
+            onPressed:
+                text.length < 2 ? null : () => Navigator.of(context).pop(text),
           ),
         ],
       ),
@@ -287,21 +416,21 @@ class _FormatRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String body;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    return Semantics(
-      container: true,
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimens.sp16),
-        child: Row(
+    final row = Padding(
+      padding: const EdgeInsets.all(AppDimens.sp16),
+      child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
@@ -336,8 +465,23 @@ class _FormatRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (onTap != null) ...[
+              const SizedBox(width: AppDimens.sp8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colors.textSecondary,
+              ),
+            ],
           ],
         ),
+    );
+    if (onTap == null) return Semantics(container: true, child: row);
+    return Semantics(
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(onTap: onTap, child: row),
       ),
     );
   }
@@ -416,14 +560,17 @@ class _Preview extends ConsumerWidget {
           messageKey: 'preview',
           mood: mood,
           message: Text(
+            // En tu archivo, en tu captura, en lo que escribiste.
             state.rows.length == 1
-                ? 'statement_import_preview_porty_one'.tr()
-                : 'statement_import_preview_porty'.tr(
-                  namedArgs: {'count': '${state.rows.length}'},
-                ),
+                ? 'statement_import_preview_porty_one${_originSuffix(state.origin)}'
+                    .tr()
+                : 'statement_import_preview_porty${_originSuffix(state.origin)}'
+                    .tr(namedArgs: {'count': '${state.rows.length}'}),
           ),
           footnote: Text(
-            state.source == ImportSource.ai
+            state.origin != ImportOrigin.file
+                ? 'statement_import_preview_note_filled'.tr()
+                : state.source == ImportSource.ai
                 ? 'statement_import_preview_note_ai'.tr()
                 : 'statement_import_preview_note_csv'.tr(),
           ),
@@ -462,7 +609,12 @@ class _Preview extends ConsumerWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Expanded(child: _SectionLabel('statement_import_list_title'.tr())),
+            Expanded(
+              child: _SectionLabel(
+                'statement_import_list_title${_originSuffix(state.origin)}'
+                    .tr(),
+              ),
+            ),
             const SizedBox(width: AppDimens.sp8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
@@ -543,7 +695,10 @@ class _Preview extends ConsumerWidget {
             const SizedBox(height: AppDimens.sp12),
           ] else if (state.needsAttention > 0) ...[
             Text(
-              'import_needs_attention'.tr(
+              (state.needsAttention == 1
+                      ? 'import_needs_attention_one'
+                      : 'import_needs_attention')
+                  .tr(
                 namedArgs: {'count': '${state.needsAttention}'},
               ),
               textAlign: TextAlign.center,
@@ -667,6 +822,12 @@ class _RowTile extends StatelessWidget {
         _Tag(
           'statement_import_tag_currency'.tr(
             namedArgs: {'currency': row.currency!},
+          ),
+        ),
+      if (row.quantityFromAmount && row.amount != null)
+        _Tag(
+          'statement_import_tag_from_amount'.tr(
+            namedArgs: {'amount': AppNumberFormat.wholeMoney(row.amount!)},
           ),
         ),
       if (alreadyHeld) _Tag('statement_import_tag_held'.tr()),

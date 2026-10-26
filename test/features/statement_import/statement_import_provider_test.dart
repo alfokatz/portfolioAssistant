@@ -28,6 +28,14 @@ class _FakeClient implements StatementImportClient {
     calls++;
     return respond();
   }
+
+  final notes = <String>[];
+
+  @override
+  Future<StatementReadResult> readNote(String note) {
+    notes.add(note);
+    return respond();
+  }
 }
 
 class _FakeQuotes implements QuoteRepository {
@@ -110,7 +118,7 @@ void main() {
       addPosition: AddPositionUseCase(repository: positions),
       heldTickers: () => held,
       positionLimit: () => limit,
-      onImported: () async => refreshed++,
+      onImported: (_) async => refreshed++,
       now: () => today,
     );
   }
@@ -186,6 +194,66 @@ void main() {
         expect(s.canImport, isTrue);
       },
     );
+
+    test('lo que escribe: con monto en dinero, la cantidad sale del precio de '
+        'hoy; sin nada, queda para completar', () async {
+      final n = build(
+        result:
+            () => _result([
+              {'ticker': 'VOO', 'quantity': 10},
+              {'ticker': 'AAPL', 'quantity': 0, 'amount': 1000},
+              {'ticker': 'MSFT', 'quantity': 0, 'amount': null},
+            ]),
+      );
+      await n.readNote('  10 VOO, 1000 dólares en Apple y algo de Microsoft ');
+      await n.checkQuotes();
+      final rows = {for (final r in n.state.rows) r.ticker: r};
+      expect(n.state.origin, ImportOrigin.note);
+      expect(rows['VOO']!.quantity, 10);
+      expect(rows['VOO']!.quantityFromAmount, isFalse);
+      // 1000 / 200 (AAPL hoy).
+      expect(rows['AAPL']!.quantity, 5);
+      expect(rows['AAPL']!.quantityFromAmount, isTrue);
+      expect(rows['AAPL']!.issues.contains(ImportIssue.quantity), isFalse);
+      expect(rows['MSFT']!.issues, contains(ImportIssue.quantity));
+      // Corregirla a mano le saca la marca de "calculada".
+      n.updateRow(rows['AAPL']!.id, quantity: 4);
+      expect(
+        n.state.rows.firstWhere((r) => r.ticker == 'AAPL').quantityFromAmount,
+        isFalse,
+      );
+    });
+
+    test('al importar, avisa por qué camino llegó la cartera', () async {
+      ImportOrigin? origin;
+      final n = StatementImportNotifier(
+        client: _FakeClient(
+          () async => _result([
+            {
+              'ticker': 'AAPL',
+              'quantity': 1,
+              'purchase_price': 100,
+              'purchase_date': '2024-01-01',
+            },
+          ]),
+        ),
+        pick: () async => file,
+        pickScreenshot: () async => file,
+        getCurrentPrice: GetCurrentPriceUseCase(
+          quoteRepository: _FakeQuotes(const {'AAPL': 200}),
+        ),
+        addPosition: AddPositionUseCase(repository: _FakePositions()),
+        heldTickers: () => const {},
+        positionLimit: () => null,
+        onImported: (o) async => origin = o,
+        now: () => today,
+      );
+      await n.pickScreenshotAndRead();
+      await n.checkQuotes();
+      await n.importReady();
+      expect(origin, ImportOrigin.screenshot);
+      expect(ImportOrigin.screenshot.loadMethod, 'screenshot');
+    });
 
     test('si el usuario cancela el selector no pasa nada', () async {
       final n = build(result: () => _result([]), pick: () async => null);

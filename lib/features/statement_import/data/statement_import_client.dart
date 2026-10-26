@@ -29,6 +29,9 @@ class StatementImportClient {
   /// Igual que el servidor (2 MB).
   static const maxFileBytes = 2 * 1024 * 1024;
 
+  /// Igual que el servidor.
+  static const maxNoteChars = 2000;
+
   static Dio _createDio() => Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 10),
@@ -50,6 +53,21 @@ class StatementImportClient {
       'filename': filename,
       'content_base64': base64Encode(bytes),
     });
+    if (response.statusCode == 0) {
+      throw const StatementImportException('network');
+    }
+    if (!response.ok) {
+      throw StatementImportException(response.errorType ?? 'unavailable');
+    }
+    return StatementReadResult.fromJson(response.body!);
+  }
+
+  /// Lo que escribe el usuario en vez de un archivo (lo lee la IA).
+  Future<StatementReadResult> readNote(String note) async {
+    if (note.length > maxNoteChars) {
+      throw const StatementImportException('note_too_long');
+    }
+    final response = await _client.post('statement-import', {'note': note});
     if (response.statusCode == 0) {
       throw const StatementImportException('network');
     }

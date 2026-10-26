@@ -22,6 +22,10 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 
 class _Client implements StatementImportClient {
   @override
+  Future<StatementReadResult> readNote(String note) =>
+      read(filename: 'nota', bytes: Uint8List(0));
+
+  @override
   Future<StatementReadResult> read({
     required String filename,
     required Uint8List bytes,
@@ -82,6 +86,10 @@ class _FailingClient implements StatementImportClient {
     required String filename,
     required Uint8List bytes,
   }) async => throw const StatementImportException('nothing_found');
+
+  @override
+  Future<StatementReadResult> readNote(String note) async =>
+      throw const StatementImportException('nothing_found');
 }
 
 class _Positions implements PositionRepository {
@@ -142,13 +150,34 @@ void main() {
     return notifier;
   }
 
-  testWidgets('inicio: explica y ofrece elegir el archivo', (tester) async {
+  testWidgets('inicio: tres formas de traerla (archivo, captura, escribirla)', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.pumpAndSettle();
     expect(find.text('statement_import_intro_porty'), findsOneWidget);
-    expect(find.text('statement_import_format_csv_title'), findsOneWidget);
-    expect(find.text('statement_import_format_pdf_title'), findsOneWidget);
-    expect(find.text('import_pick_file'), findsOneWidget);
+    expect(find.text('statement_import_way_file_title'), findsOneWidget);
+    expect(find.text('statement_import_way_screenshot_title'), findsOneWidget);
+    expect(find.text('statement_import_way_write_title'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('escribirla: la hoja manda el texto y sale la vista previa', (
+    tester,
+  ) async {
+    await pump(tester, height: 2400);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('statement_import_way_write_title'));
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_note_porty'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '10 VOO y algo de NVDA');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('statement_import_note_send'));
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_preview_porty_note'), findsOneWidget);
+    expect(find.text('statement_import_list_title_note'), findsOneWidget);
+    // Fecha y precio de hoy donde no los dijo.
+    expect(find.text('statement_import_preview_note_filled'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

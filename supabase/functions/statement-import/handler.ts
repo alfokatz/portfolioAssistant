@@ -3,18 +3,21 @@
 // posiciones (como manuales) cuando el usuario confirma.
 //
 // POST /functions/v1/statement-import  JWT
-//   { filename, mime_type?, content_base64 }
+//   { filename, mime_type?, content_base64 }   un archivo o una captura
+//   { note }                                    lo que escribe el usuario
 //   → 200 { source: "csv" | "ai", rows: ImportRow[], warnings: ImportWarning[] }
 //
 // 1. CSV con encabezados reconocibles: sin IA y sin cobrar.
-// 2. Si no (PDF, CSV raro): IA, cobrando una consulta del cupo mensual con
-//    el mismo mecanismo que el chat (`ai_begin_request` / `ai_record_round`).
+// 2. Si no (PDF, captura, CSV raro, una nota): IA, cobrando una consulta del
+//    cupo mensual con el mismo mecanismo que el chat (`ai_begin_request` /
+//    `ai_record_round`). En capturas y notas una fila puede venir sin
+//    cantidad (con `amount` si dijo cuánta plata tiene): la completa la app.
 //
 // El contenido del archivo no se guarda ni se loguea.
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { aiConfig, extractWithAi, type FileInput, type Usage } from "./ai.ts";
+import { aiConfig, allowsMissingQuantity, extractWithAi, type FileInput, type Usage } from "./ai.ts";
 import { parseCsv } from "./parse_csv.ts";
 import { finalizeRows, type ImportWarning } from "./rows.ts";
 
@@ -72,12 +75,23 @@ export function decodeText(bytes: Uint8Array): string {
   }
 }
 
-export type FileKind = "pdf" | "text" | "unsupported";
+export type FileKind = "pdf" | "text" | "image" | "unsupported";
+
+/// El tipo de una imagen que la IA puede leer, por su contenido. HEIC no
+/// (las capturas de pantalla son PNG).
+export function imageMime(bytes: Uint8Array): string | null {
+  const at = (i: number, ...b: number[]) => b.every((x, j) => bytes[i + j] === x);
+  if (bytes.length >= 8 && at(0, 0x89, 0x50, 0x4e, 0x47)) return "image/png";
+  if (bytes.length >= 3 && at(0, 0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (bytes.length >= 12 && at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return "image/webp";
+  return null;
+}
 
 export function fileKind(filename: string, bytes: Uint8Array): FileKind {
   const isPdf = bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 &&
     bytes[3] === 0x46; // %PDF
   if (isPdf) return "pdf";
+  if (imageMime(bytes)) return "image";
   // xlsx/zip y xls (OLE): pedir que lo exporte a CSV.
   const isZip = bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b;
   const isOle = bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
@@ -106,6 +120,7 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
   } catch {
     return typedError(400, "invalid_json", "Body must be JSON");
   }
+  if (typeof body.note === "string") return await readNote(body.note, userId, deps);
   const filename = typeof body.filename === "string" && body.filename.trim()
     ? body.filename.trim().slice(0, 200)
     : "statement";
@@ -155,9 +170,52 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
     return typedError(limitStatus[reason] ?? 403, reason, "Import rejected", extra);
   }
 
+  const base64 = (body.content_base64 as string).replace(/\s/g, "");
   const input: FileInput = kind === "pdf"
-    ? { kind: "pdf", filename, base64: (body.content_base64 as string).replace(/\s/g, "") }
+    ? { kind: "pdf", filename, base64 }
+    : kind === "image"
+    ? { kind: "image", filename, mime: imageMime(bytes)!, base64 }
     : { kind: "text", filename, text: text ?? decodeText(bytes) };
+  return await readWithAi(input, userId, deps, today, apiKey, model, turnId);
+}
+
+/// Lo que escribe el usuario: siempre con IA (una consulta).
+async function readNote(note: string, userId: string, deps: ImportDeps): Promise<Response> {
+  const text = note.trim();
+  if (text.length < 2) return typedError(400, "invalid_note", "note is empty");
+  if (text.length > aiConfig.maxNoteChars) {
+    return typedError(413, "note_too_long", "Note too long", { max_chars: aiConfig.maxNoteChars });
+  }
+  if (!(await deps.quota.rateOk(userId))) return typedError(429, "rate_limited", "Too many requests");
+  const apiKey = deps.env("OPENAI_API_KEY");
+  if (!apiKey) return typedError(503, "unavailable", "AI not configured");
+  const model = deps.env("STATEMENT_IMPORT_MODEL") || aiConfig.defaultModel;
+  const turnId = `import:${deps.newId?.() ?? crypto.randomUUID()}`;
+  let verdict: Verdict;
+  try {
+    verdict = await deps.quota.begin(userId, turnId, model);
+  } catch (e) {
+    console.error("statement-import quota failed", String(e));
+    return typedError(503, "unavailable", "Quota service unavailable");
+  }
+  if (!verdict.ok) {
+    const reason = verdict.reason ?? "rejected";
+    const { ok: _ok, reason: _r, ...extra } = verdict;
+    return typedError(limitStatus[reason] ?? 403, reason, "Import rejected", extra);
+  }
+  const today = new Date(deps.now()).toISOString().slice(0, 10);
+  return await readWithAi({ kind: "note", text }, userId, deps, today, apiKey, model, turnId);
+}
+
+async function readWithAi(
+  input: FileInput,
+  userId: string,
+  deps: ImportDeps,
+  today: string,
+  apiKey: string,
+  model: string,
+  turnId: string,
+): Promise<Response> {
   const result = await extractWithAi(deps.fetch, apiKey, model, input);
   if (!result.ok) {
     log({ source: "ai", error: result.reason });
@@ -170,15 +228,15 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
     console.error("statement-import record failed", String(e))
   );
 
-  const done = finalizeRows(result.rows, today);
+  const done = finalizeRows(result.rows, today, { allowMissingQuantity: allowsMissingQuantity(input) });
   if (done.rows.length === 0) {
-    log({ source: "ai", rows: 0 });
+    log({ source: "ai", kind: input.kind, rows: 0 });
     return typedError(422, "nothing_found", "No holdings found in the file");
   }
   const warnings = result.truncated
     ? mergeWarnings(done.warnings, [{ type: "truncated", limit: done.rows.length }])
     : done.warnings;
-  log({ source: "ai", rows: done.rows.length });
+  log({ source: "ai", kind: input.kind, rows: done.rows.length });
   return json(200, { source: "ai", rows: done.rows, warnings });
 }
 

@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart'
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/statement_import/data/screenshot_shrinker.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -40,6 +41,40 @@ final statementPickerProvider = Provider<StatementPicker>(
   (ref) => _pickWithSystem,
 );
 
+/// Una captura de la app del bróker (de la galería). Se achica antes de
+/// mandarla (ver [ScreenshotShrinker]).
+Future<PickedStatement?> _pickImageWithSystem() async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.image,
+    withData: true,
+  );
+  final file = result?.files.singleOrNull;
+  final bytes = file?.bytes;
+  if (file == null || bytes == null) return null;
+  return PickedStatement(
+    name: file.name,
+    bytes: await ScreenshotShrinker.shrink(bytes),
+  );
+}
+
+final screenshotPickerProvider = Provider<StatementPicker>(
+  (ref) => _pickImageWithSystem,
+);
+
+/// Cómo trajo la cartera: un archivo, una captura o escribiéndola.
+enum ImportOrigin {
+  file,
+  screenshot,
+  note;
+
+  /// El `method` de `portfolio_loaded`.
+  String get loadMethod => switch (this) {
+    ImportOrigin.file => PortfolioLoadMethod.file,
+    ImportOrigin.screenshot => PortfolioLoadMethod.screenshot,
+    ImportOrigin.note => PortfolioLoadMethod.note,
+  };
+}
+
 enum ImportPhase { intro, reading, preview, importing, done }
 
 class StatementImportState {
@@ -54,6 +89,7 @@ class StatementImportState {
     this.positionLimit,
     this.importedCount = 0,
     this.failedTickers = const [],
+    this.origin = ImportOrigin.file,
   });
 
   final ImportPhase phase;
@@ -76,6 +112,7 @@ class StatementImportState {
 
   final int importedCount;
   final List<String> failedTickers;
+  final ImportOrigin origin;
 
   List<ImportRow> get included => [
     for (final r in rows)
@@ -134,6 +171,7 @@ class StatementImportState {
     int? positionLimit,
     int? importedCount,
     List<String>? failedTickers,
+    ImportOrigin? origin,
   }) {
     return StatementImportState(
       phase: phase ?? this.phase,
@@ -146,6 +184,7 @@ class StatementImportState {
       positionLimit: positionLimit ?? this.positionLimit,
       importedCount: importedCount ?? this.importedCount,
       failedTickers: failedTickers ?? this.failedTickers,
+      origin: origin ?? this.origin,
     );
   }
 }
@@ -157,14 +196,16 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   StatementImportNotifier({
     required StatementImportClient client,
     required StatementPicker pick,
+    StatementPicker? pickScreenshot,
     required GetCurrentPriceUseCase getCurrentPrice,
     required AddPositionUseCase addPosition,
     required Set<String> Function() heldTickers,
     required int? Function() positionLimit,
-    Future<void> Function()? onImported,
+    Future<void> Function(ImportOrigin origin)? onImported,
     DateTime Function()? now,
   }) : _client = client,
        _pick = pick,
+       _pickScreenshot = pickScreenshot,
        _getCurrentPrice = getCurrentPrice,
        _addPosition = addPosition,
        _heldTickers = heldTickers,
@@ -175,31 +216,62 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
 
   final StatementImportClient _client;
   final StatementPicker _pick;
+  final StatementPicker? _pickScreenshot;
   final GetCurrentPriceUseCase _getCurrentPrice;
   final AddPositionUseCase _addPosition;
   final Set<String> Function() _heldTickers;
   final int? Function() _positionLimit;
-  final Future<void> Function()? _onImported;
+  final Future<void> Function(ImportOrigin origin)? _onImported;
   final DateTime Function() _now;
 
   /// Elige un archivo y lo lee. Si el usuario cancela, no cambia nada.
-  Future<void> pickAndRead() async {
+  Future<void> pickAndRead() => _pickAndRead(_pick, ImportOrigin.file);
+
+  /// Elige una captura de la galería y la lee (con IA).
+  Future<void> pickScreenshotAndRead() =>
+      _pickAndRead(_pickScreenshot ?? _pick, ImportOrigin.screenshot);
+
+  Future<void> _pickAndRead(StatementPicker pick, ImportOrigin origin) async {
     if (state.phase == ImportPhase.reading) return;
     final PickedStatement? file;
     try {
-      file = await _pick();
+      file = await pick();
     } catch (_) {
       if (mounted) state = state.copyWith(errorType: 'picker_failed');
       return;
     }
     if (file == null || !mounted) return;
-    await read(file);
+    await read(file, origin: origin);
   }
 
-  Future<void> read(PickedStatement file) async {
-    state = state.copyWith(phase: ImportPhase.reading, clearError: true);
+  Future<void> read(
+    PickedStatement file, {
+    ImportOrigin origin = ImportOrigin.file,
+  }) => _read(
+    () => _client.read(filename: file.name, bytes: file.bytes),
+    origin,
+  );
+
+  /// Lo que escribió el usuario ("10 VOO, 2000 dólares en QQQ…"): lo lee la
+  /// IA y sale la misma vista previa para revisar.
+  Future<void> readNote(String text) {
+    if (state.phase == ImportPhase.reading || text.trim().isEmpty) {
+      return Future.value();
+    }
+    return _read(() => _client.readNote(text.trim()), ImportOrigin.note);
+  }
+
+  Future<void> _read(
+    Future<StatementReadResult> Function() fetch,
+    ImportOrigin origin,
+  ) async {
+    state = state.copyWith(
+      phase: ImportPhase.reading,
+      clearError: true,
+      origin: origin,
+    );
     try {
-      final result = await _client.read(filename: file.name, bytes: file.bytes);
+      final result = await fetch();
       if (!mounted) return;
       state = StatementImportState(
         phase: ImportPhase.preview,
@@ -208,12 +280,25 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
         warnings: result.warnings,
         heldTickers: _heldTickers(),
         positionLimit: _positionLimit(),
+        origin: origin,
       );
-      unawaited(checkQuotes());
+      unawaited(_checkQuotesAndFill(origin));
     } on StatementImportException catch (e) {
       if (!mounted) return;
       state = state.copyWith(phase: ImportPhase.intro, errorType: e.type);
     }
+  }
+
+  /// Lo que escribe o una captura casi nunca traen fecha ni precio de
+  /// compra: se completan con los de hoy (la vista previa lo dice y se
+  /// corrigen tocando la fila). Un archivo, no: ahí faltar es raro y se
+  /// pregunta.
+  Future<void> _checkQuotesAndFill(ImportOrigin origin) async {
+    await checkQuotes();
+    if (!mounted || origin == ImportOrigin.file) return;
+    if (state.phase != ImportPhase.preview) return;
+    fillMissingDatesWithToday();
+    fillMissingPricesWithCurrent();
   }
 
   /// Busca la cotización de cada ticker pendiente (de a pocos a la vez).
@@ -245,7 +330,7 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
             if (r.quote != QuoteCheck.pending)
               r
             else if (found.containsKey(r.ticker))
-              r.copyWith(quote: QuoteCheck.found)
+              _withQuote(r, found[r.ticker]!)
             else if (missing.contains(r.ticker))
               r.copyWith(quote: QuoteCheck.notFound)
             else
@@ -253,6 +338,20 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
         ],
       );
     }
+  }
+
+  /// Con cotización. Si dijo cuánta plata tiene y no cuántas unidades, la
+  /// cantidad sale de dividir por el precio de hoy.
+  static ImportRow _withQuote(ImportRow r, double price) {
+    final amount = r.amount;
+    if (r.quantity > 0 || amount == null || price <= 0) {
+      return r.copyWith(quote: QuoteCheck.found);
+    }
+    return r.copyWith(
+      quote: QuoteCheck.found,
+      quantity: (amount / price * 1e6).roundToDouble() / 1e6,
+      quantityFromAmount: true,
+    );
   }
 
   Future<double?> _priceOf(String ticker) async {
@@ -336,7 +435,7 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
       );
       result.fold((_) => failed.add(r.ticker), (_) => imported++);
     }
-    if (imported > 0) await _onImported?.call();
+    if (imported > 0) await _onImported?.call(state.origin);
     if (!mounted) return;
     state = state.copyWith(
       phase: ImportPhase.done,
@@ -364,6 +463,7 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
   (ref) => StatementImportNotifier(
     client: ref.watch(statementImportClientProvider),
     pick: ref.watch(statementPickerProvider),
+    pickScreenshot: ref.watch(screenshotPickerProvider),
     getCurrentPrice: ref.watch(getCurrentPriceUseCaseProvider),
     addPosition: ref.watch(addPositionUseCaseProvider),
     heldTickers:
@@ -376,10 +476,11 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
         () => SubscriptionPolicy.positionLimit(
           ref.read(subscriptionProvider).tier,
         ),
-    onImported: () {
-      // Si era la primera carga, la Home lo registra como "por archivo".
+    onImported: (origin) {
+      // Si era la primera carga, la Home la registra con el camino (archivo,
+      // captura o escrita).
       ref.read(portfolioLoadMethodProvider.notifier).state =
-          PortfolioLoadMethod.file;
+          origin.loadMethod;
       return ref.read(homeProvider.notifier).refresh(silent: true);
     },
   ),

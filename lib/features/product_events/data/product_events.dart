@@ -39,6 +39,9 @@ abstract final class PortfolioLoadMethod {
   static const etoro = 'etoro';
   static const binance = 'binance';
   static const chat = 'chat';
+
+  /// Escribió lo que tiene y Porty lo leyó.
+  static const note = 'note';
 }
 
 /// Registra eventos de producto en `product_events`. Nunca rompe ni demora

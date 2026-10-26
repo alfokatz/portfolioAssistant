@@ -85,6 +85,18 @@ class _Client implements StatementImportClient {
   final String? error;
   final bool hang;
 
+  /// Lo que escribió: "10 VOO, 2000 dólares en QQQ y algo de NVDA".
+  @override
+  Future<StatementReadResult> readNote(String note) async =>
+      StatementReadResult.fromJson({
+        'source': 'ai',
+        'rows': [
+          {'ticker': 'VOO', 'quantity': 10},
+          {'ticker': 'QQQ', 'quantity': 0, 'amount': 2000},
+          {'ticker': 'NVDA', 'quantity': 0, 'amount': null},
+        ],
+      });
+
   @override
   Future<StatementReadResult> read({
     required String filename,
@@ -317,6 +329,25 @@ void main() {
       act: (n, t) async => unawaited(n.pickAndRead()),
     ),
     'preview': (client: _Client(), act: read),
+    // "Escribilo": la hoja y lo que sale de leerlo.
+    'note_sheet': (
+      client: _Client(),
+      act: (n, t) async {
+        await t.tap(find.text('Escribilo'));
+        await t.pump(const Duration(milliseconds: 400));
+        await t.enterText(
+          find.byType(TextField),
+          '10 VOO, 2000 dólares en QQQ y algo de NVDA',
+        );
+      },
+    ),
+    'note_preview': (
+      client: _Client(),
+      act: (n, t) async {
+        await n.readNote('10 VOO, 2000 dólares en QQQ y algo de NVDA');
+        await n.checkQuotes();
+      },
+    ),
     'preview_bottom': (
       client: _Client(),
       act: (n, t) async {

@@ -8,6 +8,9 @@ class StatementImportRouter {
   static const routeName = 'StatementImport';
   static const path = '/import';
 
+  /// `?write=1`: abre directo en "Escribilo" (contarle a Porty qué tiene).
+  static const writeParam = 'write';
+
   static GoRoute getRoute() => GoRoute(
     name: routeName,
     path: path,
@@ -15,7 +18,9 @@ class StatementImportRouter {
         (context, state) => MaterialPage<void>(
           key: state.pageKey,
           name: routeName,
-          child: const StatementImportScreen(),
+          child: StatementImportScreen(
+            startWriting: state.uri.queryParameters[writeParam] == '1',
+          ),
         ),
   );
 }

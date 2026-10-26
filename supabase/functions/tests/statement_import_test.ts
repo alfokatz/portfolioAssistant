@@ -310,3 +310,106 @@ Deno.test("handler: auth, tipo de archivo, tamaño y límite por minuto", async 
   const big = new Uint8Array(2 * 1024 * 1024 + 10).fill(65);
   assertEquals((await handle(request("a.csv", big), deps().deps)).status, 413);
 });
+
+// ── Capturas y lo que escribe el usuario (aha moment, fases 5 y 6) ──
+
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+function noteRequest(note: unknown): Request {
+  return new Request("http://local/statement-import", {
+    method: "POST",
+    headers: { Authorization: "Bearer jwt", "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+}
+
+Deno.test("fileKind: capturas PNG/JPG/WebP por contenido; HEIC no", () => {
+  assertEquals(fileKind("captura.png", png), "image");
+  assertEquals(fileKind("foto", new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), "image");
+  const webp = new TextEncoder().encode("RIFF\x00\x00\x00\x00WEBPVP8 ");
+  assertEquals(fileKind("x.webp", webp), "image");
+  const heic = new TextEncoder().encode("\x00\x00\x00\x18ftypheic");
+  assertEquals(fileKind("x.heic", heic), "unsupported");
+});
+
+Deno.test("handler: una captura va a la IA como imagen; sin unidades, con el valor", async () => {
+  let sent: Record<string, unknown> = {};
+  const { deps: d, calls } = deps({
+    openai: (body) => {
+      sent = body;
+      return aiHoldings([
+        { ticker: "VOO", name: null, quantity: 4, purchase_price: null, purchase_date: null, currency: null, amount: null },
+        { ticker: "NVDA", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 1250 },
+      ]);
+    },
+  });
+  const res = await handle(request("IMG_1234.png", png), d);
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]), [
+    ["VOO", 4, null],
+    ["NVDA", 0, 1250],
+  ]);
+  assertEquals(calls, { begin: 1, record: 1, openai: 1 });
+  const messages = sent.messages as { role: string; content: unknown }[];
+  const parts = messages[1].content as { type: string; image_url?: { url: string } }[];
+  assertEquals(parts[1].type, "image_url");
+  assertEquals(parts[1].image_url!.url.startsWith("data:image/png;base64,"), true);
+  assertEquals(String(messages[0].content).includes("screenshot"), true);
+});
+
+Deno.test("handler: lo que escribe el usuario (nota) va a la IA con sus instrucciones", async () => {
+  let sent: Record<string, unknown> = {};
+  const { deps: d, calls } = deps({
+    openai: (body) => {
+      sent = body;
+      return aiHoldings([
+        { ticker: "VOO", name: null, quantity: 10, purchase_price: null, purchase_date: null, currency: null, amount: null },
+        { ticker: "QQQ", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 2000 },
+        { ticker: "NVDA", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: null },
+      ]);
+    },
+  });
+  const res = await handle(noteRequest("10 VOO, 2000 dólares en QQQ y algo de NVDA"), d);
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.source, "ai");
+  assertEquals(body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]), [
+    ["VOO", 10, null],
+    ["QQQ", 0, 2000],
+    // Sin cantidad ni monto: la completa en la vista previa.
+    ["NVDA", 0, null],
+  ]);
+  assertEquals(calls, { begin: 1, record: 1, openai: 1 });
+  const messages = sent.messages as { role: string; content: unknown }[];
+  assertEquals(String(messages[0].content).includes("describing what they own"), true);
+  const parts = messages[1].content as { type: string; text: string }[];
+  assertEquals(parts[0].text, "10 VOO, 2000 dólares en QQQ y algo de NVDA");
+});
+
+Deno.test("handler: nota vacía, larga o sin cupo", async () => {
+  assertEquals((await handle(noteRequest("  "), deps().deps)).status, 400);
+  assertEquals((await handle(noteRequest("x".repeat(2001)), deps().deps)).status, 413);
+  const { deps: d, calls } = deps({ verdict: { ok: false, reason: "quota_exceeded" } });
+  const res = await handle(noteRequest("VOO"), d);
+  assertEquals(res.status, 429);
+  assertEquals(calls.openai, 0);
+});
+
+Deno.test("en un archivo, una fila sin cantidad se sigue descartando", () => {
+  const { rows } = finalizeRows(
+    [{ ticker: "AAPL", name: null, quantity: 0, purchase_price: null, purchase_date: null, currency: null }],
+    today,
+  );
+  assertEquals(rows, []);
+  const ok = readCompletion({
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          holdings: [{ ticker: "AAPL", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 5 }],
+        }),
+      },
+    }],
+  });
+  assertEquals(ok.ok && ok.rows.length, 0);
+});

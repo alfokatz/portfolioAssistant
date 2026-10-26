@@ -14,6 +14,10 @@ export type ImportRow = {
   purchase_date: string | null;
   /// Moneda que informa el archivo ("USD", "EUR"…), si la informa.
   currency: string | null;
+  /// Lo que dijo que tiene en dinero ("2000 dólares de VOO"), cuando no dijo
+  /// unidades: la app calcula la cantidad con el precio de hoy. Solo en lo
+  /// que escribe el usuario (nota); `null` en archivos.
+  amount?: number | null;
 };
 
 /// Avisos para la vista previa (la app los traduce por `type`).
@@ -60,18 +64,27 @@ export function isoDate(year: number, month: number, day: number): string | null
 
 /// Deja las filas listas para la app: tickers normalizados, cantidades y
 /// precios positivos, sin fechas futuras, como mucho [maxRows].
+///
+/// [allowMissingQuantity] (lo que escribe el usuario): una fila sin cantidad
+/// queda con 0 para que la complete en la vista previa (o la app la calcule
+/// con `amount`).
 export function finalizeRows(
   rows: ImportRow[],
   today: string,
+  { allowMissingQuantity = false }: { allowMissingQuantity?: boolean } = {},
 ): { rows: ImportRow[]; warnings: ImportWarning[] } {
   const out: ImportRow[] = [];
   let skipped = 0;
   for (const r of rows) {
     const ticker = normalizeTicker(r.ticker ?? "");
-    if (!ticker || !(Number.isFinite(r.quantity) && r.quantity > 0)) {
+    const hasQuantity = Number.isFinite(r.quantity) && r.quantity > 0;
+    if (!ticker || (!hasQuantity && !allowMissingQuantity)) {
       skipped++;
       continue;
     }
+    const amount = r.amount !== null && r.amount !== undefined && Number.isFinite(r.amount) && r.amount > 0
+      ? round(r.amount, 2)
+      : null;
     const price = r.purchase_price !== null && Number.isFinite(r.purchase_price) && r.purchase_price > 0
       ? round(r.purchase_price, 6)
       : null;
@@ -82,7 +95,15 @@ export function finalizeRows(
       ? r.currency.trim().toUpperCase()
       : null;
     const name = r.name?.trim() ? r.name.trim().slice(0, 80) : null;
-    out.push({ ticker, name, quantity: round(r.quantity, 8), purchase_price: price, purchase_date: date, currency });
+    out.push({
+      ticker,
+      name,
+      quantity: hasQuantity ? round(r.quantity, 8) : 0,
+      purchase_price: price,
+      purchase_date: date,
+      currency,
+      ...(allowMissingQuantity ? { amount: hasQuantity ? null : amount } : {}),
+    });
   }
   const warnings: ImportWarning[] = [];
   if (skipped > 0) warnings.push({ type: "skipped_rows", count: skipped });

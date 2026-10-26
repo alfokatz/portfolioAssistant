@@ -87,6 +87,8 @@ class ImportRow {
     this.currency,
     this.included = true,
     this.quote = QuoteCheck.pending,
+    this.amount,
+    this.quantityFromAmount = false,
   });
 
   /// Identificador local (posición en el archivo), para editar la fila.
@@ -104,6 +106,15 @@ class ImportRow {
   /// Si Porty encontró cotización para el ticker.
   final QuoteCheck quote;
 
+  /// Lo que dijo que tiene en dinero ("2000 dólares en QQQ") cuando no dijo
+  /// unidades (lo que escribe o una captura): con la cotización de hoy se
+  /// calcula la cantidad.
+  final double? amount;
+
+  /// La cantidad salió de [amount] y el precio de hoy (la vista previa lo
+  /// aclara).
+  final bool quantityFromAmount;
+
   static ImportRow? fromJson(Object? json, {required int id}) {
     if (json is! Map) return null;
     final ticker = json['ticker'];
@@ -115,6 +126,7 @@ class ImportRow {
     final date = json['purchase_date'];
     final name = json['name'];
     final currency = json['currency'];
+    final amount = json['amount'];
     return ImportRow(
       id: id,
       ticker: PortfolioCalculator.normalizeTicker(ticker),
@@ -123,6 +135,7 @@ class ImportRow {
       purchasePrice: price is num && price > 0 ? price.toDouble() : null,
       purchaseDate: date is String ? DateTime.tryParse(date) : null,
       currency: currency is String ? currency : null,
+      amount: amount is num && amount > 0 ? amount.toDouble() : null,
     );
   }
 
@@ -148,6 +161,7 @@ class ImportRow {
     DateTime? purchaseDate,
     bool? included,
     QuoteCheck? quote,
+    bool? quantityFromAmount,
   }) {
     return ImportRow(
       id: id,
@@ -158,6 +172,11 @@ class ImportRow {
       purchaseDate: purchaseDate ?? this.purchaseDate,
       currency: currency,
       included: included ?? this.included,
+      amount: amount,
+      // Si la corrige a mano, ya no es "calculada".
+      quantityFromAmount:
+          quantityFromAmount ??
+          (quantity != null ? false : this.quantityFromAmount),
       // Cambiar el ticker obliga a volver a buscar su cotización.
       quote:
           quote ??
