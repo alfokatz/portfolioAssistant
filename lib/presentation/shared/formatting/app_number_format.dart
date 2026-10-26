@@ -14,6 +14,11 @@ abstract final class AppNumberFormat {
 
   static String money(double value) => currency().format(value);
 
+  /// Dólares redondos ("$2,163"): para montos que se leen como orden de
+  /// magnitud en una frase, donde los centavos sobran.
+  static String wholeMoney(double value) =>
+      NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(value);
+
   /// "+$8.25" / "-$8.25".
   static String signedMoney(double value) =>
       '${value < 0 ? '-' : '+'}${currency().format(value.abs())}';

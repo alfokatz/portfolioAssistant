@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_open_listener.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/first_portfolio_watcher.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_screen.dart';
@@ -90,8 +91,13 @@ class AppShell extends ConsumerWidget with BaseScreen {
       // app_router.dart). Al abrir la app y al volver a ella, eToro y Binance
       // se ponen al día solos. Tocar una notificación abre su pantalla
       // (también desde cerrada).
+      // La primera vez que la cartera tiene posiciones, Porty muestra lo
+      // que vio en ella (el diagnóstico).
       body: PushOpenListener(
-        child: EtoroAutoSync(child: BinanceAutoSync(child: navigationShell)),
+        child: FirstPortfolioWatcher(
+          isHome: isHome,
+          child: EtoroAutoSync(child: BinanceAutoSync(child: navigationShell)),
+        ),
       ),
     );
   }

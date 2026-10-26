@@ -832,6 +832,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       return;
     }
     // La Home y el PORTFOLIO_BRIEF del próximo turno ya con la operación.
+    // Si era la primera posición, la Home la registra como cargada desde el
+    // chat.
+    if (draft.kind == ActionKind.buy) {
+      ref.read(portfolioLoadMethodProvider.notifier).state =
+          PortfolioLoadMethod.chat;
+    }
     try {
       await ref.read(homeProvider.notifier).refresh(silent: true);
     } catch (_) {}

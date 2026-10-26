@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/binance/providers/binance_provider.
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -64,10 +65,15 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
 
   Future<void> _connect() async {
     FocusScope.of(context).unfocus();
+    // Antes de conectar: la Home recarga adentro de `connect` y, si era la
+    // primera carga, la registra por acá.
+    final method = ref.read(portfolioLoadMethodProvider.notifier)
+      ..state = PortfolioLoadMethod.binance;
     final ok = await ref
         .read(binanceProvider.notifier)
         .connect(apiKey: _key.text, apiSecret: _secret.text);
     if (!mounted) return;
+    if (!ok && method.state == PortfolioLoadMethod.binance) method.state = null;
     if (ok) {
       _key.clear();
       _secret.clear();

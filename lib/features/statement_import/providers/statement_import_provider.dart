@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -375,6 +376,11 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
         () => SubscriptionPolicy.positionLimit(
           ref.read(subscriptionProvider).tier,
         ),
-    onImported: () => ref.read(homeProvider.notifier).refresh(silent: true),
+    onImported: () {
+      // Si era la primera carga, la Home lo registra como "por archivo".
+      ref.read(portfolioLoadMethodProvider.notifier).state =
+          PortfolioLoadMethod.file;
+      return ref.read(homeProvider.notifier).refresh(silent: true);
+    },
   ),
 );

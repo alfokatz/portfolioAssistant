@@ -6,7 +6,10 @@ enum PortyScreen {
   goalDetail('goal_detail'),
   watchlist('watchlist'),
   allocation('allocation_plan'),
-  weeklyReport('weekly_report');
+  weeklyReport('weekly_report'),
+
+  /// El primer diagnóstico de la cartera (lo que Porty vio al cargarla).
+  diagnosis('portfolio_diagnosis');
 
   const PortyScreen(this.briefValue);
 

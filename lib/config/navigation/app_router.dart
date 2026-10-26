@@ -17,6 +17,7 @@ import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/nav/portfolio_diagnosis_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
@@ -126,6 +127,7 @@ class AppRouter {
         PortyOutfitRouter.getRoute(),
         ...EtoroRouter.getRoutes(),
         StatementImportRouter.getRoute(),
+        PortfolioDiagnosisRouter.getRoute(),
         AllocationRouter.getRoute(),
         WatchlistRouter.getRoute(),
         BinanceRouter.getRoute(),

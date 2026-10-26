@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/porty_inbox/view/porty_inbox_section.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_entry_card.dart';
 import 'package:portfolio_assistant/features/display_currency/view/fx_breakdown_sheet.dart';
 import 'package:portfolio_assistant/features/watchlist/view/watchlist_entry_card.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
@@ -194,6 +195,9 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),
+                  // Hasta que vea su primer diagnóstico: "Miré tu
+                  // cartera". Trae su propio espacio inferior.
+                  const DiagnosisEntryCard(),
                   // Lo que Porty marca hoy (el desvío del plan, metas,
                   // concentración, alertas). Trae su propio espacio
                   // inferior; sin nada para marcar, no ocupa lugar.
