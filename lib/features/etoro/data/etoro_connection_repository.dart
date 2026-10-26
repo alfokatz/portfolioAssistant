@@ -62,7 +62,8 @@ class EtoroConnectionRepository {
         await client
             .from('etoro_connections')
             .select(
-              'status, last_sync_at, last_sync_status, last_error_type, last_result',
+              'status, last_sync_at, last_sync_status, last_error_type, '
+              'last_result, free_import_at',
             )
             .maybeSingle();
     if (row == null) return EtoroConnection.notConnected;

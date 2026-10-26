@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_position_lots_by_ticker_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
@@ -19,6 +20,7 @@ import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
@@ -101,9 +103,23 @@ Widget _app(Widget child, {List<Override> overrides = const [], ThemeData? theme
       child: MaterialApp(theme: theme ?? _light, home: child),
     );
 
-List<Override> _etoro(EtoroConnection connection, {_Repo? repo}) => [
+class _Subscription extends StateNotifier<SubscriptionState>
+    implements SubscriptionNotifier {
+  _Subscription(SubscriptionTier tier)
+    : super(SubscriptionState(tier: tier, queriesUsed: 0, queriesLimit: 20));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+List<Override> _etoro(
+  EtoroConnection connection, {
+  _Repo? repo,
+  SubscriptionTier tier = SubscriptionTier.premium,
+}) => [
   etoroConnectionRepositoryProvider.overrideWithValue(repo ?? _Repo(connection)),
   etoroAuthLauncherProvider.overrideWithValue(_NoBrowser()),
+  subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
 ];
 
 void main() {
@@ -226,9 +242,46 @@ void main() {
         expect(find.text('etoro_point_read_only_title'), findsOneWidget);
         expect(find.text('etoro_connect_cta'), findsOneWidget);
         expect(find.text('etoro_disconnect'), findsNothing);
+        expect(find.text('etoro_free_import_note'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
+
+    testWidgets('Free sin usar la importación gratis: la ofrece y dice qué '
+        'incluye', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const EtoroConnectionScreen(),
+          overrides: _etoro(
+            EtoroConnection.notConnected,
+            tier: SubscriptionTier.free,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('etoro_free_import_cta'), findsOneWidget);
+      expect(find.text('etoro_free_import_note'), findsOneWidget);
+      expect(find.text('etoro_connect_cta'), findsNothing);
+    });
+
+    testWidgets('Free que ya la usó: vuelve el "Conectar eToro" de siempre '
+        '(Premium)', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const EtoroConnectionScreen(),
+          overrides: _etoro(
+            EtoroConnection(
+              status: EtoroConnectionStatus.notConnected,
+              freeImportAt: DateTime(2026, 10, 26),
+            ),
+            tier: SubscriptionTier.free,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('etoro_connect_cta'), findsOneWidget);
+      expect(find.text('etoro_free_import_note'), findsNothing);
+    });
 
     testWidgets('conectada: última actualización, importadas y desconectar', (tester) async {
       await tester.pumpWidget(

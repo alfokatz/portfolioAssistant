@@ -28,10 +28,17 @@ const etoroDismissedDuplicatesKey = 'etoro_dismissed_duplicates';
 /// lenguaje simple. Si alguna ya estaba cargada a mano, se pregunta qué
 /// hacer (nunca se fusiona ni se borra solo).
 class EtoroImportResultScreen extends StatefulHookConsumerWidget {
-  const EtoroImportResultScreen({super.key, this.syncFailed = false});
+  const EtoroImportResultScreen({
+    super.key,
+    this.syncFailed = false,
+    this.freeImport = false,
+  });
 
   /// La cuenta quedó conectada pero la primera importación falló.
   final bool syncFailed;
+
+  /// Importación gratis: quedó como manual, sin conexión que se actualice.
+  final bool freeImport;
 
   @override
   ConsumerState<EtoroImportResultScreen> createState() =>
@@ -58,7 +65,8 @@ class _EtoroImportResultScreenState
     super.initState();
     // Recién conectada: "¿te avisamos si se corta o si tu cartera se mueve
     // fuerte?" (plan de push §6).
-    if (!widget.syncFailed) {
+    // Sin conexión (importación gratis) no hay nada que avisar.
+    if (!widget.syncFailed && !widget.freeImport) {
       _pushPrompt = Timer(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
         PushPermissionSheet.maybeShow(
@@ -143,6 +151,8 @@ class _EtoroImportResultScreenState
     final subtitle =
         result == null
             ? 'etoro_result_pending_body'.tr()
+            : widget.freeImport
+            ? 'etoro_result_subtitle_free'.tr()
             : result.closedImported > 0
             ? 'etoro_result_subtitle_closed'.tr(
               namedArgs: {'count': '${result.closedImported}'},

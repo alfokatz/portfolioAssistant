@@ -39,6 +39,7 @@ import 'package:portfolio_assistant/features/assistant/models/action_proposal.da
 import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -592,6 +593,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
         // El contador del header refleja lo que cobró el servidor.
         unawaited(subscription.refresh());
+        ref.read(productEventsProvider).log(ProductEvent.firstChatAnswer, {
+          if (screenContext?['screen'] case final String screen)
+            'screen': screen,
+        });
       } on ProxyLimitException catch (e) {
         // `prompt_not_allowed` en desarrollo = cambió el prompt y falta
         // regenerar la allowlist y desplegar `ai-chat` (ver runbook).

@@ -7,6 +7,10 @@
 //   POST /sync            JWT  → { result, throttled }
 //   POST /disconnect      JWT  { keepAsManual } → { open, closed }
 //
+// Premium y Gold conectan y se sincroniza solo. Free puede conectar UNA vez
+// (importación gratis): se importa, lo importado queda como manual y los
+// tokens se revocan en el acto (ver 20261026000100_etoro_free_import.sql).
+//
 // Los tokens de eToro nunca salen de acá: ni a la app ni a los logs. El
 // deep link de vuelta solo lleva un estado (`ok`, `cancelled`…).
 
@@ -23,7 +27,7 @@ import {
   writeScopes,
 } from "./etoro.ts";
 import { type EtoroStore, supabaseStore } from "./store.ts";
-import { runSync, type SyncErrorType } from "./sync.ts";
+import { runSync, type SyncErrorType, type SyncOutcome } from "./sync.ts";
 
 export const handlerConfig = {
   /// Pedidos a esta función por usuario y minuto (start + sync + disconnect).
@@ -72,10 +76,11 @@ function log(fields: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: "etoro-sync", ...fields }));
 }
 
-function appRedirect(env: Env, status: string, reason?: string): Response {
+function appRedirect(env: Env, status: string, reason?: string, mode?: string): Response {
   const url = new URL(env.appRedirect);
   url.searchParams.set("status", status);
   if (reason) url.searchParams.set("reason", reason);
+  if (mode) url.searchParams.set("mode", mode);
   return new Response(null, {
     status: 302,
     headers: { Location: url.toString(), "Cache-Control": "no-store" },
@@ -122,8 +127,16 @@ async function planAllows(store: EtoroStore, userId: string): Promise<boolean> {
   return handlerConfig.allowedTiers.includes(await store.effectiveTier(userId));
 }
 
+/// Qué puede hacer con eToro: todo (su plan lo incluye), la importación
+/// gratis (Free que todavía no la usó) o nada.
+async function access(store: EtoroStore, userId: string): Promise<"full" | "free_import" | "none"> {
+  if (await planAllows(store, userId)) return "full";
+  const connection = await store.getConnection(userId);
+  return connection?.freeImportAt ? "none" : "free_import";
+}
+
 async function connectStart(userId: string, store: EtoroStore, client: EtoroClient, deps: Deps) {
-  if (!(await planAllows(store, userId))) {
+  if ((await access(store, userId)) === "none") {
     return typedError(403, "etoro_plan_required", "eToro sync requires Premium or Gold");
   }
   const state = randomToken(24);
@@ -165,7 +178,8 @@ async function callback(req: Request, env: Env, store: EtoroStore, client: Etoro
   const code = params.get("code");
   if (!code) return appRedirect(env, "error", "invalid_response");
 
-  if (!(await planAllows(store, state.userId))) return appRedirect(env, "error", "plan_required");
+  const mode = await access(store, state.userId);
+  if (mode === "none") return appRedirect(env, "error", "plan_required");
 
   try {
     const { tokens, idToken } = await client.exchangeCode(code, state.codeVerifier);
@@ -195,6 +209,7 @@ async function callback(req: Request, env: Env, store: EtoroStore, client: Etoro
     await store.upsertConnected(state.userId, sub, granted);
 
     const outcome = await runSync({ userId: state.userId, store, client, now: deps.now, force: true });
+    if (mode === "free_import") return await finishFreeImport(state.userId, outcome, env, store, client);
     log({ op: "callback", outcome: outcome.ok ? "connected" : `connected_sync_${outcome.error}` });
     return outcome.ok ? appRedirect(env, "ok") : appRedirect(env, "sync_error", outcome.error);
   } catch (e) {
@@ -202,6 +217,30 @@ async function callback(req: Request, env: Env, store: EtoroStore, client: Etoro
     log({ op: "callback", outcome: "failed", reason });
     return appRedirect(env, "error", reason === "config" ? "unavailable" : "failed");
   }
+}
+
+/// Importación gratis: con o sin éxito, los tokens se revocan y no se
+/// guardan. Solo si importó queda marcada como usada (si falló, puede
+/// volver a intentar).
+async function finishFreeImport(
+  userId: string,
+  outcome: SyncOutcome,
+  env: Env,
+  store: EtoroStore,
+  client: EtoroClient,
+): Promise<Response> {
+  // Los tokens pueden haber rotado durante la importación: los últimos.
+  const tokens = await store.readTokens(userId).catch(() => null);
+  if (tokens?.refreshToken) await client.revoke(tokens.refreshToken, "refresh_token");
+  if (tokens?.accessToken) await client.revoke(tokens.accessToken, "access_token");
+  if (!outcome.ok) {
+    await store.disconnect(userId, false);
+    log({ op: "callback", outcome: `free_import_${outcome.error}` });
+    return appRedirect(env, "sync_error", outcome.error, "free_import");
+  }
+  await store.finishFreeImport(userId);
+  log({ op: "callback", outcome: "free_import" });
+  return appRedirect(env, "ok", undefined, "free_import");
 }
 
 async function sync(userId: string, store: EtoroStore, client: EtoroClient, deps: Deps) {

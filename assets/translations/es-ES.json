@@ -1486,5 +1486,9 @@
   "allocation_reminder_note": "Solo te sugiero compras, nunca ventas. Del 1 al 28 para que todos los meses tengan ese día.",
   "allocation_reminder_summary": "Y el día {day} de cada mes te recuerdo aportar.",
   "allocation_reminder_summary_amount": "Y el día {day} de cada mes te recuerdo aportar {amount}.",
-  "porty_ask_pill": "Preguntale"
+  "porty_ask_pill": "Preguntale",
+  "etoro_free_import_cta": "Traer mi cartera de eToro",
+  "etoro_free_import_note": "Gratis, una vez: traigo tu cartera tal como está hoy y queda en Porty para que la edites. Para que se actualice sola, Premium.",
+  "etoro_result_subtitle_free": "Quedaron en Porty como posiciones tuyas: las podés editar. Para que se actualicen solas con eToro, pasate a Premium.",
+  "etoro_error_free_import": "No pude traer tu cartera de eToro. Probá de nuevo: la importación gratis sigue disponible."
 }

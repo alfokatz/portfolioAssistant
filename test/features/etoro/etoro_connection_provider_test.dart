@@ -148,6 +148,42 @@ void main() {
       );
       expect(await n.connect(), isA<EtoroConnectPlanRequired>());
     });
+
+    test('importación gratis (Free) → importada, marcada y la Home recarga', () async {
+      final repo = _FakeRepository();
+      final n = _notifier(
+        repo,
+        _FakeLauncher(
+          Uri.parse('porty-etoro://callback?status=ok&mode=free_import'),
+          onAuthenticate: () => repo.connection = EtoroConnection(
+            status: EtoroConnectionStatus.notConnected,
+            lastResult: _result(),
+            freeImportAt: DateTime(2026, 10, 26),
+          ),
+        ),
+      );
+      final outcome = await n.connect();
+      expect(outcome, isA<EtoroConnected>());
+      expect((outcome as EtoroConnected).freeImport, isTrue);
+      expect(outcome.result!.imported, _result().imported);
+      expect(n.state.connection.freeImportUsed, isTrue);
+      expect(n.state.importRevision, 1);
+    });
+
+    test('importación gratis que falla → error que invita a reintentar', () async {
+      final n = _notifier(
+        _FakeRepository(),
+        _FakeLauncher(
+          Uri.parse(
+            'porty-etoro://callback?status=sync_error&reason=etoro_unavailable&mode=free_import',
+          ),
+        ),
+      );
+      final outcome = await n.connect();
+      expect(outcome, isA<EtoroConnectFailed>());
+      expect((outcome as EtoroConnectFailed).reason, 'free_import_failed');
+      expect(n.state.importRevision, 0);
+    });
   });
 
   group('sincronizar', () {
@@ -264,6 +300,13 @@ void main() {
       ]);
       expect(c.lastResult!.notImportedCount, 2);
       expect(EtoroConnection.fromRow({'status': 'disconnected'}).status, EtoroConnectionStatus.notConnected);
+      expect(c.freeImportUsed, isFalse);
+      final free = EtoroConnection.fromRow({
+        'status': 'disconnected',
+        'free_import_at': '2026-10-26T12:00:00Z',
+      });
+      expect(free.freeImportUsed, isTrue);
+      expect(free.status, EtoroConnectionStatus.notConnected);
     });
   });
 }

@@ -16,6 +16,8 @@ export type Connection = {
   lastSyncAt: string | null;
   lastResult: SyncResult | null;
   historySyncedUntil: string | null;
+  /// Cuándo usó la importación gratis (Free, una vez). Null si no la usó.
+  freeImportAt?: string | null;
 };
 
 export type OAuthState = {
@@ -73,6 +75,9 @@ export interface EtoroStore {
   manualOpenTickers(userId: string): Promise<string[]>;
   applySync(userId: string, data: ApplySync): Promise<void>;
   disconnect(userId: string, keepAsManual: boolean): Promise<{ open: number; closed: number }>;
+  /// Cierra una importación gratis: lo importado pasa a manual, se borran
+  /// los tokens y queda marcada como usada (`etoro_finish_free_import`).
+  finishFreeImport(userId: string): Promise<{ open: number; closed: number }>;
 }
 
 function fail(what: string, error: { message: string } | null): void {
@@ -130,7 +135,9 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
     async getConnection(userId) {
       const { data, error } = await db
         .from("etoro_connections")
-        .select("user_id, etoro_sub, status, granted_scopes, last_sync_at, last_result, history_synced_until")
+        .select(
+          "user_id, etoro_sub, status, granted_scopes, last_sync_at, last_result, history_synced_until, free_import_at",
+        )
         .eq("user_id", userId)
         .maybeSingle();
       fail("getConnection", error);
@@ -143,6 +150,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
         lastSyncAt: data.last_sync_at,
         lastResult: data.last_result,
         historySyncedUntil: data.history_synced_until,
+        freeImportAt: data.free_import_at ?? null,
       };
     },
 
@@ -298,6 +306,12 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
         p_keep_as_manual: keepAsManual,
       });
       fail("disconnect", error);
+      return { open: data?.open ?? 0, closed: data?.closed ?? 0 };
+    },
+
+    async finishFreeImport(userId) {
+      const { data, error } = await db.rpc("etoro_finish_free_import", { p_user_id: userId });
+      fail("finishFreeImport", error);
       return { open: data?.open ?? 0, closed: data?.closed ?? 0 };
     },
   };

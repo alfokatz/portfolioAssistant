@@ -1486,5 +1486,9 @@
   "allocation_reminder_note": "I only suggest buys, never sells. From 1 to 28 so every month has that day.",
   "allocation_reminder_summary": "And on day {day} of each month I'll remind you to invest.",
   "allocation_reminder_summary_amount": "And on day {day} of each month I'll remind you to invest {amount}.",
-  "porty_ask_pill": "Ask Porty"
+  "porty_ask_pill": "Ask Porty",
+  "etoro_free_import_cta": "Bring my eToro portfolio",
+  "etoro_free_import_note": "Free, once: I bring your portfolio as it is today and it stays in Porty for you to edit. To keep it updated automatically, go Premium.",
+  "etoro_result_subtitle_free": "They're in Porty as your own positions: you can edit them. To keep them in sync with eToro automatically, go Premium.",
+  "etoro_error_free_import": "I couldn't bring your eToro portfolio. Try again: the free import is still available."
 }

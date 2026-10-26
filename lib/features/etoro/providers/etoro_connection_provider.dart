@@ -60,9 +60,17 @@ sealed class EtoroConnectOutcome {
 /// Conectada. [result] es la primera importación (puede faltar si la
 /// sincronización inicial falló: se reintenta sola).
 final class EtoroConnected extends EtoroConnectOutcome {
-  const EtoroConnected(this.result, {this.syncFailed = false});
+  const EtoroConnected(
+    this.result, {
+    this.syncFailed = false,
+    this.freeImport = false,
+  });
   final EtoroImportResult? result;
   final bool syncFailed;
+
+  /// Importación gratis (Free): se importó una vez y quedó como manual, sin
+  /// conexión que se actualice sola.
+  final bool freeImport;
 }
 
 final class EtoroConnectCancelled extends EtoroConnectOutcome {
@@ -139,11 +147,22 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
 
       final status = callback.queryParameters['status'];
       final reason = callback.queryParameters['reason'];
+      final freeImport = callback.queryParameters['mode'] == 'free_import';
+      // La importación gratis que falla no deja nada (ni conexión): se
+      // puede volver a intentar.
+      if (freeImport && status == 'sync_error') {
+        return const EtoroConnectFailed('free_import_failed');
+      }
       switch (status) {
         case 'ok':
         case 'sync_error':
           final connection = await _repository.load();
-          if (!mounted) return EtoroConnected(connection.lastResult);
+          if (!mounted) {
+            return EtoroConnected(
+              connection.lastResult,
+              freeImport: freeImport,
+            );
+          }
           state = state.copyWith(
             connection: connection,
             loaded: true,
@@ -152,6 +171,7 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
           return EtoroConnected(
             connection.lastResult,
             syncFailed: status == 'sync_error',
+            freeImport: freeImport,
           );
         case 'cancelled':
           return const EtoroConnectCancelled();

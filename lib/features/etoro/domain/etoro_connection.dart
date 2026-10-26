@@ -213,6 +213,7 @@ class EtoroConnection {
     this.lastSyncFailed = false,
     this.lastErrorType,
     this.lastResult,
+    this.freeImportAt,
   });
 
   static const notConnected = EtoroConnection(
@@ -227,6 +228,12 @@ class EtoroConnection {
   final bool lastSyncFailed;
   final String? lastErrorType;
   final EtoroImportResult? lastResult;
+
+  /// Cuándo usó la importación gratis (Free: conectar una vez, queda como
+  /// manual). `null` si no la usó.
+  final DateTime? freeImportAt;
+
+  bool get freeImportUsed => freeImportAt != null;
 
   bool get isConnected => status == EtoroConnectionStatus.connected;
   bool get needsReconnect => status == EtoroConnectionStatus.reconnectRequired;
@@ -247,6 +254,10 @@ class EtoroConnection {
       lastResult:
           result is Map
               ? EtoroImportResult.fromJson(Map<String, dynamic>.from(result))
+              : null,
+      freeImportAt:
+          row['free_import_at'] is String
+              ? DateTime.tryParse(row['free_import_at'] as String)?.toLocal()
               : null,
     );
   }

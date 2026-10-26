@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart'
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/etoro_messages.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect_sheet.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
@@ -62,7 +63,9 @@ class _EtoroConnectionScreenState
   Future<void> _connect() async {
     final haptics = PortyHapticsService.maybeOf(context);
     final tier = ref.read(subscriptionProvider).tier;
-    if (!SubscriptionPolicy.allows(tier, PlanFeature.brokerSync)) {
+    // Free: la primera importación es gratis; después, Premium.
+    if (!SubscriptionPolicy.allows(tier, PlanFeature.brokerSync) &&
+        ref.read(etoroConnectionProvider).connection.freeImportUsed) {
       haptics?.lockedTap();
       await SubscriptionPaywallSheet.show(
         context,
@@ -77,12 +80,15 @@ class _EtoroConnectionScreenState
     final outcome = await ref.read(etoroConnectionProvider.notifier).connect();
     if (!mounted) return;
     switch (outcome) {
-      case EtoroConnected(:final syncFailed):
+      case EtoroConnected(:final syncFailed, :final freeImport):
         haptics?.brokerSynced();
+        ref.read(portfolioLoadMethodProvider.notifier).state =
+            PortfolioLoadMethod.etoro;
         context.pushReplacementNamed(
           EtoroRouter.resultRouteName,
           queryParameters: {
             if (syncFailed) EtoroRouter.syncFailedParam: 'failed',
+            if (freeImport) EtoroRouter.freeImportParam: '1',
           },
         );
       case EtoroConnectCancelled():
@@ -150,6 +156,12 @@ class _EtoroConnectionScreenState
     if (loading) {
       children.add(const _StatusCard.skeleton());
     } else if (connection.status == EtoroConnectionStatus.notConnected) {
+      final freeImportAvailable =
+          !SubscriptionPolicy.allows(
+            ref.watch(subscriptionProvider).tier,
+            PlanFeature.brokerSync,
+          ) &&
+          !connection.freeImportUsed;
       children.addAll([
         enter(1, const _ReadOnlyPoints()),
         const SizedBox(height: AppDimens.sectionGap),
@@ -159,9 +171,12 @@ class _EtoroConnectionScreenState
             label:
                 state.activity == EtoroActivity.connecting
                     ? 'etoro_connect_waiting'.tr()
+                    : freeImportAvailable
+                    ? 'etoro_free_import_cta'.tr()
                     : 'etoro_connect_cta'.tr(),
             onPressed: state.isBusy ? null : _connect,
             error: _connectError,
+            note: freeImportAvailable ? 'etoro_free_import_note'.tr() : null,
           ),
         ),
       ]);
@@ -450,11 +465,16 @@ class _ConnectBlock extends StatelessWidget {
     required this.label,
     required this.onPressed,
     required this.error,
+    this.note,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final String? error;
+
+  /// Qué incluye conectar con su plan (Free: una importación, sin
+  /// actualizarse sola). Arriba del botón.
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -466,6 +486,17 @@ class _ConnectBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (note case final note?) ...[
+          Text(
+            note,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+        ],
         PositionPrimaryButton(label: label, onPressed: onPressed),
         MotionAwareSize(
           duration: const Duration(milliseconds: 200),

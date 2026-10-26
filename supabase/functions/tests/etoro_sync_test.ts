@@ -63,6 +63,7 @@ class MemoryStore implements EtoroStore {
       lastSyncAt: prev?.lastSyncAt ?? null,
       lastResult: prev?.lastResult ?? null,
       historySyncedUntil: prev?.historySyncedUntil ?? null,
+      freeImportAt: prev?.freeImportAt ?? null,
     });
     return Promise.resolve();
   }
@@ -123,6 +124,21 @@ class MemoryStore implements EtoroStore {
     c.historySyncedUntil = d.historyUntil;
     c.lastErrorType = null;
     return Promise.resolve();
+  }
+  finishFreeImport(u: string) {
+    const open = (this.positions.get(u) ?? []).filter((r) => r.source === "etoro").length;
+    const closedCount = (this.closed.get(u) ?? []).filter((r) => r.source === "etoro").length;
+    const manual = (rows: Row[]) =>
+      rows.map((r) => (r.source === "etoro" ? { ...r, source: "manual" as const, external_id: null, broker_price: null } : r));
+    this.positions.set(u, manual(this.positions.get(u) ?? []));
+    this.closed.set(u, manual(this.closed.get(u) ?? []));
+    this.tokens.delete(u);
+    const c = this.connections.get(u)!;
+    c.status = "disconnected";
+    c.grantedScopes = [];
+    c.historySyncedUntil = null;
+    c.freeImportAt = "2026-10-26T00:00:00Z";
+    return Promise.resolve({ open, closed: closedCount });
   }
   disconnect(u: string, keep: boolean) {
     let open = 0;
@@ -218,13 +234,69 @@ Deno.test("sin JWT → 401; sin configurar → 503", async () => {
   assertEquals((await r.json()).error.type, "etoro_not_configured");
 });
 
-Deno.test("plan Free → 403 etoro_plan_required (Premium y Gold sí)", async () => {
+Deno.test("plan Free: sincronizar → 403 etoro_plan_required (Premium y Gold sí)", async () => {
   const { store, deps } = setup("free");
-  const r = await handle(post("/connect/start", "u1"), deps, () => store);
+  const r = await handle(post("/sync", "u1"), deps, () => store);
   assertEquals(r.status, 403);
   assertEquals((await r.json()).error.type, "etoro_plan_required");
   store.tiers.set("u1", "gold");
   assertEquals((await handle(post("/connect/start", "u1"), deps, () => store)).status, 200);
+});
+
+Deno.test("Free, importación gratis: importa una vez, queda manual y sin tokens", async () => {
+  const { store, fake, deps } = setup("free");
+  const r = await connect(store, fake, deps);
+  assertEquals(r.headers.get("location"), "porty-etoro://callback?status=ok&mode=free_import");
+
+  // Lo importado quedó como manual, sin precio de eToro.
+  const rows = store.positions.get("u1")!;
+  assertEquals(rows.length, 3);
+  assert(rows.every((x) => x.source === "manual" && x.external_id === null && x.broker_price === null));
+  assert(store.closed.get("u1")!.every((x) => x.source === "manual"));
+
+  // Ningún token guardado y los dos revocados en eToro.
+  assertEquals(store.tokens.size, 0);
+  const revokes = fake.calls.filter((c) => c.url.endsWith("/token/revoke"));
+  assertEquals(revokes.length, 2);
+
+  // Desconectada, marcada como usada y con el resultado para la app.
+  const conn = store.connections.get("u1")!;
+  assertEquals(conn.status, "disconnected");
+  assert(conn.freeImportAt);
+  assertEquals(conn.lastResult!.imported, 3);
+
+  // Una sola vez: ni conectar de nuevo ni sincronizar.
+  const again = await handle(post("/connect/start", "u1"), deps, () => store);
+  assertEquals(again.status, 403);
+  assertEquals((await again.json()).error.type, "etoro_plan_required");
+  assertEquals((await handle(post("/sync", "u1"), deps, () => store)).status, 403);
+});
+
+Deno.test("Free, importación gratis que falla: no se marca, no quedan tokens y puede reintentar", async () => {
+  const { store, fake, deps } = setup("free");
+  fake.apiStatus = 502;
+  fake.apiStatusOnce = true;
+  const r = await connect(store, fake, deps);
+  const location = new URL(r.headers.get("location")!);
+  assertEquals(location.searchParams.get("status"), "sync_error");
+  assertEquals(location.searchParams.get("mode"), "free_import");
+  assertEquals(store.tokens.size, 0);
+  assertFalse(store.connections.get("u1")?.freeImportAt);
+
+  resetEtoroCaches();
+  const retry = await connect(store, fake, deps);
+  assertEquals(retry.headers.get("location"), "porty-etoro://callback?status=ok&mode=free_import");
+});
+
+Deno.test("Free que se pasa a Premium después de la importación gratis: conecta normal", async () => {
+  const { store, fake, deps } = setup("free");
+  await connect(store, fake, deps);
+  store.tiers.set("u1", "premium");
+  resetEtoroCaches();
+  const r = await connect(store, fake, deps);
+  assertEquals(r.headers.get("location"), "porty-etoro://callback?status=ok");
+  assertEquals(store.connections.get("u1")!.status, "connected");
+  assert(store.tokens.get("u1"));
 });
 
 Deno.test("connect/start: URL de eToro con PKCE S256, state, nonce y SOLO scopes de lectura", async () => {

@@ -16,6 +16,9 @@ class EtoroRouter {
   /// falló (se reintenta sola).
   static const syncFailedParam = 'sync';
 
+  /// `?free=1`: fue la importación gratis (Free): quedó como manual.
+  static const freeImportParam = 'free';
+
   static List<GoRoute> getRoutes() => [
     GoRoute(
       name: connectionRouteName,
@@ -37,6 +40,7 @@ class EtoroRouter {
             child: EtoroImportResultScreen(
               syncFailed:
                   state.uri.queryParameters[syncFailedParam] == 'failed',
+              freeImport: state.uri.queryParameters[freeImportParam] == '1',
             ),
           ),
     ),
