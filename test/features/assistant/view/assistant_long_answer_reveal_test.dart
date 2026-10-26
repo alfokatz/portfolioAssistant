@@ -219,6 +219,47 @@ void main() {
     await runTurn(tester, screen);
   });
 
+  testWidgets('sending from the top of a chat with long answers first and '
+      'short ones after: it never overshoots into blank space and comes '
+      'back (the list estimated the end from the long ones)', (tester) async {
+    await tester.binding.setSurfaceSize(genuiTestViewportSize);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final long = List.filled(45, 'Una línea más de la respuesta.').join(' ');
+    final screen = _Screen([
+      _answer('Larga 0. $long'),
+      _answer('Larga 1. $long'),
+      for (var i = 2; i < 12; i++) _answer('Corta $i.'),
+    ]);
+    addTearDown(screen.dispose);
+    await tester.pumpWidget(app(screen));
+    await tester.pump();
+    await tester.pump();
+    for (var i = 0; i < 11; i++) {
+      await send(tester, 'Pregunta $i');
+      await runTurn(tester, screen, settle: const Duration(milliseconds: 200));
+    }
+
+    final position =
+        tester.widget<ListView>(find.byType(ListView)).controller!.position;
+    position.jumpTo(0);
+    await tester.pump();
+
+    await send(tester, 'Pregunta 11');
+    final pixels = <double>[position.pixels];
+    for (var f = 0; f < 120; f++) {
+      await tester.runAsync(() async {});
+      await tester.pump(const Duration(milliseconds: 16));
+      pixels.add(position.pixels);
+    }
+    final steps = [
+      for (var i = 1; i < pixels.length; i++) pixels[i] - pixels[i - 1],
+    ];
+    // Nunca vuelve para atrás: no se pasó de largo.
+    expect(steps.where((d) => d < -1), isEmpty, reason: '$pixels');
+    // Termina donde llegó (no más allá del contenido real).
+    expect(position.pixels, lessThanOrEqualTo(position.maxScrollExtent + 1));
+  });
+
   testWidgets('long answer (text + 3 candidates + disclaimer): history never '
       'blanks, the view anchors to the start of the answer and the cards '
       'enter animated and in order', (tester) async {

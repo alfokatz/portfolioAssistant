@@ -168,6 +168,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   /// Aire entre el borde superior del chat y la pregunta anclada: justo
   /// debajo del fade, así la pregunta nunca queda desvanecida.
   static const _anchorGap = _topFadeExtent;
+  /// Ver el `cacheExtent` de la lista: alcanza para cualquier charla.
+  static const _measureWholeChat = 1e6;
+
   static const _followDuration = Duration(milliseconds: 400);
   static const _followCurve = Curves.easeOutCubic;
 
@@ -885,6 +888,13 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                     onNotification: _handleScrollNotification,
                     child: ListView(
                       controller: _scrollController,
+                      // Todas las filas medidas, no solo las cercanas: sin
+                      // esto el final de la lista era una estimación (el
+                      // promedio de lo medido) y, al mandar algo estando
+                      // arriba, la animación iba a un final que no existía,
+                      // quedaba en blanco y volvía a subir. La charla tiene
+                      // un largo acotado y lo que no se ve no se pinta.
+                      cacheExtent: _measureWholeChat,
                       // Arrastrar la conversación baja el teclado.
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
