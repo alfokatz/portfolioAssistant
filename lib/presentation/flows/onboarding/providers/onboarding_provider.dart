@@ -1,7 +1,19 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
-enum OnboardingExit { home, addPosition, connectEtoro, assistant }
+/// Por dónde sale del onboarding (el `exit` de `onboarding_finished`).
+enum OnboardingExit {
+  home,
+  addPosition,
+  connectEtoro,
+  assistant,
+
+  /// Archivo o captura del bróker.
+  importFile,
+
+  /// Contarle a Porty qué tiene (escribirlo).
+  writeIt,
+}
 
 class OnboardingNotifier {
   OnboardingNotifier(this._ref);

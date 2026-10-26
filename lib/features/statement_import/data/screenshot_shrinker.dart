@@ -25,9 +25,7 @@ abstract final class ScreenshotShrinker {
         targetWidth: width > maxWidth ? maxWidth : width,
       );
       final frame = await codec.getNextFrame();
-      final data = await frame.image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
+      final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
       frame.image.dispose();
       codec.dispose();
       descriptor.dispose();

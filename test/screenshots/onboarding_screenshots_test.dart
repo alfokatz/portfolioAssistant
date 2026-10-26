@@ -159,20 +159,10 @@ void main() {
           );
           await settle(tester);
           for (var i = 0; i < page; i++) {
-            await tester.tap(find.text('Siguiente'));
+            await tester.tap(find.text('Empezar'));
             await settle(tester);
           }
           await _capture(tester, boundary, 'onboarding_${page}_$b$suffix');
-          if (page != 2) return;
-          for (final useCase in ['Una acción', 'Un análisis']) {
-            await tester.tap(find.text(useCase));
-            await settle(tester);
-            await _capture(
-              tester,
-              boundary,
-              'onboarding_2_${useCase.split(' ').last}_$b$suffix',
-            );
-          }
         }, skip: !_enabled);
       }
     }

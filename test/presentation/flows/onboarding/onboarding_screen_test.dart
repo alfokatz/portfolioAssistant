@@ -7,7 +7,7 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/ui/onboarding_
 
 /// Sin easy_localization cargado, `.tr()` devuelve la key: los textos se
 /// buscan por key.
-const _next = 'onboarding_next';
+const _start = 'onboarding_start';
 
 /// iPhone SE (2.ª/3.ª gen.) en puntos.
 const _seSize = Size(375, 667);
@@ -39,66 +39,40 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  Future<void> goToPage(WidgetTester tester, int page) async {
-    for (var i = 0; i < page; i++) {
-      await tester.tap(find.text(_next));
-      await tester.pumpAndSettle();
-    }
-  }
-
-  testWidgets('recorre las páginas hasta cargar la cartera', (tester) async {
+  testWidgets('dos pasos: quién es Porty y traer la cartera, con cuatro '
+      'caminos y "Ahora no"', (tester) async {
     setSize(tester);
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
+    expect(OnboardingScreen.pageCount, 2);
     expect(find.text('onboarding_welcome_title'), findsOneWidget);
-    // Lo que se le puede pedir a Porty, desde la primera pantalla.
-    expect(find.text('onboarding_welcome_prompt_goal'), findsOneWidget);
+    // Lo que Porty hace con la cartera, desde la primera pantalla.
+    expect(find.text('onboarding_welcome_prompt_portfolio'), findsOneWidget);
 
-    final titles = [
-      'onboarding_dashboard_title',
-      'onboarding_assistant_title',
-      'onboarding_goals_title',
-      'onboarding_alerts_title',
-      'onboarding_finish_title',
-    ];
-    for (final title in titles) {
-      await goToPage(tester, 1);
-      expect(find.text(title), findsOneWidget);
+    await tester.tap(find.text(_start));
+    await tester.pumpAndSettle();
+
+    expect(find.text('onboarding_bring_title'), findsOneWidget);
+    for (final way in [
+      'onboarding_bring_file_title',
+      'onboarding_bring_etoro_title',
+      'onboarding_bring_write_title',
+      'onboarding_bring_manual_title',
+    ]) {
+      expect(find.text(way), findsOneWidget);
     }
-
-    expect(OnboardingScreen.pageCount, titles.length + 1);
-    expect(find.text('onboarding_finish_add_title'), findsOneWidget);
-    expect(find.text('onboarding_skip'), findsNothing);
-  });
-
-  testWidgets('los casos de uso del chat cambian la conversación', (
-    tester,
-  ) async {
-    setSize(tester);
-    await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
-    await goToPage(tester, 2);
-
-    expect(find.text('onboarding_chat_portfolio_question'), findsOneWidget);
-
-    await tester.tap(find.text('onboarding_use_case_market'));
-    await tester.pumpAndSettle();
-    expect(find.text('onboarding_chat_market_question'), findsOneWidget);
-    expect(find.text('onboarding_chat_portfolio_question'), findsNothing);
-
-    await tester.tap(find.text('onboarding_use_case_analysis'));
-    await tester.pumpAndSettle();
-    expect(find.text('onboarding_chat_analysis_question'), findsOneWidget);
+    // Las filas son la acción: abajo, solo "Ahora no".
+    expect(find.text(_start), findsNothing);
+    expect(find.text('onboarding_skip_for_now'), findsOneWidget);
   });
 
   testWidgets('entra en un SE con texto grande sin desbordar', (tester) async {
     setSize(tester);
     await tester.pumpWidget(_app(textScale: 1.3));
     await tester.pumpAndSettle();
-    for (var page = 1; page < OnboardingScreen.pageCount; page++) {
-      await goToPage(tester, 1);
-    }
+    await tester.tap(find.text(_start));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 }
