@@ -47,9 +47,12 @@ class _EchoTool implements DataTool {
 
 /// OpenAI falso: responde [script] en orden y guarda cada body enviado.
 class _FakeOpenAi {
-  _FakeOpenAi(this.script);
+  _FakeOpenAi(this.script, {this.finishReasons = const {}});
 
   final List<Map<String, Object?> Function(Map<String, dynamic> body)> script;
+
+  /// `finish_reason` por número de request (por defecto `stop`).
+  final Map<int, String> finishReasons;
   final requests = <Map<String, dynamic>>[];
 
   late final http.Client client = MockClient((req) async {
@@ -72,7 +75,11 @@ class _FakeOpenAi {
         'model': 'gpt-4.1-mini',
         'system_fingerprint': 'fp',
         'choices': [
-          {'index': 0, 'message': script[i](body), 'finish_reason': 'stop'},
+          {
+            'index': 0,
+            'message': script[i](body),
+            'finish_reason': finishReasons[i] ?? 'stop',
+          },
         ],
         'usage': {
           'prompt_tokens': 1,
@@ -452,6 +459,72 @@ void main() {
     // La reescritura se pidió sin tools.
     expect(api.requests[1]['tool_choice'], 'none');
     expect(service.log.currentTurn!.finalText, contains('original con card'));
+  });
+
+  group('a final answer with nothing to show', () {
+    Map<String, Object?> empty(_) => {'role': 'assistant', 'content': ''};
+    // JSON cortado a la mitad por el tope de salida.
+    Map<String, Object?> cut(_) => {
+      'role': 'assistant',
+      'content':
+          '{"version":"v0.9","updateComponents":{"surfaceId":"s0",'
+          '"components":[{"id":"root","component":"Column","chil',
+    };
+
+    test('is retried once before falling back', () async {
+      final api = _FakeOpenAi([empty, (_) => _answer('s0', 'bien')]);
+      final service = build(api);
+      await service.runTurn(
+        userText: '¿es mucho VOO?',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+      );
+      expect(api.requests, hasLength(2));
+      expect(api.requests[1]['tool_choice'], 'none');
+      expect(service.log.currentTurn!.finalText, contains('bien'));
+    });
+
+    test('cut by the output cap: the retry asks for a shorter answer',
+        () async {
+      final api = _FakeOpenAi(
+        [cut, (_) => _answer('s0', 'corta')],
+        finishReasons: {0: 'length'},
+      );
+      final service = build(api);
+      await service.runTurn(
+        userText: 'x',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+      );
+      expect(api.requests, hasLength(2));
+      expect(_text(api.messages(1).last), contains('más corto'));
+      expect(service.log.currentTurn!.finalText, contains('corta'));
+    });
+
+    test('a plain-text answer is shown as is, without a retry', () async {
+      final api = _FakeOpenAi([
+        (_) => {'role': 'assistant', 'content': '¿Cuál de las dos?'},
+      ]);
+      final service = build(api);
+      await service.runTurn(
+        userText: 'x',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+      );
+      expect(api.requests, hasLength(1));
+    });
+
+    test('unreadable twice: the generic message, without throwing', () async {
+      final api = _FakeOpenAi([empty, empty]);
+      final service = build(api);
+      await service.runTurn(
+        userText: 'x',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+      );
+      expect(api.requests, hasLength(2));
+      expect(service.controller.registry.getSurface('s0'), isNotNull);
+    });
   });
 
   test('without a session the turn fails before any request', () async {

@@ -1,4 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/features/assistant/tools/report_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
@@ -76,7 +79,7 @@ abstract final class PortyActivityCopy {
         return 'porty_status_goal_projection'.tr();
       case 'save_goal':
         return 'porty_status_save_goal'.tr();
-      case UpdateGoalSavingsTool.toolName:
+      case ManageTools.proposeGoalChange:
         return 'porty_status_goal_savings'.tr();
       case GetDividendsTool.toolName:
         return one != null
@@ -90,6 +93,18 @@ abstract final class PortyActivityCopy {
         return 'porty_status_action'.tr();
       case AlertTools.proposePriceAlert:
         return 'porty_status_alert'.tr();
+      case PlanTools.proposeWatch:
+      case ManageTools.proposeWatchlistChange:
+      case ManageTools.proposeAlertChange:
+      case ManageTools.proposeAllocationPlan:
+      case ManageTools.proposeSettingsChange:
+      case ManageTools.proposeMemoryClear:
+      case ManageTools.proposeBrokerAction:
+        return 'porty_status_action'.tr();
+      case ManageTools.getAppSettings:
+        return 'porty_status_settings'.tr();
+      case ReportTools.getWeeklyReport:
+        return 'porty_status_weekly_report'.tr();
       case SearchWebTool.toolName:
         return 'porty_status_web'.tr();
       case RememberAboutUserTool.toolName:

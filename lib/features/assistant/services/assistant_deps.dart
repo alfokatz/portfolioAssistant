@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/features/assistant/data/porty_streaming_config.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/data/porty_rollout_flag.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
@@ -16,9 +17,18 @@ class AssistantDeps {
     required this.createData,
     this.streamingEnabled,
     this.warmUpOnOpen = false,
+    this.leanPromptEnabled,
+    this.createLeanService,
   });
 
   final AssistantOpenAiService Function() createService;
+
+  /// Si la conversación usa el prompt lean (ver [PromptVariant]); se
+  /// decide una vez, al abrir el chat. Sin esto, nunca (tests).
+  final Future<bool> Function()? leanPromptEnabled;
+
+  /// El servicio con el prompt lean. Sin esto, siempre [createService].
+  final AssistantOpenAiService Function()? createLeanService;
   final AssistantDataSources Function() createData;
 
   /// Si el turno se pide con streaming (texto visible mientras se escribe).
@@ -46,7 +56,11 @@ final assistantDepsProvider = Provider<AssistantDeps>(
           preferences: ref.read(preferenceManagerProvider),
         ),
     streamingEnabled:
-        () => PortyStreamingConfig.instance.enabledFor(_currentUserId()),
+        () => PortyRolloutFlag.streaming.enabledFor(_currentUserId()),
     warmUpOnOpen: true,
+    leanPromptEnabled:
+        () => PortyRolloutFlag.leanPrompt.enabledFor(_currentUserId()),
+    createLeanService:
+        () => AssistantOpenAiService(variant: PromptVariant.lean),
   ),
 );

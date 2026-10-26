@@ -49,6 +49,92 @@ final _evidence = <String, List<ToolCallRecord>>{
       },
     ),
   ],
+  'QaWatchlist': [
+    const ToolCallRecord(
+      name: 'get_watchlist',
+      args: {},
+      result: {
+        'status': 'ok',
+        'items': [
+          {
+            'ticker': 'TSLA',
+            'price': 373.25,
+            'day_change_pct': -0.36,
+            'since_added_pct': -0.36,
+            'alerts_on': true,
+          },
+          {
+            'ticker': 'NFLX',
+            'price': 66.64,
+            'day_change_pct': -0.61,
+            'since_added_pct': -0.57,
+            'alerts_on': false,
+          },
+          {
+            'ticker': 'GGAL',
+            'price': 36.16,
+            'day_change_pct': 0.11,
+            'since_added_pct': 0.39,
+            'alerts_on': true,
+          },
+        ],
+      },
+    ),
+  ],
+  'QaWeeklyReport': [
+    const ToolCallRecord(
+      name: 'get_weekly_report',
+      args: {},
+      result: {
+        'status': 'ok',
+        'report': {
+          'week': '2026-10-19',
+          'change_pct': 2.4,
+          'change_abs': 312.5,
+          'sp500_pct': 1.1,
+          'movers': [
+            {
+              'ticker': 'NVDA',
+              'move_pct': 6.1,
+              'why': 'Subió después de presentar resultados mejores que lo '
+                  'esperado.',
+            },
+            {'ticker': 'AAPL', 'move_pct': -1.2},
+            {'ticker': 'VOO', 'move_pct': 1.0},
+          ],
+          'reading':
+              'Una semana buena: NVDA empujó casi toda la suba y el resto '
+              'acompañó al mercado.',
+        },
+      },
+    ),
+  ],
+  'QaAllocationPlan': [
+    const ToolCallRecord(
+      name: 'get_allocation_plan',
+      args: {'contribution_usd': 500},
+      result: {
+        'status': 'ok',
+        'drift_threshold': 5.0,
+        'portfolio_value_usd': 10000.0,
+        'rows': [
+          {'ticker': 'VOO', 'current_pct': 34.6, 'target_pct': 43, 'drift_pts': -8.4},
+          {'ticker': 'GOOGL', 'current_pct': 22.0, 'target_pct': 25, 'drift_pts': -3.0},
+          {'ticker': 'AAPL', 'current_pct': 25.7, 'target_pct': 11, 'drift_pts': 14.7},
+          {'ticker': 'SGOV', 'current_pct': 13.3, 'target_pct': 21, 'drift_pts': -7.7},
+          {'ticker': 'DUOL', 'current_pct': 4.4, 'target_pct': 0, 'drift_pts': 4.4},
+        ],
+        'contribution': {
+          'amount_usd': 500.0,
+          'split': [
+            {'ticker': 'VOO', 'amount_usd': 226.0},
+            {'ticker': 'GOOGL', 'amount_usd': 144.0},
+            {'ticker': 'SGOV', 'amount_usd': 130.0},
+          ],
+        },
+      },
+    ),
+  ],
   'QaBuyPlan': [
     ToolCallRecord(
       name: GetMonthlyBuyPlanTool.toolName,

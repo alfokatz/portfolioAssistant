@@ -4,9 +4,12 @@ import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/memory_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/report_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/web_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
@@ -31,10 +34,12 @@ abstract final class AssistantToolset {
     GetGoalProjectionTool(ctx),
     SaveGoalTool(ctx),
     GetMonthlyBuyPlanTool(ctx),
-    UpdateGoalSavingsTool(ctx),
     // Al final: proponen operaciones, nunca escriben (ver ActionTools).
     ...ActionTools.build(ctx),
     ...AlertTools.build(ctx),
+    ...PlanTools.build(ctx),
+    ...ManageTools.build(ctx),
+    ...ReportTools.build(ctx),
     ...MemoryTools.build(ctx),
     SearchWebTool(ctx),
   ];
@@ -62,6 +67,28 @@ class AdviceNotice {
 
 /// Decisiones de la app sobre un turno, a partir de las tools que corrieron.
 abstract final class AssistantTurnPolicy {
+  /// La acción que quedó a medias en [outcome]: la última `propose_*` que
+  /// volvió `needs_input` (sin una propuesta `ok` después). Viaja en el
+  /// brief del turno siguiente (`pending_request`): la respuesta del
+  /// usuario ("Amazon") la completa, sea cual sea la acción. `null` si no
+  /// quedó nada pendiente.
+  static Map<String, Object?>? pendingRequest(TurnOutcome outcome) {
+    Map<String, Object?>? pending;
+    for (final call in outcome.toolCalls) {
+      if (!ActionTools.proposalTools.contains(call.name)) continue;
+      if (call.status == 'needs_input') {
+        pending = {
+          'tool': call.name,
+          'args': call.args,
+          'missing': call.result['missing'],
+        };
+      } else if (call.status == 'ok') {
+        pending = null;
+      }
+    }
+    return pending;
+  }
+
   /// Paywall a mostrar en vez de responder: solo si todo lo que pidió el
   /// modelo en la primera ronda está fuera del plan y alguna de esas cosas
   /// tiene una hoja de upgrade. Si parte sí se pudo traer, el turno sigue y

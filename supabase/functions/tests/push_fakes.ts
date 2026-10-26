@@ -13,6 +13,7 @@ export const defaultPrefs: Prefs = {
   weekly_report: true,
   earnings: true,
   service: true,
+  morning_brief: true,
   big_move_sensitivity: "normal",
   quiet_start: "22:00:00",
   quiet_end: "08:00:00",

@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
@@ -744,15 +745,86 @@ void main() {
       'get_goal_projection',
       'save_goal',
       'get_monthly_buy_plan',
-      'update_goal_savings',
       'propose_buy',
       'propose_sell',
       'propose_delete_position',
       'propose_price_alert',
       'list_price_alerts',
+      'get_allocation_plan',
+      'get_watchlist',
+      'propose_watch',
+      'propose_alert_change',
+      'propose_goal_change',
+      'propose_allocation_plan',
+      'get_app_settings',
+      'propose_settings_change',
+      'propose_broker_action',
+      'get_weekly_report',
       'remember_about_user',
       'forget_about_user',
       'search_web',
     ]);
+  });
+
+  group('answer_guide de las metas', () {
+    String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
+
+    test('incompleta, completa, corto plazo y compra mensual', () async {
+      final yahoo = FakeYahooProxy(
+        results: {
+          'SCHD': dividendQuoteSummary(name: 'Schwab ETF', yieldFraction: 0.04),
+          'BND': dividendQuoteSummary(name: 'Bond ETF', yieldFraction: 0.04),
+          'KO': dividendQuoteSummary(
+            name: 'Coca-Cola',
+            etf: false,
+            yieldFraction: 0.04,
+          ),
+        },
+      );
+      final ctx = _ctx(SubscriptionTier.premium, yahoo: yahoo);
+      expect(
+        guideOf(
+          await GetGoalProjectionTool(ctx).run({'goal_label': 'Meta nueva'}),
+        ),
+        GoalGuides.incomplete,
+      );
+
+      final plan = await GetGoalProjectionTool(ctx).run({
+        'desired_monthly_income': 3000,
+        'target_date': '2051-09-29',
+      });
+      expect(guideOf(plan), startsWith(GoalGuides.complete));
+      // Un plan nuevo no es una meta guardada: hay que ofrecer guardarla.
+      expect(guideOf(plan), endsWith(GoalGuides.notSaved));
+      expect(guideOf(plan), isNot(contains(GoalGuides.shortTermPurchase)));
+
+      final shortTerm = await GetGoalProjectionTool(ctx).run({
+        'target_amount': 20000,
+        'target_date': '2028-06-01',
+      });
+      expect(guideOf(shortTerm), contains(GoalGuides.shortTermPurchase));
+
+      final buy = await GetMonthlyBuyPlanTool(ctx).run({
+        'plan_id': plan['plan_id'],
+        'instruments': [
+          {'ticker': 'SCHD', 'asset_class': 'equities'},
+          {'ticker': 'KO', 'asset_class': 'equities'},
+          {'ticker': 'BND', 'asset_class': 'bonds'},
+        ],
+      });
+      expect(buy['status'], 'ok');
+      expect(guideOf(buy), GoalGuides.buyPlan);
+    });
+
+    test('locked no trae guía', () async {
+      expect(
+        guideOf(
+          await GetGoalProjectionTool(
+            _ctx(SubscriptionTier.free),
+          ).run({'target_amount': 1000, 'target_date': '2030-01-01'}),
+        ),
+        isNull,
+      );
+    });
   });
 }

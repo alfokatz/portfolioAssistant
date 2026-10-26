@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/weekly_report/prompts/weekly_report_prompt.dart';
@@ -50,6 +51,25 @@ void main() {
       prompt,
     );
     _expectAllowed(_allowlist, prompt);
+  });
+
+  test('the lean Porty system prompt is in the ai-chat allowlist too', () {
+    // Se prende por usuario desde app_config.porty_lean_prompt: su hash
+    // tiene que estar desplegado antes de prenderlo.
+    final lean = AssistantOpenAiService.systemPromptFor(
+      AssistantCatalog.build(variant: PromptVariant.lean),
+    );
+    expect(
+      AssistantOpenAiService.systemPromptFor(
+        AssistantCatalog.build(variant: PromptVariant.lean),
+      ),
+      lean,
+    );
+    expect(
+      lean,
+      isNot(AssistantOpenAiService.systemPromptFor(AssistantCatalog.build())),
+    );
+    _expectAllowed(_allowlist, lean);
   });
 
   test('the weekly report prompt is in the report allowlist (and only '

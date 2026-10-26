@@ -49,6 +49,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../helpers/genui_test_helpers.dart';
 import '../fakes/assistant_fakes.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+import 'package:google_fonts/google_fonts.dart';
+// ignore: depend_on_referenced_packages
+import 'package:flutter_localizations/flutter_localizations.dart';
+// ignore: implementation_imports
+import 'package:easy_localization/src/translations.dart';
+// ignore: implementation_imports
+import 'package:easy_localization/src/localization.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
+import 'dart:convert';
 
 /// Reproduce, sobre la pantalla real, una respuesta larga de Porty (texto +
 /// 3 candidatos + disclaimer) entregada como en producción: provider,
@@ -649,6 +663,223 @@ void main() {
       }
     });
   });
+
+  // Capturas del chat como hoja sobre el detalle de una posición (no corre
+  // en la suite normal):
+  //   RUN_SCREENSHOTS=1 SCREENSHOTS_OUT=/tmp/shots flutter test \
+  //     test/features/assistant/view/assistant_long_answer_reveal_test.dart \
+  //     --plain-name screenshot
+  for (final brightness in Brightness.values) {
+    testWidgets('screenshot: chat sheet over a screen (${brightness.name})', (
+      tester,
+    ) async {
+      // E/S real (fuentes, traducciones): fuera del reloj falso.
+      await tester.runAsync(_loadScreenshotAssets);
+      tester.view.physicalSize = const Size(402, 874) * 3;
+      tester.view.devicePixelRatio = 3;
+      tester.view.padding = const FakeViewPadding(top: 47 * 3);
+      tester.view.viewPadding = const FakeViewPadding(top: 47 * 3);
+      addTearDown(tester.view.reset);
+      PortyAvatar.ambientMotion = false;
+      addTearDown(() => PortyAvatar.ambientMotion = true);
+      final screen = _Screen([
+        _answer(
+          'NVDA bajó 2,1 % hoy: el sector de chips cayó después de que '
+          'EE. UU. anunciara nuevas restricciones a las exportaciones.',
+        ),
+      ]);
+      addTearDown(screen.dispose);
+      final themes = ProviderContainer();
+      final theme = themes.read(
+        brightness == Brightness.light
+            ? themeDataLightProvider
+            : themeDataDarkProvider,
+      );
+      themes.dispose();
+      final boundary = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundary,
+          child: UncontrolledProviderScope(
+            container: screen.container,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: theme,
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              supportedLocales: const [Locale('es', 'ES')],
+              locale: const Locale('es', 'ES'),
+              home: Builder(
+                builder:
+                    (context) => Scaffold(
+                      appBar: AppBar(
+                        title: const Text('NVDA'),
+                        actions: const [
+                          PortyAskButton(
+                            screen: PortyScreenContext.position('NVDA'),
+                          ),
+                        ],
+                      ),
+                      body: const Center(child: Text('Detalle de NVDA')),
+                    ),
+              ),
+            ),
+          ),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 30; i++) {
+          await tester.runAsync(() async {});
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+      }
+
+      await settle();
+      await _captureTo(tester, boundary, 'porty_ask_button_${brightness.name}');
+      await tester.tap(find.byType(PortyAskButton));
+      await settle();
+      await _captureTo(tester, boundary, 'porty_chat_sheet_open_${brightness.name}');
+      await tester.tap(find.text('¿Por qué se movió NVDA hoy?'));
+      await runTurn(tester, screen, settle: const Duration(seconds: 2));
+      await _captureTo(
+        tester,
+        boundary,
+        'porty_chat_sheet_answer_${brightness.name}',
+      );
+    }, skip: Platform.environment['RUN_SCREENSHOTS'] != '1');
+  }
+
+  // Preguntarle a Porty desde otra pantalla: el chat se abre como hoja
+  // encima y, al bajarla, el usuario sigue donde estaba.
+  group('chat as a sheet (PortyChatSheet)', () {
+    testWidgets('opens at 75% over the screen, with its questions above the '
+        'field; it answers there with the screen as context, and closing it '
+        'leaves the screen and keeps the conversation', (tester) async {
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final screen = _Screen([_answer('NVDA bajó 2 % hoy.')]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(
+        app(
+          screen,
+          home: Scaffold(
+            body: Builder(
+              builder:
+                  (context) => Center(
+                    child: TextButton(
+                      onPressed:
+                          () => PortyChatSheet.show(
+                            context,
+                            screen: const PortyScreenContext.position('NVDA'),
+                          ),
+                      child: const Text('detalle de NVDA'),
+                    ),
+                  ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('detalle de NVDA'));
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() async {});
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      final sheet = find.byWidgetPredicate(
+        (w) => w is AssistantScreen && w.isSheet,
+      );
+      expect(sheet, findsOneWidget);
+      expect(
+        tester.getSize(sheet).height,
+        closeTo(genuiTestViewportSize.height * PortyChatSheet.heightFactor, 1),
+      );
+      // Gold: las preguntas de una posición, arriba del campo (en una fila
+      // que se desliza: se ve la primera).
+      expect(find.text('porty_ask_position_why_moved'), findsOneWidget);
+
+      await send(tester, '¿Por qué bajó?');
+      await runTurn(tester, screen);
+      expect(find.text('NVDA bajó 2 % hoy.'), findsOneWidget);
+      // Ya preguntó: las preguntas de la pantalla se van.
+      expect(find.text('porty_ask_position_why_moved'), findsNothing);
+      final pinned = (screen.api.requests.single['messages'] as List)[1] as Map;
+      final text = (pinned['content'] as List).first['text'] as String;
+      expect(text, contains('"screen":"position_detail"'));
+      expect(text, contains('"ticker":"NVDA"'));
+
+      Navigator.of(tester.element(sheet)).pop();
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(sheet, findsNothing);
+      expect(find.text('detalle de NVDA'), findsOneWidget);
+      // La conversación sigue (es la misma que la pestaña de Porty).
+      expect(
+        screen.container
+            .read(assistantProvider(AssistantArgs.session))
+            .messages
+            .where((m) => m.role == PortfolioQaRole.user),
+        hasLength(1),
+      );
+      expect(screen.container.read(portyChatSheetOpenProvider), isFalse);
+    });
+
+    testWidgets('reopened over a long conversation, it opens at the latest '
+        'message, not at the greeting', (tester) async {
+      await tester.binding.setSurfaceSize(genuiTestViewportSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final long = List.filled(30, 'Una línea más de la respuesta.').join(' ');
+      final screen = _Screen([
+        for (var i = 0; i < 3; i++) _answer('Respuesta $i. $long'),
+      ]);
+      addTearDown(screen.dispose);
+      await tester.pumpWidget(
+        app(
+          screen,
+          home: Scaffold(
+            body: Builder(
+              builder:
+                  (context) => Center(
+                    child: TextButton(
+                      onPressed: () => PortyChatSheet.show(context),
+                      child: const Text('abrir'),
+                    ),
+                  ),
+            ),
+          ),
+        ),
+      );
+      Future<void> settle() async {
+        for (var i = 0; i < 20; i++) {
+          await tester.runAsync(() async {});
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+      }
+
+      final sheet = find.byWidgetPredicate(
+        (w) => w is AssistantScreen && w.isSheet,
+      );
+      await tester.tap(find.text('abrir'));
+      await settle();
+      for (var i = 0; i < 3; i++) {
+        await send(tester, 'Pregunta $i');
+        await runTurn(tester, screen);
+      }
+      Navigator.of(tester.element(sheet)).pop();
+      await settle();
+
+      await tester.tap(find.text('abrir'));
+      await settle();
+      final position =
+          tester
+              .widget<ListView>(
+                find.descendant(of: sheet, matching: find.byType(ListView)),
+              )
+              .controller!
+              .position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+    });
+  });
 }
 
 // ------------------------------------------------------------ render helpers
@@ -979,4 +1210,52 @@ class _LoadedHome extends HomeProvider {
       ) {
     state = HomeState(summary: heldSummary);
   }
+}
+
+Future<void> _loadScreenshotAssets() async {
+  Future<void> load(String family, List<String> files) async {
+    final loader = FontLoader(family);
+    for (final f in files) {
+      loader.addFont(
+        File(f).readAsBytes().then((b) => ByteData.view(b.buffer)),
+      );
+    }
+    await loader.load();
+  }
+
+  final sdk =
+      Platform.environment['FLUTTER_ROOT'] ??
+      '${Platform.environment['HOME']}/Development/flutter';
+  await load('MaterialIcons', [
+    '$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  ]);
+  const weights = {'Regular': 400, 'Medium': 500, 'SemiBold': 600, 'Bold': 700};
+  for (final MapEntry(key: name, value: w) in weights.entries) {
+    final file = 'assets/fonts/PlusJakartaSans-$name.ttf';
+    await load('PlusJakartaSans_${w == 400 ? 'regular' : w}', [file]);
+    await load('Plus Jakarta Sans', [file]);
+  }
+  GoogleFonts.config.allowRuntimeFetching = false;
+  final es =
+      jsonDecode(File('assets/translations/es-ES.json').readAsStringSync())
+          as Map<String, dynamic>;
+  Localization.load(const Locale('es', 'ES'), translations: Translations(es));
+}
+
+Future<void> _captureTo(
+  WidgetTester tester,
+  GlobalKey boundary,
+  String name,
+) async {
+  final out = Platform.environment['SCREENSHOTS_OUT'] ?? 'build/screenshots';
+  final render =
+      boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final image = (await tester.runAsync(() => render.toImage(pixelRatio: 3)))!;
+  final bytes =
+      (await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.png),
+      ))!;
+  File('$out/$name.png')
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(bytes.buffer.asUint8List());
 }

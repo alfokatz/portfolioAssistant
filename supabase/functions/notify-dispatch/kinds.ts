@@ -13,7 +13,11 @@ export type Kind =
   | "weekly_report"
   | "etoro_reconnect"
   | "earnings_tomorrow"
-  | "earnings_result";
+  | "earnings_result"
+  | "allocation_drift"
+  | "watchlist_move"
+  | "morning_brief"
+  | "contribution_reminder";
 
 /// Preferencia del usuario que la controla (columna de
 /// `notification_preferences`).
@@ -23,7 +27,8 @@ export type PrefKey =
   | "portfolio_moves"
   | "weekly_report"
   | "earnings"
-  | "service";
+  | "service"
+  | "morning_brief";
 
 export type KindMeta = {
   pref: PrefKey | null;
@@ -123,6 +128,48 @@ export const kinds: Record<Kind, KindMeta> = {
     quiet: "defer",
     maxAgeMinutes: 24 * 60,
     androidChannel: "reports",
+    interruption: "active",
+  },
+  // Sin preferencia propia: se apaga en la pantalla del plan de cartera
+  // (`allocation_plans.notify`), que es donde el usuario lo ve.
+  allocation_drift: {
+    pref: null,
+    category: "automatic",
+    minTier: "premium",
+    quiet: "defer",
+    maxAgeMinutes: 24 * 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  watchlist_move: {
+    pref: "big_moves",
+    category: "automatic",
+    minTier: "premium",
+    quiet: "drop",
+    maxAgeMinutes: 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  // A las 8 locales; si cae en el silencio, sale al terminar (sigue
+  // valiendo esa mañana, después ya no).
+  morning_brief: {
+    pref: "morning_brief",
+    category: "automatic",
+    minTier: "free",
+    quiet: "defer",
+    maxAgeMinutes: 6 * 60,
+    androidChannel: "portfolio",
+    interruption: "active",
+  },
+  // Lo pidió el usuario en su plan (y se apaga ahí): no cuenta para el
+  // tope diario ni tiene preferencia propia.
+  contribution_reminder: {
+    pref: null,
+    category: "requested",
+    minTier: "premium",
+    quiet: "defer",
+    maxAgeMinutes: 18 * 60,
+    androidChannel: "portfolio",
     interruption: "active",
   },
 };

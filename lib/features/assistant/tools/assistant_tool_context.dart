@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/domain/managers/preferences_manager.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/company_ticker_resolver.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/dividend_fetcher.dart';
@@ -75,6 +76,7 @@ class AssistantDataSources {
 
   CompanyTickerResolver get tickerResolver =>
       _tickerResolver ??= CompanyTickerResolver();
+
   /// De dónde salen noticias, resultados y fundamentals en esta
   /// conversación (`app_config.news_provider`, leído al primer uso y fijo
   /// desde ahí: una conversación no mezcla fuentes).
@@ -101,8 +103,7 @@ class AssistantDataSources {
 
   /// Contexto con citas (búsqueda web en el servidor). Solo v2.
   NewsContextClient get newsContext => _newsContext ??= NewsContextClient();
-  EtfHoldingsFetcher get etfHoldings =>
-      _etfHoldings ??= EtfHoldingsFetcher();
+  EtfHoldingsFetcher get etfHoldings => _etfHoldings ??= EtfHoldingsFetcher();
   YahooCompanyProfileClient get profileClient =>
       _profileClient ??= YahooCompanyProfileClient();
   DividendFetcher get dividends => _dividends ??= DividendFetcher();
@@ -123,12 +124,21 @@ class AssistantToolContext {
     this.investorProfile,
     this.actionsThisConversation = const [],
     this.loadPriceAlerts,
+    this.loadAllocationPlan,
+    this.loadWatchlist,
+    this.loadAppSettings,
+    this.loadConnectedAccounts,
+    this.loadAccountOverview,
+    this.queriesLeftThisMonth,
+    this.pendingRequest,
+    this.screenContext,
+    this.recentTopics = const [],
+    this.loadWeeklyReport,
     this.userMemories = const [],
     this.saveMemory,
     this.deleteMemory,
     this.savedGoals = const [],
     this.saveGoal,
-    this.updateGoalSavings,
     this.newsProvider = NewsProvider.legacy,
     DateTime? now,
   }) : now = now ?? DateTime.now(),
@@ -165,6 +175,45 @@ class AssistantToolContext {
   /// formato del resultado de la tool; `null` fuera de la app.
   final Future<List<Map<String, Object?>>> Function()? loadPriceAlerts;
 
+  /// El plan de cartera guardado (get_allocation_plan); `null` si nunca
+  /// armó uno. La función es `null` fuera de la app.
+  final Future<AllocationPlan?> Function()? loadAllocationPlan;
+
+  /// La lista de seguimiento (get_watchlist), ya en el formato del
+  /// resultado de la tool; `null` fuera de la app.
+  final Future<List<Map<String, Object?>>> Function()? loadWatchlist;
+
+  /// Los ajustes de hoy ({clave de `AppSettingKeys`: valor}); `null` fuera
+  /// de la app.
+  final Future<Map<String, Object?>> Function()? loadAppSettings;
+
+  /// Estado de cada cuenta ({`etoro`|`binance`: `connected` |
+  /// `not_connected` | `reconnect_required`}); `null` fuera de la app.
+  final Future<Map<String, String>> Function()? loadConnectedAccounts;
+
+  /// La cuenta del usuario para get_app_settings: plan, consultas, cuentas
+  /// conectadas (con su última actualización) y metas cumplidas; `null`
+  /// fuera de la app.
+  final Future<Map<String, Object?>> Function()? loadAccountOverview;
+
+  /// Consultas a Porty que le quedan este mes (`account` del brief).
+  final int? queriesLeftThisMonth;
+
+  /// La acción que el turno anterior dejó esperando un dato (ver
+  /// `AssistantTurnPolicy.pendingRequest`).
+  final Map<String, Object?>? pendingRequest;
+
+  /// Lo que el usuario estaba mirando al abrir el chat
+  /// (`PortyScreenContext.toBrief`); `null` si no vino de una pantalla.
+  final Map<String, Object?>? screenContext;
+
+  /// Tickers de los que habló en charlas anteriores (`PortyTopic.toBrief`).
+  final List<Map<String, Object?>> recentTopics;
+
+  /// El informe semanal de esta semana tal como lo ve el usuario (`null`
+  /// si todavía no está); la función es `null` fuera de la app.
+  final Future<Map<String, Object?>?> Function()? loadWeeklyReport;
+
   /// Lo que Porty sabe del usuario al empezar el turno (más recientes
   /// primero): va en `user_memory` del brief, con la referencia de
   /// `MemoryTools.refOf`.
@@ -196,11 +245,6 @@ class AssistantToolContext {
   /// meta). Cambiar un plan que ya vio, o una meta guardada, no entra acá.
   final unconfirmedPlans = <String>{};
 
-  /// Fija lo que el usuario tiene para la meta fuera de la app y devuelve
-  /// la meta al día.
-  final Future<UserGoal?> Function(String goalId, double amount)?
-  updateGoalSavings;
-
   /// Valor de mercado por ticker de la cartera: lo que cuenta solo para las
   /// metas (ver `UserGoal.linkedTickers`).
   Map<String, double> get holdingsByTicker {
@@ -211,6 +255,7 @@ class AssistantToolContext {
     }
     return map;
   }
+
   final DateTime now;
   final Set<String> heldTickers;
 

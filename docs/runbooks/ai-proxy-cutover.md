@@ -52,6 +52,8 @@ deno task test        # 25 tests: proxy, finnhub, webhook
    cd ../.. && RUN_ASSISTANT_EVALS=1 EVAL_CASE_DELAY_S=2 ASSISTANT_EVALS_REPORT=/tmp/evals-proxy.json \
      flutter test test/evals/assistant_tool_evals_test.dart
    ```
+   Cada corrida completa necesita su propio usuario (`eval_user.ts` crea uno nuevo): el plan Gold tiene 100 consultas por día y la batería usa ~98. Sin usuario nuevo, la corrida siguiente falla con `daily_limit`, y esos turnos quedan en `ai_turn_usage` con 0 tokens.
+   `EVAL_DUMP_DIR=/tmp/evals-dump` guarda la respuesta cruda de los turnos que llegaron al tope de salida (`truncated_rounds` en el reporte).
 3. Compará la tasa de aprobación con la última corrida directa (tiene que ser la misma: el proxy no cambia el body salvo `max_completion_tokens`, `n`, `store`).
 4. `select * from ai_turn_usage order by created_at desc limit 20;` muestra tokens y costo por turno.
 

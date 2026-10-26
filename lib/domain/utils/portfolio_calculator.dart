@@ -68,7 +68,7 @@ class PortfolioCalculator {
           .map((v) => v.position.purchaseDate)
           .reduce((a, b) => a.isBefore(b) ? a : b);
       final sources = group.map((v) => v.position.source).toSet();
-      final source = sources.length == 1 ? sources.first : PositionSource.mixed;
+      final source = PositionSource.combine(sources);
       final syncedDates = [
         for (final v in group)
           if (v.position.syncedAt != null) v.position.syncedAt!,

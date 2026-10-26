@@ -74,6 +74,15 @@ void main() {
       expect(NotificationPreferences.fromRow(prefs.toRow()), prefs);
     });
 
+    test('el resumen de la mañana: prendido por defecto (también sin la '
+        'columna), se apaga y viaja en la fila', () {
+      expect(NotificationPreferences.fromRow(const {}).morningBrief, isTrue);
+      final off = NotificationPreferences.fromRow(const {'morning_brief': false});
+      expect(off.morningBrief, isFalse);
+      expect(off.toRow()['morning_brief'], isFalse);
+      expect(off.copyWith(morningBrief: true).morningBrief, isTrue);
+    });
+
     test('valores raros caen a los defaults de la tabla', () {
       final prefs = NotificationPreferences.fromRow({
         'big_move_sensitivity': 'extrema',

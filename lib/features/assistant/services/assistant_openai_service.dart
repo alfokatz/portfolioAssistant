@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
@@ -17,6 +19,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     super.httpClient,
     required super.systemPrompt,
     required super.catalog,
+    this.variant = PromptVariant.classic,
   }) : super(
          postProcess: AssistantAnswerReview.postProcess,
          answerCheck: AssistantAnswerReview.check,
@@ -26,30 +29,89 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     AiProxyConfig? proxy,
     String? model,
     http.Client? httpClient,
+    PromptVariant variant = PromptVariant.classic,
   }) {
     final catalog = AssistantCatalog.build();
     return AssistantOpenAiService._(
       proxy: proxy,
       model: model,
       httpClient: httpClient,
-      systemPrompt: systemPromptFor(catalog),
+      systemPrompt:
+          variant == PromptVariant.lean
+              ? systemPromptFor(AssistantCatalog.build(variant: variant))
+              : systemPromptFor(catalog),
+      // Para mostrar, siempre el catálogo completo: un widget diferido
+      // llega descripto en su `area_spec`.
       catalog: catalog,
+      variant: variant,
     );
   }
+
+  /// Con qué prompt corre esta conversación (ver [PromptVariant]).
+  final PromptVariant variant;
+
+  /// Los esquemas de los widgets, como los describe el prompt clásico (de
+  /// ahí salen los de `area_spec`).
+  static final Map<String, Object?> _widgetSchemas = AreaSpecs.widgetSchemas(
+    systemPromptFor(AssistantCatalog.build()),
+  );
+
+  /// Con el prompt lean: el `area_spec` de cada tool que difiere algo.
+  ResultExtrasFor? get _resultExtras =>
+      variant == PromptVariant.lean
+          ? (record) => AreaSpecs.extraFor(
+            record,
+            rules: assistantPromptRules,
+            schemas: _widgetSchemas,
+          )
+          : null;
 
   /// `PromptBuilder` ya agrega `catalog.systemPromptFragments` por su
   /// cuenta; pasarlos también como argumento los duplicaba (~8,9K tokens
   /// repetidos en cada request).
-  static String systemPromptFor(Catalog catalog) =>
-      PromptBuilder.custom(
-        catalog: catalog,
-        allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
-        technicalPossibilities: const TechnicalPossibilities(
-          codeExecution: false,
-          toolCall: false,
-          functionCall: false,
-        ),
-      ).systemPromptJoined();
+  static String systemPromptFor(Catalog catalog) => _compactSchemas(
+    PromptBuilder.custom(
+      catalog: catalog,
+      allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
+      technicalPossibilities: const TechnicalPossibilities(
+        codeExecution: false,
+        toolCall: false,
+        functionCall: false,
+      ),
+    ).systemPromptJoined(),
+  );
+
+  /// Mensajes A2UI que la app no permite (`createAndUpdate` sin data
+  /// model): describirlos solo invita al modelo a usarlos.
+  static const _unusedMessages = {
+    'UpdateDataModelMessage',
+    'DeleteSurfaceMessage',
+  };
+
+  /// Los esquemas JSON de la UI son casi la mitad del prompt, y genui los
+  /// manda indentados: minificados dicen lo mismo con ~35 % menos tokens.
+  /// También saca del esquema de mensajes los que no se permiten.
+  static String _compactSchemas(String prompt) => prompt.replaceAllMapped(
+    RegExp(
+      r'(-----(COMMON_TYPES|CATALOG_SCHEMA|MESSAGE_SCHEMA)_START-----\n)'
+      r'(.*?)'
+      r'(\n-----\2_END-----)',
+      dotAll: true,
+    ),
+    (m) {
+      final schema = jsonDecode(m.group(3)!) as Map<String, Object?>;
+      if (m.group(2) == 'MESSAGE_SCHEMA') {
+        final defs = schema[r'$defs'] as Map<String, Object?>;
+        _unusedMessages.forEach(defs.remove);
+        (schema['oneOf'] as List).removeWhere(
+          (ref) => _unusedMessages.any(
+            (name) => (ref as Map)[r'$ref'] == '#/\$defs/$name',
+          ),
+        );
+      }
+      return '${m.group(1)}${jsonEncode(schema)}${m.group(4)}';
+    },
+  );
 
   /// Cómo usar `user_profile` sin volverse repetitivo: solo cuando cambia
   /// la respuesta, y la experiencia se nota en el tono, no se nombra.
@@ -85,6 +147,30 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       '- since es la fecha en que lo anotaste: si es viejo y pesa en la '
       'respuesta, confirmalo.\n';
 
+  /// Cómo usar `screen_context` (la pantalla desde donde abrió el chat).
+  static const screenContextGuidance =
+      'Sobre screen_context (lo que el usuario estaba mirando al abrir el '
+      'chat; turns_ago 0 = esta pregunta):\n'
+      '- Si la pregunta no nombra otra cosa, "esto", "esta acción", "esta '
+      'meta", "¿por qué bajó?" o "¿está bien?" son sobre esa pantalla: el '
+      'ticker o la meta de screen_context. Resolvelo sin preguntar.\n'
+      '- Si la pregunta nombra otro ticker u otro tema, manda la pregunta.\n'
+      '- Con turns_ago mayor a 0, usalo solo si la pregunta sigue siendo '
+      'sobre lo mismo.\n'
+      '- No lo menciones ("veo que estás en…"). Nunca cambia un número.\n';
+
+  /// Cómo usar `recent_topics` (tickers de charlas anteriores): para
+  /// retomar un tema, no para recitarlo.
+  static const recentTopicsGuidance =
+      'Sobre recent_topics (tickers de los que el usuario te habló en charlas '
+      'anteriores: cuándo y a qué precio estaban):\n'
+      '- Si la pregunta es sobre uno de ellos, podés retomarlo en una frase '
+      '("la última vez que me preguntaste por AMZN, el 14/10, estaba a '
+      '\$182"); el precio de hoy sale de get_quote. No calcules el cambio '
+      'desde entonces: decí los dos precios.\n'
+      '- Si no es sobre ellos, ignoralo. Nunca los recites ni abras la '
+      'respuesta con ellos. Nunca cambia un número.\n';
+
   /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
   /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
   /// el análisis de empresa lee la posición parseando desde la primera "{".
@@ -96,6 +182,8 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       'pregunta):\n'
       '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.userMemoryKey) ? userMemoryGuidance : ''}'
+      '${portfolioBrief.containsKey(PortfolioBrief.screenContextKey) ? screenContextGuidance : ''}'
+      '${portfolioBrief.containsKey(PortfolioBrief.recentTopicsKey) ? recentTopicsGuidance : ''}'
       '${jsonEncode(portfolioBrief)}';
 
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.
@@ -117,6 +205,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       onActivity: onActivity,
       beforeRound: beforeRound,
       onContent: onContent,
+      resultExtras: _resultExtras,
       pinnedContext: pinnedContextFor(portfolioBrief),
       context:
           'SURFACE_ID (usar exactamente en createSurface y '

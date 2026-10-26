@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
@@ -79,10 +79,10 @@ class PositionRowWidget extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Importada (toda o en parte) de eToro.
+                      // Importada (toda o en parte) de eToro o Binance.
                       if (valuation?.position.source.hasImported ?? false) ...[
                         const SizedBox(width: AppDimens.sp6),
-                        const EtoroSourceBadge(),
+                        BrokerSourceBadge(source: valuation!.position.source),
                       ],
                     ],
                   ),

@@ -334,6 +334,29 @@ void main() {
     Future<void> scrollTo(WidgetTester tester, Finder f) => tester
         .scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
 
+    testWidgets('Porty in the report has the same face as on the card', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        reportApp(
+          FixedWeeklyReportController(ready(fullReport())),
+          openScreen: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final porty = tester.widget<PortyAvatar>(
+        find
+            .descendant(
+              of: find.byType(SingleChildScrollView),
+              matching: find.byType(PortyAvatar),
+            )
+            .first,
+      );
+      // +2,5 % en la semana: contento, como en la card.
+      expect(porty.state, WeeklyReportCard.moodFor(fullReport().changePct));
+      expect(porty.state, PortyAvatarState.answered);
+    });
+
     testWidgets('large title on top; the small one shows in the bar only '
         'after scrolling past it', (tester) async {
       await tester.pumpWidget(

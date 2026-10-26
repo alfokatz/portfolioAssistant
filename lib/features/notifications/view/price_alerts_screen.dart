@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
 
 /// Ajustes → Alertas de precio (y al tocar una alerta cumplida de un ticker
 /// que no está en la cartera).
@@ -38,11 +39,11 @@ class _PriceAlertsScreenState extends BaseStatefulWidget<PriceAlertsScreen> {
   }
 
   Future<void> _create() async {
-    final symbol = await showDialog<String>(
-      context: context,
-      builder: (_) => const _TickerDialog(),
+    final symbol = await TickerSearchSheet.show(
+      context,
+      title: 'price_alerts_ticker_title'.tr(),
     );
-    if (symbol == null || symbol.isEmpty || !mounted) return;
+    if (symbol == null || !mounted) return;
     await CreatePriceAlertSheet.show(context, ref, symbol: symbol);
   }
 
@@ -398,48 +399,3 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// Pide el ticker para una alerta nueva (desde la lista).
-class _TickerDialog extends StatefulWidget {
-  const _TickerDialog();
-
-  @override
-  State<_TickerDialog> createState() => _TickerDialogState();
-}
-
-class _TickerDialogState extends State<_TickerDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final symbol = _controller.text.trim().toUpperCase();
-    if (RegExp(r'^[A-Z0-9.\-^=]{1,15}$').hasMatch(symbol)) {
-      Navigator.of(context).pop(symbol);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('price_alerts_ticker_title'.tr()),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.characters,
-        decoration: InputDecoration(hintText: 'price_alerts_ticker_hint'.tr()),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('cancel'.tr()),
-        ),
-        TextButton(onPressed: _submit, child: Text('price_alerts_ticker_next'.tr())),
-      ],
-    );
-  }
-}

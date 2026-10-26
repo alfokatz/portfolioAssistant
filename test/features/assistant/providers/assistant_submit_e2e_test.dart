@@ -18,8 +18,10 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -35,6 +37,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../fakes/assistant_fakes.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
+import 'package:portfolio_assistant/features/porty_memory/data/porty_topics_repository.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 
 /// Punta a punta de `submitMessage`: cuota → placeholder → turno con tools
 /// (servicio y loop reales) → gating al ejecutar cada tool → A2UI al
@@ -136,18 +141,52 @@ class _LoadedHome extends HomeProvider {
   }
 }
 
+/// `porty_topics` en memoria: lo que registra cada turno vuelve en la
+/// próxima lectura, como la tabla.
+class _FakeTopics implements PortyTopicsRepository {
+  final touched = <List<PortyTopicDraft>>[];
+  final rows = <PortyTopic>[];
+
+  @override
+  Future<List<PortyTopic>> list() async => List.of(rows);
+
+  @override
+  Future<void> touch(List<PortyTopicDraft> drafts) async {
+    touched.add(drafts);
+    for (final d in drafts) {
+      rows
+        ..removeWhere((t) => t.ticker == d.ticker)
+        ..insert(
+          0,
+          PortyTopic(
+            ticker: d.ticker,
+            question: d.question,
+            lastAskedAt: DateTime.now(),
+            priceAt: d.priceAt,
+            held: d.held,
+          ),
+        );
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Harness {
   _Harness(
     SubscriptionTier tier,
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
     bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
     container = ProviderContainer(
       overrides: [
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
+        portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
           _NoClosedPositions(),
         ),
@@ -173,6 +212,7 @@ class _Harness {
                   proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
                   model: 'gpt-4.1-mini',
                   httpClient: api.client,
+                  variant: variant,
                 ),
             createData: () => fakeDataSources(quotes: quotes),
             streamingEnabled: streaming ? () async => true : null,
@@ -188,6 +228,7 @@ class _Harness {
   final _FakeSubscriptionRepository subscriptionRepo;
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
+  final topics = _FakeTopics();
   late final ProviderContainer container;
 
   AssistantProvider get notifier =>
@@ -230,8 +271,15 @@ void main() {
     List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
     int used = 0,
     bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
   }) {
-    final h = _Harness(tier, script, used: used, streaming: streaming);
+    final h = _Harness(
+      tier,
+      script,
+      used: used,
+      streaming: streaming,
+      variant: variant,
+    );
     addTearDown(h.dispose);
     return h;
   }
@@ -601,6 +649,233 @@ void main() {
 
       expect(userMessages(h), ['¿Cómo viene AAPL?']);
       expect(h.api.requests, hasLength(1));
+    });
+    // El brief de cada pedido es el JSON del contexto fijo (mensaje 1),
+    // desde la primera llave.
+    Map<String, Object?>? screenOf(Map<String, dynamic> request) {
+      final pinned = _textOf((request['messages'] as List)[1] as Map);
+      final brief = jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      return (brief['screen_context'] as Map?)?.cast<String, Object?>();
+    }
+
+    test('the screen it was asked from travels in the brief and ages out '
+        'after a few turns', () async {
+      final h = harness(SubscriptionTier.free, [
+        for (var i = 0; i < 4; i++) _answer(),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Por qué bajó?',
+        screen: const PortyScreenContext.position('nvda'),
+      );
+      await untilTurnsDone(h, 1);
+      for (final q in ['¿Y sus dividendos?', '¿Y la semana?', 'Gracias']) {
+        await h.notifier.submitMessage(q);
+      }
+
+      expect(h.api.requests, hasLength(4));
+      expect(screenOf(h.api.requests[0]), {
+        'screen': 'position_detail',
+        'ticker': 'NVDA',
+        'turns_ago': 0,
+      });
+      expect(
+        _textOf((h.api.requests[0]['messages'] as List)[1] as Map),
+        contains('Sobre screen_context'),
+      );
+      expect(screenOf(h.api.requests[1])?['turns_ago'], 1);
+      expect(screenOf(h.api.requests[2])?['turns_ago'], 2);
+      expect(screenOf(h.api.requests[3]), isNull);
+      expect(
+        _textOf((h.api.requests[3]['messages'] as List)[1] as Map),
+        isNot(contains('screen_context')),
+      );
+    });
+
+    test('a question from outside without a screen (Home, a push) clears '
+        'the previous one', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Llego a tiempo?',
+        screen: const PortyScreenContext(
+          PortyScreen.goalDetail,
+          goalLabel: 'Viaje a Japón',
+        ),
+      );
+      await untilTurnsDone(h, 1);
+      h.notifier.askFromOutside('¿Cómo está mi cartera hoy?');
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0])?['goal'], 'Viaje a Japón');
+      expect(screenOf(h.api.requests[1]), isNull);
+    });
+
+    test('a question queued during a running turn keeps its own screen; '
+        'the running turn does not take it', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside(
+        '¿Qué tan lejos estoy?',
+        screen: const PortyScreenContext(PortyScreen.allocation),
+      );
+      await running;
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0]), isNull);
+      expect(screenOf(h.api.requests[1])?['screen'], 'allocation_plan');
+    });
+
+    test(
+      'before the chat is ready, bootstrap sends it with its screen',
+      () async {
+        final h = harness(SubscriptionTier.free, [_answer()]);
+
+        h.notifier.askFromOutside(
+          '¿Qué hizo desde que la vendí?',
+          screen: const PortyScreenContext(
+            PortyScreen.closedPosition,
+            ticker: 'TSLA',
+          ),
+        );
+        await h.notifier.bootstrap();
+
+        expect(screenOf(h.api.requests.single), {
+          'screen': 'closed_position',
+          'ticker': 'TSLA',
+          'turns_ago': 0,
+        });
+      },
+    );
+  });
+
+  // Fase 4: de qué tickers habló el usuario, para retomarlo en otra charla.
+  group('conversation topics (porty_topics)', () {
+    test('a turn records the ticker it asked about, and the next turn '
+        'carries it in recent_topics with its guidance', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_quote', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Cómo viene NVDA?');
+      // El registro sale sin esperar a la respuesta.
+      for (var i = 0;
+          i < 100 && h.container.read(portyTopicsProvider).topics.isEmpty;
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(h.topics.touched.single.single.ticker, 'NVDA');
+      expect(h.topics.touched.single.single.held, isTrue);
+
+      await h.notifier.submitMessage('Gracias');
+      final pinned = _textOf((h.api.requests[2]['messages'] as List)[1] as Map);
+      expect(pinned, contains('Sobre recent_topics'));
+      final brief =
+          jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      final topics = (brief['recent_topics'] as List).cast<Map>();
+      expect(topics.single['ticker'], 'NVDA');
+      expect(topics.single['days_ago'], 0);
+      // El primer turno no tenía temas: sin bloque ni guía.
+      final first = _textOf((h.api.requests[0]['messages'] as List)[1] as Map);
+      expect(first, isNot(contains('recent_topics')));
+    });
+  });
+
+  group('resume the last conversation (empty chat)', () {
+    PortyTopic topic(String t, {int daysAgo = 2}) => PortyTopic(
+      ticker: t,
+      question: 'q',
+      lastAskedAt: DateTime.now().subtract(Duration(days: daysAgo)),
+    );
+
+    test('the most recent topic of the last 14 days; Free only if held',
+        () async {
+      final free = harness(SubscriptionTier.free, const []);
+      await free.container.read(subscriptionProvider.notifier).refresh();
+      expect(free.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+          'NVDA');
+      expect(free.notifier.resumeTopic([topic('AMZN')]), isNull);
+      expect(free.notifier.resumeTopic([topic('NVDA', daysAgo: 20)]), isNull);
+
+      final premium = harness(SubscriptionTier.premium, const []);
+      await premium.container.read(subscriptionProvider.notifier).refresh();
+      expect(
+        premium.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+        'AMZN',
+      );
+    });
+  });
+
+  // Fase 3 (docs/superpowers/research/2026-10-24-porty-escalable.md): con
+  // el prompt lean, las reglas y esquemas de un área viajan con el
+  // resultado de su tool.
+  group('lean prompt (area_spec)', () {
+    List<Map> toolMessages(Map<String, dynamic> request) => [
+      for (final m in (request['messages'] as List).cast<Map>())
+        if (m['role'] == 'tool') m,
+    ];
+
+    test('the news rules and card schema come with get_news, once while '
+        'visible; the system prompt does not carry them', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _call('get_news', {
+          'tickers': ['AAPL'],
+        }, id: 'call_2'),
+        _answer(),
+      ], variant: PromptVariant.lean);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      await h.notifier.submitMessage('¿Y de AAPL?');
+
+      expect(h.api.requests, hasLength(4));
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains(AreaSpecs.leanRule.trim().split('\n').first));
+      expect(system, isNot(contains('NEWS ([W:NEWS]) — get_news')));
+
+      final first = toolMessages(h.api.requests[1]).single;
+      final firstResult = jsonDecode(_textOf(first)) as Map;
+      final spec = firstResult['area_spec'] as Map;
+      expect(spec['rules'], startsWith('NEWS ([W:NEWS]) — get_news'));
+      expect((spec['widgets'] as Map).keys, ['QaNewsSummary']);
+
+      // Segundo turno: el resultado anterior (con su spec) sigue a la vista.
+      final second = toolMessages(h.api.requests[3]);
+      expect(second, hasLength(2));
+      expect(
+        (jsonDecode(_textOf(second.last)) as Map).containsKey('area_spec'),
+        isFalse,
+      );
+      expect(h.lastAnswer.isFallback, isFalse);
+    });
+
+    test('the classic prompt keeps everything in the prefix and adds no '
+        'area_spec', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains('NEWS ([W:NEWS]) — get_news'));
+      final result =
+          jsonDecode(_textOf(toolMessages(h.api.requests[1]).single)) as Map;
+      expect(result.containsKey('area_spec'), isFalse);
     });
   });
 

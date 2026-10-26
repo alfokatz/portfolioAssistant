@@ -6,17 +6,15 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_sco
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
 
-ToolCallRecord _call(String name, ActionProposal proposal) => ToolCallRecord(
-  name: name,
-  args: const {},
-  result: proposal.toToolResult(),
-);
+ToolCallRecord _call(String name, ActionProposal proposal) =>
+    ToolCallRecord(name: name, args: const {}, result: proposal.toToolResult());
 
 final _buy = ActionProposal(
   id: 'buy-1',
@@ -72,6 +70,14 @@ const _alert = ActionProposal(
   alertTarget: 750,
 );
 
+const _watch = ActionProposal(
+  id: 'watch-1',
+  kind: ActionKind.watch,
+  ticker: 'NFLX',
+  price: 1210.5,
+  priceSource: PriceSource.closeOnDate,
+);
+
 /// Lo que la card le manda a la pantalla.
 class _Host {
   final confirmed = <ActionDraft>[];
@@ -79,6 +85,7 @@ class _Host {
   final opened = <String>[];
   final openedClosed = <ClosedPosition>[];
   var openedAlerts = 0;
+  var openedWatchlist = 0;
   final priceRequests = <DateTime>[];
   final forms = <String, ActionForm>{};
   double? nextPrice = 199;
@@ -93,6 +100,7 @@ class _Host {
     onOpenPosition: opened.add,
     onOpenClosedPosition: openedClosed.add,
     onOpenAlerts: () => openedAlerts++,
+    onOpenWatchlist: () => openedWatchlist++,
     formOf: (id) => forms[id],
     onFormChanged: (id, form) => forms[id] = form,
     priceOn: (ticker, date) async {
@@ -215,7 +223,10 @@ void main() {
         proposalId: 'buy-1',
         host: host,
       );
-      await tester.enterText(find.byKey(const ValueKey('qa_action_amount')), '4');
+      await tester.enterText(
+        find.byKey(const ValueKey('qa_action_amount')),
+        '4',
+      );
       await tester.enterText(
         find.byKey(const ValueKey('qa_action_price')),
         '205,5',
@@ -434,9 +445,7 @@ void main() {
   });
 
   group('delete', () {
-    testWidgets('with several purchases, the user picks which', (
-      tester,
-    ) async {
+    testWidgets('with several purchases, the user picks which', (tester) async {
       final host = _Host();
       await _pump(
         tester,
@@ -534,9 +543,7 @@ void main() {
       expect(host.opened, isEmpty);
     });
 
-    testWidgets('a partial sale still links to the portfolio', (
-      tester,
-    ) async {
+    testWidgets('a partial sale still links to the portfolio', (tester) async {
       final host = _Host();
       await _pump(
         tester,
@@ -691,6 +698,116 @@ void main() {
       await tester.tap(find.text('Ver mis alertas'));
       expect(host.openedAlerts, 1);
       expect(host.opened, isEmpty);
+    });
+  });
+
+  group('follow a ticker', () {
+    testWidgets('shows the price today; confirm sends the notify choice', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_watch', _watch)],
+        proposalId: 'watch-1',
+        host: host,
+      );
+      expect(find.text('SEGUIR'), findsOneWidget);
+      expect(find.text('\$1,210.50'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('qa_action_watch_notify')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Seguir NFLX'));
+      await tester.pumpAndSettle();
+
+      final draft = host.confirmed.single;
+      expect(draft.kind, ActionKind.watch);
+      expect(draft.ticker, 'NFLX');
+      expect(draft.watchNotify, isFalse);
+    });
+
+    testWidgets('once followed: summary and a link to the list', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_watch', _watch)],
+        proposalId: 'watch-1',
+        host: host,
+        proposals: {
+          'watch-1': const ActionProposalProgress(
+            ActionProposalStatus.done,
+            draft: ActionDraft(
+              proposalId: 'watch-1',
+              kind: ActionKind.watch,
+              ticker: 'NFLX',
+            ),
+          ),
+        },
+      );
+      expect(find.text('Siguiendo'), findsOneWidget);
+      expect(
+        find.text('Ahora seguís NFLX. Te aviso si se mueve fuerte en el día.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Ver mi lista'));
+      expect(host.openedWatchlist, 1);
+    });
+  });
+
+  group('manage (remove, pause, delete…)', () {
+    const unwatch = ActionProposal(
+      id: 'm-1',
+      kind: ActionKind.manage,
+      ticker: 'AMZN',
+      manageOp: ManageOp.unwatch,
+    );
+
+    testWidgets('the app writes what will happen; confirm sends the op', (
+      tester,
+    ) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_watch', unwatch)],
+        proposalId: 'm-1',
+        host: host,
+      );
+      expect(find.text('DEJAR DE SEGUIR'), findsOneWidget);
+      expect(find.textContaining('Saco AMZN de tu lista'), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Dejar de seguir AMZN'),
+      );
+      await tester.pumpAndSettle();
+      final draft = host.confirmed.single;
+      expect(draft.kind, ActionKind.manage);
+      expect(draft.manageOp, ManageOp.unwatch);
+    });
+
+    testWidgets('done: what changed and a link to the list', (tester) async {
+      final host = _Host();
+      await _pump(
+        tester,
+        calls: [_call('propose_watch', unwatch)],
+        proposalId: 'm-1',
+        host: host,
+        proposals: {
+          'm-1': const ActionProposalProgress(
+            ActionProposalStatus.done,
+            draft: ActionDraft(
+              proposalId: 'm-1',
+              kind: ActionKind.manage,
+              ticker: 'AMZN',
+              manageOp: ManageOp.unwatch,
+            ),
+          ),
+        },
+      );
+      expect(find.text('Hecho'), findsOneWidget);
+      expect(find.text('Ya no seguís AMZN.'), findsOneWidget);
+      await tester.tap(find.text('Ver mi lista'));
+      expect(host.openedWatchlist, 1);
     });
   });
 }

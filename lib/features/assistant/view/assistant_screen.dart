@@ -15,12 +15,19 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_action_sco
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/nav/goals_router.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
@@ -56,6 +63,10 @@ import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
+import 'package:portfolio_assistant/features/assistant/utils/porty_screen_suggestions.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// `true` una vez que el avatar del header hizo su entrada en esta sesión de
 /// la app: volver al chat no la repite. Global (no autoDispose) a propósito.
@@ -73,12 +84,34 @@ const _starterIcons = <String, IconData>{
   'assistant_chip_goal': Icons.flag_outlined,
 };
 
+/// Dónde se muestra el chat: la pestaña de Porty, o una hoja sobre la
+/// pantalla en la que estaba el usuario (`PortyChatSheet`). Es la misma
+/// conversación ([AssistantArgs.session]).
+enum AssistantPresentation { tab, sheet }
+
+/// Si hay un chat abierto como hoja: mientras tanto, la pestaña (montada
+/// debajo) no abre hojas por su cuenta (paywall), así no salen dos.
+final portyChatSheetOpenProvider = StateProvider<bool>((ref) => false);
+
 class AssistantScreen extends StatefulHookConsumerWidget {
-  const AssistantScreen({super.key, this.question});
+  const AssistantScreen({
+    super.key,
+    this.question,
+    this.presentation = AssistantPresentation.tab,
+    this.screen,
+  });
 
   /// Pregunta a enviar apenas se abre el chat (o, si la pestaña ya estaba
   /// montada, cuando llega una nueva — ver [didUpdateWidget]).
   final AssistantQuestionRequest? question;
+
+  final AssistantPresentation presentation;
+
+  /// Como hoja: la pantalla de abajo. Sus preguntas van arriba del campo y
+  /// lo que se escriba acá viaja con ella (`screen_context`).
+  final PortyScreenContext? screen;
+
+  bool get isSheet => presentation == AssistantPresentation.sheet;
 
   @override
   ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
@@ -181,7 +214,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
 
   @override
   void initState() {
-    _args = AssistantArgs(initialQuestion: widget.question?.question);
+    _args = AssistantArgs.session;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -204,8 +237,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     ]).animate(_pulseController);
     _textController.addListener(_handleTextChanged);
     super.initState();
-    _activity = ref.read(assistantProvider(_args).notifier).activity
-      ..addListener(_handleActivity);
+    _activity =
+        ref.read(assistantProvider(_args).notifier).activity
+          ..addListener(_handleActivity);
+    // La conversación es la de la sesión: la pregunta con la que se abrió
+    // entra como una de afuera (si todavía no está lista, la toma
+    // `bootstrap`).
+    if (widget.question case final q?) {
+      ref
+          .read(assistantProvider(_args).notifier)
+          .askFromOutside(q.question, screen: q.screen);
+    }
     if (_playEntrance) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -216,6 +258,47 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     runAfterPostFrameCallback(
       () => ref.read(assistantProvider(_args).notifier).bootstrap(),
     );
+    if (widget.isSheet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openAtLatest());
+    }
+  }
+
+  /// Como hoja, la lista es nueva y arrancaría en el saludo: se abre en lo
+  /// último. Si la pregunta salió justo antes de abrir (con `question`), el
+  /// turno ya empezó y nadie lo vio empezar: se sigue desde acá.
+  void _openAtLatest() {
+    if (!mounted) return;
+    final messages = ref.read(assistantProvider(_args)).messages;
+    final last = messages.lastOrNull;
+    if (last != null && last.isStreaming && last.surfaceId != null) {
+      final questionIndex = messages.length - 2;
+      final question = questionIndex >= 0 ? messages[questionIndex] : null;
+      _followTurn(
+        last.surfaceId!,
+        question?.role == PortfolioQaRole.user
+            ? _tileIdOf(question!, questionIndex)
+            : null,
+      );
+      return;
+    }
+    _jumpToBottom();
+  }
+
+  /// Al fondo, frame a frame hasta que el alto deja de cambiar (la lista
+  /// arma sus filas a medida que bajan y el `maxScrollExtent` crece).
+  void _jumpToBottom([int pass = 0]) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final bottom = position.maxScrollExtent;
+    if ((position.pixels - bottom).abs() >= 1) position.jumpTo(bottom);
+    if (pass >= 8) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_scrollController.position.maxScrollExtent != bottom) {
+        _jumpToBottom(pass + 1);
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   // La pestaña de Porty queda montada en el shell: una pregunta tocada desde
@@ -230,7 +313,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       if (!mounted) return;
       ref
           .read(assistantProvider(_args).notifier)
-          .askFromOutside(request.question);
+          .askFromOutside(request.question, screen: request.screen);
     });
   }
 
@@ -467,9 +550,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     );
   }
 
+  /// Como hoja: ya se preguntó algo desde acá (las preguntas de la pantalla
+  /// dejan de mostrarse).
+  bool _askedFromSheet = false;
+
   Future<void> _submitMessage(AssistantProvider notifier, String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    if (widget.isSheet) {
+      notifier.useScreenForNextQuestion(widget.screen);
+      if (!_askedFromSheet) setState(() => _askedFromSheet = true);
+    }
     // Un resultado tardío del dictado no puede volver a llenar el campo.
     unawaited(ref.read(chatDictationProvider).cancel());
     _textController.clear();
@@ -506,9 +597,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   Future<UserGoal?> _saveGoal(GoalDraft draft) async {
     try {
       final goal = await ref.read(goalsProvider.notifier).save(draft);
-      ref
-          .read(alertProvider.notifier)
-          .showSuccess(message: 'goal_saved'.tr());
+      ref.read(alertProvider.notifier).showSuccess(message: 'goal_saved'.tr());
       return goal;
     } on GoalLimitReached {
       ref
@@ -675,7 +764,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       }
 
       final reason = next.paywallReason;
-      if (reason != null && reason != previous?.paywallReason) {
+      // Con el chat abierto como hoja, la hoja lo muestra: la pestaña no.
+      final sheetOpen = ref.read(portyChatSheetOpenProvider);
+      if (reason != null &&
+          reason != previous?.paywallReason &&
+          widget.isSheet == sheetOpen) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!context.mounted) return;
           SubscriptionPaywallSheet.show(
@@ -688,10 +781,24 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       }
     });
 
+    final sheetQuestions =
+        widget.isSheet && widget.screen != null && !_askedFromSheet
+            ? [
+              for (final q in PortyScreenSuggestions.forScreen(
+                widget.screen!,
+                subscription.tier,
+              ))
+                q.key.tr(namedArgs: q.args),
+            ]
+            : const <String>[];
+
     return Scaffold(
+      // Como hoja, el fondo y las esquinas son los de la hoja.
+      backgroundColor: widget.isSheet ? Colors.transparent : null,
       body: Column(
         children: [
           SafeArea(
+            top: !widget.isSheet,
             bottom: false,
             child: PortyHeader(
               activity: notifier.activity,
@@ -775,7 +882,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                                       onTypingComplete: _openWaitGate,
                                     ),
                           ),
-                        if (state.messages.length <= 1) ...[
+                        // Como hoja con preguntas de la pantalla, esas van
+                        // arriba del campo en lugar de las de siempre.
+                        if (state.messages.length <= 1 &&
+                            sheetQuestions.isEmpty) ...[
                           const SizedBox(height: AppDimens.sp8),
                           FadeSlideIn(
                             skipAnimation: state.introRevealed,
@@ -799,13 +909,35 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                             delay: const Duration(milliseconds: 60),
                             child: AssistantStarterSuggestions(
                               suggestions: [
-                                for (final key in notifier.chipKeys)
+                                // La última charla primero, en lugar de la
+                                // última sugerencia fija (siguen siendo 4).
+                                if (notifier.resumeTopic(
+                                      ref.watch(portyTopicsProvider).topics,
+                                    )
+                                    case final topic?) ...[
                                   (
-                                    label: key.tr(),
-                                    icon:
-                                        _starterIcons[key] ??
-                                        Icons.chat_bubble_outline_rounded,
+                                    label: 'assistant_chip_resume'.tr(
+                                      namedArgs: {'ticker': topic.ticker},
+                                    ),
+                                    icon: Icons.history_rounded,
                                   ),
+                                  for (final key in notifier.chipKeys.take(
+                                    notifier.chipKeys.length - 1,
+                                  ))
+                                    (
+                                      label: key.tr(),
+                                      icon:
+                                          _starterIcons[key] ??
+                                          Icons.chat_bubble_outline_rounded,
+                                    ),
+                                ] else
+                                  for (final key in notifier.chipKeys)
+                                    (
+                                      label: key.tr(),
+                                      icon:
+                                          _starterIcons[key] ??
+                                          Icons.chat_bubble_outline_rounded,
+                                    ),
                               ],
                               onSelected:
                                   state.isWaiting ||
@@ -852,7 +984,23 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                         // tocarlos no baja el teclado (tocar en cualquier
                         // otro lado, sí; ver AssistantComposerField).
                         child: TextFieldTapRegion(
-                          child: Row(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (sheetQuestions.isNotEmpty) ...[
+                                _SheetQuestions(
+                                  questions: sheetQuestions,
+                                  onSelected:
+                                      state.isWaiting ||
+                                              service == null ||
+                                              _isAutoTyping
+                                          ? null
+                                          : (q) => _startAutoType(notifier, q),
+                                ),
+                                const SizedBox(height: AppDimens.sp12),
+                              ],
+                              Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Expanded(
@@ -894,6 +1042,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                               ),
                             ],
                           ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -932,9 +1082,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     if (notice != null) {
       contentKey = const ValueKey('notice');
       content = AssistantQuietNotice(notice: notice);
-    } else if (message.isGenUiSurface &&
-        message.isStreaming &&
-        !waitGateOpen) {
+    } else if (message.isGenUiSurface && message.isStreaming && !waitGateOpen) {
       // El placeholder ya existe en el estado (se agrega junto con el
       // mensaje del usuario), pero visualmente espera a que la burbuja del
       // usuario termine su propio typewriter antes de mostrar a Porty esperando.
@@ -994,6 +1142,22 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                 proposals: ref.watch(assistantProvider(_args)).actionProposals,
                 onConfirm: (draft) async {
                   await notifier.executeAction(draft);
+                  // El idioma necesita el contexto de la pantalla.
+                  final language =
+                      draft.manageTarget.changes[AppSettingKeys.language];
+                  if (language is String &&
+                      mounted &&
+                      ref
+                              .read(assistantProvider(_args))
+                              .actionProgress(draft.proposalId)
+                              .status ==
+                          ActionProposalStatus.done) {
+                    await context.setLocale(
+                      language == 'en'
+                          ? const Locale('en', 'US')
+                          : const Locale('es', 'ES'),
+                    );
+                  }
                   // Recién creada una alerta: sin permiso no sirve (plan de
                   // push §6, el momento de más intención).
                   if (draft.kind != ActionKind.alert || !mounted) return;
@@ -1023,7 +1187,29 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                       sale,
                     ).navigate(context: context),
                 onOpenAlerts:
-                    () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                    () =>
+                        context.pushNamed(NotificationsRouter.alertsRouteName),
+                onOpenWatchlist:
+                    () => context.pushNamed(WatchlistRouter.routeName),
+                onOpenGoal: (id) => GoalsRouter.openDetail(context, id),
+                onOpenGoals: () => context.goNamed(GoalsRouter.routeName),
+                onOpenAllocation:
+                    () => context.pushNamed(AllocationRouter.routeName),
+                onOpenSettings:
+                    ({required bool notifications}) =>
+                        notifications
+                            ? context.pushNamed(
+                              NotificationsRouter.settingsRouteName,
+                            )
+                            : context.goNamed(SettingsRouter.settingsRouteName),
+                onOpenMemory:
+                    () => context.pushNamed(PortyMemoryRouter.routeName),
+                onOpenBroker:
+                    (broker) => context.pushNamed(
+                      broker == 'binance'
+                          ? BinanceRouter.routeName
+                          : EtoroRouter.connectionRouteName,
+                    ),
                 child: PortyVoiceScope(
                   onDoneSpeaking:
                       message.surfaceId == _speakingSurfaceId
@@ -1102,7 +1288,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     // mismo lugar y tamaño que en el mensaje final), y el contenido al lado.
     // El avatar del turno en curso actúa (piensa, habla, sonríe); el resto
     // del historial queda quieto.
-    final live = message.surfaceId != null && message.surfaceId == _turnSurfaceId;
+    final live =
+        message.surfaceId != null && message.surfaceId == _turnSurfaceId;
     final avatar =
         live
             ? ValueListenableBuilder<PortyAvatarState>(
@@ -1140,7 +1327,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
         ),
       };
     } else {
-      body = Padding(padding: const EdgeInsets.only(left: indent), child: content);
+      body = Padding(
+        padding: const EdgeInsets.only(left: indent),
+        child: content,
+      );
     }
     return fade(
       const ValueKey('row'),
@@ -1321,5 +1511,38 @@ class _RenderSizeReporter extends RenderProxyBox {
     _last = h;
     // No se puede llamar setState durante layout.
     WidgetsBinding.instance.addPostFrameCallback((_) => onHeightChanged(h));
+  }
+}
+
+/// Las preguntas de la pantalla de abajo, en una fila que se desliza,
+/// arriba del campo (chat como hoja). Desaparecen al preguntar algo.
+class _SheetQuestions extends StatelessWidget {
+  const _SheetQuestions({required this.questions, required this.onSelected});
+
+  final List<String> questions;
+
+  /// `null` las deshabilita (turno en curso, auto-typing).
+  final ValueChanged<String>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSelected = this.onSelected;
+    return SizedBox(
+      height: AppDimens.touchTarget,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: questions.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppDimens.sp8),
+        itemBuilder:
+            (_, i) => AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: onSelected == null ? 0.5 : 1,
+              child: PortyQuestionPill(
+                question: questions[i],
+                onTap: () => onSelected?.call(questions[i]),
+              ),
+            ),
+      ),
+    );
   }
 }

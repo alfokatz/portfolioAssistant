@@ -4,6 +4,10 @@
 //   RUN_ASSISTANT_EVALS=1 EVAL_PROXY_JWT=<jwt> \
 //     flutter test test/evals/assistant_tool_evals_test.dart
 //
+// EVAL_PROMPT_VARIANT=lean corre con el prompt lean (`PromptVariant.lean`,
+// fase 3 de docs/superpowers/plans/2026-10-24-porty-en-toda-la-app.md);
+// EVAL_PREFIX=research-,goal- corre solo los casos cuyo id empieza así.
+//
 // Pasa por el proxy `ai-chat` igual que la app (la key de OpenAI está en el
 // servidor, nunca acá): por defecto el local de `supabase functions serve`
 // (EVAL_PROXY_URL para otro), con el JWT de un usuario de prueba
@@ -18,6 +22,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
@@ -26,6 +31,8 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:dartz/dartz.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/yahoo_company_profile_client.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/fundamentals_fetcher.dart';
@@ -44,10 +51,12 @@ import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.d
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 
 import '../features/assistant/fakes/assistant_fakes.dart';
@@ -103,14 +112,27 @@ class _Case {
     this.check, {
     this.tier = SubscriptionTier.gold,
     this.weeklyFree = false,
+    this.screen,
+    this.plan = _evalPlan,
+    this.topics = const [],
   });
 
   final String id;
   final List<String> turns;
   final SubscriptionTier tier;
 
+  /// La pantalla desde donde se abrió el chat con el primer turno (como
+  /// `askFromOutside(screen:)` en la app): `screen_context` en el brief.
+  final PortyScreenContext? screen;
+
   /// El usuario tiene disponible el análisis Gold de cortesía de la semana.
   final bool weeklyFree;
+
+  /// Su plan de cartera (`get_allocation_plan`).
+  final AllocationPlan plan;
+
+  /// De qué tickers habló en charlas anteriores: `recent_topics` en el brief.
+  final List<PortyTopic> topics;
 
   /// Devuelve la lista de problemas (vacía = pasa) del ÚLTIMO turno.
   final List<String> Function(_TurnLog last, List<_TurnLog> all) check;
@@ -119,7 +141,12 @@ class _Case {
 class _TurnLog {
   final calls = <ToolCallRecord>[];
   final components = <String>[];
+
+  /// Respuesta cruda del modelo (incluye el JSON de A2UI).
   String text = '';
+
+  /// Solo lo que el usuario lee en los QaAnswerText, para medir largos.
+  String answerText = '';
 
   /// Propiedades del QaCompanyAnalysis TAL COMO SE MUESTRA (post-proceso).
   Map<String, Object?>? analysis;
@@ -158,6 +185,10 @@ class _TurnLog {
   Object? aborted;
   int ms = 0;
 
+  /// Rondas cortadas por el tope de tokens de salida (`finish_reason:
+  /// length`).
+  int truncatedRounds = 0;
+
   bool called(String name, [bool Function(Map<String, Object?> args)? where]) =>
       calls.any((c) => c.name == name && (where == null || where(c.args)));
 
@@ -175,6 +206,10 @@ class _TurnLog {
 }
 
 List<String> _expect(bool ok, String problem) => ok ? const [] : [problem];
+
+/// Plan fijo de los casos plan-* y rebalance-*: AAPL 70 / NVDA 30 contra
+/// una cartera 50/50 (AAPL queda 20 puntos abajo).
+const _evalPlan = AllocationPlan(targets: {'AAPL': 70, 'NVDA': 30});
 
 List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
   ..._expect(
@@ -205,7 +240,8 @@ List<String> _analysisOf(_TurnLog t, String ticker, {bool allTools = true}) => [
   ..._expect(t.quotaWeight == 1, 'cuota ${t.quotaWeight}, no 1'),
 ];
 
-/// Búsqueda de símbolos fija para los casos de acciones: "Apple" → AAPL;
+/// Búsqueda de símbolos fija para los casos de acciones: "Apple" → AAPL,
+/// "Amazon" → AMZN (dejar de seguir);
 /// "Alphabet" es ambigua a propósito (GOOGL / GOOG, dos clases de acción).
 class _Symbols extends FakeSymbolSearchRepository {
   static const _byName = <String, List<SymbolSearchResult>>{
@@ -214,6 +250,12 @@ class _Symbols extends FakeSymbolSearchRepository {
     ],
     'microsoft': [
       SymbolSearchResult(symbol: 'MSFT', description: 'MICROSOFT CORP', type: 'Common Stock'),
+    ],
+    'amazon': [
+      SymbolSearchResult(symbol: 'AMZN', description: 'AMAZON.COM INC', type: 'Common Stock'),
+    ],
+    'netflix': [
+      SymbolSearchResult(symbol: 'NFLX', description: 'NETFLIX INC', type: 'Common Stock'),
     ],
     'nvidia': [
       SymbolSearchResult(symbol: 'NVDA', description: 'NVIDIA CORP', type: 'Common Stock'),
@@ -1095,6 +1137,441 @@ final _cases = <_Case>[
       ..._expect(t.aborted != null, 'esperaba paywall (short-circuit)'),
     ],
   ),
+  // ── Plan de cartera y lista de seguimiento (piloto de answer_guide) ──
+  // Mismos casos antes y después de mover las reglas al resultado de la
+  // tool: comparar pasadas y tokens (ver
+  // docs/superpowers/research/2026-10-16-prompt-escalable.md).
+  _Case(
+    'plan-drift',
+    ['¿Me alejé de mi plan de cartera?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_allocation_plan'), 'no leyó el plan: $t'),
+      ..._expect(
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
+      ),
+      ..._expect(
+        t.text.contains('AAPL') || t.text.contains('NVDA'),
+        'no nombró el mayor desvío',
+      ),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+    ],
+  ),
+  _Case(
+    'plan-contribution',
+    ['¿Cómo reparto 1000 dólares para acercarme a mi plan?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('get_allocation_plan', (a) => a['contribution_usd'] == 1000),
+        'no pidió el reparto de 1000: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
+      ),
+      ..._expect(t.text.contains('AAPL'), 'falta el ticker que necesita el aporte'),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+      ..._expect(
+        RegExp(r'acerc', caseSensitive: false).hasMatch(t.text),
+        'no habló de acercarse al plan',
+      ),
+    ],
+  ),
+  _Case(
+    'plan-free-locked',
+    ['¿Me alejé de mi plan de cartera?'],
+    tier: SubscriptionTier.free,
+    (t, _) => [
+      ..._expect(
+        '${t.aborted}' == '${PaywallReason.modeLocked}',
+        'esperaba el paywall de Premium, fue ${t.aborted}',
+      ),
+    ],
+  ),
+  _Case(
+    'watchlist-list',
+    ['¿Cómo vienen las acciones que sigo?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_watchlist'), 'no leyó la lista: $t'),
+      ..._expect(
+        t.components.contains('QaWatchlist'),
+        'sin la card de la lista: ${t.components}',
+      ),
+    ],
+  ),
+  _Case(
+    'watchlist-add',
+    ['Seguí Microsoft'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('propose_watch', (a) => '${a['ticker']}'.toUpperCase() == 'MSFT'),
+        'no propuso seguir MSFT: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaActionProposal'),
+        'sin la card para confirmar: ${t.components}',
+      ),
+      ..._expect(t.answerText.length < 220, 'respuesta larga: ${t.answerText}'),
+    ],
+  ),
+  _Case(
+    'watchlist-add-held',
+    ['Agregá Apple a mi lista de seguimiento'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        RegExp(r'alerta', caseSensitive: false).hasMatch(t.text),
+        'no ofreció una alerta para lo que ya tiene: ${t.text}',
+      ),
+    ],
+  ),
+  // ── Porty sabe todo lo de la app ─────────────────────────────────────
+  _Case(
+    'know-weekly-report',
+    ['¿Qué dice mi informe semanal?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_weekly_report'), 'no leyó el informe: $t'),
+      ..._expect(
+        t.components.contains('QaWeeklyReport'),
+        'sin la card del informe: ${t.components}',
+      ),
+    ],
+  ),
+  _Case(
+    'know-alerts-list',
+    ['¿Qué alertas de precio tengo?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('list_price_alerts'), 'no leyó las alertas: $t'),
+      ..._expect(
+        t.components.contains('QaInfoList'),
+        'sin la card genérica: ${t.components}',
+      ),
+    ],
+  ),
+  _Case(
+    'know-queries-left',
+    ['¿Cuántas consultas me quedan este mes?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called('get_app_settings'), 'no leyó la cuenta: $t'),
+      ..._expect(t.text.contains('380'), 'no dijo cuántas le quedan: ${t.text}'),
+    ],
+  ),
+  // ── Porty hace todo lo de la app (propose_* con card) ────────────────
+  ..._actionCase(
+    'unfollow',
+    'Dejá de seguir Amazon',
+    'propose_watch',
+    (a) => a['action'] == 'unfollow',
+  ),
+  ..._actionCase(
+    'alert-delete',
+    'Borrá mi alerta de VOO',
+    'propose_alert_change',
+    (a) => a['change'] == 'delete',
+  ),
+  ..._actionCase(
+    'allocation-set',
+    'Quiero que mi plan de cartera sea 60% VOO y 40% BND',
+    'propose_allocation_plan',
+    (a) => (a['targets'] as List?)?.length == 2,
+  ),
+  ..._actionCase(
+    'settings-dark',
+    'Poné la app en modo oscuro y no me avises más de resultados',
+    'propose_settings_change',
+    (a) => a['theme'] == 'dark' && a['notify_earnings'] == false,
+  ),
+  ..._actionCase(
+    'broker-sync',
+    'Actualizá mi cuenta de eToro',
+    'propose_broker_action',
+    (a) => a['broker'] == 'etoro' && a['action'] == 'sync',
+  ),
+  // screen_context (fase 1 de "Porty en toda la app"): la pregunta llega
+  // desde una pantalla y no nombra lo que el usuario está mirando.
+  _Case(
+    'screen-position-why',
+    ['¿Por qué bajó?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(
+        t.tickersOf('get_news').contains('NVDA') ||
+            t.tickersOf('get_quote').contains('NVDA'),
+        'no buscó NVDA: $t',
+      ),
+      ..._expect(
+        !t.tickersOf('get_news').contains('AAPL'),
+        'buscó AAPL, que no es la pantalla: $t',
+      ),
+      ..._expect(
+        !RegExp(r'¿(de )?(qué|cuál) (acción|ticker|empresa)', caseSensitive: false)
+            .hasMatch(t.answerText),
+        'preguntó de qué acción: ${t.answerText}',
+      ),
+      ..._expect(
+        !RegExp(r'estás (en|mirando)|veo que', caseSensitive: false)
+            .hasMatch(t.answerText),
+        'mencionó la pantalla: ${t.answerText}',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-position-weight-free',
+    ['¿Cuánto pesa en mi cartera?'],
+    tier: SubscriptionTier.free,
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(t.answerText.contains('NVDA'), 'no habló de NVDA: ${t.answerText}'),
+      ..._expect(
+        RegExp(r'50\s?%|la mitad').hasMatch(t.answerText),
+        'no dijo que pesa 50%: ${t.answerText}',
+      ),
+      ..._expect(
+        !t.calls.any((c) => c.status == 'locked'),
+        'pidió algo bloqueado en Free: $t',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-other-ticker-wins',
+    ['¿Cómo viene AAPL esta semana?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => [
+      ..._expect(t.answerText.contains('AAPL'), 'no habló de AAPL: ${t.answerText}'),
+      ..._expect(
+        !t.tickersOf('get_quote').contains('NVDA') &&
+            !t.tickersOf('get_news').contains('NVDA'),
+        'usó NVDA en vez de lo que preguntó: $t',
+      ),
+    ],
+  ),
+  _Case(
+    'screen-followup-same-ticker',
+    ['¿Por qué bajó?', '¿Y cómo están sus fundamentales?'],
+    screen: const PortyScreenContext.position('NVDA'),
+    (t, _) => _expect(
+      t.tickersOf('get_fundamentals').contains('NVDA'),
+      'el seguimiento no fue sobre NVDA: $t',
+    ),
+  ),
+  // recent_topics (fase 4): retomar lo que charlaron, sin inventarlo.
+  _Case(
+    'topics-resume',
+    ['¿Qué pasó con la que te pregunté la semana pasada?'],
+    tier: SubscriptionTier.premium,
+    topics: [
+      PortyTopic(
+        ticker: 'AMZN',
+        question: '¿Cómo viene Amazon?',
+        lastAskedAt: DateTime.now().subtract(const Duration(days: 7)),
+        priceAt: 182,
+      ),
+      PortyTopic(
+        ticker: 'TSLA',
+        question: '¿Por qué bajó Tesla?',
+        lastAskedAt: DateTime.now().subtract(const Duration(days: 22)),
+        priceAt: 240,
+      ),
+    ],
+    (t, _) => [
+      ..._expect(t.tickersOf('get_quote').contains('AMZN'), 'no trajo AMZN: $t'),
+      ..._expect(
+        !t.tickersOf('get_quote').contains('TSLA'),
+        'trajo TSLA, que no es de la semana pasada: $t',
+      ),
+      // El precio de hoy en los fakes es 150 para todo.
+      ..._expect(
+        t.answerText.contains('182') && t.answerText.contains('150'),
+        'no dijo los dos precios: ${t.answerText}',
+      ),
+      // 150 vs 182: -32 dólares, -17,6%.
+      ..._expect(
+        !RegExp(r'1[78]([,.]\d+)?\s?%|\b32\b').hasMatch(t.answerText),
+        'calculó el cambio desde entonces: ${t.answerText}',
+      ),
+    ],
+  ),
+  _Case(
+    'topics-no-invent',
+    ['¿Qué pasó con la que te pregunté la semana pasada?'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.tickersOf('get_quote').isEmpty && t.tickersOf('get_news').isEmpty,
+        'inventó un ticker: $t',
+      ),
+      ..._expect(t.answerText.contains('?'), 'no preguntó cuál: ${t.answerText}'),
+    ],
+  ),
+  // Rebalanceo guiado (fase 6): primero el reparto del aporte (solo
+  // compras), nunca vender ni anotar compras que no hizo.
+  _Case(
+    'rebalance-guided',
+    ['¿Cómo rebalanceo?'],
+    tier: SubscriptionTier.premium,
+    // Sin monto en la pregunta: usa el de su recordatorio de aporte.
+    plan: const AllocationPlan(
+      targets: {'AAPL': 70, 'NVDA': 30},
+      contributionDay: 5,
+      contributionAmount: 300,
+    ),
+    // Sobre el texto crudo, como plan-*: la frase que repite un número de
+    // la card no se muestra (`AssistantAnswerReview`).
+    (t, _) {
+      final sell = RegExp(r'vend', caseSensitive: false).firstMatch(t.text);
+      final buy = RegExp(r'compr|aport', caseSensitive: false).firstMatch(t.text);
+      return [
+        ..._expect(t.called('get_allocation_plan'), 'no leyó el plan: $t'),
+        ..._expect(
+          t.components.contains('QaAllocationPlan'),
+          'sin la card del plan: ${t.components}',
+        ),
+        ..._expect(t.text.contains('AAPL'), 'no nombró lo que está bajo'),
+        ..._expect(
+          buy != null && (sell == null || buy.start < sell.start),
+          'no propuso comprar con el aporte antes de vender: ${t.text}',
+        ),
+        ..._expect(
+          !t.calls.any((c) => _actionTools.contains(c.name)),
+          'propuso una operación que no hizo: $t',
+        ),
+        ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+      ];
+    },
+  ),
+  _Case(
+    'rebalance-contribution',
+    ['Tengo 500 para invertir este mes'],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(
+        t.called('get_allocation_plan', (a) => a['contribution_usd'] == 500),
+        'no pidió el reparto de 500: $t',
+      ),
+      ..._expect(
+        t.components.contains('QaAllocationPlan'),
+        'sin la card del plan: ${t.components}',
+      ),
+      ..._expect(t.text.contains('AAPL'), 'no lo mandó a lo que está bajo'),
+      ..._expect(
+        !t.calls.any((c) => _actionTools.contains(c.name)),
+        'anotó compras que no hizo: $t',
+      ),
+      ..._expect(!_adviceRe.hasMatch(t.text), 'dio un consejo: ${t.text}'),
+    ],
+  ),
+];
+
+/// Cada atajo que ofrece una card del chat (`QaFollowUp('label',
+/// 'pregunta')` en `lib/features/assistant/catalog`), leído del código: si
+/// se suma una card con un atajo nuevo, entra solo. Porty tiene que
+/// contestar de verdad: sin error, sin rendirse y con texto. Lo que diga
+/// depende del contexto (varios atajos suponen una card previa), así que no
+/// se exige una tool en particular.
+List<_Case> _followUpCases() {
+  final questions = <String>{};
+  final chip = RegExp(r"QaFollowUp\(\s*'([^']+)',\s*'([^'$]+)'");
+  for (final f in Directory('lib/features/assistant/catalog')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'))) {
+    for (final m in chip.allMatches(f.readAsStringSync())) {
+      questions.add(m.group(2)!);
+    }
+  }
+  final sorted = questions.toList()..sort();
+  return [
+    for (final (i, q) in sorted.indexed)
+      _Case(
+        'chip-${i + 1}',
+        [q],
+        tier: SubscriptionTier.premium,
+        (t, _) => [
+          ..._expect(
+            t.answerText.trim().isNotEmpty,
+            'no contestó nada a "$q"',
+          ),
+        ],
+      ),
+  ];
+}
+
+/// Pedidos incompletos: Porty pregunta lo que falta (o lo resuelve) y con
+/// la respuesta del usuario lo hace.
+final _vagueCases = <_Case>[
+  for (final (id, turns, tool, argsOk) in [
+    (
+      'follow-other',
+      // AMZN ya está en la lista de prueba: Netflix es una nueva.
+      ['Quiero seguir otra acción', 'Netflix'],
+      'propose_watch',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NFLX',
+    ),
+    (
+      'alert-which',
+      ['Quiero crear una alerta de precio', 'Para NVDA si baja un 10%'],
+      'propose_price_alert',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NVDA',
+    ),
+    (
+      'sell-which',
+      ['Quiero registrar una venta', 'Vendí todas mis NVDA hoy'],
+      'propose_sell',
+      (Map<String, Object?> a) => '${a['ticker']}'.toUpperCase() == 'NVDA',
+    ),
+  ])
+    _Case(
+      'vague-$id',
+      turns,
+      tier: SubscriptionTier.premium,
+      (t, all) => [
+        ..._expect(
+          all.first.answerText.trim().isNotEmpty,
+          'no contestó el pedido incompleto',
+        ),
+        ..._expect(t.called(tool, argsOk), 'no lo hizo con la respuesta: $t'),
+        ..._expect(
+          t.components.contains('QaActionProposal'),
+          'sin la card para confirmar: ${t.components}',
+        ),
+      ],
+    ),
+];
+
+/// Un pedido de acción: llama a [tool] con lo esperado, muestra la card y
+/// no dice que ya lo hizo.
+List<_Case> _actionCase(
+  String id,
+  String question,
+  String tool,
+  bool Function(Map<String, Object?> args) argsOk,
+) => [
+  _Case(
+    'action-$id',
+    [question],
+    tier: SubscriptionTier.premium,
+    (t, _) => [
+      ..._expect(t.called(tool, argsOk), 'no llamó $tool como esperaba: $t'),
+      ..._expect(
+        t.components.contains('QaActionProposal'),
+        'sin la card para confirmar: ${t.components}',
+      ),
+      ..._expect(
+        !RegExp(
+          r'\b(listo|hecho|ya (lo|la) (borré|cambié|actualicé))\b',
+          caseSensitive: false,
+        ).hasMatch(t.text),
+        'dijo que ya lo hizo: ${t.text}',
+      ),
+    ],
+  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -1340,13 +1817,29 @@ void main() {
           newsContext: NewsContextClient(client: edge),
         );
       }
-      final cases = newsV2 ? _newsV2Cases : _cases;
+      // EVAL_SUITE=followups: los atajos de todas las cards y los pedidos
+      // incompletos (aparte: la batería normal ya usa casi todo el cupo
+      // diario del usuario de prueba).
+      final followUps = Platform.environment['EVAL_SUITE'] == 'followups';
+      final cases =
+          newsV2
+              ? _newsV2Cases
+              : followUps
+              ? [..._followUpCases(), ..._vagueCases]
+              : _cases;
       final report = <Map<String, Object?>>[];
       var failures = 0;
 
       final only = Platform.environment['EVAL_ONLY'];
+      final prefixes = Platform.environment['EVAL_PREFIX']?.split(',');
+      final variant =
+          Platform.environment['EVAL_PROMPT_VARIANT'] == 'lean'
+              ? PromptVariant.lean
+              : PromptVariant.classic;
       for (final c in cases.where(
-        (c) => only == null || only.split(',').contains(c.id),
+        (c) =>
+            (only == null || only.split(',').contains(c.id)) &&
+            (prefixes == null || prefixes.any(c.id.startsWith)),
       )) {
         // EVAL_CASE_DELAY_S: pausa entre casos para no chocar con el límite
         // de tokens por minuto de la key (sin esto, las latencias medidas
@@ -1360,6 +1853,7 @@ void main() {
           proxy: proxy,
           model: env['OPENAI_MODEL'] ?? 'gpt-6-luna',
           httpClient: recorder,
+          variant: variant,
         );
         // Una por caso, como en la app (vive toda la conversación): los
         // casos de varios turnos necesitan el plan del turno anterior.
@@ -1401,9 +1895,17 @@ void main() {
                 );
         final logs = <_TurnLog>[];
         var courtesyLeft = c.weeklyFree;
+        // Como la app: la acción que un turno deja a medias viaja en el
+        // brief del siguiente (`pending_request`).
+        Map<String, Object?>? pending;
         for (var i = 0; i < c.turns.length; i++) {
           final log = _TurnLog();
           final ctx = AssistantToolContext(
+            pendingRequest: pending,
+            screenContext:
+                i < PortyScreenContext.maxTurns
+                    ? c.screen?.toBrief(turnsAgo: i)
+                    : null,
             tier: c.tier,
             summary: heldSummary,
             data: caseData,
@@ -1417,6 +1919,57 @@ void main() {
                   updatedAt: DateTime.now(),
                 ),
             deleteMemory: (_) async {},
+            recentTopics: [
+              for (final topic in c.topics) topic.toBrief(DateTime.now()),
+            ],
+            // Lista fija para los casos watchlist-*.
+            loadAllocationPlan: () async => c.plan,
+            loadWatchlist:
+                () async => [
+                  {
+                    'ticker': 'AMZN',
+                    'price': 182.5,
+                    'day_change_pct': -1.8,
+                    'since_added_pct': 6.4,
+                    'alerts_on': true,
+                  },
+                ],
+            loadPriceAlerts:
+                () async => [
+                  {
+                    'id': 'alert-voo',
+                    'symbol': 'VOO',
+                    'condition': 'above',
+                    'target': 750,
+                    'status': 'active',
+                  },
+                ],
+            loadAppSettings:
+                () async => {
+                  'theme': 'system',
+                  'notify_earnings': true,
+                  'currency': 'USD',
+                },
+            loadConnectedAccounts:
+                () async => {'etoro': 'connected', 'binance': 'not_connected'},
+            loadAccountOverview:
+                () async => {
+                  'plan': 'premium',
+                  'queries_used_this_month': 120,
+                  'queries_limit_this_month': 500,
+                },
+            loadWeeklyReport:
+                () async => {
+                  'week': '2026-10-19',
+                  'change_pct': 2.4,
+                  'change_abs': 312.5,
+                  'value_end': 13350,
+                  'movers': [
+                    {'ticker': 'NVDA', 'pct': 6.1},
+                    {'ticker': 'AAPL', 'pct': -1.2},
+                  ],
+                  'reading': 'Semana buena, empujada por NVDA.',
+                },
           );
           final courtesy = WeeklyFreeAnalysisGrant(
             ctx: ctx,
@@ -1440,22 +1993,41 @@ void main() {
               beforeRound: courtesy.beforeRound,
             );
             log.calls.addAll(outcome.toolCalls);
+            pending = AssistantTurnPolicy.pendingRequest(outcome);
             log.quotaWeight = AssistantTurnPolicy.quotaWeight(outcome);
             log.evidence = service.evidenceFor(surfaceId);
             final raw = service.log.currentTurn?.finalText ?? '';
             log.text = raw;
+            log.truncatedRounds =
+                service.log.currentTurn?.truncatedRounds ?? 0;
+            // EVAL_DUMP_DIR: guarda la respuesta cruda de los turnos que
+            // llegaron al tope de salida, para ver en qué se desbocó.
+            final dumpDir = Platform.environment['EVAL_DUMP_DIR'];
+            if (log.truncatedRounds > 0 && dumpDir != null) {
+              Directory(dumpDir).createSync(recursive: true);
+              File('$dumpDir/${c.id}_$i.txt').writeAsStringSync(raw);
+            }
             // Lo que ve el usuario: la surface ya despachada (post normalizer
             // y guard de layout), no el texto crudo del modelo.
             final surface = service.controller.registry.getSurface(surfaceId);
             final root = surface?.components['root'];
             if (root != null) {
               log.components.add(root.type);
+              // El fallback de la app es un Text suelto en la raíz.
+              final rootText = root.properties['text'];
+              if (root.type == 'Text' && rootText is String) {
+                log.answerText += rootText;
+              }
               final children = root.properties['children'];
               if (children is List) {
                 for (final id in children) {
                   final component = surface!.components['$id'];
                   final type = component?.type;
                   if (type != null) log.components.add(type);
+                  final shown = component?.properties['text'];
+                  if (type == 'QaAnswerText' && shown is String) {
+                    log.answerText += shown;
+                  }
                   if (type == 'QaCompanyAnalysis') {
                     log.analysis = Map<String, Object?>.from(
                       component!.properties,
@@ -1489,6 +2061,13 @@ void main() {
           // negativos — "no propuso nada" — pasaban con el turno caído).
           for (final l in logs)
             if (l.aborted is String) '${l.aborted}',
+          // Porty nunca se rinde: el mensaje genérico de error cuenta como
+          // falla en TODOS los casos (si falta un dato, tiene que preguntar).
+          for (final l in logs)
+            if ('${l.text}${l.answerText}'.contains(
+              LlmJsonSanitizer.defaultFallbackMessage,
+            ))
+              'se rindió: "${LlmJsonSanitizer.defaultFallbackMessage}"',
           ...c.check(logs.last, logs),
         ];
         // Regla de LAYOUT: como máximo un widget de datos (QaNewsSummary puede
@@ -1505,12 +2084,17 @@ void main() {
         final usage = recorder.usages;
         report.add({
           'id': c.id,
+          'prompt_variant': variant.name,
           'pass': problems.isEmpty,
           'problems': problems,
           'layout_ok': layoutOk,
           'turns': [for (final l in logs) l.toString()],
           'requests': usage.length,
           'http_statuses': recorder.statuses,
+          'truncated_rounds': logs.fold<int>(
+            0,
+            (s, l) => s + l.truncatedRounds,
+          ),
           'prompt_tokens': usage.fold<int>(
             0,
             (s, u) => s + (u['prompt_tokens'] as int? ?? 0),
@@ -1542,7 +2126,7 @@ void main() {
         ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report));
       }
       // ignore: avoid_print
-      print('EVALS: ${_cases.length - failures}/${_cases.length} passed');
+      print('EVALS: ${report.length - failures}/${report.length} passed');
     },
     skip:
         enabled

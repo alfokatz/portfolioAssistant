@@ -22,6 +22,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_p
 import 'package:portfolio_assistant/features/goals/view/goal_actions.dart';
 import 'package:portfolio_assistant/features/goals/view/goal_detail_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 class _Goals extends GoalsNotifier {
   _Goals(List<UserGoal> goals) : super(GoalsRepository(client: () => null)) {
@@ -130,7 +131,15 @@ void main() {
       'their detail, the rest do not', (tester) async {
     await pumpGoalDetail(tester, goal: goalFixture(), holdings: {'VT': 300});
 
-    final avatars = tester.widgetList<PortyAvatar>(find.byType(PortyAvatar));
+    // Los de la pantalla (el de la barra es la píldora "Preguntale").
+    final inBar = find.descendant(
+      of: find.byType(PortyAskButton),
+      matching: find.byType(PortyAvatar),
+    );
+    expect(inBar, findsOneWidget);
+    final avatars = tester
+        .widgetList<PortyAvatar>(find.byType(PortyAvatar))
+        .where((a) => !tester.widgetList<PortyAvatar>(inBar).contains(a));
     expect(avatars.first.state, PortyAvatarState.concerned);
     // "Preguntarle a Porty" lleva a Porty, no un ícono de chat.
     expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsNothing);

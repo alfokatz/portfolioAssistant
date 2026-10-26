@@ -42,6 +42,10 @@ enum PlanFeature {
   /// Conectar la cuenta de eToro (solo lectura) y que la cartera se
   /// actualice sola. El servidor (etoro-sync) también lo exige.
   brokerSync,
+
+  /// Plan de cartera: asignación objetivo, desvío y cómo repartir el
+  /// próximo aporte. La base también lo exige (`allocation_plans`).
+  allocationPlan,
 }
 
 /// Un plan: qué incluye, sus límites y cómo se presenta.
@@ -51,6 +55,7 @@ class PlanSpec {
     required this.monthlyQueries,
     required this.positionLimit,
     required this.priceAlertLimit,
+    required this.watchlistLimit,
     required this.highlights,
     this.extraMarketingKeys = const [],
   });
@@ -68,6 +73,10 @@ class PlanSpec {
   /// en Supabase, que es el que manda (un trigger corta con
   /// `alert_limit_reached`).
   final int priceAlertLimit;
+
+  /// Tickers en la lista de seguimiento. Espejo de `plan_limits.watchlist`
+  /// en Supabase, que es el que manda (`watchlist_limit_reached`).
+  final int watchlistLimit;
 
   /// Qué se destaca en el paywall y en la pantalla de suscripción, en orden.
   /// Solo lo NUEVO respecto del plan de abajo (el de arriba incluye todo).
@@ -95,6 +104,7 @@ abstract final class PlanMatrix {
     PlanFeature.goals,
     PlanFeature.portfolioActions,
     PlanFeature.brokerSync,
+    PlanFeature.allocationPlan,
   };
 
   static const _gold = {
@@ -112,6 +122,8 @@ abstract final class PlanMatrix {
       positionLimit: 10,
       // Una, para conocer la feature (decisión D1 del plan de push).
       priceAlertLimit: 1,
+      // Precios de lo que no tiene: Premium.
+      watchlistLimit: 0,
       highlights: [PlanFeature.ownPortfolio],
     ),
     SubscriptionTier.premium: PlanSpec(
@@ -119,12 +131,14 @@ abstract final class PlanMatrix {
       monthlyQueries: 500,
       positionLimit: null,
       priceAlertLimit: 20,
+      watchlistLimit: 30,
       highlights: [
         PlanFeature.marketData,
         PlanFeature.investSimulation,
         PlanFeature.goals,
         PlanFeature.benchmark,
         PlanFeature.brokerSync,
+        PlanFeature.allocationPlan,
       ],
       // Free tiene 1 alerta; Premium, 20 (ver priceAlertLimit). No es una
       // PlanFeature porque no se bloquea: cambia el tope.
@@ -135,6 +149,7 @@ abstract final class PlanMatrix {
       monthlyQueries: 1000,
       positionLimit: null,
       priceAlertLimit: 50,
+      watchlistLimit: 100,
       highlights: [
         PlanFeature.companyAnalysis,
         PlanFeature.news,
@@ -175,6 +190,7 @@ abstract final class PlanMatrix {
     PlanFeature.earnings => 'plan_feature_earnings',
     PlanFeature.fundamentals => 'plan_feature_fundamentals',
     PlanFeature.brokerSync => 'plan_feature_broker_sync',
+    PlanFeature.allocationPlan => 'plan_feature_allocation_plan',
   };
 
   /// Claves de marketing del plan, en el orden en que se muestran.
