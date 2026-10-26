@@ -1474,9 +1474,9 @@
   "statement_import_way_file_body": "Your holdings list or account statement, as CSV or PDF. CSV doesn't use queries.",
   "statement_import_way_screenshot_title": "A screenshot",
   "statement_import_way_screenshot_body": "Of the screen in your investing app that shows your holdings. Uses 1 query.",
-  "statement_import_way_write_title": "Write it",
-  "statement_import_way_write_body": "However you like: \"10 VOO, $2000 in QQQ and some NVDA\". Uses 1 query.",
-  "statement_import_note_porty": "Tell me what you own, however you like. You'll review it before saving.",
+  "statement_import_way_write_title": "Write it or say it",
+  "statement_import_way_write_body": "However you like, typed or with the mic: \"10 VOO, $2000 in QQQ and some NVDA\". Uses 1 query.",
+  "statement_import_note_porty": "Tell me what you own, however you like: write it or say it. You'll review it before saving.",
   "statement_import_note_hint": "10 VOO, $2000 in QQQ and some NVDA",
   "statement_import_note_cost": "I read it with AI: it uses 1 query from your plan.",
   "statement_import_note_send": "Let Porty read it",
@@ -1499,7 +1499,10 @@
   "onboarding_bring_etoro_semantics": "Bring it from eToro",
   "onboarding_bring_etoro_body": "Free the first time. Read only.",
   "onboarding_bring_write_title": "Tell Porty what you own",
-  "onboarding_bring_write_body": "\"10 VOO and some NVDA\": however you like.",
+  "onboarding_bring_write_body": "Write it or tell me: \"10 VOO and some NVDA\".",
   "onboarding_bring_manual_title": "Add it by hand",
-  "onboarding_bring_manual_body": "Ticker, quantity and date. The price fills in by itself."
+  "onboarding_bring_manual_body": "Ticker, quantity and date. The price fills in by itself.",
+  "statement_import_note_listening": "I'm listening. Tell me what you own and how much of each.",
+  "statement_import_note_mic": "Tap the mic to tell me.",
+  "statement_import_note_mic_stop": "Tap again when you're done."
 }

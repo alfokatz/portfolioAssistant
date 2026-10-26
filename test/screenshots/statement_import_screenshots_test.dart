@@ -333,7 +333,7 @@ void main() {
     'note_sheet': (
       client: _Client(),
       act: (n, t) async {
-        await t.tap(find.text('Escribilo'));
+        await t.tap(find.text('Escribilo o decilo'));
         await t.pump(const Duration(milliseconds: 400));
         await t.enterText(
           find.byType(TextField),

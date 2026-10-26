@@ -5,7 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/services/chat_dictation.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
@@ -323,10 +325,11 @@ class _Intro extends ConsumerWidget {
   }
 }
 
-/// "Escribilo": Porty pide la cartera como le salga ("10 VOO, 2000 dólares
-/// en QQQ y algo de NVDA") y después sale la misma vista previa para
-/// revisar. Devuelve el texto o `null` si cerró la hoja.
-class _NoteSheet extends StatefulWidget {
+/// "Escribilo o decilo": Porty pide la cartera como le salga ("10 VOO,
+/// 2000 dólares en QQQ y algo de NVDA"), escrita o dictada con el
+/// micrófono (el mismo dictado del chat), y después sale la misma vista
+/// previa para revisar. Devuelve el texto o `null` si cerró la hoja.
+class _NoteSheet extends ConsumerStatefulWidget {
   const _NoteSheet();
 
   static Future<String?> show(BuildContext context) =>
@@ -338,28 +341,73 @@ class _NoteSheet extends StatefulWidget {
       );
 
   @override
-  State<_NoteSheet> createState() => _NoteSheetState();
+  ConsumerState<_NoteSheet> createState() => _NoteSheetState();
 }
 
-class _NoteSheetState extends State<_NoteSheet> {
+class _NoteSheetState extends ConsumerState<_NoteSheet> {
   final _controller = TextEditingController();
+
+  /// El dictado es el del chat: el plugin de voz es uno solo por app, y
+  /// mientras esta hoja está abierta el chat no escucha.
+  late final ChatDictation _dictation;
 
   @override
   void initState() {
     super.initState();
+    // Acá y no perezoso: en `dispose` ya no se puede usar `ref`.
+    _dictation = ref.read(chatDictationProvider);
     _controller.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    // Lo que llegue tarde del reconocedor no vuelve a escribir nada.
+    _dictation.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleDictation() async {
+    PortyHapticsService.maybeOf(context)?.selectionTap();
+    if (_dictation.isListening) {
+      await _dictation.stop();
+      return;
+    }
+    final current = _controller.text.trim();
+    final prefix = current.isEmpty ? '' : '$current ';
+    final failure = await _dictation.start(
+      languageCode: Localizations.localeOf(context).languageCode,
+      onText: (words) {
+        if (!mounted) return;
+        final text = '$prefix$words';
+        _controller.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      },
+    );
+    if (!mounted || failure == null) return;
+    setState(
+      () =>
+          _micError =
+              failure == DictationFailure.permission
+                  ? 'assistant_mic_permission'.tr()
+                  : 'assistant_mic_unavailable'.tr(),
+    );
+  }
+
+  String? _micError;
+
+  Future<void> _send(String text) async {
+    await _dictation.cancel();
+    if (mounted) Navigator.of(context).pop(text);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
+    final listening = ref.watch(chatDictationProvider).isListening;
     final text = _controller.text.trim();
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -373,8 +421,13 @@ class _NoteSheetState extends State<_NoteSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PortySays(
-            messageKey: 'note',
-            message: Text('statement_import_note_porty'.tr()),
+            messageKey: listening,
+            mood: listening ? PortyAvatarState.thinking : PortyAvatarState.idle,
+            message: Text(
+              listening
+                  ? 'statement_import_note_listening'.tr()
+                  : 'statement_import_note_porty'.tr(),
+            ),
           ),
           const SizedBox(height: AppDimens.sp16),
           TextField(
@@ -389,6 +442,28 @@ class _NoteSheetState extends State<_NoteSheet> {
               counterText: '',
             ),
           ),
+          const SizedBox(height: AppDimens.sp12),
+          Row(
+            children: [
+              AssistantMicButton(
+                listening: listening,
+                onTap: _toggleDictation,
+              ),
+              const SizedBox(width: AppDimens.sp12),
+              Expanded(
+                child: Text(
+                  _micError ??
+                      (listening
+                          ? 'statement_import_note_mic_stop'.tr()
+                          : 'statement_import_note_mic'.tr()),
+                  style: tt.bodySmall?.copyWith(
+                    color: _micError != null ? colors.loss : colors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: AppDimens.sp8),
           Text(
             'statement_import_note_cost'.tr(),
@@ -400,8 +475,7 @@ class _NoteSheetState extends State<_NoteSheet> {
           const SizedBox(height: AppDimens.sp16),
           PositionPrimaryButton(
             label: 'statement_import_note_send'.tr(),
-            onPressed:
-                text.length < 2 ? null : () => Navigator.of(context).pop(text),
+            onPressed: text.length < 2 ? null : () => _send(text),
           ),
         ],
       ),

@@ -45,6 +45,10 @@ export const noteInstructions = [
   "that amount as a number; otherwise null. Never convert it to units yourself.",
   "purchase_price and purchase_date: only if they say them, otherwise null.",
   "Ignore what they want to buy, sold or are thinking about: only what they hold.",
+  "The text may come from voice dictation: tickers can be spelled out or written as they sound " +
+  "(\"ve o o\" or \"bueno\" next to a fund → VOO, \"cu cu cu\" → QQQ, \"envidia\" → NVDA, \"tesla\" → TSLA), " +
+  "numbers can be words (\"diez acciones\", \"dos mil dólares\", \"medio bitcoin\") and there may be filler " +
+  "words or repetitions. Only map a sound to a ticker when the context makes it clear it is an investment.",
 ].join("\n");
 
 /// Una captura de pantalla de la app del bróker.

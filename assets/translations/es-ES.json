@@ -1474,9 +1474,9 @@
   "statement_import_way_file_body": "El listado de posiciones o el estado de cuenta, en CSV o PDF. El CSV no usa consultas.",
   "statement_import_way_screenshot_title": "Una captura de pantalla",
   "statement_import_way_screenshot_body": "De la pantalla de tu app de inversiones donde se ven tus posiciones. Uso 1 consulta.",
-  "statement_import_way_write_title": "Escribilo",
-  "statement_import_way_write_body": "Como te salga: \"10 VOO, 2000 dólares en QQQ y algo de NVDA\". Uso 1 consulta.",
-  "statement_import_note_porty": "Contame qué tenés, como te salga. Después lo revisás antes de guardarlo.",
+  "statement_import_way_write_title": "Escribilo o decilo",
+  "statement_import_way_write_body": "Como te salga, tipeado o con el micrófono: \"10 VOO, 2000 dólares en QQQ y algo de NVDA\". Uso 1 consulta.",
+  "statement_import_note_porty": "Contame qué tenés, como te salga: escribilo o decímelo. Después lo revisás antes de guardarlo.",
   "statement_import_note_hint": "10 VOO, 2000 dólares en QQQ y algo de NVDA",
   "statement_import_note_cost": "Lo leo con IA: uso 1 consulta de tu plan.",
   "statement_import_note_send": "Que lo lea Porty",
@@ -1499,7 +1499,10 @@
   "onboarding_bring_etoro_semantics": "Traela desde eToro",
   "onboarding_bring_etoro_body": "Gratis la primera vez. Solo lectura.",
   "onboarding_bring_write_title": "Contale a Porty qué tenés",
-  "onboarding_bring_write_body": "\"10 VOO y algo de NVDA\": como te salga.",
+  "onboarding_bring_write_body": "Escribilo o decímelo: \"10 VOO y algo de NVDA\".",
   "onboarding_bring_manual_title": "Cargala a mano",
-  "onboarding_bring_manual_body": "Ticker, cantidad y fecha. El precio se completa solo."
+  "onboarding_bring_manual_body": "Ticker, cantidad y fecha. El precio se completa solo.",
+  "statement_import_note_listening": "Te escucho. Decime qué tenés y cuánto de cada una.",
+  "statement_import_note_mic": "Tocá el micrófono para decírmelo.",
+  "statement_import_note_mic_stop": "Tocá de nuevo cuando termines."
 }

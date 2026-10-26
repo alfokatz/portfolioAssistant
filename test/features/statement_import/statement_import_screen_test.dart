@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/services/chat_dictation.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -92,6 +94,38 @@ class _FailingClient implements StatementImportClient {
       throw const StatementImportException('nothing_found');
 }
 
+/// Dictado falso: al empezar "escucha" una frase y la escribe.
+class _Dictation extends ChatDictation {
+  bool listening = false;
+  bool canceled = false;
+
+  @override
+  bool get isListening => listening;
+
+  @override
+  Future<DictationFailure?> start({
+    required String languageCode,
+    required ValueChanged<String> onText,
+  }) async {
+    listening = true;
+    notifyListeners();
+    onText('diez VOO y dos mil dólares en cu cu cu');
+    return null;
+  }
+
+  @override
+  Future<void> stop() async {
+    listening = false;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> cancel() async {
+    canceled = true;
+    listening = false;
+  }
+}
+
 class _Positions implements PositionRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -107,6 +141,7 @@ void main() {
     double width = 320,
     double height = 700,
     double textScale = 1,
+    List<Override> overrides = const [],
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
@@ -116,6 +151,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...overrides,
           companyBrandLoaderProvider.overrideWithValue(
             CompanyBrandLoader(_NoBrandRepo()),
           ),
@@ -160,6 +196,35 @@ void main() {
     expect(find.text('statement_import_way_screenshot_title'), findsOneWidget);
     expect(find.text('statement_import_way_write_title'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('decirla: el micrófono escribe lo dictado y se manda igual', (
+    tester,
+  ) async {
+    final dictation = _Dictation();
+    await pump(
+      tester,
+      height: 2400,
+      overrides: [chatDictationProvider.overrideWith((ref) => dictation)],
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('statement_import_way_write_title'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AssistantMicButton));
+    // La frase de Porty cambia con un fundido.
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('statement_import_note_listening'), findsOneWidget);
+    expect(
+      find.text('diez VOO y dos mil dólares en cu cu cu'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byType(AssistantMicButton));
+    await tester.pump();
+    await tester.tap(find.text('statement_import_note_send'));
+    await tester.pumpAndSettle();
+    // Al mandar se corta el dictado (no vuelve a escribir nada).
+    expect(dictation.canceled, isTrue);
+    expect(find.text('statement_import_preview_porty_note'), findsOneWidget);
   });
 
   testWidgets('escribirla: la hoja manda el texto y sale la vista previa', (

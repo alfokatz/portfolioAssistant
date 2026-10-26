@@ -383,6 +383,8 @@ Deno.test("handler: lo que escribe el usuario (nota) va a la IA con sus instrucc
   assertEquals(calls, { begin: 1, record: 1, openai: 1 });
   const messages = sent.messages as { role: string; content: unknown }[];
   assertEquals(String(messages[0].content).includes("describing what they own"), true);
+  // Lo dictado: tickers como suenan y números en palabras.
+  assertEquals(String(messages[0].content).includes("voice dictation"), true);
   const parts = messages[1].content as { type: string; text: string }[];
   assertEquals(parts[0].text, "10 VOO, 2000 dólares en QQQ y algo de NVDA");
 });
