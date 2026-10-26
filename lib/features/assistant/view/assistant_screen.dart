@@ -143,7 +143,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   // visible arriba y la respuesta de Porty empieza justo debajo. Si la
   // respuesta supera el viewport, el resto entra abajo y el usuario scrollea.
   //
-  // Cada movimiento es un `animateTo` de [_followDuration]; si el contenido
+  // Cada movimiento es un `animateTo` de [_followDuration] (un viaje largo,
+  // con su propia duración y curva: ver [_travelCurve]); si el contenido
   // sigue creciendo mientras tanto, al terminar se encadena el siguiente
   // (nunca se reinicia uno a mitad de camino, que se sentía como tirón).
   //
@@ -169,6 +170,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   static const _anchorGap = _topFadeExtent;
   static const _followDuration = Duration(milliseconds: 400);
   static const _followCurve = Curves.easeOutCubic;
+
+  /// Un viaje (mandó algo estando scrolleado arriba): dura según la
+  /// distancia, entre estos dos, y arranca y frena suave. Antes eran 400 ms
+  /// con `easeOutCubic` para cualquier distancia: arrancaba a toda velocidad
+  /// y desde lejos se sentía como un tirón.
+  static const _travelMin = Duration(milliseconds: 380);
+  static const _travelMax = Duration(milliseconds: 900);
+  static const _travelCurve = Curves.easeInOutCubic;
+
+  /// Cuánto se alarga por cada pantalla de distancia.
+  static const _travelPerViewport = Duration(milliseconds: 160);
 
   /// Tras el fin del reveal, el footer de avisos todavía abre su espacio
   /// ([RevealTiming.entrance]): la última pasada espera a que termine.
@@ -480,9 +492,31 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       position.jumpTo(target);
       return;
     }
+
+    final viewport = position.viewportDimension;
+    final distance = (target - position.pixels).abs();
+    // Un paso chico (la respuesta crece) sigue como siempre; un viaje,
+    // con su duración y una curva que acelera y frena.
+    final travel = viewport > 0 && distance > viewport * 0.5;
+    final duration =
+        travel
+            ? Duration(
+              milliseconds: (_travelMin.inMilliseconds +
+                      distance / viewport * _travelPerViewport.inMilliseconds)
+                  .clamp(
+                    _travelMin.inMilliseconds.toDouble(),
+                    _travelMax.inMilliseconds.toDouble(),
+                  )
+                  .round(),
+            )
+            : _followDuration;
     _animating = true;
     position
-        .animateTo(target, duration: _followDuration, curve: _followCurve)
+        .animateTo(
+          target,
+          duration: duration,
+          curve: travel ? _travelCurve : _followCurve,
+        )
         .whenComplete(() {
           _animating = false;
           // El contenido pudo seguir creciendo durante la animación.

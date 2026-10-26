@@ -173,6 +173,52 @@ void main() {
     );
   }
 
+  testWidgets('sending while scrolled far up travels down smoothly: it starts '
+      'and ends slow, and no frame jumps', (tester) async {
+    await tester.binding.setSurfaceSize(genuiTestViewportSize);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final long = List.filled(40, 'Una línea más de la respuesta.').join(' ');
+    final screen = _Screen([
+      for (var i = 0; i < 4; i++) _answer('Respuesta $i. $long'),
+    ]);
+    addTearDown(screen.dispose);
+    await tester.pumpWidget(app(screen));
+    await tester.pump();
+    await tester.pump();
+    for (var i = 0; i < 3; i++) {
+      await send(tester, 'Pregunta $i');
+      await runTurn(tester, screen);
+    }
+
+    final position =
+        tester.widget<ListView>(find.byType(ListView)).controller!.position;
+    position.jumpTo(0);
+    await tester.pump();
+
+    await send(tester, 'Pregunta 3');
+    final pixels = <double>[position.pixels];
+    for (var f = 0; f < 70; f++) {
+      await tester.runAsync(() async {});
+      await tester.pump(const Duration(milliseconds: 16));
+      pixels.add(position.pixels);
+    }
+    final steps = [
+      for (var i = 1; i < pixels.length; i++) pixels[i] - pixels[i - 1],
+    ];
+    final travelled = pixels.last - pixels.first;
+    final viewport = position.viewportDimension;
+    expect(travelled, greaterThan(viewport * 2));
+    // Arranca suave: los primeros frames apenas se mueven (antes, el primer
+    // frame ya recorría más de la mitad de la pantalla).
+    final firstMove = steps.indexWhere((d) => d > 0.5);
+    expect(firstMove, isNot(-1));
+    expect(steps[firstMove], lessThan(viewport * 0.05));
+    // Ningún frame salta de golpe ni vuelve para atrás.
+    expect(steps.every((d) => d > -1), isTrue);
+    expect(steps.reduce(math.max), lessThan(travelled * 0.08));
+    await runTurn(tester, screen);
+  });
+
   testWidgets('long answer (text + 3 candidates + disclaimer): history never '
       'blanks, the view anchors to the start of the answer and the cards '
       'enter animated and in order', (tester) async {
