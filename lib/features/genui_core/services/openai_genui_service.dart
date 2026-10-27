@@ -36,6 +36,26 @@ class TurnOutcome {
   bool ran(String toolName) => toolCalls.any((c) => c.name == toolName);
 }
 
+/// Lo que pasó adentro del último turno, para reportar cómo terminó (ver
+/// `TurnOutcomeReporter`). Se crea al empezar el turno, así que existe
+/// aunque el turno termine en excepción.
+class TurnDiagnostics {
+  TurnDiagnostics(this.turnId);
+
+  /// El `x-porty-turn-id` con el que viajaron sus rondas.
+  final String turnId;
+
+  /// El chequeo de la respuesta pidió reescribirla.
+  bool answerRejected = false;
+
+  /// La respuesta final llegó vacía o rota y se volvió a pedir.
+  bool finalRetried = false;
+
+  /// La respuesta final no se pudo leer y se mostró el mensaje genérico
+  /// ([LlmJsonSanitizer.defaultFallbackMessage]) sin que haya excepción.
+  bool shownFallback = false;
+}
+
 /// Un turno cortado a propósito después de una ronda de tools (ej. todo lo
 /// que pidió el modelo está fuera del plan del usuario): el turno se
 /// descarta del historial y [reason] vuelve al llamador.
@@ -247,6 +267,9 @@ class OpenAIGenUiService {
   /// Lo decide el llamador antes de cada turno (interruptor del servidor).
   bool streaming = false;
 
+  /// El último turno empezado (null antes del primero).
+  TurnDiagnostics? lastTurn;
+
   /// El `onContent` del turno en curso (null fuera de un turno: la
   /// reparación de genui no muestra vista previa).
   ContentDeltaCallback? _onContent;
@@ -366,6 +389,7 @@ class OpenAIGenUiService {
     _repairsThisTurn = 0;
 
     final turn = log.beginTurn(userText, context: context);
+    final diagnostics = lastTurn = TurnDiagnostics(turn.id);
     final deadline = DateTime.now().add(_turnDeadline);
     final executor = _ToolExecutor(tools);
     onActivity?.call(TurnActivity.thinking);
@@ -469,6 +493,7 @@ class OpenAIGenUiService {
         if (correction != null &&
             deadline.difference(DateTime.now()) > _minTimeForToolRound) {
           GenUiDebugLog.answerRejected(correction.message);
+          diagnostics.answerRejected = true;
           turn
             ..scratchAfter = turn.exchanges.length
             ..scratch.addAll([
@@ -529,11 +554,14 @@ class OpenAIGenUiService {
           GenUiDebugLog.unreadableFinal(attempt.length);
           throw StateError('Respuesta final vacía o cortada.');
         }
+        final unreadable = LlmJsonSanitizer.isUnreadable(attempt);
         _applyFinal(attempt, surfaceId);
+        if (unreadable) lastTurn?.shownFallback = true;
         turn.finalText = attempt;
         return;
       } on StateError {
         if (lastTry) rethrow;
+        lastTurn?.finalRetried = true;
         await Future<void>.delayed(_transientRetryBackoff);
         final retry = await _request(
           tools: tools,

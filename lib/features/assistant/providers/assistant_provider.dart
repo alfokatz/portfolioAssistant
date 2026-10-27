@@ -39,6 +39,7 @@ import 'package:portfolio_assistant/features/assistant/models/action_proposal.da
 import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/data/turn_outcome_reporter.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -436,10 +437,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final screenContext = _screenForTurn();
     state = state.copyWith(clearError: true, isWaiting: true);
     _setActivity(TurnActivity.thinking);
+    final elapsed = Stopwatch()..start();
 
     try {
       _ensureService();
       final service = _service!;
+      // Para reportar solo un turno que llegó a empezar (no el anterior).
+      final previousTurn = service.lastTurn;
+      TurnOutcomeKind? outcomeKind;
+      String? outcomeReason;
       final subscription = ref.read(subscriptionProvider.notifier);
       // La cuota ya no se chequea ni se descuenta acá: la aplica el proxy
       // `ai-chat` (una consulta por turno, al responder) y, si no hay,
@@ -592,6 +598,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
         // El contador del header refleja lo que cobró el servidor.
         unawaited(subscription.refresh());
+        if (service.lastTurn?.shownFallback ?? false) {
+          outcomeKind = TurnOutcomeKind.fallback;
+          outcomeReason = 'unreadable';
+        } else {
+          outcomeKind = TurnOutcomeKind.answered;
+        }
       } on ProxyLimitException catch (e) {
         // `prompt_not_allowed` en desarrollo = cambió el prompt y falta
         // regenerar la allowlist y desplegar `ai-chat` (ver runbook).
@@ -607,6 +619,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           paywallReason: e.reason as PaywallReason,
           clearPaywallReason: false,
         );
+        outcomeKind = TurnOutcomeKind.paywall;
       } on TimeoutException catch (e) {
         if (kDebugMode) debugPrint('[Assistant/turn] timed out: $e');
         // Falla de generación (el modelo no llegó a tiempo), no de
@@ -617,6 +630,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             surfaceId,
           ),
         );
+        outcomeKind = TurnOutcomeKind.fallback;
+        outcomeReason = 'timeout';
       } catch (e) {
         if (kDebugMode) debugPrint('[Assistant/turn] failed: $e');
         if (isConnectionFailure(e)) {
@@ -624,6 +639,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             error: genUiErrorMessage(e),
             messages: _removeStreamingPlaceholder(state.messages),
           );
+          outcomeKind = TurnOutcomeKind.connectionError;
         } else {
           // JSON inválido, "interfaz sin componente raíz", etc.: nunca deja
           // al usuario sin respuesta, cae a texto.
@@ -633,8 +649,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
               surfaceId,
             ),
           );
+          outcomeKind = TurnOutcomeKind.fallback;
+          outcomeReason = _fallbackReason(e);
         }
       }
+      _reportOutcome(
+        service.lastTurn,
+        previousTurn: previousTurn,
+        kind: outcomeKind,
+        reason: outcomeReason,
+        latency: elapsed.elapsed,
+      );
     } finally {
       // Fallback, aviso o error: la vista previa (si hubo) no queda colgada.
       if (mounted) _preview.value = null;
@@ -650,6 +675,40 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
     }
   }
+
+  /// Guarda cómo terminó el turno en `ai_turn_usage` (sin esperar). Un
+  /// rechazo del proxy (cuota, tope diario) no se reporta: el servidor ya
+  /// lo sabe.
+  void _reportOutcome(
+    TurnDiagnostics? turn, {
+    required TurnDiagnostics? previousTurn,
+    required TurnOutcomeKind? kind,
+    required String? reason,
+    required Duration latency,
+  }) {
+    final report = ref.read(assistantDepsProvider).reportTurnOutcome;
+    if (report == null || turn == null || kind == null) return;
+    if (identical(turn, previousTurn)) return;
+    unawaited(
+      report(
+        TurnOutcomeReport(
+          turnId: turn.turnId,
+          outcome: kind,
+          reason: reason,
+          latency: latency,
+          answerRejected: turn.answerRejected,
+          finalRetried: turn.finalRetried,
+        ),
+      ),
+    );
+  }
+
+  /// Código corto del fallback: nunca el texto de la excepción.
+  static String _fallbackReason(Object error) => switch (error) {
+    StateError() => 'unreadable',
+    FormatException() => 'invalid_json',
+    _ => 'error',
+  };
 
   /// Rechazo del servidor antes de responder: la cuota del mes abre el
   /// paywall (como antes); el tope diario es un aviso discreto en la fila

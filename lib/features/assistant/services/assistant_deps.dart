@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/data/porty_rollout_flag.dart';
+import 'package:portfolio_assistant/features/assistant/data/turn_outcome_reporter.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
@@ -19,6 +20,7 @@ class AssistantDeps {
     this.warmUpOnOpen = false,
     this.leanPromptEnabled,
     this.createLeanService,
+    this.reportTurnOutcome,
   });
 
   final AssistantOpenAiService Function() createService;
@@ -37,6 +39,10 @@ class AssistantDeps {
 
   /// Despertar el proxy al abrir Porty (ver `AiProxyClient.warmUp`).
   final bool warmUpOnOpen;
+
+  /// Guardar cómo terminó cada turno (ver [TurnOutcomeReporter]). Sin
+  /// esto, no se reporta (tests).
+  final Future<void> Function(TurnOutcomeReport report)? reportTurnOutcome;
 }
 
 String? _currentUserId() {
@@ -62,5 +68,12 @@ final assistantDepsProvider = Provider<AssistantDeps>(
         () => PortyRolloutFlag.leanPrompt.enabledFor(_currentUserId()),
     createLeanService:
         () => AssistantOpenAiService(variant: PromptVariant.lean),
+    reportTurnOutcome: (report) async {
+      try {
+        await ref.read(turnOutcomeReporterProvider).report(report);
+      } catch (_) {
+        // Supabase sin inicializar.
+      }
+    },
   ),
 );

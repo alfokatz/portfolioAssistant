@@ -19,6 +19,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_ca
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/data/turn_outcome_reporter.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
@@ -216,6 +217,7 @@ class _Harness {
                 ),
             createData: () => fakeDataSources(quotes: quotes),
             streamingEnabled: streaming ? () async => true : null,
+            reportTurnOutcome: (report) async => reports.add(report),
           ),
         ),
       ],
@@ -229,6 +231,7 @@ class _Harness {
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
   final topics = _FakeTopics();
+  final reports = <TurnOutcomeReport>[];
   late final ProviderContainer container;
 
   AssistantProvider get notifier =>
@@ -595,6 +598,89 @@ void main() {
     // así que el turno termina con una surface (no con error).
     expect(h.lastAnswer.isStreaming, isFalse);
     expect(h.state.error, isNull);
+  });
+
+  group('turn outcome (ai_turn_usage.outcome)', () {
+    test('an answered turn is reported once, with its turn id', () async {
+      final h = harness(SubscriptionTier.free, [
+        _answer('Tu cartera vale 600.'),
+      ]);
+
+      await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+      final report = h.reports.single;
+      expect(report.outcome, TurnOutcomeKind.answered);
+      expect(report.reason, isNull);
+      expect(report.turnId, matches(RegExp(r'^[A-Za-z0-9_-]{8,64}$')));
+      expect(report.answerRejected, isFalse);
+      expect(report.finalRetried, isFalse);
+    });
+
+    test('each turn reports its own id', () async {
+      final h = harness(SubscriptionTier.free, [
+        _answer('uno'),
+        _answer('dos'),
+      ]);
+
+      await h.notifier.submitMessage('Hola');
+      await h.notifier.submitMessage('¿Y ahora?');
+
+      expect(h.reports, hasLength(2));
+      expect(h.reports.first.turnId, isNot(h.reports.last.turnId));
+    });
+
+    test('an empty final answer that is asked again is answered, and the '
+        'retry is reported', () async {
+      final h = harness(SubscriptionTier.free, [
+        (_) => textReply(''),
+        _answer('ahora sí'),
+      ]);
+
+      await h.notifier.submitMessage('Hola');
+
+      final report = h.reports.single;
+      expect(report.outcome, TurnOutcomeKind.answered);
+      expect(report.finalRetried, isTrue);
+    });
+
+    test('an answer still empty after the retry is a fallback', () async {
+      final h = harness(SubscriptionTier.free, [
+        (_) => textReply(''),
+        (_) => textReply(''),
+      ]);
+
+      await h.notifier.submitMessage('Hola');
+
+      // El usuario ve "No pude procesar tu consulta" sin excepción: igual
+      // cuenta como fallback.
+      final report = h.reports.single;
+      expect(report.outcome, TurnOutcomeKind.fallback);
+      expect(report.reason, 'unreadable');
+      expect(report.finalRetried, isTrue);
+    });
+
+    test('a paywall turn is reported as paywall', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_invest_candidates', {
+          'tickers': ['NEE', 'KO'],
+          'budget_usd': 500,
+        }),
+      ]);
+
+      await h.notifier.submitMessage('Tengo \$500 para invertir');
+
+      expect(h.reports.single.outcome, TurnOutcomeKind.paywall);
+    });
+
+    test('a proxy rejection is not reported (the server knows)', () async {
+      final h = harness(SubscriptionTier.free, [
+        (_) => proxyRejection(402, 'quota_exceeded'),
+      ], used: 20);
+
+      await h.notifier.submitMessage('Hola');
+
+      expect(h.reports, isEmpty);
+    });
   });
 
   // Regresión: la pestaña de Porty queda montada en el shell, así que un
