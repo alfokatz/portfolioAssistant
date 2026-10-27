@@ -324,6 +324,8 @@ export function parseDate(raw: string | undefined, order: "dmy" | "mdy"): string
 export type CsvResult = {
   rows: ImportRow[];
   warnings: ImportWarning[];
+  /// Qué lector armó la tabla (para los logs).
+  format: "generic" | "ibkr";
 };
 
 /// Las posiciones del CSV, o `null` si no tiene columnas reconocibles (la
@@ -395,5 +397,5 @@ export function parseCsv(text: string): CsvResult | null {
   if (skipped > 0) warnings.push({ type: "skipped_rows", count: skipped });
   if (cash > 0) warnings.push({ type: "cash_skipped", count: cash });
   if (ambiguous) warnings.push({ type: "ambiguous_dates" });
-  return { rows, warnings };
+  return { rows, warnings, format: ibkr ? "ibkr" : "generic" };
 }

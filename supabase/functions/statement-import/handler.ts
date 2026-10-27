@@ -21,6 +21,7 @@ import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/com
 import { aiConfig, allowsMissingQuantity, extractWithAi, type FileInput, type Usage } from "./ai.ts";
 import { parseCsv } from "./parse_csv.ts";
 import { finalizeRows, type ImportWarning } from "./rows.ts";
+import { fingerprint } from "./fingerprint.ts";
 import { readXlsx } from "./xlsx.ts";
 
 export const handlerConfig = {
@@ -51,8 +52,30 @@ const limitStatus: Record<string, number> = {
   rate_limited: 429,
 };
 
+/// Extensiones que se loguean (cualquier otra sale como "other").
+const knownExtensions = new Set([
+  "csv",
+  "txt",
+  "tsv",
+  "tab",
+  "pdf",
+  "xlsx",
+  "xls",
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "heic",
+]);
+
+export function extensionOf(filename: string): string {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  return filename.includes(".") && knownExtensions.has(ext) ? ext : "other";
+}
+
 function log(fields: Record<string, unknown>) {
-  // Nunca el contenido ni el nombre del archivo.
+  // Nunca el contenido ni el nombre del archivo (solo su extensión y la
+  // huella anónima del formato, ver fingerprint.ts).
   console.log(JSON.stringify({ fn: "statement-import", ...fields }));
 }
 
@@ -135,7 +158,12 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
   }
 
   const kind = fileKind(filename, bytes);
-  if (kind === "unsupported") return typedError(415, "unsupported_type", "Use a CSV or PDF file");
+  // Lo que se loguea de este archivo en cada salida.
+  const meta: Record<string, unknown> = { kind, ext: extensionOf(filename) };
+  if (kind === "unsupported") {
+    log({ ...meta, outcome: "unsupported_type" });
+    return typedError(415, "unsupported_type", "Use a CSV or PDF file");
+  }
 
   if (!(await deps.quota.rateOk(userId))) return typedError(429, "rate_limited", "Too many requests");
 
@@ -149,7 +177,11 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
     tables = [text];
   } else if (kind === "xlsx") {
     const sheets = await readXlsx(bytes);
-    if (!sheets || sheets.length === 0) return typedError(415, "unsupported_type", "Use a CSV or PDF file");
+    if (!sheets || sheets.length === 0) {
+      log({ ...meta, outcome: "unsupported_type" });
+      return typedError(415, "unsupported_type", "Use a CSV or PDF file");
+    }
+    meta.sheets = sheets.length;
     tables = sheets.map((s) => s.text);
     // Para la IA, todas las hojas con su nombre.
     text = sheets.map((s) => `# ${s.name}\n${s.text}`).join("\n\n");
@@ -159,8 +191,16 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
     if (!csv) continue;
     const done = finalizeRows(csv.rows, today);
     if (done.rows.length > 0) {
-      log({ source: "csv", kind, rows: done.rows.length });
+      log({ ...meta, source: "csv", format: csv.format, fmt: await fingerprint(table), rows: done.rows.length });
       return json(200, { source: "csv", rows: done.rows, warnings: mergeWarnings(csv.warnings, done.warnings) });
+    }
+  }
+  // El lector sin IA no pudo: la huella dice qué formato era, para sumarlo.
+  for (const table of tables) {
+    const fmt = await fingerprint(table);
+    if (fmt) {
+      meta.fmt = fmt;
+      break;
     }
   }
 
@@ -179,6 +219,7 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
   }
   if (!verdict.ok) {
     const reason = verdict.reason ?? "rejected";
+    log({ ...meta, source: "ai", outcome: reason });
     const { ok: _ok, reason: _r, ...extra } = verdict;
     return typedError(limitStatus[reason] ?? 403, reason, "Import rejected", extra);
   }
@@ -189,7 +230,7 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
     : kind === "image"
     ? { kind: "image", filename, mime: imageMime(bytes)!, base64 }
     : { kind: "text", filename, text: text ?? decodeText(bytes) };
-  return await readWithAi(input, userId, deps, today, apiKey, model, turnId);
+  return await readWithAi(input, userId, deps, today, apiKey, model, turnId, meta);
 }
 
 /// Lo que escribe el usuario: siempre con IA (una consulta).
@@ -228,10 +269,11 @@ async function readWithAi(
   apiKey: string,
   model: string,
   turnId: string,
+  meta: Record<string, unknown> = { kind: input.kind },
 ): Promise<Response> {
   const result = await extractWithAi(deps.fetch, apiKey, model, input);
   if (!result.ok) {
-    log({ source: "ai", error: result.reason });
+    log({ ...meta, source: "ai", error: result.reason });
     // Lo que se consumió se registra igual (sin cerrar el turno, no cobra).
     return result.reason === "unavailable"
       ? typedError(503, "unavailable", "AI unavailable")
@@ -243,13 +285,13 @@ async function readWithAi(
 
   const done = finalizeRows(result.rows, today, { allowMissingQuantity: allowsMissingQuantity(input) });
   if (done.rows.length === 0) {
-    log({ source: "ai", kind: input.kind, rows: 0 });
+    log({ ...meta, source: "ai", rows: 0 });
     return typedError(422, "nothing_found", "No holdings found in the file");
   }
   const warnings = result.truncated
     ? mergeWarnings(done.warnings, [{ type: "truncated", limit: done.rows.length }])
     : done.warnings;
-  log({ source: "ai", kind: input.kind, rows: done.rows.length });
+  log({ ...meta, source: "ai", rows: done.rows.length });
   return json(200, { source: "ai", rows: done.rows, warnings });
 }
 
