@@ -4,7 +4,9 @@
 //
 // Entiende los exportes típicos de brókers en inglés y en español:
 // separador `,` `;` tab o `|`, números con coma o punto decimal, fechas ISO,
-// `dd/mm/yyyy`, `mm/dd/yyyy` y `yyyymmdd`.
+// `dd/mm/yyyy`, `mm/dd/yyyy` y `yyyymmdd`. Los estados de cuenta por
+// secciones de Interactive Brokers se leen por su sección de posiciones
+// abiertas.
 
 import { type ImportRow, type ImportWarning, isoDate, normalizeTicker } from "./rows.ts";
 
@@ -38,6 +40,7 @@ export const synonyms: Record<Field, string[]> = {
     "sharesheld",
     "position",
     "cantidadnominal",
+    "qtyquantity",
   ],
   price: [
     "averageprice",
@@ -57,6 +60,8 @@ export const synonyms: Record<Field, string[]> = {
     "preciocompra",
     "costopromedio",
     "costounitario",
+    "averagecostbasis",
+    "avgcostbasis",
     "price",
     "precio",
   ],
@@ -79,6 +84,23 @@ export const synonyms: Record<Field, string[]> = {
 export function normalizeHeader(h: string): string {
   return h.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
+
+/// "Price" o "Precio" a secas: en muchos brókers es el precio de hoy, no el
+/// de compra.
+const genericPrice = new Set(["price", "precio"]);
+
+/// Columnas de valor de mercado: si están, "Price" es el precio de hoy.
+const marketValue = new Set([
+  "marketvalue",
+  "mktvalmarketvalue",
+  "currentvalue",
+  "value",
+  "valor",
+  "valoractual",
+  "valuacion",
+  "valorizacion",
+  "montovaluado",
+]);
 
 /// Separa una línea respetando comillas (RFC 4180 básico).
 export function splitLine(line: string, delimiter: string): string[] {
@@ -159,7 +181,61 @@ export function mapColumns(headers: string[]): Partial<Record<Field, number>> | 
     }
   }
   if (chosen.ticker === undefined || chosen.quantity === undefined) return null;
+  // "Price" a secas junto al costo total o al valor de mercado es el precio
+  // de hoy: mejor sin precio (sale del costo total, o lo pide la app) que
+  // tomar el de hoy como costo.
+  if (
+    chosen.price !== undefined && genericPrice.has(normalized[chosen.price]) &&
+    (chosen.total_cost !== undefined || normalized.some((h) => marketValue.has(h)))
+  ) {
+    delete chosen.price;
+  }
   return chosen;
+}
+
+/// Secciones de Interactive Brokers que traen las posiciones abiertas (en
+/// inglés y en español).
+const ibkrOpenPositions = new Set(["openpositions", "posicionesabiertas"]);
+
+/// Lo que no es una acción, ETF, fondo o cripto (opciones, futuros, bonos,
+/// divisas): no se importa.
+const ibkrSkipCategory = /forex|divisa|option|opci[oó]n|future|futuro|bond|bono|warrant|cfd/i;
+
+/// Un estado de cuenta de Interactive Brokers trae varias secciones en el
+/// mismo CSV (`Sección,Header,...` y `Sección,Data,...`). Devuelve solo la
+/// tabla de posiciones abiertas (una fila por símbolo), lista para el
+/// lector común, o `null` si el archivo no tiene ese formato.
+export function ibkrPositions(lines: string[], delimiter: string): { lines: string[]; skipped: number } | null {
+  const split = lines.map((l) => splitLine(l, delimiter));
+  const section = (r: string[]) => normalizeHeader(r[0] ?? "");
+  const header = split.find((r) => r[1] === "Header" && ibkrOpenPositions.has(section(r)));
+  if (!header) return null;
+  const name = section(header);
+  const cols = header.slice(2).map(normalizeHeader);
+  const data = split.filter((r) => r[1] === "Data" && section(r) === name).map((r) => r.slice(2));
+  // Con lotes, IBKR repite cada símbolo: "Summary" es el total por símbolo.
+  const disc = cols.indexOf("datadiscriminator");
+  const summaries = disc >= 0 ? data.filter((r) => r[disc] === "Summary") : [];
+  const rows = summaries.length > 0 ? summaries : data;
+  const category = cols.findIndex((c) => c === "assetcategory" || c === "categoriadeactivo");
+  const symbol = cols.findIndex((c) => c === "symbol" || c === "simbolo");
+  let skipped = 0;
+  const kept: string[][] = [];
+  for (const r of rows) {
+    if (category >= 0 && ibkrSkipCategory.test(r[category] ?? "")) {
+      skipped++;
+      continue;
+    }
+    const out = [...r];
+    // "BRK B" → "BRK-B" (clase de acción con espacio).
+    if (symbol >= 0) out[symbol] = (out[symbol] ?? "").replace(/^([A-Z]{1,5}) ([A-Z])$/, "$1-$2");
+    kept.push(out);
+  }
+  const quote = (v: string) => (v.includes(delimiter) || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v);
+  return {
+    lines: [header.slice(2), ...kept].map((r) => r.map(quote).join(delimiter)),
+    skipped,
+  };
 }
 
 /// Un número de un CSV: "$1,234.56", "1.234,56", "(12.5)", "1 234,5".
@@ -253,10 +329,17 @@ export type CsvResult = {
 /// Las posiciones del CSV, o `null` si no tiene columnas reconocibles (la
 /// importación sigue con la IA).
 export function parseCsv(text: string): CsvResult | null {
-  const lines = text.replace(/^﻿/, "").split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
+  let lines = text.replace(/^﻿/, "").split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
   if (lines.length < 2) return null;
   const delimiter = detectDelimiter(lines);
   const commaDecimal = delimiter === ";";
+
+  let skipped = 0;
+  const ibkr = ibkrPositions(lines, delimiter);
+  if (ibkr) {
+    lines = ibkr.lines;
+    skipped = ibkr.skipped;
+  }
 
   // Los brókers suelen poner un título o datos de la cuenta antes de la
   // tabla: el encabezado es la primera fila (de las primeras 30) que mapea.
@@ -277,7 +360,6 @@ export function parseCsv(text: string): CsvResult | null {
   const { order, ambiguous } = dateOrder(records.map((r) => cell(r, "date") ?? ""));
 
   const rows: ImportRow[] = [];
-  let skipped = 0;
   let cash = 0;
   for (const r of records) {
     const rawTicker = cell(r, "ticker") ?? "";

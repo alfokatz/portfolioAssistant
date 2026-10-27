@@ -116,6 +116,67 @@ Deno.test("parseCsv: exporte en español con punto y coma y coma decimal", () =>
   assertEquals(r.warnings, []);
 });
 
+Deno.test("mapColumns: 'Price' a secas con costo o valor de mercado es el precio de hoy", () => {
+  // Schwab: Price es el de hoy; el costo sale de Cost Basis.
+  const schwab = mapColumns([
+    "Symbol",
+    "Description",
+    "Qty (Quantity)",
+    "Price",
+    "Mkt Val (Market Value)",
+    "Cost Basis",
+  ])!;
+  assertEquals(schwab.quantity, 2);
+  assertEquals(schwab.price, undefined);
+  assertEquals(schwab.total_cost, 5);
+  // Bróker local: Precio y Valuación, sin costo → sin precio (lo pide la app).
+  assertEquals(mapColumns(["Ticker", "Cantidad", "Precio", "Valuación"])!.price, undefined);
+  // Fidelity: Average Cost Basis es el costo por unidad.
+  assertEquals(mapColumns(["Symbol", "Quantity", "Last Price", "Current Value", "Average Cost Basis"])!.price, 4);
+  // Sin nada más, "Precio" sigue siendo el de compra (una planilla propia).
+  assertEquals(mapColumns(["Ticker", "Cantidad", "Precio"])!.price, 2);
+});
+
+Deno.test("parseCsv: Schwab no toma el precio de hoy como costo", () => {
+  const csv = [
+    '"Positions for account Individual ...123 as of 10:00 AM ET, 2026/10/16"',
+    "",
+    '"Symbol","Description","Qty (Quantity)","Price","Mkt Val (Market Value)","Cost Basis"',
+    '"AAPL","APPLE INC","10","$230.10","$2,301.00","$1,800.00"',
+    '"Cash & Cash Investments","--","--","--","$500.00","--"',
+  ].join("\n");
+  const r = parseCsv(csv)!;
+  assertEquals(r.rows.length, 1);
+  assertEquals(r.rows[0].purchase_price, 180);
+});
+
+Deno.test("parseCsv: estado de cuenta de Interactive Brokers por secciones", () => {
+  const csv = [
+    "Statement,Header,Field Name,Field Value",
+    "Statement,Data,BrokerName,Interactive Brokers LLC",
+    "Net Asset Value,Header,Asset Class,Prior Total,Current Total",
+    "Net Asset Value,Data,Stock,1000,1200",
+    "Trades,Header,DataDiscriminator,Asset Category,Currency,Symbol,Date/Time,Quantity,T. Price",
+    'Trades,Data,Order,Stocks,USD,TSLA,"2026-01-02, 10:00:00",5,250',
+    "Open Positions,Header,DataDiscriminator,Asset Category,Currency,Symbol,Quantity,Mult,Cost Price,Cost Basis,Close Price,Value,Unrealized P/L,Code",
+    "Open Positions,Data,Lot,Stocks,USD,AAPL,4,1,150,600,230,920,320,",
+    "Open Positions,Data,Lot,Stocks,USD,AAPL,6,1,170,1020,230,1380,360,",
+    "Open Positions,Data,Summary,Stocks,USD,AAPL,10,1,162,1620,230,2300,680,",
+    "Open Positions,Data,Summary,Stocks,USD,BRK B,2,1,400,800,450,900,100,",
+    "Open Positions,Data,Summary,Equity and Index Options,USD,AAPL 261218C00250000,1,100,5,500,4,400,-100,",
+    "Open Positions,Total,,Stocks,USD,,,,,2420,,3200,780,",
+    "Forex Balances,Header,Asset Category,Currency,Description,Quantity",
+    "Forex Balances,Data,Forex,USD,USD,1500",
+  ].join("\n");
+  const r = parseCsv(csv)!;
+  assertEquals(r.rows.map((x) => [x.ticker, x.quantity, x.purchase_price, x.currency]), [
+    ["AAPL", 10, 162, "USD"],
+    ["BRK-B", 2, 400, "USD"],
+  ]);
+  // La opción no se importa (y se avisa); TSLA de Trades no es una posición.
+  assertEquals(r.warnings, [{ type: "skipped_rows", count: 1 }]);
+});
+
 Deno.test("parseCsv: sin columnas reconocibles devuelve null (sigue la IA)", () => {
   assertEquals(parseCsv("foo,bar\n1,2\n3,4"), null);
   assertEquals(parseCsv("Symbol,Quantity\n"), null);
