@@ -32,7 +32,7 @@ typedef StatementPicker = Future<PickedStatement?> Function();
 Future<PickedStatement?> _pickWithSystem() async {
   final result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
-    allowedExtensions: const ['csv', 'pdf', 'txt', 'tsv'],
+    allowedExtensions: const ['csv', 'pdf', 'txt', 'tsv', 'xlsx'],
     withData: true,
   );
   final file = result?.files.singleOrNull;

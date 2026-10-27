@@ -170,10 +170,11 @@ Deno.test("readCompletion: lee las filas, el uso y si se cortó", () => {
   assertEquals(readCompletion({ choices: [{ message: { content: "no json" } }] }).ok, false);
 });
 
-Deno.test("fileKind: PDF por contenido, Excel no, CSV por extensión", () => {
+Deno.test("fileKind: PDF por contenido, xlsx (zip) sí, xls viejo no, CSV por extensión", () => {
   const enc = (s: string) => new TextEncoder().encode(s);
   assertEquals(fileKind("x.bin", enc("%PDF-1.7")), "pdf");
-  assertEquals(fileKind("x.xlsx", new Uint8Array([0x50, 0x4b, 3, 4])), "unsupported");
+  assertEquals(fileKind("x.xlsx", new Uint8Array([0x50, 0x4b, 3, 4])), "xlsx");
+  assertEquals(fileKind("x.xls", new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1])), "unsupported");
   assertEquals(fileKind("x.csv", enc("a,b")), "text");
   assertEquals(fileKind("x.docx", enc("a,b")), "unsupported");
 });
@@ -338,18 +339,37 @@ Deno.test("handler: una captura va a la IA como imagen; sin unidades, con el val
     openai: (body) => {
       sent = body;
       return aiHoldings([
-        { ticker: "VOO", name: null, quantity: 4, purchase_price: null, purchase_date: null, currency: null, amount: null },
-        { ticker: "NVDA", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 1250 },
+        {
+          ticker: "VOO",
+          name: null,
+          quantity: 4,
+          purchase_price: null,
+          purchase_date: null,
+          currency: null,
+          amount: null,
+        },
+        {
+          ticker: "NVDA",
+          name: null,
+          quantity: null,
+          purchase_price: null,
+          purchase_date: null,
+          currency: null,
+          amount: 1250,
+        },
       ]);
     },
   });
   const res = await handle(request("IMG_1234.png", png), d);
   assertEquals(res.status, 200);
   const body = await res.json();
-  assertEquals(body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]), [
-    ["VOO", 4, null],
-    ["NVDA", 0, 1250],
-  ]);
+  assertEquals(
+    body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]),
+    [
+      ["VOO", 4, null],
+      ["NVDA", 0, 1250],
+    ],
+  );
   assertEquals(calls, { begin: 1, record: 1, openai: 1 });
   const messages = sent.messages as { role: string; content: unknown }[];
   const parts = messages[1].content as { type: string; image_url?: { url: string } }[];
@@ -364,9 +384,33 @@ Deno.test("handler: lo que escribe el usuario (nota) va a la IA con sus instrucc
     openai: (body) => {
       sent = body;
       return aiHoldings([
-        { ticker: "VOO", name: null, quantity: 10, purchase_price: null, purchase_date: null, currency: null, amount: null },
-        { ticker: "QQQ", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 2000 },
-        { ticker: "NVDA", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: null },
+        {
+          ticker: "VOO",
+          name: null,
+          quantity: 10,
+          purchase_price: null,
+          purchase_date: null,
+          currency: null,
+          amount: null,
+        },
+        {
+          ticker: "QQQ",
+          name: null,
+          quantity: null,
+          purchase_price: null,
+          purchase_date: null,
+          currency: null,
+          amount: 2000,
+        },
+        {
+          ticker: "NVDA",
+          name: null,
+          quantity: null,
+          purchase_price: null,
+          purchase_date: null,
+          currency: null,
+          amount: null,
+        },
       ]);
     },
   });
@@ -374,12 +418,15 @@ Deno.test("handler: lo que escribe el usuario (nota) va a la IA con sus instrucc
   assertEquals(res.status, 200);
   const body = await res.json();
   assertEquals(body.source, "ai");
-  assertEquals(body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]), [
-    ["VOO", 10, null],
-    ["QQQ", 0, 2000],
-    // Sin cantidad ni monto: la completa en la vista previa.
-    ["NVDA", 0, null],
-  ]);
+  assertEquals(
+    body.rows.map((r: { ticker: string; quantity: number; amount: number | null }) => [r.ticker, r.quantity, r.amount]),
+    [
+      ["VOO", 10, null],
+      ["QQQ", 0, 2000],
+      // Sin cantidad ni monto: la completa en la vista previa.
+      ["NVDA", 0, null],
+    ],
+  );
   assertEquals(calls, { begin: 1, record: 1, openai: 1 });
   const messages = sent.messages as { role: string; content: unknown }[];
   assertEquals(String(messages[0].content).includes("describing what they own"), true);
@@ -408,7 +455,15 @@ Deno.test("en un archivo, una fila sin cantidad se sigue descartando", () => {
     choices: [{
       message: {
         content: JSON.stringify({
-          holdings: [{ ticker: "AAPL", name: null, quantity: null, purchase_price: null, purchase_date: null, currency: null, amount: 5 }],
+          holdings: [{
+            ticker: "AAPL",
+            name: null,
+            quantity: null,
+            purchase_price: null,
+            purchase_date: null,
+            currency: null,
+            amount: 5,
+          }],
         }),
       },
     }],

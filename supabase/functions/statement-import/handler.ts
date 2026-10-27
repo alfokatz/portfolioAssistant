@@ -1,13 +1,14 @@
-// statement-import: lee un CSV o PDF de un bróker y devuelve las posiciones
-// para la vista previa de la app. No guarda nada: la app agrega las
-// posiciones (como manuales) cuando el usuario confirma.
+// statement-import: lee un CSV, Excel (.xlsx) o PDF de un bróker y devuelve
+// las posiciones para la vista previa de la app. No guarda nada: la app las
+// aplica (como movimientos manuales) cuando el usuario confirma.
 //
 // POST /functions/v1/statement-import  JWT
 //   { filename, mime_type?, content_base64 }   un archivo o una captura
 //   { note }                                    lo que escribe el usuario
 //   → 200 { source: "csv" | "ai", rows: ImportRow[], warnings: ImportWarning[] }
 //
-// 1. CSV con encabezados reconocibles: sin IA y sin cobrar.
+// 1. CSV (o una hoja de un .xlsx) con encabezados reconocibles: sin IA y
+//    sin cobrar.
 // 2. Si no (PDF, captura, CSV raro, una nota): IA, cobrando una consulta del
 //    cupo mensual con el mismo mecanismo que el chat (`ai_begin_request` /
 //    `ai_record_round`). En capturas y notas una fila puede venir sin
@@ -20,6 +21,7 @@ import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/com
 import { aiConfig, allowsMissingQuantity, extractWithAi, type FileInput, type Usage } from "./ai.ts";
 import { parseCsv } from "./parse_csv.ts";
 import { finalizeRows, type ImportWarning } from "./rows.ts";
+import { readXlsx } from "./xlsx.ts";
 
 export const handlerConfig = {
   /// Tamaño máximo del archivo (antes de base64).
@@ -75,7 +77,7 @@ export function decodeText(bytes: Uint8Array): string {
   }
 }
 
-export type FileKind = "pdf" | "text" | "image" | "unsupported";
+export type FileKind = "pdf" | "text" | "image" | "xlsx" | "unsupported";
 
 /// El tipo de una imagen que la IA puede leer, por su contenido. HEIC no
 /// (las capturas de pantalla son PNG).
@@ -92,10 +94,12 @@ export function fileKind(filename: string, bytes: Uint8Array): FileKind {
     bytes[3] === 0x46; // %PDF
   if (isPdf) return "pdf";
   if (imageMime(bytes)) return "image";
-  // xlsx/zip y xls (OLE): pedir que lo exporte a CSV.
-  const isZip = bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b;
+  // xlsx es un zip (si no es un libro, se ve al abrirlo). xls (OLE, el
+  // formato viejo): pedir que lo guarde como .xlsx o CSV.
+  const isZip = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
   const isOle = bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
-  if (isZip || isOle) return "unsupported";
+  if (isZip) return "xlsx";
+  if (isOle) return "unsupported";
   const ext = filename.toLowerCase().split(".").pop() ?? "";
   if (["csv", "txt", "tsv", "tab"].includes(ext) || ext === filename.toLowerCase()) return "text";
   return "unsupported";
@@ -137,17 +141,26 @@ export async function handle(req: Request, deps: ImportDeps): Promise<Response> 
 
   const today = new Date(deps.now()).toISOString().slice(0, 10);
 
-  // 1. CSV sin IA.
+  // 1. CSV (o las hojas de un Excel) sin IA.
   let text: string | null = null;
+  let tables: string[] = [];
   if (kind === "text") {
     text = decodeText(bytes);
-    const csv = parseCsv(text);
-    if (csv) {
-      const done = finalizeRows(csv.rows, today);
-      if (done.rows.length > 0) {
-        log({ source: "csv", rows: done.rows.length });
-        return json(200, { source: "csv", rows: done.rows, warnings: mergeWarnings(csv.warnings, done.warnings) });
-      }
+    tables = [text];
+  } else if (kind === "xlsx") {
+    const sheets = await readXlsx(bytes);
+    if (!sheets || sheets.length === 0) return typedError(415, "unsupported_type", "Use a CSV or PDF file");
+    tables = sheets.map((s) => s.text);
+    // Para la IA, todas las hojas con su nombre.
+    text = sheets.map((s) => `# ${s.name}\n${s.text}`).join("\n\n");
+  }
+  for (const table of tables) {
+    const csv = parseCsv(table);
+    if (!csv) continue;
+    const done = finalizeRows(csv.rows, today);
+    if (done.rows.length > 0) {
+      log({ source: "csv", kind, rows: done.rows.length });
+      return json(200, { source: "csv", rows: done.rows, warnings: mergeWarnings(csv.warnings, done.warnings) });
     }
   }
 
