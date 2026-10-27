@@ -10,6 +10,8 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
+import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
 import 'package:portfolio_assistant/features/statement_import/view/import_row_edit_sheet.dart';
@@ -76,9 +78,13 @@ class _StatementImportScreenState extends ConsumerState<StatementImportScreen> {
       ImportPhase.done => _Done(
         imported: state.importedCount,
         importedTickers: [
-          for (final t in {for (final r in state.ready) r.ticker})
+          for (final t in {
+            for (final r in state.ready) r.ticker,
+            ...state.sellMissing,
+          })
             if (!state.failedTickers.contains(t)) t,
         ],
+        changes: !state.onlyAdds,
         failed: state.failedTickers,
         onAnother: notifier.reset,
       ),
@@ -445,10 +451,7 @@ class _NoteSheetState extends ConsumerState<_NoteSheet> {
           const SizedBox(height: AppDimens.sp12),
           Row(
             children: [
-              AssistantMicButton(
-                listening: listening,
-                onTap: _toggleDictation,
-              ),
+              AssistantMicButton(listening: listening, onTap: _toggleDictation),
               const SizedBox(width: AppDimens.sp12),
               Expanded(
                 child: Text(
@@ -457,7 +460,8 @@ class _NoteSheetState extends ConsumerState<_NoteSheet> {
                           ? 'statement_import_note_mic_stop'.tr()
                           : 'statement_import_note_mic'.tr()),
                   style: tt.bodySmall?.copyWith(
-                    color: _micError != null ? colors.loss : colors.textSecondary,
+                    color:
+                        _micError != null ? colors.loss : colors.textSecondary,
                     height: 1.45,
                   ),
                 ),
@@ -505,50 +509,50 @@ class _FormatRow extends StatelessWidget {
     final row = Padding(
       padding: const EdgeInsets.all(AppDimens.sp16),
       child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colors.chip,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 18, color: colors.onChip),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.chip,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: AppDimens.sp12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: tt.titleSmall?.copyWith(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: Icon(icon, size: 18, color: colors.onChip),
+          ),
+          const SizedBox(width: AppDimens.sp12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: tt.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    body,
-                    style: tt.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                      height: 1.45,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: tt.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                    height: 1.45,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            if (onTap != null) ...[
-              const SizedBox(width: AppDimens.sp8),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: colors.textSecondary,
-              ),
-            ],
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: AppDimens.sp8),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: colors.textSecondary,
+            ),
           ],
-        ),
+        ],
+      ),
     );
     if (onTap == null) return Semantics(container: true, child: row);
     return Semantics(
@@ -649,6 +653,20 @@ class _Preview extends ConsumerWidget {
                 : 'statement_import_preview_note_csv'.tr(),
           ),
         ),
+        if (state.changedCount + state.unchangedCount > 0) ...[
+          const SizedBox(height: AppDimens.sp12),
+          _Note(
+            icon: Icons.compare_arrows_rounded,
+            text: 'statement_import_compare_note'.tr(
+              namedArgs: {
+                'new':
+                    '${state.rows.length - state.changedCount - state.unchangedCount}',
+                'changed': '${state.changedCount}',
+                'same': '${state.unchangedCount}',
+              },
+            ),
+          ),
+        ],
         for (final w in warnings) ...[
           const SizedBox(height: AppDimens.sp12),
           _Note(icon: Icons.info_outline_rounded, text: w),
@@ -696,7 +714,8 @@ class _Preview extends ConsumerWidget {
                 'statement_import_list_ready'.tr(
                   namedArgs: {
                     'ready': '$ready',
-                    'count': '${state.included.length}',
+                    'count':
+                        '${state.included.length - state.included.where((r) => state.planFor(r).action == ImportAction.unchanged).length}',
                   },
                 ),
                 textAlign: TextAlign.end,
@@ -718,7 +737,8 @@ class _Preview extends ConsumerWidget {
                   Divider(height: 1, indent: 100, color: colors.border),
                 _RowTile(
                   row: row,
-                  alreadyHeld: state.heldTickers.contains(row.ticker),
+                  plan: state.planFor(row),
+                  broker: state.held[row.ticker]?.broker,
                   enabled: !importing,
                   onToggle: () => notifier.toggle(row.id),
                   onEdit:
@@ -739,6 +759,36 @@ class _Preview extends ConsumerWidget {
             ],
           ),
         ),
+        if (state.missing.isNotEmpty) ...[
+          const SizedBox(height: AppDimens.sp24),
+          _SectionLabel('statement_import_missing_title'.tr()),
+          const SizedBox(height: AppDimens.sp4),
+          Text(
+            'statement_import_missing_body'.tr(),
+            style: tt.bodySmall?.copyWith(
+              color: colors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp8),
+          _Card(
+            child: Column(
+              children: [
+                for (final (i, ticker) in state.missing.indexed) ...[
+                  if (i > 0)
+                    Divider(height: 1, indent: 100, color: colors.border),
+                  _MissingTile(
+                    ticker: ticker,
+                    held: state.held[ticker]!,
+                    selected: state.sellMissing.contains(ticker),
+                    enabled: !importing,
+                    onToggle: () => notifier.toggleMissing(ticker),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ],
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
@@ -772,9 +822,7 @@ class _Preview extends ConsumerWidget {
               (state.needsAttention == 1
                       ? 'import_needs_attention_one'
                       : 'import_needs_attention')
-                  .tr(
-                namedArgs: {'count': '${state.needsAttention}'},
-              ),
+                  .tr(namedArgs: {'count': '${state.needsAttention}'}),
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: colors.textSecondary,
@@ -787,6 +835,12 @@ class _Preview extends ConsumerWidget {
             label:
                 state.checkingQuotes
                     ? 'import_checking_tickers'.tr()
+                    : !state.onlyAdds
+                    ? (state.changesToApply == 1
+                        ? 'import_cta_changes_one'.tr()
+                        : 'import_cta_changes'.tr(
+                          namedArgs: {'count': '${state.changesToApply}'},
+                        ))
                     : ready == 1
                     ? 'import_cta_one'.tr()
                     : 'import_cta'.tr(namedArgs: {'count': '$ready'}),
@@ -864,25 +918,73 @@ class _QuickFix extends StatelessWidget {
 class _RowTile extends StatelessWidget {
   const _RowTile({
     required this.row,
-    required this.alreadyHeld,
+    required this.plan,
+    required this.broker,
     required this.enabled,
     required this.onToggle,
     required this.onEdit,
   });
 
   final ImportRow row;
-  final bool alreadyHeld;
+
+  /// Qué se hace con ella comparada con la cartera.
+  final ImportPlan plan;
+
+  /// Si el ticker ya llega de un bróker conectado.
+  final PositionSource? broker;
   final bool enabled;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
 
   static const avatarSize = 36.0;
 
+  bool get _isNew => plan.action == ImportAction.add;
+
+  String? get _brokerTag => switch (broker) {
+    null => null,
+    PositionSource.binance ||
+    PositionSource.mixedBinance => 'statement_import_tag_broker_binance'.tr(),
+    _ => 'statement_import_tag_broker_etoro'.tr(),
+  };
+
   List<_Tag> _tags() {
     if (!row.included) {
-      return [_Tag('statement_import_tag_excluded'.tr())];
+      return [_Tag(_brokerTag ?? 'statement_import_tag_excluded'.tr())];
     }
     final issues = row.issues;
+    if (!_isNew) {
+      // Ya la tiene: importa la diferencia, no el precio ni la fecha del
+      // archivo.
+      return [
+        if (issues.contains(ImportIssue.unknownTicker))
+          _Tag('statement_import_tag_ticker'.tr(), warn: true),
+        if (issues.contains(ImportIssue.quantity))
+          _Tag('statement_import_tag_quantity'.tr(), warn: true),
+        switch (plan.action) {
+          ImportAction.buyMore => _Tag(
+            plan.price == null
+                ? 'statement_import_tag_buy_more'.tr(
+                  namedArgs: {
+                    'quantity': AppNumberFormat.shares(plan.quantity),
+                  },
+                )
+                : 'statement_import_tag_buy_more_at'.tr(
+                  namedArgs: {
+                    'quantity': AppNumberFormat.shares(plan.quantity),
+                    'price': AppNumberFormat.money(plan.price!),
+                  },
+                ),
+          ),
+          ImportAction.sell => _Tag(
+            'statement_import_tag_sell'.tr(
+              namedArgs: {'quantity': AppNumberFormat.shares(plan.quantity)},
+            ),
+          ),
+          _ => _Tag('statement_import_tag_unchanged'.tr()),
+        },
+        if (_brokerTag != null) _Tag(_brokerTag!),
+      ];
+    }
     return [
       if (issues.contains(ImportIssue.unknownTicker))
         _Tag('statement_import_tag_ticker'.tr(), warn: true),
@@ -904,7 +1006,7 @@ class _RowTile extends StatelessWidget {
             namedArgs: {'amount': AppNumberFormat.wholeMoney(row.amount!)},
           ),
         ),
-      if (alreadyHeld) _Tag('statement_import_tag_held'.tr()),
+      if (_brokerTag != null) _Tag(_brokerTag!),
     ];
   }
 
@@ -913,13 +1015,22 @@ class _RowTile extends StatelessWidget {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final tags = _tags();
-    final details = [
-      AppNumberFormat.shares(row.quantity),
-      if (row.purchasePrice != null) AppNumberFormat.money(row.purchasePrice!),
-      if (row.purchaseDate != null)
-        DateFormat.yMMMd().format(row.purchaseDate!),
-    ].join(' · ');
-    final muted = !row.included;
+    final details =
+        _isNew
+            ? [
+              AppNumberFormat.shares(row.quantity),
+              if (row.purchasePrice != null)
+                AppNumberFormat.money(row.purchasePrice!),
+              if (row.purchaseDate != null)
+                DateFormat.yMMMd().format(row.purchaseDate!),
+            ].join(' · ')
+            : 'statement_import_held_line'.tr(
+              namedArgs: {
+                'held': AppNumberFormat.shares(plan.held),
+                'file': AppNumberFormat.shares(row.quantity),
+              },
+            );
+    final muted = !row.included || plan.action == ImportAction.unchanged;
     final checking = row.included && row.quote == QuoteCheck.pending;
 
     return InkWell(
@@ -975,7 +1086,9 @@ class _RowTile extends StatelessWidget {
                                       : colors.textPrimary,
                               fontWeight: FontWeight.w700,
                               decoration:
-                                  muted ? TextDecoration.lineThrough : null,
+                                  !row.included
+                                      ? TextDecoration.lineThrough
+                                      : null,
                               decorationColor: colors.textSecondary,
                             ),
                           ),
@@ -1024,6 +1137,88 @@ class _RowTile extends StatelessWidget {
                 size: AppDimens.iconMd,
                 color: colors.textSecondary,
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un ticker que tiene y no está en el archivo: marcarlo lo registra como
+/// vendido entero al precio de hoy.
+class _MissingTile extends StatelessWidget {
+  const _MissingTile({
+    required this.ticker,
+    required this.held,
+    required this.selected,
+    required this.enabled,
+    required this.onToggle,
+  });
+
+  final String ticker;
+  final HeldHolding held;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: enabled ? onToggle : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.sp4,
+          AppDimens.sp12,
+          AppDimens.sp12,
+          AppDimens.sp12,
+        ),
+        child: Row(
+          children: [
+            Checkbox(
+              value: selected,
+              onChanged: enabled ? (_) => onToggle() : null,
+              activeColor: colors.accentBlue,
+              checkColor: colors.onAccent,
+              side: BorderSide(color: colors.textSecondary, width: 1.5),
+              semanticLabel: 'statement_import_missing_semantics'.tr(
+                namedArgs: {'ticker': ticker},
+              ),
+            ),
+            ExcludeSemantics(
+              child: QaTickerAvatar(ticker: ticker, size: _RowTile.avatarSize),
+            ),
+            const SizedBox(width: AppDimens.sp12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ticker,
+                    style: tt.titleSmall?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    (selected
+                            ? 'statement_import_missing_sell'
+                            : 'statement_import_missing_keep')
+                        .tr(
+                          namedArgs: {
+                            'quantity': AppNumberFormat.shares(held.quantity),
+                          },
+                        ),
+                    style: tt.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1094,10 +1289,14 @@ class _Done extends StatelessWidget {
     required this.importedTickers,
     required this.failed,
     required this.onAnother,
+    this.changes = false,
   });
 
   final int imported;
   final List<String> importedTickers;
+
+  /// Además de sumar, compró o vendió diferencias (otros textos).
+  final bool changes;
   final List<String> failed;
   final VoidCallback onAnother;
 
@@ -1144,6 +1343,12 @@ class _Done extends StatelessWidget {
             child: Text(
               none
                   ? 'import_done_none'.tr()
+                  : changes
+                  ? (imported == 1
+                      ? 'import_done_changes_title_one'.tr()
+                      : 'import_done_changes_title'.tr(
+                        namedArgs: {'count': '$imported'},
+                      ))
                   : imported == 1
                   ? 'import_done_title_one'.tr()
                   : 'import_done_title'.tr(namedArgs: {'count': '$imported'}),
@@ -1163,6 +1368,8 @@ class _Done extends StatelessWidget {
           Text(
             none
                 ? 'statement_import_done_none_body'.tr()
+                : changes
+                ? 'import_done_changes_body'.tr()
                 : 'import_done_body'.tr(),
             textAlign: TextAlign.center,
             style: tt.bodyMedium?.copyWith(

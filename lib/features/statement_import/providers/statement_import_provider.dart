@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:dartz/dartz.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/statement_import/data/screenshot_shrinker.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
+import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -85,7 +89,8 @@ class StatementImportState {
     this.warnings = const [],
     this.errorType,
     this.currentPrices = const {},
-    this.heldTickers = const {},
+    this.held = const {},
+    this.sellMissing = const {},
     this.positionLimit,
     this.importedCount = 0,
     this.failedTickers = const [],
@@ -104,8 +109,15 @@ class StatementImportState {
   /// Precio de hoy de cada ticker con cotización (del chequeo de tickers).
   final Map<String, double> currentPrices;
 
+  /// Lo que el usuario ya tiene en la cartera, por ticker.
+  final Map<String, HeldHolding> held;
+
+  /// Tickers que tiene y no están en el archivo, marcados para registrarlos
+  /// como vendidos.
+  final Set<String> sellMissing;
+
   /// Tickers que el usuario ya tiene en la cartera.
-  final Set<String> heldTickers;
+  Set<String> get heldTickers => held.keys.toSet();
 
   /// Tope de posiciones (distintos tickers) del plan; `null` = sin tope.
   final int? positionLimit;
@@ -119,14 +131,71 @@ class StatementImportState {
       if (r.included) r,
   ];
 
+  /// Qué hace la importación con [row], comparada con la cartera.
+  ImportPlan planFor(ImportRow row) =>
+      HoldingDiff.plan(row, held[row.ticker], currentPrices[row.ticker]);
+
+  /// Lista para aplicar: una nueva con todos sus datos, o una diferencia
+  /// con ticker conocido y precio.
+  bool isRowReady(ImportRow row) {
+    final plan = planFor(row);
+    return switch (plan.action) {
+      ImportAction.add => row.isReady,
+      ImportAction.unchanged => false,
+      ImportAction.buyMore || ImportAction.sell =>
+        row.quote == QuoteCheck.found && row.quantity > 0 && plan.price != null,
+    };
+  }
+
   /// Las que se pueden importar ya.
   List<ImportRow> get ready => [
     for (final r in included)
-      if (r.isReady) r,
+      if (isRowReady(r)) r,
   ];
 
-  /// Las incluidas a las que les falta algo.
-  int get needsAttention => included.length - ready.length;
+  /// Las incluidas a las que les falta algo (las iguales no cuentan).
+  int get needsAttention =>
+      included
+          .where(
+            (r) =>
+                planFor(r).action != ImportAction.unchanged && !isRowReady(r),
+          )
+          .length;
+
+  /// Las del archivo que ya coinciden con la cartera.
+  int get unchangedCount =>
+      rows.where((r) => planFor(r).action == ImportAction.unchanged).length;
+
+  /// Las que cambian una posición que ya tiene (comprar o vender la
+  /// diferencia).
+  int get changedCount =>
+      rows.where((r) {
+        final a = planFor(r).action;
+        return a == ImportAction.buyMore || a == ImportAction.sell;
+      }).length;
+
+  /// Tickers que tiene (en manuales y con precio de hoy) y no aparecen en
+  /// el archivo. Solo con un archivo: una captura o lo que escribe pueden
+  /// ser solo una parte.
+  List<String> get missing {
+    if (origin != ImportOrigin.file) return const [];
+    final inFile = {for (final r in rows) r.ticker};
+    return [
+      for (final e in held.entries)
+        if (e.value.quantity > 1e-9 &&
+            e.value.currentPrice != null &&
+            !inFile.contains(e.key))
+          e.key,
+    ]..sort();
+  }
+
+  /// Solo agrega posiciones nuevas (los textos de antes alcanzan).
+  bool get onlyAdds =>
+      sellMissing.isEmpty &&
+      ready.every((r) => planFor(r).action == ImportAction.add);
+
+  /// Movimientos que se van a aplicar.
+  int get changesToApply => ready.length + sellMissing.length;
 
   bool get checkingQuotes =>
       rows.any((r) => r.included && r.quote == QuoteCheck.pending);
@@ -144,7 +213,7 @@ class StatementImportState {
 
   bool get canImport =>
       phase == ImportPhase.preview &&
-      ready.isNotEmpty &&
+      changesToApply > 0 &&
       !checkingQuotes &&
       !exceedsLimit;
 
@@ -167,7 +236,8 @@ class StatementImportState {
     String? errorType,
     bool clearError = false,
     Map<String, double>? currentPrices,
-    Set<String>? heldTickers,
+    Map<String, HeldHolding>? held,
+    Set<String>? sellMissing,
     int? positionLimit,
     int? importedCount,
     List<String>? failedTickers,
@@ -180,7 +250,8 @@ class StatementImportState {
       warnings: warnings ?? this.warnings,
       errorType: clearError ? null : (errorType ?? this.errorType),
       currentPrices: currentPrices ?? this.currentPrices,
-      heldTickers: heldTickers ?? this.heldTickers,
+      held: held ?? this.held,
+      sellMissing: sellMissing ?? this.sellMissing,
       positionLimit: positionLimit ?? this.positionLimit,
       importedCount: importedCount ?? this.importedCount,
       failedTickers: failedTickers ?? this.failedTickers,
@@ -190,8 +261,9 @@ class StatementImportState {
 }
 
 /// Importar posiciones desde un CSV o PDF: elegir el archivo, leerlo en el
-/// servidor, corregir la vista previa y agregar las posiciones como
-/// manuales.
+/// servidor, compararlo con la cartera, corregir la vista previa y aplicar
+/// las diferencias como movimientos manuales (compras nuevas, la
+/// diferencia comprada o vendida, y lo que ya no está).
 class StatementImportNotifier extends StateNotifier<StatementImportState> {
   StatementImportNotifier({
     required StatementImportClient client,
@@ -199,7 +271,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     StatementPicker? pickScreenshot,
     required GetCurrentPriceUseCase getCurrentPrice,
     required AddPositionUseCase addPosition,
-    required Set<String> Function() heldTickers,
+    required ClosePositionUseCase closePosition,
+    required Map<String, HeldHolding> Function() held,
     required int? Function() positionLimit,
     Future<void> Function(ImportOrigin origin)? onImported,
     DateTime Function()? now,
@@ -208,7 +281,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
        _pickScreenshot = pickScreenshot,
        _getCurrentPrice = getCurrentPrice,
        _addPosition = addPosition,
-       _heldTickers = heldTickers,
+       _closePosition = closePosition,
+       _held = held,
        _positionLimit = positionLimit,
        _onImported = onImported,
        _now = now ?? DateTime.now,
@@ -219,7 +293,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   final StatementPicker? _pickScreenshot;
   final GetCurrentPriceUseCase _getCurrentPrice;
   final AddPositionUseCase _addPosition;
-  final Set<String> Function() _heldTickers;
+  final ClosePositionUseCase _closePosition;
+  final Map<String, HeldHolding> Function() _held;
   final int? Function() _positionLimit;
   final Future<void> Function(ImportOrigin origin)? _onImported;
   final DateTime Function() _now;
@@ -247,10 +322,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   Future<void> read(
     PickedStatement file, {
     ImportOrigin origin = ImportOrigin.file,
-  }) => _read(
-    () => _client.read(filename: file.name, bytes: file.bytes),
-    origin,
-  );
+  }) =>
+      _read(() => _client.read(filename: file.name, bytes: file.bytes), origin);
 
   /// Lo que escribió el usuario ("10 VOO, 2000 dólares en QQQ…"): lo lee la
   /// IA y sale la misma vista previa para revisar.
@@ -273,12 +346,18 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     try {
       final result = await fetch();
       if (!mounted) return;
+      final held = _held();
       state = StatementImportState(
         phase: ImportPhase.preview,
-        rows: result.rows,
+        // Lo que ya llega de un bróker conectado arranca afuera: el archivo
+        // suele ser de ese mismo bróker y se duplicaría.
+        rows: [
+          for (final r in result.rows)
+            held[r.ticker]?.broker != null ? r.copyWith(included: false) : r,
+        ],
         source: result.source,
         warnings: result.warnings,
-        heldTickers: _heldTickers(),
+        held: held,
         positionLimit: _positionLimit(),
         origin: origin,
       );
@@ -416,24 +495,60 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     );
   }
 
-  /// Agrega las listas como posiciones manuales, una por una. Las que
-  /// fallan quedan en [StatementImportState.failedTickers].
+  /// Marca o desmarca un ticker que no está en el archivo para
+  /// registrarlo como vendido.
+  void toggleMissing(String ticker) {
+    final next = {...state.sellMissing};
+    if (!next.remove(ticker)) next.add(ticker);
+    state = state.copyWith(sellMissing: next);
+  }
+
+  /// Aplica lo listo como movimientos manuales, uno por uno: las nuevas se
+  /// agregan, las diferencias se compran o venden (FIFO, como el resto de
+  /// la app) con fecha de hoy, y lo marcado que ya no está se vende entero
+  /// al precio de hoy. Lo que falla queda en
+  /// [StatementImportState.failedTickers].
   Future<void> importReady() async {
     if (!state.canImport) return;
-    final toImport = state.ready;
+    final snapshot = state;
     state = state.copyWith(phase: ImportPhase.importing);
+    final now = _now();
+    final today = DateTime(now.year, now.month, now.day);
     var imported = 0;
     final failed = <String>[];
-    for (final r in toImport) {
-      final result = await _addPosition(
-        params: AddPositionParams(
-          ticker: r.ticker,
-          quantity: r.quantity,
-          purchasePrice: r.purchasePrice!,
-          purchaseDate: r.purchaseDate!,
+    for (final r in snapshot.ready) {
+      final plan = snapshot.planFor(r);
+      final Either<HttpError, Object> result = switch (plan.action) {
+        ImportAction.add || ImportAction.unchanged => await _addPosition(
+          params: AddPositionParams(
+            ticker: r.ticker,
+            quantity: r.quantity,
+            purchasePrice: r.purchasePrice!,
+            purchaseDate: r.purchaseDate!,
+          ),
         ),
-      );
+        ImportAction.buyMore => await _addPosition(
+          params: AddPositionParams(
+            ticker: r.ticker,
+            quantity: plan.quantity,
+            purchasePrice: plan.price!,
+            purchaseDate: today,
+          ),
+        ),
+        ImportAction.sell => await _sell(
+          r.ticker,
+          plan.quantity,
+          plan.price!,
+          today,
+        ),
+      };
       result.fold((_) => failed.add(r.ticker), (_) => imported++);
+    }
+    for (final ticker in snapshot.sellMissing) {
+      final h = snapshot.held[ticker];
+      if (h == null || h.currentPrice == null) continue;
+      final result = await _sell(ticker, h.quantity, h.currentPrice!, today);
+      result.fold((_) => failed.add(ticker), (_) => imported++);
     }
     if (imported > 0) await _onImported?.call(state.origin);
     if (!mounted) return;
@@ -448,6 +563,22 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   void reset() {
     state = const StatementImportState();
   }
+
+  /// Con el ticker (no un lote) el repositorio vende FIFO entre las
+  /// compras manuales.
+  Future<Either<HttpError, Object>> _sell(
+    String ticker,
+    double quantity,
+    double price,
+    DateTime date,
+  ) => _closePosition(
+    params: ClosePositionParams(
+      positionId: ticker,
+      quantity: quantity,
+      closePrice: price,
+      closeDate: date,
+    ),
+  );
 
   void _replace(int id, ImportRow Function(ImportRow) change) {
     state = state.copyWith(
@@ -466,12 +597,11 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
     pickScreenshot: ref.watch(screenshotPickerProvider),
     getCurrentPrice: ref.watch(getCurrentPriceUseCaseProvider),
     addPosition: ref.watch(addPositionUseCaseProvider),
-    heldTickers:
-        () => {
-          for (final v
-              in ref.read(homeProvider).summary?.valuations ?? const [])
-            PortfolioCalculator.normalizeTicker(v.position.ticker),
-        },
+    closePosition: ref.watch(closePositionUseCaseProvider),
+    held:
+        () => HeldHolding.fromLots(
+          ref.read(homeProvider).summary?.lots ?? const [],
+        ),
     positionLimit:
         () => SubscriptionPolicy.positionLimit(
           ref.read(subscriptionProvider).tier,
@@ -479,8 +609,7 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
     onImported: (origin) {
       // Si era la primera carga, la Home la registra con el camino (archivo,
       // captura o escrita).
-      ref.read(portfolioLoadMethodProvider.notifier).state =
-          origin.loadMethod;
+      ref.read(portfolioLoadMethodProvider.notifier).state = origin.loadMethod;
       return ref.read(homeProvider.notifier).refresh(silent: true);
     },
   ),

@@ -29,17 +29,21 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/closed_position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
+import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
 import 'package:portfolio_assistant/features/statement_import/view/statement_import_screen.dart';
@@ -198,6 +202,29 @@ class _Positions implements PositionRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Closed implements ClosedPositionRepository {
+  @override
+  Future<Either<HttpError, ClosedPosition>> closePosition({
+    required String positionId,
+    required double quantity,
+    required double closePrice,
+    required DateTime closeDate,
+  }) async => Right(
+    ClosedPosition(
+      id: positionId,
+      ticker: positionId,
+      quantity: quantity,
+      avgPurchasePrice: 1,
+      closePrice: closePrice,
+      closeDate: closeDate,
+      closedAt: closeDate,
+    ),
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// Cómo dejar la pantalla antes de la captura.
 typedef _Scenario =
     ({
@@ -228,7 +255,27 @@ Widget _app(
           pick: () async => PickedStatement(name: 'x.pdf', bytes: Uint8List(1)),
           getCurrentPrice: GetCurrentPriceUseCase(quoteRepository: _Quotes()),
           addPosition: AddPositionUseCase(repository: _Positions()),
-          heldTickers: () => {'MSFT'},
+          closePosition: ClosePositionUseCase(repository: _Closed()),
+          // AAPL: tiene 10 (el archivo dice 12,5); MSFT: tiene 6 (dice 4);
+          // TSLA no está en el archivo.
+          held:
+              () => const {
+                'AAPL': HeldHolding(
+                  quantity: 10,
+                  costBasis: 1500,
+                  currentPrice: 100,
+                ),
+                'MSFT': HeldHolding(
+                  quantity: 6,
+                  costBasis: 1800,
+                  currentPrice: 100,
+                ),
+                'TSLA': HeldHolding(
+                  quantity: 4,
+                  costBasis: 800,
+                  currentPrice: 250,
+                ),
+              },
           positionLimit: () => 10,
         );
         onNotifier(n);
@@ -354,6 +401,7 @@ void main() {
         await read(n, t);
         await t.pump();
         n.toggle(3);
+        n.toggleMissing('TSLA');
         await t.drag(
           find.byType(ListView).first,
           const Offset(0, -600),
@@ -378,6 +426,7 @@ void main() {
         n.fillMissingDatesWithToday();
         n.fillMissingPricesWithCurrent();
         n.toggle(4);
+        n.toggleMissing('TSLA');
         await n.importReady();
       },
     ),

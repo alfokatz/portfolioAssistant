@@ -9,14 +9,17 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/closed_position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
+import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
 import 'package:portfolio_assistant/features/statement_import/view/statement_import_screen.dart';
@@ -131,6 +134,11 @@ class _Positions implements PositionRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Closed implements ClosedPositionRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   setUpAll(() => PortyAvatar.ambientMotion = false);
   tearDownAll(() => PortyAvatar.ambientMotion = true);
@@ -165,7 +173,22 @@ void main() {
                 quoteRepository: _Quotes(),
               ),
               addPosition: AddPositionUseCase(repository: _Positions()),
-              heldTickers: () => {'AAPL'},
+              closePosition: ClosePositionUseCase(repository: _Closed()),
+              // AAPL: tiene 10 y el archivo dice 12,5. TSLA no está en el
+              // archivo.
+              held:
+                  () => const {
+                    'AAPL': HeldHolding(
+                      quantity: 10,
+                      costBasis: 1500,
+                      currentPrice: 100,
+                    ),
+                    'TSLA': HeldHolding(
+                      quantity: 4,
+                      costBasis: 800,
+                      currentPrice: 250,
+                    ),
+                  },
               positionLimit: () => 10,
             );
           }),
@@ -214,10 +237,7 @@ void main() {
     // La frase de Porty cambia con un fundido.
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('statement_import_note_listening'), findsOneWidget);
-    expect(
-      find.text('diez VOO y dos mil dólares en cu cu cu'),
-      findsOneWidget,
-    );
+    expect(find.text('diez VOO y dos mil dólares en cu cu cu'), findsOneWidget);
     await tester.tap(find.byType(AssistantMicButton));
     await tester.pump();
     await tester.tap(find.text('statement_import_note_send'));
@@ -256,14 +276,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('AAPL'), findsOneWidget);
     expect(find.text('SAN.MC'), findsOneWidget);
-    // Ya la tiene, precio en otra moneda y ticker desconocido.
+    // Ya la tiene (se compra la diferencia), precio en otra moneda y ticker
+    // desconocido.
     expect(find.text('statement_import_preview_porty'), findsOneWidget);
-    expect(find.text('statement_import_tag_held'), findsOneWidget);
+    expect(find.text('statement_import_compare_note'), findsOneWidget);
+    expect(find.text('statement_import_held_line'), findsOneWidget);
+    expect(find.text('statement_import_tag_buy_more_at'), findsOneWidget);
     expect(find.text('statement_import_tag_price'), findsOneWidget);
     expect(find.text('statement_import_tag_currency'), findsOneWidget);
     expect(find.text('statement_import_tag_ticker'), findsOneWidget);
     expect(find.text('import_fill_dates'), findsOneWidget);
+    // Lo que tiene y no vino en el archivo, sin marcar.
+    expect(find.text('statement_import_missing_title'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('statement_import_missing_keep'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('statement_import_missing_keep'), findsOneWidget);
+    // Comprar la diferencia de AAPL es el único cambio.
+    expect(find.text('import_cta_changes_one'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('TSLA'));
+    await tester.pumpAndSettle();
+    expect(find.text('statement_import_missing_sell'), findsOneWidget);
+    expect(notifier.state.sellMissing, {'TSLA'});
+    expect(find.text('import_cta_changes'), findsOneWidget);
 
     // Descartar una fila la marca como fuera de la importación.
     await tester.tap(find.byType(Checkbox).first);
