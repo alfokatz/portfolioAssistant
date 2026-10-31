@@ -43,6 +43,14 @@ enum PlanFeature {
   /// actualice sola. El servidor (etoro-sync) también lo exige.
   brokerSync,
 
+  /// Conectar más de un bróker por SnapTrade (Premium conecta uno). El
+  /// servidor (snaptrade-sync) también lo exige.
+  multiBrokerSync,
+
+  /// "Actualizar ahora" de los brókers conectados por SnapTrade (cada una
+  /// se paga; el servidor además la habilita y le pone cupo diario).
+  brokerManualRefresh,
+
   /// Plan de cartera: asignación objetivo, desvío y cómo repartir el
   /// próximo aporte. La base también lo exige (`allocation_plans`).
   allocationPlan,
@@ -113,6 +121,8 @@ abstract final class PlanMatrix {
     PlanFeature.news,
     PlanFeature.earnings,
     PlanFeature.fundamentals,
+    PlanFeature.multiBrokerSync,
+    PlanFeature.brokerManualRefresh,
   };
 
   static const plans = <SubscriptionTier, PlanSpec>{
@@ -155,6 +165,7 @@ abstract final class PlanMatrix {
         PlanFeature.news,
         PlanFeature.earnings,
         PlanFeature.fundamentals,
+        PlanFeature.multiBrokerSync,
       ],
       // El informe semanal no es una feature con gating en la app: el
       // permiso lo decide el servidor (`claim_weekly_report`), igual que la
@@ -190,6 +201,8 @@ abstract final class PlanMatrix {
     PlanFeature.earnings => 'plan_feature_earnings',
     PlanFeature.fundamentals => 'plan_feature_fundamentals',
     PlanFeature.brokerSync => 'plan_feature_broker_sync',
+    PlanFeature.multiBrokerSync => 'plan_feature_multi_broker_sync',
+    PlanFeature.brokerManualRefresh => 'plan_feature_broker_manual_refresh',
     PlanFeature.allocationPlan => 'plan_feature_allocation_plan',
   };
 

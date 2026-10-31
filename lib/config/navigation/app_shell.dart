@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_auto_sync.dart';
+import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_auto_sync.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
@@ -88,15 +89,20 @@ class AppShell extends ConsumerWidget with BaseScreen {
         },
       ),
       // Las pestañas se pasan deslizando (ShellBranchPager, armado en
-      // app_router.dart). Al abrir la app y al volver a ella, eToro y Binance
-      // se ponen al día solos. Tocar una notificación abre su pantalla
+      // app_router.dart). Al abrir la app y al volver a ella, eToro, Binance
+      // y los brókers de SnapTrade se ponen al día solos. Tocar una
+      // notificación abre su pantalla
       // (también desde cerrada).
       // La primera vez que la cartera tiene posiciones, Porty muestra lo
       // que vio en ella (el diagnóstico).
       body: PushOpenListener(
         child: FirstPortfolioWatcher(
           isHome: isHome,
-          child: EtoroAutoSync(child: BinanceAutoSync(child: navigationShell)),
+          child: EtoroAutoSync(
+            child: BinanceAutoSync(
+              child: SnaptradeAutoSync(child: navigationShell),
+            ),
+          ),
         ),
       ),
     );

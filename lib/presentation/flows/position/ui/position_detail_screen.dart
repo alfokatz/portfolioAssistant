@@ -354,6 +354,7 @@ class _DetailList extends StatelessWidget {
                 syncedAt: lastSync,
                 partial: !allImported,
                 binance: imported.any((l) => l.position.source.isBinance),
+                snaptrade: imported.any((l) => l.position.source.isSnaptrade),
               ),
             ),
             if (!allImported) const SizedBox(height: AppDimens.sp24),

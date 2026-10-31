@@ -29,6 +29,7 @@ class EtoroSyncNote extends StatelessWidget {
     required this.syncedAt,
     this.partial = false,
     this.binance = false,
+    this.snaptrade = false,
   });
 
   final DateTime? syncedAt;
@@ -38,6 +39,9 @@ class EtoroSyncNote extends StatelessWidget {
 
   /// Lo importado viene de Binance (mismos textos, otro bróker).
   final bool binance;
+
+  /// Lo importado viene de un bróker conectado por SnapTrade.
+  final bool snaptrade;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +67,12 @@ class EtoroSyncNote extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  binance
+                  snaptrade
+                      ? (partial
+                              ? 'snaptrade_detail_partial_note'
+                              : 'snaptrade_detail_note')
+                          .tr()
+                      : binance
                       ? (partial
                               ? 'binance_detail_partial_note'
                               : 'binance_detail_note')

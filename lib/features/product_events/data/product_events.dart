@@ -38,6 +38,7 @@ abstract final class PortfolioLoadMethod {
   static const screenshot = 'screenshot';
   static const etoro = 'etoro';
   static const binance = 'binance';
+  static const snaptrade = 'snaptrade';
   static const chat = 'chat';
 
   /// Escribió lo que tiene y Porty lo leyó.

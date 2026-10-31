@@ -81,7 +81,8 @@ abstract final class PortfolioContextBuilder {
           if (v.position.source != PositionSource.manual) ...{
             'source': v.position.source.name,
             'source_note':
-                'imported shares are sold/deleted in eToro; new buys can '
+                'imported shares are sold/deleted in the broker they come '
+                'from; new buys can '
                 'still be registered in Porty with propose_buy',
           },
         });

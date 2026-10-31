@@ -10,17 +10,25 @@ enum PositionSource {
   /// sola.
   binance,
 
+  /// Importada de un bróker conectado por SnapTrade (IBKR, Schwab…): de
+  /// solo lectura, se actualiza sola.
+  snaptrade,
+
   /// Solo en una posición agregada por ticker (ver
   /// `PortfolioCalculator.aggregateByTicker`) cuando hay compras manuales e
   /// importadas de eToro.
   mixed,
 
   /// Como [mixed], con lo importado de Binance.
-  mixedBinance;
+  mixedBinance,
+
+  /// Como [mixed], con lo importado por SnapTrade.
+  mixedSnaptrade;
 
   static PositionSource fromWire(String? value) => switch (value) {
     'etoro' => PositionSource.etoro,
     'binance' => PositionSource.binance,
+    'snaptrade' => PositionSource.snaptrade,
     _ => PositionSource.manual,
   };
 
@@ -31,14 +39,22 @@ enum PositionSource {
   bool get isBinance =>
       this == PositionSource.binance || this == PositionSource.mixedBinance;
 
+  /// Lo importado viene de un bróker conectado por SnapTrade.
+  bool get isSnaptrade =>
+      this == PositionSource.snaptrade || this == PositionSource.mixedSnaptrade;
+
   /// La agregada de varias compras: si todas tienen el mismo origen, ese;
   /// si no, la mezcla con el bróker que aparezca.
   static PositionSource combine(Set<PositionSource> sources) {
     if (sources.length == 1) return sources.first;
-    return sources.contains(PositionSource.binance) &&
-            !sources.contains(PositionSource.etoro)
-        ? PositionSource.mixedBinance
-        : PositionSource.mixed;
+    if (sources.contains(PositionSource.etoro)) return PositionSource.mixed;
+    if (sources.contains(PositionSource.binance)) {
+      return PositionSource.mixedBinance;
+    }
+    if (sources.contains(PositionSource.snaptrade)) {
+      return PositionSource.mixedSnaptrade;
+    }
+    return PositionSource.mixed;
   }
 }
 

@@ -54,6 +54,7 @@
         </activity>
         <!-- Vueltas de flutter_web_auth_2 (Auth Tab / Custom Tabs):
              - eToro: la edge function etoro-sync redirige a porty-etoro://callback.
+             - SnapTrade: el Connection Portal vuelve a porty-snaptrade://callback.
              - Login con Google / Apple (OAuth PKCE de Supabase): porty-oauth://callback.
              Esquemas propios, distintos del de los emails (porty://), para que
              el code de OAuth no lo consuma otro handler de deep links. -->
@@ -66,6 +67,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="porty-etoro" />
+                <data android:scheme="porty-snaptrade" />
                 <data android:scheme="porty-oauth" />
             </intent-filter>
         </activity>

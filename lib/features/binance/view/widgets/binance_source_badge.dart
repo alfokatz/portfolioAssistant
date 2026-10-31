@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_source_badge.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -44,7 +45,8 @@ class BinanceSourceBadge extends StatelessWidget {
   }
 }
 
-/// La marca del bróker de donde vino la posición (eToro o Binance).
+/// La marca del bróker de donde vino la posición (eToro, Binance u otro
+/// bróker conectado por SnapTrade).
 class BrokerSourceBadge extends StatelessWidget {
   const BrokerSourceBadge({super.key, required this.source});
 
@@ -52,5 +54,9 @@ class BrokerSourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      source.isBinance ? const BinanceSourceBadge() : const EtoroSourceBadge();
+      source.isBinance
+          ? const BinanceSourceBadge()
+          : source.isSnaptrade
+          ? const SnaptradeSourceBadge()
+          : const EtoroSourceBadge();
 }

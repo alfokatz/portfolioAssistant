@@ -10,6 +10,10 @@ import 'package:portfolio_assistant/features/binance/domain/binance_connection.d
 import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.dart';
+import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
+import 'package:portfolio_assistant/features/snaptrade/nav/snaptrade_router.dart';
+import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
+import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_brand.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
@@ -66,6 +70,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
       ref.read(investorProfileProvider.notifier).refresh();
       ref.read(etoroConnectionProvider.notifier).load();
       ref.read(binanceProvider.notifier).load();
+      ref.read(snaptradeProvider.notifier).load();
       ref.read(pushControllerProvider.notifier).refreshPermission();
       ref.read(priceAlertsProvider.notifier).load();
     });
@@ -182,6 +187,22 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     };
   }
 
+  /// Estado de los otros brókers en una línea (null hasta que se sepa).
+  String? _snaptradeLabel(SnaptradeState state) {
+    if (!state.loaded) return null;
+    final c = state.connection;
+    final names = [for (final b in c.imported) b.name].join(', ');
+    return switch (c.status) {
+      SnaptradeStatus.notConnected ||
+      SnaptradeStatus.pending => 'snaptrade_settings_not_connected'.tr(),
+      SnaptradeStatus.reconnectRequired => 'snaptrade_settings_reconnect'.tr(),
+      SnaptradeStatus.connected when c.imported.any((b) => b.disabled) =>
+        'snaptrade_settings_reconnect'.tr(),
+      SnaptradeStatus.connected =>
+        names.isEmpty ? 'snaptrade_settings_connected'.tr() : names,
+    };
+  }
+
   /// Estado de Binance en una línea (null hasta que se sepa).
   String? _binanceLabel(BinanceState state) {
     if (!state.loaded) return null;
@@ -282,6 +303,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final alerts = ref.watch(priceAlertsProvider);
     final displayCurrency = ref.watch(displayCurrencyProvider);
     final binance = ref.watch(binanceProvider);
+    final snaptrade = ref.watch(snaptradeProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -449,6 +471,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   label: 'binance_title'.tr(),
                   subtitle: _binanceLabel(binance),
                   onTap: () => context.pushNamed(BinanceRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.account_balance_rounded,
+                  leading: const ExcludeSemantics(child: SnaptradeAppIcon()),
+                  label: 'snaptrade_title'.tr(),
+                  subtitle: _snaptradeLabel(snaptrade),
+                  onTap: () => context.pushNamed(SnaptradeRouter.routeName),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

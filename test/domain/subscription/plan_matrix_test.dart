@@ -31,6 +31,8 @@ const _expected = <PlanFeature, Set<SubscriptionTier>>{
   PlanFeature.earnings: {_gold},
   PlanFeature.fundamentals: {_gold},
   PlanFeature.brokerSync: {_premium, _gold},
+  PlanFeature.multiBrokerSync: {_gold},
+  PlanFeature.brokerManualRefresh: {_gold},
   PlanFeature.allocationPlan: {_premium, _gold},
 };
 

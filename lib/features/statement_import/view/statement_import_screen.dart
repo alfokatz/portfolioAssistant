@@ -944,6 +944,8 @@ class _RowTile extends StatelessWidget {
     null => null,
     PositionSource.binance ||
     PositionSource.mixedBinance => 'statement_import_tag_broker_binance'.tr(),
+    PositionSource.snaptrade || PositionSource.mixedSnaptrade =>
+      'statement_import_tag_broker_snaptrade'.tr(),
     _ => 'statement_import_tag_broker_etoro'.tr(),
   };
 
