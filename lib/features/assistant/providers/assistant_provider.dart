@@ -12,6 +12,10 @@ import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_pr
 import 'package:portfolio_assistant/features/binance/view/binance_screen.dart'
     show binanceErrorMessage;
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
+import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
+import 'package:portfolio_assistant/features/snaptrade/view/snaptrade_screen.dart'
+    show snaptradeErrorMessage;
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
@@ -754,6 +758,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
       return;
     }
+    // Sumar otro bróker por SnapTrade es de Gold (Premium importa uno).
+    if (draft.manageOp == ManageOp.brokerConnect &&
+        !PlanMatrix.allows(tier, PlanFeature.multiBrokerSync)) {
+      final snaptrade = ref.read(snaptradeProvider.notifier);
+      if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
+      if (ref.read(snaptradeProvider).connection.isConnected) {
+        _setAction(id, ActionProposalProgress.pending);
+        state = state.copyWith(
+          paywallReason: PaywallReason.goldRequired,
+          clearPaywallReason: false,
+        );
+        return;
+      }
+    }
     // El plan de cartera es de Premium.
     if (draft.manageOp?.link == ManageLink.allocation &&
         !PlanMatrix.allows(tier, PlanFeature.allocationPlan)) {
@@ -1049,7 +1067,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         case ManageOp.memoryClear:
           await ref.read(userMemoryProvider.notifier).clear();
           await ref.read(portyTopicsProvider.notifier).clear();
-        case ManageOp.brokerSync || ManageOp.brokerDisconnect:
+        case ManageOp.brokerSync ||
+            ManageOp.brokerConnect ||
+            ManageOp.brokerDisconnect:
           return await _brokerAction(draft.manageTarget, op);
       }
       return null;
@@ -1090,9 +1110,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  /// Actualiza o desconecta eToro o Binance (lo mismo que sus pantallas).
+  /// Actualiza o desconecta eToro o Binance, o conecta, actualiza o
+  /// desconecta los otros brókers (SnapTrade): lo mismo que sus pantallas.
   Future<String?> _brokerAction(ManageTarget target, ManageOp op) async {
     final keep = target.params['keep'] != false;
+    if (target.params['broker'] == 'snaptrade') {
+      return _snaptradeAction(op, keep: keep);
+    }
     if (target.params['broker'] == 'binance') {
       final binance = ref.read(binanceProvider.notifier);
       if (!ref.read(binanceProvider).loaded) await binance.load();
@@ -1313,12 +1337,53 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// [AssistantTurnPolicy.pendingRequest]); vive lo que la conversación.
   Map<String, Object?>? _pendingRequest;
 
+  /// Los otros brókers (SnapTrade) desde el chat. Conectar abre el mismo
+  /// portal de solo lectura que la pantalla.
+  Future<String?> _snaptradeAction(ManageOp op, {required bool keep}) async {
+    final snaptrade = ref.read(snaptradeProvider.notifier);
+    if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
+    final connection = ref.read(snaptradeProvider).connection;
+    if (op != ManageOp.brokerConnect && !connection.isConnected) {
+      return 'No tenés otros brókers conectados.';
+    }
+    final bool ok;
+    switch (op) {
+      case ManageOp.brokerConnect:
+        ok = await snaptrade.connect(darkMode: _darkMode());
+      case ManageOp.brokerDisconnect:
+        ok = await snaptrade.disconnect(keepAsManual: keep);
+      default:
+        await snaptrade.sync();
+        ok = true;
+    }
+    final error = ref.read(snaptradeProvider).errorType;
+    if (error != null) return snaptradeErrorMessage(error);
+    // Cerró el portal sin conectar nada.
+    return ok ? null : 'No conectaste ningún bróker.';
+  }
+
+  /// El portal se abre en el tema que ve el usuario.
+  bool _darkMode() {
+    final system =
+        PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    try {
+      return switch (ref.read(themeModeProvider)) {
+        ThemeMode.dark => true,
+        ThemeMode.light => false,
+        ThemeMode.system => system,
+      };
+    } catch (_) {
+      return system; // preferencias sin cargar
+    }
+  }
+
   /// Para get_app_settings: la cuenta además de los ajustes.
   Future<Map<String, Object?>> _accountOverviewForTool() async {
     final accounts = await _accountsForTool();
     final sub = ref.read(subscriptionProvider);
     final e = ref.read(etoroConnectionProvider).connection;
     final b = ref.read(binanceProvider).connection;
+    final s = ref.read(snaptradeProvider).connection;
     String? day(DateTime? d) => d?.toUtc().toIso8601String();
     List<Map<String, Object?>> achieved = const [];
     try {
@@ -1344,6 +1409,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           if (b.lastSyncAt != null) 'last_sync': day(b.lastSyncAt),
           if (b.lastResult != null) 'imported': b.lastResult!.imported,
         },
+        'snaptrade': {
+          'status': accounts['snaptrade'],
+          if (s.imported.isNotEmpty)
+            'brokers': [for (final x in s.imported) x.name],
+          if (s.lastSyncAt != null) 'last_sync': day(s.lastSyncAt),
+          if (s.lastResult != null) 'imported': s.lastResult!.imported,
+        },
       },
       if (achieved.isNotEmpty) 'achieved_goals': achieved,
     };
@@ -1363,12 +1435,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   Future<Map<String, String>> _accountsForTool() async {
     final etoro = ref.read(etoroConnectionProvider.notifier);
     final binance = ref.read(binanceProvider.notifier);
+    final snaptrade = ref.read(snaptradeProvider.notifier);
     await Future.wait([
       if (!ref.read(etoroConnectionProvider).loaded) etoro.load(),
       if (!ref.read(binanceProvider).loaded) binance.load(),
+      if (!ref.read(snaptradeProvider).loaded) snaptrade.load(),
     ]);
     final e = ref.read(etoroConnectionProvider).connection;
     final b = ref.read(binanceProvider).connection;
+    final s = ref.read(snaptradeProvider).connection;
     return {
       'etoro':
           e.needsReconnect
@@ -1380,6 +1455,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         BinanceStatus.connected => 'connected',
         BinanceStatus.reconnectRequired => 'reconnect_required',
         BinanceStatus.notConnected => 'not_connected',
+      },
+      'snaptrade': switch (s.status) {
+        SnaptradeStatus.connected when s.imported.any((x) => x.disabled) =>
+          'reconnect_required',
+        SnaptradeStatus.connected => 'connected',
+        SnaptradeStatus.reconnectRequired => 'reconnect_required',
+        SnaptradeStatus.notConnected ||
+        SnaptradeStatus.pending => 'not_connected',
       },
     };
   }

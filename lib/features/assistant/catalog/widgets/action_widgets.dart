@@ -411,7 +411,11 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final openSettings = scope?.onOpenSettings;
     final openMemory = scope?.onOpenMemory;
     final openBroker = scope?.onOpenBroker;
-    final broker = _p.params['broker'] == 'binance' ? 'binance' : 'etoro';
+    final broker = switch (_p.params['broker']) {
+      'binance' => 'binance',
+      'snaptrade' => 'snaptrade',
+      _ => 'etoro',
+    };
     final touchesNotifications = _p.manageTarget.changes.keys.any(
       (k) =>
           k.startsWith('notif') ||
@@ -440,7 +444,11 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         onTap: openMemory,
       ),
       ManageLink.broker when openBroker != null => (
-        label: broker == 'binance' ? 'Ver Binance' : 'Ver eToro',
+        label: switch (broker) {
+          'binance' => 'Ver Binance',
+          'snaptrade' => 'Ver mis brókers',
+          _ => 'Ver eToro',
+        },
         onTap: () => openBroker(broker),
       ),
       _ => null,

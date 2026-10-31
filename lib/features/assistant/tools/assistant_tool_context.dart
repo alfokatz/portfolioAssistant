@@ -187,7 +187,7 @@ class AssistantToolContext {
   /// de la app.
   final Future<Map<String, Object?>> Function()? loadAppSettings;
 
-  /// Estado de cada cuenta ({`etoro`|`binance`: `connected` |
+  /// Estado de cada cuenta ({`etoro`|`binance`|`snaptrade`: `connected` |
   /// `not_connected` | `reconnect_required`}); `null` fuera de la app.
   final Future<Map<String, String>> Function()? loadConnectedAccounts;
 

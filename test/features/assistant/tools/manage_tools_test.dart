@@ -380,6 +380,82 @@ void main() {
       },
     );
 
+    test('otros brókers: conectar desde el chat según el plan', () async {
+      const none = {'snaptrade': 'not_connected'};
+      const one = {'snaptrade': 'connected'};
+      final connect =
+          ActionProposal.fromToolResult(
+            await run({
+              'broker': 'snaptrade',
+              'action': 'connect',
+            }, accounts: none),
+          )!;
+      expect(connect.manageOp, ManageOp.brokerConnect);
+      expect(connect.manageOp!.destructive, isFalse);
+      expect(
+        connect.manageOp!.describe(connect.manageTarget),
+        contains('nunca opero'),
+      );
+      // Premium ya tiene uno: sumar otro es de Gold.
+      final premium = await run({
+        'broker': 'snaptrade',
+        'action': 'connect',
+      }, accounts: one);
+      expect(premium['status'], 'locked');
+      expect(premium['required_plan'], 'gold');
+      expect(
+        ActionProposal.fromToolResult(
+          await run(
+            {'broker': 'snaptrade', 'action': 'connect'},
+            accounts: one,
+            tier: SubscriptionTier.gold,
+          ),
+        )!.manageOp,
+        ManageOp.brokerConnect,
+      );
+      // Free: nada.
+      expect(
+        (await run(
+          {'broker': 'snaptrade', 'action': 'connect'},
+          accounts: none,
+          tier: SubscriptionTier.free,
+        ))['status'],
+        'locked',
+      );
+      // eToro y Binance se conectan en la app.
+      expect(
+        (await run({'broker': 'etoro', 'action': 'connect'}))['status'],
+        'connect_in_app',
+      );
+    });
+
+    test('otros brókers: actualizar y desconectar', () async {
+      const one = {'snaptrade': 'connected'};
+      final sync =
+          ActionProposal.fromToolResult(
+            await run({'broker': 'snaptrade', 'action': 'sync'}, accounts: one),
+          )!;
+      expect(sync.manageOp, ManageOp.brokerSync);
+      expect(
+        sync.manageOp!.describe(sync.manageTarget),
+        contains('tus otros brókers'),
+      );
+      final off =
+          ActionProposal.fromToolResult(
+            await run({
+              'broker': 'snaptrade',
+              'action': 'disconnect',
+              'keep_positions': true,
+            }, accounts: one),
+          )!;
+      expect(off.manageOp!.confirmLabel(off.manageTarget), 'Desconectar todo');
+      expect(off.manageOp!.describe(off.manageTarget), contains('la conexión'));
+      expect(
+        (await run({'broker': 'snaptrade', 'action': 'sync'}))['status'],
+        'not_connected',
+      );
+    });
+
     test('sin conectar, sin acceso y Free', () async {
       expect(
         (await run({'broker': 'binance', 'action': 'sync'}))['status'],

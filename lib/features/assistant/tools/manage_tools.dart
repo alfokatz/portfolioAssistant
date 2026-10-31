@@ -104,6 +104,10 @@ abstract final class ManageGuides {
   static const brokerReconnect =
       'QaAnswerText: the broker closed the access; they reconnect it in '
       'Ajustes → Cuentas conectadas. You can\'t do it from the chat.';
+  static const connectInApp =
+      'QaAnswerText: eToro and Binance are connected in Ajustes → Cuentas '
+      'conectadas (never ask for keys or passwords in the chat). Other '
+      'brokers (IBKR, Schwab…) you can connect from here.';
   static const alertAmbiguous =
       'QaAnswerText only: they have several alerts for that ticker '
       '(candidates); ask which one in ONE short question, one "• " line per '
@@ -738,9 +742,10 @@ class ProposeBrokerActionTool implements DataTool {
 
   @override
   String get description =>
-      'Card to confirm syncing or disconnecting a connected eToro/Binance '
-      'account (disconnect: ask keep_positions if unsaid). Connecting is only '
-      'in the app. status: ok | not_connected | reconnect_required | locked.';
+      'Card to sync, connect or disconnect an account (disconnect: ask '
+      'keep_positions if unsaid). snaptrade = other brokers (IBKR, Schwab…), '
+      'connect opens a read-only portal; eToro/Binance connect in the app '
+      'only. status: ok | not_connected | reconnect_required | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -748,11 +753,11 @@ class ProposeBrokerActionTool implements DataTool {
     'properties': {
       'broker': {
         'type': 'string',
-        'enum': ['etoro', 'binance'],
+        'enum': ['etoro', 'binance', 'snaptrade'],
       },
       'action': {
         'type': 'string',
-        'enum': ['sync', 'disconnect'],
+        'enum': ['sync', 'connect', 'disconnect'],
       },
       'keep_positions': {'type': 'boolean'},
     },
@@ -769,8 +774,8 @@ class ProposeBrokerActionTool implements DataTool {
     final action = ToolArgs.string(args, 'action');
     final keep = args['keep_positions'];
     final missing = [
-      if (broker != 'etoro' && broker != 'binance') 'broker',
-      if (action != 'sync' && action != 'disconnect') 'action',
+      if (!const ['etoro', 'binance', 'snaptrade'].contains(broker)) 'broker',
+      if (!const ['sync', 'connect', 'disconnect'].contains(action)) 'action',
       if (action == 'disconnect' && keep is! bool) 'keep_positions',
     ];
     if (missing.isNotEmpty) {
@@ -788,6 +793,25 @@ class ProposeBrokerActionTool implements DataTool {
       return {'status': 'failed', 'reason': 'unavailable'};
     }
     final status = accounts[broker];
+    if (action == 'connect') {
+      // Desde el chat solo se conecta por SnapTrade (portal de solo
+      // lectura); eToro y Binance piden OAuth o una clave en la app.
+      if (broker != 'snaptrade') {
+        return AnswerGuide.attach({
+          'status': 'connect_in_app',
+        }, ManageGuides.connectInApp);
+      }
+      // Premium importa un bróker: sumar otro es de Gold.
+      if (status == 'connected' && !ctx.allows(PlanFeature.multiBrokerSync)) {
+        return ctx.lockedFeature(PlanFeature.multiBrokerSync);
+      }
+      return ManageTools.propose(
+        ctx,
+        ManageOp.brokerConnect,
+        targetLabel: 'Otros brókers',
+        params: const {'broker': 'snaptrade'},
+      );
+    }
     if (status == 'not_connected' || status == null) {
       return AnswerGuide.attach({
         'status': 'not_connected',
@@ -802,7 +826,11 @@ class ProposeBrokerActionTool implements DataTool {
     return ManageTools.propose(
       ctx,
       action == 'sync' ? ManageOp.brokerSync : ManageOp.brokerDisconnect,
-      targetLabel: broker == 'binance' ? 'Binance' : 'eToro',
+      targetLabel: switch (broker) {
+        'binance' => 'Binance',
+        'snaptrade' => 'Otros brókers',
+        _ => 'eToro',
+      },
       params: {'broker': broker, if (action == 'disconnect') 'keep': keep},
     );
   }

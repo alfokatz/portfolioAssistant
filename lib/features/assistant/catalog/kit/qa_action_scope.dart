@@ -81,7 +81,7 @@ class QaActionScope extends InheritedWidget {
   /// "Ver lo que sé de vos" después de borrar la memoria.
   final VoidCallback? onOpenMemory;
 
-  /// La pantalla de la cuenta conectada (`etoro` | `binance`).
+  /// La pantalla de la cuenta conectada (`etoro` | `binance` | `snaptrade`).
   final ValueChanged<String>? onOpenBroker;
 
   static QaActionScope? maybeOf(BuildContext context) =>

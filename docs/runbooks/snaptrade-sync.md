@@ -53,6 +53,14 @@ Secrets de `snaptrade-sync`:
 | `SNAPTRADE_REFRESH_PER_DAY` | cupo diario por usuario, default 2 |
 | `SNAPTRADE_API_URL` | opcional, default `https://api.snaptrade.com` |
 
+### Desde el chat
+
+`propose_broker_action` con `broker: snaptrade` muestra una card para confirmar y hace lo mismo que la pantalla:
+
+- `connect`: abre el portal de solo lectura. Premium que ya tiene un bróker → `locked` (Gold) en la tool, y la app vuelve a mirar el plan al confirmar (paywall de Gold, sin abrir el portal).
+- `sync` y `disconnect` (pregunta si conservar lo importado).
+- eToro y Binance siguen sin poder conectarse desde el chat (`connect_in_app`): piden OAuth o una clave.
+
 ## 3. Desplegar
 
 ```bash

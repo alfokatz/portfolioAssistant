@@ -25,6 +25,8 @@ import 'package:portfolio_assistant/features/assistant/models/action_proposal.da
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/binance/data/binance_repository.dart';
 import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
+import 'package:portfolio_assistant/features/snaptrade/data/snaptrade_repository.dart';
+import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -402,6 +404,54 @@ class _BinanceRepo implements BinanceRepository {
   }
 }
 
+class _SnaptradeRepo implements SnaptradeRepository {
+  var connection = const SnaptradeConnection();
+  var syncs = 0;
+  var portals = 0;
+  bool? disconnectedKeeping;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<SnaptradeConnection> load() async => connection;
+
+  @override
+  Future<Uri> portalUrl({required bool darkMode, String? reconnect}) async {
+    portals++;
+    return Uri.parse('https://app.snaptrade.com/portal');
+  }
+
+  @override
+  Future<({SnaptradeSyncResult? result, bool throttled})> sync({
+    bool force = false,
+  }) async {
+    syncs++;
+    // Volvió del portal con un bróker conectado.
+    connection = const SnaptradeConnection(
+      status: SnaptradeStatus.connected,
+      brokerages: [SnaptradeBrokerage(id: 'a1', name: 'Interactive Brokers')],
+    );
+    return (result: null, throttled: false);
+  }
+
+  @override
+  Future<void> disconnect({required bool keepAsManual}) async {
+    disconnectedKeeping = keepAsManual;
+    connection = const SnaptradeConnection();
+  }
+}
+
+class _Portal implements SnaptradePortalLauncher {
+  var opened = 0;
+
+  @override
+  Future<bool> open(Uri url) async {
+    opened++;
+    return true;
+  }
+}
+
 class _Harness {
   _Harness({SubscriptionTier tier = SubscriptionTier.premium, this.prefs})
     : subscriptions = _Subscriptions(tier) {
@@ -426,6 +476,8 @@ class _Harness {
         allocationRepositoryProvider.overrideWithValue(allocation),
         notificationsRepositoryProvider.overrideWithValue(notif),
         binanceRepositoryProvider.overrideWithValue(binance),
+        snaptradeRepositoryProvider.overrideWithValue(snaptrade),
+        snaptradePortalLauncherProvider.overrideWithValue(portal),
         userMemoryRepositoryProvider.overrideWithValue(memory),
         if (prefs != null) sharedPreferencesProvider.overrideWithValue(prefs!),
         watchlistProvider.overrideWith(
@@ -455,6 +507,8 @@ class _Harness {
   final notif = _NotifRepo();
   final memory = _MemoryRepo();
   final binance = _BinanceRepo();
+  final snaptrade = _SnaptradeRepo();
+  final portal = _Portal();
   final SharedPreferences? prefs;
   late _Home home;
   late final ProviderContainer container;
@@ -849,6 +903,48 @@ void main() {
       );
       expect(h.progress('b3').errorMessage, 'Binance no está conectada.');
     });
+
+    test('otros brókers: conectar abre el portal y desconectar', () async {
+      h = _Harness();
+      await h.notifier.executeAction(
+        broker('s1', ManageOp.brokerConnect, {'broker': 'snaptrade'}),
+      );
+      expect(h.portal.opened, 1);
+      expect(h.snaptrade.syncs, 1);
+      expect(h.progress('s1').status, ActionProposalStatus.done);
+      await h.notifier.executeAction(
+        broker('s2', ManageOp.brokerDisconnect, {
+          'broker': 'snaptrade',
+          'keep': false,
+        }),
+      );
+      expect(h.snaptrade.disconnectedKeeping, isFalse);
+      await h.notifier.executeAction(
+        broker('s3', ManageOp.brokerSync, {'broker': 'snaptrade'}),
+      );
+      expect(
+        h.progress('s3').errorMessage,
+        'No tenés otros brókers conectados.',
+      );
+    });
+
+    test(
+      'Premium con un bróker: sumar otro abre Gold sin abrir el portal',
+      () async {
+        h = _Harness();
+        h.snaptrade.connection = const SnaptradeConnection(
+          status: SnaptradeStatus.connected,
+          brokerages: [
+            SnaptradeBrokerage(id: 'a1', name: 'Interactive Brokers'),
+          ],
+        );
+        await h.notifier.executeAction(
+          broker('s4', ManageOp.brokerConnect, {'broker': 'snaptrade'}),
+        );
+        expect(h.portal.opened, 0);
+        expect(h.state.paywallReason, PaywallReason.goldRequired);
+      },
+    );
 
     test('Free: no toca nada y abre los planes', () async {
       h = _Harness(tier: SubscriptionTier.free);

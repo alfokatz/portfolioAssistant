@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_route
 import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
 import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/snaptrade/nav/snaptrade_router.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
@@ -1249,11 +1250,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                 onOpenMemory:
                     () => context.pushNamed(PortyMemoryRouter.routeName),
                 onOpenBroker:
-                    (broker) => context.pushNamed(
-                      broker == 'binance'
-                          ? BinanceRouter.routeName
-                          : EtoroRouter.connectionRouteName,
-                    ),
+                    (broker) => context.pushNamed(switch (broker) {
+                      'binance' => BinanceRouter.routeName,
+                      'snaptrade' => SnaptradeRouter.routeName,
+                      _ => EtoroRouter.connectionRouteName,
+                    }),
                 child: PortyVoiceScope(
                   onDoneSpeaking:
                       message.surfaceId == _speakingSurfaceId

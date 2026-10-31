@@ -52,8 +52,12 @@ enum ManageOp {
   memoryClear('memory_clear'),
 
   /// Traer ya lo último de una cuenta conectada (`params.broker`:
-  /// `etoro` | `binance`).
+  /// `etoro` | `binance` | `snaptrade`).
   brokerSync('broker_sync'),
+
+  /// Conectar un bróker por SnapTrade (`params.broker` = `snaptrade`): abre
+  /// el portal de solo lectura, como la pantalla de otros brókers.
+  brokerConnect('broker_connect'),
 
   /// Desconectar una cuenta (`params.broker`, `params.keep`: conservar lo
   /// importado como posiciones manuales o borrarlo).
@@ -90,7 +94,7 @@ enum ManageOp {
     allocationSave => ManageLink.allocation,
     settingsChange => ManageLink.settings,
     memoryClear => ManageLink.memory,
-    brokerSync || brokerDisconnect => ManageLink.broker,
+    brokerSync || brokerConnect || brokerDisconnect => ManageLink.broker,
   };
 
   /// El rótulo de arriba de la card.
@@ -102,7 +106,7 @@ enum ManageOp {
     allocationSave => 'Plan de cartera',
     settingsChange => 'Ajustes',
     memoryClear => 'Lo que sé de vos',
-    brokerSync || brokerDisconnect => 'Cuenta conectada',
+    brokerSync || brokerConnect || brokerDisconnect => 'Cuenta conectada',
   };
 
   /// Qué va a pasar, antes de confirmar.
@@ -147,14 +151,21 @@ enum ManageOp {
       'Borro todo lo que anoté sobre vos. Tu cartera, tus metas y tu perfil '
           'de inversor no se tocan.',
     brokerSync =>
-      'Traigo ya lo último de tu cuenta de ${_broker(t)} (sin esperar a la '
-          'próxima actualización).',
+      _isSnaptrade(t)
+          ? 'Traigo ya lo último de tus otros brókers (sin esperar a la '
+              'próxima actualización).'
+          : 'Traigo ya lo último de tu cuenta de ${_broker(t)} (sin esperar '
+              'a la próxima actualización).',
+    brokerConnect =>
+      'Te llevo a una página segura de SnapTrade, nuestro socio de conexión, '
+          'para que entres a tu bróker. Solo leo tus posiciones: nunca opero '
+          'ni muevo nada.',
     brokerDisconnect =>
       t.params['keep'] == false
-          ? 'Desconecto ${_broker(t)}, borro la clave y también las '
+          ? 'Desconecto ${_broker(t)}, borro ${_credential(t)} y también las '
               'posiciones que importé de ahí.'
-          : 'Desconecto ${_broker(t)} y borro la clave. Lo que importé queda '
-              'en tu cartera como posiciones manuales.',
+          : 'Desconecto ${_broker(t)} y borro ${_credential(t)}. Lo que '
+              'importé queda en tu cartera como posiciones manuales.',
   };
 
   /// El botón para confirmar.
@@ -172,7 +183,9 @@ enum ManageOp {
     settingsChange => 'Guardar cambios',
     memoryClear => 'Borrar todo',
     brokerSync => 'Actualizar ahora',
-    brokerDisconnect => 'Desconectar ${_broker(t)}',
+    brokerConnect => 'Conectar un bróker',
+    brokerDisconnect =>
+      _isSnaptrade(t) ? 'Desconectar todo' : 'Desconectar ${_broker(t)}',
   };
 
   /// Cómo queda la card después de confirmar.
@@ -200,7 +213,11 @@ enum ManageOp {
           : 'Guardé tu plan: ${_split(t.targets)}.${_reminderSuffix(t)}',
     settingsChange => 'Listo:\n${AppSettingKeys.describe(t.changes)}',
     memoryClear => 'Borré todo lo que sabía de vos.',
-    brokerSync => 'Actualicé tu cuenta de ${_broker(t)}.',
+    brokerSync =>
+      _isSnaptrade(t)
+          ? 'Actualicé tus otros brókers.'
+          : 'Actualicé tu cuenta de ${_broker(t)}.',
+    brokerConnect => 'Conecté tu bróker.',
     brokerDisconnect => 'Desconecté ${_broker(t)}.',
   };
 
@@ -211,6 +228,7 @@ enum ManageOp {
     goalDelete ||
     memoryClear ||
     brokerSync ||
+    brokerConnect ||
     brokerDisconnect => 'Hecho',
     watchNotifyOn || alertResume => 'Activado',
     watchNotifyOff || alertPause => 'Pausado',
@@ -222,8 +240,17 @@ enum ManageOp {
   };
 }
 
-String _broker(ManageTarget t) =>
-    t.params['broker'] == 'binance' ? 'Binance' : 'eToro';
+String _broker(ManageTarget t) => switch (t.params['broker']) {
+  'binance' => 'Binance',
+  'snaptrade' => 'tus otros brókers',
+  _ => 'eToro',
+};
+
+bool _isSnaptrade(ManageTarget t) => t.params['broker'] == 'snaptrade';
+
+/// Lo que se borra al desconectar: la clave (eToro, Binance) o la conexión.
+String _credential(ManageTarget t) =>
+    _isSnaptrade(t) ? 'la conexión' : 'la clave';
 
 /// "VOO 60% · BND 40%", de mayor a menor.
 String _split(Map<String, double> targets) {
