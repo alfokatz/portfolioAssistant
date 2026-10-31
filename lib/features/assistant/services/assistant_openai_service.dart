@@ -31,18 +31,15 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     http.Client? httpClient,
     PromptVariant variant = PromptVariant.classic,
   }) {
-    final catalog = AssistantCatalog.build();
     return AssistantOpenAiService._(
       proxy: proxy,
       model: model,
       httpClient: httpClient,
-      systemPrompt:
-          variant == PromptVariant.lean
-              ? systemPromptFor(AssistantCatalog.build(variant: variant))
-              : systemPromptFor(catalog),
+      systemPrompt: systemPromptFor(AssistantCatalog.build(variant: variant)),
       // Para mostrar, siempre el catálogo completo: un widget diferido
-      // llega descripto en su `area_spec`.
-      catalog: catalog,
+      // llega descripto en su `area_spec`, y los que agrega la app
+      // (QaBrokerLink) no van en el prompt.
+      catalog: AssistantCatalog.build(forDisplay: true),
       variant: variant,
     );
   }

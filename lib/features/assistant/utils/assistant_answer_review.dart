@@ -376,6 +376,10 @@ abstract final class AssistantAnswerReview {
       changed = true;
     }
 
+    if (_withBrokerLink(list, components, root, evidence)) {
+      changed = true;
+    }
+
     if (_withNewsCard(list, components, root, evidence)) {
       changed = true;
     }
@@ -699,6 +703,46 @@ abstract final class AssistantAnswerReview {
   };
 
   static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};
+
+  static const _sellTools = {'propose_sell', 'propose_delete_position'};
+
+  /// Si en ESTE turno quiso vender o borrar algo que vino de un bróker
+  /// (`managed_by_broker`), agrega "Abrir en eToro ↗" (`QaBrokerLink`)
+  /// después del texto: Porty no opera, pero lo lleva adonde sí. Uno solo.
+  static bool _withBrokerLink(
+    List list,
+    List<Map<String, dynamic>> components,
+    Map<String, dynamic>? root,
+    TurnEvidence evidence,
+  ) {
+    if (root == null || root['children'] is! List) return false;
+    if (components.any((c) => c['component'] == 'QaBrokerLink')) return false;
+    Map<String, String>? link;
+    for (final call in evidence.turnCalls) {
+      if (!_sellTools.contains(call.name)) continue;
+      final broker = call.result['broker'];
+      final ticker = call.args['ticker'];
+      if (call.result['reason'] == 'managed_by_broker' &&
+          broker is String &&
+          ticker is String &&
+          ticker.trim().isNotEmpty) {
+        link = {'ticker': ticker.trim().toUpperCase(), 'broker': broker};
+        break;
+      }
+    }
+    if (link == null) return false;
+    const id = 'brokerLink';
+    list.add({'id': id, 'component': 'QaBrokerLink', ...link});
+    final children = List.of(root['children'] as List);
+    final introAt = children.indexWhere(
+      (child) => components.any(
+        (c) => c['id'] == child && c['component'] == 'QaAnswerText',
+      ),
+    );
+    children.insert(introAt < 0 ? 0 : introAt + 1, id);
+    root['children'] = children;
+    return true;
+  }
 
   /// Si en ESTE turno una fuente de Gold vino `locked` y la respuesta quedó
   /// en solo texto, agrega un `QaGoldTeaser` después del texto: lo bloqueado

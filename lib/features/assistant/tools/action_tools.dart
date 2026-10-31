@@ -90,8 +90,10 @@ abstract final class ActionGuides {
   static const invalid =
       'QaAnswerText only: explain reason plainly (exceeds_holdings: they '
       'hold held_shares; not_held: they don\'t hold it; managed_by_broker: '
-      'imported from eToro, read-only in Porty — it is sold in eToro and '
-      'updates by itself; future_date, sale_before_purchase…: say why).';
+      'imported from their broker (broker: etoro | binance | snaptrade = '
+      'their other broker), read-only in Porty — they sell it there (the app '
+      'adds a link to open it) and it updates by itself; future_date, '
+      'sale_before_purchase…: say why).';
 
   static Map<String, Object?> attachTo(Map<String, Object?> result) =>
       switch (result['status']) {
@@ -230,12 +232,22 @@ abstract class _ProposeTool implements DataTool {
   }
 
   /// `not_held`, o `managed_by_broker` si [ticker] está en la cartera pero
-  /// solo importado de eToro (se vende en eToro y llega solo).
+  /// solo importado de un bróker (se vende allá y llega solo). `broker` dice
+  /// de cuál: la app agrega "Abrir en …" (`QaBrokerLink`).
   Map<String, Object?> _notHeld(String ticker) {
-    final imported = (ctx.summary?.lots ?? const []).any(
-      (v) => v.position.ticker.toUpperCase() == ticker && v.position.isReadOnly,
-    );
-    return _invalid(imported ? 'managed_by_broker' : 'not_held');
+    final imported = [
+      for (final v in ctx.summary?.lots ?? const [])
+        if (v.position.ticker.toUpperCase() == ticker && v.position.isReadOnly)
+          v.position.source,
+    ];
+    if (imported.isEmpty) return _invalid('not_held');
+    final broker =
+        imported.any((s) => s.isSnaptrade)
+            ? 'snaptrade'
+            : imported.any((s) => s.isBinance)
+            ? 'binance'
+            : 'etoro';
+    return _invalid('managed_by_broker', {'broker': broker});
   }
 
   String? _ticker(Map<String, Object?> args) {
@@ -390,6 +402,8 @@ class ProposeSellTool extends _ProposeTool {
             _sentNonPositive(args, 'amount_usd'))) {
       return _invalid('invalid_quantity');
     }
+    // Si no la tiene (o es de un bróker), decirlo antes de pedir datos.
+    if (ticker != null && _heldShares(ticker) == null) return _notHeld(ticker);
     final missing = [
       if (ticker == null) 'ticker',
       if (!all && shares == null && amountUsd == null) 'quantity',
@@ -397,8 +411,7 @@ class ProposeSellTool extends _ProposeTool {
     ];
     if (missing.isNotEmpty) return _needsInput(missing);
 
-    final held = _heldShares(ticker!);
-    if (held == null) return _notHeld(ticker);
+    final held = _heldShares(ticker!)!;
 
     final dateError = _checkDate(date!);
     if (dateError != null) return dateError;

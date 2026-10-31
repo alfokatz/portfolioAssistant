@@ -87,10 +87,19 @@ void main() {
       'all': true,
       'date': '2026-09-25',
     });
-    expect(_data(sell), {'status': 'invalid', 'reason': 'managed_by_broker'});
+    // Dice de qué bróker vino: la app agrega "Abrir en eToro".
+    expect(_data(sell), {
+      'status': 'invalid',
+      'reason': 'managed_by_broker',
+      'broker': 'etoro',
+    });
 
     final delete = await ProposeDeletePositionTool(_ctx()).run({'ticker': 'VOO'});
     expect(delete['reason'], 'managed_by_broker');
+
+    // Sin fecha ni cantidad: igual avisa antes de preguntar.
+    final early = await ProposeSellTool(_ctx()).run({'ticker': 'VOO'});
+    expect(early['reason'], 'managed_by_broker');
   });
 
   test('ticker mixto: solo se puede vender/borrar lo cargado a mano', () async {

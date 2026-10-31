@@ -310,6 +310,56 @@ void main() {
     );
   });
 
+  test(
+    'selling something imported adds "open in the broker" after the text',
+    () {
+      const sell = ToolCallRecord(
+        name: 'propose_sell',
+        args: {'ticker': 'voo', 'all': true},
+        result: {
+          'status': 'invalid',
+          'reason': 'managed_by_broker',
+          'broker': 'etoro',
+        },
+      );
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('VOO vino de eToro: se vende allá.')]),
+        const TurnEvidence(calls: [sell], turnCalls: [sell]),
+      );
+      final update = (jsonDecode(out) as Map)['updateComponents'] as Map;
+      final components = (update['components'] as List).cast<Map>();
+      final root = components.firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'brokerLink']);
+      final link = components.firstWhere((c) => c['id'] == 'brokerLink');
+      expect(link['component'], 'QaBrokerLink');
+      expect(link['ticker'], 'VOO');
+      expect(link['broker'], 'etoro');
+    },
+  );
+
+  test('no broker link for a normal sale or a previous turn', () {
+    const notHeld = ToolCallRecord(
+      name: 'propose_sell',
+      args: {'ticker': 'TSLA'},
+      result: {'status': 'invalid', 'reason': 'not_held'},
+    );
+    const earlier = ToolCallRecord(
+      name: 'propose_sell',
+      args: {'ticker': 'VOO'},
+      result: {
+        'status': 'invalid',
+        'reason': 'managed_by_broker',
+        'broker': 'etoro',
+      },
+    );
+    final out = AssistantAnswerReview.postProcess(
+      _answer([_intro('No tenés TSLA.')]),
+      // `earlier` es de un turno anterior: no está en turnCalls.
+      const TurnEvidence(calls: [earlier, notHeld], turnCalls: [notHeld]),
+    );
+    expect(out, isNot(contains('QaBrokerLink')));
+  });
+
   test('no teaser when a data card already answers', () {
     const locked = ToolCallRecord(
       name: 'get_news',
