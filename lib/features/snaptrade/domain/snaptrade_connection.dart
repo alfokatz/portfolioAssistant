@@ -23,10 +23,14 @@ class SnaptradeBrokerage {
     this.disabled = false,
     this.imported = true,
     this.reason,
+    this.url,
   });
 
   final String id;
   final String name;
+
+  /// La web del bróker (solo https), para "Abrir en tu bróker".
+  final Uri? url;
 
   /// La conexión se cayó en el bróker: hay que reconectarla.
   final bool disabled;
@@ -50,6 +54,10 @@ class SnaptradeBrokerage {
       disabled: json['disabled'] == true,
       imported: json['imported'] != false,
       reason: json['reason'] as String?,
+      url: switch (Uri.tryParse('${json['url'] ?? ''}')) {
+        final u? when u.scheme == 'https' && u.host.isNotEmpty => u,
+        _ => null,
+      },
     );
   }
 }

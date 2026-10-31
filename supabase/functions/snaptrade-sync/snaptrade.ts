@@ -40,6 +40,8 @@ export type Authorization = {
   type: string;
   disabled: boolean;
   createdAt: string;
+  /// La web del bróker (para "Abrir en tu bróker"); null si no la informa.
+  url: string | null;
 };
 
 export type Account = { id: string; authorizationId: string; name: string; institution: string };
@@ -146,6 +148,7 @@ export class SnaptradeClient {
         type: String(a.type ?? "read"),
         disabled: a.disabled === true,
         createdAt: String(a.created_date ?? ""),
+        url: typeof brokerage.url === "string" && /^https:\/\//.test(brokerage.url) ? brokerage.url : null,
       }];
     });
   }

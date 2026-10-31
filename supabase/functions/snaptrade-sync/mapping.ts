@@ -21,6 +21,8 @@ export type BrokerageSummary = {
   name: string;
   slug: string;
   disabled: boolean;
+  /// La web del bróker (solo https), para "Abrir en tu bróker".
+  url: string | null;
   /// false: conectado en SnapTrade pero Porty no lo importa.
   imported: boolean;
   /// Por qué no se importa: `plan_limit`, `direct_connection` o
@@ -34,7 +36,7 @@ export function selectBrokerages(auths: Authorization[], maxBrokerages: number |
   const sorted = [...auths].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   let used = 0;
   return sorted.map((a) => {
-    const base = { id: a.id, name: a.name, slug: a.slug, disabled: a.disabled };
+    const base = { id: a.id, name: a.name, slug: a.slug, disabled: a.disabled, url: a.url };
     // Porty solo pide `read`; si apareciera una con permiso de operar, no
     // se usa.
     if (a.type !== "read") return { ...base, imported: false, reason: "trade_permissions" };

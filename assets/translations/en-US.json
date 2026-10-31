@@ -1591,5 +1591,9 @@
   "snaptrade_error_unavailable": "We couldn't reach your broker right now. Try again in a while.",
   "statement_import_tag_broker_snaptrade": "Already synced from your broker",
   "plan_feature_multi_broker_sync": "All your brokers connected at once",
-  "plan_feature_broker_manual_refresh": "Ask your broker for fresh data anytime"
+  "plan_feature_broker_manual_refresh": "Ask your broker for fresh data anytime",
+  "broker_open_in": "Open in {broker}",
+  "broker_open_site": "Open {broker}",
+  "broker_open_hint": "Opens outside Porty",
+  "broker_open_failed": "I couldn't open the broker. Try from its app."
 }

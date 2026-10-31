@@ -1591,5 +1591,9 @@
   "snaptrade_error_unavailable": "No pudimos hablar con tu bróker ahora. Probá de nuevo en un rato.",
   "statement_import_tag_broker_snaptrade": "Ya llega de tu bróker",
   "plan_feature_multi_broker_sync": "Todos tus brókers conectados a la vez",
-  "plan_feature_broker_manual_refresh": "Pedir los datos a tu bróker cuando quieras"
+  "plan_feature_broker_manual_refresh": "Pedir los datos a tu bróker cuando quieras",
+  "broker_open_in": "Abrir en {broker}",
+  "broker_open_site": "Abrir {broker}",
+  "broker_open_hint": "Se abre fuera de Porty",
+  "broker_open_failed": "No pude abrir el bróker. Probá desde su app."
 }

@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
+import 'package:portfolio_assistant/features/broker_links/view/open_in_broker_links.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
@@ -355,6 +356,16 @@ class _DetailList extends StatelessWidget {
                 partial: !allImported,
                 binance: imported.any((l) => l.position.source.isBinance),
                 snaptrade: imported.any((l) => l.position.source.isSnaptrade),
+              ),
+            ),
+            // Porty no opera: "Abrir en eToro ↗" lleva al bróker.
+            enter(
+              Padding(
+                padding: const EdgeInsets.only(top: AppDimens.sp8),
+                child: OpenInBrokerLinks(
+                  ticker: ticker,
+                  sources: {for (final l in imported) l.position.source},
+                ),
               ),
             ),
             if (!allImported) const SizedBox(height: AppDimens.sp24),

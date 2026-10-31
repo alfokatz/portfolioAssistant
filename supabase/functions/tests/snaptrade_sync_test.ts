@@ -37,6 +37,7 @@ const auth = (over: Partial<Authorization>): Authorization => ({
   type: "read",
   disabled: false,
   createdAt: "2026-10-01T00:00:00Z",
+  url: null,
   ...over,
 });
 
@@ -184,7 +185,11 @@ function fakeSnaptrade(opts: {
       type: "read",
       disabled: false,
       created_date: "2026-10-01T00:00:00Z",
-      brokerage: { slug: "INTERACTIVE-BROKERS-FLEX", display_name: "Interactive Brokers" },
+      brokerage: {
+        slug: "INTERACTIVE-BROKERS-FLEX",
+        display_name: "Interactive Brokers",
+        url: "https://www.interactivebrokers.com",
+      },
     },
     {
       id: "auth-schwab",
@@ -374,9 +379,9 @@ Deno.test("sincronizar Premium: solo el primer bróker, lotes sumados, costo est
     ["acc-ibkr:AAPL", 10, 130, 200],
     ["acc-ibkr:VOO", 2, 500, 500],
   ]);
-  assertEquals(store.brokerages?.map((b) => [b.name, b.imported, b.reason]), [
-    ["Interactive Brokers", true, undefined],
-    ["Schwab", false, "plan_limit"],
+  assertEquals(store.brokerages?.map((b) => [b.name, b.imported, b.reason, b.url]), [
+    ["Interactive Brokers", true, undefined, "https://www.interactivebrokers.com"],
+    ["Schwab", false, "plan_limit", null],
   ]);
   // La cuenta de Schwab ni se consulta.
   assert(!calls.some((c) => c.path === "/accounts/acc-schwab/positions/all"));
