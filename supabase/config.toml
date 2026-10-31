@@ -466,6 +466,10 @@ verify_jwt = false
 [functions.etoro-sync]
 verify_jwt = false
 
+# Valida el JWT del usuario ella misma, como finnhub.
+[functions.snaptrade-sync]
+verify_jwt = false
+
 # Funciones internas de las notificaciones push: las llama pg_cron (o otra
 # función) con el header `x-cron-secret` (secret CRON_SECRET), sin JWT.
 [functions.notify-dispatch]
