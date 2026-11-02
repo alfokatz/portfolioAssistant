@@ -32,6 +32,15 @@ class SnaptradeBrokerage {
   /// La web del bróker (solo https), para "Abrir en tu bróker".
   final Uri? url;
 
+  /// `etoro` o `binance` si es un bróker que Porty también conecta directo
+  /// (gratis y con más datos); null si no.
+  String? get directBroker {
+    final n = name.toLowerCase();
+    if (n.contains('etoro')) return 'etoro';
+    if (n.contains('binance')) return 'binance';
+    return null;
+  }
+
   /// La conexión se cayó en el bróker: hay que reconectarla.
   final bool disabled;
 

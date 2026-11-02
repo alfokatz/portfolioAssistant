@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
+import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
@@ -181,6 +184,12 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
             syncing: state.busy,
             onReconnect: state.busy ? null : (b) => _connect(reconnect: b.id),
             onRemove: state.busy ? null : _remove,
+            onGoDirect:
+                (broker) => context.pushNamed(
+                  broker == 'binance'
+                      ? BinanceRouter.routeName
+                      : EtoroRouter.connectionRouteName,
+                ),
           ),
           if (error != null) ...[
             const SizedBox(height: AppDimens.sp12),
@@ -369,12 +378,14 @@ class _StatusCard extends StatelessWidget {
     required this.syncing,
     required this.onReconnect,
     required this.onRemove,
+    required this.onGoDirect,
   });
 
   final SnaptradeConnection connection;
   final bool syncing;
   final void Function(SnaptradeBrokerage)? onReconnect;
   final void Function(SnaptradeBrokerage)? onRemove;
+  final ValueChanged<String> onGoDirect;
 
   String? _skippedLine(SnaptradeSyncResult result) {
     final cash = {
@@ -464,6 +475,7 @@ class _StatusCard extends StatelessWidget {
               brokerage: b,
               onReconnect: onReconnect,
               onRemove: onRemove,
+              onGoDirect: onGoDirect,
             ),
           ],
           if (skipped != null) ...[
@@ -517,27 +529,38 @@ class _BrokerageRow extends StatelessWidget {
     required this.brokerage,
     required this.onReconnect,
     required this.onRemove,
+    required this.onGoDirect,
   });
 
   final SnaptradeBrokerage brokerage;
   final void Function(SnaptradeBrokerage)? onReconnect;
   final void Function(SnaptradeBrokerage)? onRemove;
 
+  /// eToro o Binance importados por acá: conectarlos directo es gratis y
+  /// trae más datos (al conectarlo, se quita de SnapTrade solo).
+  final ValueChanged<String> onGoDirect;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final broken = brokerage.imported && brokerage.disabled;
+    final direct = brokerage.imported ? brokerage.directBroker : null;
     final subtitle = switch (brokerage.reason) {
       'plan_limit' => 'snaptrade_broker_plan_limit'.tr(),
       'direct_connection' => 'snaptrade_broker_direct'.tr(),
       'trade_permissions' => 'snaptrade_broker_trade'.tr(),
       _ when broken => 'snaptrade_broker_broken'.tr(),
+      _ when direct != null => 'snaptrade_broker_go_direct'.tr(),
       _ => 'snaptrade_broker_imported'.tr(),
     };
+    final void Function(SnaptradeBrokerage)? goDirect =
+        direct == null ? null : (_) => onGoDirect(direct);
     final (label, action, color) =
         broken
             ? ('snaptrade_reconnect_cta'.tr(), onReconnect, colors.accentBlue)
+            : direct != null
+            ? ('snaptrade_go_direct_cta'.tr(), goDirect, colors.accentBlue)
             : ('snaptrade_remove_cta'.tr(), onRemove, colors.textSecondary);
     return Padding(
       padding: const EdgeInsets.fromLTRB(

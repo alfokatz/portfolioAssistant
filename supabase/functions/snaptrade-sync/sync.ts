@@ -61,7 +61,19 @@ export async function runSync(opts: {
       return { ok: false, error: "snaptrade_reconnect_required" };
     }
     const [auths, direct] = await Promise.all([client.authorizations(user), store.directConnections(userId)]);
-    const brokerages = selectBrokerages(auths, opts.maxBrokerages, direct);
+    const selected = selectBrokerages(auths, opts.maxBrokerages, direct);
+    // Lo que ya está conectado directo en Porty (gratis) se quita de
+    // SnapTrade: no se duplica ni se paga. Si no queda nada, se borra el
+    // usuario de SnapTrade, que es lo que deja de cobrarse.
+    const duplicated = selected.filter((b) => b.reason === "direct_connection");
+    for (const b of duplicated) await client.deleteAuthorization(user, b.id);
+    const brokerages = selected.filter((b) => b.reason !== "direct_connection");
+    if (duplicated.length > 0 && brokerages.length === 0) {
+      await client.deleteUser(user.userId);
+      await store.disconnect(userId, false);
+      const syncedAt = new Date(now()).toISOString();
+      return { ok: true, result: { imported: 0, notImported: [], estimatedCost: [], syncedAt }, throttled: false };
+    }
     const { positions, result } = await snapshot(client, user, brokerages, now, opts.newId);
     await store.applySync(userId, positions, brokerages, result);
     return { ok: true, result, throttled: false };

@@ -271,6 +271,19 @@ void main() {
       expect(pending.syncs, isEmpty);
     });
 
+    test('sync can be forced (after connecting eToro directly)', () async {
+      final repo = _Repo(_connected());
+      final n = SnaptradeNotifier(repo, _Portal());
+      await n.load();
+      await n.sync(force: true);
+      expect(repo.syncs, [true]);
+      expect(_ibkr.directBroker, isNull);
+      expect(
+        const SnaptradeBrokerage(id: 'x', name: 'eToro').directBroker,
+        'etoro',
+      );
+    });
+
     test('refresh, remove and disconnect', () async {
       final repo = _Repo(_connected());
       final n = SnaptradeNotifier(repo, _Portal());
@@ -401,6 +414,21 @@ void main() {
         find.textContaining('snaptrade_plan_note_gold', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('eToro imported here suggests connecting it directly', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.premium,
+        connection: _connected(
+          brokerages: const [SnaptradeBrokerage(id: 'a1', name: 'eToro')],
+        ),
+      );
+      expect(find.text('snaptrade_broker_go_direct'), findsOneWidget);
+      expect(find.text('snaptrade_go_direct_cta'), findsOneWidget);
+      expect(find.text('snaptrade_remove_cta'), findsNothing);
     });
 
     testWidgets('a broken broker asks to reconnect it', (tester) async {

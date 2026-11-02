@@ -86,11 +86,13 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
     }
   }
 
-  Future<void> sync() async {
+  /// [force]: sin el mínimo de 5 minutos del servidor (por ejemplo, recién
+  /// conectó eToro directo y hay que sacarlo de acá).
+  Future<void> sync({bool force = false}) async {
     if (state.busy || !state.connection.isConnected) return;
     state = state.copyWith(busy: true, clearError: true);
     try {
-      final outcome = await _repo.sync();
+      final outcome = await _repo.sync(force: force);
       await load();
       if (!outcome.throttled) await _onImported?.call();
       if (mounted) state = state.copyWith(busy: false);

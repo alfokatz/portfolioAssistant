@@ -442,13 +442,48 @@ Deno.test("sincronizar: eToro por SnapTrade entra si no está conectado directo;
   await run(post("/sync"), store, accounts(fetchImpl));
   assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price]), [["acc-etoro:NVDA", 3, 120]]);
 
+  // Conectó eToro directo: se quita de SnapTrade y, como era el único,
+  // se borra el usuario (deja de cobrarse) y lo importado por acá.
   const both = new MemoryStore();
   both.user = store.user;
-  both.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  both.connection = { status: "connected", lastSyncAt: null, lastResult: null };
   both.direct = new Set(["etoro"]);
-  await run(post("/sync"), both, accounts(fetchImpl));
-  assertEquals(both.applied, []);
-  assertEquals(both.brokerages?.[0].reason, "direct_connection");
+  const calls = fakeSnaptrade({ authorizations: etoroOnly });
+  const res = await run(post("/sync"), both, accounts(calls.fetchImpl));
+  assertEquals((await res.json()).result.imported, 0);
+  assert(calls.calls.some((c) => c.method === "DELETE" && c.path === "/authorizations/auth-etoro"));
+  assertEquals(calls.calls.find((c) => c.path === "/snapTrade/deleteUser")?.query.get("userId"), "st-1");
+  assertEquals(both.disconnected, false);
+  assertEquals(both.applied, null);
+});
+
+Deno.test("sincronizar: con eToro directo y otro bróker, solo quita eToro de SnapTrade", async () => {
+  const store = new MemoryStore();
+  store.tier = "gold";
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "connected", lastSyncAt: null, lastResult: null };
+  store.direct = new Set(["etoro"]);
+  const { fetchImpl, calls } = fakeSnaptrade({
+    authorizations: [
+      {
+        id: "auth-ibkr",
+        type: "read",
+        created_date: "2026-10-01T00:00:00Z",
+        brokerage: { slug: "IBKR", name: "IBKR" },
+      },
+      {
+        id: "auth-etoro",
+        type: "read",
+        created_date: "2026-11-01T00:00:00Z",
+        brokerage: { slug: "ETORO", name: "eToro" },
+      },
+    ],
+  });
+  await run(post("/sync"), store, fetchImpl);
+  assert(calls.some((c) => c.method === "DELETE" && c.path === "/authorizations/auth-etoro"));
+  assert(!calls.some((c) => c.path === "/snapTrade/deleteUser"));
+  assertEquals(store.brokerages?.map((b) => b.id), ["auth-ibkr"]);
+  assertEquals(store.disconnected, null);
 });
 
 Deno.test("sincronizar Gold: todos los brókers", async () => {

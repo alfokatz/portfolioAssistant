@@ -1595,5 +1595,7 @@
   "broker_open_in": "Open in {broker}",
   "broker_open_site": "Open {broker}",
   "broker_open_hint": "Opens outside Porty",
-  "broker_open_failed": "I couldn't open the broker. Try from its app."
+  "broker_open_failed": "I couldn't open the broker. Try from its app.",
+  "snaptrade_broker_go_direct": "Connect it directly: it's free and brings more data",
+  "snaptrade_go_direct_cta": "Connect directly"
 }
