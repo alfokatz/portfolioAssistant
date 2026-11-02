@@ -112,7 +112,7 @@ El paywall muestra precio por mes, pero **no muestra los términos de renovació
 **Para quién:** Free sin pruebas previas.
 **Margen:** peor caso 100 × US$0,007 ≈ US$0,70 por prueba; típico ~US$0,20.
 **Riesgos:** cuentas múltiples (acotado por email verificado y por el tope); expectativa de "gratis para siempre" (se mitiga con copy claro).
-**Cómo se testea:** A/B 50/50 (`trial_offer_enabled`). Métrica: tasa de pago a 30 días por usuario expuesto, no por prueba iniciada.
+**Cómo se testea:** A/B de tres brazos (`trial_offer_variant`: sin prueba / al terminar el onboarding / tras la tercera respuesta; ver sección 6). Métrica: tasa de pago a 30 días por usuario expuesto, no por prueba iniciada.
 **Cómo se revierte:** se apaga el flag. Las pruebas ya otorgadas vencen solas o se revocan por la API.
 
 ### P4. Plan anual y orden de planes según el motivo
@@ -144,7 +144,7 @@ El paywall muestra precio por mes, pero **no muestra los términos de renovació
 1. **P1** (semana 1): sin medición, nada de lo demás se puede evaluar. Incluye el arreglo de términos que pide la tienda.
 2. **P2 y P3 en paralelo** (semanas 2–3), como A/B separados con flags independientes. Son las dos palancas de "mostrar valor antes de pedir pago".
 3. **P5** junto con P3 (comparten el paywall de cuota).
-4. **P4** cuando el usuario cree los productos anuales en las tiendas. Se puede preparar el código antes.
+4. **P4**: el usuario crea los productos anuales esta semana (la revisión de tiendas tarda) y el código se prepara en paralelo. Sube de prioridad por las referencias de mercado (sección 6).
 
 Fuera de alcance por ahora: subir o bajar las cuotas y cambiar el precio de Gold. Primero hacen falta 60 días de `ai_usage_monthly_stats` y `paywall_events`.
 
@@ -154,4 +154,26 @@ Fuera de alcance por ahora: subir o bajar las cuotas y cambiar el precio de Gold
 - Aprobar el copy de renovación y de la prueba con porty-compliance y los cambios de plan con porty-product-owner.
 
 ## 6. Referencias de mercado
-Pendiente: se las pedí a porty-market-researcher (precios, trials y benchmarks de conversión de apps de inversión con IA). Se agregan acá cuando lleguen. Ninguna propuesta depende de esas cifras para arrancar, pero sí para fijar las metas de los A/B.
+Fuente: porty-market-researcher. El detalle y los links están en `docs/business/research/2026-11-02-que-paga-el-inversor-retail.md`. Varios precios vienen de terceros porque las páginas oficiales no se pudieron abrir: hay que verificarlos antes de usarlos como ancla.
+
+| App | Tiers pagos | Precio | Trial |
+|---|---|---|---|
+| Snowball | 3 | USD 7,99 / 14,99 / 24,99 por mes, o 79,99 / 149,99 / 249,99 por año. Free con 10 holdings | — |
+| getquin | 2 | ~89,99 € / ~149,99 € por año | 7 días |
+| Delta (eToro) | 2 | PRO ~USD 59–100 por año según la región. Free con 10 activos | sin dato |
+| Copilot Money | 1 | USD 13 por mes / 95 por año, sin free | 1 mes |
+| Seeking Alpha | 1+ | Premium USD 299 por año | 7 días o primer mes a USD 4,95 |
+| Robinhood Gold (IA Cortex) | 1 | USD 5 por mes / 50 por año | — |
+
+Benchmarks (RevenueCat SOSA 2026 y Adapty 2026, citados por terceros):
+- Trial a pago: ~25,6% global. Las apps con IA convierten mejor el trial (8,5% vs 5,6%) pero retienen peor al año (21,1% vs 30,7%).
+- El 89,4% de los trials empieza el día 0. Install a pago: 1,78% con trial en el onboarding vs 0,89% con trial dentro de la app.
+- Los trials largos (17–32 días) convierten más que los de menos de 4 días (42,5% vs 25,5%).
+- Finanzas (metodología dudosa): mediana USD 8,99 por mes y ~50% elige el plan anual.
+
+**Qué cambia en las propuestas:**
+- **P3:** el dato de Adapty (el trial en el onboarding convierte ~2× más que dentro de la app) contradice ofrecer la prueba recién en el momento "ajá". El A/B pasa a tener **tres brazos**: sin prueba / prueba al terminar el onboarding (con la cartera ya cargada) / prueba tras la tercera respuesta. Se mantienen los 7 días; probar 14 días queda para una segunda iteración, porque las pruebas largas convierten más pero cuestan más IA.
+- **P4 sube de prioridad.** Todos los comparables tienen plan anual y en finanzas cerca de la mitad lo elige. Porty no lo tiene. Conviene que el usuario cree los productos anuales en las tiendas ya, para que P4 no quede trabada por la revisión.
+- **Precio:** Premium US$10 y Gold US$15 están dentro del rango (Snowball 7,99–24,99; getquin ~7,5–12,5 € por mes en el anual). No hay motivo para moverlos ahora.
+- **Retención:** las apps con IA retienen peor al año. Gold necesita valor recurrente (informe semanal, avisos), no solo valor bajo demanda. Esto refuerza priorizar el anual.
+- **Competencia local:** desde el 27/08/2026, IOL deja conectar la cuenta a ChatGPT/Claude gratis por MCP. La diferenciación de Porty tiene que estar en lo que un chat genérico no da (cards con datos verificados, informe semanal, metas, plan de cartera), y eso es lo que debería mostrar el paywall.
