@@ -99,36 +99,39 @@ void main() {
       expect(offer.annualSavingsPercent(SubscriptionTier.gold), isNull);
     });
 
-    test('matches Google Play product:baseplan ids when package ids differ', () {
-      final offering = _offering([
-        _pkg('\$rc_monthly', 'portfolio_premium_monthly:monthly-base', 4.99),
-        _pkg('\$rc_annual', 'portfolio_premium_annual:annual-base', 49.99),
-        // Prefijo de otro producto: no tiene que confundirse.
-        _pkg('other', 'portfolio_gold_monthly_old', 1),
-      ]);
-      final offer = PaywallOffer.fromOffering(offering);
+    test(
+      'matches Google Play product:baseplan ids when package ids differ',
+      () {
+        final offering = _offering([
+          _pkg('\$rc_monthly', 'portfolio_premium_monthly:monthly-base', 4.99),
+          _pkg('\$rc_annual', 'portfolio_premium_annual:annual-base', 49.99),
+          // Prefijo de otro producto: no tiene que confundirse.
+          _pkg('other', 'portfolio_gold_monthly_old', 1),
+        ]);
+        final offer = PaywallOffer.fromOffering(offering);
 
-      expect(
-        offer.priceOf(SubscriptionTier.premium, BillingPeriod.monthly)?.price,
-        4.99,
-      );
-      expect(
-        offer.priceOf(SubscriptionTier.premium, BillingPeriod.annual)?.price,
-        49.99,
-      );
-      expect(
-        offer.priceOf(SubscriptionTier.gold, BillingPeriod.monthly),
-        isNull,
-      );
-      expect(
-        PaywallOffer.packageFor(
-          offering,
-          SubscriptionTier.premium,
-          BillingPeriod.annual,
-        )?.identifier,
-        '\$rc_annual',
-      );
-    });
+        expect(
+          offer.priceOf(SubscriptionTier.premium, BillingPeriod.monthly)?.price,
+          4.99,
+        );
+        expect(
+          offer.priceOf(SubscriptionTier.premium, BillingPeriod.annual)?.price,
+          49.99,
+        );
+        expect(
+          offer.priceOf(SubscriptionTier.gold, BillingPeriod.monthly),
+          isNull,
+        );
+        expect(
+          PaywallOffer.packageFor(
+            offering,
+            SubscriptionTier.premium,
+            BillingPeriod.annual,
+          )?.identifier,
+          '\$rc_annual',
+        );
+      },
+    );
 
     test('empty offer has nothing', () {
       expect(PaywallOffer.empty.hasAnnualFor(_both), isFalse);

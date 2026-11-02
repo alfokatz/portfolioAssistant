@@ -169,7 +169,10 @@ class PaywallHarness {
     );
     return [
       portyHapticsServiceProvider.overrideWithValue(
-        PortyHapticsService(enabled: true, performer: (p) async => haptics.add(p)),
+        PortyHapticsService(
+          enabled: true,
+          performer: (p) async => haptics.add(p),
+        ),
       ),
       aiUsageTrackerProvider.overrideWithValue(tracker),
       revenueCatServiceProvider.overrideWithValue(revenueCat),

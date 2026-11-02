@@ -83,9 +83,7 @@ void main() {
     });
 
     test('no current offering: offerings_unavailable', () async {
-      final result = await service(
-        offerings: const Offerings({}),
-      ).purchase(
+      final result = await service(offerings: const Offerings({})).purchase(
         SubscriptionTier.gold,
         BillingPeriod.monthly,
         source: 'settings',
@@ -135,9 +133,7 @@ void main() {
     });
 
     test('anything else: unknown', () async {
-      final result = await service(
-        purchaseError: StateError('boom'),
-      ).purchase(
+      final result = await service(purchaseError: StateError('boom')).purchase(
         SubscriptionTier.premium,
         BillingPeriod.monthly,
         source: 'settings',

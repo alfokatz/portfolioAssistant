@@ -94,15 +94,23 @@ void main() {
       );
     });
 
-    testWidgets('iOS terms name the App Store', variant: TargetPlatformVariant.only(TargetPlatform.iOS), (tester) async {
-      final h = PaywallHarness();
-      await h.pump(tester, reason: PaywallReason.goals, source: 'test_source');
-      await h.open(tester);
-      expect(
-        find.textContaining('El cobro se hace en tu cuenta de App Store'),
-        findsOneWidget,
-      );
-    });
+    testWidgets(
+      'iOS terms name the App Store',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        final h = PaywallHarness();
+        await h.pump(
+          tester,
+          reason: PaywallReason.goals,
+          source: 'test_source',
+        );
+        await h.open(tester);
+        expect(
+          find.textContaining('El cobro se hace en tu cuenta de App Store'),
+          findsOneWidget,
+        );
+      },
+    );
 
     test('every reason has a title and subtitle in both languages', () {
       for (final locale in ['es-ES', 'en-US']) {

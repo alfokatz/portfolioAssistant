@@ -102,8 +102,7 @@ Future<void> _capture(
 ) async {
   final render =
       boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final image =
-      (await tester.runAsync(() => render.toImage(pixelRatio: dpr)))!;
+  final image = (await tester.runAsync(() => render.toImage(pixelRatio: dpr)))!;
   final bytes =
       (await tester.runAsync(
         () => image.toByteData(format: ui.ImageByteFormat.png),
@@ -157,16 +156,13 @@ void main() {
                 child: MaterialApp(
                   debugShowCheckedModeBanner: false,
                   theme: theme,
-                  localizationsDelegates:
-                      GlobalMaterialLocalizations.delegates,
+                  localizationsDelegates: GlobalMaterialLocalizations.delegates,
                   supportedLocales: const [Locale('es', 'ES')],
                   locale: const Locale('es', 'ES'),
                   builder:
                       (context, child) => Stack(
                         children: [
-                          const Positioned.fill(
-                            child: AppBackgroundGradient(),
-                          ),
+                          const Positioned.fill(child: AppBackgroundGradient()),
                           child!,
                         ],
                       ),

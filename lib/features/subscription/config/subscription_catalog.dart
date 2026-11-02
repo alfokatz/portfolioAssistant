@@ -26,25 +26,27 @@ abstract final class SubscriptionCatalog {
   static const premiumAnnualProductId = 'portfolio_premium_annual';
   static const goldAnnualProductId = 'portfolio_gold_annual';
 
-  static String packageIdFor(SubscriptionTier tier, BillingPeriod period) =>
-      switch ((tier, period)) {
-        (SubscriptionTier.premium, BillingPeriod.monthly) => premiumPackageId,
-        (SubscriptionTier.premium, BillingPeriod.annual) =>
-          premiumAnnualPackageId,
-        (SubscriptionTier.gold, BillingPeriod.monthly) => goldPackageId,
-        (SubscriptionTier.gold, BillingPeriod.annual) => goldAnnualPackageId,
-        (SubscriptionTier.free, _) =>
-          throw ArgumentError('Free tier has no package'),
-      };
+  static String packageIdFor(
+    SubscriptionTier tier,
+    BillingPeriod period,
+  ) => switch ((tier, period)) {
+    (SubscriptionTier.premium, BillingPeriod.monthly) => premiumPackageId,
+    (SubscriptionTier.premium, BillingPeriod.annual) => premiumAnnualPackageId,
+    (SubscriptionTier.gold, BillingPeriod.monthly) => goldPackageId,
+    (SubscriptionTier.gold, BillingPeriod.annual) => goldAnnualPackageId,
+    (SubscriptionTier.free, _) =>
+      throw ArgumentError('Free tier has no package'),
+  };
 
-  static String productIdFor(SubscriptionTier tier, BillingPeriod period) =>
-      switch ((tier, period)) {
-        (SubscriptionTier.premium, BillingPeriod.monthly) => premiumProductId,
-        (SubscriptionTier.premium, BillingPeriod.annual) =>
-          premiumAnnualProductId,
-        (SubscriptionTier.gold, BillingPeriod.monthly) => goldProductId,
-        (SubscriptionTier.gold, BillingPeriod.annual) => goldAnnualProductId,
-        (SubscriptionTier.free, _) =>
-          throw ArgumentError('Free tier has no product'),
-      };
+  static String productIdFor(
+    SubscriptionTier tier,
+    BillingPeriod period,
+  ) => switch ((tier, period)) {
+    (SubscriptionTier.premium, BillingPeriod.monthly) => premiumProductId,
+    (SubscriptionTier.premium, BillingPeriod.annual) => premiumAnnualProductId,
+    (SubscriptionTier.gold, BillingPeriod.monthly) => goldProductId,
+    (SubscriptionTier.gold, BillingPeriod.annual) => goldAnnualProductId,
+    (SubscriptionTier.free, _) =>
+      throw ArgumentError('Free tier has no product'),
+  };
 }

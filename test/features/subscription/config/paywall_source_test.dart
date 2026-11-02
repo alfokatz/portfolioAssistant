@@ -10,7 +10,10 @@ void main() {
     final reasonNames = PaywallReason.values.map((r) => r.name).toSet();
 
     test('constants are unique, valid and never a PaywallReason name', () {
-      expect(PaywallSource.values.toSet(), hasLength(PaywallSource.values.length));
+      expect(
+        PaywallSource.values.toSet(),
+        hasLength(PaywallSource.values.length),
+      );
       for (final source in PaywallSource.values) {
         expect(PaywallSource.isValid(source), isTrue, reason: source);
         expect(reasonNames, isNot(contains(source)), reason: source);
@@ -40,7 +43,10 @@ void main() {
 
     test('snake normalizes enum names and separators', () {
       expect(PaywallSource.snake('companyAnalysis'), 'company_analysis');
-      expect(PaywallSource.snake('fundamentals+earnings'), 'fundamentals_earnings');
+      expect(
+        PaywallSource.snake('fundamentals+earnings'),
+        'fundamentals_earnings',
+      );
       expect(PaywallSource.snake('news'), 'news');
     });
   });

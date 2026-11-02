@@ -32,6 +32,7 @@ enum PaywallReason {
 
   /// El asistente pidió datos de mercado de tickers que el usuario no tiene.
   marketDataLocked,
+
   /// Datos de Gold: análisis, noticias, earnings, fundamentals.
   goldRequired,
   quotaExceeded,
@@ -98,10 +99,10 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     required AiUsageTracker tracker,
     required SupabaseAuthService authService,
     required RevenueCatService revenueCat,
-  })  : _tracker = tracker,
-        _authService = authService,
-        _revenueCat = revenueCat,
-        super(SubscriptionState.initial) {
+  }) : _tracker = tracker,
+       _authService = authService,
+       _revenueCat = revenueCat,
+       super(SubscriptionState.initial) {
     load();
   }
 
@@ -194,9 +195,8 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
 }
 
 final aiUsageTrackerProvider = Provider<AiUsageTracker>(
-  (ref) => AiUsageTracker(
-    repository: ref.watch(subscriptionRepositoryProvider),
-  ),
+  (ref) =>
+      AiUsageTracker(repository: ref.watch(subscriptionRepositoryProvider)),
 );
 
 /// Precios mensuales y anuales que muestra el paywall (vacío sin
@@ -206,22 +206,20 @@ final paywallOfferProvider = FutureProvider<PaywallOffer>((ref) async {
 });
 
 final subscriptionProvider =
-    StateNotifierProvider<SubscriptionNotifier, SubscriptionState>(
-  (ref) {
-    final notifier = SubscriptionNotifier(
-      tracker: ref.watch(aiUsageTrackerProvider),
-      authService: ref.watch(supabaseAuthServiceProvider),
-      revenueCat: ref.watch(revenueCatServiceProvider),
-    );
+    StateNotifierProvider<SubscriptionNotifier, SubscriptionState>((ref) {
+      final notifier = SubscriptionNotifier(
+        tracker: ref.watch(aiUsageTrackerProvider),
+        authService: ref.watch(supabaseAuthServiceProvider),
+        revenueCat: ref.watch(revenueCatServiceProvider),
+      );
 
-    ref.listen<AsyncValue<Session?>>(authSessionProvider, (previous, next) {
-      final wasAuthed = previous?.value != null;
-      final isAuthed = next.value != null;
-      if (wasAuthed != isAuthed) {
-        notifier.refresh();
-      }
+      ref.listen<AsyncValue<Session?>>(authSessionProvider, (previous, next) {
+        final wasAuthed = previous?.value != null;
+        final isAuthed = next.value != null;
+        if (wasAuthed != isAuthed) {
+          notifier.refresh();
+        }
+      });
+
+      return notifier;
     });
-
-    return notifier;
-  },
-);

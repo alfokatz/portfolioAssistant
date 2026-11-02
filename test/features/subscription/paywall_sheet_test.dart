@@ -111,11 +111,13 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(seconds: 3));
 
-        expect(h.revenueCat.purchases, [
-          'premium:monthly:add_position_limit',
-        ]);
+        expect(h.revenueCat.purchases, ['premium:monthly:add_position_limit']);
         expect(h.events.of(ProductEvent.paywallPlanTapped), [
-          {'tier': 'premium', 'period': 'monthly', 'source': 'add_position_limit'},
+          {
+            'tier': 'premium',
+            'period': 'monthly',
+            'source': 'add_position_limit',
+          },
         ]);
         expect(h.events.of(ProductEvent.purchaseResult), [
           {
@@ -210,9 +212,7 @@ void main() {
       expect(h.events.of(ProductEvent.paywallDismissed), isEmpty);
     });
 
-    testWidgets('the usage meter only shows for quotaExceeded', (
-      tester,
-    ) async {
+    testWidgets('the usage meter only shows for quotaExceeded', (tester) async {
       for (final reason in PaywallReason.values) {
         final h = PaywallHarness();
         await h.pump(tester, reason: reason, source: 'test_source');
@@ -330,7 +330,10 @@ void main() {
       );
       for (final reason in PaywallReason.values) {
         expect(
-          SubscriptionPaywallSheet.visibleTiersFor(reason, SubscriptionTier.premium),
+          SubscriptionPaywallSheet.visibleTiersFor(
+            reason,
+            SubscriptionTier.premium,
+          ),
           [SubscriptionTier.gold],
         );
       }

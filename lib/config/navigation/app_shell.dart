@@ -110,4 +110,3 @@ class AppShell extends ConsumerWidget with BaseScreen {
     );
   }
 }
-

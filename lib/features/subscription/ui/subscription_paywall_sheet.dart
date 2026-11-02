@@ -312,23 +312,14 @@ class _SubscriptionPaywallSheetState
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
             AppDimens.pageHorizontal,
-            AppDimens.sp12,
+            0,
             AppDimens.pageHorizontal,
             AppDimens.sp16 + bottomInset,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+              // La manija la pone el tema (`showDragHandle`): acá no va otra.
               Row(
                 children: [
                   const Spacer(),
@@ -708,9 +699,7 @@ class _PaywallPlanCard extends StatelessWidget {
                 builder:
                     (context, showSkeleton) =>
                         isPriceLoading && !showSkeleton
-                            ? const SizedBox(
-                              height: _PaywallPriceLine.height,
-                            )
+                            ? const SizedBox(height: _PaywallPriceLine.height)
                             : _PaywallPriceLine(
                               featured: featured,
                               priceLabel: price?.priceString,

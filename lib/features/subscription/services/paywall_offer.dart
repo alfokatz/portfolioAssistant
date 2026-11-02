@@ -69,7 +69,10 @@ class PaywallOffer {
   /// Arma la oferta desde el offering actual de RevenueCat.
   static PaywallOffer fromOffering(Offering offering) {
     final prices = <SubscriptionTier, Map<BillingPeriod, TierPrice>>{};
-    for (final tier in const [SubscriptionTier.premium, SubscriptionTier.gold]) {
+    for (final tier in const [
+      SubscriptionTier.premium,
+      SubscriptionTier.gold,
+    ]) {
       for (final period in BillingPeriod.values) {
         final product = packageFor(offering, tier, period)?.storeProduct;
         if (product == null) continue;
