@@ -229,6 +229,12 @@ class SupabaseAuthService {
     await _client.auth.signOut();
   }
 
+  /// Cierra la sesión solo en este dispositivo, sin avisarle al servidor: se
+  /// usa después de borrar la cuenta, cuando el servidor ya no la tiene.
+  Future<void> signOutLocal() async {
+    await _client.auth.signOut(scope: SignOutScope.local);
+  }
+
   static String _normalizeEmail(String email) => email.trim().toLowerCase();
 }
 

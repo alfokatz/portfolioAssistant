@@ -6,3 +6,4 @@
 - El tema ya pone `showDragHandle: true` en los bottom sheets: no dibujar otra manija.
 - `dart format` en archivos legacy reformatea todo el archivo: copiar antes al scratchpad y revertir si mete ruido fuera de tus líneas. El hook bloquea `dart format` con variables o pipes: listar paths literales.
 - Los sources del paywall deben cumplir `^[a-z][a-z0-9_]{2,59}$` (assert en `show`): usar `PaywallSource.snake` para nombres de enum.
+- Una flow que cierra sesión desmonta la pantalla que la lanzó: usar `ProviderScope.containerOf(context)`, no `ref`; y `PortyLoader` se expande (Expanded): en una hoja/Column min hay que darle SizedBox con alto.
