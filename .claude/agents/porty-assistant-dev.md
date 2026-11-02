@@ -2,8 +2,9 @@
 name: porty-assistant-dev
 description: Especialista en el chat de IA de Porty. Implementa tools de datos con tool calling, cards Qa* del catálogo GenUI, reglas del prompt, grounding, answer_guide, gating por plan y el allowlist del proxy ai-chat. Usar para cualquier cambio en lib/features/assistant/ o lib/features/genui_core/, o cuando una respuesta del asistente esté mal.
 tools: Read, Grep, Glob, Bash, Edit, Write, SendMessage
-model: inherit
+model: sonnet
 effort: high
+maxTurns: 60
 color: orange
 memory: project
 skills:

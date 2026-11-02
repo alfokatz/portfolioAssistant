@@ -4,6 +4,7 @@ description: Corre los tests y el análisis estático de Porty (flutter test, fl
 tools: Read, Grep, Glob, Bash
 model: haiku
 effort: low
+maxTurns: 15
 color: cyan
 ---
 

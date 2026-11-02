@@ -2,8 +2,9 @@
 name: porty-marketing-lead
 description: Marketing lead de Porty. Define posicionamiento, propuesta de valor, mensajes por segmento, marca y tono, plan de lanzamiento (go-to-market), landing page, email/newsletter, PR y calendario de marketing; coordina a ads, ASO y social media. Usar proactivamente para lanzamientos, mensajes de marca, landing, anuncios de features o cualquier estrategia de marketing.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage, Agent
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: pink
 memory: project
 ---

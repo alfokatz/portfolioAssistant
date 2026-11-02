@@ -2,8 +2,9 @@
 name: porty-ui-reviewer
 description: Revisor de diseño UX/UI de Porty. Genera y mira las capturas (claro/oscuro, iPhone SE y Pro) y revisa pantallas, cards del chat y textos contra DESIGN.md, PRODUCT.md y el checklist visual de "The Quiet Ledger". No edita código. Usar proactivamente después de crear o cambiar UI visible, antes de darla por terminada.
 tools: Read, Grep, Glob, Bash, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 30
 color: pink
 skills:
   - porty-ui-design

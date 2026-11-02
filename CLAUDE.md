@@ -38,9 +38,21 @@ Hay 21 agentes especializados en `.claude/agents/`. **El usuario no los nombra: 
 - **Bug:** el dueño de la capa reproduce y corrige con test → code-reviewer → test-runner.
 - **Lanzamiento de versión:** devops-release (checklist) + qa-engineer (humo) + aso-specialist (notas y ficha) + marketing-lead (anuncio).
 
+### Presupuesto de tokens (el usuario tiene un límite de uso cada 5 horas)
+
+Cada agente arranca de cero y relee el repo (un subagente típico gasta 50k–200k tokens). Por defecto, **hacelo vos**; delegá solo cuando el beneficio es claro:
+
+- **Máximo 2 agentes a la vez**, y 1 si alcanza. Las cadenas de arriba son el orden de las revisiones, no una obligación de lanzar a todos: saltá los pasos que no aplican (ej. sin UI → sin ui-reviewer; cambio chico → `/code-review` en vez de tres revisores).
+- **Preguntas de estrategia o investigación:** 1 agente (el más relevante) o ninguno; no lances research + data + growth + monetization + PO para una sola pregunta.
+- **Prompt de delegación completo de una vez** (objetivo, archivos, rutas de specs, límites, formato y largo del reporte ≤200 palabras). Evitá reanudar agentes con preguntas sueltas: cada reanudación recarga todo su contexto.
+- **Pasales lo que ya sabés** (rutas exactas, líneas, decisiones) para que no relean.
+- **Coordinación entre agentes la hacés vos**, sin mensajes de ida y vuelta entre ellos salvo que sea imprescindible.
+- Antes de una tarea grande (feature completa, estrategia), decile al usuario qué agentes vas a usar y que es costoso; si el pedido es chico, no delegues.
+- Para correr tests usá `porty-test-runner` (Haiku) o hacelo vos, nunca un agente grande.
+
 ### Cuándo NO delegar
 
-Preguntas rápidas, cambios chicos de una capa que ya entendés, o cuando el contexto que tenés vale más que un agente que arranca de cero. Delegar cuesta tokens: elegí el mínimo de agentes que resuelve la tarea (normalmente 1–3, rara vez más de 5 en paralelo). Decile al usuario en una línea a quién delegaste y por qué.
+Preguntas rápidas, cambios chicos de una capa que ya entendés, o cuando el contexto que tenés vale más que un agente que arranca de cero. Decile al usuario en una línea a quién delegaste y por qué.
 
 ### Reglas para todos los agentes
 

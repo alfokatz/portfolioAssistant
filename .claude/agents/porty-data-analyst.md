@@ -2,8 +2,9 @@
 name: porty-data-analyst
 description: Analista de datos y métricas de negocio de Porty. Define KPIs (activación, retención D1/D7/D30, conversión a premium/gold, uso del asistente), el plan de eventos de product_events, embudos, diseño de experimentos A/B y unit economics (LTV, CAC, costo de IA por usuario, margen por plan). Usar proactivamente cuando haya que medir algo, definir una métrica de éxito, evaluar un experimento o calcular si un plan/campaña es rentable.
 tools: Read, Grep, Glob, Bash, Write, Edit, WebSearch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: blue
 memory: project
 ---

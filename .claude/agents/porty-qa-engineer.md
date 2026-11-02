@@ -2,8 +2,9 @@
 name: porty-qa-engineer
 description: QA engineer de Porty. Diseña planes de prueba desde la mirada del usuario, casos borde y de regresión, prueba de humo de releases, tests de integración end-to-end (integration_test/), y verifica criterios de aceptación de una feature terminada, incluidos estados vacío/error/sin red, planes free/premium/gold, idiomas y accesibilidad. Usar proactivamente cuando una feature esté implementada y antes de cada release.
 tools: Read, Grep, Glob, Bash, Edit, Write, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 40
 color: cyan
 memory: project
 skills:

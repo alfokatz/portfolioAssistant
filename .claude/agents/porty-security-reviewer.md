@@ -2,8 +2,9 @@
 name: porty-security-reviewer
 description: Revisor de seguridad de Porty. Audita RLS y políticas de migraciones, auth y validación en edge functions, secretos en la app, bypass del gating free/premium/gold, prompt injection en el chat y datos financieros del usuario. Solo lectura. Usar proactivamente al tocar supabase/, auth, pagos/RevenueCat, conexiones a brokers, o el gating del asistente.
 tools: Read, Grep, Glob, Bash, SendMessage
-model: inherit
+model: opus
 effort: high
+maxTurns: 30
 color: yellow
 skills:
   - porty-architecture

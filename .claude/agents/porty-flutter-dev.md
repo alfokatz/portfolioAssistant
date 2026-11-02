@@ -2,8 +2,9 @@
 name: porty-flutter-dev
 description: Desarrollador Flutter de Porty. Implementa pantallas, widgets, providers Riverpod, repositorios y rutas en lib/ (fuera del chat de IA), con sus tests. Usar para construir o arreglar UI y lógica de la app, idealmente a partir de una spec de porty-architect. No toca supabase/ ni lib/features/assistant/ o genui_core/.
 tools: Read, Grep, Glob, Bash, Edit, Write, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 60
 color: blue
 memory: project
 skills:

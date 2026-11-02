@@ -3,7 +3,8 @@ name: porty-support
 description: Customer support y voz del usuario de Porty. Redacta respuestas a reseñas de tiendas y consultas, arma el centro de ayuda/FAQ, mensajes de error y estados vacíos útiles, y triagea feedback y bugs reportados por usuarios hacia el backlog con frecuencia e impacto. Usar proactivamente al responder usuarios o reseñas, al escribir ayuda/FAQ, o al procesar feedback.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, SendMessage
 model: sonnet
-effort: medium
+effort: low
+maxTurns: 20
 color: blue
 memory: project
 skills:

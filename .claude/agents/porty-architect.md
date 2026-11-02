@@ -4,6 +4,7 @@ description: Arquitecto/tech lead de Porty. Convierte un pedido de producto en u
 tools: Read, Grep, Glob, Bash, Write, Edit, WebSearch, WebFetch, SendMessage, Agent
 model: opus
 effort: high
+maxTurns: 40
 color: purple
 memory: project
 skills:

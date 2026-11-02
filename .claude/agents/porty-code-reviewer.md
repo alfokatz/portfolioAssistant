@@ -2,8 +2,9 @@
 name: porty-code-reviewer
 description: Revisor de código de Porty con ojos frescos. Revisa un diff contra la spec y las reglas del repo y reporta bugs de correctitud con escenario de falla concreto. Solo lectura, no corrige. Usar proactivamente después de implementar una feature o fix y antes de commitear o abrir un PR.
 tools: Read, Grep, Glob, Bash, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 30
 color: red
 skills:
   - porty-architecture

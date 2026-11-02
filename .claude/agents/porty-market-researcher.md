@@ -2,8 +2,9 @@
 name: porty-market-researcher
 description: Investigador de mercado y usuarios de Porty. Analiza competidores (apps de portfolio, trackers, asistentes de inversión), reseñas de tiendas, tendencias, tamaño de mercado, precios de referencia y necesidades del inversor retail, con fuentes citadas. Usar proactivamente cuando haga falta evidencia externa para una decisión de producto, posicionamiento, pricing o una campaña.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: cyan
 memory: project
 ---

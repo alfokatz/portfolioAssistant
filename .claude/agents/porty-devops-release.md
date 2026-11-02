@@ -2,8 +2,9 @@
 name: porty-devops-release
 description: DevOps y release manager de Porty. Se ocupa de CI/CD (GitHub Actions), builds y firma de Android/iOS, versionado en pubspec, flavors y entornos, Fastlane, envíos a TestFlight/Play internal, despliegue de edge functions y migraciones de Supabase (siempre con OK), monitoreo y crash reporting, y el checklist de release. Usar proactivamente al preparar una versión, configurar CI, tocar builds, entornos o despliegues, o cuando algo falle en producción.
 tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 40
 color: green
 memory: project
 skills:

@@ -3,7 +3,8 @@ name: porty-product-owner
 description: Product Owner de Porty. Guardián del valor de producto - valida que cada feature resuelva un problema real del inversor retail, define el problema, la métrica de éxito y el alcance mínimo, prioriza el backlog y acepta o rechaza lo construido desde la mirada del usuario. Usar proactivamente ANTES de cualquier feature nueva o cambio grande de producto, al priorizar, al decidir qué shipear, y al dar por terminada una feature.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage, Agent
 model: opus
-effort: high
+effort: medium
+maxTurns: 25
 color: purple
 memory: project
 ---

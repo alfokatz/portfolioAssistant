@@ -2,8 +2,9 @@
 name: porty-backend-dev
 description: Desarrollador backend de Porty en Supabase. Implementa migraciones SQL (tablas, RLS, RPC, triggers, flags), edge functions en Deno/TypeScript y sus tests. Usar para cualquier cambio en supabase/, proxies de APIs externas (Finnhub, Yahoo, SnapTrade, Binance, eToro) o jobs. No toca lib/.
 tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 60
 color: green
 memory: project
 skills:

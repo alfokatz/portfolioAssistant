@@ -2,8 +2,9 @@
 name: porty-ads-specialist
 description: Especialista en publicidad paga de Porty. Planifica campañas de adquisición de usuarios en Apple Search Ads, Google App Campaigns, Meta (Instagram/Facebook) y TikTok - estructura, audiencias, presupuesto, pujas, briefs de creatividades y copies, tracking/atribución (SKAdNetwork, eventos de conversión), objetivos de CAC y lectura de resultados. Usar proactivamente para cualquier campaña paga, ads, presupuesto de adquisición o creatividades publicitarias.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: red
 memory: project
 ---

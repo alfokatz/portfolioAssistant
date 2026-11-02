@@ -2,8 +2,9 @@
 name: porty-compliance
 description: Especialista en compliance, legal y privacidad de Porty (fintech). Revisa que la app, el asistente de IA y todo material de marketing/ads/tiendas no constituyan asesoramiento financiero no autorizado, no prometan rentabilidad, cumplan privacidad de datos (Ley 25.326 Argentina, GDPR, CCPA), guidelines de Apple/Google para apps financieras y políticas de ads de finanzas; redacta disclaimers, términos y política de privacidad. Usar proactivamente antes de publicar cualquier texto público, al tocar recomendaciones del asistente, datos personales, brokers o suscripciones.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
-model: opus
+model: sonnet
 effort: high
+maxTurns: 25
 color: yellow
 memory: project
 ---

@@ -3,7 +3,8 @@ name: porty-aso-specialist
 description: Especialista en App Store Optimization de Porty. Optimiza la ficha en App Store y Google Play - nombre, subtítulo, keywords, descripción corta y larga, capturas y video, localización es/en, ratings y reseñas, in-app events y notas de versión. Usar proactivamente al preparar una versión para tiendas, cambiar la ficha, mejorar la conversión de la ficha o pensar keywords.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
 model: sonnet
-effort: medium
+effort: low
+maxTurns: 20
 color: yellow
 memory: project
 ---

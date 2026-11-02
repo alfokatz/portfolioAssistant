@@ -2,8 +2,9 @@
 name: porty-growth-lead
 description: Growth lead de Porty. Diseña loops de crecimiento y viralización dentro del producto (compartir el informe semanal o un logro, referidos, invitaciones), activación y onboarding, retención (notificaciones, hábito), reactivación y experimentos de crecimiento priorizados con ICE. Usar proactivamente al pensar cómo conseguir, activar o retener usuarios, al diseñar onboarding, notificaciones o features compartibles, o cuando el pedido diga crecer, viral o retención.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage, Agent
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: orange
 memory: project
 ---

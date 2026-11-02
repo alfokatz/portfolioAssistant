@@ -3,7 +3,8 @@ name: porty-social-media
 description: Especialista en redes sociales y contenido viral de Porty. Crea estrategia y piezas orgánicas para TikTok, Instagram Reels, X/Twitter, LinkedIn y YouTube Shorts - hooks, guiones de videos cortos, hilos, carruseles, calendario de contenido, trends y colaboraciones con creadores de finanzas. Usar proactivamente para contenido orgánico, viralización en redes, guiones, posts o calendario editorial.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
 model: sonnet
-effort: medium
+effort: low
+maxTurns: 20
 color: pink
 memory: project
 ---

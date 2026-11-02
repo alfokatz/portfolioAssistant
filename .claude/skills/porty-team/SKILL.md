@@ -84,7 +84,7 @@ Es juicio del modelo, no una garantía: si alguna vez querés forzar uno, `@"por
 
 **Crecimiento** ("tenemos pocos usuarios / no vuelven / no pagan"): `porty-data-analyst` (dónde se pierden) → `porty-growth-lead` o `porty-monetization` (experimentos) → `porty-product-owner` (prioriza) → cadena de feature.
 
-**Estrategia / "¿qué hacemos ahora?":** agent team de `porty-product-owner`, `porty-market-researcher`, `porty-data-analyst` y `porty-growth-lead` que debaten y se refutan; el PO sintetiza un roadmap en `docs/product/roadmap.md` para que lo apruebe el usuario.
+**Estrategia / "¿qué hacemos ahora?":** un solo `porty-product-owner` que lee los docs existentes (`docs/business/`, `docs/growth/`, `docs/product/`) y sintetiza; sumá un especialista (máx. 1) solo si falta evidencia puntual. Ya hay investigación del 2026-11-02: reusala en vez de rehacerla.
 
 **Feedback de usuarios:** `porty-support` (agrupa) → `porty-product-owner` (backlog) / `porty-qa-engineer` (bugs).
 
@@ -104,7 +104,7 @@ Escalá el esfuerzo: una pregunta simple = un agente y pocas llamadas; una featu
 Dos modos, ambos oficiales de Claude Code:
 
 1. **Subagentes con nombre** (por defecto): el lead los lanza con `name` igual al del agente (ej. `porty-backend-dev`); pueden mandarse mensajes con `SendMessage` y el lead puede retomarlos por nombre. Los resultados vuelven al lead.
-2. **Agent teams** (experimental, activado en `.claude/settings.json` con `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`): sesiones independientes con lista de tareas compartida y mailbox. Pedilo explícito: *"Armá un agent team con teammates usando los agent types porty-backend-dev y porty-flutter-dev para implementar la spec X"*. Solo en sesiones interactivas. Para apagarlo, poner la variable en `0`.
+2. **Agent teams** (experimental, **apagado** por costo en `.claude/settings.json`; para usarlo puntualmente, poner `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`): sesiones independientes con lista de tareas compartida y mailbox. Pedilo explícito: *"Armá un agent team con teammates usando los agent types porty-backend-dev y porty-flutter-dev para implementar la spec X"*. Solo en sesiones interactivas. Para apagarlo, poner la variable en `0`.
 
 Protocolo de mensajes (lo siguen todos los agentes):
 - Mensajes cortos y accionables: qué pasó, qué necesito, de quién.

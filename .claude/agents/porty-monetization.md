@@ -2,8 +2,9 @@
 name: porty-monetization
 description: Especialista en monetización de Porty. Diseña y revisa planes free/premium/gold, precios por mercado, paywalls, trials, ofertas, upsells en el chat (QaGoldTeaser), cuota de mensajes y la configuración de RevenueCat y las tiendas. Usar proactivamente al tocar planes, precios, paywalls, límites por plan o al buscar subir conversión a pago o ARPU.
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch, SendMessage
-model: inherit
-effort: high
+model: sonnet
+effort: medium
+maxTurns: 25
 color: green
 memory: project
 skills:
