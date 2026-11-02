@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
@@ -222,6 +223,9 @@ class _EtoroImportResultScreenState
                       ),
                     ),
                   ),
+                  // Toda la cartera (no ticker por ticker): quedarse solo con
+                  // lo de eToro o conservar lo cargado a mano.
+                  const ManualPositionsRow(broker: 'eToro'),
                   if (widget.syncFailed && result == null) ...[
                     const SizedBox(height: AppDimens.sp16),
                     Text(

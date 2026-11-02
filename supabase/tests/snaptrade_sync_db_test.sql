@@ -1,4 +1,5 @@
--- Test de la migración 20261031000000_snaptrade_sync.sql.
+-- Test de las migraciones 20261031000000_snaptrade_sync.sql y
+-- 20261102000000_snaptrade_lots.sql.
 --
 -- Corre contra una base con las migraciones aplicadas (supabase start, o un
 -- Postgres con los stubs de auth/vault/roles). Cada chequeo que falla corta
@@ -53,6 +54,7 @@ begin
     '00000000-0000-0000-0000-0000000000f1',
     '[{"id":"20000000-0000-0000-0000-000000000001","external_id":"acc:AAPL","ticker":"AAPL","quantity":10,"purchase_price":130,"purchase_date":"2026-10-01T00:00:00Z","broker_price":200},
       {"id":"20000000-0000-0000-0000-000000000002","external_id":"acc:VOO","ticker":"VOO","quantity":2,"purchase_price":500,"purchase_date":"2026-10-01T00:00:00Z","broker_price":500}]',
+    '[]',
     '[{"id":"auth-1","name":"Interactive Brokers","slug":"IBKR","disabled":false,"imported":true}]',
     '{"imported":2}'
   );
@@ -61,17 +63,15 @@ begin
   if (select status from public.snaptrade_connections) <> 'connected' then raise exception 'connected'; end if;
   if (select connected_at from public.snaptrade_connections) is null then raise exception 'connected_at'; end if;
 
-  -- La foto siguiente ya no trae VOO: se borra; AAPL se actualiza y
-  -- conserva la fecha de la primera vez.
+  -- La foto siguiente ya no trae VOO: se borra; AAPL se actualiza.
   v_res := public.snaptrade_apply_sync(
     '00000000-0000-0000-0000-0000000000f1',
     '[{"id":"20000000-0000-0000-0000-000000000099","external_id":"acc:AAPL","ticker":"AAPL","quantity":12,"purchase_price":135,"purchase_date":"2026-10-31T00:00:00Z","broker_price":210}]',
+    '[]',
     '[{"id":"auth-1","name":"Interactive Brokers","slug":"IBKR","disabled":false,"imported":true}]',
     '{"imported":1}'
   );
   if (v_res->>'removed')::int <> 1 then raise exception 'removed %', v_res; end if;
-  select purchase_date into v_date from public.positions where source = 'snaptrade' and external_id = 'acc:AAPL';
-  if v_date <> '2026-10-01T00:00:00Z'::timestamptz then raise exception 'purchase_date moved: %', v_date; end if;
   if (select quantity from public.positions where source = 'snaptrade' and external_id = 'acc:AAPL') <> 12 then
     raise exception 'AAPL not updated';
   end if;
@@ -79,9 +79,33 @@ begin
     raise exception 'brokerages';
   end if;
 
+  -- Las ventas: se insertan, se actualizan y las que ya no vienen se borran.
+  perform public.snaptrade_apply_sync('00000000-0000-0000-0000-0000000000f1',
+    '[{"id":"20000000-0000-0000-0000-000000000099","external_id":"acc:AAPL","ticker":"AAPL","quantity":12,"purchase_price":135,"purchase_date":"2026-10-31T00:00:00Z","broker_price":210}]',
+    '[{"id":"30000000-0000-0000-0000-000000000001","external_id":"acc:s1","ticker":"VOO","quantity":1,"avg_purchase_price":400,"close_price":500,"close_date":"2024-08-01T00:00:00Z","realized_pnl":100},
+      {"id":"30000000-0000-0000-0000-000000000002","external_id":"acc:s2","ticker":"VOO","quantity":2,"avg_purchase_price":410,"close_price":520,"close_date":"2024-09-01T00:00:00Z","realized_pnl":220}]',
+    '[{"id":"auth-1","name":"Interactive Brokers","slug":"IBKR","disabled":false,"imported":true}]',
+    '{"imported":1}');
+  select count(*) into v_count from public.closed_positions where source = 'snaptrade';
+  if v_count <> 2 then raise exception 'expected 2 closed, got %', v_count; end if;
+  perform public.snaptrade_apply_sync('00000000-0000-0000-0000-0000000000f1',
+    '[{"id":"20000000-0000-0000-0000-000000000099","external_id":"acc:AAPL","ticker":"AAPL","quantity":12,"purchase_price":135,"purchase_date":"2026-10-31T00:00:00Z","broker_price":210}]',
+    '[{"id":"30000000-0000-0000-0000-000000000003","external_id":"acc:s1","ticker":"VOO","quantity":1,"avg_purchase_price":401,"close_price":500,"close_date":"2024-08-01T00:00:00Z","realized_pnl":99}]',
+    '[{"id":"auth-1","name":"Interactive Brokers","slug":"IBKR","disabled":false,"imported":true}]',
+    '{"imported":1}');
+  if (select count(*) from public.closed_positions where source = 'snaptrade') <> 1 then raise exception 'closed not pruned'; end if;
+  if (select avg_purchase_price from public.closed_positions where external_id = 'acc:s1') <> 401 then
+    raise exception 'closed not updated';
+  end if;
+  -- La fecha de compra ahora sale del historial: se actualiza.
+  if (select purchase_date from public.positions where external_id = 'acc:AAPL') <> '2026-10-31T00:00:00Z'::timestamptz then
+    raise exception 'purchase_date not updated';
+  end if;
+
   -- Sin brókers vuelve a pending.
   perform public.snaptrade_apply_sync('00000000-0000-0000-0000-0000000000f1',
     '[{"id":"20000000-0000-0000-0000-000000000099","external_id":"acc:AAPL","ticker":"AAPL","quantity":12,"purchase_price":135,"purchase_date":"2026-10-31T00:00:00Z","broker_price":210}]',
+    '[]',
     '[]', '{"imported":1}');
   if (select status from public.snaptrade_connections) <> 'pending' then raise exception 'pending without brokers'; end if;
 end $$;
@@ -146,6 +170,10 @@ begin
   v_res := public.snaptrade_disconnect('00000000-0000-0000-0000-0000000000f1', true);
   if (v_res->>'open')::int <> 1 then raise exception 'disconnect %', v_res; end if;
   if exists (select 1 from public.positions where source = 'snaptrade') then raise exception 'snaptrade rows left'; end if;
+  if exists (select 1 from public.closed_positions where source = 'snaptrade') then raise exception 'snaptrade closed left'; end if;
+  if (select source from public.closed_positions where ticker = 'VOO' and user_id = '00000000-0000-0000-0000-0000000000f1') <> 'manual' then
+    raise exception 'closed not kept as manual';
+  end if;
   if (select source from public.positions where ticker = 'AAPL' and user_id = '00000000-0000-0000-0000-0000000000f1') <> 'manual' then
     raise exception 'not kept as manual';
   end if;

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
@@ -80,6 +81,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
       ref
           .read(alertProvider.notifier)
           .showSuccess(message: 'binance_connected_toast'.tr());
+      await ManualPositionsChoice.offer(context, ref, broker: 'Binance');
     } else if (ref.read(binanceProvider).errorType == 'binance_plan_required') {
       _paywall();
     }
@@ -136,6 +138,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
       } else {
         children.addAll([
           _StatusCard(connection: connection, syncing: state.busy),
+          const ManualPositionsRow(broker: 'Binance'),
           if (error != null && !reconnect) ...[
             const SizedBox(height: AppDimens.sp12),
             _InlineError(error),

@@ -695,7 +695,7 @@
   "etoro_error_sync_unavailable": "eToro no responde ahora. Tus posiciones siguen con los datos de la última actualización.",
   "etoro_error_plan": "Conectar eToro está incluido en Premium y Gold.",
   "etoro_error_sync": "No pudimos actualizar desde eToro. Probá de nuevo.",
-  "closed_position_broker_pnl_note": "Resultado neto que informó eToro (con comisiones y dividendos).",
+  "closed_position_broker_pnl_note": "Resultado neto que informó tu bróker (con comisiones).",
   "plan_feature_broker_sync": "Tu cartera de eToro u otro bróker, actualizada sola",
   "paywall_title_broker_sync": "Conectá tus brókers con Premium",
   "paywall_subtitle_broker_sync": "Traé tu cartera de eToro o Binance y que se actualice sola. Solo lectura: Porty nunca opera por vos.",
@@ -1597,5 +1597,15 @@
   "broker_open_hint": "Se abre fuera de Porty",
   "broker_open_failed": "No pude abrir el bróker. Probá desde su app.",
   "snaptrade_broker_go_direct": "Conectalo directo: es gratis y trae más datos",
-  "snaptrade_go_direct_cta": "Conectar directo"
+  "snaptrade_go_direct_cta": "Conectar directo",
+  "manual_positions_title": "¿Qué hacemos con lo que cargaste a mano?",
+  "manual_positions_keep": "Conservar las dos",
+  "manual_positions_replace": "Quedarme solo con lo de {broker}",
+  "manual_positions_deleted": "Listo: tu cartera ahora es la de {broker}.",
+  "manual_positions_delete_failed": "No pude borrar lo cargado a mano. Probá de nuevo.",
+  "manual_positions_row_cta": "Reemplazar",
+  "manual_positions_body_one": "Tenés {count} acción cargada a mano. Podés quedarte solo con lo que trajo {broker} o conservar las dos. Tus ventas cargadas a mano no se tocan.",
+  "manual_positions_body_count": "Tenés {count} acciones cargadas a mano. Podés quedarte solo con lo que trajo {broker} o conservar las dos. Tus ventas cargadas a mano no se tocan.",
+  "manual_positions_row_one": "Además tenés {count} acción cargada a mano.",
+  "manual_positions_row_count": "Además tenés {count} acciones cargadas a mano."
 }

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:go_router/go_router.dart';
@@ -81,6 +82,13 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
       ref
           .read(alertProvider.notifier)
           .showSuccess(message: 'snaptrade_connected_toast'.tr());
+      final imported = ref.read(snaptradeProvider).connection.imported;
+      await ManualPositionsChoice.offer(
+        context,
+        ref,
+        broker:
+            imported.length == 1 ? imported.single.name : 'snaptrade_tile'.tr(),
+      );
     } else if (error == 'snaptrade_plan_required') {
       _paywall(PaywallReason.brokerSync);
     } else if (error == 'snaptrade_connection_limit') {
@@ -195,6 +203,12 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
             const SizedBox(height: AppDimens.sp12),
             _InlineError(error),
           ],
+          ManualPositionsRow(
+            broker:
+                connection.imported.length == 1
+                    ? connection.imported.single.name
+                    : 'snaptrade_tile'.tr(),
+          ),
           const SizedBox(height: AppDimens.sp20),
           _SecondaryButton(
             icon: Icons.sync_rounded,

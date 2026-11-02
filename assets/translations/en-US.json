@@ -695,7 +695,7 @@
   "etoro_error_sync_unavailable": "eToro isn't responding right now. Your positions keep the data from the last update.",
   "etoro_error_plan": "Connecting eToro is included in Premium and Gold.",
   "etoro_error_sync": "We couldn't update from eToro. Try again.",
-  "closed_position_broker_pnl_note": "Net result reported by eToro (fees and dividends included).",
+  "closed_position_broker_pnl_note": "Net result reported by your broker (fees included).",
   "plan_feature_broker_sync": "Your eToro or other broker portfolio, updated on its own",
   "paywall_title_broker_sync": "Connect your brokers with Premium",
   "paywall_subtitle_broker_sync": "Bring your eToro or Binance portfolio and keep it up to date automatically. Read-only: Porty never trades for you.",
@@ -1597,5 +1597,15 @@
   "broker_open_hint": "Opens outside Porty",
   "broker_open_failed": "I couldn't open the broker. Try from its app.",
   "snaptrade_broker_go_direct": "Connect it directly: it's free and brings more data",
-  "snaptrade_go_direct_cta": "Connect directly"
+  "snaptrade_go_direct_cta": "Connect directly",
+  "manual_positions_title": "What should we do with what you added by hand?",
+  "manual_positions_keep": "Keep both",
+  "manual_positions_replace": "Keep only what's in {broker}",
+  "manual_positions_deleted": "Done: your portfolio is now the one from {broker}.",
+  "manual_positions_delete_failed": "I couldn't delete what you added by hand. Try again.",
+  "manual_positions_row_cta": "Replace",
+  "manual_positions_body_one": "You have {count} holding added by hand. You can keep only what {broker} brought in, or keep both. Sales you added by hand stay as they are.",
+  "manual_positions_body_count": "You have {count} holdings added by hand. You can keep only what {broker} brought in, or keep both. Sales you added by hand stay as they are.",
+  "manual_positions_row_one": "You also have {count} holding added by hand.",
+  "manual_positions_row_count": "You also have {count} holdings added by hand."
 }

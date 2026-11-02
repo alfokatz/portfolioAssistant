@@ -88,6 +88,14 @@ export function portyTicker(p: RawPosition): string {
   return symbol;
 }
 
+/// El ticker de Porty para una operación de `/activities` (mismo criterio
+/// que [portyTicker]); null si no tiene símbolo (opciones, efectivo).
+export function activityTicker(symbol: string, securityType: string): string | null {
+  const s = symbol.trim().toUpperCase();
+  if (!s || /\s/.test(s)) return null;
+  return securityType === "crypto" && !s.includes("-") ? `${s}-USD` : s;
+}
+
 /// Posiciones de una cuenta → lo que se importa y lo que no (con el motivo).
 /// - `cash`: efectivo o fondos que cuentan como efectivo.
 /// - `unsupported`: opciones, futuros, CFD, bonos y otros.

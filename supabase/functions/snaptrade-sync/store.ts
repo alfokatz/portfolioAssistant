@@ -23,6 +23,18 @@ export type PositionRow = {
   broker_price: number;
 };
 
+/// Una venta (de las operaciones de SnapTrade), para `closed_positions`.
+export type ClosedRow = {
+  id: string;
+  external_id: string;
+  ticker: string;
+  quantity: number;
+  avg_purchase_price: number;
+  close_price: number;
+  close_date: string;
+  realized_pnl: number;
+};
+
 export interface SnaptradeStore {
   effectiveTier(userId: string): Promise<string>;
   rateLimitHit(userId: string, perMinute: number): Promise<boolean>;
@@ -41,6 +53,7 @@ export interface SnaptradeStore {
   applySync(
     userId: string,
     positions: PositionRow[],
+    closed: ClosedRow[],
     brokerages: BrokerageSummary[],
     result: Record<string, unknown>,
   ): Promise<void>;
@@ -135,10 +148,11 @@ export function supabaseStore(db: SupabaseClient): SnaptradeStore {
       fail("takeRefresh", error);
       return data === true;
     },
-    async applySync(userId, positions, brokerages, result) {
+    async applySync(userId, positions, closed, brokerages, result) {
       const { error } = await db.rpc("snaptrade_apply_sync", {
         p_user_id: userId,
         p_positions: positions,
+        p_closed: closed,
         p_brokerages: brokerages,
         p_result: result,
       });

@@ -12,6 +12,10 @@
 
 export const snaptradeConfig = {
   defaultBaseUrl: "https://api.snaptrade.com",
+  /// Operaciones por página de `/activities` (el máximo de SnapTrade).
+  activityPageSize: 1000,
+  /// Tope de páginas por cuenta: 10.000 operaciones.
+  activityMaxPages: 10,
 };
 
 export type SnaptradeCredentials = { clientId: string; consumerKey: string };
@@ -58,6 +62,20 @@ export type RawPosition = {
   costBasis: number | null;
   currency: string | null;
   cashEquivalent: boolean;
+};
+
+/// Una compra o venta de `/accounts/{id}/activities`.
+export type RawActivity = {
+  id: string;
+  type: string;
+  /// El símbolo como lo da SnapTrade (formato de Yahoo).
+  symbol: string;
+  /// El código de tipo de SnapTrade (`cs`, `et`, `crypto`…).
+  securityType: string;
+  units: number;
+  price: number;
+  fee: number;
+  tradeDate: string;
 };
 
 /// JSON con las claves ordenadas en todos los niveles (como
@@ -210,6 +228,46 @@ export class SnaptradeClient {
         cashEquivalent: p.cash_equivalent === true,
       }];
     });
+  }
+
+  /// Compras, ventas y reinversiones de una cuenta, de todo el historial
+  /// que tenga SnapTrade (se actualiza una vez por día).
+  async activities(user: SnaptradeUser, accountId: string): Promise<RawActivity[]> {
+    const out: RawActivity[] = [];
+    for (let page = 0; page < snaptradeConfig.activityMaxPages; page++) {
+      const body = await this.request(
+        "GET",
+        `/accounts/${encodeURIComponent(accountId)}/activities`,
+        {
+          ...this.userQuery(user),
+          type: "BUY,SELL,REI",
+          offset: String(page * snaptradeConfig.activityPageSize),
+          limit: String(snaptradeConfig.activityPageSize),
+        },
+      ) as Record<string, unknown>;
+      const data = body?.data;
+      if (!Array.isArray(data)) throw new SnaptradeError("unavailable");
+      for (const a of data as Record<string, unknown>[]) {
+        const symbol = (a.symbol ?? {}) as Record<string, unknown>;
+        const type = (symbol.type ?? {}) as Record<string, unknown>;
+        const units = num(a.units);
+        const price = num(a.price);
+        const date = typeof a.trade_date === "string" ? a.trade_date : null;
+        if (typeof a.id !== "string" || units === null || price === null || !date) continue;
+        out.push({
+          id: a.id,
+          type: String(a.type ?? "").toUpperCase(),
+          symbol: String(symbol.symbol ?? symbol.raw_symbol ?? ""),
+          securityType: String(type.code ?? ""),
+          units: Math.abs(units),
+          price,
+          fee: Math.abs(num(a.fee) ?? 0),
+          tradeDate: date,
+        });
+      }
+      if (data.length < snaptradeConfig.activityPageSize) break;
+    }
+    return out;
   }
 
   private userQuery(user: SnaptradeUser): Record<string, string> {

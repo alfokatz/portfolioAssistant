@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -207,6 +208,7 @@ class _EtoroConnectionScreenState
                     : () => context.pushNamed(EtoroRouter.resultRouteName),
           ),
         ),
+        const ManualPositionsRow(broker: 'eToro'),
         MotionAwareSize(
           duration: const Duration(milliseconds: 200),
           child:

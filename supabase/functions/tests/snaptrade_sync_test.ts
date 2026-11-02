@@ -6,6 +6,7 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { Deps } from "../_shared/common.ts";
 import { handle } from "../snaptrade-sync/handler.ts";
+import { lotsFor, type Trade } from "../snaptrade-sync/lots.ts";
 import {
   type DirectBroker,
   directBrokerOf,
@@ -15,7 +16,7 @@ import {
 } from "../snaptrade-sync/mapping.ts";
 import { type Authorization, type RawPosition, signature, type SnaptradeUser } from "../snaptrade-sync/snaptrade.ts";
 import type { BrokerageSummary } from "../snaptrade-sync/mapping.ts";
-import type { PositionRow, SnaptradeConnection, SnaptradeStore } from "../snaptrade-sync/store.ts";
+import type { ClosedRow, PositionRow, SnaptradeConnection, SnaptradeStore } from "../snaptrade-sync/store.ts";
 
 // Vectores sacados del SDK oficial (snaptrade-typescript-sdk 13.1.14) con
 // la misma clave, el mismo reloj y un adapter de axios que captura el
@@ -78,6 +79,56 @@ Deno.test("brókers: Premium importa el más viejo; eToro conectado directo no s
   assertEquals(directBrokerOf({ slug: "SCHWAB", name: "Schwab" }), null);
 });
 
+const trade = (id: string, type: string, units: number, price: number, date: string, fee = 0): Trade => ({
+  id,
+  type,
+  ticker: "VOO",
+  units,
+  price,
+  fee,
+  date,
+});
+
+Deno.test("compras: FIFO con ventas, la venta cerrada con su costo y lo que el historial no explica", () => {
+  const trades = [
+    trade("b1", "BUY", 1, 400, "2024-02-05"),
+    trade("b2", "BUY", 1, 450, "2024-03-05", 1),
+    trade("b3", "BUY", 1, 500, "2024-04-05"),
+    // Vende 1,5: se va la primera entera y media de la segunda.
+    trade("s1", "SELL", 1.5, 520, "2024-05-10", 2),
+    trade("r1", "REI", 0.1, 510, "2024-06-01"),
+  ];
+  const { lots, closed } = lotsFor(trades, 1.6, null, 600, "2026-11-02T00:00:00.000Z");
+  assertEquals(lots.map((l) => [l.id, Number(l.units.toFixed(6)), Number(l.price.toFixed(2)), l.date]), [
+    ["b2", 0.5, 451, "2024-03-05"],
+    ["b3", 1, 500, "2024-04-05"],
+    ["r1", 0.1, 510, "2024-06-01"],
+  ]);
+  assertEquals(closed.length, 1);
+  assertEquals(closed[0].units, 1.5);
+  // 1 a 400 + 0,5 a 451 (la comisión de compra va al costo).
+  assertEquals(Number(closed[0].avgPurchasePrice.toFixed(4)), Number(((400 + 0.5 * 451) / 1.5).toFixed(4)));
+  assertEquals(Number(closed[0].realizedPnl.toFixed(2)), Number(((520 - (400 + 225.5) / 1.5) * 1.5 - 2).toFixed(2)));
+
+  // Tiene 3 pero el historial explica 1,6 (transfirió desde otro bróker):
+  // la diferencia va como una compra estimada que cierra el costo del bróker.
+  const more = lotsFor(trades, 3, 480, 600, "2026-11-02T00:00:00.000Z");
+  const rest = more.lots[0];
+  assertEquals([rest.id, rest.estimated, Number(rest.units.toFixed(6))], ["rest", true, 1.4]);
+  const total = more.lots.reduce((sum, l) => sum + l.units * l.price, 0);
+  assertEquals(Number(total.toFixed(4)), Number((480 * 3).toFixed(4)));
+
+  // Tiene menos de lo que explica (vendió algo fuera del historial): se
+  // recortan las más viejas.
+  const less = lotsFor(trades, 1, null, 600, "2026-11-02T00:00:00.000Z");
+  assertEquals(less.lots.map((l) => [l.id, Number(l.units.toFixed(6))]), [["b3", 0.9], ["r1", 0.1]]);
+
+  // Sin historial: una sola compra estimada al costo del bróker.
+  assertEquals(lotsFor([], 2, 500, 600, "2026-11-02T00:00:00.000Z").lots, [
+    { id: "rest", units: 2, price: 500, date: "2026-11-02T00:00:00.000Z", estimated: true },
+  ]);
+});
+
 const raw = (over: Partial<RawPosition>): RawPosition => ({
   kind: "stock",
   symbol: "AAPL",
@@ -125,6 +176,7 @@ class MemoryStore implements SnaptradeStore {
   connection: SnaptradeConnection | null = null;
   user: SnaptradeUser | null = null;
   applied: PositionRow[] | null = null;
+  closed: ClosedRow[] | null = null;
   brokerages: BrokerageSummary[] | null = null;
   errors: string[] = [];
   disconnected: boolean | null = null;
@@ -171,8 +223,15 @@ class MemoryStore implements SnaptradeStore {
     this.refreshesLeft--;
     return Promise.resolve(true);
   }
-  applySync(_u: string, positions: PositionRow[], brokerages: BrokerageSummary[], result: Record<string, unknown>) {
+  applySync(
+    _u: string,
+    positions: PositionRow[],
+    closed: ClosedRow[],
+    brokerages: BrokerageSummary[],
+    result: Record<string, unknown>,
+  ) {
     this.applied = positions;
+    this.closed = closed;
     this.brokerages = brokerages;
     this.connection = {
       status: brokerages.length ? "connected" : "pending",
@@ -400,8 +459,8 @@ Deno.test("sincronizar Premium: solo el primer bróker, lotes sumados, costo est
   assertEquals(body.result.estimatedCost, ["VOO"]);
   assertEquals(body.result.notImported, [{ ticker: "USD", reason: "cash", broker: "Interactive Brokers" }]);
   assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price, p.broker_price]), [
-    ["acc-ibkr:AAPL", 10, 130, 200],
-    ["acc-ibkr:VOO", 2, 500, 500],
+    ["acc-ibkr:AAPL:rest", 10, 130, 200],
+    ["acc-ibkr:VOO:rest", 2, 500, 500],
   ]);
   assertEquals(store.brokerages?.map((b) => [b.name, b.imported, b.reason, b.url]), [
     ["Interactive Brokers", true, undefined, "https://www.interactivebrokers.com"],
@@ -440,7 +499,11 @@ Deno.test("sincronizar: eToro por SnapTrade entra si no está conectado directo;
   store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
   const { fetchImpl } = fakeSnaptrade({ authorizations: etoroOnly });
   await run(post("/sync"), store, accounts(fetchImpl));
-  assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price]), [["acc-etoro:NVDA", 3, 120]]);
+  assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price]), [[
+    "acc-etoro:NVDA:rest",
+    3,
+    120,
+  ]]);
 
   // Conectó eToro directo: se quita de SnapTrade y, como era el único,
   // se borra el usuario (deja de cobrarse) y lo importado por acá.
@@ -486,6 +549,74 @@ Deno.test("sincronizar: con eToro directo y otro bróker, solo quita eToro de Sn
   assertEquals(store.disconnected, null);
 });
 
+Deno.test("sincronizar: con el historial, una fila por compra mensual y las ventas como cerradas", async () => {
+  const months = ["2024-02-05", "2024-03-05", "2024-04-05", "2024-05-06"];
+  const activities = [
+    ...months.map((d, i) => ({
+      id: `buy-${i}`,
+      type: "BUY",
+      symbol: { symbol: "VOO", type: { code: "et" } },
+      units: 1,
+      price: 400 + i * 10,
+      fee: 0,
+      trade_date: `${d}T14:30:00Z`,
+    })),
+    {
+      id: "sell-0",
+      type: "SELL",
+      symbol: { symbol: "VOO", type: { code: "et" } },
+      units: -1,
+      price: 500,
+      fee: 0,
+      trade_date: "2024-08-01T15:00:00Z",
+    },
+    // Una opción (sin símbolo de acción): se ignora.
+    { id: "opt", type: "BUY", symbol: null, units: 1, price: 2, trade_date: "2024-01-01" },
+  ];
+  const ibkr = [{
+    id: "auth-ibkr",
+    type: "read",
+    created_date: "2026-10-01T00:00:00Z",
+    brokerage: { slug: "IBKR", display_name: "Interactive Brokers" },
+  }];
+  const base = fakeSnaptrade({ authorizations: ibkr });
+  const fetchImpl = ((input: string, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/accounts") {
+      return Promise.resolve(
+        Response.json([{ id: "acc", brokerage_authorization: "auth-ibkr", institution_name: "IBKR" }]),
+      );
+    }
+    if (url.pathname === "/accounts/acc/positions/all") {
+      return Promise.resolve(Response.json({
+        results: [{ instrument: { kind: "etf", symbol: "VOO" }, units: "3", price: "600", cost_basis: "426.67" }],
+      }));
+    }
+    if (url.pathname === "/accounts/acc/activities") {
+      assertEquals(url.searchParams.get("type"), "BUY,SELL,REI");
+      return Promise.resolve(Response.json({ data: activities, pagination: { offset: 0, limit: 1000, total: 6 } }));
+    }
+    return base.fetchImpl(input, init);
+  }) as typeof fetch;
+
+  const store = new MemoryStore();
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  const res = await (await run(post("/sync"), store, fetchImpl)).json();
+  assertEquals(res.result.imported, 1);
+  assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price, p.purchase_date]), [
+    ["acc:VOO:buy-1", 1, 410, "2024-03-05T14:30:00.000Z"],
+    ["acc:VOO:buy-2", 1, 420, "2024-04-05T14:30:00.000Z"],
+    ["acc:VOO:buy-3", 1, 430, "2024-05-06T14:30:00.000Z"],
+  ]);
+  assertEquals(
+    store.closed?.map((c) => [c.external_id, c.quantity, c.avg_purchase_price, c.close_price, c.realized_pnl]),
+    [
+      ["acc:sell-0", 1, 400, 500, 100],
+    ],
+  );
+});
+
 Deno.test("sincronizar Gold: todos los brókers", async () => {
   const store = new MemoryStore();
   store.tier = "gold";
@@ -493,7 +624,11 @@ Deno.test("sincronizar Gold: todos los brókers", async () => {
   store.connection = { status: "connected", lastSyncAt: null, lastResult: null };
   const { fetchImpl } = fakeSnaptrade();
   await run(post("/sync"), store, fetchImpl);
-  assertEquals(store.applied?.map((p) => p.external_id), ["acc-ibkr:AAPL", "acc-ibkr:VOO", "acc-schwab:MSFT"]);
+  assertEquals(store.applied?.map((p) => p.external_id), [
+    "acc-ibkr:AAPL:rest",
+    "acc-ibkr:VOO:rest",
+    "acc-schwab:MSFT:rest",
+  ]);
 });
 
 Deno.test("sincronizar: la última si fue hace menos de 5 min; secreto inválido pide reconectar", async () => {
