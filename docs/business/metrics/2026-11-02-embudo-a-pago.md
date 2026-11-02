@@ -208,6 +208,14 @@ select key, value, updated_at from public.app_config order by key;
 
 Q5 incluye compras de sandbox si se probó con cuentas de test: hoy no hay forma de filtrarlas en la base.
 
+**Actualización 2026-11-02, cuando se suba `subscription_events`** (implementada según `docs/superpowers/specs/2026-11-02-paywall-medible-y-anual.md` §3.8, validada solo en un Postgres local; **todavía no está en producción: el `db push` lo tiene que autorizar el usuario**). En ese momento Q5 pasa a leer de `subscription_events`, con estas reglas:
+
+- Filtrar siempre `not is_sandbox`. Ojo: `is_sandbox` también es `true` cuando `environment` viene `null`, así que una compra real sin entorno queda afuera. Contar cuántas filas tienen `environment is null` antes de sacar conclusiones.
+- Para atribuir compras a un paywall, usar solo `event_type in ('INITIAL_PURCHASE', 'PRODUCT_CHANGE')`, porque `paywall_source` guarda el último valor que se seteó.
+- `paywall_source` queda `null` si el atributo no cumple el formato de `PaywallSource` o si la compra viene de una versión vieja de la app. Reportar `null` como su propia categoría ("sin source"); no repartirlo entre las otras.
+- `price_usd` viene negativo en los reembolsos: `sum(price_usd)` da el ingreso bruto ya descontados los reembolsos. Para el ingreso de compras, filtrar `price_usd > 0`. Para el neto de comisión, multiplicar por `takehome_pct`.
+- La vista `product_funnel` suma `min_to_first_paywall` y `min_to_purchase` (este último ya excluye sandbox).
+
 ---
 
 ## 7. Sobre experimentos

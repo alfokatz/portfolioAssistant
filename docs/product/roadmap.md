@@ -27,6 +27,12 @@ Guardarraíles: reembolsos, bajas de notificaciones, retención Free D7/D30, res
 
 ---
 
+### Condición para publicar (no es apuesta, no compite por RICE)
+
+**0. Borrado de cuenta en la app** (agregado el 2026-11-02 tras la revisión de compliance, `docs/legal/reviews/2026-11-02-paywall-y-nudges.md` H1). Hoy "Eliminar cuenta" solo muestra "estará disponible pronto" (`settings_screen.dart:211-223`). Apple 5.1.1(v) exige borrado dentro de la app y Google Play exige borrado en la app más un link web: **cualquier envío se rechaza**, con o sin estas apuestas. No suma pagos, pero sin esto no sale nada de lo de abajo. Brief: `docs/product/briefs/2026-11-02-borrado-de-cuenta.md`. Talla S–M (~2–3 días-persona). Dueños: porty-backend-dev (edge function), porty-flutter-dev (flujo), porty-security-reviewer.
+
+También bloquea el envío, pero es tarea del usuario: que las páginas de Términos y Privacidad existan, digan Porty (no PortfolioAI) e incluyan la cláusula de suscripciones (H2, §4 de la revisión).
+
 ### Apuestas priorizadas (RICE)
 
 Escala: **R** = % estimado de la cohorte mensual de altas expuesta (supuesto: no hay volumen medido, sale de Q1/Q2 del doc de data); **I** = 0,25 / 0,5 / 1 / 2 / 3; **C** = confianza; **E** = días-persona. Score = R × I × C / E. Los scores ordenan, no predicen.
@@ -106,9 +112,9 @@ Tres cambios chicos en los tres lugares donde el usuario ya mostró intención c
 
 | Semana | Producto / equipo | Usuario |
 |---|---|---|
-| **S1 · 2–6 nov** | porty-architect: spec de #1 y #2 (mismo archivo, mismo dev). porty-flutter-dev + porty-backend-dev construyen #1. porty-compliance revisa el texto de renovación. | Crear productos anuales en App Store Connect, Play y RevenueCat. Correr Q1–Q8 y `select key, value from app_config;`. Decidir si hace F0 este mes. Aprobar precio anual. |
-| **S2 · 9–13 nov** | #2 (selector anual) y #3 (tres cambios chicos) sobre el paywall nuevo. porty-architect: spec de #4. Code, security y UI review; QA de humo de compra en sandbox. **Release 1 = #1 + #2 + #3** a revisión. | Aprobar la publicación del release 1. Aprobar #4 (cambio en Free). |
-| **S3 · 16–20 nov** | #4 (assistant + backend + flutter) y #5 (servidor). Primer chequeo de calidad de datos: ¿todas las aperturas llegan con `source`? ¿`subscription_events` separa sandbox? | Hacer F0 y prender push para la lista inicial, si se decidió. Aprobar el despliegue de `ai-chat` / migraciones de #4 y #5. |
+| **S1 · 2–6 nov** | porty-architect: spec de #1 y #2 (mismo archivo, mismo dev) y spec de #0. porty-flutter-dev + porty-backend-dev construyen #1 y arrancan #0 (la edge function de borrado es lo primero del backend). porty-compliance ya revisó los textos (aplicar H3–H10). | Crear productos anuales en App Store Connect, Play y RevenueCat. Correr Q1–Q8 y `select key, value from app_config;`. Decidir si hace F0 este mes. Aprobar precio anual. Abrir las URLs de Términos y Privacidad y publicarlas corregidas (H2). Crear la página web de borrado que pide Google Play. |
+| **S2 · 9–13 nov** | Terminar #0. #2 (selector anual) y #3 (tres cambios chicos) sobre el paywall nuevo. porty-architect: spec de #4. Code, security y UI review; QA de humo de compra **y de borrado** en sandbox. **Release 1 = #0 + #1 + #2 + #3** a revisión, solo si #0 y H2 están cerrados. | Aprobar la publicación del release 1. Aprobar #4 (cambio en Free). |
+| **S3 · 16–20 nov** | #4 (assistant + backend + flutter). #5 solo si el backend quedó libre después de #0; si no, pasa a S4 (igual se lee en diciembre). Primer chequeo de calidad de datos: ¿todas las aperturas llegan con `source`? ¿`subscription_events` separa sandbox? | Hacer F0 y prender push para la lista inicial, si se decidió. Aprobar el despliegue de `ai-chat` / migraciones de #4 y #5. |
 | **S4 · 23–27 nov** | porty-data-analyst: primera tabla paywall → compra por `source` (~10 días de release 1). Prender #4 y #5 por `app_config`. porty-product-owner: aceptación de #1–#3 y propuesta de diciembre (prueba sí/no, con datos). | Aprobar prender los interruptores de #4 y #5 en producción. Decidir la prueba de Gold para diciembre. |
 
 ### Diciembre (tentativo, se decide el 27/11 con datos)

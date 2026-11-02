@@ -21,7 +21,25 @@ enum ProductEvent {
 
   /// Tocó la pregunta del diagnóstico. Props: `kind`.
   diagnosisQuestion('diagnosis_question'),
-  firstChatAnswer('first_chat_answer', once: true);
+  firstChatAnswer('first_chat_answer', once: true),
+
+  /// Se abrió el paywall. Props: `reason`, `source`, `tier`,
+  /// `visible_tiers`, `queries_used`, `queries_limit`.
+  paywallViewed('paywall_viewed'),
+
+  /// Tocó el botón de un plan, antes de comprar. Props: `tier`, `period`,
+  /// `source`.
+  paywallPlanTapped('paywall_plan_tapped'),
+
+  /// Volvió de comprar o de restaurar. Props: `action` (`purchase` |
+  /// `restore`), `tier` y `period` (solo en compras), `source`, `result`
+  /// (`success` | `cancelled` | `failed` | `not_configured`) y
+  /// `error_code` (solo en `failed`).
+  purchaseResult('purchase_result'),
+
+  /// La hoja se cerró sin compra ni restauración exitosa. Props: `source`,
+  /// `seconds_open`, `tapped_plan`.
+  paywallDismissed('paywall_dismissed');
 
   const ProductEvent(this.wire, {this.once = false});
 

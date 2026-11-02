@@ -3,7 +3,9 @@ import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_tracker.dart';
+import 'package:portfolio_assistant/features/subscription/config/subscription_catalog.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/subscription_repository_impl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -147,10 +149,16 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     return null;
   }
 
-  Future<RevenueCatPurchaseResult> purchaseTier(SubscriptionTier tier) async {
+  /// Compra [tier] en [period]; [source] es desde dónde se abrió el
+  /// paywall (ver `PaywallSource`).
+  Future<RevenueCatPurchaseResult> purchaseTier(
+    SubscriptionTier tier, {
+    BillingPeriod period = BillingPeriod.monthly,
+    required String source,
+  }) async {
     state = state.copyWith(purchasingTier: tier);
     try {
-      final result = await _revenueCat.purchaseTier(tier);
+      final result = await _revenueCat.purchase(tier, period, source: source);
       if (result is RevenueCatPurchaseSuccess) {
         await _refreshAfterPurchase(expectedTier: tier);
       }
@@ -191,9 +199,10 @@ final aiUsageTrackerProvider = Provider<AiUsageTracker>(
   ),
 );
 
-final subscriptionTierPricesProvider =
-    FutureProvider<Map<SubscriptionTier, String>>((ref) async {
-  return ref.read(revenueCatServiceProvider).fetchTierPrices();
+/// Precios mensuales y anuales que muestra el paywall (vacío sin
+/// RevenueCat). El paywall lo invalida al abrirse.
+final paywallOfferProvider = FutureProvider<PaywallOffer>((ref) async {
+  return ref.read(revenueCatServiceProvider).fetchOffer();
 });
 
 final subscriptionProvider =
