@@ -160,6 +160,12 @@ class _SubscriptionPaywallSheetState
   /// Compró o restauró con éxito: cerrar no es "se fue sin comprar".
   bool _converted = false;
 
+  /// Hay una compra o restauración en curso. Arrastrar la hoja la cierra igual
+  /// (`BottomSheet.onClosing` hace `pop`, no `maybePop`), así que cerrar en
+  /// ese momento no cuenta como `paywall_dismissed`: el resultado llega por
+  /// `purchase_result`.
+  bool _inFlight = false;
+
   String get _source => widget.source;
 
   @override
@@ -187,7 +193,7 @@ class _SubscriptionPaywallSheetState
 
   @override
   void dispose() {
-    if (!_converted) {
+    if (!_converted && !_inFlight) {
       _events.log(ProductEvent.paywallDismissed, {
         'source': _source,
         'seconds_open': DateTime.now().difference(_openedAt).inSeconds,
@@ -216,9 +222,15 @@ class _SubscriptionPaywallSheetState
       'period': period.name,
       'source': _source,
     });
-    final result = await ref
-        .read(subscriptionProvider.notifier)
-        .purchaseTier(tier, period: period, source: _source);
+    _inFlight = true;
+    final RevenueCatPurchaseResult result;
+    try {
+      result = await ref
+          .read(subscriptionProvider.notifier)
+          .purchaseTier(tier, period: period, source: _source);
+    } finally {
+      _inFlight = false;
+    }
     _events.log(ProductEvent.purchaseResult, {
       'action': 'purchase',
       'tier': tier.name,
@@ -226,7 +238,13 @@ class _SubscriptionPaywallSheetState
       'source': _source,
       ..._resultProps(result),
     });
-    if (result is RevenueCatPurchaseSuccess) _converted = true;
+    if (result is RevenueCatPurchaseSuccess) {
+      _converted = true;
+      if (!mounted) {
+        widget.onUpgraded?.call();
+        return;
+      }
+    }
     if (!mounted) return;
 
     switch (result) {
@@ -250,14 +268,25 @@ class _SubscriptionPaywallSheetState
   }
 
   Future<void> _restore() async {
-    final result =
-        await ref.read(subscriptionProvider.notifier).restorePurchases();
+    _inFlight = true;
+    final RevenueCatPurchaseResult result;
+    try {
+      result = await ref.read(subscriptionProvider.notifier).restorePurchases();
+    } finally {
+      _inFlight = false;
+    }
     _events.log(ProductEvent.purchaseResult, {
       'action': 'restore',
       'source': _source,
       ..._resultProps(result),
     });
-    if (result is RevenueCatPurchaseSuccess) _converted = true;
+    if (result is RevenueCatPurchaseSuccess) {
+      _converted = true;
+      if (!mounted) {
+        widget.onUpgraded?.call();
+        return;
+      }
+    }
     if (!mounted) return;
 
     switch (result) {

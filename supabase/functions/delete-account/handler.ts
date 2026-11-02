@@ -11,6 +11,7 @@
 //      revocación y la clave es de solo lectura).
 //   5. auth.admin.deleteUser: dispara el trigger
 //      `account_purge_before_delete` y todos los cascades.
+//   6. Segundo DELETE en RevenueCat (best effort, nunca cambia el 200).
 //
 // Los *_disconnect van con keep_as_manual: si un paso posterior falla, la
 // cartera queda entera como manual. Al final el cascade la borra igual.
@@ -211,5 +212,21 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
 
   log({ step: "auth", outcome: "deleted" });
+
+  // 6. Segundo DELETE en RevenueCat, best effort y sin reintentos: un evento
+  //    que llegó entre el paso 2 y el 5 pudo recrear al cliente con el GET del
+  //    webhook. Desde el paso 5 el webhook ya no llama a RevenueCat para este
+  //    uid, así que esto cierra la ventana. Si falla, la respuesta sigue en 200.
+  try {
+    const response = await fetchFn(`${revenueCatConfig.apiBase}/subscribers/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${revenueCatKey}`, Accept: "application/json" },
+    });
+    await response.body?.cancel();
+    if (!response.ok && response.status !== 404) log({ step: "revenuecat", outcome: "revenuecat_recheck_failed" });
+  } catch {
+    log({ step: "revenuecat", outcome: "revenuecat_recheck_failed" });
+  }
+
   return json(200, { deleted: true });
 }

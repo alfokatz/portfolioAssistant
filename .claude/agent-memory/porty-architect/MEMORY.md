@@ -14,3 +14,4 @@
 - RevenueCat `GET /v1/subscribers/{id}` crea el cliente si no existe: nunca llamarlo para un uid que puede estar borrado.
 - Vault: borrar la fila puntero no borra el secreto; siempre `*_delete` o el trigger de borrado de cuenta.
 - Features que necesitan datos de RevenueCat sin tocar `lib/features/subscription/` leen `Purchases` desde su propia carpeta con costura inyectable y usan `revenueCatServiceProvider` solo para leer.
+- Inventarios de tablas: buscar también `drop table` en migraciones posteriores; el test de catálogo manda sobre la lista de la spec.

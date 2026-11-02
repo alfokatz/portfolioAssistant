@@ -3,7 +3,7 @@
 Spec: `docs/superpowers/specs/2026-11-02-borrado-de-cuenta.md`. Piezas:
 
 - `supabase/migrations/20261102130000_account_deletion.sql`: trigger `account_purge_before_delete` sobre `auth.users` (Vault, `subscription_sync_log`, flags de `app_config`, `waitlist` con mail verificable), contador `account_deletions_daily` y cascade asegurado en `positions` / `closed_positions`.
-- Edge function `delete-account`: SnapTrade → RevenueCat → eToro → Binance → `auth.admin.deleteUser`. Idempotente.
+- Edge function `delete-account`: SnapTrade → RevenueCat → eToro → Binance → `auth.admin.deleteUser` → segundo DELETE en RevenueCat (best effort). Idempotente.
 - `revenuecat-webhook`: no llama a `GET /subscribers/{id}` para un uid que ya no existe (lo recrearía en RevenueCat).
 
 ## Antes del `db push` (lo corre el usuario, solo lectura)
@@ -83,4 +83,4 @@ Si agregás una tabla con `user_id`, sumala al inventario de `account_deletion_d
 - **Borrado desde el dashboard (soporte):** el trigger y los cascades corren igual, pero **no** se borran el cliente de RevenueCat ni el usuario de SnapTrade. Hacelo a mano: RevenueCat → Customer → Delete; SnapTrade → `DELETE /snapTrade/deleteUser`. Lo mejor es pedirle al usuario que borre desde la app.
 - **Waitlist:** la fila con su mail se borra solo si el mail está confirmado o la cuenta es OAuth (compliance §6.1).
 - **Binance:** no hay API para revocar. Borramos nuestra copia; la clave (de solo lectura) sigue en la cuenta de Binance del usuario.
-- **Riesgo residual:** si llega un evento de RevenueCat entre el paso 2 (RevenueCat borrado) y el 5 (auth borrado), el webhook todavía ve al usuario y su GET puede recrear el cliente. La ventana dura lo que tardan los pasos locales (eToro/Binance, segundos). Si pasa, el cliente recreado queda vacío y sin datos personales.
+- **Ventana entre los pasos 2 y 5:** si llega un evento de RevenueCat mientras tanto, el webhook todavía ve al usuario y su GET puede recrear el cliente. Por eso el paso 6 vuelve a borrarlo después de `deleteUser` (desde ahí el webhook ya no llama a RevenueCat para ese uid). Es best effort y sin reintentos: si falla, la respuesta sigue en 200 y queda `outcome: "revenuecat_recheck_failed"` en los logs. El uid no se loguea a propósito, así que no hay limpieza manual por log. El cliente recreado solo tiene el uid, sin compras ni atributos nuevos. Si el log aparece seguido, revisá la clave o la disponibilidad de RevenueCat.

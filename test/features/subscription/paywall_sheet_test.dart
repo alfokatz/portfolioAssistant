@@ -167,6 +167,40 @@ void main() {
       expect(h.events.of(ProductEvent.paywallDismissed), isEmpty);
     });
 
+    testWidgets('dragging the sheet closed mid-purchase is not '
+        'paywall_dismissed and still upgrades', (tester) async {
+      var upgraded = 0;
+      final h = PaywallHarness(offer: monthlyOffer);
+      h.revenueCat.purchaseResult = const RevenueCatPurchaseSuccess();
+      await h.pump(
+        tester,
+        reason: PaywallReason.positionLimit,
+        onUpgraded: () => upgraded++,
+      );
+      await h.open(tester);
+
+      await tester.tap(find.text('paywall_upgrade_gold'));
+      await tester.pump(const Duration(seconds: 1));
+      // Mientras la suscripción espera al webhook, el usuario arrastra la hoja:
+      // BottomSheet.onClosing hace pop aunque PopScope diga canPop: false.
+      await tester.fling(
+        find.byType(SubscriptionPaywallSheet),
+        const Offset(0, 900),
+        3000,
+      );
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(seconds: 1));
+      }
+
+      expect(find.byType(SubscriptionPaywallSheet), findsNothing);
+      expect(h.events.of(ProductEvent.paywallDismissed), isEmpty);
+      expect(
+        h.events.of(ProductEvent.purchaseResult).single['result'],
+        'success',
+      );
+      expect(upgraded, 1);
+    });
+
     testWidgets('restore logs purchase_result with action restore', (
       tester,
     ) async {

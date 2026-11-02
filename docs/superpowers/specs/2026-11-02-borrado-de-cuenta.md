@@ -33,7 +33,7 @@ Desde Ajustes, el usuario borra su cuenta sin salir de la app: ve qué se borra,
 | `binance_connections`, `snaptrade_connections` | |
 | `push_devices`, `notification_preferences`, `notification_outbox`, `notification_log` | |
 | `price_alerts`, `watchlist_items`, `allocation_plans` | |
-| `user_goals`, `goal_contributions` (doble FK: usuario y meta) | |
+| `user_goals` | (`goal_contributions` ya no existe: la borró `20261011080000_goal_funding.sql`. El test usa el catálogo real) |
 | `user_memories`, `porty_topics`, `web_search_usage`, `news_context_usage` | |
 | `product_events` | |
 | `subscription_events` | `cascade` en este release (decisión). Pasa a `set null` cuando se cumplan las 3 condiciones de compliance §3. |
@@ -113,12 +113,13 @@ Content-Type: application/json
 
 | # | Paso | Falla → |
 |---|---|---|
-| 0 | `authenticate` → uid. `rate_limit_hit(uid, 'delete_account', 5)`. Chequeo de entorno: falta `REVENUECAT_SECRET_API_KEY`, o el usuario tiene `snaptrade_users` y falta `SNAPTRADE_CLIENT_ID`/`SNAPTRADE_CONSUMER_KEY` → **corta antes de tocar nada** | 401 / 429 / 500 `misconfigured` |
+| 0 | `authenticate` → uid. `rate_limit_hit(uid, 'delete_account', 5)`: si falla con **23503** (el uid ya no está en `auth.users`) → **200 `deleted: true`** sin llamar a nadie (es la fila 5 de la tabla de idempotencia); cualquier otro error de base → 500 `delete_failed` sin `step`. Chequeo de entorno: falta `REVENUECAT_SECRET_API_KEY`, o el usuario tiene `snaptrade_users` y falta `SNAPTRADE_CLIENT_ID`/`SNAPTRADE_CONSUMER_KEY` → **corta antes de tocar nada** | 401 / 429 / 500 `misconfigured` / 500 `delete_failed` |
 | 1 | **SnapTrade:** `snaptrade_secret_read(uid)`. Si existe, `SnaptradeClient.deleteUser(snaptradeUserId)` (404 = ok) y enseguida `snaptrade_disconnect(uid, true)` | 502 `upstream_unavailable`, `step: "snaptrade"` |
 | 2 | **RevenueCat:** `DELETE {apiBase}/subscribers/{uid}` con `Bearer REVENUECAT_SECRET_API_KEY`. 200 o 404 = ok. 5xx, 429 o red → reintenta con `config.retryDelaysMs` del webhook; si sigue fallando, error. Otro 4xx → error | 502 `upstream_unavailable`, `step: "revenuecat"` |
 | 3 | **eToro:** `etoro_tokens_read(uid)`. Si hay tokens y está `ETORO_CLIENT_ID`/`ETORO_CLIENT_SECRET`, `revoke(refresh)` + `revoke(access)` (*best effort*, nunca corta). Después `etoro_disconnect(uid, true)` | 500 `delete_failed`, `step: "etoro"` (solo error de DB) |
 | 4 | **Binance:** `binance_disconnect(uid, true)` (borra la clave de Vault) | 500 `delete_failed`, `step: "binance"` |
 | 5 | **Auth:** `db.auth.admin.deleteUser(uid)` (borrado duro). Si el usuario no existe, cuenta como ok. Dispara el trigger y los cascades | 500 `delete_failed`, `step: "auth"` |
+| 6 | **RevenueCat, repaso:** un segundo `DELETE /subscribers/{uid}`, *best effort* y sin reintentos. Borra el cliente si el SDK o un evento del webhook lo recrearon entre 2 y 5 (después de 5 el webhook ya no llama a RevenueCat, §3.4). Si falla, se loguea `revenuecat_recheck_failed` y la respuesta sigue siendo 200 | nunca falla |
 
 Los `*_disconnect` van con `keep_as_manual = true`. Si un paso posterior falla, la cartera del usuario sigue entera, como manual. Al final el cascade la borra igual.
 
@@ -142,6 +143,7 @@ Los clientes `SnaptradeClient` y `EtoroClient` se importan de `../snaptrade-sync
 | 429 | `rate_limited` | `true` |
 | 500 | `misconfigured` | `true` |
 | 502 | `upstream_unavailable` (`step`: `snaptrade` \| `revenuecat`) | calculado |
+| 500 | `delete_failed` sin `step` (error de base en el rate limit, antes de tocar nada) | `true` |
 | 500 | `delete_failed` (`step`: `etoro` \| `binance` \| `auth`) | calculado |
 
 `nothingDeleted` es `false` si **en esta llamada** ya se hizo alguna mutación (SnapTrade borrado, RC borrado, un `*_disconnect`). El handler lo lleva en una variable `mutated`. La app elige el texto de error con este campo.
@@ -167,6 +169,8 @@ Hoy, por cada uid, el webhook llama a `GET /v1/subscribers/{uid}` **antes** de d
 - Antes de `fetchSubscriber`, chequear que el uid exista (`db.auth.admin.getUserById`). Si no existe → `log(outcome: "user_deleted", user_id: null)` y `continue`, sin llamar a RevenueCat.
 - El `log` de `user_deleted` (también la rama 23503 que ya existe) guarda `user_id: null`, así no vuelve a vincular el uuid en `subscription_sync_log`.
 - `storeEvent` queda igual: ya guarda `user_id: null` ante el 23503.
+- Si no se puede saber si el uid existe (error de Auth), el webhook responde **503 `auth_unavailable`** sin llamar a RevenueCat (falla cerrado; RevenueCat reintenta).
+- Riesgo residual: un evento que llega entre los pasos 2 y 5 de `delete-account` encuentra al usuario vivo y el GET recrea al cliente. Lo cubre el paso 6.
 
 ### 3.5 App: tipos del contrato (para el fake de flutter)
 
@@ -202,7 +206,7 @@ Archivos suyos:
   3. `delete from auth.users where id = A`.
   4. Recorre con `EXECUTE` cada tabla con `user_id` y verifica `count(*) where user_id::text = A = 0`. Sin secretos con los nombres ni los ids de A en `vault.secrets`. A no aparece en ningún array de `app_config` ni en `waitlist`; un usuario C **sin mail confirmado** y con el mail de una fila de `waitlist` no la borra. `account_deletions_daily` sumó 1. Los datos de B siguen intactos.
   5. Imprime `ACCOUNT_DELETION_DB_TEST_OK`, todo en `begin … rollback`.
-- `supabase/functions/tests/delete_account_test.ts` (nuevo): contra el stack local con `fetch` falso para SnapTrade, eToro y RevenueCat. Camino feliz (incluye `admin.deleteUser` real y verifica las tablas vacías). Cada fila de la tabla de errores. `nothingDeleted` correcto. Reintento después de cada corte de la tabla de idempotencia. Doble llamada.
+- `supabase/functions/tests/delete_account_test.ts` (nuevo): contra el stack local con `fetch` falso para SnapTrade, eToro y RevenueCat. Camino feliz (incluye `admin.deleteUser` real y verifica las tablas vacías). Cada fila de la tabla de errores. `nothingDeleted` correcto. Reintento después de cada corte de la tabla de idempotencia. Doble llamada. Paso 6: el segundo DELETE se hace siempre y su falla no cambia el 200. Rate limit con 23503 → 200 sin llamadas externas.
 - `supabase/functions/tests/revenuecat_webhook_test.ts`: caso "evento de un uid borrado" → 200, **cero llamadas** a `api.revenuecat.com`, `subscription_sync_log.user_id` null.
 - `docs/runbooks/account-deletion.md` (nuevo): secretos, deploy, cómo correr los tests y la **consulta de auditoría de solo lectura para producción** (FKs a `auth.users` con su `confdeltype`, y tablas de `public` con `user_id` sin FK). El usuario la corre antes del `db push` (R1).
 

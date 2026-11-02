@@ -139,7 +139,16 @@ Deno.test("[sin base] camino feliz: SnapTrade → RevenueCat → eToro → Binan
     "rpc:binance_disconnect",
     "auth:deleteUser",
   ]);
-  assertEquals(hosts(up.calls), ["api.snaptrade.com", "api.revenuecat.com", "www.etoro.com/revoke", "www.etoro.com/revoke"]);
+  // El último es el segundo DELETE de RevenueCat (paso 6).
+  assertEquals(hosts(up.calls), [
+    "api.snaptrade.com",
+    "api.revenuecat.com",
+    "www.etoro.com/revoke",
+    "www.etoro.com/revoke",
+    "api.revenuecat.com",
+  ]);
+  const rcCalls = up.calls.filter((c) => c.url.includes("revenuecat"));
+  assertEquals(rcCalls.map((c) => c.init?.method), ["DELETE", "DELETE"]);
   const rc = up.calls.find((c) => c.url.includes("revenuecat"))!;
   assertEquals(rc.init?.method, "DELETE");
   assert(rc.url.endsWith(`/v1/subscribers/${UID}`));
@@ -198,10 +207,10 @@ Deno.test("[sin base] SnapTrade 404 (ya no existía) cuenta como hecho", async (
 });
 
 Deno.test("[sin base] RevenueCat: reintenta 5xx/429, 404 es ok, otro 4xx corta sin reintentar", async () => {
-  // Se recupera al tercer intento.
+  // Se recupera al tercer intento (+1: el segundo DELETE del paso 6).
   let up = upstreams({ revenuecat: [503, 429, 200] });
   assertEquals((await handle(request(), fakeDeps(fakeDb(), up.fetch))).status, 200);
-  assertEquals(up.calls.filter((c) => c.url.includes("revenuecat")).length, 3);
+  assertEquals(up.calls.filter((c) => c.url.includes("revenuecat")).length, 4);
 
   // 404: el cliente ya no existía.
   assertEquals((await handle(request(), fakeDeps(fakeDb(), upstreams({ revenuecat: 404 }).fetch))).status, 200);
@@ -275,6 +284,36 @@ Deno.test("[sin base] usuario ya borrado: deleteUser 404 o FK del rate limit →
   assertEquals((await errorOf(r)).nothingDeleted, true);
 });
 
+Deno.test("[sin base] paso 6: el segundo DELETE de RevenueCat se hace siempre y su falla no cambia el 200", async () => {
+  for (const second of [500, 429, 404]) {
+    const up = upstreams({ revenuecat: [200, second] });
+    const lines: string[] = [];
+    const original = console.log;
+    console.log = (...a: unknown[]) => lines.push(a.map(String).join(" "));
+    let r: Response;
+    try {
+      r = await handle(request(), fakeDeps(fakeDb(), up.fetch));
+    } finally {
+      console.log = original;
+    }
+    assertEquals([r.status, await r.json()], [200, { deleted: true }], String(second));
+    // Sin reintentos: exactamente 2 llamadas.
+    assertEquals(up.calls.filter((c) => c.url.includes("revenuecat")).length, 2, String(second));
+    assertEquals(lines.some((l) => l.includes("revenuecat_recheck_failed")), second !== 404, String(second));
+  }
+  // Red caída en el segundo DELETE: también 200.
+  let n = 0;
+  const flaky = fakeFetch((url) => {
+    if (url.includes("revenuecat") && ++n === 2) throw new Error("network");
+    return new Response("{}", { status: 200 });
+  });
+  assertEquals((await handle(request(), fakeDeps(fakeDb(), flaky.fetch))).status, 200);
+  // Si deleteUser falla, no hay paso 6.
+  const up = upstreams();
+  await handle(request(), fakeDeps(fakeDb({ deleteUserError: { message: "boom", status: 500 } }), up.fetch));
+  assertEquals(up.calls.filter((c) => c.url.includes("revenuecat")).length, 1);
+});
+
 Deno.test("[sin base] secreto de SnapTrade ilegible: no traba el borrado", async () => {
   const fake = fakeDb({ snaptrade: "{roto" });
   const up = upstreams();
@@ -335,7 +374,8 @@ Deno.test("borrado real: borra auth.users, las tablas y los secretos; el reinten
   for (const fn of ["snaptrade_secret_read", "etoro_tokens_read", "binance_keys_read"]) {
     assertEquals((await db.rpc(fn, { p_user_id: user.id })).data, null, fn);
   }
-  assertEquals(hosts(up.calls).filter((h) => h === "api.revenuecat.com").length, 1);
+  // Paso 2 y paso 6.
+  assertEquals(hosts(up.calls).filter((h) => h === "api.revenuecat.com").length, 2);
 
   // Reintento: con getUser (clave legacy del stack local) el JWT ya no vale → 401;
   // con getClaims (asimétrico) seguiría validando → 200 por la FK del rate limit.
