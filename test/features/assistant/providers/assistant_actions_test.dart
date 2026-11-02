@@ -55,6 +55,7 @@ import 'package:portfolio_assistant/features/notifications/domain/price_alert.da
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -652,6 +653,7 @@ void main() {
       expect(h.add.calls, isEmpty);
       expect(h.progress('p1').status, ActionProposalStatus.pending);
       expect(h.state.paywallReason, PaywallReason.modeLocked);
+      expect(h.state.paywallSource, PaywallSource.chatActionPortfolio);
     });
   });
 
@@ -698,6 +700,7 @@ void main() {
       await h.notifier.executeAction(follow('w6', 'NFLX'));
       expect(h.watch.items, isEmpty);
       expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+      expect(h.state.paywallSource, PaywallSource.chatActionWatchlist);
     });
   });
 
@@ -822,7 +825,8 @@ void main() {
         }),
       );
       expect(h.allocation.stored, isNull);
-      expect(h.state.paywallReason, PaywallReason.modeLocked);
+      expect(h.state.paywallReason, PaywallReason.allocationPlan);
+      expect(h.state.paywallSource, PaywallSource.chatActionAllocation);
     });
   });
 
@@ -943,6 +947,7 @@ void main() {
         );
         expect(h.portal.opened, 0);
         expect(h.state.paywallReason, PaywallReason.goldRequired);
+        expect(h.state.paywallSource, PaywallSource.chatActionMultiBroker);
       },
     );
 
@@ -953,6 +958,7 @@ void main() {
       );
       expect(h.binance.syncs, 0);
       expect(h.state.paywallReason, PaywallReason.brokerSync);
+      expect(h.state.paywallSource, PaywallSource.chatActionBroker);
     });
   });
 

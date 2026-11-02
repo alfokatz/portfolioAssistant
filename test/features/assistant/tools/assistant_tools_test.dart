@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -13,6 +14,7 @@ import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 import '../fakes/assistant_fakes.dart';
@@ -277,7 +279,8 @@ void main() {
       });
       expect(result['status'], 'locked');
       expect(result['required_plan'], 'premium');
-      expect(free.lockedReasons, {PaywallReason.modeLocked});
+      expect(free.lockedReasons, {PaywallReason.simulations});
+      expect(free.lockedFeatures, {PlanFeature.investSimulation});
     });
   });
 
@@ -646,7 +649,10 @@ void main() {
         AssistantTurnPolicy.paywallFor([
           _record('get_quote', {'status': 'locked'}),
         ], ctx),
-        PaywallReason.marketDataLocked,
+        const ChatPaywall(
+          PaywallReason.marketDataLocked,
+          'chat_turn_locked_market_data',
+        ),
       );
       expect(
         AssistantTurnPolicy.paywallFor([
@@ -655,6 +661,55 @@ void main() {
         ], ctx),
         isNull,
       );
+    });
+
+    test('the turn paywall follows the Premium priority and names the '
+        'feature that locked', () {
+      final ctx = _ctx(SubscriptionTier.free);
+      ctx.lockedFeature(PlanFeature.marketData);
+      ctx.lockedFeature(PlanFeature.goals);
+      ctx.lockedFeature(PlanFeature.investSimulation);
+      final locked = [
+        _record('get_invest_candidates', {'status': 'locked'}),
+        _record('get_goal_projection', {'status': 'locked'}),
+      ];
+      expect(
+        AssistantTurnPolicy.paywallFor(locked, ctx),
+        const ChatPaywall(
+          PaywallReason.simulations,
+          'chat_turn_locked_invest_simulation',
+        ),
+      );
+      ctx.lockedFeature(PlanFeature.portfolioActions);
+      expect(
+        AssistantTurnPolicy.paywallFor(locked, ctx),
+        const ChatPaywall(
+          PaywallReason.modeLocked,
+          'chat_turn_locked_portfolio_actions',
+        ),
+      );
+    });
+
+    test('Gold data never cuts the turn', () {
+      final ctx = _ctx(SubscriptionTier.free)
+        ..lockedFeature(PlanFeature.companyAnalysis);
+      expect(
+        AssistantTurnPolicy.paywallFor([
+          _record('get_fundamentals', {'status': 'locked'}),
+        ], ctx),
+        isNull,
+      );
+    });
+
+    test('every turn paywall source passes the PaywallSource format', () {
+      for (final feature in PlanFeature.values) {
+        final source = PaywallSource.chatTurnLocked(feature);
+        expect(PaywallSource.isValid(source), isTrue, reason: source);
+        expect(
+          PaywallReason.values.map((r) => r.name),
+          isNot(contains(source)),
+        );
+      }
     });
 
     test('a news turn costs the news weight only when news were searched', () {

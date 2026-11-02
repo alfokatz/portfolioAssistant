@@ -39,14 +39,17 @@ class PaywallOffer {
       prices[tier]?[period];
 
   /// El selector Mensual/Anual aparece solo si TODOS los tiers visibles
-  /// tienen anual y mensual.
+  /// tienen anual y mensual, en la misma moneda (si no, comparar los dos
+  /// precios confunde).
   bool hasAnnualFor(Iterable<SubscriptionTier> tiers) =>
       tiers.isNotEmpty &&
-      tiers.every(
-        (t) =>
-            priceOf(t, BillingPeriod.monthly) != null &&
-            priceOf(t, BillingPeriod.annual) != null,
-      );
+      tiers.every((t) {
+        final monthly = priceOf(t, BillingPeriod.monthly);
+        final annual = priceOf(t, BillingPeriod.annual);
+        return monthly != null &&
+            annual != null &&
+            monthly.currencyCode == annual.currencyCode;
+      });
 
   /// floor((1 - anual / (12 × mensual)) × 100). null si falta alguno, si
   /// las monedas difieren o si da < 1.

@@ -29,6 +29,7 @@ import 'package:portfolio_assistant/features/assistant/states/assistant_state.da
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -366,6 +367,7 @@ void main() {
     await h.notifier.submitMessage('¿A cuánto está AMZN?');
 
     expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+    expect(h.state.paywallSource, 'chat_turn_locked_market_data');
     expect(h.state.messages, hasLength(1)); // solo la bienvenida
     expect(h.subscriptionRepo.consumed, isEmpty);
     expect(h.quotes.priceCalls, isEmpty); // nunca se pidió el dato
@@ -522,7 +524,8 @@ void main() {
 
     await h.notifier.submitMessage('Tengo \$500 para invertir');
 
-    expect(h.state.paywallReason, PaywallReason.modeLocked);
+    expect(h.state.paywallReason, PaywallReason.simulations);
+    expect(h.state.paywallSource, 'chat_turn_locked_invest_simulation');
     expect(h.state.messages, hasLength(1));
   });
 
@@ -535,6 +538,7 @@ void main() {
     await h.notifier.submitMessage('Hola');
 
     expect(h.state.paywallReason, PaywallReason.quotaExceeded);
+    expect(h.state.paywallSource, PaywallSource.quotaZero);
     expect(h.api.requests, hasLength(1));
     expect(h.state.messages, hasLength(1));
     expect(h.state.error, isNull);
@@ -1036,6 +1040,7 @@ void main() {
       await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
 
       expect(h.state.paywallReason, PaywallReason.modeLocked);
+      expect(h.state.paywallSource, 'chat_turn_locked_portfolio_actions');
       expect(h.state.messages, hasLength(1));
       expect(h.quotes.dailyCalls, isEmpty);
     });

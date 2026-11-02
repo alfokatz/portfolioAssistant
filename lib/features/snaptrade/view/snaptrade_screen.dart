@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/features/product_events/data/product_events.
 import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_brand.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -61,8 +62,13 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
     });
   }
 
-  void _paywall(PaywallReason reason) =>
-      SubscriptionPaywallSheet.show(context, ref, reason: reason);
+  void _paywall(PaywallReason reason, String source) =>
+      SubscriptionPaywallSheet.show(
+        context,
+        ref,
+        reason: reason,
+        source: source,
+      );
 
   Future<void> _connect({String? reconnect}) async {
     final darkMode = Theme.of(context).brightness == Brightness.dark;
@@ -90,16 +96,16 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
             imported.length == 1 ? imported.single.name : 'snaptrade_tile'.tr(),
       );
     } else if (error == 'snaptrade_plan_required') {
-      _paywall(PaywallReason.brokerSync);
+      _paywall(PaywallReason.brokerSync, PaywallSource.snaptradeConnect);
     } else if (error == 'snaptrade_connection_limit') {
-      _paywall(PaywallReason.goldRequired);
+      _paywall(PaywallReason.goldRequired, PaywallSource.snaptradeMulti);
     }
   }
 
   /// Otro bróker: Gold lo conecta; Premium con uno ya conectado ve Gold.
   void _addAnother(bool multiAllowed) {
     if (!multiAllowed) {
-      _paywall(PaywallReason.goldRequired);
+      _paywall(PaywallReason.goldRequired, PaywallSource.snaptradeMulti);
       return;
     }
     _connect();
@@ -165,7 +171,11 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
           if (!allowed) ...[
             PositionPrimaryButton(
               label: 'snaptrade_see_plans'.tr(),
-              onPressed: () => _paywall(PaywallReason.brokerSync),
+              onPressed:
+                  () => _paywall(
+                    PaywallReason.brokerSync,
+                    PaywallSource.snaptradeConnect,
+                  ),
             ),
             const SizedBox(height: AppDimens.sp12),
             _Footnote('snaptrade_locked_note'.tr()),

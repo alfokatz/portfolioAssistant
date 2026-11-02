@@ -9,3 +9,8 @@
 - Traducciones son solo de flutter-dev: si assistant-dev necesita textos, la spec lista las claves y flutter-dev las agrega primero.
 - Avisos de la app en el chat (cuota, límites) van fuera del catálogo, estilo `AssistantQuietNotice`: no tocan prompt ni allowlist.
 - Límites por plan nuevos van como campo de `PlanSpec` (capacidad), nunca `if (tier == ...)`.
+- Limpieza al borrar un usuario: trigger `before delete on auth.users` (`_account_purge_before_delete`); toda tabla nueva con datos del usuario lleva FK `on delete cascade` y, si guarda algo fuera de FK (Vault, text user_id, arrays en app_config), se suma al trigger; la guardia de catálogo de `account_deletion_db_test.sql` falla si no.
+- `positions`/`closed_positions` son pre-CLI: su esquema en prod no es el de las migraciones; cualquier supuesto sobre FKs o constraints ahí necesita auditoría de solo lectura en prod.
+- RevenueCat `GET /v1/subscribers/{id}` crea el cliente si no existe: nunca llamarlo para un uid que puede estar borrado.
+- Vault: borrar la fila puntero no borra el secreto; siempre `*_delete` o el trigger de borrado de cuenta.
+- Features que necesitan datos de RevenueCat sin tocar `lib/features/subscription/` leen `Purchases` desde su propia carpeta con costura inyectable y usan `revenueCatServiceProvider` solo para leer.

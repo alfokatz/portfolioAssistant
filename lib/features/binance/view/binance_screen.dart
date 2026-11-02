@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -91,6 +92,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
     context,
     ref,
     reason: PaywallReason.brokerSync,
+    source: PaywallSource.binanceConnect,
   );
 
   Future<void> _disconnect() async {

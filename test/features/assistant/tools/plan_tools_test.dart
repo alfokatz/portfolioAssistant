@@ -114,7 +114,7 @@ void main() {
       final locked = await GetAllocationPlanTool(ctx).run({});
       expect(locked['status'], 'locked');
       expect(locked['required_plan'], 'premium');
-      expect(ctx.lockedReasons, contains(PaywallReason.modeLocked));
+      expect(ctx.lockedReasons, contains(PaywallReason.allocationPlan));
       final outside = AssistantToolContext(
         tier: SubscriptionTier.premium,
         data: fakeDataSources(quotes: _Quotes()),

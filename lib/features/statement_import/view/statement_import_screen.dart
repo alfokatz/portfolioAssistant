@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/features/statement_import/domain/holding_cha
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/statement_import/providers/statement_import_provider.dart';
 import 'package:portfolio_assistant/features/statement_import/view/import_row_edit_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -261,6 +262,7 @@ class _Intro extends ConsumerWidget {
                       context,
                       ref,
                       reason: PaywallReason.quotaExceeded,
+                      source: PaywallSource.importQuota,
                     ),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(0, AppDimens.touchTarget),
@@ -805,7 +807,8 @@ class _Preview extends ConsumerWidget {
                     () => SubscriptionPaywallSheet.show(
                       context,
                       ref,
-                      reason: PaywallReason.modeLocked,
+                      reason: PaywallReason.positionLimit,
+                      source: PaywallSource.importPositionLimit,
                     ),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(0, AppDimens.touchTarget),

@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.d
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/notifications/view/create_price_alert_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/features/watchlist/data/watchlist_repository.dart';
@@ -56,6 +57,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     context,
     ref,
     reason: PaywallReason.marketDataLocked,
+    source: PaywallSource.watchlist,
   );
 
   Future<void> _add() async {

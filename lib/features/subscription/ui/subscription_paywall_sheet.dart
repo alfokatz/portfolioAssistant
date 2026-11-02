@@ -1,38 +1,52 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
-import 'package:portfolio_assistant/features/subscription/services/paywall_source_log.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/subscription/config/subscription_catalog.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
-import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/button_spinner.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class SubscriptionPaywallSheet extends ConsumerWidget {
+/// El paywall: planes visibles según el motivo, precios de la tienda,
+/// selector Mensual/Anual (si la tienda trae los anuales y el interruptor
+/// `paywall_annual` está prendido) y los términos de la suscripción.
+///
+/// Mide en `product_events`: `paywall_viewed` al abrir, `paywall_plan_tapped`
+/// y `purchase_result` al comprar o restaurar, y `paywall_dismissed` si se
+/// cierra sin compra ni restauración exitosa.
+class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
   const SubscriptionPaywallSheet({
     super.key,
     required this.reason,
+    required this.source,
     this.onUpgraded,
-    this.source,
     this.preview,
   });
 
   final PaywallReason reason;
   final VoidCallback? onUpgraded;
 
-  /// De dónde se abrió ("analysis_locked_news", "chip_news"…), para medir
-  /// conversiones. Ver [PaywallSourceLog].
-  final String? source;
+  /// Desde dónde se abrió (ver [PaywallSource]), para medir conversiones.
+  final String source;
 
   /// Gancho visual arriba de los planes (p. ej. la vista previa del
   /// análisis del ticker desde el que se abrió).
@@ -42,17 +56,21 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required PaywallReason reason,
+    required String source,
     VoidCallback? onUpgraded,
-    String? source,
     WidgetBuilder? preview,
   }) {
+    assert(
+      PaywallSource.isValid(source) && source != reason.name,
+      'PaywallSource inválido: "$source" (ver PaywallSource)',
+    );
     final subscription = ref.read(subscriptionProvider);
     if (subscription.tier == SubscriptionTier.gold && !subscription.isLoading) {
       return Future.value();
     }
 
-    ref.invalidate(subscriptionTierPricesProvider);
-    PaywallSourceLog.record(source ?? reason.name);
+    ref.invalidate(paywallOfferProvider);
+    ref.invalidate(paywallAnnualEnabledProvider);
     // Toque leve al abrir; el de "tocaste algo bloqueado" ya lo dio el
     // widget en el mismo frame del toque.
     PortyHapticsService.maybeOf(context)?.paywallOpened();
@@ -73,8 +91,8 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
       builder:
           (_) => SubscriptionPaywallSheet(
             reason: reason,
-            onUpgraded: onUpgraded,
             source: source,
+            onUpgraded: onUpgraded,
             preview: preview,
           ),
     );
@@ -87,8 +105,25 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     ...PlanMatrix.marketingKeys(tier),
   ];
 
-  String get _titleKey => switch (reason) {
+  /// Planes que se ofrecen: Gold primero; desde Premium solo Gold.
+  static List<SubscriptionTier> visibleTiersFor(
+    PaywallReason reason,
+    SubscriptionTier currentTier,
+  ) {
+    if (reason == PaywallReason.goldRequired ||
+        currentTier == SubscriptionTier.premium) {
+      return const [SubscriptionTier.gold];
+    }
+    return const [SubscriptionTier.gold, SubscriptionTier.premium];
+  }
+
+  static String titleKeyFor(PaywallReason reason) => switch (reason) {
     PaywallReason.modeLocked => 'paywall_title_mode_locked',
+    PaywallReason.plans => 'paywall_title_plans',
+    PaywallReason.positionLimit => 'paywall_title_position_limit',
+    PaywallReason.simulations => 'paywall_title_simulations',
+    PaywallReason.goals => 'paywall_title_goals',
+    PaywallReason.allocationPlan => 'paywall_title_allocation_plan',
     PaywallReason.marketDataLocked => 'paywall_title_market_data',
     PaywallReason.goldRequired => 'paywall_title_gold',
     PaywallReason.quotaExceeded => 'paywall_title_quota',
@@ -96,8 +131,13 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     PaywallReason.priceAlerts => 'paywall_title_price_alerts',
   };
 
-  String get _subtitleKey => switch (reason) {
+  static String subtitleKeyFor(PaywallReason reason) => switch (reason) {
     PaywallReason.modeLocked => 'paywall_subtitle_mode_locked',
+    PaywallReason.plans => 'paywall_subtitle_plans',
+    PaywallReason.positionLimit => 'paywall_subtitle_position_limit',
+    PaywallReason.simulations => 'paywall_subtitle_simulations',
+    PaywallReason.goals => 'paywall_subtitle_goals',
+    PaywallReason.allocationPlan => 'paywall_subtitle_allocation_plan',
     PaywallReason.marketDataLocked => 'paywall_subtitle_market_data',
     PaywallReason.goldRequired => 'paywall_subtitle_gold',
     PaywallReason.quotaExceeded => 'paywall_subtitle_quota',
@@ -105,29 +145,89 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     PaywallReason.priceAlerts => 'paywall_subtitle_price_alerts',
   };
 
-  List<SubscriptionTier> _visibleTiers(SubscriptionTier currentTier) {
-    return switch (reason) {
-      PaywallReason.goldRequired => [SubscriptionTier.gold],
-      PaywallReason.quotaExceeded ||
-      PaywallReason.modeLocked ||
-      PaywallReason.brokerSync ||
-      PaywallReason.priceAlerts ||
-      PaywallReason.marketDataLocked =>
-        currentTier == SubscriptionTier.premium
-            ? [SubscriptionTier.gold]
-            : [SubscriptionTier.gold, SubscriptionTier.premium],
-    };
+  @override
+  ConsumerState<SubscriptionPaywallSheet> createState() =>
+      _SubscriptionPaywallSheetState();
+}
+
+class _SubscriptionPaywallSheetState
+    extends ConsumerState<SubscriptionPaywallSheet> {
+  late final ProductEvents _events;
+  late final DateTime _openedAt;
+  BillingPeriod _period = BillingPeriod.monthly;
+  bool _tappedPlan = false;
+
+  /// Compró o restauró con éxito: cerrar no es "se fue sin comprar".
+  bool _converted = false;
+
+  String get _source => widget.source;
+
+  @override
+  void initState() {
+    super.initState();
+    _openedAt = DateTime.now();
+    // Se guarda acá: en dispose ya no se puede leer de ref.
+    _events = ref.read(productEventsProvider);
+    final subscription = ref.read(subscriptionProvider);
+    _events.log(ProductEvent.paywallViewed, {
+      'reason': widget.reason.name,
+      'source': _source,
+      'tier': subscription.tier.name,
+      'visible_tiers': [
+        for (final t in SubscriptionPaywallSheet.visibleTiersFor(
+          widget.reason,
+          subscription.tier,
+        ))
+          t.name,
+      ],
+      'queries_used': subscription.queriesUsed,
+      'queries_limit': subscription.queriesLimit,
+    });
   }
 
-  Future<void> _purchase(
-    BuildContext context,
-    WidgetRef ref,
-    SubscriptionTier tier,
-  ) async {
+  @override
+  void dispose() {
+    if (!_converted) {
+      _events.log(ProductEvent.paywallDismissed, {
+        'source': _source,
+        'seconds_open': DateTime.now().difference(_openedAt).inSeconds,
+        'tapped_plan': _tappedPlan,
+      });
+    }
+    super.dispose();
+  }
+
+  /// `result` (y `error_code` si falló) de `purchase_result`.
+  static Map<String, Object?> _resultProps(RevenueCatPurchaseResult result) =>
+      switch (result) {
+        RevenueCatPurchaseSuccess() => {'result': 'success'},
+        RevenueCatPurchaseCancelled() => {'result': 'cancelled'},
+        RevenueCatPurchaseNotConfigured() => {'result': 'not_configured'},
+        RevenueCatPurchaseFailed(:final code) => {
+          'result': 'failed',
+          'error_code': code,
+        },
+      };
+
+  Future<void> _purchase(SubscriptionTier tier, BillingPeriod period) async {
+    _tappedPlan = true;
+    _events.log(ProductEvent.paywallPlanTapped, {
+      'tier': tier.name,
+      'period': period.name,
+      'source': _source,
+    });
     final result = await ref
         .read(subscriptionProvider.notifier)
-        .purchaseTier(tier);
-    if (!context.mounted) return;
+        .purchaseTier(tier, period: period, source: _source);
+    _events.log(ProductEvent.purchaseResult, {
+      'action': 'purchase',
+      'tier': tier.name,
+      'period': period.name,
+      'source': _source,
+      ..._resultProps(result),
+    });
+    if (result is RevenueCatPurchaseSuccess) _converted = true;
+    if (!mounted) return;
 
     switch (result) {
       case RevenueCatPurchaseSuccess():
@@ -135,7 +235,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
             .read(alertProvider.notifier)
             .showSuccess(message: 'subscription_purchase_success'.tr());
         Navigator.of(context).pop();
-        onUpgraded?.call();
+        widget.onUpgraded?.call();
       case RevenueCatPurchaseCancelled():
         break;
       case RevenueCatPurchaseNotConfigured():
@@ -149,10 +249,16 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     }
   }
 
-  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+  Future<void> _restore() async {
     final result =
         await ref.read(subscriptionProvider.notifier).restorePurchases();
-    if (!context.mounted) return;
+    _events.log(ProductEvent.purchaseResult, {
+      'action': 'restore',
+      'source': _source,
+      ..._resultProps(result),
+    });
+    if (result is RevenueCatPurchaseSuccess) _converted = true;
+    if (!mounted) return;
 
     switch (result) {
       case RevenueCatPurchaseSuccess():
@@ -160,7 +266,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
             .read(alertProvider.notifier)
             .showSuccess(message: 'subscription_restore_success'.tr());
         Navigator.of(context).pop();
-        onUpgraded?.call();
+        widget.onUpgraded?.call();
       case RevenueCatPurchaseCancelled():
         break;
       case RevenueCatPurchaseNotConfigured():
@@ -174,15 +280,30 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
     }
   }
 
+  String _subtitle() {
+    final key = SubscriptionPaywallSheet.subtitleKeyFor(widget.reason);
+    if (widget.reason != PaywallReason.positionLimit) return key.tr();
+    final limit = SubscriptionPolicy.positionLimit(SubscriptionTier.free);
+    return key.tr(namedArgs: {'limit': '${limit ?? ''}'});
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.customColors;
+    final reason = widget.reason;
     final subscription = ref.watch(subscriptionProvider);
-    final pricesAsync = ref.watch(subscriptionTierPricesProvider);
-    final tierPrices = pricesAsync.value ?? {};
-    final isPriceLoading = pricesAsync.isLoading;
+    final offerAsync = ref.watch(paywallOfferProvider);
+    final offer = offerAsync.value ?? PaywallOffer.empty;
+    final isPriceLoading = offerAsync.isLoading;
+    final annualEnabled =
+        ref.watch(paywallAnnualEnabledProvider).value ?? false;
     final isPurchasing = subscription.isPurchasing;
-    final visibleTiers = _visibleTiers(subscription.tier);
+    final visibleTiers = SubscriptionPaywallSheet.visibleTiersFor(
+      reason,
+      subscription.tier,
+    );
+    final showPeriods = annualEnabled && offer.hasAnnualFor(visibleTiers);
+    final period = showPeriods ? _period : BillingPeriod.monthly;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return PopScope(
@@ -224,7 +345,7 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
                 ],
               ),
               Text(
-                _titleKey.tr(),
+                SubscriptionPaywallSheet.titleKeyFor(reason).tr(),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: colors.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -233,21 +354,25 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
               ),
               const SizedBox(height: AppDimens.sp8),
               Text(
-                _subtitleKey.tr(),
+                _subtitle(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: colors.textSecondary,
                   height: 1.45,
                 ),
               ),
-              if (preview != null) ...[
+              if (widget.preview != null) ...[
                 const SizedBox(height: AppDimens.sp16),
-                preview!(context),
+                widget.preview!(context),
               ],
-              const SizedBox(height: AppDimens.sp16),
-              _PaywallUsageMeter(
-                used: subscription.queriesUsed,
-                limit: subscription.queriesLimit,
-              ),
+              // El medidor solo cuando el motivo es la cuota: en el resto
+              // distrae de lo que el usuario vino a desbloquear.
+              if (reason == PaywallReason.quotaExceeded) ...[
+                const SizedBox(height: AppDimens.sp16),
+                _PaywallUsageMeter(
+                  used: subscription.queriesUsed,
+                  limit: subscription.queriesLimit,
+                ),
+              ],
               // Solo tiene sentido avisarlo si una consulta de noticias pesa
               // más que una común (hoy pesan igual — ver AiUsageLimits).
               if (reason == PaywallReason.goldRequired &&
@@ -265,27 +390,53 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: AppDimens.sectionGap),
+              if (showPeriods) ...[
+                SegmentedChoice<BillingPeriod>(
+                  options: [
+                    (
+                      value: BillingPeriod.monthly,
+                      label: 'paywall_period_monthly'.tr(),
+                    ),
+                    (
+                      value: BillingPeriod.annual,
+                      label: 'paywall_period_annual'.tr(),
+                    ),
+                  ],
+                  selected: _period,
+                  onChanged: (value) {
+                    if (!isPurchasing) setState(() => _period = value);
+                  },
+                ),
+                const SizedBox(height: AppDimens.sp16),
+              ],
               for (var i = 0; i < visibleTiers.length; i++) ...[
                 if (i > 0) const SizedBox(height: AppDimens.sp12),
                 _PaywallPlanCard(
                   tier: visibleTiers[i],
+                  period: period,
                   featured: visibleTiers[i] == SubscriptionTier.gold,
                   showRecommendedBadge:
                       visibleTiers.length > 1 &&
                       visibleTiers[i] == SubscriptionTier.gold,
-                  priceLabel: tierPrices[visibleTiers[i]],
+                  price: offer.priceOf(visibleTiers[i], period),
+                  savingsPercent:
+                      period == BillingPeriod.annual
+                          ? offer.annualSavingsPercent(visibleTiers[i])
+                          : null,
                   isPriceLoading: isPriceLoading,
                   loading: subscription.purchasingTier == visibleTiers[i],
                   onSelect:
                       isPurchasing
                           ? null
-                          : () => _purchase(context, ref, visibleTiers[i]),
+                          : () => _purchase(visibleTiers[i], period),
                 ),
               ],
-              const SizedBox(height: AppDimens.sp12),
+              const SizedBox(height: AppDimens.sp16),
+              const _PaywallTerms(),
+              const SizedBox(height: AppDimens.sp4),
               Center(
                 child: TextButton(
-                  onPressed: isPurchasing ? null : () => _restore(context, ref),
+                  onPressed: isPurchasing ? null : _restore,
                   style: TextButton.styleFrom(
                     foregroundColor: colors.accentBlue,
                   ),
@@ -300,6 +451,75 @@ class SubscriptionPaywallSheet extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Lo que Apple (3.1.2) pide junto al botón de compra: cómo se cobra, cómo
+/// se renueva y cómo se cancela, y los links a Términos y Privacidad.
+/// Siempre visible, aunque falte el precio.
+class _PaywallTerms extends StatelessWidget {
+  const _PaywallTerms();
+
+  static String storeName(TargetPlatform platform) => switch (platform) {
+    TargetPlatform.iOS || TargetPlatform.macOS => 'App Store',
+    _ => 'Google Play',
+  };
+
+  Future<void> _open(String url) async {
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Sin navegador: no hay nada que mostrar.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final small = Theme.of(context).textTheme.bodySmall;
+    final linkStyle = TextButton.styleFrom(
+      foregroundColor: colors.textPrimary,
+      minimumSize: const Size(AppDimens.touchTarget, 48),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp12),
+      textStyle: small?.copyWith(fontWeight: FontWeight.w600),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'paywall_terms_block'.tr(
+            namedArgs: {'store': storeName(Theme.of(context).platform)},
+          ),
+          style: small?.copyWith(color: colors.textSecondary, height: 1.45),
+        ),
+        const SizedBox(height: AppDimens.sp4),
+        // Wrap y no Row: con letra grande los dos links bajan de línea en
+        // vez de desbordar.
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            TextButton(
+              onPressed: () => _open(LegalLinks.terms),
+              style: linkStyle,
+              child: Text('paywall_terms_link'.tr()),
+            ),
+            ExcludeSemantics(
+              child: Text(
+                '·',
+                style: small?.copyWith(color: colors.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _open(LegalLinks.privacy),
+              style: linkStyle,
+              child: Text('paywall_privacy_link'.tr()),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -367,19 +587,25 @@ class _PaywallUsageMeter extends StatelessWidget {
 class _PaywallPlanCard extends StatelessWidget {
   const _PaywallPlanCard({
     required this.tier,
+    required this.period,
     required this.featured,
     required this.showRecommendedBadge,
     required this.onSelect,
-    this.priceLabel,
+    this.price,
+    this.savingsPercent,
     this.isPriceLoading = false,
     this.loading = false,
   });
 
   final SubscriptionTier tier;
+  final BillingPeriod period;
   final bool featured;
   final bool showRecommendedBadge;
   final VoidCallback? onSelect;
-  final String? priceLabel;
+  final TierPrice? price;
+
+  /// "Ahorrás N % frente al mensual" (solo en anual y con los dos precios).
+  final int? savingsPercent;
   final bool isPriceLoading;
   final bool loading;
 
@@ -402,6 +628,10 @@ class _PaywallPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final features = _featureKeysFor(tier);
+    final secondary =
+        featured ? Colors.white.withValues(alpha: 0.72) : colors.textSecondary;
+    final small = Theme.of(context).textTheme.bodySmall;
+    final price = this.price;
 
     return Semantics(
       container: true,
@@ -471,18 +701,6 @@ class _PaywallPlanCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppDimens.sp6),
-              Text(
-                'paywall_queries_month'.tr(
-                  namedArgs: {'count': '${tier.monthlyQuota}'},
-                ),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color:
-                      featured
-                          ? Colors.white.withValues(alpha: 0.72)
-                          : colors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: AppDimens.sp4),
               // El skeleton del precio sigue las reglas de todos los
               // loaders: aparece si tarda más de 300 ms y dura al menos 400.
               DelayedLoaderVisibility(
@@ -495,10 +713,23 @@ class _PaywallPlanCard extends StatelessWidget {
                             )
                             : _PaywallPriceLine(
                               featured: featured,
-                              priceLabel: priceLabel,
+                              priceLabel: price?.priceString,
+                              period: period,
                               isLoading: showSkeleton,
                             ),
               ),
+              if (savingsPercent != null && price != null) ...[
+                const SizedBox(height: AppDimens.sp2),
+                Text(
+                  'paywall_annual_savings'.tr(
+                    namedArgs: {'percent': '$savingsPercent'},
+                  ),
+                  style: small?.copyWith(
+                    color: secondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
               if (features.isNotEmpty) ...[
                 const SizedBox(height: AppDimens.sp12),
                 for (final featureKey in features) ...[
@@ -510,6 +741,16 @@ class _PaywallPlanCard extends StatelessWidget {
                     const SizedBox(height: AppDimens.sp8),
                 ],
               ],
+              const SizedBox(height: AppDimens.sp12),
+              Text(
+                'paywall_fair_use'.tr(
+                  namedArgs: {'count': '${tier.monthlyQuota}'},
+                ),
+                style: small?.copyWith(
+                  color: secondary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
               const SizedBox(height: AppDimens.sp16),
               if (featured)
                 _GoldPlanButton(
@@ -523,6 +764,26 @@ class _PaywallPlanCard extends StatelessWidget {
                   loading: loading,
                   onPressed: onSelect,
                 ),
+              if (price != null) ...[
+                const SizedBox(height: AppDimens.sp8),
+                Text(
+                  'paywall_renews_line'.tr(
+                    namedArgs: {
+                      'period':
+                          (period == BillingPeriod.annual
+                                  ? 'paywall_period_year'
+                                  : 'paywall_period_month')
+                              .tr(),
+                      'price': price.priceString,
+                    },
+                  ),
+                  textAlign: TextAlign.center,
+                  style: small?.copyWith(
+                    color: secondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -538,11 +799,13 @@ class _PaywallPriceLine extends StatelessWidget {
   const _PaywallPriceLine({
     required this.featured,
     required this.priceLabel,
+    required this.period,
     required this.isLoading,
   });
 
   final bool featured;
   final String? priceLabel;
+  final BillingPeriod period;
   final bool isLoading;
 
   @override
@@ -566,7 +829,10 @@ class _PaywallPriceLine extends StatelessWidget {
         ),
       );
     } else if (priceLabel != null) {
-      text = 'paywall_price_per_month'.tr(namedArgs: {'price': priceLabel!});
+      text = (period == BillingPeriod.annual
+              ? 'paywall_price_per_year'
+              : 'paywall_price_per_month')
+          .tr(namedArgs: {'price': priceLabel!});
       style = Theme.of(context).textTheme.titleSmall!.copyWith(
         color: featured ? Colors.white : colors.textPrimary,
         fontWeight: FontWeight.w700,
