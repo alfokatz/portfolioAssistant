@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/connect_broker_card.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -173,7 +174,7 @@ void main() {
       );
     });
 
-    testWidgets('sin posiciones: "Conectar eToro" como alternativa', (tester) async {
+    testWidgets('sin posiciones: "Conectar tu bróker" como alternativa', (tester) async {
       await tester.pumpWidget(
         _app(
           const Scaffold(
@@ -181,8 +182,9 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(EtoroConnectButton), findsOneWidget);
-      expect(find.text('etoro_connect_cta'), findsOneWidget);
+      // Una sola entrada para todos los brókers (eToro, Binance y el resto).
+      expect(find.byType(ConnectBrokerButton), findsOneWidget);
+      expect(find.text('connect_broker_cta'), findsOneWidget);
     });
   });
 

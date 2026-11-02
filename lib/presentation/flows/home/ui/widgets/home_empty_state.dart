@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/connect_broker_card.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -71,7 +71,7 @@ class HomeEmptyState extends StatelessWidget {
           ),
           // Alternativa a cargar a mano: traer la cartera de eToro.
           const SizedBox(height: AppDimens.sp12),
-          const EtoroConnectButton(),
+          const ConnectBrokerButton(),
           // O desde el CSV/PDF de cualquier otro bróker.
           const SizedBox(height: AppDimens.sp4),
           TextButton.icon(

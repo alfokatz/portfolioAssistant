@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/binance/view/binance_screen.dart';
 
-/// Ruta de nivel superior: se llega desde Ajustes → Cuentas conectadas.
+/// Ruta de nivel superior: se llega desde "Conectá tu bróker".
 class BinanceRouter {
   static const routeName = 'Binance';
   static const path = '/binance';

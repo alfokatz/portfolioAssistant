@@ -5,7 +5,8 @@ import 'package:portfolio_assistant/infraestructure/managers/preferences_manager
 enum OnboardingExit {
   home,
   addPosition,
-  connectEtoro,
+  /// "Conectá tu bróker" (eToro, Binance o el resto por SnapTrade).
+  connectBroker,
   assistant,
 
   /// Archivo o captura del bróker.

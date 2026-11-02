@@ -54,9 +54,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('onboarding_bring_title'), findsOneWidget);
+    // Primero, conectar el bróker (eToro, Binance o el resto por SnapTrade).
     for (final way in [
+      'onboarding_bring_broker_title',
       'onboarding_bring_file_title',
-      'onboarding_bring_etoro_title',
       'onboarding_bring_write_title',
       'onboarding_bring_manual_title',
     ]) {

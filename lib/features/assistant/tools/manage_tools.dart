@@ -99,11 +99,11 @@ abstract final class ManageGuides {
   static const noMemory = 'QaAnswerText: you have nothing saved about them.';
   static const brokerNotConnected =
       'QaAnswerText: that account isn\'t connected (accounts says how each '
-      'is); connecting is done in Ajustes → Cuentas conectadas (never ask '
+      'is); connecting is done in Ajustes → Conectá tu bróker (never ask '
       'for keys or passwords in the chat).';
   static const brokerReconnect =
       'QaAnswerText: the broker closed the access; they reconnect it in '
-      'Ajustes → Cuentas conectadas. You can\'t do it from the chat.';
+      'Ajustes → Conectá tu bróker. You can\'t do it from the chat.';
   static const connectInApp =
       'QaAnswerText: eToro and Binance are connected in Ajustes → Cuentas '
       'conectadas (never ask for keys or passwords in the chat). Other '

@@ -9,8 +9,8 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onb
 import 'package:portfolio_assistant/presentation/flows/onboarding/ui/widgets/onboarding_page_header.dart';
 
 /// El paso que importa: traer la cartera. Con ella, Porty muestra lo que ve
-/// (el primer diagnóstico). Cuatro caminos, del más rápido al más lento;
-/// ninguno pide pagar.
+/// (el primer diagnóstico). Cuatro caminos; primero conectar el bróker, que
+/// además la mantiene al día sola.
 class OnboardingBringPortfolioPage extends StatelessWidget {
   const OnboardingBringPortfolioPage({
     super.key,
@@ -37,26 +37,27 @@ class OnboardingBringPortfolioPage extends StatelessWidget {
     );
     final ways = [
       (
-        exit: OnboardingExit.importFile,
-        icon: Icons.description_outlined,
-        title: Text('onboarding_bring_file_title'.tr()),
-        label: 'onboarding_bring_file_title'.tr(),
-        body: 'onboarding_bring_file_body'.tr(),
-      ),
-      (
-        exit: OnboardingExit.connectEtoro,
+        exit: OnboardingExit.connectBroker,
         icon: Icons.link_rounded,
         title: Wrap(
           spacing: AppDimens.sp8,
           runSpacing: AppDimens.sp4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text('onboarding_bring_etoro_title'.tr()),
+            Text('onboarding_bring_broker_title'.tr()),
             AppImages.etoroLogo(height: 13),
+            AppImages.binanceMark(size: 14),
           ],
         ),
-        label: 'onboarding_bring_etoro_semantics'.tr(),
-        body: 'onboarding_bring_etoro_body'.tr(),
+        label: 'onboarding_bring_broker_title'.tr(),
+        body: 'onboarding_bring_broker_body'.tr(),
+      ),
+      (
+        exit: OnboardingExit.importFile,
+        icon: Icons.description_outlined,
+        title: Text('onboarding_bring_file_title'.tr()),
+        label: 'onboarding_bring_file_title'.tr(),
+        body: 'onboarding_bring_file_body'.tr(),
       ),
       (
         exit: OnboardingExit.writeIt,

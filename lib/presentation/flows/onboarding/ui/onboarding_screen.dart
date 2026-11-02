@@ -6,7 +6,7 @@ import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
-import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
@@ -89,10 +89,11 @@ class _OnboardingScreenState extends BaseStatefulWidget<OnboardingScreen> {
           StatementImportRouter.routeName,
           queryParameters: {StatementImportRouter.writeParam: '1'},
         );
-      case OnboardingExit.connectEtoro:
-        // La pantalla de eToro explica qué hace Porty con la cuenta antes de
-        // pedir nada (y que la primera importación es gratis).
-        context.pushNamed(EtoroRouter.connectionRouteName);
+      case OnboardingExit.connectBroker:
+        // Elige el bróker y Porty toma el camino: eToro y Binance directo,
+        // el resto por SnapTrade. Cada pantalla explica qué hace Porty con
+        // la cuenta antes de pedir nada.
+        context.pushNamed(ConnectBrokerRouter.routeName);
       case OnboardingExit.assistant:
         // Assistant es una pestaña del shell: se entra con `goNamed`.
         context.goNamed(AssistantRouter.routeName);
