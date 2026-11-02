@@ -13,7 +13,7 @@ Desde Ajustes, el usuario borra su cuenta sin salir de la app: ve qué se borra,
 - Exportar datos, período de gracia, recuperar la cuenta, encuesta de salida (brief §4).
 - Cancelar la suscripción desde la app: es de la tienda.
 - La página web de borrado que pide Google Play: la arma el usuario o porty-marketing-lead en la landing. Esta spec no la construye.
-- Revocar el token de Sign in with Apple (ver §6, R3).
+- Revocar el token de Sign in with Apple por API (`/auth/revoke`): en el release 1 va el mínimo de TN3194, un toast que guía la revocación manual (ver §6, R3).
 - Borrar de los backups de Supabase: va en la política de privacidad (compliance §6.6).
 - El asistente: `porty-assistant-dev` **no tiene tareas**. Memorias, temas y uso de IA se van por cascade.
 
@@ -45,7 +45,7 @@ Desde Ajustes, el usuario borra su cuenta sin salir de la app: ve qué se borra,
 | `vault.secrets` de Binance, eToro y SnapTrade | Las tablas puntero tienen FK, pero `vault.secrets` no | Los ids apuntados por `binance_keys`/`etoro_tokens`/`snaptrade_users` del usuario **y** los nombres `binance_keys_<uid>`, `etoro_tokens_<uid>`, `snaptrade_user_<uid>` (huérfanos de fallas viejas) |
 | `subscription_sync_log` | `user_id` es `text` y no tiene FK | `where user_id = old.id::text` |
 | `app_config.value->'users'` y `->'allow_users'` | Flags de rollout con uuids, legibles por anon | Saca `old.id::text` de esos arrays, en todas las claves |
-| `waitlist` | El email de la landing, sin FK | `where email = lower(old.email)` (ver R5) |
+| `waitlist` | El email de la landing, sin FK | `where email = lower(old.email)`, **solo si** `old.email_confirmed_at is not null` o el proveedor es OAuth (ver R5) |
 
 **C. No se tocan: no tienen datos del usuario o no se pueden vincular a la cuenta.** `landing_events` (anon_id del navegador), `landing_rate_limits` (hash, transitorio). Caches y catálogos globales: `finnhub_cache`, `yahoo_cache`, `data_source_cache`, `web_search_cache` (por consulta, no por usuario), `investor_pulse_cache`, `market_quotes`, `sec_ticker_cik`, `etoro_instruments`, `super_investors`, `news_source_allowlist`, `upstream_rate_gate`, `plan_limits`, `model_prices` y el resto de `app_config`.
 
@@ -76,7 +76,9 @@ returns trigger language plpgsql security definer set search_path = public as $$
 --      or name in ('binance_keys_'||old.id, 'etoro_tokens_'||old.id, 'snaptrade_user_'||old.id);
 --   b) delete from subscription_sync_log where user_id = old.id::text;
 --   c) update app_config: quitar old.id::text de value->'users' y value->'allow_users' donde esté (operador ?);
---   d) delete from waitlist where old.email is not null and email = lower(old.email);
+--   d) delete from waitlist where old.email is not null and email = lower(old.email)
+--        and (old.email_confirmed_at is not null
+--             or coalesce(old.raw_app_meta_data->>'provider', 'email') <> 'email');
 --   e) upsert account_deletions_daily ((now() at time zone 'utc')::date,
 --        coalesce((select tier from user_subscriptions where user_id = old.id), 'free')) deletions + 1;
 --   return old;
@@ -198,7 +200,7 @@ Archivos suyos:
   1. Crea un usuario A y un usuario B (control). A A le carga una fila en **cada** tabla de 3.1-A y 3.1-B, con secretos reales en Vault por las 3 RPC `*_save` y su uuid en `app_config` (`porty_streaming.users`). También una posición `source='etoro'`, para probar que el trigger de solo lectura no bloquea el cascade.
   2. **Guardia de catálogo:** lista por `information_schema` toda tabla de `public` con columna `user_id` y toda FK a `auth.users`. Si aparece una que no está en el inventario del test → `raise exception` (así una tabla nueva sin decidir rompe el test). Toda FK a `auth.users` tiene `confdeltype = 'c'`.
   3. `delete from auth.users where id = A`.
-  4. Recorre con `EXECUTE` cada tabla con `user_id` y verifica `count(*) where user_id::text = A = 0`. Sin secretos con los nombres ni los ids de A en `vault.secrets`. A no aparece en ningún array de `app_config` ni en `waitlist`. `account_deletions_daily` sumó 1. Los datos de B siguen intactos.
+  4. Recorre con `EXECUTE` cada tabla con `user_id` y verifica `count(*) where user_id::text = A = 0`. Sin secretos con los nombres ni los ids de A en `vault.secrets`. A no aparece en ningún array de `app_config` ni en `waitlist`; un usuario C **sin mail confirmado** y con el mail de una fila de `waitlist` no la borra. `account_deletions_daily` sumó 1. Los datos de B siguen intactos.
   5. Imprime `ACCOUNT_DELETION_DB_TEST_OK`, todo en `begin … rollback`.
 - `supabase/functions/tests/delete_account_test.ts` (nuevo): contra el stack local con `fetch` falso para SnapTrade, eToro y RevenueCat. Camino feliz (incluye `admin.deleteUser` real y verifica las tablas vacías). Cada fila de la tabla de errores. `nothingDeleted` correcto. Reintento después de cada corte de la tabla de idempotencia. Doble llamada.
 - `supabase/functions/tests/revenuecat_webhook_test.ts`: caso "evento de un uid borrado" → 200, **cero llamadas** a `api.revenuecat.com`, `subscription_sync_log.user_id` null.
@@ -217,13 +219,13 @@ Feature nueva `lib/features/account_deletion/`, para no tocar `lib/features/subs
   1. Probe del aviso.
   2. `ConfirmSheet` con título y mensaje; si `notice != none`, el aviso **arriba del botón**, con texto de peso normal y el botón-link a la tienda, que abre afuera y no cierra la hoja.
   3. Confirmar → overlay de progreso no descartable.
-  4. Si sale bien: borra las claves de SharedPreferences que contienen el uid → `signOutLocal()` → login (igual que `_onSignOut`) → toast `settings_delete_account_done`. RevenueCat hace `logOut` solo, con `revenueCatAuthSyncProvider`.
+  4. Si sale bien: borra las claves de SharedPreferences que contienen el uid → `signOutLocal()` → login (igual que `_onSignOut`) → toast `settings_delete_account_done`, o `settings_delete_account_done_apple` si el usuario tenía el proveedor `apple` (`user.appMetadata['providers']`, leído **antes** de borrar). RevenueCat hace `logOut` solo, con `revenueCatAuthSyncProvider`.
   5. `DeletionNothingDeleted` → `settings_delete_account_error`; `DeletionPartial` → `settings_delete_account_error_partial`; `DeletionSessionExpired` → `signOutLocal()` + login + `settings_delete_account_session_expired`.
 - `lib/presentation/shared/widgets/confirm_sheet.dart`: parámetro opcional `Widget? notice`, entre el body y el botón. Sin cambios para quien no lo pasa.
 - `lib/presentation/flows/settings/ui/settings_screen.dart`: `_onDeleteAccount` delega en el flujo nuevo.
 - `lib/config/supabase/supabase_auth_service.dart`: `signOutLocal()` (`SignOutScope.local`). El servidor ya no tiene la sesión, así que no se llama a `unregisterBeforeSignOut`: `push_devices` cae por cascade.
 - `assets/translations/es-ES.json` y `en-US.json`: claves de §4.4. Se borra `settings_delete_account_unavailable`. Son las mismas que toca el paywall: van agregadas al final de su bloque, sin reordenar.
-- Tests: `test/features/account_deletion/account_deletion_repository_test.dart` (cada status/`type` → failure), `subscription_store_probe_test.dart` (cada regla de §3.5), `delete_account_flow_test.dart` (el aviso aparece antes del botón y con el link correcto; éxito → login + toast; cada failure → su texto; el botón queda deshabilitado mientras corre).
+- Tests: `test/features/account_deletion/account_deletion_repository_test.dart` (cada status/`type` → failure), `subscription_store_probe_test.dart` (cada regla de §3.5), `delete_account_flow_test.dart` (el aviso aparece antes del botón y con el link correcto; éxito → login + toast (`_done_apple` si el proveedor es `apple`); cada failure → su texto; el botón queda deshabilitado mientras corre).
 
 ### 4.3 `porty-assistant-dev`: sin tareas.
 
@@ -232,9 +234,10 @@ Feature nueva `lib/features/account_deletion/`, para no tocar `lib/features/subs
 | Clave | Estado |
 |---|---|
 | `settings_delete_account_title`, `_message`, `_subscription_warning` ({store}), `_manage_subscription` ({store}), `_error`, `_done` | **Aprobados**, compliance §6. Se copian tal cual |
-| `settings_delete_account_error_partial` ({email}) | Texto de compliance §6.4. **Falta el mail de soporte** (pregunta abierta) |
-| `settings_delete_account_subscription_warning_generic` | **Nuevo, lo revisa compliance.** Borrador: "Si tenés una suscripción activa, cancelala desde la tienda donde la compraste: borrar tu cuenta no la cancela." / "If you have an active subscription, cancel it in the store where you bought it: deleting your account doesn't cancel it." |
-| `settings_delete_account_session_expired` | **Nuevo, lo revisa compliance.** Borrador: "Tu sesión venció. Entrá de nuevo para eliminar tu cuenta." / "Your session expired. Sign in again to delete your account." |
+| `settings_delete_account_error_partial` ({email}) | Texto de compliance §6.4. **Falta el mail de soporte: lo define el usuario y bloquea el release** (también hace falta para la página web de Play). Va como constante en `lib/features/account_deletion/domain/account_deletion.dart` |
+| `settings_delete_account_subscription_warning_generic` | **Aprobado** (compliance §6.1): "Si tenés una suscripción activa, borrar tu cuenta no la cancela: cancelala desde la tienda donde la compraste (App Store o Google Play) para que no se te cobre de nuevo." / "If you have an active subscription, deleting your account doesn't cancel it: cancel it in the store where you bought it (App Store or Google Play) so you're not charged again." Nunca con `promotional` |
+| `settings_delete_account_session_expired` | **Aprobado, en la versión sin "y no se borró nada"** (compliance §6.1): "Tu sesión venció. Entrá de nuevo para eliminar tu cuenta." / "Your session expired. Sign in again to delete your account." Un 401 también puede llegar después de un borrado que ya terminó (reintento con clave legacy, §3.3), así que no se puede afirmar que no se borró nada |
+| `settings_delete_account_done_apple` | **Aprobado** (compliance §6.1, TN3194): "Eliminamos tu cuenta. Para quitarle también el acceso a Porty en Apple, andá a Ajustes > tu nombre > Iniciar sesión con Apple." / "Your account has been deleted. To also remove Porty's access in Apple, go to Settings > your name > Sign in with Apple." Solo para usuarios con proveedor `apple` |
 | `settings_delete_account_in_progress` | Nuevo, de UI: "Eliminando tu cuenta…" / "Deleting your account…" |
 
 `settings_delete_account_message` dice "tu cartera, tus conexiones con brókers, tus metas, alertas y planes, y tu historial con Porty". Coincide con 3.1-A/B. `subscription_events` está en cascade, así que no se conserva nada que contradiga el texto (compliance §6.5).
@@ -253,9 +256,9 @@ Feature nueva `lib/features/account_deletion/`, para no tocar `lib/features/subs
 
 - **R1. FK de `positions`/`closed_positions` en producción, desconocida.** Las tablas son anteriores a la CLI y el baseline está vacío. Si no tienen FK, el cascade no las borra. Si la tienen sin cascade, `deleteUser` falla. La migración la asegura (`not valid`), pero **antes del `db push` el usuario corre la consulta de auditoría del runbook**, para detectar otras tablas creadas a mano en el remoto.
 - **R2. El webhook recrea al cliente en RevenueCat** (3.4). Sin el cambio, la condición 1 de compliance no se cumple. Deploy de `revenuecat-webhook` junto con `delete-account`.
-- **R3. Sign in with Apple.** Apple pide revocar los tokens de SIWA al borrar la cuenta. Porty usa OAuth web y no guarda el refresh token de Apple, y `deleteUser` no revoca nada. Según Apple DTS, sin token igual hay que cumplir el borrado. **Decisión:** sin revocación en el release 1. Si Apple lo objeta, la fase 2 agrega una re-autenticación con Apple y un campo opcional `appleAuthorizationCode` en el request, más secretos `APPLE_*`.
+- **R3. Sign in with Apple.** Apple pide revocar los tokens de SIWA al borrar la cuenta. Porty usa OAuth web y no guarda el refresh token de Apple, y `deleteUser` no revoca nada. Según Apple DTS, sin token igual hay que cumplir el borrado. SIWA está prendido en el login (`auth_provider.dart:282`). **Decisión:** en el release 1 va el mínimo de TN3194 que aceptó compliance, el toast `settings_delete_account_done_apple`, sin revocación por API. La otra opción es apagar SIWA para el release 1, y la decide el usuario. Lo ideal (fase 2) agrega una re-autenticación con Apple y un campo opcional `appleAuthorizationCode` en el request, más secretos `APPLE_*`.
 - **R4. Orden RevenueCat → brókers.** El brief pone primero los brókers. Muevo eToro y Binance **después** de RevenueCat porque no pueden fallar por red (revocación *best effort* y local), y así un error de RevenueCat deja menos cosas desconectadas. SnapTrade va primero porque es la única llamada externa que bloquea y es lo que se cobra por usuario.
-- **R5. `waitlist`.** Se borra por email aunque no tenga vínculo con la cuenta: favorece la privacidad y cuesta una línea. **Compliance puede vetarlo** (por ejemplo, si el registro de la landing tiene otra base legal).
+- **R5. `waitlist`.** Se borra por email aunque no tenga vínculo con la cuenta. Compliance no lo veta, con dos condiciones: solo con mail confirmado u OAuth (para que nadie borre el registro de otro creando una cuenta sin confirmar con su mail), y un párrafo nuevo en Privacidad: "Si borrás tu cuenta, también borramos tu registro en la lista de espera."
 - **Descartado:** borrado explícito tabla por tabla desde la función (frágil ante tablas nuevas; el cascade + la guardia del test es más seguro). Paso de limpieza de Vault en la función (no es atómico con `auth.users`; ver 3.2). Preflight del aviso en el servidor (un viaje más; el SDK ya trae entitlements de todas las tiendas). Agregar métodos a `revenue_cat_service.dart` (en curso por el paywall).
 - **Secretos (el usuario los verifica con `supabase secrets list`; son del proyecto, así que la función nueva ve los que ya existen):** `REVENUECAT_SECRET_API_KEY` (ya está por el webhook; tiene que ser una clave **secreta v1 `sk_…`** con permiso de borrar), `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY` (ya están por `snaptrade-sync`), `ETORO_CLIENT_ID`, `ETORO_CLIENT_SECRET` (ya están por `etoro-sync`). Opcionales: `SNAPTRADE_API_URL`, `ETORO_ENVIRONMENT`. **No hace falta ninguno nuevo.** Binance no lleva: las claves son por usuario, en Vault.
-- **Necesita OK del usuario:** correr la consulta de auditoría en prod; `db push` de `20261102130000`; deploy de `delete-account` y `revenuecat-webhook`; publicar la página web de borrado y cargar su URL en Play Console (Data safety) y App Store Connect; párrafo de Privacidad sobre backups.
+- **Necesita OK del usuario:** correr la consulta de auditoría en prod; `db push` de `20261102130000`; deploy de `delete-account` y `revenuecat-webhook`; publicar la página web de borrado y cargar su URL en Play Console (Data safety) y App Store Connect; párrafos de Privacidad sobre backups y sobre la lista de espera; **definir el mail de soporte (bloquea)**; mantener SIWA con el toast o apagarlo.

@@ -7,7 +7,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -271,8 +270,6 @@ void main() {
         await h.pump(tester, reason: PaywallReason.positionLimit);
         await h.open(tester);
         expect(find.byType(SegmentedChoice<BillingPeriod>), findsNothing);
-        // ignore: avoid_print
-        print(ProviderScope.containerOf(tester.element(find.text('paywall_terms_block'))).read(paywallOfferProvider));
         expect(find.text('paywall_price_per_month'), findsNWidgets(2));
         expect(find.text('paywall_price_per_year'), findsNothing);
       });

@@ -26,5 +26,7 @@ Una línea por decisión. Formato: fecha · decisión · por qué · quién deci
 - 2026-11-02 · `subscription_events.user_id` con `on delete cascade` en este release; `set null` cuando se cumplan las 3 condiciones de compliance · más seguro y con poco volumen no se pierde nada · product-owner, con arquitecto y compliance.
 - 2026-11-02 · Si falla el borrado, por defecto se muestra el error honesto de falla parcial con un mail de contacto; "no se borró nada" solo si el arquitecto garantiza que no quedan brókers desconectados · no le decimos al usuario algo que puede no ser cierto · product-owner; textos de compliance §6.
 - 2026-11-02 · El aviso de suscripción al borrar aparece con cualquier entitlement activo, aunque esté cancelado, y nombra la tienda donde se compró · mostrarlo de más cuesta poco; no mostrarlo termina en un cobro después del borrado · product-owner + compliance.
+- 2026-11-02 · Sign in with Apple se mantiene en el release 1, con el toast `settings_delete_account_done_apple` que explica cómo revocar el acceso a mano (mínimo TN3194); la revocación por API queda para más adelante · usuario.
+- 2026-11-02 · El mail de soporte `{email}` lo define el usuario más adelante; hasta entonces queda un placeholder y el release 1 no se envía sin él · usuario.
 - 2026-11-02 · Si el backend no da abasto por el borrado, la apuesta #5 pasa de S3 a S4 · igual se lee en diciembre · product-owner.
 - 2026-11-02 · Referidos y tarjeta compartible: después de diciembre y con compliance antes · con poco tráfico el loop rinde poco · product-owner.

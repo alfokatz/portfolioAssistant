@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.d
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
@@ -192,6 +193,49 @@ void main() {
       find.bySemanticsLabel(RegExp('Desbloquear con Gold')),
       findsOneWidget,
     );
+  });
+
+  // Los sources del chat cumplen el formato de PaywallSource (el assert de
+  // `SubscriptionPaywallSheet.show`): snake_case, sin "+".
+  testWidgets('the locked chip opens the paywall with a snake_case source',
+      (tester) async {
+    final h = await _pump(
+      tester,
+      evidence: ValueNotifier(_premiumLocked),
+      body: (_) => QaFollowUpBar(items: QaTickerFollowUps.of('BAC'), limit: 3),
+    );
+    await tester.tap(find.text('Análisis'));
+    await tester.pump();
+    expect(h.requests.single.source, 'chip_company_analysis');
+    expect(PaywallSource.isValid(h.requests.single.source), isTrue);
+  });
+
+  testWidgets('the Gold teaser joins the locked sources with "_"',
+      (tester) async {
+    final catalog = AssistantCatalog.build();
+    final teaser = catalog.items.firstWhere((i) => i.name == 'QaGoldTeaser');
+    final h = await _pump(
+      tester,
+      evidence: ValueNotifier(_premiumLocked),
+      body:
+          (context) => teaser.widgetBuilder(
+            catalogContextFor(
+              buildContext: context,
+              component: {
+                'id': 'teaser',
+                'component': 'QaGoldTeaser',
+                'ticker': 'BAC',
+              },
+              catalog: catalog,
+              surfaceId: 's1',
+            ),
+          ),
+    );
+    await tester.tap(find.text('Valuación, resultados y noticias'));
+    await tester.pump();
+    final source = h.requests.single.source;
+    expect(source, 'answer_locked_fundamentals_earnings_news');
+    expect(PaywallSource.isValid(source), isTrue);
   });
 
   testWidgets('at most ONE locked block per card, and no locked chip on top',

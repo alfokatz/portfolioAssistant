@@ -241,6 +241,9 @@ class PaywallHarness {
 
   Future<void> open(WidgetTester tester) async {
     await tester.tap(find.text('open'));
+    // Un frame para que lleguen la oferta y el interruptor (si no, el
+    // skeleton del precio arranca a los 300 ms y se queda 400).
+    await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
   }
