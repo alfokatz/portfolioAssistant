@@ -7,5 +7,16 @@
 import { defaultDeps } from "../_shared/common.ts";
 import { handle } from "./handler.ts";
 
-const deps = defaultDeps();
+const base = defaultDeps();
+// Acción irreversible: getUser consulta al servidor de Auth y rechaza sesiones
+// revocadas (cerrar sesión en todos lados, cambio de clave). El getClaims local
+// de defaultDeps aceptaría un access token robado hasta que venza.
+const deps = {
+  ...base,
+  authenticate: async (jwt: string) => {
+    const { data, error } = await base.db.auth.getUser(jwt);
+    if (error || !data?.user?.id) return null;
+    return data.user.id;
+  },
+};
 Deno.serve((req) => handle(req, deps));

@@ -36,6 +36,7 @@ export const config = {
   /// app espera 60 s).
   requestTimeoutMs: 10_000,
   budgetMs: 40_000,
+  recheckTimeoutMs: 5_000,
 };
 
 type Step = "snaptrade" | "revenuecat" | "etoro" | "binance" | "auth";
@@ -218,9 +219,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   //    webhook. Desde el paso 5 el webhook ya no llama a RevenueCat para este
   //    uid, así que esto cierra la ventana. Si falla, la respuesta sigue en 200.
   try {
-    const response = await fetchFn(`${revenueCatConfig.apiBase}/subscribers/${encodeURIComponent(userId)}`, {
+    // Timeout propio: si los pasos anteriores agotaron el presupuesto de
+    // fetchFn, este paso igual tiene que correr.
+    const response = await deps.fetch(`${revenueCatConfig.apiBase}/subscribers/${encodeURIComponent(userId)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${revenueCatKey}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(config.recheckTimeoutMs),
     });
     await response.body?.cancel();
     if (!response.ok && response.status !== 404) log({ step: "revenuecat", outcome: "revenuecat_recheck_failed" });

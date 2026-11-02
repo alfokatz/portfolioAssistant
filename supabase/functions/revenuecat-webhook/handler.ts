@@ -86,6 +86,23 @@ export function planFrom(subscriber: Subscriber, nowMs: number): {
   return { tier: "free", status: "expired", periodEnd: null, product: null };
 }
 
+/// Borra en RevenueCat un cliente que el GET recreó para una cuenta ya
+/// borrada. Best effort, con timeout corto: nunca cambia la respuesta.
+async function deleteRecreatedSubscriber(deps: Deps, userId: string): Promise<void> {
+  const key = deps.env("REVENUECAT_SECRET_API_KEY");
+  if (!key) return;
+  try {
+    const response = await deps.fetch(`${config.apiBase}/subscribers/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(5_000),
+    });
+    await response.body?.cancel();
+  } catch {
+    // Sin efecto: el próximo borrado manual o el runbook lo limpia.
+  }
+}
+
 async function fetchSubscriber(deps: Deps, userId: string): Promise<Subscriber | null> {
   const key = deps.env("REVENUECAT_SECRET_API_KEY");
   if (!key) return null;
@@ -275,7 +292,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     if (error?.code === "23503") {
       // Cuenta borrada (ya no está en auth.users): no hay plan que guardar.
       // Un 5xx haría que RevenueCat reintente para siempre. Pasa si la cuenta
-      // se borró entre el chequeo de arriba y el upsert.
+      // se borró entre el chequeo de arriba y el upsert. El GET de arriba pudo
+      // recrear al cliente en RevenueCat: se borra de nuevo (best effort).
+      await deleteRecreatedSubscriber(deps, userId);
       await log(deps, { event_id: eventId, event_type: eventType, outcome: "user_deleted" });
       continue;
     }
