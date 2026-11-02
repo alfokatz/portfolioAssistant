@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/assistant/services/price_chart_data
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
@@ -552,7 +553,7 @@ class _GoldArea extends StatelessWidget {
         request: QaPaywallRequest(
           source:
               teaser
-                  ? 'answer_locked_${locked.join('+')}'
+                  ? 'answer_locked_${PaywallSource.snake(locked.join('_'))}'
                   : locked.length == 1
                   ? 'analysis_locked_${locked.single}'
                   : 'analysis_locked_group',

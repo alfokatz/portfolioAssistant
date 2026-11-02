@@ -57,6 +57,7 @@ import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -813,6 +814,10 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             context,
             ref,
             reason: reason,
+            // Todo lugar que setea el motivo setea el source (lo chequea el
+            // assert de AssistantState); el fallback solo evita perder la
+            // hoja si alguno nuevo se olvida.
+            source: next.paywallSource ?? 'chat_unattributed',
             onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
           ).whenComplete(notifier.clearPaywall);
         });
@@ -855,6 +860,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                         context,
                         ref,
                         reason: PaywallReason.quotaExceeded,
+                        source: PaywallSource.quotaZeroHeader,
                         onUpgraded:
                             () =>
                                 ref

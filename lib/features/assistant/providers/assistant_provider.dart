@@ -69,6 +69,7 @@ import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -611,9 +612,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // Todo lo que pidió el modelo está fuera del plan: igual que antes
         // de las tools, el turno no deja mensajes ni consume cuota — se
         // ofrece el upgrade.
+        // El único que corta turnos es `AssistantTurnPolicy.paywallFor`.
+        final paywall = e.reason as ChatPaywall;
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
-          paywallReason: e.reason as PaywallReason,
+          paywallReason: paywall.reason,
+          paywallSource: paywall.source,
           clearPaywallReason: false,
         );
       } on TimeoutException catch (e) {
@@ -672,6 +676,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       return current.copyWith(
         messages: _removeTurn(current.messages, surfaceId),
         paywallReason: PaywallReason.quotaExceeded,
+        paywallSource: PaywallSource.quotaZero,
         clearPaywallReason: false,
       );
     }
@@ -744,6 +749,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
         paywallReason: PaywallReason.marketDataLocked,
+        paywallSource: PaywallSource.chatActionWatchlist,
         clearPaywallReason: false,
       );
       return;
@@ -754,6 +760,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
         paywallReason: PaywallReason.brokerSync,
+        paywallSource: PaywallSource.chatActionBroker,
         clearPaywallReason: false,
       );
       return;
@@ -767,6 +774,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         _setAction(id, ActionProposalProgress.pending);
         state = state.copyWith(
           paywallReason: PaywallReason.goldRequired,
+          paywallSource: PaywallSource.chatActionMultiBroker,
           clearPaywallReason: false,
         );
         return;
@@ -777,7 +785,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         !PlanMatrix.allows(tier, PlanFeature.allocationPlan)) {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatActionAllocation,
         clearPaywallReason: false,
       );
       return;
@@ -791,6 +800,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
         paywallReason: PaywallReason.modeLocked,
+        paywallSource: PaywallSource.chatActionPortfolio,
         clearPaywallReason: false,
       );
       return;
@@ -1261,7 +1271,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (await notifier.save(plan)) return null;
     if (ref.read(allocationProvider).error == AllocationError.locked) {
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatPlanSave,
         clearPaywallReason: false,
       );
       return 'El plan de cartera es de Premium.';
@@ -1291,6 +1302,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       if (tier != SubscriptionTier.gold) {
         state = state.copyWith(
           paywallReason: PaywallReason.priceAlerts,
+          paywallSource: PaywallSource.chatAlertLimit,
           clearPaywallReason: false,
         );
       }

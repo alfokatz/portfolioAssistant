@@ -191,3 +191,27 @@ Revisión humana: **sí** para los dos textos antes de publicarlos.
 2. Abrir las dos URLs y confirmar que existen, que dicen Porty y que tienen §4.1 y §4.2. Si no, publicarlas antes del envío.
 3. En App Store Connect: cargar la Privacy Policy URL y poner el link al EULA estándar de Apple o los Términos en la descripción.
 4. No configurar ofertas introductorias ni trials en los anuales en este release (la app no los muestra; spec §6).
+
+---
+
+## 6. Textos finales del borrado de cuenta (brief `docs/product/briefs/2026-11-02-borrado-de-cuenta.md`)
+
+Lo pidió porty-product-owner. Los nombres de clave son una propuesta; los define porty-architect o flutter-dev. `settings_delete_account_unavailable` se borra.
+
+| Clave | es-ES (final) | en-US (final) |
+|---|---|---|
+| `settings_delete_account_title` | ¿Eliminar tu cuenta? | Delete your account? |
+| `settings_delete_account_message` | Se borran tu cartera, tus conexiones con brókers, tus metas, alertas y planes, y tu historial con Porty. No se puede deshacer. Tus cuentas en los brókers no se tocan: solo se desconectan de Porty. | Your portfolio, broker connections, goals, alerts, plans, and history with Porty will be deleted. This can't be undone. Your broker accounts aren't affected; they're only disconnected from Porty. |
+| `settings_delete_account_subscription_warning` | Tenés una suscripción activa en {store}. Borrar tu cuenta no la cancela: cancelala desde {store} para que no se te cobre de nuevo. | You have an active subscription on {store}. Deleting your account doesn't cancel it: cancel it on {store} so you're not charged again. |
+| `settings_delete_account_manage_subscription` | Gestionar suscripción en {store} | Manage subscription on {store} |
+| `settings_delete_account` (botón de confirmar, ya existe) | Eliminar cuenta | Delete account |
+| `settings_delete_account_error` | No pudimos eliminar tu cuenta y no se borró nada. Probá de nuevo en un rato. | We couldn't delete your account, and nothing was deleted. Try again in a bit. |
+| `settings_delete_account_done` | Eliminamos tu cuenta. Si volvés con el mismo mail, empezás de cero. | Your account has been deleted. If you come back with the same email, you'll start fresh. |
+
+Condiciones de uso:
+1. **Cuándo mostrar el aviso de suscripción:** cada vez que RevenueCat devuelva un entitlement activo (`premium` o `gold`), aunque esté cancelado y le quede período. No hay que intentar adivinar si se va a renovar. Cuesta poco mostrarlo de más, y no mostrarlo puede terminar en un cobro después del borrado y una reseña de una estrella.
+2. **`{store}` tiene que ser la tienda donde se compró** (`EntitlementInfo.store`), no la plataforma actual. Si compró en iPhone y borra desde Android, el aviso dice App Store. Si la tienda es `PROMOTIONAL` o desconocida, se omite el aviso. El link va a `https://apps.apple.com/account/subscriptions` o a `https://play.google.com/store/account/subscriptions`.
+3. **El aviso va antes del botón de confirmar**, en la misma hoja y con texto de peso normal. No puede quedar escondido en un "más info". Apple pide avisar que la facturación sigue hasta que el usuario cancele: https://developer.apple.com/support/offering-account-deletion-in-your-app/
+4. **"No se borró nada" solo es cierto si** la función no borra `auth.users` cuando falla un paso. Si desconectar los brókers anduvo pero RevenueCat falló, las conexiones ya no están. En ese caso hay que usar: "No pudimos terminar de eliminar tu cuenta. Probá de nuevo; si sigue fallando, escribinos a {email}." / "We couldn't finish deleting your account. Try again; if it keeps failing, email us at {email}." Si el arquitecto confirma que las conexiones se pueden volver a armar, va el texto de la tabla.
+5. **Lista de lo que se borra:** tiene que coincidir con las tablas que tienen `cascade`. Si algo se conserva (por ejemplo `subscription_events` cuando pase a `set null`, o el contador agregado `account_deleted`), no puede figurar como borrado. Por eso el texto no dice "todos tus datos".
+6. **Backups:** el plazo en que los datos borrados desaparecen de las copias de seguridad de Supabase va en la política de privacidad, no en la hoja. Hay que confirmarlo según el plan de Supabase. Revisión humana: sí.

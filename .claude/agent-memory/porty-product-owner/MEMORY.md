@@ -6,4 +6,5 @@
 - 2026-11-02: volumen bajo → sin A/B; interruptores en `app_config` + cohortes + `source` por paywall.
 - 2026-11-02: la prueba de Gold se propone al usuario para diciembre, aislada; no prenderla junto con otros cambios.
 - 2026-11-02: IOL MCP (27/08) volvió commodity el "chat sobre tu cartera"; diferenciar por multi-bróker, exactitud con fuente y contenido recurrente.
+- 2026-11-02: antes de priorizar algo que se publica, chequear los bloqueos de tienda (borrado de cuenta 5.1.1(v), Términos/Privacidad 3.1.2). El borrado faltaba y me lo marcó compliance después del roadmap.
 - Costo de IA no es el freno (~US$0,006/turno, supuesto); vigilar p99 de Gold pago por búsquedas.

@@ -159,8 +159,11 @@ function post(event: Record<string, unknown>): Request {
 type Call = { table?: string; op: string; row?: Record<string, unknown>; options?: unknown };
 
 /// Base falsa mínima: guarda cada operación. [storeError] hace fallar el
-/// upsert de subscription_events.
-function fakeDb(storeError: { message: string; code?: string }[] = []) {
+/// upsert de subscription_events; [rpcError], la RPC del plan.
+function fakeDb(
+  storeError: { message: string; code?: string }[] = [],
+  rpcError: { message: string; code?: string } | null = null,
+) {
   const calls: Call[] = [];
   const client = {
     from: (table: string) => ({
@@ -175,7 +178,7 @@ function fakeDb(storeError: { message: string; code?: string }[] = []) {
     }),
     rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push({ op: `rpc:${fn}`, row: args });
-      return Promise.resolve({ error: null });
+      return Promise.resolve({ error: rpcError });
     },
   };
   return { db: client as unknown as SupabaseClient, calls };
@@ -282,13 +285,17 @@ Deno.test("[sin base] si guardar falla en un evento anónimo: 500 (antes 200 ign
   assertEquals(r.status, 500);
 });
 
-Deno.test("[sin base] usuario borrado (FK): se guarda sin usuario", async () => {
-  const fake = fakeDb([{ message: "violates foreign key constraint", code: "23503" }]);
+Deno.test("[sin base] usuario borrado (FK): se guarda sin usuario y responde 2xx", async () => {
+  const fk = { message: "violates foreign key constraint", code: "23503" };
+  const fake = fakeDb([fk], fk);
   const userId = crypto.randomUUID();
-  const r = await handle(post(fullEvent(userId)), fakeDeps(fake, goldForever().fetch));
+  const r = await handle(post(fullEvent(userId, { type: "RENEWAL" })), fakeDeps(fake, goldForever().fetch));
   assertEquals(r.status, 200);
+  assertEquals(await r.json(), { ok: true, ignored: true });
   const upserts = fake.calls.filter((c) => c.op === "upsert");
   assertEquals(upserts.map((c) => c.row?.user_id), [userId, null]);
+  const outcomes = fake.calls.filter((c) => c.table === "subscription_sync_log").map((c) => c.row?.outcome);
+  assertEquals(outcomes, ["user_deleted"]);
 });
 
 Deno.test("[sin base] evento sin id o sin type: no guarda fila y sigue como antes", async () => {
@@ -394,4 +401,21 @@ Deno.test("con JWT de authenticated: subscription_events no se lee ni se escribe
   assertEquals(write.error?.code, "42501");
   const funnel = await asUser.from("product_funnel").select("user_id").limit(1);
   assertEquals(funnel.error?.code, "42501");
+});
+
+Deno.test("renovación de una cuenta borrada: fila sin usuario, 2xx y sin duplicar", async () => {
+  const user = await createUser("premium");
+  const del = await db.auth.admin.deleteUser(user.id);
+  if (del.error) throw del.error;
+  const ev = fullEvent(user.id, { type: "RENEWAL" });
+  const d = deps(goldForever().fetch, env);
+  for (let i = 0; i < 2; i++) {
+    const r = await handle(post(ev), d);
+    assertEquals(r.status, 200);
+  }
+  const rows = await eventRows(ev.id as string);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].user_id, null);
+  const { data } = await db.from("subscription_sync_log").select("outcome").eq("event_id", ev.id as string);
+  assertEquals(data?.some((row) => row.outcome === "user_deleted"), true);
 });

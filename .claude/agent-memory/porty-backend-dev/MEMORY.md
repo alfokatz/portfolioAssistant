@@ -6,3 +6,4 @@
 - Los default privileges de Supabase le dan todo a `service_role` en tablas nuevas de `public`: `grant select, insert` suma, no restringe.
 - Tablas con FK a `auth.users` que escribe un webhook: un usuario borrado hace fallar el insert (23503) y el proveedor reintenta para siempre; reintentar con `user_id: null`.
 - `deno lint` marca `no-import-prefix` en todos los tests (`jsr:`/`npm:` inline): es el estilo del repo, no corregir.
+- Webhooks con usuario borrado: además del insert propio, `upsert_subscription_from_provider` también falla con 23503 (FK de `user_subscriptions`); registrar `user_deleted` y responder 2xx.

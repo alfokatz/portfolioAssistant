@@ -263,6 +263,11 @@ class AssistantToolContext {
   /// turno (ver `AssistantTurnPolicy.paywallFor`).
   final lockedReasons = <PaywallReason>{};
 
+  /// Capacidades que el plan no incluyó en el turno (por `lockedFeature`):
+  /// de acá sale el `source` del paywall que corta el turno
+  /// (`PaywallSource.chatTurnLocked`).
+  final lockedFeatures = <PlanFeature>{};
+
   bool allows(PlanFeature feature) => SubscriptionPolicy.allows(tier, feature);
 
   bool get marketDataAllowed => allows(PlanFeature.marketData);
@@ -299,14 +304,20 @@ class AssistantToolContext {
 
   /// `locked` con el plan mínimo y el paywall que corresponden a [feature].
   Map<String, Object?> lockedFeature(PlanFeature feature) {
-    final plan = PlanMatrix.minimumTier(feature);
-    final reason = switch (feature) {
-      PlanFeature.marketData => PaywallReason.marketDataLocked,
-      _ when plan == SubscriptionTier.gold => PaywallReason.goldRequired,
-      _ => PaywallReason.modeLocked,
-    };
-    return locked(plan.name, reason);
+    lockedFeatures.add(feature);
+    return locked(PlanMatrix.minimumTier(feature).name, reasonFor(feature));
   }
+
+  /// La hoja de upgrade que corresponde a [feature] (spec 2026-11-02 §3.2).
+  static PaywallReason reasonFor(PlanFeature feature) => switch (feature) {
+    PlanFeature.marketData => PaywallReason.marketDataLocked,
+    PlanFeature.investSimulation => PaywallReason.simulations,
+    PlanFeature.goals => PaywallReason.goals,
+    PlanFeature.allocationPlan => PaywallReason.allocationPlan,
+    _ when PlanMatrix.minimumTier(feature) == SubscriptionTier.gold =>
+      PaywallReason.goldRequired,
+    _ => PaywallReason.modeLocked,
+  };
 
   /// Marca un resultado servido por la cortesía, para que la card lo diga.
   Map<String, Object?> courtesyTag(Map<String, Object?> result) =>

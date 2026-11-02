@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
@@ -633,7 +634,8 @@ class _LockedChipState extends State<_LockedChip> {
   Widget build(BuildContext context) {
     final plan = QaPlanScope.maybeOf(context);
     final feature = widget.item.feature;
-    final source = 'chip_${feature?.name ?? 'gold'}';
+    // snake_case: el source tiene que cumplir `PaywallSource.isValid`.
+    final source = 'chip_${PaywallSource.snake(feature?.name ?? 'gold')}';
     // Toque mínimo de 44 px aunque el chip se vea más bajo.
     return Semantics(
       button: true,

@@ -43,6 +43,10 @@ class AssistantState {
   final bool isServiceReady;
   final PaywallReason? paywallReason;
 
+  /// Desde dónde se pidió [paywallReason] (`PaywallSource`). Se setean y
+  /// se limpian juntos.
+  final String? paywallSource;
+
   /// `true` una vez que la cascada de entrada del saludo inicial + chips de
   /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
   /// menos una vez. Vive acá (no en el `State` de ningún widget) por la
@@ -65,9 +69,13 @@ class AssistantState {
     this.turnCounter = 0,
     this.isServiceReady = false,
     this.paywallReason,
+    this.paywallSource,
     this.introRevealed = false,
     this.actionProposals = const {},
-  });
+  }) : assert(
+         paywallReason == null || paywallSource != null,
+         'paywallReason sin paywallSource: pasá un PaywallSource',
+       );
 
   ActionProposalProgress actionProgress(String proposalId) =>
       actionProposals[proposalId] ?? ActionProposalProgress.pending;
@@ -81,6 +89,7 @@ class AssistantState {
     int? turnCounter,
     bool? isServiceReady,
     PaywallReason? paywallReason,
+    String? paywallSource,
     bool? introRevealed,
     Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
@@ -96,6 +105,12 @@ class AssistantState {
       isServiceReady: isServiceReady ?? this.isServiceReady,
       paywallReason:
           clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
+      paywallSource:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallSource
+              : this.paywallSource,
       introRevealed: introRevealed ?? this.introRevealed,
       actionProposals: actionProposals ?? this.actionProposals,
     );

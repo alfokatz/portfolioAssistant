@@ -246,6 +246,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       p_status: plan.status,
       p_current_period_end: plan.periodEnd,
     });
+    if (error?.code === "23503") {
+      // Cuenta borrada (ya no está en auth.users): no hay plan que guardar.
+      // Un 5xx haría que RevenueCat reintente para siempre.
+      await log(deps, { user_id: userId, event_id: eventId, event_type: eventType, outcome: "user_deleted" });
+      continue;
+    }
     if (error) {
       await log(deps, { user_id: userId, event_id: eventId, event_type: eventType, outcome: "db_error", detail: error.message });
       return typedError(500, "db_error", error.message);
@@ -256,5 +262,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   // 3. El plan quedó bien pero el evento no: 500 para que RevenueCat reintente
   //    (las dos operaciones son idempotentes).
   if (storeError) return storeFailed();
+  // Todos los usuarios del evento estaban borrados: misma forma que un anónimo.
+  if (Object.keys(results).length === 0) return json(200, { ok: true, ignored: true });
   return json(200, { ok: true, tiers: results });
 }

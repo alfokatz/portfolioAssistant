@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
@@ -15,7 +16,28 @@ import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart
 import 'package:portfolio_assistant/features/assistant/utils/investor_profile_context.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+
+/// Paywall que corta un turno del chat: la hoja ([reason]) y desde dónde se
+/// abrió ([source], ver `PaywallSource`). Viaja como el `reason` de
+/// `TurnAbortedException`.
+class ChatPaywall {
+  const ChatPaywall(this.reason, this.source);
+
+  final PaywallReason reason;
+  final String source;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChatPaywall && other.reason == reason && other.source == source;
+
+  @override
+  int get hashCode => Object.hash(reason, source);
+
+  @override
+  String toString() => 'ChatPaywall(${reason.name}, $source)';
+}
 
 /// Las tools de datos del asistente, en un orden fijo: la lista completa
 /// viaja en cada request (el plan se aplica al ejecutar, no ocultando
@@ -98,20 +120,38 @@ abstract final class AssistantTurnPolicy {
   /// agrega un bloque "Gold" tocable (`QaGoldTeaser`) que abre el paywall
   /// desde ahí — mostrar lo bloqueado en vez de interrumpir con una hoja.
   /// Lo de Premium (mercado ajeno, simulaciones, metas) sí corta, como antes.
-  static PaywallReason? paywallFor(
+  ///
+  /// Si hay varias, gana la primera de [_turnPaywallPriority]. El `source`
+  /// nombra la capacidad que la disparó (`chat_turn_locked_<feature>`).
+  static ChatPaywall? paywallFor(
     List<ToolCallRecord> firstRound,
     AssistantToolContext ctx,
   ) {
     if (firstRound.isEmpty) return null;
     if (!firstRound.every((c) => c.status == 'locked')) return null;
-    for (final reason in const [
-      PaywallReason.modeLocked,
-      PaywallReason.marketDataLocked,
-    ]) {
-      if (ctx.lockedReasons.contains(reason)) return reason;
+    for (final reason in _turnPaywallPriority) {
+      if (!ctx.lockedReasons.contains(reason)) continue;
+      final feature =
+          ctx.lockedFeatures
+              .where((f) => AssistantToolContext.reasonFor(f) == reason)
+              .firstOrNull ??
+          // get_quote / get_dividends marcan el mercado ajeno sin pasar
+          // por `lockedFeature`.
+          PlanFeature.marketData;
+      return ChatPaywall(reason, PaywallSource.chatTurnLocked(feature));
     }
     return null;
   }
+
+  /// Los paywalls de Premium que cortan el turno, en orden de prioridad
+  /// (spec 2026-11-02 §3.2). Gold no corta: lo muestra `QaGoldTeaser`.
+  static const _turnPaywallPriority = [
+    PaywallReason.modeLocked,
+    PaywallReason.simulations,
+    PaywallReason.goals,
+    PaywallReason.allocationPlan,
+    PaywallReason.marketDataLocked,
+  ];
 
   /// Peso del turno en la cuota: `newsQueryWeight` si se buscaron noticias
   /// (hoy 1, igual que el resto — ver `AiUsageLimits`), si no 1.

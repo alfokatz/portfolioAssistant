@@ -24,6 +24,14 @@ Todos los usuarios con cuenta (Free, Premium y Gold). El caso delicado es el usu
 4. Página web de borrado (la exige Google Play): puede ser un formulario simple o instrucciones con un mail de contacto. La crea el usuario o porty-marketing-lead en la landing.
 5. El webhook de RevenueCat no tiene que fallar ni reintentar sin fin si llega un evento de un usuario borrado (compliance §3, condición 2).
 
+**Textos y condiciones de compliance** (finales, en `docs/legal/reviews/2026-11-02-paywall-y-nudges.md` §6; se usan tal cual):
+- El aviso de suscripción aparece con **cualquier** entitlement activo (`premium` o `gold`), aunque esté cancelado y le quede período. Si la tienda es `PROMOTIONAL` o desconocida, no aparece.
+- `{store}` es la tienda donde se compró (`EntitlementInfo.store`), no la plataforma desde donde borra.
+- El aviso va en la misma hoja y **antes** del botón de confirmar, con texto de peso normal: nada de esconderlo en un "más info".
+- La lista de lo que se borra tiene que coincidir con las tablas que tienen `cascade`. Lo que se conserva (el contador agregado `account_deleted`, o `subscription_events` cuando pase a `set null`) no puede figurar como borrado.
+- **Error (decisión de producto):** por defecto se usa el texto honesto de falla parcial ("No pudimos terminar de eliminar tu cuenta. Probá de nuevo; si sigue fallando, escribinos a {email}."). El texto "no se borró nada" solo se usa si porty-architect garantiza que un paso que falla no deja los brókers ya desconectados (por ejemplo, porque los pasos se pueden reintentar o deshacer). Preferimos un error un poco menos lindo antes que decirle al usuario algo que no es cierto.
+- El plazo en que los datos desaparecen de los backups de Supabase va en la política de privacidad, no en la hoja (necesita revisión humana).
+
 ## Fuera de alcance
 
 - Exportar datos antes de borrar.
@@ -38,9 +46,9 @@ No aumenta los pagos. Es la condición para publicar cualquier cosa del mes (anu
 ## 6. Criterios de aceptación de usuario
 
 1. Desde Ajustes, el usuario puede borrar su cuenta sin salir de la app y sin escribirle a nadie.
-2. Antes de confirmar, entiende qué se borra (cartera, conexiones, historial con Porty) y, si paga, que tiene que cancelar en la tienda, con el link.
+2. Antes de confirmar, entiende qué se borra (cartera, conexiones, metas, alertas, planes e historial con Porty) y, si tiene un plan activo (aunque esté cancelado), que tiene que cancelarlo en la tienda donde lo compró, con el link a esa tienda.
 3. Después de borrar, queda afuera de la app, y si vuelve a entrar con el mismo mail, empieza de cero.
-4. Si algo falla, ve un error claro y su cuenta sigue intacta.
+4. Si algo falla, ve un error que dice la verdad sobre lo que quedó hecho, sabe cómo reintentar y tiene un mail de contacto. Su cartera y su cuenta siguen ahí.
 
 ## 7. Prioridad
 
