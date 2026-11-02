@@ -56,7 +56,8 @@ Archivo nuevo `lib/features/subscription/config/paywall_source.dart` (dueño: fl
 | `chatActionPortfolio` | `chat_action_portfolio` | idem (`portfolioActions`) | `modeLocked` |
 | `chatPlanSave` | `chat_plan_save` | `assistant_provider` (guardar plan de cartera) | `allocationPlan` |
 | `chatAlertLimit` | `chat_alert_limit` | `assistant_provider._createAlert` | `priceAlerts` |
-| *(ya existen, no cambian)* | `home_benchmark`, `weekly_report`, `weekly_report_sp500`, `etoro_connect`, `price_alert_limit`, `price_alert_reactivate`, `weekly_free_analysis`, `analysis_locked_*`, `chip_*` | — | — |
+| *(ya existen, no cambian)* | `home_benchmark`, `weekly_report`, `weekly_report_sp500`, `etoro_connect`, `price_alert_limit`, `price_alert_reactivate`, `weekly_free_analysis`, `analysis_locked_*` | — | — |
+| *(existen, se normalizan; dueño assistant-dev)* | `chip_<feature>` → `PaywallSource.snake` del `PlanFeature.name` (`chip_company_analysis`); `answer_locked_<a>+<b>` → unidos con `_` (`answer_locked_fundamentals_earnings`) | `catalog/kit/qa_identity.dart`, `catalog/widgets/analysis_widgets.dart` | sin cambio |
 
 Helpers:
 
@@ -67,6 +68,10 @@ static String chatTurnLocked(PlanFeature feature);
 
 /// Valida el formato (lo usan el assert de `show` y los tests).
 static bool isValid(String source);
+
+/// camelCase → snake_case ("companyAnalysis" → "company_analysis"). Lo usan
+/// chatTurnLocked y los sources armados en el catálogo del chat.
+static String snake(String value);
 ```
 
 Nota: `quota_zero` reemplaza al `chat_quota` de ejemplo del brief (mismo significado; coincide con la métrica de la apuesta #3 del roadmap).
@@ -248,7 +253,7 @@ Orden de la hoja: manija · cerrar · título · subtítulo · preview (si hay) 
 | `paywall_title_mode_locked` / `_subtitle_` (se reescriben) **[C][G]** | Esto viene con Premium / Mejorá tu plan para usar esta función. | This comes with Premium / Upgrade your plan to use this feature. |
 | `settings_upgrade_coming_soon` (se reescribe) | Las compras no están disponibles ahora. Probá de nuevo en un rato. | Purchases aren't available right now. Try again in a bit. |
 
-`paywall_queries_month` queda sin uso: se borra de los dos JSON.
+`paywall_queries_month` **se queda**: lo sigue usando `settings_subscription_card._description`.
 
 ### 3.8 Base: `subscription_events` (migración nueva)
 
@@ -390,6 +395,7 @@ Arranca contra el contrato: no necesita el backend (los eventos van a una tabla 
 | `lib/features/assistant/states/assistant_state.dart` | `paywallSource` junto a `paywallReason` (se setean y limpian juntos) |
 | `lib/features/assistant/providers/assistant_provider.dart` | Source en cada lugar que setea `paywallReason` (§3.1); `TurnAbortedException` lleva un `ChatPaywall` (es `Object`, no toca genui_core) |
 | `lib/features/assistant/view/assistant_screen.dart` | Pasar `state.paywallSource` (turno), `quota_zero_header` (contador) y `request.source` (Gold, ya está) |
+| `lib/features/assistant/catalog/kit/qa_identity.dart`, `lib/features/assistant/catalog/widgets/analysis_widgets.dart` | Normalizar `chip_*` y `answer_locked_*` a snake_case con `PaywallSource.snake` (§3.1). Solo cambia el string del source, no lo que ve ni recibe el modelo: el hash del prompt no se mueve (lo confirma el criterio 16) |
 | `test/features/assistant/...` (los que correspondan) | §5 |
 
 No toca prompt, reglas, tools expuestas al modelo, catálogo ni widgets del catálogo: el JSON `locked` que ve el modelo no cambia. Al terminar avisa a flutter-dev para la fase C.
