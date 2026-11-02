@@ -7,3 +7,4 @@
 - Tablas con FK a `auth.users` que escribe un webhook: un usuario borrado hace fallar el insert (23503) y el proveedor reintenta para siempre; reintentar con `user_id: null`.
 - `deno lint` marca `no-import-prefix` en todos los tests (`jsr:`/`npm:` inline): es el estilo del repo, no corregir.
 - Webhooks con usuario borrado: además del insert propio, `upsert_subscription_from_provider` también falla con 23503 (FK de `user_subscriptions`); registrar `user_deleted` y responder 2xx.
+- Antes de crear una migración no pedida, buscar en `docs/superpowers/specs/` si el timestamp ya está reservado para otra spec, y confirmar con el coordinador si la original ya se subió: si no se subió, se edita esa y no se agrega una de corrección.
