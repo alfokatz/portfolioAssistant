@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -259,23 +260,27 @@ void main() {
       expect(find.text('paywall_queries_month'), findsNothing);
     });
 
-    testWidgets('annual selector: needs the flag and annual prices for every '
-        'visible tier; buys the chosen period', (tester) async {
-      // Interruptor apagado: sin selector aunque haya anuales.
-      var h = PaywallHarness(offer: fullOffer, annualEnabled: false);
-      await h.pump(tester, reason: PaywallReason.positionLimit);
-      await h.open(tester);
-      expect(find.byType(SegmentedChoice<BillingPeriod>), findsNothing);
-      await _close(tester);
+    // Cada caso en su test: un ProviderScope nuevo en el mismo lugar del
+    // árbol no reemplaza los overrides de `overrideWith`.
+    for (final (name, offer, enabled) in [
+      ('flag off hides the selector even with annual prices', fullOffer, false),
+      ('flag on without annual products looks like today', monthlyOffer, true),
+    ]) {
+      testWidgets('annual selector: $name', (tester) async {
+        final h = PaywallHarness(offer: offer, annualEnabled: enabled);
+        await h.pump(tester, reason: PaywallReason.positionLimit);
+        await h.open(tester);
+        expect(find.byType(SegmentedChoice<BillingPeriod>), findsNothing);
+        // ignore: avoid_print
+        print(ProviderScope.containerOf(tester.element(find.text('paywall_terms_block'))).read(paywallOfferProvider));
+        expect(find.text('paywall_price_per_month'), findsNWidgets(2));
+        expect(find.text('paywall_price_per_year'), findsNothing);
+      });
+    }
 
-      // Prendido pero sin anuales en la tienda: igual que hoy.
-      h = PaywallHarness(offer: monthlyOffer, annualEnabled: true);
-      await h.pump(tester, reason: PaywallReason.positionLimit);
-      await h.open(tester);
-      expect(find.byType(SegmentedChoice<BillingPeriod>), findsNothing);
-      await _close(tester);
-
-      h = PaywallHarness(offer: fullOffer, annualEnabled: true);
+    testWidgets('annual selector: monthly by default, buys the chosen '
+        'period', (tester) async {
+      final h = PaywallHarness(offer: fullOffer, annualEnabled: true);
       await h.pump(tester, reason: PaywallReason.positionLimit);
       await h.open(tester);
       expect(find.byType(SegmentedChoice<BillingPeriod>), findsOneWidget);
