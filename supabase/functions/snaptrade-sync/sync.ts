@@ -201,15 +201,26 @@ async function tradesOf(
   try {
     raw = await client.activities(user, accountId);
   } catch (e) {
-    if (e instanceof SnaptradeError && (e.type === "not_found" || e.type === "unavailable")) return [];
+    if (e instanceof SnaptradeError && (e.type === "not_found" || e.type === "unavailable")) {
+      log({ op: "activities", outcome: e.type });
+      return [];
+    }
     throw e;
   }
-  return raw.flatMap((a) => {
+  const trades = raw.flatMap((a) => {
     const ticker = activityTicker(a.symbol, a.securityType);
     return ticker && !Number.isNaN(Date.parse(a.tradeDate))
       ? [{ id: a.id, type: a.type, ticker, units: a.units, price: a.price, fee: a.fee, date: a.tradeDate }]
       : [];
   });
+  // Cuántas operaciones da el bróker (sin ids): si da 0, las compras quedan
+  // sin fecha (algunos brókers no las informan por SnapTrade).
+  log({ op: "activities", raw: raw.length, trades: trades.length });
+  return trades;
+}
+
+function log(fields: Record<string, unknown>) {
+  console.log(JSON.stringify({ fn: "snaptrade-sync", ...fields }));
 }
 
 function merge(a: Holding, b: Holding): Holding {
