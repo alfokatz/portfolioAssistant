@@ -13,6 +13,11 @@
 //
 // Si RevenueCat no responde, no se toca nada: 503 para que RevenueCat
 // reintente, y queda registrado en subscription_sync_log.
+//
+// Además, cada evento queda en subscription_events (precio, tienda, trial,
+// entorno, paywall_source) ANTES de recalcular el plan, idempotente por
+// event.id. Si guardarlo falla, el plan se recalcula igual (la analítica
+// nunca traba un plan) y se responde 500 para que RevenueCat reintente.
 
 import { corsHeaders, type Deps, json, sleep, typedError } from "../_shared/common.ts";
 
@@ -104,6 +109,78 @@ async function fetchSubscriber(deps: Deps, userId: string): Promise<Subscriber |
   }
 }
 
+/// Formato de PaywallSource en la app. El atributo lo setea el cliente, así
+/// que lo que no cumpla el formato no se guarda (podría ser cualquier texto).
+const paywallSourceRe = /^[a-z][a-z0-9_]{2,59}$/;
+
+const str = (v: unknown, max = 200): string | null =>
+  typeof v === "string" && v.trim() !== "" ? v.trim().slice(0, max) : null;
+
+/// Número finito que entra en numeric(precision, scale); si no, null (un valor
+/// fuera de rango haría fallar el insert y RevenueCat reintentaría para siempre).
+const num = (v: unknown, intDigits: number): number | null => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isFinite(n) && Math.abs(n) < 10 ** intDigits ? n : null;
+};
+
+const msToIso = (v: unknown): string | null => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return null;
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+/// Fila de subscription_events para [event] (función pura, sin base).
+/// Solo campos conocidos: nunca el evento crudo ni otros subscriber_attributes.
+export function eventRow(event: Record<string, unknown>): Record<string, unknown> {
+  const appUserId = typeof event.app_user_id === "string" && uuidRe.test(event.app_user_id)
+    ? event.app_user_id.toLowerCase()
+    : null;
+  const periodType = str(event.period_type, 40);
+  const attrs = event.subscriber_attributes as Record<string, unknown> | undefined;
+  const sourceAttr = attrs && typeof attrs === "object"
+    ? (attrs.paywall_source as Record<string, unknown> | undefined)
+    : undefined;
+  const source = sourceAttr && typeof sourceAttr === "object" ? sourceAttr.value : undefined;
+  return {
+    event_id: str(event.id),
+    user_id: appUserId ?? affectedUserIds(event)[0] ?? null,
+    event_type: str(event.type, 60),
+    product_id: str(event.product_id),
+    new_product_id: str(event.new_product_id),
+    store: str(event.store, 40),
+    period_type: periodType,
+    is_trial: periodType === "TRIAL",
+    environment: str(event.environment, 40),
+    price_usd: num(event.price, 8),
+    price_local: num(event.price_in_purchased_currency, 10),
+    currency: str(event.currency, 10),
+    takehome_pct: num(event.takehome_percentage, 1),
+    paywall_source: typeof source === "string" && paywallSourceRe.test(source) ? source : null,
+    reason: str(event.cancel_reason, 60) ?? str(event.expiration_reason, 60),
+    event_at: msToIso(event.event_timestamp_ms),
+    purchased_at: msToIso(event.purchased_at_ms),
+    expires_at: msToIso(event.expiration_at_ms),
+  };
+}
+
+/// Guarda el evento; devuelve el mensaje de error o null. Un user_id que ya
+/// no existe en auth.users (cuenta borrada) violaría la FK: se guarda igual,
+/// sin usuario, para no perder el ingreso ni trabar los reintentos.
+async function storeEvent(deps: Deps, row: Record<string, unknown>): Promise<string | null> {
+  const insert = (r: Record<string, unknown>) =>
+    deps.db.from("subscription_events").upsert(r, { onConflict: "event_id", ignoreDuplicates: true });
+  try {
+    let { error } = await insert(row);
+    if (error?.code === "23503" && row.user_id != null) {
+      ({ error } = await insert({ ...row, user_id: null }));
+    }
+    return error ? error.message : null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
 async function log(
   deps: Deps,
   row: { user_id?: string; event_id?: string; event_type?: string; outcome: string; detail?: string },
@@ -132,9 +209,23 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const event = payload.event ?? {};
   const eventId = typeof event.id === "string" ? event.id : undefined;
   const eventType = typeof event.type === "string" ? event.type : undefined;
+
+  // 1. Guardar el evento (también los TEST y los anónimos). Sin id o tipo no
+  //    hay clave de idempotencia: se sigue como antes, sin fila.
+  let storeError: string | null = null;
+  if (eventId && eventType) {
+    storeError = await storeEvent(deps, eventRow(event));
+    if (storeError) {
+      await log(deps, { event_id: eventId, event_type: eventType, outcome: "event_store_error", detail: storeError });
+    }
+  }
+  const storeFailed = () => typedError(500, "event_store_error", "Could not store subscription event");
+
+  // 2. Recalcular el plan, como siempre.
   const userIds = affectedUserIds(event);
   if (userIds.length === 0) {
     await log(deps, { event_id: eventId, event_type: eventType, outcome: "ignored", detail: "no app user id" });
+    if (storeError) return storeFailed();
     return json(200, { ok: true, ignored: true });
   }
 
@@ -162,5 +253,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     results[userId] = plan.tier;
     await log(deps, { user_id: userId, event_id: eventId, event_type: eventType, outcome: `synced:${plan.tier}` });
   }
+  // 3. El plan quedó bien pero el evento no: 500 para que RevenueCat reintente
+  //    (las dos operaciones son idempotentes).
+  if (storeError) return storeFailed();
   return json(200, { ok: true, tiers: results });
 }

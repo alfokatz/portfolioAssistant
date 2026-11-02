@@ -9,9 +9,24 @@ import 'package:portfolio_assistant/infraestructure/repositories/subscription_re
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum PaywallReason {
-  /// Función de Premium fuera del plan (simulaciones, metas, límite de
-  /// posiciones, benchmark).
+  /// Función de Premium fuera del plan sin un motivo propio (benchmark,
+  /// operaciones de cartera, S&P del informe).
   modeLocked,
+
+  /// "Ver planes" sin un motivo puntual (Ajustes).
+  plans,
+
+  /// Llegó al tope de posiciones del plan.
+  positionLimit,
+
+  /// Simulaciones de aportes (`PlanFeature.investSimulation`).
+  simulations,
+
+  /// Metas con plan de aportes (`PlanFeature.goals`).
+  goals,
+
+  /// Plan de cartera (`PlanFeature.allocationPlan`).
+  allocationPlan,
 
   /// El asistente pidió datos de mercado de tickers que el usuario no tiene.
   marketDataLocked,
