@@ -1,6 +1,6 @@
 ---
 name: porty-team
-description: Playbook del equipo de agentes de desarrollo de Porty - qué especialista usar para cada tarea (architect, flutter-dev, backend-dev, assistant-dev, code/security/ui reviewers, test-runner), recetas de equipo para features, bugs y revisiones, dueños de archivos, protocolo de mensajes y handoffs. Usar al planificar trabajo que toque varias capas, al decidir si delegar o hacerlo directo, o cuando el usuario pida un equipo, agentes, subagentes o teammates.
+description: Playbook del equipo de 21 agentes de Porty (desarrollo, QA, DevOps, producto, datos, monetización, growth, marketing, ads, ASO, redes, compliance y soporte) - qué especialista usar para cada tarea, cómo se autoinvocan, recetas para features, bugs, releases, lanzamientos y estrategia, dueños de archivos y protocolo de mensajes. Usar al planificar trabajo de varias áreas, al decidir si delegar y a quién, o cuando el usuario pida un equipo, agentes o teammates.
 ---
 
 # Equipo de agentes de Porty
@@ -18,6 +18,8 @@ Delegar cuesta tokens y tiempo (un agente nuevo arranca sin tu contexto). Hacelo
 
 ## Quién es quién
 
+### Desarrollo y calidad
+
 | Agente | Modelo | Edita | Dueño de |
 |---|---|---|---|
 | `porty-architect` | opus | solo `docs/` | specs y contrato de datos |
@@ -28,12 +30,42 @@ Delegar cuesta tokens y tiempo (un agente nuevo arranca sin tu contexto). Hacelo
 | `porty-security-reviewer` | inherit | no | RLS, auth, secretos, gating, prompt injection |
 | `porty-ui-reviewer` | inherit | no | capturas vs `DESIGN.md` |
 | `porty-test-runner` | haiku | no | correr tests y resumir |
+| `porty-qa-engineer` | inherit | sí | `integration_test/`, `docs/qa/` |
+| `porty-devops-release` | inherit | sí | `.github/`, fastlane, `scripts/`, build config, versión, `docs/runbooks/release.md` |
+
+### Negocio
+
+| Agente | Modelo | Dueño de | Lanza otros agentes |
+|---|---|---|---|
+| `porty-product-owner` | opus | `docs/product/`, `docs/backlog/` | sí (máx. 2) |
+| `porty-data-analyst` | inherit | `docs/business/metrics/` | no |
+| `porty-market-researcher` | inherit | `docs/business/research/` | no |
+| `porty-monetization` | inherit | `docs/business/monetization/` | no |
+| `porty-growth-lead` | inherit | `docs/growth/` | sí (máx. 2) |
+| `porty-marketing-lead` | inherit | `docs/marketing/` (salvo subcarpetas de abajo) | sí (máx. 2) |
+| `porty-ads-specialist` | inherit | `docs/marketing/ads/` | no |
+| `porty-aso-specialist` | sonnet | `docs/marketing/aso/` | no |
+| `porty-social-media` | sonnet | `docs/marketing/social/` | no |
+| `porty-compliance` | opus | `docs/legal/` | no |
+| `porty-support` | sonnet | `docs/support/` | no |
+
+`porty-architect` también puede lanzar agentes (PO, data, compliance).
 
 **Regla de dueños:** dos agentes nunca editan el mismo archivo. Si uno necesita algo de otro, le manda un mensaje.
+
+## Autoinvocación: cómo funciona de verdad
+
+El usuario no nombra agentes. Se delega solo por tres mecanismos oficiales, en este orden de peso:
+1. **`CLAUDE.md`** (raíz) tiene la tabla de ruteo y las cadenas por defecto; se carga en cada sesión y en cada subagente.
+2. La **`description`** de cada agente ("Usar proactivamente…") es lo que Claude compara contra la tarea para elegir.
+3. Los agentes "lead" (PO, architect, growth, marketing) tienen la herramienta **Agent** y consultan especialistas por su cuenta (anidación máx. 3 niveles por defecto).
+
+Es juicio del modelo, no una garantía: si alguna vez querés forzar uno, `@"porty-x (agent)"` en el prompt lo asegura. Si un agente no se elige cuando debería, mejorá su `description` o la tabla de `CLAUDE.md`.
 
 ## Recetas
 
 **Feature de varias capas** (subagentes en secuencia + paralelo):
+0. `porty-product-owner` → brief con problema, métrica y alcance mínimo (o "no construir").
 1. `porty-architect` → spec con contrato y tareas por dueño.
 2. En paralelo: `porty-backend-dev` y `porty-flutter-dev` (y `porty-assistant-dev` si toca el chat). Flutter arranca contra fakes del contrato.
 3. En paralelo: `porty-code-reviewer` (contra la spec), `porty-security-reviewer` (si tocó supabase/auth/planes), `porty-ui-reviewer` (si hay UI visible).
@@ -45,6 +77,16 @@ Delegar cuesta tokens y tiempo (un agente nuevo arranca sin tu contexto). Hacelo
 **Revisión de un PR/diff:** los tres revisores en paralelo, cada uno con su lente; el lead sintetiza y descarta duplicados y estilo.
 
 **Cambio chico de una capa:** hacelo directo + `porty-test-runner` (o `/code-review`) al final.
+
+**Release a tiendas:** `porty-devops-release` (checklist, versión, build) ∥ `porty-qa-engineer` (humo + regresión) ∥ `porty-aso-specialist` (notas, ficha) → `porty-marketing-lead` (anuncio) → `porty-compliance` (textos públicos) → el usuario publica.
+
+**Lanzamiento / campaña de marketing** (buen caso para agent team, los canales trabajan en paralelo y se coordinan por mensaje): `porty-marketing-lead` (mensaje y plan) → en paralelo `porty-ads-specialist`, `porty-social-media`, `porty-aso-specialist` → `porty-compliance` → el usuario aprueba y ejecuta.
+
+**Crecimiento** ("tenemos pocos usuarios / no vuelven / no pagan"): `porty-data-analyst` (dónde se pierden) → `porty-growth-lead` o `porty-monetization` (experimentos) → `porty-product-owner` (prioriza) → cadena de feature.
+
+**Estrategia / "¿qué hacemos ahora?":** agent team de `porty-product-owner`, `porty-market-researcher`, `porty-data-analyst` y `porty-growth-lead` que debaten y se refutan; el PO sintetiza un roadmap en `docs/product/roadmap.md` para que lo apruebe el usuario.
+
+**Feedback de usuarios:** `porty-support` (agrupa) → `porty-product-owner` (backlog) / `porty-qa-engineer` (bugs).
 
 ## Cómo delegar bien (el prompt de delegación es TODO lo que el agente sabe)
 
