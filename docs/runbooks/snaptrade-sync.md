@@ -39,7 +39,8 @@ Contexto: SnapTrade es un agregador. Con una sola integración, Porty lee posici
 - Posiciones en `positions` con `source='snaptrade'`, `external_id = <cuenta>:<ticker>` y `broker_price`. El trigger `_etoro_rows_read_only` las deja de solo lectura para la app.
 - **Qué se importa:** acciones, ADR, ETF, fondos cerrados, fondos comunes y cripto (el ticker de cripto pasa a `BTC-USD`). No: efectivo y equivalentes (`cash`), opciones, futuros, CFD, bonos (`unsupported`), cortos (`short`) y lo que no tiene precio (`no_price`).
 - **Precio de compra:** el `cost_basis` del bróker. Si no lo informa, el precio del momento, y la app lo avisa (`estimatedCost`). La fecha de compra es la primera vez que Porty vio la posición.
-- **No se importan por acá:** eToro y Binance (`direct_connection`, se conectan directo) ni una conexión con permiso de operar (`trade_permissions`; Porty nunca la pide).
+- **eToro y Binance:** entran por SnapTrade **solo si el usuario no los tiene conectados directo** en Porty (`etoro_connections` / `binance_connections` con estado distinto de `disconnected`). Si los tiene, quedan como `direct_connection` y no se importan dos veces. Mientras la conexión directa con eToro no esté aprobada, SnapTrade es la forma de traer eToro (y cuesta US$1 por usuario). Cuando la directa esté aprobada, convendría pasar a esos usuarios a la directa y quitar eToro de SnapTrade.
+- **No se importa:** una conexión con permiso de operar (`trade_permissions`; Porty nunca la pide).
 - Firma de los pedidos: HMAC-SHA256 de `{content, path, query}` con la consumer key, igual que el SDK oficial (`snaptrade-typescript-sdk` 13.1.14). El test compara contra vectores sacados del SDK.
 
 Secrets de `snaptrade-sync`:

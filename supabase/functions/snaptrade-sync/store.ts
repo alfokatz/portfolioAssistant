@@ -2,7 +2,7 @@
 // Interfaz para que los tests usen una en memoria.
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import type { BrokerageSummary } from "./mapping.ts";
+import type { BrokerageSummary, DirectBroker } from "./mapping.ts";
 import type { SnaptradeUser } from "./snaptrade.ts";
 
 export type ConnectionStatus = "pending" | "connected" | "reconnect_required" | "disconnected";
@@ -27,6 +27,8 @@ export interface SnaptradeStore {
   effectiveTier(userId: string): Promise<string>;
   rateLimitHit(userId: string, perMinute: number): Promise<boolean>;
   getConnection(userId: string): Promise<SnaptradeConnection | null>;
+  /// eToro y Binance que el usuario tiene conectados directo en Porty.
+  directConnections(userId: string): Promise<Set<DirectBroker>>;
   /// Crea la fila, o la vuelve a `pending` si estaba desconectada o si
   /// [reset] (usuario de SnapTrade nuevo).
   upsertPending(userId: string, reset: boolean): Promise<void>;
@@ -79,6 +81,15 @@ export function supabaseStore(db: SupabaseClient): SnaptradeStore {
         lastSyncAt: data.last_sync_at as string | null,
         lastResult: data.last_result as Record<string, unknown> | null,
       };
+    },
+    async directConnections(userId) {
+      const out = new Set<DirectBroker>();
+      for (const [broker, table] of [["etoro", "etoro_connections"], ["binance", "binance_connections"]] as const) {
+        const { data, error } = await db.from(table).select("status").eq("user_id", userId).maybeSingle();
+        fail("directConnections", error);
+        if (data && data.status !== "disconnected") out.add(broker);
+      }
+      return out;
     },
     async upsertPending(userId, reset) {
       const current = await this.getConnection(userId);

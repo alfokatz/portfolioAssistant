@@ -1557,7 +1557,7 @@
   "snaptrade_broker_imported": "Imported",
   "snaptrade_broker_broken": "Connection lost",
   "snaptrade_broker_plan_limit": "Not included: Premium imports one broker",
-  "snaptrade_broker_direct": "Not imported here: connect it directly from Settings",
+  "snaptrade_broker_direct": "Already connected directly: I don't import it twice",
   "snaptrade_broker_trade": "Not imported: the connection allows trading",
   "snaptrade_reconnect_cta": "Reconnect",
   "snaptrade_remove_cta": "Remove",

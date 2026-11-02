@@ -1557,7 +1557,7 @@
   "snaptrade_broker_imported": "Importado",
   "snaptrade_broker_broken": "Se cortó la conexión",
   "snaptrade_broker_plan_limit": "No incluido: con Premium importo un bróker",
-  "snaptrade_broker_direct": "No lo importo por acá: conectalo directo desde Ajustes",
+  "snaptrade_broker_direct": "Ya lo tenés conectado directo: no lo importo dos veces",
   "snaptrade_broker_trade": "No lo importo: la conexión permite operar",
   "snaptrade_reconnect_cta": "Reconectar",
   "snaptrade_remove_cta": "Quitar",

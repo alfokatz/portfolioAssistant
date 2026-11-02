@@ -6,7 +6,13 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import type { Deps } from "../_shared/common.ts";
 import { handle } from "../snaptrade-sync/handler.ts";
-import { mapPositions, portyTicker, selectBrokerages } from "../snaptrade-sync/mapping.ts";
+import {
+  type DirectBroker,
+  directBrokerOf,
+  mapPositions,
+  portyTicker,
+  selectBrokerages,
+} from "../snaptrade-sync/mapping.ts";
 import { type Authorization, type RawPosition, signature, type SnaptradeUser } from "../snaptrade-sync/snaptrade.ts";
 import type { BrokerageSummary } from "../snaptrade-sync/mapping.ts";
 import type { PositionRow, SnaptradeConnection, SnaptradeStore } from "../snaptrade-sync/store.ts";
@@ -41,21 +47,35 @@ const auth = (over: Partial<Authorization>): Authorization => ({
   ...over,
 });
 
-Deno.test("brókers: Premium importa el más viejo; eToro/Binance van directo; trade no", () => {
+Deno.test("brókers: Premium importa el más viejo; eToro conectado directo no se duplica; trade no", () => {
   const auths = [
     auth({ id: "auth-schwab", name: "Schwab", slug: "SCHWAB", createdAt: "2026-10-05T00:00:00Z" }),
     auth({ id: "auth-ibkr", createdAt: "2026-10-01T00:00:00Z" }),
     auth({ id: "auth-etoro", name: "eToro", slug: "ETORO", createdAt: "2026-09-01T00:00:00Z" }),
     auth({ id: "auth-trade", name: "Webull", slug: "WEBULL", type: "trade", createdAt: "2026-09-02T00:00:00Z" }),
   ];
-  const premium = selectBrokerages(auths, 1);
+  // Ya tiene eToro conectado directo en Porty: por SnapTrade no entra.
+  const premium = selectBrokerages(auths, 1, new Set(["etoro"]));
   assertEquals(premium.map((b) => [b.id, b.imported, b.reason]), [
     ["auth-etoro", false, "direct_connection"],
     ["auth-trade", false, "trade_permissions"],
     ["auth-ibkr", true, undefined],
     ["auth-schwab", false, "plan_limit"],
   ]);
-  assertEquals(selectBrokerages(auths, null).filter((b) => b.imported).map((b) => b.id), ["auth-ibkr", "auth-schwab"]);
+  assertEquals(selectBrokerages(auths, null, new Set(["etoro"])).filter((b) => b.imported).map((b) => b.id), [
+    "auth-ibkr",
+    "auth-schwab",
+  ]);
+  // Sin la directa, eToro entra por SnapTrade como cualquier bróker (y
+  // ocupa el lugar de Premium: es el más viejo).
+  assertEquals(selectBrokerages(auths, 1).map((b) => [b.id, b.imported, b.reason]), [
+    ["auth-etoro", true, undefined],
+    ["auth-trade", false, "trade_permissions"],
+    ["auth-ibkr", false, "plan_limit"],
+    ["auth-schwab", false, "plan_limit"],
+  ]);
+  assertEquals(directBrokerOf({ slug: "BINANCE-US", name: "Binance US" }), "binance");
+  assertEquals(directBrokerOf({ slug: "SCHWAB", name: "Schwab" }), null);
 });
 
 const raw = (over: Partial<RawPosition>): RawPosition => ({
@@ -109,6 +129,7 @@ class MemoryStore implements SnaptradeStore {
   errors: string[] = [];
   disconnected: boolean | null = null;
   refreshesLeft = 2;
+  direct = new Set<DirectBroker>();
 
   effectiveTier() {
     return Promise.resolve(this.tier);
@@ -118,6 +139,9 @@ class MemoryStore implements SnaptradeStore {
   }
   getConnection() {
     return Promise.resolve(this.connection);
+  }
+  directConnections() {
+    return Promise.resolve(this.direct);
   }
   upsertPending(_u: string, reset: boolean) {
     if (!this.connection || this.connection.status === "disconnected" || reset) {
@@ -386,6 +410,45 @@ Deno.test("sincronizar Premium: solo el primer bróker, lotes sumados, costo est
   // La cuenta de Schwab ni se consulta.
   assert(!calls.some((c) => c.path === "/accounts/acc-schwab/positions/all"));
   assertEquals(store.connection?.status, "connected");
+});
+
+Deno.test("sincronizar: eToro por SnapTrade entra si no está conectado directo; si lo está, no", async () => {
+  const etoroOnly = [{
+    id: "auth-etoro",
+    type: "read",
+    created_date: "2026-11-01T00:00:00Z",
+    brokerage: { slug: "ETORO", display_name: "eToro" },
+  }];
+  const accounts = (fetchImpl: typeof fetch) =>
+    ((input: string, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/accounts") {
+        return Promise.resolve(
+          Response.json([{ id: "acc-etoro", brokerage_authorization: "auth-etoro", institution_name: "eToro" }]),
+        );
+      }
+      if (path === "/accounts/acc-etoro/positions/all") {
+        return Promise.resolve(Response.json({
+          results: [{ instrument: { kind: "stock", symbol: "NVDA" }, units: "3", price: "180", cost_basis: "120" }],
+        }));
+      }
+      return fetchImpl(input, init);
+    }) as typeof fetch;
+
+  const store = new MemoryStore();
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  const { fetchImpl } = fakeSnaptrade({ authorizations: etoroOnly });
+  await run(post("/sync"), store, accounts(fetchImpl));
+  assertEquals(store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price]), [["acc-etoro:NVDA", 3, 120]]);
+
+  const both = new MemoryStore();
+  both.user = store.user;
+  both.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  both.direct = new Set(["etoro"]);
+  await run(post("/sync"), both, accounts(fetchImpl));
+  assertEquals(both.applied, []);
+  assertEquals(both.brokerages?.[0].reason, "direct_connection");
 });
 
 Deno.test("sincronizar Gold: todos los brókers", async () => {

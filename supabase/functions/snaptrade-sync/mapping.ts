@@ -12,9 +12,16 @@ export const planConfig: Record<string, { maxBrokerages: number | null; manualRe
   gold: { maxBrokerages: null, manualRefresh: true },
 };
 
-/// Brókers que Porty conecta directo (sin costo por usuario): por SnapTrade
-/// no se importan, para no duplicar ni pagar dos veces.
-const directBrokers = /etoro|binance/i;
+/// Brókers que Porty también conecta directo (sin costo por usuario).
+export type DirectBroker = "etoro" | "binance";
+
+/// Cuál de los directos es [a], o null.
+export function directBrokerOf(a: { slug: string; name: string }): DirectBroker | null {
+  const id = `${a.slug} ${a.name}`;
+  if (/etoro/i.test(id)) return "etoro";
+  if (/binance/i.test(id)) return "binance";
+  return null;
+}
 
 export type BrokerageSummary = {
   id: string;
@@ -25,14 +32,19 @@ export type BrokerageSummary = {
   url: string | null;
   /// false: conectado en SnapTrade pero Porty no lo importa.
   imported: boolean;
-  /// Por qué no se importa: `plan_limit`, `direct_connection` o
-  /// `trade_permissions`.
+  /// Por qué no se importa: `plan_limit`, `direct_connection` (ya lo tiene
+  /// conectado directo en Porty) o `trade_permissions`.
   reason?: string;
 };
 
-/// Qué conexiones se importan. Las de solo lectura, sin los brókers que
-/// Porty conecta directo y, si el plan tiene tope, las más viejas.
-export function selectBrokerages(auths: Authorization[], maxBrokerages: number | null): BrokerageSummary[] {
+/// Qué conexiones se importan. Las de solo lectura y, si el plan tiene
+/// tope, las más viejas. eToro y Binance entran por acá solo si el usuario
+/// NO los tiene conectados directo ([direct]): así no se duplican.
+export function selectBrokerages(
+  auths: Authorization[],
+  maxBrokerages: number | null,
+  direct: ReadonlySet<DirectBroker> = new Set(),
+): BrokerageSummary[] {
   const sorted = [...auths].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   let used = 0;
   return sorted.map((a) => {
@@ -40,7 +52,8 @@ export function selectBrokerages(auths: Authorization[], maxBrokerages: number |
     // Porty solo pide `read`; si apareciera una con permiso de operar, no
     // se usa.
     if (a.type !== "read") return { ...base, imported: false, reason: "trade_permissions" };
-    if (directBrokers.test(a.slug) || directBrokers.test(a.name)) {
+    const directBroker = directBrokerOf(a);
+    if (directBroker && direct.has(directBroker)) {
       return { ...base, imported: false, reason: "direct_connection" };
     }
     if (maxBrokerages !== null && used >= maxBrokerages) return { ...base, imported: false, reason: "plan_limit" };
@@ -51,8 +64,8 @@ export function selectBrokerages(auths: Authorization[], maxBrokerages: number |
 
 /// Cuántas conexiones cuentan para el tope del plan (las que se importan o
 /// se importarían).
-export function countedBrokerages(auths: Authorization[]): number {
-  return selectBrokerages(auths, null).filter((b) => b.imported).length;
+export function countedBrokerages(auths: Authorization[], direct: ReadonlySet<DirectBroker>): number {
+  return selectBrokerages(auths, null, direct).filter((b) => b.imported).length;
 }
 
 const importableKinds = new Set(["stock", "adr", "etf", "cef", "mutualfund", "crypto"]);

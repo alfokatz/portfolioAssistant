@@ -136,7 +136,10 @@ async function connect(ctx: Ctx, body: Record<string, unknown>, newId: () => str
     await store.saveUser(userId, user);
   }
   const max = planConfig[ctx.tier].maxBrokerages;
-  if (!fresh && !reconnect && max !== null && countedBrokerages(await client.authorizations(user!)) >= max) {
+  if (
+    !fresh && !reconnect && max !== null &&
+    countedBrokerages(await client.authorizations(user!), await store.directConnections(userId)) >= max
+  ) {
     log({ op: "connect", outcome: "connection_limit" });
     return typedError(409, "snaptrade_connection_limit", "The plan allows one brokerage");
   }
@@ -176,7 +179,11 @@ async function refresh(ctx: Ctx) {
   }
   const user = await store.readUser(userId);
   if (!user) return typedError(409, "snaptrade_not_connected", "Not connected");
-  const targets = selectBrokerages(await client.authorizations(user), planConfig[ctx.tier].maxBrokerages)
+  const targets = selectBrokerages(
+    await client.authorizations(user),
+    planConfig[ctx.tier].maxBrokerages,
+    await store.directConnections(userId),
+  )
     .filter((b) => b.imported && !b.disabled);
   if (targets.length === 0) return json(200, { queued: 0 });
   const perDay = Number(deps.env("SNAPTRADE_REFRESH_PER_DAY")) || handlerConfig.defaultRefreshPerDay;

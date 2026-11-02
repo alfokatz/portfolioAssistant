@@ -60,7 +60,8 @@ export async function runSync(opts: {
       await store.markError(userId, "snaptrade_reconnect_required", true);
       return { ok: false, error: "snaptrade_reconnect_required" };
     }
-    const brokerages = selectBrokerages(await client.authorizations(user), opts.maxBrokerages);
+    const [auths, direct] = await Promise.all([client.authorizations(user), store.directConnections(userId)]);
+    const brokerages = selectBrokerages(auths, opts.maxBrokerages, direct);
     const { positions, result } = await snapshot(client, user, brokerages, now, opts.newId);
     await store.applySync(userId, positions, brokerages, result);
     return { ok: true, result, throttled: false };
