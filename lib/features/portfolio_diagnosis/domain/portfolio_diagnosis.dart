@@ -468,6 +468,8 @@ abstract final class PortfolioDiagnosisBuilder {
     DateTime? first;
     for (final lot in inputs.lots) {
       final p = lot.position;
+      // Sin fecha de compra no hay contra qué comparar con el S&P 500.
+      if (!p.purchaseDateKnown) continue;
       final lotCost = p.purchasePrice * p.quantity;
       if (lotCost <= 0) continue;
       cost += lotCost;

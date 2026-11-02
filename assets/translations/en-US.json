@@ -1619,5 +1619,6 @@
   "connect_broker_card_manage": "View or connect another",
   "settings_section_bring_portfolio": "Bring in your portfolio",
   "onboarding_bring_broker_title": "Connect your broker",
-  "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers and more. Updates on its own. Read-only."
+  "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers and more. Updates on its own. Read-only.",
+  "position_detail_date_unknown": "Purchase date unknown"
 }

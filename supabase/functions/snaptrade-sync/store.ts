@@ -20,6 +20,9 @@ export type PositionRow = {
   quantity: number;
   purchase_price: number;
   purchase_date: string;
+  /// false: el bróker no informó cuándo se compró (la fecha es la de la
+  /// sincronización). La app muestra "Fecha de compra desconocida".
+  purchase_date_known: boolean;
   broker_price: number;
 };
 

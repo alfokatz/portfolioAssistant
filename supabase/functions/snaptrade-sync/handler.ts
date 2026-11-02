@@ -161,6 +161,7 @@ async function sync(ctx: Ctx, force: boolean) {
     now: ctx.deps.now,
     maxBrokerages: planConfig[ctx.tier].maxBrokerages,
     force,
+    requestTransactions: force,
   });
   log({ op: "sync", outcome: outcome.ok ? (outcome.throttled ? "throttled" : "ok") : outcome.error });
   if (outcome.ok) return json(200, { result: outcome.result, throttled: outcome.throttled });

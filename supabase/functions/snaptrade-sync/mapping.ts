@@ -1,7 +1,7 @@
 // De lo que devuelve SnapTrade a lo que guarda Porty: qué brókers se
 // importan según el plan, y qué posiciones entran.
 
-import type { Authorization, RawPosition } from "./snaptrade.ts";
+import type { Authorization, RawPosition, RawTaxLot } from "./snaptrade.ts";
 
 /// Qué incluye cada plan pago. Free no conecta (el handler lo corta antes).
 /// - Premium: un bróker, datos del día.
@@ -76,6 +76,8 @@ export type Holding = {
   /// Precio de compra por unidad; null si el bróker no lo informó.
   cost: number | null;
   price: number;
+  /// Las compras abiertas con fecha que dio el bróker (tax lots), si las dio.
+  taxLots: RawTaxLot[];
 };
 
 export type Skipped = { ticker: string; reason: string };
@@ -125,7 +127,7 @@ export function mapPositions(positions: RawPosition[]): { holdings: Holding[]; s
       skipped.push({ ticker, reason: "no_price" });
       continue;
     }
-    holdings.push({ ticker, quantity: p.units, cost, price });
+    holdings.push({ ticker, quantity: p.units, cost, price, taxLots: p.taxLots });
   }
   return { holdings, skipped };
 }

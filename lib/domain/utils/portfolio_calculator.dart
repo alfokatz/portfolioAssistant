@@ -86,6 +86,8 @@ class PortfolioCalculator {
           purchaseDate: earliestPurchase,
           source: source,
           syncedAt: syncedAt,
+          // Con alguna compra sin fecha, la primera compra tampoco se sabe.
+          purchaseDateKnown: group.every((v) => v.position.purchaseDateKnown),
         ),
         currentPrice: group.first.currentPrice,
         marketValue: totalMarketValue,

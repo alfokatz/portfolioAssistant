@@ -3,7 +3,7 @@
 
 import { lotsFor, type Trade } from "./lots.ts";
 import { activityTicker, type BrokerageSummary, type Holding, mapPositions, selectBrokerages } from "./mapping.ts";
-import { type SnaptradeClient, SnaptradeError } from "./snaptrade.ts";
+import { type RawTaxLot, type SnaptradeClient, SnaptradeError } from "./snaptrade.ts";
 import type { ClosedRow, PositionRow, SnaptradeStore } from "./store.ts";
 
 export const syncConfig = {
@@ -41,6 +41,10 @@ export async function runSync(opts: {
   now: () => number;
   maxBrokerages: number | null;
   force?: boolean;
+  /// Pedirle a SnapTrade que sincronice ya las operaciones (al volver del
+  /// portal: recién conectado, el historial puede venir vacío hasta la
+  /// sincronización diaria). Lo nuevo entra en una sincronización posterior.
+  requestTransactions?: boolean;
   newId?: () => string;
 }): Promise<SyncOutcome> {
   const { userId, store, client, now } = opts;
@@ -74,6 +78,12 @@ export async function runSync(opts: {
       await store.disconnect(userId, false);
       const syncedAt = new Date(now()).toISOString();
       return { ok: true, result: { imported: 0, notImported: [], estimatedCost: [], syncedAt }, throttled: false };
+    }
+    if (opts.requestTransactions) {
+      for (const b of brokerages.filter((b) => b.imported && !b.disabled)) {
+        // Si falla no importa: igual llega con la sincronización diaria.
+        await client.syncTransactions(user, b.id).catch(() => {});
+      }
     }
     const { positions, closed, result } = await snapshot(client, user, brokerages, now, opts.newId);
     await store.applySync(userId, positions, closed, brokerages, result);
@@ -144,7 +154,10 @@ export async function snapshot(
       for (const [ticker, h] of held) {
         tickers.add(ticker);
         if (h.cost === null) estimated.add(ticker);
-        const { lots } = lotsFor(byTicker.get(ticker) ?? [], h.quantity, h.cost, h.price, nowIso);
+        // Las compras abiertas: primero las que da el bróker con fecha (tax
+        // lots); si no, las que salen del historial de operaciones.
+        const source = h.taxLots.length > 0 ? taxLotTrades(h.taxLots, ticker) : byTicker.get(ticker) ?? [];
+        const { lots } = lotsFor(source, h.quantity, h.cost, h.price, nowIso);
         for (const lot of lots) {
           positions.push({
             id: newId(),
@@ -153,6 +166,7 @@ export async function snapshot(
             quantity: round(lot.units, 8),
             purchase_price: round(lot.price, 8),
             purchase_date: new Date(lot.date).toISOString(),
+            purchase_date_known: !lot.estimated,
             broker_price: round(h.price, 8),
           });
         }
@@ -226,7 +240,21 @@ function log(fields: Record<string, unknown>) {
 function merge(a: Holding, b: Holding): Holding {
   const quantity = a.quantity + b.quantity;
   const cost = a.cost !== null && b.cost !== null ? (a.cost * a.quantity + b.cost * b.quantity) / quantity : null;
-  return { ticker: a.ticker, quantity, cost, price: b.price };
+  return { ticker: a.ticker, quantity, cost, price: b.price, taxLots: [...a.taxLots, ...b.taxLots] };
+}
+
+/// Los tax lots como compras: ya son lo que sigue abierto, así que
+/// [lotsFor] solo completa o recorta contra lo que el bróker dice que hay.
+function taxLotTrades(lots: RawTaxLot[], ticker: string): Trade[] {
+  return lots.map((l) => ({
+    id: `lot-${l.id}`,
+    type: "BUY",
+    ticker,
+    units: l.units,
+    price: l.price,
+    fee: 0,
+    date: l.date,
+  }));
 }
 
 function round(v: number, decimals: number): number {

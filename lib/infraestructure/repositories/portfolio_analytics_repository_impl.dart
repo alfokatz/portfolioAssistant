@@ -109,9 +109,7 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
         (positions) async {
           if (positions.isEmpty) return const Right([]);
 
-          final startDate = positions
-              .map((p) => p.purchaseDate)
-              .reduce((a, b) => a.isBefore(b) ? a : b);
+          final startDate = _seriesStart(positions);
 
           final portfolioHistory = await _buildPortfolioSeries(positions);
           final spResult = await quoteRepository.getHistoricalDaily(_sp500Ticker);
@@ -204,9 +202,7 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
       );
     }
 
-    final startDate = positions
-        .map((p) => p.purchaseDate)
-        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final startDate = _seriesStart(positions);
 
     final allDates = <DateTime>{};
     for (final candles in histories.values) {
@@ -224,7 +220,11 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
       double total = 0;
       double costBasis = 0;
       for (final position in positions) {
-        if (position.purchaseDate.isAfter(date)) continue;
+        // Sin fecha de compra conocida: cuenta como que ya estaba (no como
+        // una compra del día de la importación).
+        if (position.purchaseDateKnown && position.purchaseDate.isAfter(date)) {
+          continue;
+        }
         final candles = histories[position.ticker] ?? [];
         final price = _closeOnOrBefore(candles, date) ?? position.purchasePrice;
         total += position.quantity * price;
@@ -241,6 +241,21 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
       }
     }
     return points;
+  }
+
+  /// Desde cuándo se grafica: la primera compra con fecha. Si hay compras
+  /// sin fecha (un bróker que no la informa), como mínimo el último año: se
+  /// ve cómo se movió lo que tiene en vez de una línea que arranca hoy.
+  static DateTime _seriesStart(List<Position> positions) {
+    final known = [
+      for (final p in positions)
+        if (p.purchaseDateKnown) p.purchaseDate,
+    ];
+    final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+    if (known.isEmpty) return yearAgo;
+    final earliest = known.reduce((a, b) => a.isBefore(b) ? a : b);
+    final anyUnknown = positions.any((p) => !p.purchaseDateKnown);
+    return anyUnknown && yearAgo.isBefore(earliest) ? yearAgo : earliest;
   }
 
   double? _closeOnOrBefore(List<PriceCandle> candles, DateTime date) {

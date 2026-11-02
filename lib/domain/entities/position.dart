@@ -74,6 +74,11 @@ class Position {
   /// compra y el P&L daba 0). `null` en las manuales.
   final double? brokerPrice;
 
+  /// false: el bróker no informó cuándo se compró ([purchaseDate] es la
+  /// fecha de la importación). Se muestra "Fecha de compra desconocida" y,
+  /// en el gráfico, cuenta como que ya estaba al empezar el período.
+  final bool purchaseDateKnown;
+
   const Position({
     required this.id,
     required this.ticker,
@@ -83,6 +88,7 @@ class Position {
     this.source = PositionSource.manual,
     this.syncedAt,
     this.brokerPrice,
+    this.purchaseDateKnown = true,
   });
 
   double get costBasis => quantity * purchasePrice;
@@ -99,6 +105,7 @@ class Position {
     PositionSource? source,
     DateTime? syncedAt,
     double? brokerPrice,
+    bool? purchaseDateKnown,
   }) {
     return Position(
       id: id ?? this.id,
@@ -109,6 +116,7 @@ class Position {
       source: source ?? this.source,
       syncedAt: syncedAt ?? this.syncedAt,
       brokerPrice: brokerPrice ?? this.brokerPrice,
+      purchaseDateKnown: purchaseDateKnown ?? this.purchaseDateKnown,
     );
   }
 }

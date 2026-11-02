@@ -1,5 +1,5 @@
 -- Test de las migraciones 20261031000000_snaptrade_sync.sql y
--- 20261102000000_snaptrade_lots.sql.
+-- 20261102000000_snaptrade_lots.sql y 20261102000100_positions_purchase_date_known.sql.
 --
 -- Corre contra una base con las migraciones aplicadas (supabase start, o un
 -- Postgres con los stubs de auth/vault/roles). Cada chequeo que falla corta
@@ -101,6 +101,18 @@ begin
   if (select purchase_date from public.positions where external_id = 'acc:AAPL') <> '2026-10-31T00:00:00Z'::timestamptz then
     raise exception 'purchase_date not updated';
   end if;
+
+  -- La fecha de compra desconocida se guarda y se actualiza.
+  perform public.snaptrade_apply_sync('00000000-0000-0000-0000-0000000000f1',
+    '[{"id":"20000000-0000-0000-0000-000000000099","external_id":"acc:AAPL","ticker":"AAPL","quantity":12,"purchase_price":135,"purchase_date":"2026-11-02T00:00:00Z","purchase_date_known":false,"broker_price":210},
+      {"id":"20000000-0000-0000-0000-000000000077","external_id":"acc:MSFT","ticker":"MSFT","quantity":1,"purchase_price":300,"purchase_date":"2025-01-02T00:00:00Z","broker_price":400}]',
+    '[]',
+    '[{"id":"auth-1","name":"Interactive Brokers","slug":"IBKR","disabled":false,"imported":true}]',
+    '{"imported":2}');
+  if (select purchase_date_known from public.positions where external_id = 'acc:AAPL') then raise exception 'AAPL date should be unknown'; end if;
+  -- Sin el campo: se asume conocida (filas de antes y de otros orígenes).
+  if not (select purchase_date_known from public.positions where external_id = 'acc:MSFT') then raise exception 'MSFT default'; end if;
+  if not (select purchase_date_known from public.positions where source = 'manual' limit 1) then raise exception 'manual default'; end if;
 
   -- Sin brókers vuelve a pending.
   perform public.snaptrade_apply_sync('00000000-0000-0000-0000-0000000000f1',

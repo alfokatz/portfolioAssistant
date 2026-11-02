@@ -1619,5 +1619,6 @@
   "connect_broker_card_manage": "Ver o conectar otro",
   "settings_section_bring_portfolio": "Cargar tu cartera",
   "onboarding_bring_broker_title": "Conectá tu bróker",
-  "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers y más. Se actualiza sola. Solo lectura."
+  "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers y más. Se actualiza sola. Solo lectura.",
+  "position_detail_date_unknown": "Fecha de compra desconocida"
 }

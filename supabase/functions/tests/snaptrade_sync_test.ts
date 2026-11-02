@@ -139,6 +139,7 @@ const raw = (over: Partial<RawPosition>): RawPosition => ({
   costBasis: 150,
   currency: "USD",
   cashEquivalent: false,
+  taxLots: [],
   ...over,
 });
 
@@ -155,9 +156,9 @@ Deno.test("posiciones: acciones, ETF y cripto entran; efectivo, opciones y corto
     raw({ symbol: "NOPE", price: null, costBasis: null }),
   ]);
   assertEquals(holdings, [
-    { ticker: "AAPL", quantity: 10, cost: 150, price: 200 },
-    { ticker: "VAB.TO", quantity: 10, cost: null, price: 25 },
-    { ticker: "BTC-USD", quantity: 0.5, cost: 40000, price: 60000 },
+    { ticker: "AAPL", quantity: 10, cost: 150, price: 200, taxLots: [] },
+    { ticker: "VAB.TO", quantity: 10, cost: null, price: 25, taxLots: [] },
+    { ticker: "BTC-USD", quantity: 0.5, cost: 40000, price: 60000, taxLots: [] },
   ]);
   assertEquals(skipped, [
     { ticker: "SPAXX", reason: "cash" },
@@ -343,7 +344,9 @@ function fakeSnaptrade(opts: {
           results: [{ instrument: { kind: "stock", symbol: "MSFT" }, units: "1", price: "400", cost_basis: "300" }],
         });
       default:
-        if (url.pathname.endsWith("/refresh")) return Response.json({ detail: "queued" });
+        if (url.pathname.endsWith("/refresh") || url.pathname.endsWith("/transactions/sync")) {
+          return Response.json({ detail: "queued" });
+        }
         if (url.pathname.startsWith("/authorizations/")) return Response.json({ detail: "deleted" });
         return new Response("not found", { status: 404 });
     }
@@ -615,6 +618,80 @@ Deno.test("sincronizar: con el historial, una fila por compra mensual y las vent
       ["acc:sell-0", 1, 400, 500, 100],
     ],
   );
+});
+
+Deno.test("sincronizar: los tax lots del bróker dan cada compra con su fecha", async () => {
+  const ibkr = [{
+    id: "auth-ibkr",
+    type: "read",
+    created_date: "2026-10-01T00:00:00Z",
+    brokerage: { slug: "IBKR", display_name: "Interactive Brokers" },
+  }];
+  const base = fakeSnaptrade({ authorizations: ibkr });
+  const fetchImpl = ((input: string, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/accounts") {
+      return Promise.resolve(
+        Response.json([{ id: "acc", brokerage_authorization: "auth-ibkr", institution_name: "IBKR" }]),
+      );
+    }
+    if (url.pathname === "/accounts/acc/positions/all") {
+      return Promise.resolve(Response.json({
+        results: [{
+          instrument: { kind: "etf", symbol: "VOO" },
+          units: "3",
+          price: "600",
+          cost_basis: "450",
+          tax_lots: [
+            { lot_id: "L1", quantity: "1", purchased_price: "400", original_purchase_date: "2024-02-05T00:00:00Z" },
+            { lot_id: "L2", quantity: "2", purchased_price: "475", original_purchase_date: "2025-06-02T00:00:00Z" },
+            // Un lote a medias (sin fecha) no se usa.
+            { lot_id: "L3", quantity: "1", purchased_price: "500" },
+          ],
+        }],
+      }));
+    }
+    if (url.pathname === "/accounts/acc/activities") return Promise.resolve(Response.json({ data: [] }));
+    return base.fetchImpl(input, init);
+  }) as typeof fetch;
+  const store = new MemoryStore();
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  await run(post("/sync"), store, fetchImpl);
+  assertEquals(
+    store.applied?.map((p) => [p.external_id, p.quantity, p.purchase_price, p.purchase_date, p.purchase_date_known]),
+    [
+      ["acc:VOO:lot-L1", 1, 400, "2024-02-05T00:00:00.000Z", true],
+      ["acc:VOO:lot-L2", 2, 475, "2025-06-02T00:00:00.000Z", true],
+    ],
+  );
+});
+
+Deno.test("sincronizar: sin historial, la compra queda con fecha desconocida", async () => {
+  const store = new MemoryStore();
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  const { fetchImpl } = fakeSnaptrade();
+  await run(post("/sync"), store, fetchImpl);
+  assert(store.applied!.length > 0);
+  assert(store.applied!.every((p) => p.purchase_date_known === false));
+});
+
+Deno.test("al volver del portal pide sincronizar las operaciones; en una normal, no", async () => {
+  const store = new MemoryStore();
+  store.user = { userId: "st-1", userSecret: "s" };
+  store.connection = { status: "pending", lastSyncAt: null, lastResult: null };
+  const forced = fakeSnaptrade();
+  await run(post("/sync", { force: true }), store, forced.fetchImpl);
+  // Premium: solo el bróker que importa.
+  assertEquals(
+    forced.calls.filter((c) => c.path.endsWith("/transactions/sync")).map((c) => [c.method, c.path]),
+    [["POST", "/authorizations/auth-ibkr/transactions/sync"]],
+  );
+  const normal = fakeSnaptrade();
+  store.connection = { status: "connected", lastSyncAt: null, lastResult: null };
+  await run(post("/sync"), store, normal.fetchImpl);
+  assert(!normal.calls.some((c) => c.path.endsWith("/transactions/sync")));
 });
 
 Deno.test("sincronizar Gold: todos los brókers", async () => {

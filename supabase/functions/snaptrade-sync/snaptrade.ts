@@ -62,7 +62,13 @@ export type RawPosition = {
   costBasis: number | null;
   currency: string | null;
   cashEquivalent: boolean;
+  /// Las compras abiertas de la posición, con su fecha (complemento "tax
+  /// lots" del panel de SnapTrade; vacío si está apagado o el bróker no
+  /// las da).
+  taxLots: RawTaxLot[];
 };
+
+export type RawTaxLot = { id: string; units: number; price: number; date: string };
 
 /// Una compra o venta de `/accounts/{id}/activities`.
 export type RawActivity = {
@@ -109,6 +115,23 @@ const num = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+/// Los tax lots de una posición. Solo los que tienen cantidad, precio y
+/// fecha: uno a medias no se usa.
+function taxLotsOf(value: unknown): RawTaxLot[] {
+  if (!Array.isArray(value)) return [];
+  return (value as Record<string, unknown>[]).flatMap((l, i) => {
+    const units = num(l.quantity);
+    const date = typeof l.original_purchase_date === "string" ? l.original_purchase_date : null;
+    const cost = num(l.cost_basis);
+    const price = num(l.purchased_price) ?? (cost !== null && units ? cost / units : null);
+    if (units === null || units <= 0 || price === null || price <= 0 || !date || Number.isNaN(Date.parse(date))) {
+      return [];
+    }
+    const id = typeof l.lot_id === "string" && l.lot_id ? l.lot_id : `lot${i}`;
+    return [{ id, units, price, date }];
+  });
+}
 
 export class SnaptradeClient {
   constructor(
@@ -226,8 +249,19 @@ export class SnaptradeClient {
         costBasis: num(p.cost_basis),
         currency: typeof p.currency === "string" ? p.currency : null,
         cashEquivalent: p.cash_equivalent === true,
+        taxLots: taxLotsOf(p.tax_lots),
       }];
     });
+  }
+
+  /// Pide a SnapTrade que sincronice ya las operaciones de una conexión
+  /// (asíncrono: aparecen en una sincronización posterior). Sin costo extra.
+  async syncTransactions(user: SnaptradeUser, authorizationId: string): Promise<void> {
+    await this.request(
+      "POST",
+      `/authorizations/${encodeURIComponent(authorizationId)}/transactions/sync`,
+      this.userQuery(user),
+    );
   }
 
   /// Compras, ventas y reinversiones de una cuenta, de todo el historial

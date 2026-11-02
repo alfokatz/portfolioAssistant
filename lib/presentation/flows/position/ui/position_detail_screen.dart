@@ -669,7 +669,9 @@ class _PurchaseRow extends StatelessWidget {
                     child: SkeletonText(
                       lot == null
                           ? null
-                          : DateFormat.yMMMd().format(lot.position.purchaseDate),
+                          : lot.position.purchaseDateKnown
+                          ? DateFormat.yMMMd().format(lot.position.purchaseDate)
+                          : 'position_detail_date_unknown'.tr(),
                       placeholder: '30 sept 2026',
                       style: tt.titleSmall?.copyWith(
                         color: colors.textPrimary,
