@@ -210,7 +210,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved.single.label, 'Auto usado');
     expect(saved.single.targetAmount, 18000);
-    expect(saved.single.snapshot.inputs.months, 60);
+    // "En 5 años" cuenta desde hoy; los meses del plan, desde su inicio
+    // (fijo en el ejemplo): 60 solo si se corre el mismo mes del ejemplo.
+    final start = saved.single.snapshot.inputs.startDate;
+    final now = DateTime.now();
+    expect(
+      saved.single.snapshot.inputs.months,
+      (now.year + 5 - start.year) * 12 + (now.month - start.month),
+    );
   });
 
   testWidgets('undoing goes back to Porty\'s plan', (tester) async {
