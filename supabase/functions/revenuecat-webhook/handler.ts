@@ -181,6 +181,20 @@ async function storeEvent(deps: Deps, row: Record<string, unknown>): Promise<str
   }
 }
 
+/// true / false según exista en auth.users; null si no se pudo saber (en ese
+/// caso no se llama a RevenueCat: falla cerrado y RevenueCat reintenta).
+async function userExists(deps: Deps, userId: string): Promise<boolean | null> {
+  try {
+    const { data, error } = await deps.db.auth.admin.getUserById(userId);
+    if (data?.user) return true;
+    if (!error) return false;
+    const code = (error as { code?: string }).code;
+    return error.status === 404 || code === "user_not_found" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
 async function log(
   deps: Deps,
   row: { user_id?: string; event_id?: string; event_type?: string; outcome: string; detail?: string },
@@ -231,6 +245,18 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
 
   const results: Record<string, string> = {};
   for (const userId of userIds) {
+    // Antes de leer RevenueCat: GET /subscribers/{id} CREA el cliente si no
+    // existe, así que para una cuenta borrada rehacería lo que borró
+    // delete-account. El log va sin user_id para no volver a vincular el uuid.
+    const exists = await userExists(deps, userId);
+    if (exists === null) {
+      await log(deps, { event_id: eventId, event_type: eventType, outcome: "auth_unavailable" });
+      return typedError(503, "auth_unavailable", "Could not check the app user");
+    }
+    if (!exists) {
+      await log(deps, { event_id: eventId, event_type: eventType, outcome: "user_deleted" });
+      continue;
+    }
     const subscriber = await fetchSubscriber(deps, userId);
     if (!subscriber) {
       await log(deps, { user_id: userId, event_id: eventId, event_type: eventType, outcome: "revenuecat_unavailable" });
@@ -248,8 +274,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     });
     if (error?.code === "23503") {
       // Cuenta borrada (ya no está en auth.users): no hay plan que guardar.
-      // Un 5xx haría que RevenueCat reintente para siempre.
-      await log(deps, { user_id: userId, event_id: eventId, event_type: eventType, outcome: "user_deleted" });
+      // Un 5xx haría que RevenueCat reintente para siempre. Pasa si la cuenta
+      // se borró entre el chequeo de arriba y el upsert.
+      await log(deps, { event_id: eventId, event_type: eventType, outcome: "user_deleted" });
       continue;
     }
     if (error) {

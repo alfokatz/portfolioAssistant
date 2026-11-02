@@ -33,6 +33,9 @@ void main() {
 
     test('isValid enforces the format', () {
       expect(PaywallSource.isValid('settings'), isTrue);
+      // Fallback del chat si un motivo llega sin source.
+      expect(PaywallSource.isValid('chat_unattributed'), isTrue);
+      expect(PaywallSource.isValid('chip_company_analysis'), isTrue);
       expect(PaywallSource.isValid('chip_companyAnalysis'), isFalse);
       expect(PaywallSource.isValid('answer_locked_news+earnings'), isFalse);
       expect(PaywallSource.isValid('ab'), isFalse);

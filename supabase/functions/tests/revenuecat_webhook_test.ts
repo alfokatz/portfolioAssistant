@@ -159,13 +159,27 @@ function post(event: Record<string, unknown>): Request {
 type Call = { table?: string; op: string; row?: Record<string, unknown>; options?: unknown };
 
 /// Base falsa mínima: guarda cada operación. [storeError] hace fallar el
-/// upsert de subscription_events; [rpcError], la RPC del plan.
+/// upsert de subscription_events; [rpcError], la RPC del plan. [auth]: qué
+/// responde auth.admin.getUserById (por defecto, el usuario existe).
 function fakeDb(
   storeError: { message: string; code?: string }[] = [],
   rpcError: { message: string; code?: string } | null = null,
+  auth: "exists" | "deleted" | "down" = "exists",
 ) {
   const calls: Call[] = [];
   const client = {
+    auth: {
+      admin: {
+        getUserById: (id: string) => {
+          calls.push({ op: "auth:getUserById", row: { id } });
+          if (auth === "exists") return Promise.resolve({ data: { user: { id } }, error: null });
+          if (auth === "deleted") {
+            return Promise.resolve({ data: { user: null }, error: { status: 404, code: "user_not_found", message: "User not found" } });
+          }
+          return Promise.resolve({ data: { user: null }, error: { status: 500, message: "upstream" } });
+        },
+      },
+    },
     from: (table: string) => ({
       insert: (row: Record<string, unknown>) => {
         calls.push({ table, op: "insert", row });
@@ -264,7 +278,9 @@ Deno.test("[sin base] guarda el evento antes de recalcular, idempotente por even
   assertEquals(fake.calls[0].op, "upsert");
   assertEquals(fake.calls[0].options, { onConflict: "event_id", ignoreDuplicates: true });
   assertEquals(fake.calls[0].row?.user_id, userId);
-  assertEquals(fake.calls[1].op, "rpc:upsert_subscription_from_provider");
+  // Después: chequear que el uid exista y recién ahí recalcular el plan.
+  assertEquals(fake.calls[1].op, "auth:getUserById");
+  assertEquals(fake.calls[2].op, "rpc:upsert_subscription_from_provider");
 });
 
 Deno.test("[sin base] si guardar falla: recalcula el plan, registra event_store_error y responde 500", async () => {
@@ -296,6 +312,30 @@ Deno.test("[sin base] usuario borrado (FK): se guarda sin usuario y responde 2xx
   assertEquals(upserts.map((c) => c.row?.user_id), [userId, null]);
   const outcomes = fake.calls.filter((c) => c.table === "subscription_sync_log").map((c) => c.row?.outcome);
   assertEquals(outcomes, ["user_deleted"]);
+});
+
+Deno.test("[sin base] uid borrado: no llama a RevenueCat (el GET lo recrearía) y loguea sin user_id", async () => {
+  const fake = fakeDb([], null, "deleted");
+  const rc = goldForever();
+  const userId = crypto.randomUUID();
+  const r = await handle(post(fullEvent(userId, { type: "RENEWAL" })), fakeDeps(fake, rc.fetch));
+  assertEquals(r.status, 200);
+  assertEquals(await r.json(), { ok: true, ignored: true });
+  assertEquals(rc.calls.length, 0);
+  assertEquals(fake.calls.some((c) => c.op === "rpc:upsert_subscription_from_provider"), false);
+  const logs = fake.calls.filter((c) => c.table === "subscription_sync_log");
+  assertEquals(logs.map((c) => c.row?.outcome), ["user_deleted"]);
+  assertEquals(logs[0].row?.user_id, undefined);
+  assert(!JSON.stringify(logs).includes(userId));
+});
+
+Deno.test("[sin base] no se puede saber si el uid existe: 503 sin llamar a RevenueCat", async () => {
+  const fake = fakeDb([], null, "down");
+  const rc = goldForever();
+  const r = await handle(post(fullEvent(crypto.randomUUID())), fakeDeps(fake, rc.fetch));
+  assertEquals(r.status, 503);
+  assertEquals((await r.json()).error.type, "auth_unavailable");
+  assertEquals(rc.calls.length, 0);
 });
 
 Deno.test("[sin base] evento sin id o sin type: no guarda fila y sigue como antes", async () => {
@@ -408,14 +448,18 @@ Deno.test("renovación de una cuenta borrada: fila sin usuario, 2xx y sin duplic
   const del = await db.auth.admin.deleteUser(user.id);
   if (del.error) throw del.error;
   const ev = fullEvent(user.id, { type: "RENEWAL" });
-  const d = deps(goldForever().fetch, env);
+  const rc = goldForever();
+  const d = deps(rc.fetch, env);
   for (let i = 0; i < 2; i++) {
     const r = await handle(post(ev), d);
     assertEquals(r.status, 200);
   }
+  // Cero llamadas a api.revenuecat.com: el GET recrearía al cliente.
+  assertEquals(rc.calls.length, 0);
   const rows = await eventRows(ev.id as string);
   assertEquals(rows.length, 1);
   assertEquals(rows[0].user_id, null);
-  const { data } = await db.from("subscription_sync_log").select("outcome").eq("event_id", ev.id as string);
+  const { data } = await db.from("subscription_sync_log").select("outcome, user_id").eq("event_id", ev.id as string);
   assertEquals(data?.some((row) => row.outcome === "user_deleted"), true);
+  assertEquals(data?.every((row) => row.user_id === null), true);
 });
