@@ -8,7 +8,7 @@
 //     flutter test test/screenshots/genui_catalog_screenshots_test.dart
 // Textos: docs/marketing/social/2026-11-03-plan-lanzamiento-ig-tiktok.md con las
 // correcciones de docs/legal/reviews/2026-11-03-plan-redes.md (§2 y §6).
-// El video PR1 se arma después con tools/marketing/render_pr1.sh.
+// El video PR1 es motion design: tools/marketing/video/.
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -123,17 +123,6 @@ const pieces = {
   'PR5_story5': page({ h: STORY, center: true, avatar: 'porty_answered', avatarSize: 440,
     title: 'Descargala gratis.', sub: 'Link abajo.' }),
 
-  // PR1. Escenas del video manifiesto (9:16). El pie B+C+D va en la última (≥ 3 s).
-  'PR1_s1_hook': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 220,
-    title: '¿Tu cartera te cuenta lo que pasa?' }),
-  'PR1_s2_esto_es_porty': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 420,
-    title: 'Esto es Porty.', sub: 'Tu cartera en un solo lugar.' }),
-  'PR1_s3_para_quien': page({ h: STORY, kicker: 'Para quién',
-    title: 'Para quien invierte sin vivir pegado al mercado.', shot: SHOT_PORTFOLIO }),
-  'PR1_s4_te_explica': page({ h: STORY, kicker: 'Cómo se usa',
-    title: 'Le preguntás a Porty y te explica tus números en tu idioma.', shot: SHOT_EXPLAIN }),
-  'PR1_s5_cierre': page({ h: STORY, center: true, avatar: 'porty_answered', avatarSize: 420,
-    title: 'Descargala gratis.', sub: 'Porty. Tu asistente para entender tu cartera.' }),
 };
 
 const browser = await chromium.launch();
