@@ -51,8 +51,9 @@ void main() {
     );
   }
 
-  testWidgets('a used lookup says how many are left; the last one says so',
-      (tester) async {
+  testWidgets('a used lookup says how many are left; the last one says so', (
+    tester,
+  ) async {
     await pump(tester, remaining: 2);
     expect(
       find.text('Consulta de mercado gratis · te quedan 2 este mes'),

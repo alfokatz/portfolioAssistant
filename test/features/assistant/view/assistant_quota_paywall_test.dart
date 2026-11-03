@@ -24,6 +24,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
@@ -66,9 +67,15 @@ void main() {
     WidgetTester tester, {
     required int used,
     List<Map<String, Object?> Function(Map<String, dynamic>)> script = const [],
+    MarketTasteRepository? taste,
   }) async {
     SharedPreferences.setMockInitialValues({});
-    final world = _World(await SharedPreferences.getInstance(), used, script);
+    final world = _World(
+      await SharedPreferences.getInstance(),
+      used,
+      script,
+      taste: taste,
+    );
     addTearDown(world.container.dispose);
     // Teléfono de 390 x 844; el sheet del paywall necesita alto.
     tester.view.physicalSize = const Size(390, 844);
@@ -166,6 +173,58 @@ void main() {
     expect(viewed['source'], PaywallSource.quotaSoft);
     expect(viewed['queries_used'], 15);
   });
+
+  testWidgets('after the free market lookups: the answer shows the Premium '
+      'line, "Ver Premium" opens the marketDataLocked paywall with source '
+      'chat_market_teaser and both events are logged', (tester) async {
+    final world = await pumpScreen(
+      tester,
+      used: 3,
+      taste: FakeMarketTasteRepository(used: 3),
+      script: [
+        (_) => toolCallsReply([
+          (
+            'call_1',
+            'get_quote',
+            {
+              'tickers': ['AMZN'],
+            },
+          ),
+        ]),
+        (body) => _answer(body, 'Amazon es una empresa de comercio.'),
+      ],
+    );
+
+    await tester.enterText(find.byType(TextField), '¿Qué opinás de AMZN?');
+    await tester.pump();
+    await tester.tap(find.byType(AssistantSendButton));
+    await tester.pump();
+
+    final cta = find.text('Ver Premium');
+    for (var i = 0; i < 3000 && cta.evaluate().isEmpty; i++) {
+      await tester.runAsync(() async {});
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(world.events.of(ProductEvent.paywallViewed), isEmpty);
+    expect(world.events.of(ProductEvent.marketTeaserShown), hasLength(1));
+    expect(
+      find.textContaining('Tus 3 consultas gratis de este mes ya se usaron'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(cta);
+    await tester.tap(cta);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final viewed = world.events.of(ProductEvent.paywallViewed).single;
+    expect(viewed['reason'], 'marketDataLocked');
+    expect(viewed['source'], PaywallSource.chatMarketTeaser);
+  });
 }
 
 Map<String, Object?> _answer(Map<String, dynamic> body, String text) {
@@ -196,8 +255,9 @@ class _World {
   _World(
     SharedPreferences prefs,
     int used,
-    List<Map<String, Object?> Function(Map<String, dynamic>)> script,
-  ) : repo = _Repo(used),
+    List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
+    MarketTasteRepository? taste,
+  }) : repo = _Repo(used),
       api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: repo);
     final revenueCat = FakeRevenueCat(offer: PaywallOffer.empty);
@@ -209,6 +269,7 @@ class _World {
         quotaNudgeClockProvider.overrideWithValue(() => DateTime.utc(2026, 11)),
         paywallAnnualEnabledProvider.overrideWith((_) async => false),
         productEventsProvider.overrideWithValue(events),
+        if (taste != null) marketTasteRepositoryProvider.overrideWithValue(taste),
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
         getClosedPositionsUseCaseProvider.overrideWithValue(
           _NoClosedPositions(),

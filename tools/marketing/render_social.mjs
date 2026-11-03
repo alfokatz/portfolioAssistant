@@ -28,7 +28,9 @@ const font = (w) => b64(`assets/fonts/PlusJakartaSans-${w}.ttf`);
 const svg = (name) => `data:image/svg+xml;base64,${b64(`assets/porty-avatar/states/${name}.svg`)}`;
 const png = (rel) => `data:image/png;base64,${b64(path.join(shotsDir, rel))}`;
 
-// Disclaimers aprobados (review §2). B reemplaza a A cuando se ve rendimiento.
+// Disclaimers aprobados (review §2). Por decisión del usuario no van en las
+// imágenes: van en el caption de cada pieza (ver el plan). Se dejan acá por si
+// hace falta volver a ponerlos (opción foot de page()).
 const D = {
   A: 'Cuenta demo. No es asesoramiento financiero.',
   B: 'Cuenta demo. Rendimientos pasados no garantizan resultados futuros. No es asesoramiento financiero.',
@@ -92,53 +94,46 @@ const STORY = 1920;
 const pieces = {
   // PR3. Conocé a Porty (feed + story). Review §6: "asistente para entender tu cartera".
   'PR3_conoce_a_porty_feed': page({ h: FEED, center: true, avatar: 'porty_idle', avatarSize: 420,
-    title: 'Conocé a Porty.', sub: 'Tu asistente para entender tu cartera. Te la explica con calma.',
-    foot: `${D.C} ${D.NA}` }),
+    title: 'Conocé a Porty.', sub: 'Tu asistente para entender tu cartera. Te la explica con calma.' }),
   'PR3_conoce_a_porty_story': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 520,
-    title: 'Conocé a Porty.', sub: 'Tu asistente para entender tu cartera. Te la explica con calma.',
-    foot: `${D.C} ${D.NA}` }),
+    title: 'Conocé a Porty.', sub: 'Tu asistente para entender tu cartera. Te la explica con calma.' }),
 
   // PR2. Qué es Porty en 5 placas (carrusel 1080x1350).
   'PR2_placa1': page({ h: FEED, num: '1/5', avatar: 'porty_idle', avatarSize: 260,
     kicker: 'Qué es Porty, en cinco placas', title: 'Una app para ver tu cartera y un asistente que te la explica.' }),
   'PR2_placa2': page({ h: FEED, num: '2/5', kicker: 'Para quién',
-    title: 'Para quien invierte sin vivir pegado al mercado.', foot: D.NA }),
-  'PR2_placa3': page({ h: FEED, num: '3/5', pill: 'Cuenta demo', kicker: 'Qué problema resuelve',
-    title: 'Mirar solo el total no alcanza para entender cómo viene tu cartera.', shot: SHOT_PORTFOLIO,
-    foot: `${D.B} ${D.D}` }),
-  'PR2_placa4': page({ h: FEED, num: '4/5', pill: 'Cuenta demo', kicker: 'Cómo se usa',
-    title: 'Cargás tu cartera, la mirás de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN,
-    tag: 'Porty usa IA', foot: `${D.A} ${D.C}` }),
+    title: 'Para quien invierte sin vivir pegado al mercado.' }),
+  'PR2_placa3': page({ h: FEED, num: '3/5', kicker: 'Qué problema resuelve',
+    title: 'Mirar solo el total no alcanza para entender cómo viene tu cartera.', shot: SHOT_PORTFOLIO }),
+  'PR2_placa4': page({ h: FEED, num: '4/5', kicker: 'Cómo se usa',
+    title: 'Cargás tu cartera, la mirás de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN }),
   'PR2_placa5': page({ h: FEED, num: '5/5', center: true, avatar: 'porty_answered', avatarSize: 320,
-    title: 'Descargala gratis.', sub: 'Algunas funciones son de planes pagos.',
-    foot: `${D.A} ${D.C} ${D.D}` }),
+    title: 'Descargala gratis.', sub: 'Algunas funciones son de planes pagos.' }),
 
   // PR5. Stories de presentación (stickers se agregan en Instagram, hay aire reservado).
   'PR5_story1': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 480,
     title: 'Hola, soy Porty.', sub: 'Un asistente con IA. Te ayudo a entender tu cartera.' }),
   'PR5_story2': page({ h: STORY, kicker: 'Para quién',
     title: 'Si tu plata está repartida en varias apps, Porty te ayuda a verla junta.',
-    note: 'Conectando brókers en planes pagos, o con un import.', foot: `${D.A} ${D.D}` }),
-  'PR5_story3': page({ h: STORY, pill: 'Cuenta demo', kicker: 'Qué hace',
-    title: 'Tu cartera en un solo lugar.', shot: SHOT_PORTFOLIO, foot: `${D.B} ${D.D}` }),
-  'PR5_story4': page({ h: STORY, pill: 'Cuenta demo', kicker: 'Cómo se usa',
-    title: 'Cargás tu cartera, la entendés de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN,
-    tag: 'Porty usa IA', foot: `${D.A} ${D.C}` }),
+    note: 'Conectando brókers en planes pagos, o con un import.' }),
+  'PR5_story3': page({ h: STORY, kicker: 'Qué hace',
+    title: 'Tu cartera en un solo lugar.', shot: SHOT_PORTFOLIO }),
+  'PR5_story4': page({ h: STORY, kicker: 'Cómo se usa',
+    title: 'Cargás tu cartera, la entendés de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN }),
   'PR5_story5': page({ h: STORY, center: true, avatar: 'porty_answered', avatarSize: 440,
-    title: 'Descargala gratis.', sub: 'Link abajo.', foot: `${D.A} ${D.D}` }),
+    title: 'Descargala gratis.', sub: 'Link abajo.' }),
 
   // PR1. Escenas del video manifiesto (9:16). El pie B+C+D va en la última (≥ 3 s).
-  'PR1_s1_hook': page({ h: STORY, pill: 'Cuenta demo', center: true, avatar: 'porty_idle', avatarSize: 220,
+  'PR1_s1_hook': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 220,
     title: '¿Tu cartera te cuenta lo que pasa?' }),
-  'PR1_s2_esto_es_porty': page({ h: STORY, pill: 'Cuenta demo', center: true, avatar: 'porty_idle', avatarSize: 420,
+  'PR1_s2_esto_es_porty': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 420,
     title: 'Esto es Porty.', sub: 'Tu cartera en un solo lugar.' }),
-  'PR1_s3_para_quien': page({ h: STORY, pill: 'Cuenta demo', kicker: 'Para quién',
+  'PR1_s3_para_quien': page({ h: STORY, kicker: 'Para quién',
     title: 'Para quien invierte sin vivir pegado al mercado.', shot: SHOT_PORTFOLIO }),
-  'PR1_s4_te_explica': page({ h: STORY, pill: 'Cuenta demo', kicker: 'Cómo se usa',
-    title: 'Le preguntás a Porty y te explica tus números en tu idioma.', shot: SHOT_EXPLAIN, tag: 'Porty usa IA' }),
-  'PR1_s5_cierre': page({ h: STORY, pill: 'Cuenta demo', center: true, avatar: 'porty_answered', avatarSize: 420,
-    title: 'Descargala gratis.', sub: 'Porty. Tu asistente para entender tu cartera.',
-    foot: `${D.B} ${D.C} ${D.D}` }),
+  'PR1_s4_te_explica': page({ h: STORY, kicker: 'Cómo se usa',
+    title: 'Le preguntás a Porty y te explica tus números en tu idioma.', shot: SHOT_EXPLAIN }),
+  'PR1_s5_cierre': page({ h: STORY, center: true, avatar: 'porty_answered', avatarSize: 420,
+    title: 'Descargala gratis.', sub: 'Porty. Tu asistente para entender tu cartera.' }),
 };
 
 const browser = await chromium.launch();

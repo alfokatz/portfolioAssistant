@@ -53,9 +53,9 @@ void main() {
         _call('get_dividends', ['TSLA']),
       ]);
 
-      expect(repo.consumed, [
-        ('turn-0001-abcd', ['AMZN']),
-      ]);
+      expect(repo.consumed, hasLength(1));
+      expect(repo.consumed.single.$1, 'turn-0001-abcd');
+      expect(repo.consumed.single.$2, ['AMZN']);
       expect(c.marketTaste, isTrue);
       expect(c.marketTasteRemaining, 2);
       expect(c.marketDataServed, isTrue);
@@ -80,46 +80,55 @@ void main() {
       expect(c.marketTaste, isFalse);
     });
 
-    test('premium, status off or no turn id: never calls the server',
-        () async {
+    test('premium, status off or no turn id: never calls the server', () async {
       final repo = FakeMarketTasteRepository();
       final round = [
         _call('get_quote', ['AMZN']),
       ];
       await grant(ctx(SubscriptionTier.premium), repo).beforeRound(round);
       await grant(ctx(SubscriptionTier.gold), repo).beforeRound(round);
-      await grant(ctx(SubscriptionTier.free), repo, available: false)
-          .beforeRound(round);
-      await grant(ctx(SubscriptionTier.free), repo, turnId: null)
-          .beforeRound(round);
+      await grant(
+        ctx(SubscriptionTier.free),
+        repo,
+        available: false,
+      ).beforeRound(round);
+      await grant(
+        ctx(SubscriptionTier.free),
+        repo,
+        turnId: null,
+      ).beforeRound(round);
       expect(repo.consumed, isEmpty);
     });
 
-    test('sends at most 6 foreign tickers, upper case, without repeats',
-        () async {
-      final c = ctx(SubscriptionTier.free);
-      final repo = FakeMarketTasteRepository();
-      await grant(c, repo).beforeRound([
-        _call('get_dividends', ['a', 'b', 'c', 'd', 'e', 'f']),
-        _call('get_quote', ['A', 'G', 'H']),
-      ]);
-      expect(repo.consumed.single.$2, ['A', 'B', 'C', 'D', 'E', 'F']);
-    });
+    test(
+      'sends at most 6 foreign tickers, upper case, without repeats',
+      () async {
+        final c = ctx(SubscriptionTier.free);
+        final repo = FakeMarketTasteRepository();
+        await grant(c, repo).beforeRound([
+          _call('get_dividends', ['a', 'b', 'c', 'd', 'e', 'f']),
+          _call('get_quote', ['A', 'G', 'H']),
+        ]);
+        expect(repo.consumed.single.$2, ['A', 'B', 'C', 'D', 'E', 'F']);
+      },
+    );
 
-    test('the same turn id is idempotent (retry does not spend another)',
-        () async {
-      final repo = FakeMarketTasteRepository(used: 2);
-      final round = [
-        _call('get_quote', ['AMZN']),
-      ];
-      final first = ctx(SubscriptionTier.free);
-      await grant(first, repo).beforeRound(round);
-      final retry = ctx(SubscriptionTier.free);
-      await grant(retry, repo).beforeRound(round);
-      expect(first.marketTasteRemaining, 0);
-      expect(retry.marketTaste, isTrue);
-      expect(retry.marketTasteRemaining, 0);
-    });
+    test(
+      'the same turn id is idempotent (retry does not spend another)',
+      () async {
+        final repo = FakeMarketTasteRepository(used: 2);
+        final round = [
+          _call('get_quote', ['AMZN']),
+        ];
+        final first = ctx(SubscriptionTier.free);
+        await grant(first, repo).beforeRound(round);
+        final retry = ctx(SubscriptionTier.free);
+        await grant(retry, repo).beforeRound(round);
+        expect(first.marketTasteRemaining, 0);
+        expect(retry.marketTaste, isTrue);
+        expect(retry.marketTasteRemaining, 0);
+      },
+    );
 
     test('exhausted: the turn goes on with the flag set', () async {
       final c = ctx(SubscriptionTier.free);
@@ -131,15 +140,17 @@ void main() {
       expect(c.marketDataServed, isFalse);
     });
 
-    test('server says disabled / not eligible / error: nothing changes',
-        () async {
-      final c = ctx(SubscriptionTier.free);
-      await grant(c, FakeMarketTasteRepository(enabled: false)).beforeRound([
-        _call('get_quote', ['AMZN']),
-      ]);
-      expect(c.marketTaste, isFalse);
-      expect(c.marketTasteExhausted, isFalse);
-    });
+    test(
+      'server says disabled / not eligible / error: nothing changes',
+      () async {
+        final c = ctx(SubscriptionTier.free);
+        await grant(c, FakeMarketTasteRepository(enabled: false)).beforeRound([
+          _call('get_quote', ['AMZN']),
+        ]);
+        expect(c.marketTaste, isFalse);
+        expect(c.marketTasteExhausted, isFalse);
+      },
+    );
 
     test('it does not open the watchlist or the Gold sources', () async {
       final c = ctx(SubscriptionTier.free);
@@ -169,30 +180,32 @@ void main() {
     AssistantToolContext exhausted() =>
         ctx(SubscriptionTier.free)..marketTasteExhausted = true;
 
-    test('locked results of the 3 market tools carry the answer guide',
-        () async {
-      final c = exhausted();
-      final quote = await GetQuoteTool(c).run({
-        'tickers': ['AMZN'],
-      });
-      final etf = await GetEtfHoldingsTool(c).run({
-        'tickers': ['XLF'],
-      });
-      final dividends = await GetDividendsTool(c).run({
-        'tickers': ['KO'],
-      });
-      for (final result in [quote, etf, dividends]) {
-        expect(result['status'], 'locked');
+    test(
+      'locked results of the 3 market tools carry the answer guide',
+      () async {
+        final c = exhausted();
+        final quote = await GetQuoteTool(c).run({
+          'tickers': ['AMZN'],
+        });
+        final etf = await GetEtfHoldingsTool(c).run({
+          'tickers': ['XLF'],
+        });
+        final dividends = await GetDividendsTool(c).run({
+          'tickers': ['KO'],
+        });
+        for (final result in [quote, etf, dividends]) {
+          expect(result['status'], 'locked');
+          expect(
+            result[AnswerGuide.key],
+            AssistantToolContext.marketTasteExhaustedGuide,
+          );
+        }
         expect(
-          result[AnswerGuide.key],
           AssistantToolContext.marketTasteExhaustedGuide,
+          allOf(contains('Do not state any price'), contains('the app shows')),
         );
-      }
-      expect(
-        AssistantToolContext.marketTasteExhaustedGuide,
-        allOf(contains('Do not state any price'), contains('the app shows')),
-      );
-    });
+      },
+    );
 
     test('a mixed result (one held, one foreign) keeps the guide', () async {
       final c = exhausted();
@@ -237,21 +250,23 @@ void main() {
       );
     });
 
-    test('disabled / error (flag not set): the turn is cut as before',
-        () async {
-      final c = ctx(SubscriptionTier.free);
-      final locked = await GetQuoteTool(c).run({
-        'tickers': ['AMZN'],
-      });
-      expect(
-        AssistantTurnPolicy.paywallFor([
-          ToolCallRecord(name: 'get_quote', args: const {}, result: locked),
-        ], c),
-        const ChatPaywall(
-          PaywallReason.marketDataLocked,
-          'chat_turn_locked_market_data',
-        ),
-      );
-    });
+    test(
+      'disabled / error (flag not set): the turn is cut as before',
+      () async {
+        final c = ctx(SubscriptionTier.free);
+        final locked = await GetQuoteTool(c).run({
+          'tickers': ['AMZN'],
+        });
+        expect(
+          AssistantTurnPolicy.paywallFor([
+            ToolCallRecord(name: 'get_quote', args: const {}, result: locked),
+          ], c),
+          const ChatPaywall(
+            PaywallReason.marketDataLocked,
+            'chat_turn_locked_market_data',
+          ),
+        );
+      },
+    );
   });
 }

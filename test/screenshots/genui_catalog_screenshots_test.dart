@@ -4,6 +4,12 @@
 //
 //   RUN_SCREENSHOTS=1 SCREENSHOTS_OUT=/tmp/shots \
 //     flutter test test/screenshots/genui_catalog_screenshots_test.dart
+//
+// Con LOGO_BASE_URL=http://127.0.0.1:8787 las cards muestran logos reales:
+// cada ticker carga <LOGO_BASE_URL>/<TICKER>.png (servido desde una carpeta
+// local, por ejemplo con `python3 -m http.server 8787`). Sin la variable,
+// quedan las iniciales (el test no tiene red). Lo usan las piezas de
+// marketing (tools/marketing/).
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -15,6 +21,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/domain/entities/company_brand.dart';
+import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
+import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -96,7 +105,8 @@ final _evidence = <String, List<ToolCallRecord>>{
             {
               'ticker': 'NVDA',
               'move_pct': 6.1,
-              'why': 'Subió después de presentar resultados mejores que lo '
+              'why':
+                  'Subió después de presentar resultados mejores que lo '
                   'esperado.',
             },
             {'ticker': 'AAPL', 'move_pct': -1.2},
@@ -118,11 +128,36 @@ final _evidence = <String, List<ToolCallRecord>>{
         'drift_threshold': 5.0,
         'portfolio_value_usd': 10000.0,
         'rows': [
-          {'ticker': 'VOO', 'current_pct': 34.6, 'target_pct': 43, 'drift_pts': -8.4},
-          {'ticker': 'GOOGL', 'current_pct': 22.0, 'target_pct': 25, 'drift_pts': -3.0},
-          {'ticker': 'AAPL', 'current_pct': 25.7, 'target_pct': 11, 'drift_pts': 14.7},
-          {'ticker': 'SGOV', 'current_pct': 13.3, 'target_pct': 21, 'drift_pts': -7.7},
-          {'ticker': 'DUOL', 'current_pct': 4.4, 'target_pct': 0, 'drift_pts': 4.4},
+          {
+            'ticker': 'VOO',
+            'current_pct': 34.6,
+            'target_pct': 43,
+            'drift_pts': -8.4,
+          },
+          {
+            'ticker': 'GOOGL',
+            'current_pct': 22.0,
+            'target_pct': 25,
+            'drift_pts': -3.0,
+          },
+          {
+            'ticker': 'AAPL',
+            'current_pct': 25.7,
+            'target_pct': 11,
+            'drift_pts': 14.7,
+          },
+          {
+            'ticker': 'SGOV',
+            'current_pct': 13.3,
+            'target_pct': 21,
+            'drift_pts': -7.7,
+          },
+          {
+            'ticker': 'DUOL',
+            'current_pct': 4.4,
+            'target_pct': 0,
+            'drift_pts': 4.4,
+          },
         ],
         'contribution': {
           'amount_usd': 500.0,
@@ -179,6 +214,15 @@ Map<String, Object?> _div(String name, double y, {bool etf = true}) =>
 final _out = Platform.environment['SCREENSHOTS_OUT'] ?? 'build/screenshots';
 final _enabled = Platform.environment['RUN_SCREENSHOTS'] == '1';
 
+final _logoBase = Platform.environment['LOGO_BASE_URL'];
+
+/// Logos servidos desde [_logoBase] (ver la cabecera del archivo).
+class _LocalLogoRepository implements CompanyBrandRepository {
+  @override
+  Future<CompanyBrand?> getBrand(String ticker) async =>
+      CompanyBrand(ticker: ticker, logoUrl: '$_logoBase/$ticker.png');
+}
+
 Future<void> _loadFonts() async {
   Future<void> load(String family, List<String> files) async {
     final loader = FontLoader(family);
@@ -209,6 +253,9 @@ void main() {
     if (!_enabled) return;
     GoogleFonts.config.allowRuntimeFetching = false;
     await _loadFonts();
+    // flutter_test responde 400 a todo pedido HTTP; con logos locales hace
+    // falta el cliente real (solo habla con 127.0.0.1).
+    if (_logoBase != null) HttpOverrides.global = null;
   });
 
   final catalog = AssistantCatalog.build();
@@ -224,7 +271,14 @@ void main() {
           tester.view.devicePixelRatio = 2;
           addTearDown(tester.view.reset);
           QaColors.resolve(brightness);
-          final container = ProviderContainer();
+          final container = ProviderContainer(
+            overrides: [
+              if (_logoBase != null)
+                companyBrandLoaderProvider.overrideWithValue(
+                  CompanyBrandLoader(_LocalLogoRepository()),
+                ),
+            ],
+          );
           final theme = container.read(
             brightness == Brightness.light
                 ? themeDataLightProvider
@@ -280,10 +334,24 @@ void main() {
             ),
           );
           await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 200)),
+            () => Future<void>.delayed(
+              Duration(milliseconds: _logoBase != null ? 1500 : 200),
+            ),
           );
           await tester.pump(const Duration(seconds: 3));
           await tester.pump(const Duration(seconds: 3));
+          if (_logoBase != null) {
+            // Los logos se piden recién cuando el brand resolvió (en los
+            // pumps de arriba): la descarga real necesita tiempo real.
+            // Descarga y decodificación son trabajo real: se alternan esperas
+            // reales con pumps hasta que el frame del logo esté listo.
+            for (var i = 0; i < 6; i++) {
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 300)),
+              );
+              await tester.pump(const Duration(milliseconds: 400));
+            }
+          }
           final render =
               boundary.currentContext!.findRenderObject()!
                   as RenderRepaintBoundary;
