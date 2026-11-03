@@ -51,11 +51,15 @@ void main() {
 
     test('each plan includes everything of the plan below', () {
       expect(
-        PlanMatrix.of(_premium).features.containsAll(PlanMatrix.of(_free).features),
+        PlanMatrix.of(
+          _premium,
+        ).features.containsAll(PlanMatrix.of(_free).features),
         isTrue,
       );
       expect(
-        PlanMatrix.of(_gold).features.containsAll(PlanMatrix.of(_premium).features),
+        PlanMatrix.of(
+          _gold,
+        ).features.containsAll(PlanMatrix.of(_premium).features),
         isTrue,
       );
     });

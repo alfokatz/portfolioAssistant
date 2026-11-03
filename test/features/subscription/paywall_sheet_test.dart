@@ -279,12 +279,18 @@ void main() {
       expect(find.text('paywall_title_quota_low'), findsOneWidget);
       expect(find.text('paywall_subtitle_quota_low'), findsOneWidget);
       expect(find.text('paywall_quota_returns'), findsOneWidget);
-      expect(h.events.of(ProductEvent.paywallViewed).single['source'], 'quota_soft');
+      expect(
+        h.events.of(ProductEvent.paywallViewed).single['source'],
+        'quota_soft',
+      );
     });
 
     test('nextQuotaReset is the 1st of the next UTC month', () {
       expect(nextQuotaReset(DateTime.utc(2026, 11, 15)), DateTime(2026, 12, 1));
-      expect(nextQuotaReset(DateTime.utc(2026, 12, 31, 23)), DateTime(2027, 1, 1));
+      expect(
+        nextQuotaReset(DateTime.utc(2026, 12, 31, 23)),
+        DateTime(2027, 1, 1),
+      );
       // 30/11 22:00 en UTC-5 ya es diciembre en UTC.
       expect(
         nextQuotaReset(DateTime.parse('2026-11-30T22:00:00-05:00')),

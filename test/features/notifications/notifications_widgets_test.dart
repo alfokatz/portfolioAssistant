@@ -277,7 +277,11 @@ void main() {
         visited.add(name);
         final extra = state.extra;
         return Text(
-          '$name ${extra is AssistantQuestionRequest ? extra.question : extra is Map ? extra['ticker'] : ''}',
+          '$name ${extra is AssistantQuestionRequest
+              ? extra.question
+              : extra is Map
+              ? extra['ticker']
+              : ''}',
         );
       },
     );
@@ -319,14 +323,21 @@ void main() {
         holds: (t) => t == 'VOO',
       );
       await tester.pumpAndSettle();
-      expect(find.text('${PositionRouter.detailRouteName} VOO'), findsOneWidget);
+      expect(
+        find.text('${PositionRouter.detailRouteName} VOO'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('alerta de un ticker que no tiene: la lista de alertas', (
       tester,
     ) async {
       final context = await pumpRouter(tester);
-      openPushRoute(context, const PushRouteTicker('AAPL'), holds: (_) => false);
+      openPushRoute(
+        context,
+        const PushRouteTicker('AAPL'),
+        holds: (_) => false,
+      );
       await tester.pumpAndSettle();
       expect(visited.last, NotificationsRouter.alertsRouteName);
     });

@@ -15,3 +15,7 @@
 - Vault: borrar la fila puntero no borra el secreto; siempre `*_delete` o el trigger de borrado de cuenta.
 - Features que necesitan datos de RevenueCat sin tocar `lib/features/subscription/` leen `Purchases` desde su propia carpeta con costura inyectable y usan `revenueCatServiceProvider` solo para leer.
 - Inventarios de tablas: buscar también `drop table` en migraciones posteriores; el test de catálogo manda sobre la lista de la spec.
+- Interruptores que decide el servidor: `public._rollout_on(key, uid)` (migración 20261103110000, FNV-1a igual a `PortyRolloutFlag.bucket`); si el servidor decide, la app no lee el flag.
+- Cupos de regalo (degustaciones, cortesías): contador en servidor, tabla con PK idempotente (por turno o semana) + RPC `consume_*`/`*_status`, límite en `plan_limits` espejado en `PlanSpec`; patrón `weekly_free_analysis`.
+- Hash del allowlist = solo system prompt + catálogo: descripciones y resultados de tools (`AnswerGuide`) no lo cambian; teasers nuevos fuera del catálogo para no desplegar `ai-chat`.
+- `claim_weekly_report` vigente es la de 20261002130000 (con `disabled`): redefinirla copiando ese cuerpo.

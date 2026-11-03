@@ -12,6 +12,8 @@ import 'package:portfolio_assistant/features/product_events/data/product_events.
 import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/domain/portfolio_diagnosis.dart';
@@ -182,6 +184,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final events = FakeProductEvents();
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
       final theme = ProviderContainer().read(
         brightness == Brightness.dark
             ? themeDataDarkProvider
@@ -212,8 +216,11 @@ void main() {
               (ref) => _Home(_homeWith(3, source: imported)),
             ),
             pushControllerProvider.overrideWith((ref) => _Push(permission)),
-            paywallOfferProvider.overrideWith((ref) async => PaywallOffer.empty),
+            paywallOfferProvider.overrideWith(
+              (ref) async => PaywallOffer.empty,
+            ),
             productEventsProvider.overrideWithValue(events),
+            sharedPreferencesProvider.overrideWithValue(prefs),
           ],
           child: MaterialApp.router(theme: theme, routerConfig: router),
         ),
