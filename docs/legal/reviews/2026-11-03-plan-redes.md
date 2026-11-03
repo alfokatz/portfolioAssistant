@@ -385,6 +385,71 @@ Revisión humana: no
 
 ---
 
+## 6. Segunda pasada: piezas de presentación PR1 a PR5 (plan v2)
+
+Alcance: solo el copy nuevo de PR1 a PR5 (secciones 3 y 6.1 del plan v2), contra los hallazgos de arriba. Lo aplicado bien del review anterior (sin "sin inventar", sin "fuente de cada número", "Descargala gratis" + D, voz impersonal, sin cuenta regresiva, sin T5, sin tiempos) no se repite. El resto del plan no se volvió a revisar. Disclaimers A a E: los de la sección 2.
+
+```
+[CORREGIR] PR1 (texto en pantalla y cierre), PR3 (línea bajo el título y caption), PR1 hook/caption: "Tu asistente de inversiones"
+Por qué: "asistente de inversiones" se puede leer como que Porty asiste o aconseja invertir, justo lo que el producto no hace. Es el claim más cercano al borde de asesoramiento de las 5 piezas. Ley 24.240 art. 4 y el límite regulatorio (ver "Requiere abogado", punto 1).
+Texto propuesto: "Porty. Tu asistente para entender tu cartera." (PR1 cierre) y "Tu asistente para entender tu cartera. Te la explica con calma." (PR3 imagen, caption y versión Stories).
+Revisión humana: no
+```
+
+```
+[CORREGIR] PR1 (6-11 s), PR2 (placa 3), PR5 (placa 3) y PR4 (10-19 s): captura del Dashboard sin B, D ni E
+Por qué: el Dashboard muestra PnL y variación, y según `plan_matrix.dart` la comparación con el S&P 500 vive en el home y es Premium. Si la captura trae PnL, evolución o el comparativo, es pieza con rendimiento: lleva B (no solo A), D y, si se ve el índice, E. El plan solo pone B "si se muestra rendimiento en la card" (PR4) y A en las demás.
+Texto propuesto: recortar la captura para que no se vea el comparativo con el índice, o dejarlo y agregar el pie "Cuenta demo. Rendimientos pasados no garantizan resultados futuros. No es asesoramiento financiero. Algunas funciones son de planes pagos." (B + D) y E. Con PnL visible, B es obligatorio en PR1 (últimos 3 s), PR2 placa 3, PR4 y PR5 placa 3.
+Revisión humana: no (la parte del uso de "S&P 500" ya figura en el punto 2 de abogado)
+```
+
+```
+[CORREGIR] PR4 (pregunta de 19-27 s, texto en pantalla, caption): B y "lo que quieras"
+Por qué: "¿Cómo me fue este mes?" devuelve una card con variación: es rendimiento, así que B no es opcional. "Le preguntás lo que quieras entender" invita a preguntas sobre qué comprar, y el prompt permite sugerir tickers (hallazgo extra de la sección 1).
+Texto propuesto: voz "Y le preguntás lo que quieras entender de tu cartera." Pie en los últimos 3 s: A + B + C + D. Leer la respuesta grabada entera y descartarla si tiene lenguaje de recomendación.
+Revisión humana: no
+```
+
+```
+[CORREGIR] PR4 caption: "Podés cargarla con un import" junto a "Descargala gratis"
+Por qué: el import no figura en `plan_matrix.dart` y no está verificado si es Free; Free llega a 10 posiciones. Afirmarlo con "gratis" es un claim sin respaldo (ver 1.1).
+Texto propuesto: publicar la versión del plan solo si flutter-dev confirma que el import está en Free. Si no se confirma: "Podés cargar tu cartera desde la app (según tu plan); conectar brókers es de los planes pagos."
+Revisión humana: no
+```
+
+```
+[CORREGIR] PR1, PR2 placa 4, PR4: texto "Hecho con IA" en pantalla
+Por qué: ambiguo. Puede leerse como que el video fue generado con IA (la etiqueta de contenido sintético de TikTok/Meta tiene otro sentido) y no que el asistente usa IA. Además el pie C ya lo dice.
+Texto propuesto: "Porty usa IA" (o "Respuestas con IA") en lugar de "Hecho con IA". Si la voz en off es sintética, declararlo con la etiqueta de la red.
+Revisión humana: no
+```
+
+```
+[CORREGIR] PR5 placa 2: "tu plata está repartida en varias apps, esto es para vos"
+Por qué: promete juntar varias apps, y eso se logra con conexión de bróker (Premium/Gold) o import (Free sin verificar). Con "Descargala gratis" en la placa 5 queda como promesa de la versión gratuita.
+Texto propuesto: "Si tu plata está repartida en varias apps, Porty te ayuda a verla junta (conectando brókers en planes pagos, o con un import)."  Pie A + D en la placa.
+Revisión humana: no
+```
+
+```
+[SUGERENCIA] PR5 placas 1 y 4, PR2 placa 2
+Por qué: (a) "Hola, soy Porty" no dice que es una IA: decirlo al presentarse suma transparencia; (b) la caja de preguntas va a recibir "¿conviene comprar X?"; (c) la placa 2 de PR2 no tiene captura, así que "Cuenta demo" en el pie sobra.
+Texto propuesto: (a) "Hola, soy Porty, un asistente con IA. Te ayudo a entender tu cartera." (b) usar la plantilla de respuesta del review (sección 4, Stories 6.2); antes de publicar cada respuesta, sin handle ni foto. (c) pie solo "No es asesoramiento financiero".
+Revisión humana: no
+```
+
+Lo demás de PR1 a PR5 está en regla: disclaimers en la imagen, "Cuenta demo" desde 0 s, avatar sin contenido financiero, pie C en PR3 (sin números), hashtags, CTA con D, audio de la biblioteca comercial, sin comparaciones con terceros y sin tickers. PR3 además lleva el texto "No es asesoramiento financiero" en la imagen (no solo en el caption), porque la imagen se reposta en Stories sin caption.
+
+| Pieza | Veredicto |
+|---|---|
+| PR1 | ok con cambios (asistente, Dashboard con B/D/E, "Hecho con IA") |
+| PR2 | ok con cambios (Dashboard con B/D/E, "Hecho con IA") |
+| PR3 | ok con cambios (asistente, agregar "No es asesoramiento financiero" en la imagen) |
+| PR4 | ok con cambios (B obligatorio, import en Free sin verificar, "lo que quieras") |
+| PR5 | ok con cambios (placa 2, Dashboard con B, presentarse como IA) |
+
+---
+
 ## Reporte
 
 **Veredicto:** ok con cambios. No producir P1, P3 y P6 con el texto del plan.
