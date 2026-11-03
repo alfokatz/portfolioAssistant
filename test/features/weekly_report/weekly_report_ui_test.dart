@@ -81,7 +81,11 @@ class FixedWeeklyReportController extends WeeklyReportController {
   }) async {}
 }
 
-WeeklyReport fullReport({bool courtesy = false}) => WeeklyReport.compose(
+WeeklyReport fullReport({
+  bool courtesy = false,
+  int? courtesyNumber,
+  int? courtesyTotal,
+}) => WeeklyReport.compose(
   input: fixtureInput(),
   draft: const WeeklyReportDraft(
     reading:
@@ -119,6 +123,8 @@ WeeklyReport fullReport({bool courtesy = false}) => WeeklyReport.compose(
   ),
   variant: WeeklyReportVariant.full,
   courtesy: courtesy,
+  courtesyNumber: courtesyNumber,
+  courtesyTotal: courtesyTotal,
 );
 
 WeeklyReport numbersReport(WeeklyReportVariant variant) => WeeklyReport.compose(
@@ -403,6 +409,34 @@ void main() {
       await scrollTo(tester, find.text('weekly_report_movers_section'));
       expect(find.text('weekly_report_movers_section'), findsOneWidget);
     });
+
+    for (final c in [
+      (n: 2, total: 3, key: 'weekly_report_courtesy_n'),
+      (n: 3, total: 3, key: 'weekly_report_courtesy_last'),
+      (n: 1, total: 1, key: 'weekly_report_courtesy'),
+      (n: null, total: null, key: 'weekly_report_courtesy'),
+    ]) {
+      testWidgets('courtesy line for ${c.n} of ${c.total} is ${c.key}', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          reportApp(
+            FixedWeeklyReportController(
+              ready(
+                fullReport(
+                  courtesy: true,
+                  courtesyNumber: c.n,
+                  courtesyTotal: c.total,
+                ),
+              ),
+            ),
+            openScreen: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(c.key), findsOneWidget);
+      });
+    }
 
     testWidgets('full report: the three questions, then only the sections '
         'that have something; sources are gray and tappable', (tester) async {

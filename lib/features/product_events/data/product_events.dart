@@ -53,7 +53,14 @@ enum ProductEvent {
   /// Se cerró el pedido de permiso de notificaciones (si se mostró). Props:
   /// `source` (`PushPromptReason.name`), `result` (`granted` | `denied` |
   /// `dismissed`).
-  pushOptIn('push_opt_in');
+  pushOptIn('push_opt_in'),
+
+  /// Un turno del chat se respondió con una consulta de mercado gratis.
+  /// Props: `remaining`.
+  marketTasteUsed('market_taste_used'),
+
+  /// Se mostró el aviso de Premium tras agotar las consultas de mercado.
+  marketTeaserShown('market_teaser_shown');
 
   const ProductEvent(this.wire, {this.once = false});
 

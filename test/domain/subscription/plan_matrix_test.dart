@@ -77,6 +77,12 @@ void main() {
       expect(PlanMatrix.of(_gold).quotaNudgeAtRemaining, isNull);
     });
 
+    test('market data tastes: Free 3, Premium and Gold 0', () {
+      expect(PlanMatrix.of(_free).marketDataTastesPerMonth, 3);
+      expect(PlanMatrix.of(_premium).marketDataTastesPerMonth, 0);
+      expect(PlanMatrix.of(_gold).marketDataTastesPerMonth, 0);
+    });
+
     test('nextTier: free -> premium -> gold -> null', () {
       expect(PlanMatrix.nextTier(_free), _premium);
       expect(PlanMatrix.nextTier(_premium), _gold);

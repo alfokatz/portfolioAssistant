@@ -294,7 +294,7 @@ class _Header extends StatelessWidget {
         if (report.courtesy) ...[
           const SizedBox(height: AppDimens.sp12),
           _Meta(
-            'weekly_report_courtesy'.tr(),
+            _courtesyText(report),
             leading: PortySpark(size: 12, color: colors.accentBlue),
           ),
         ],
@@ -1192,4 +1192,18 @@ String _filingLabel(String? form) {
     final f => f,
   };
   return 'SEC · $name';
+}
+
+/// Texto del regalo: dice cuál es ("2 de 3") o que es el último. Sin total, o
+/// con un solo informe, el texto de siempre.
+String _courtesyText(WeeklyReport report) {
+  final n = report.courtesyNumber;
+  final total = report.courtesyTotal;
+  if (n == null || total == null || total <= 1) {
+    return 'weekly_report_courtesy'.tr();
+  }
+  if (n >= total) return 'weekly_report_courtesy_last'.tr();
+  return 'weekly_report_courtesy_n'.tr(
+    namedArgs: {'n': '$n', 'total': '$total'},
+  );
 }

@@ -58,6 +58,10 @@ abstract final class PaywallSource {
   /// Chat: crear una alerta con el tope de alertas lleno.
   static const chatAlertLimit = 'chat_alert_limit';
 
+  /// Chat: el aviso "Ver Premium" de un turno de mercado sin consultas
+  /// gratis.
+  static const chatMarketTeaser = 'chat_market_teaser';
+
   /// Las constantes fijas (los tests chequean que sean únicas y válidas).
   static const values = <String>[
     settings,
@@ -81,6 +85,7 @@ abstract final class PaywallSource {
     chatActionPortfolio,
     chatPlanSave,
     chatAlertLimit,
+    chatMarketTeaser,
   ];
 
   static final _format = RegExp(r'^[a-z][a-z0-9_]{2,59}$');

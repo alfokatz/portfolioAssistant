@@ -2,6 +2,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report_claim.dart';
 
 void main() {
+  test('claimed gift reads courtesy number and total; odd values are null', () {
+    final ok =
+        WeeklyReportClaim.parse({
+              'state': 'claimed',
+              'courtesy': true,
+              'attempt': 1,
+              'courtesy_number': 2,
+              'courtesy_total': 3,
+            })
+            as ClaimGranted;
+    expect((ok.courtesyNumber, ok.courtesyTotal), (2, 3));
+
+    final odd =
+        WeeklyReportClaim.parse({
+              'state': 'claimed',
+              'courtesy': true,
+              'courtesy_number': 'x',
+              'courtesy_total': 0,
+            })
+            as ClaimGranted;
+    expect(odd.courtesyNumber, isNull);
+    expect(odd.courtesyTotal, isNull);
+
+    final gold =
+        WeeklyReportClaim.parse({
+              'state': 'claimed',
+              'courtesy': false,
+              'attempt': 1,
+            })
+            as ClaimGranted;
+    expect(gold.courtesyNumber, isNull);
+  });
+
   test('parses every server state', () {
     final ready = WeeklyReportClaim.parse({
       'state': 'ready',

@@ -40,6 +40,8 @@ class WeeklyReport {
     required this.news,
     required this.investors,
     required this.upcomingEarnings,
+    this.courtesyNumber,
+    this.courtesyTotal,
     this.sp500Pct,
     this.comparison,
     this.reading,
@@ -53,6 +55,11 @@ class WeeklyReport {
   final ReportWeek week;
   final WeeklyReportVariant variant;
   final bool courtesy;
+
+  /// Cuál de los informes de regalo es y cuántos hay ("2 de 3"). null en
+  /// payloads anteriores o si no es de regalo.
+  final int? courtesyNumber;
+  final int? courtesyTotal;
 
   final double changePct;
   final double changeAbs;
@@ -89,6 +96,8 @@ class WeeklyReport {
     required WeeklyReportDraft draft,
     required WeeklyReportVariant variant,
     bool courtesy = false,
+    int? courtesyNumber,
+    int? courtesyTotal,
   }) {
     final n = input.numbers;
     final whyByTicker = {for (final m in draft.movers) m.ticker: m};
@@ -121,6 +130,8 @@ class WeeklyReport {
       week: n.week,
       variant: variant,
       courtesy: courtesy,
+      courtesyNumber: courtesyNumber,
+      courtesyTotal: courtesyTotal,
       changePct: n.changePct,
       changeAbs: n.changeAbs,
       valueEnd: n.valueEnd,
@@ -197,6 +208,8 @@ class WeeklyReport {
     'week': week.key,
     'variant': variant.name,
     'courtesy': courtesy,
+    'courtesy_number': courtesyNumber,
+    'courtesy_total': courtesyTotal,
     'change_pct': changePct,
     'change_abs': changeAbs,
     'value_end': valueEnd,
@@ -237,6 +250,8 @@ class WeeklyReport {
           orElse: () => WeeklyReportVariant.numbersUnavailable,
         ),
         courtesy: j['courtesy'] == true,
+        courtesyNumber: _posInt(j['courtesy_number']),
+        courtesyTotal: _posInt(j['courtesy_total']),
         changePct: _num(j['change_pct'])!,
         changeAbs: _num(j['change_abs'])!,
         valueEnd: _num(j['value_end'])!,
@@ -276,6 +291,8 @@ class WeeklyReport {
     }
   }
 }
+
+int? _posInt(Object? v) => v is int && v >= 1 ? v : null;
 
 double? _num(Object? v) => (v as num?)?.toDouble();
 

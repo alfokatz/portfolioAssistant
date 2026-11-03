@@ -67,6 +67,7 @@ class PlanSpec {
     required this.highlights,
     this.extraMarketingKeys = const [],
     this.quotaNudgeAtRemaining,
+    this.marketDataTastesPerMonth = 0,
   });
 
   final Set<PlanFeature> features;
@@ -97,6 +98,12 @@ class PlanSpec {
   /// Avisar en el chat cuando quedan estas consultas del mes. null = no
   /// avisar.
   final int? quotaNudgeAtRemaining;
+
+  /// Consultas de mercado (tickers que no tiene) de regalo por mes, si el plan
+  /// no incluye PlanFeature.marketData. Espejo de
+  /// plan_limits.market_tastes_per_month (el servidor manda). El chat
+  /// pregunta `> 0`, nunca por el plan.
+  final int marketDataTastesPerMonth;
 }
 
 /// Matriz de planes: única fuente de verdad de qué incluye cada uno.
@@ -141,6 +148,7 @@ abstract final class PlanMatrix {
       watchlistLimit: 0,
       highlights: [PlanFeature.ownPortfolio],
       quotaNudgeAtRemaining: 5,
+      marketDataTastesPerMonth: 3,
     ),
     SubscriptionTier.premium: PlanSpec(
       features: _premium,
