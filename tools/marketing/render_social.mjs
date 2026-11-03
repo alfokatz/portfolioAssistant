@@ -109,7 +109,7 @@ const pieces = {
     title: 'Mirar solo el total no alcanza para entender cómo viene tu cartera.', shot: SHOT_PORTFOLIO }),
   'PR2_placa4': page({ h: FEED, num: '4/5', kicker: 'Cómo se usa',
     title: 'Cargás tu cartera, la mirás de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN }),
-  'PR2_placa5': page({ h: FEED, num: '5/5', center: true, avatar: 'porty_answered', avatarSize: 320,
+  'PR2_placa5': page({ h: FEED, num: '5/5', center: true, avatar: 'porty_idle', avatarSize: 320,
     title: 'Descargala gratis.', sub: 'Algunas funciones son de planes pagos.' }),
 
   // PR5. Stories de presentación (stickers se agregan en Instagram, hay aire reservado).
@@ -122,7 +122,7 @@ const pieces = {
     title: 'Tu cartera en un solo lugar.', shot: SHOT_PORTFOLIO }),
   'PR5_story4': page({ h: STORY, kicker: 'Cómo se usa',
     title: 'Cargás tu cartera, la entendés de un vistazo, le preguntás a Porty.', shot: SHOT_EXPLAIN }),
-  'PR5_story5': page({ h: STORY, center: true, avatar: 'porty_answered', avatarSize: 440,
+  'PR5_story5': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 440,
     title: 'Descargala gratis.', sub: 'Link abajo.' }),
 
 };
