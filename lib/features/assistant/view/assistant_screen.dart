@@ -43,6 +43,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_ad
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_market_taste_notice.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quota_nudge.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_starter_suggestions.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
@@ -571,6 +572,18 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       ref,
       reason: PaywallReason.quotaLow,
       source: PaywallSource.quotaSoft,
+      onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
+    );
+  }
+
+  /// "Ver Premium" del aviso de consultas de mercado agotadas. Cerrarlo deja
+  /// el chat donde estaba; si compra, se refresca el plan.
+  void _openMarketTeaserPaywall() {
+    SubscriptionPaywallSheet.show(
+      context,
+      ref,
+      reason: PaywallReason.marketDataLocked,
+      source: PaywallSource.chatMarketTeaser,
       onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
     );
   }
@@ -1306,8 +1319,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.
       final quotaLeft = message.quotaNudgeRemaining;
+      final hasMarketTaste = AssistantMarketTasteNotice.hasContent(message);
       content =
-          AssistantAdviceFooter.hasContent(message) || quotaLeft != null
+          AssistantAdviceFooter.hasContent(message) ||
+                  quotaLeft != null ||
+                  hasMarketTaste
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -1319,6 +1335,19 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                       children: [
                         if (AssistantAdviceFooter.hasContent(message))
                           AssistantAdviceFooter(message: message),
+                        // La de mercado va antes que la de cuota.
+                        if (hasMarketTaste)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimens.sp12,
+                            ),
+                            child: AssistantMarketTasteNotice(
+                              remaining: message.marketTasteRemaining,
+                              teaser: message.marketTeaser,
+                              tier: ref.watch(subscriptionProvider).tier,
+                              onSeePremium: _openMarketTeaserPaywall,
+                            ),
+                          ),
                         if (quotaLeft != null)
                           Padding(
                             padding: const EdgeInsets.only(

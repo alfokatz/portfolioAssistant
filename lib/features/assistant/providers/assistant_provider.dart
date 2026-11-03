@@ -51,6 +51,8 @@ import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
+import 'package:portfolio_assistant/features/assistant/tools/market_taste_grant.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
@@ -125,6 +127,40 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// `null`: una pregunta de la Home no es sobre la pantalla anterior).
   bool _screenPending = false;
   PortyScreenContext? _pendingScreen;
+
+  /// Lo que el servidor dijo de las consultas de mercado gratis, leído una
+  /// vez por chat y solo si el plan las tiene (Premium y Gold no llaman a la
+  /// RPC). Una respuesta fallida no se guarda: se reintenta en el próximo
+  /// turno.
+  MarketTasteStatus? _tasteStatus;
+
+  /// Respuestas cuyo aviso de Premium ya se registró como mostrado.
+  final _teaserLogged = <String>{};
+
+  /// Sin Supabase (tests, sin sesión), la consulta gratis simplemente no se
+  /// ofrece.
+  MarketTasteRepository? _tasteRepository() {
+    try {
+      return ref.read(marketTasteRepositoryProvider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Si este turno puede pedir la consulta de mercado gratis: el plan la
+  /// tiene (por capacidad, no por tier) y el servidor la tiene prendida.
+  Future<bool> _marketTasteAvailable() async {
+    if (PlanMatrix.of(
+          ref.read(subscriptionProvider).tier,
+        ).marketDataTastesPerMonth <=
+        0) {
+      return false;
+    }
+    final repo = _tasteRepository();
+    if (repo == null) return false;
+    final status = _tasteStatus ??= await repo.status();
+    return status?.enabled == true;
+  }
 
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
@@ -341,6 +377,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     } catch (_) {}
 
+    // El estado de las consultas de mercado gratis, a mano antes del primer
+    // turno (solo si ya se sabe el plan).
+    if (!ref.read(subscriptionProvider).isLoading) {
+      unawaited(_marketTasteAvailable());
+    }
+
     final question = _initialQuestion;
     _initialQuestion = null;
     if (question != null && question.text.trim().isNotEmpty) {
@@ -516,6 +558,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         goalsF,
         topicsF,
       ]);
+      // Con el plan ya refrescado: Premium y Gold no llaman a la RPC.
+      final tasteAvailable = await _marketTasteAvailable();
 
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
@@ -569,6 +613,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                 ref.read(weeklyFreeAnalysisProvider.notifier).consume(ticker),
       );
 
+      // Consulta de mercado gratis del mes (Free): se gasta en el servidor,
+      // por turno, la primera vez que el modelo pide datos de un ticker ajeno.
+      final taste = MarketTasteGrant(
+        ctx: ctx,
+        available: tasteAvailable,
+        turnId: () => service.log.currentTurn?.id,
+        consume:
+            (turnId, tickers) =>
+                _tasteRepository()?.consume(turnId, tickers) ??
+                Future.value(MarketTasteConsume.unavailable),
+      );
+
       final surfaceId = GenUiSurfaceIds.assistantTurn(state.turnCounter);
       state = state.copyWith(
         messages: [
@@ -600,7 +656,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   (firstRound) =>
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
               onActivity: _setActivity,
-              beforeRound: courtesy.beforeRound,
+              beforeRound: (calls) async {
+                await courtesy.beforeRound(calls);
+                await taste.beforeRound(calls);
+              },
               onContent: service.streaming ? _previewSink(surfaceId) : null,
             );
           },
@@ -639,6 +698,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             sources: notices.sources,
           ),
         );
+        _markMarketTaste(surfaceId, ctx);
         // El contador del header refleja lo que cobró el servidor; con la
         // cuota ya refrescada se decide la línea de cuota baja.
         unawaited(
@@ -708,6 +768,33 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         unawaited(Future.microtask(() => _submitFromOutside(queued)));
       }
     }
+  }
+
+  /// Las líneas de la consulta de mercado gratis de la respuesta de
+  /// [surfaceId]: "te quedan N" si el turno gastó una, o el aviso de Premium
+  /// si se respondió sin datos del ticker ajeno porque ya no quedan. Las fija
+  /// la app con lo que dijo el servidor, nunca el modelo.
+  void _markMarketTaste(String surfaceId, AssistantToolContext ctx) {
+    final remaining = ctx.marketTaste ? ctx.marketTasteRemaining : null;
+    final teaser =
+        ctx.marketTasteExhausted &&
+        ctx.lockedReasons.contains(PaywallReason.marketDataLocked);
+    if (ctx.marketTaste) {
+      ref.read(productEventsProvider).log(ProductEvent.marketTasteUsed, {
+        if (remaining != null) 'remaining': remaining,
+      });
+    }
+    if (remaining == null && !teaser) return;
+    final i = state.messages.lastIndexWhere(
+      (m) => m.surfaceId == surfaceId && m.role == PortfolioQaRole.assistant,
+    );
+    if (i < 0) return;
+    final updated = [...state.messages];
+    updated[i] = updated[i].copyWith(
+      marketTasteRemaining: remaining,
+      marketTeaser: teaser,
+    );
+    state = state.copyWith(messages: updated);
   }
 
   /// Rechazo del servidor antes de responder: la cuota del mes abre el
@@ -1635,6 +1722,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         final updated = [...messages];
         updated[i] = message.copyWith(hasRevealed: true);
         state = state.copyWith(messages: updated);
+        // El aviso de Premium entra con el reveal: recién ahí se vio.
+        if (message.marketTeaser && _teaserLogged.add(surfaceId)) {
+          ref.read(productEventsProvider).log(ProductEvent.marketTeaserShown);
+        }
         return;
       }
     }

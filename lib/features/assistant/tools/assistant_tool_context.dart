@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/assistant/data/market/news_provider
 import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -271,6 +272,39 @@ class AssistantToolContext {
   bool allows(PlanFeature feature) => SubscriptionPolicy.allows(tier, feature);
 
   bool get marketDataAllowed => allows(PlanFeature.marketData);
+
+  /// Este turno usa la consulta de mercado gratis del mes (ver
+  /// `MarketTasteGrant`): el precio, los holdings y los dividendos de
+  /// cualquier ticker se sirven aunque el plan no incluya mercado.
+  bool marketTaste = false;
+
+  /// Consultas gratis que quedan este mes, tras gastar la de este turno.
+  int? marketTasteRemaining;
+
+  /// Ya usó todas las del mes: el turno no se corta, responde sin datos del
+  /// ticker ajeno.
+  bool marketTasteExhausted = false;
+
+  /// Si get_quote, get_etf_holdings y get_dividends sirven cualquier ticker.
+  /// Las tools de watchlist siguen con [marketDataAllowed]: la consulta
+  /// gratis no las abre.
+  bool get marketDataServed => marketDataAllowed || marketTaste;
+
+  /// Guía para la respuesta cuando hay tickers de mercado bloqueados y ya
+  /// no quedan consultas gratis. Viaja con el resultado `locked` (no en el
+  /// system prompt); la app agrega el aviso de Premium, no el modelo.
+  static const marketTasteExhaustedGuide =
+      "The user's plan does not include market data for these tickers this "
+      'month. Do not state any price, return or other number about them, and '
+      'do not guess. Answer conceptually and, if relevant, relate it to the '
+      "user's own portfolio. Do not mention plans or upgrades: the app shows "
+      'that.';
+
+  /// [result] de una tool de mercado con la guía de arriba si corresponde.
+  Map<String, Object?> withMarketGuide(Map<String, Object?> result) =>
+      marketTasteExhausted
+          ? AnswerGuide.attach(result, marketTasteExhaustedGuide)
+          : result;
 
   /// El plan más barato que incluye [feature], como lo nombra la tool
   /// ("premium" / "gold") en `required_plan`.

@@ -123,6 +123,57 @@ void main() {
     );
   });
 
+  test('a ticker the plan left locked inside an ok call does not back a card '
+      '(mixed call: one held, one foreign without free lookups)', () {
+    final widget = [
+      {'id': 'c', 'component': 'QaPriceChart', 'ticker': 'AMZN'},
+    ];
+    final mixedQuote = ToolCallRecord(
+      name: 'get_quote',
+      args: const {
+        'tickers': ['AAPL', 'AMZN'],
+      },
+      result: const {
+        'status': 'ok',
+        'tickers': {
+          'AAPL': {'status': 'ok', 'fetch_ok': true},
+          'AMZN': {'status': 'locked'},
+        },
+      },
+    );
+    expect(AssistantGroundingCheck.check(_answer(widget), [mixedQuote]),
+        contains('QaPriceChart (AMZN)'));
+    expect(
+      AssistantGroundingCheck.check(
+        _answer([
+          {'id': 'c', 'component': 'QaPriceChart', 'ticker': 'AAPL'},
+        ]),
+        [mixedQuote],
+      ),
+      isNull,
+    );
+
+    final mixedEtf = ToolCallRecord(
+      name: 'get_etf_holdings',
+      args: const {
+        'tickers': ['VOO', 'XLF'],
+      },
+      result: const {
+        'status': 'ok',
+        'locked_tickers': ['XLF'],
+      },
+    );
+    expect(
+      AssistantGroundingCheck.check(
+        _answer([
+          {'id': 'e', 'component': 'QaEtfHoldings', 'ticker': 'XLF'},
+        ]),
+        [mixedEtf],
+      ),
+      isNotNull,
+    );
+  });
+
   test('portfolio widgets and plain text answers need no tool', () {
     expect(
       AssistantGroundingCheck.check(

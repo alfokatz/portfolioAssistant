@@ -25,6 +25,8 @@ class PortfolioQaMessage {
     this.sources = const [],
     this.notice,
     this.quotaNudgeRemaining,
+    this.marketTasteRemaining,
+    this.marketTeaser = false,
   });
 
   final PortfolioQaRole role;
@@ -60,6 +62,16 @@ class PortfolioQaMessage {
   /// ("Te quedan N consultas…") con link a los planes. El número sale de
   /// la suscripción, nunca del modelo — ver `AssistantProvider` (3c).
   final int? quotaNudgeRemaining;
+
+  /// Si no es `null`, este turno usó una consulta de mercado gratis y la
+  /// pantalla agrega debajo "te quedan N este mes" (o "era la última" con
+  /// 0). Lo fija la app al cerrar el turno, nunca el modelo.
+  final int? marketTasteRemaining;
+
+  /// El turno se respondió sin datos de mercado ajeno porque ya no quedan
+  /// consultas gratis: la pantalla agrega el aviso de Premium. Lo fija la
+  /// app, nunca el modelo.
+  final bool marketTeaser;
 
   /// `true` cuando [content] es un mensaje de fallback en texto plano
   /// mostrado porque la generación de esta surface falló, pero [surfaceId]
@@ -100,6 +112,8 @@ class PortfolioQaMessage {
     List<MessageSource>? sources,
     AssistantNotice? notice,
     int? quotaNudgeRemaining,
+    int? marketTasteRemaining,
+    bool? marketTeaser,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -115,6 +129,8 @@ class PortfolioQaMessage {
       sources: sources ?? this.sources,
       notice: notice ?? this.notice,
       quotaNudgeRemaining: quotaNudgeRemaining ?? this.quotaNudgeRemaining,
+      marketTasteRemaining: marketTasteRemaining ?? this.marketTasteRemaining,
+      marketTeaser: marketTeaser ?? this.marketTeaser,
     );
   }
 }

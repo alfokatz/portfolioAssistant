@@ -52,7 +52,7 @@ class GetQuoteTool implements DataTool {
     final quotes = await Future.wait(
       tickers.map((ticker) async {
         final held = ctx.heldTickers.contains(ticker);
-        if (!held && !ctx.marketDataAllowed) {
+        if (!held && !ctx.marketDataServed) {
           ctx.lockedReasons.add(PaywallReason.marketDataLocked);
           return <String, Object?>{
             'held': false,
@@ -76,7 +76,7 @@ class GetQuoteTool implements DataTool {
       for (var i = 0; i < tickers.length; i++) tickers[i]: quotes[i],
     };
     final statuses = [for (final q in quotes) q['status'] ?? 'ok'];
-    return {
+    final result = <String, Object?>{
       'status':
           statuses.every((s) => s == 'locked')
               ? 'locked'
@@ -86,6 +86,7 @@ class GetQuoteTool implements DataTool {
       'as_of': ctx.asOf,
       'tickers': byTicker,
     };
+    return statuses.contains('locked') ? ctx.withMarketGuide(result) : result;
   }
 
   double? _weightPct(String ticker) {
@@ -440,14 +441,19 @@ class GetEtfHoldingsTool implements DataTool {
     if (tickers.isEmpty) return ToolArgs.invalid();
     final allowed = [
       for (final t in tickers)
-        if (ctx.marketDataAllowed || ctx.heldTickers.contains(t)) t,
+        if (ctx.marketDataServed || ctx.heldTickers.contains(t)) t,
     ];
-    if (allowed.isEmpty) return ctx.lockedFeature(PlanFeature.marketData);
+    if (allowed.isEmpty) {
+      return ctx.withMarketGuide(ctx.lockedFeature(PlanFeature.marketData));
+    }
     final lockedTickers = [
       for (final t in tickers)
         if (!allowed.contains(t)) t,
     ];
-    return {
+    if (lockedTickers.isNotEmpty) {
+      ctx.lockedReasons.add(PaywallReason.marketDataLocked);
+    }
+    final result = <String, Object?>{
       ...await ctx.data.etfHoldings.fetch(allowed),
       if (lockedTickers.isNotEmpty) ...{
         'locked_tickers': lockedTickers,
@@ -455,6 +461,7 @@ class GetEtfHoldingsTool implements DataTool {
       },
       'as_of': ctx.asOf,
     };
+    return lockedTickers.isEmpty ? result : ctx.withMarketGuide(result);
   }
 }
 
@@ -502,21 +509,27 @@ class GetDividendsTool implements DataTool {
     if (tickers.isEmpty) return ToolArgs.invalid();
     final allowed = [
       for (final t in tickers)
-        if (ctx.heldTickers.contains(t) || ctx.marketDataAllowed) t,
+        if (ctx.heldTickers.contains(t) || ctx.marketDataServed) t,
     ];
     final locked = [
       for (final t in tickers)
         if (!allowed.contains(t)) t,
     ];
-    if (allowed.isEmpty) {
+    if (locked.isNotEmpty) {
       ctx.lockedReasons.add(PaywallReason.marketDataLocked);
-      return {'status': 'locked', 'required_plan': 'premium'};
+    }
+    if (allowed.isEmpty) {
+      return ctx.withMarketGuide({
+        'status': 'locked',
+        'required_plan': 'premium',
+      });
     }
     final fetched = await ctx.data.dividends.fetch(allowed);
-    return {
+    final result = <String, Object?>{
       ...fetched,
       'as_of': ctx.asOf,
       if (locked.isNotEmpty) 'locked_tickers': locked,
     };
+    return locked.isEmpty ? result : ctx.withMarketGuide(result);
   }
 }

@@ -18,7 +18,10 @@ import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_ca
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import '../../subscription/paywall_test_harness.dart' show FakeProductEvents;
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
@@ -197,6 +200,7 @@ class _Harness {
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
     this.nudge,
+    this.taste,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
@@ -208,6 +212,8 @@ class _Harness {
           quotaNudgeEnabledProvider.overrideWith((_) async => n.flagOn),
           quotaNudgeClockProvider.overrideWithValue(() => n.now),
         ],
+        productEventsProvider.overrideWithValue(events),
+        if (taste case final t?) marketTasteRepositoryProvider.overrideWithValue(t),
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
         portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
@@ -249,6 +255,8 @@ class _Harness {
 
   static const args = AssistantArgs();
   final _Nudge? nudge;
+  final FakeMarketTasteRepository? taste;
+  final events = FakeProductEvents();
   final _FakeSubscriptionRepository subscriptionRepo;
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
@@ -297,6 +305,7 @@ void main() {
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
     _Nudge? nudge,
+    FakeMarketTasteRepository? taste,
   }) {
     final h = _Harness(
       tier,
@@ -305,6 +314,7 @@ void main() {
       streaming: streaming,
       variant: variant,
       nudge: nudge,
+      taste: taste,
     );
     addTearDown(h.dispose);
     return h;
@@ -1068,6 +1078,128 @@ void main() {
       expect(h.state.paywallSource, 'chat_turn_locked_portfolio_actions');
       expect(h.state.messages, hasLength(1));
       expect(h.quotes.dailyCalls, isEmpty);
+    });
+  });
+
+  group('free market lookups (market_taste)', () {
+    Map<String, Object?> Function(Map<String, dynamic>) quote(
+      String ticker,
+    ) => _call('get_quote', {
+      'tickers': [ticker],
+    });
+
+    test('a foreign ticker with lookups left: it is answered with data, '
+        'the line says how many are left and the event is logged', () async {
+      final taste = FakeMarketTasteRepository(used: 1);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.quotes.priceCalls, ['AMZN']);
+      expect(taste.consumed, hasLength(1));
+      expect(taste.consumed.single.$2, ['AMZN']);
+      // El mismo id que viaja al proxy como x-porty-turn-id.
+      expect(
+        taste.consumed.single.$1,
+        h.notifier.service!.log.currentTurn!.id,
+      );
+      expect(h.lastAnswer.marketTasteRemaining, 1);
+      expect(h.lastAnswer.marketTeaser, isFalse);
+      expect(h.events.of(ProductEvent.marketTasteUsed), [
+        {'remaining': 1},
+      ]);
+      expect(h.events.of(ProductEvent.marketTeaserShown), isEmpty);
+    });
+
+    test('the last one says 0 left', () async {
+      final taste = FakeMarketTasteRepository(used: 2);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AMZN?');
+      expect(h.lastAnswer.marketTasteRemaining, 0);
+    });
+
+    test('after the limit the turn is answered (not cut), the tool carries '
+        'the guide, and the message gets the Premium teaser', () async {
+      final taste = FakeMarketTasteRepository(used: 3);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer('Es una empresa de comercio electrónico.'),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿Qué opinás de AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.state.messages, hasLength(3));
+      expect(h.quotes.priceCalls, isEmpty); // ningún dato del ticker ajeno
+      final toolResult =
+          jsonDecode(_textOf((h.api.requests[1]['messages'] as List)[4] as Map))
+              as Map;
+      expect(toolResult['status'], 'locked');
+      expect(toolResult['answer_guide'], contains('Do not state any price'));
+      expect(h.lastAnswer.marketTeaser, isTrue);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+      expect(h.events.of(ProductEvent.marketTasteUsed), isEmpty);
+      // El servidor cobra el turno respondido: la app no descuenta nada.
+      expect(h.subscriptionRepo.consumed, isEmpty);
+
+      // Se registra como mostrado cuando entra con el reveal, una sola vez.
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      expect(h.events.of(ProductEvent.marketTeaserShown), hasLength(1));
+    });
+
+    test('disabled by the server: the turn is cut as always', () async {
+      final taste = FakeMarketTasteRepository(enabled: false);
+      final h = harness(SubscriptionTier.free, [quote('AMZN')], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallSource, 'chat_turn_locked_market_data');
+      expect(h.state.messages, hasLength(1));
+      expect(taste.consumed, isEmpty); // available=false: ni se intenta
+    });
+
+    test('premium and gold never touch the server', () async {
+      for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+        final taste = FakeMarketTasteRepository();
+        final h = harness(tier, [quote('AMZN'), _answer()], taste: taste);
+        await h.notifier.submitMessage('¿AMZN?');
+        expect(taste.statusCalls, 0, reason: tier.name);
+        expect(taste.consumed, isEmpty, reason: tier.name);
+        expect(h.lastAnswer.marketTasteRemaining, isNull);
+        expect(h.lastAnswer.marketTeaser, isFalse);
+      }
+    });
+
+    test('a held ticker spends nothing', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AAPL?');
+      expect(taste.consumed, isEmpty);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+    });
+
+    test('the status is read once per chat', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('uno');
+      await h.notifier.submitMessage('dos');
+      expect(taste.statusCalls, 1);
     });
   });
 

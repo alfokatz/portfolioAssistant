@@ -131,6 +131,13 @@ abstract final class AssistantTurnPolicy {
     if (!firstRound.every((c) => c.status == 'locked')) return null;
     for (final reason in _turnPaywallPriority) {
       if (!ctx.lockedReasons.contains(reason)) continue;
+      // Sin consultas de mercado gratis, el turno sigue: responde sin datos
+      // del ticker ajeno y la app agrega el aviso de Premium. Las demás
+      // razones siguen cortando.
+      if (reason == PaywallReason.marketDataLocked &&
+          ctx.marketTasteExhausted) {
+        continue;
+      }
       final feature =
           ctx.lockedFeatures
               .where((f) => AssistantToolContext.reasonFor(f) == reason)
@@ -153,7 +160,9 @@ abstract final class AssistantTurnPolicy {
     PaywallReason.marketDataLocked,
   ];
 
-  /// Peso del turno en la cuota: `newsQueryWeight` si se buscaron noticias
+  /// Peso del turno en la cuota (hoy sin uso en la app: la cuota la cobra el
+  /// servidor por turno respondido, también tras agotar las consultas de
+  /// mercado gratis — no descontar acá): `newsQueryWeight` si se buscaron noticias
   /// (hoy 1, igual que el resto — ver `AiUsageLimits`), si no 1.
   static int quotaWeight(TurnOutcome outcome) {
     // Todo lo que se pidió estaba fuera del plan: la respuesta solo explica
