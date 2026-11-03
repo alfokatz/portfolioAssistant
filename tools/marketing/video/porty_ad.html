@@ -20,7 +20,9 @@ html,body{width:1080px;height:1920px;overflow:hidden;background:var(--canvas)}
 body{font-family:PJS;color:var(--ink);font-feature-settings:"tnum"}
 #stage{position:absolute;inset:0;perspective:2200px;overflow:hidden}
 .abs{position:absolute;will-change:transform,opacity}
-.blob{border-radius:50%}
+.glow{border-radius:50%;filter:blur(140px)}
+/* Halo terracota de la app (como el encabezado del diagnóstico): difuminado y
+   leve, nunca una mancha sólida. */
 /* Titulares cinéticos */
 .headline{position:absolute;left:90px;right:90px;top:250px;font-weight:700;font-size:92px;
   line-height:1.04;letter-spacing:-2.2px}
@@ -58,8 +60,8 @@ body{font-family:PJS;color:var(--ink);font-feature-settings:"tnum"}
 </head>
 <body>
 <div id="stage">
-  <div class="abs blob" id="b1" style="width:900px;height:900px;background:#F6E9DF;left:-300px;top:-200px"></div>
-  <div class="abs blob" id="b2" style="width:780px;height:780px;background:#EEF2EC;right:-320px;bottom:-160px"></div>
+  <div class="abs glow" id="b1" style="width:1500px;height:900px;background:#F2C9AD;left:-210px;top:-520px;opacity:.75"></div>
+  <div class="abs glow" id="b2" style="width:900px;height:700px;background:#F6DCC9;left:420px;top:-260px;opacity:.55"></div>
 
   <div class="headline" id="h1"><span class="w">Tu</span><span class="w">plata</span><span class="w">está</span><span class="w">en</span><span class="w a">varios</span><span class="w a">lados.</span></div>
   <div class="headline" id="h2"><span class="w">Juntala</span><span class="w">en</span><span class="w a">Porty.</span></div>
@@ -135,9 +137,11 @@ const chipHome = [
 ];
 
 window.render = function (t) {
-  // Fondo: blobs que respiran (planos, sin gradientes).
-  set($('b1'), { transform: `translate(${Math.sin(t * .5) * 40}px,${Math.cos(t * .4) * 30}px)` });
-  set($('b2'), { transform: `translate(${Math.cos(t * .45) * 36}px,${Math.sin(t * .35) * 34}px)` });
+  // Fondo: el halo respira y se desplaza muy lento; en el cierre baja un poco
+  // para envolver al avatar.
+  const settle = inOutCubic(seg(t, 18.6, 20.0));
+  set($('b1'), { transform: `translate(${Math.sin(t * .35) * 60}px,${Math.cos(t * .3) * 30 + settle * 420}px) scale(${1 + Math.sin(t * .5) * .04})` });
+  set($('b2'), { transform: `translate(${Math.cos(t * .3) * -70}px,${Math.sin(t * .28) * 40 + settle * 520}px)` });
 
   // Titulares (tiempos sincronizados con la locución, ver vo_script.md).
   headline('h1', t, 0.25, 2.55);

@@ -10,6 +10,10 @@
 // local, por ejemplo con `python3 -m http.server 8787`). Sin la variable,
 // quedan las iniciales (el test no tiene red). Lo usan las piezas de
 // marketing (tools/marketing/).
+//
+// Con TICKER_SWAP=VOO:SPY (pares separados por coma) se reemplazan tickers en
+// los datos de ejemplo y la evidencia, solo para estas capturas: los ejemplos
+// de lib/ no se tocan porque forman parte del prompt (allowlist de ai-chat).
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -216,6 +220,40 @@ final _enabled = Platform.environment['RUN_SCREENSHOTS'] == '1';
 
 final _logoBase = Platform.environment['LOGO_BASE_URL'];
 
+final _tickerSwap = {
+  for (final pair in (Platform.environment['TICKER_SWAP'] ?? '').split(','))
+    if (pair.contains(':')) pair.split(':').first: pair.split(':').last,
+};
+
+/// Reemplaza tickers como palabra completa (ver TICKER_SWAP en la cabecera).
+String _swapText(String text) {
+  var out = text;
+  _tickerSwap.forEach((from, to) {
+    out = out.replaceAll(RegExp('\\b$from\\b'), to);
+  });
+  return out;
+}
+
+Object? _swapDeep(Object? value) => switch (value) {
+  String s => _swapText(s),
+  Map m => <String, Object?>{
+    for (final e in m.entries) e.key as String: _swapDeep(e.value),
+  },
+  List l => [for (final v in l) _swapDeep(v)],
+  _ => value,
+};
+
+List<ToolCallRecord> _evidenceFor(String name) => [
+  for (final call in _evidence[name] ?? const <ToolCallRecord>[])
+    _tickerSwap.isEmpty
+        ? call
+        : ToolCallRecord(
+          name: call.name,
+          args: call.args,
+          result: _swapDeep(call.result)! as Map<String, Object?>,
+        ),
+];
+
 /// Logos servidos desde [_logoBase] (ver la cabecera del archivo).
 class _LocalLogoRepository implements CompanyBrandRepository {
   @override
@@ -284,7 +322,9 @@ void main() {
                 ? themeDataLightProvider
                 : themeDataDarkProvider,
           );
-          final components = parseExampleComponents(item.exampleData[e]());
+          final components = parseExampleComponents(
+            _swapText(item.exampleData[e]()),
+          );
           final targets = componentsMatching(components, item.name).toList();
           final boundary = GlobalKey();
           await tester.pumpWidget(
@@ -298,9 +338,7 @@ void main() {
                     child: QaEvidenceScope(
                       lookup:
                           (_) => ValueNotifier(
-                            TurnEvidence(
-                              calls: _evidence[item.name] ?? const [],
-                            ),
+                            TurnEvidence(calls: _evidenceFor(item.name)),
                           ),
                       child: RepaintBoundary(
                         key: boundary,

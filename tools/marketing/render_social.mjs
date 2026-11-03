@@ -41,6 +41,8 @@ const D = {
 
 const SHOT_PORTFOLIO = png('genui_catalog/QaPositionsSnapshot_0_light.png');
 const SHOT_EXPLAIN = png('genui_catalog/QaConcentrationBar_0_light.png');
+// Recorte de la pantalla real "Traé tu cartera" (onboarding_1_light.png, y 880–1880).
+const SHOT_LOAD = png('onboarding/traer_options.png');
 
 const css = `
 @font-face{font-family:PJS;font-weight:400;src:url(data:font/ttf;base64,${font('Regular')})}
@@ -67,7 +69,7 @@ h1{font-size:68px;line-height:1.08;font-weight:700;letter-spacing:-1.5px;margin-
 `;
 
 // Pie: en stories queda fuera de los 340 px de abajo (zona de botones/link).
-function page({ h, kicker, title, sub, note, shot, tag, avatar, avatarSize = 360, foot, pill, num, center }) {
+function page({ h, kicker, title, sub, note, shot, tag, avatar, avatarSize = 360, foot, pill, num, center, vcenter }) {
   const padBottom = h === 1920 ? 360 : 80; // stories: fuera de los 340 px de abajo
   const shotMax = h === 1920 ? 820 : 480;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>
@@ -75,7 +77,7 @@ function page({ h, kicker, title, sub, note, shot, tag, avatar, avatarSize = 360
   <div class="brand"><img src="${svg('porty_idle')}">Porty</div>
   ${pill ? `<div class="pill" style="right:${num ? 170 : 88}px">${pill}</div>` : ''}
   ${num ? `<div class="page">${num}</div>` : ''}
-  <div class="content" style="${center ? 'justify-content:center;' : ''}">
+  <div class="content" style="${center || vcenter ? 'justify-content:center;' : ''}">
     ${avatar ? `<img class="avatar" src="${svg(avatar)}" style="width:${avatarSize}px;margin-top:${center ? 0 : 64}px">` : ''}
     ${kicker ? `<div class="kicker">${kicker}</div>` : ''}
     ${title ? `<h1 style="${center ? 'text-align:center;' : ''}">${title}</h1>` : ''}
@@ -112,10 +114,10 @@ const pieces = {
 
   // PR5. Stories de presentación (stickers se agregan en Instagram, hay aire reservado).
   'PR5_story1': page({ h: STORY, center: true, avatar: 'porty_idle', avatarSize: 480,
-    title: 'Hola, soy Porty.', sub: 'Un asistente con IA. Te ayudo a entender tu cartera.' }),
-  'PR5_story2': page({ h: STORY, kicker: 'Para quién',
+    title: 'Hola, soy Porty.', sub: 'Tu asistente integral para entender tus inversiones.' }),
+  'PR5_story2': page({ h: STORY, vcenter: true, kicker: 'Para quién',
     title: 'Si tu plata está repartida en varias apps, Porty te ayuda a verla junta.',
-    note: 'Conectando brókers en planes pagos, o con un import.' }),
+    shot: SHOT_LOAD, note: 'Conectás tu bróker, subís un archivo o una captura, o se lo contás a Porty.' }),
   'PR5_story3': page({ h: STORY, kicker: 'Qué hace',
     title: 'Tu cartera en un solo lugar.', shot: SHOT_PORTFOLIO }),
   'PR5_story4': page({ h: STORY, kicker: 'Cómo se usa',
