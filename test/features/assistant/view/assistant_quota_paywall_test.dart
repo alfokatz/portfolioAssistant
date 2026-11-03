@@ -140,13 +140,19 @@ void main() {
     await tester.tap(find.byType(AssistantSendButton));
     await tester.pump();
 
-    final line = find.text('Te quedan 5 consultas este mes. Con Premium '
-        'tenés 500.');
+    final line = find.text(
+      'Te quedan 5 consultas este mes. Con Premium '
+      'tenés 500.',
+    );
     for (var i = 0; i < 3000 && line.evaluate().isEmpty; i++) {
       await tester.runAsync(() async {});
       await tester.pump(const Duration(milliseconds: 16));
     }
-    await tester.pump(const Duration(milliseconds: 600));
+    // La línea entra con fade al terminar el reveal; hasta entonces no recibe
+    // toques.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     expect(line, findsOneWidget);
 
     await tester.ensureVisible(find.text('Ver planes'));
@@ -291,8 +297,7 @@ class _UnusedHistory extends _Unused implements GetPortfolioHistoryUseCase {}
 class _UnusedBenchmark extends _Unused
     implements GetBenchmarkComparisonUseCase {}
 
-class _UnusedDelete extends _Unused
-    implements DeletePositionsByTickerUseCase {}
+class _UnusedDelete extends _Unused implements DeletePositionsByTickerUseCase {}
 
 class _UnusedClosedRepo extends _Unused implements ClosedPositionRepository {}
 

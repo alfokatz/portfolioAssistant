@@ -33,8 +33,7 @@ void main() {
       expect(memory.wasShown('u1', DateTime.utc(2026, 12, 1)), isFalse);
     });
 
-    test('persists in SharedPreferences and survives a new instance',
-        () async {
+    test('persists in SharedPreferences and survives a new instance', () async {
       final p = await prefs();
       await QuotaNudgeMemory(p).markShown('u1', DateTime.utc(2026, 11, 10));
 

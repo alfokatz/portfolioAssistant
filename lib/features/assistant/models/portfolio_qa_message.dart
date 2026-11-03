@@ -85,8 +85,7 @@ class PortfolioQaMessage {
   /// burbuja de texto plano). Un mensaje con `surfaceId` pero marcado
   /// [isFallback] todavía no tiene una surface válida para mostrar — se ve
   /// como texto hasta que, si acaso, un reintento tardío la resuelve.
-  bool get isGenUiSurface =>
-      surfaceId != null && !isFallback && notice == null;
+  bool get isGenUiSurface => surfaceId != null && !isFallback && notice == null;
 
   PortfolioQaMessage copyWith({
     PortfolioQaRole? role,

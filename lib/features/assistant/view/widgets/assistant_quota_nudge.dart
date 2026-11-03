@@ -29,10 +29,9 @@ class AssistantQuotaNudge extends StatelessWidget {
     final next = PlanMatrix.nextTier(tier);
     if (next == null) return const SizedBox.shrink();
     final colors = context.customColors;
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: colors.textSecondary,
-      height: 1.4,
-    );
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.4);
     final text = 'assistant_quota_nudge'.tr(
       namedArgs: {
         'remaining': '$remaining',
