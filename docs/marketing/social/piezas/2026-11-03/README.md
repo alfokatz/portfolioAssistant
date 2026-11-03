@@ -13,3 +13,14 @@ Generadas con `tools/marketing/render_social.mjs` (imágenes) y `tools/marketing
 Pendiente antes de publicar: el link de descarga / UTM (plan §7). Logos: bajados de Finnhub (`static2.finnhub.io` → `static9`) y servidos con `LOGO_BASE_URL` al test de capturas; la cartera demo usa SPY en vez de VOO (`TICKER_SWAP=VOO:SPY`, solo en las capturas) con el logo de State Street (emisor de los SPDR), porque Finnhub no tiene logo para ETFs. Las respuestas a la caja de preguntas usan la plantilla del review (§4, Stories 6.2), sin handle ni foto de quien preguntó.
 
 Para regenerar (por ejemplo, con otras capturas): ver el encabezado de cada script.
+
+## Cortes por función (15–20 s, 9:16, mudos)
+
+Generados con `tools/marketing/video/cuts.sh` desde `PR1_live_action_porty.mp4`. Todos abren con Porty saliendo de la pantalla y cierran con "Descargala gratis". Marcar como contenido con IA (tienen planos live generados).
+
+| Archivo | Duración | Escenas |
+|---|---|---|
+| `cortes/corte_informe_semanal.mp4` | 18,2 s | Porty sale → cocina ("Ya miré tu cartera") → sillón ("NVDA subió 6% por sus resultados") → informe semanal con el porqué y noticias → cierre |
+| `cortes/corte_comparar_sp500.mp4` | 17,5 s | Porty sale → cards de cartera → "Preguntame lo que quieras" → QQQ vs S&P 500 en gráfico → cierre |
+| `cortes/corte_diversificar.mp4` | 17,5 s | Porty sale → cards de cartera → "Preguntame lo que quieras" → ideas para diversificar (educativo) → cierre |
+| `cortes/corte_metas_ahorro.mp4` | 17 s | Porty sale → cocina → "Preguntame lo que quieras" → plan de ahorro para la jubilación → cierre |
