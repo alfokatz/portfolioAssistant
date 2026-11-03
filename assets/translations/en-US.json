@@ -1649,5 +1649,19 @@
   "settings_section_bring_portfolio": "Bring in your portfolio",
   "onboarding_bring_broker_title": "Connect your broker",
   "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers and more. Updates on its own. Read-only.",
-  "position_detail_date_unknown": "Purchase date unknown"
+  "position_detail_date_unknown": "Purchase date unknown",
+  "binance_screenshot_exit": "Meanwhile, bring it in with a screenshot",
+  "snaptrade_screenshot_exit": "Meanwhile, bring it in with a statement or a screenshot",
+  "diagnosis_sync_title": "Keep it up to date on its own",
+  "diagnosis_sync_detail_locked": "Connect a supported broker and Porty keeps it current. Comes with Premium.",
+  "diagnosis_sync_detail": "Connect a supported broker and Porty keeps it current.",
+  "diagnosis_push_title": "Want a heads-up on Saturday?",
+  "diagnosis_push_detail": "I'll tell you how your week went.",
+  "push_prompt_title_diagnosis": "Your week, every Saturday",
+  "push_prompt_body_diagnosis": "Every Saturday you'll get how your portfolio did that week. Turn it off anytime.",
+  "assistant_quota_nudge": "You have {remaining} queries left this month. {plan} gives you {count}.",
+  "assistant_quota_nudge_cta": "See plans",
+  "paywall_title_quota_low": "You're running low on queries",
+  "paywall_subtitle_quota_low": "Premium gives you {count} a month, plus tickers outside your portfolio.",
+  "paywall_quota_returns": "Your queries come back on {date}."
 }

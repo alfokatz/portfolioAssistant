@@ -150,6 +150,7 @@ class PaywallHarness {
     PaywallOffer? offer,
     this.annualEnabled = false,
     Completer<PaywallOffer>? slowOffer,
+    this.clock,
   }) : revenueCat = FakeRevenueCat(
          offer: offer ?? PaywallOffer.empty,
          slowOffer: slowOffer,
@@ -159,6 +160,9 @@ class PaywallHarness {
   final int used;
   final int limit;
   final bool annualEnabled;
+
+  /// Reloj del paywall (para la fecha en que vuelven las consultas).
+  final DateTime Function()? clock;
   final FakeRevenueCat revenueCat;
   final events = FakeProductEvents();
   final haptics = <PortyHapticPattern>[];
@@ -185,6 +189,7 @@ class PaywallHarness {
       ),
       productEventsProvider.overrideWithValue(events),
       paywallAnnualEnabledProvider.overrideWith((ref) async => annualEnabled),
+      if (clock != null) paywallClockProvider.overrideWithValue(clock!),
     ];
   }
 

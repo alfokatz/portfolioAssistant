@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/subscription/config/subscription_ca
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 
@@ -246,18 +247,49 @@ void main() {
       expect(h.events.of(ProductEvent.paywallDismissed), isEmpty);
     });
 
-    testWidgets('the usage meter only shows for quotaExceeded', (tester) async {
+    testWidgets('the usage meter only shows for the quota reasons', (
+      tester,
+    ) async {
       for (final reason in PaywallReason.values) {
         final h = PaywallHarness();
         await h.pump(tester, reason: reason, source: 'test_source');
         await h.open(tester);
         expect(
           find.text('paywall_usage'),
-          reason == PaywallReason.quotaExceeded ? findsOneWidget : findsNothing,
+          reason == PaywallReason.quotaExceeded ||
+                  reason == PaywallReason.quotaLow
+              ? findsOneWidget
+              : findsNothing,
           reason: reason.name,
         );
         await _close(tester);
       }
+    });
+
+    testWidgets('quotaLow subtitle uses the next plan quota and the date', (
+      tester,
+    ) async {
+      final h = PaywallHarness(clock: () => DateTime.utc(2026, 11, 15));
+      await h.pump(
+        tester,
+        reason: PaywallReason.quotaLow,
+        source: PaywallSource.quotaSoft,
+      );
+      await h.open(tester);
+      expect(find.text('paywall_title_quota_low'), findsOneWidget);
+      expect(find.text('paywall_subtitle_quota_low'), findsOneWidget);
+      expect(find.text('paywall_quota_returns'), findsOneWidget);
+      expect(h.events.of(ProductEvent.paywallViewed).single['source'], 'quota_soft');
+    });
+
+    test('nextQuotaReset is the 1st of the next UTC month', () {
+      expect(nextQuotaReset(DateTime.utc(2026, 11, 15)), DateTime(2026, 12, 1));
+      expect(nextQuotaReset(DateTime.utc(2026, 12, 31, 23)), DateTime(2027, 1, 1));
+      // 30/11 22:00 en UTC-5 ya es diciembre en UTC.
+      expect(
+        nextQuotaReset(DateTime.parse('2026-11-30T22:00:00-05:00')),
+        DateTime(2027, 1, 1),
+      );
     });
 
     testWidgets('every reason shows the terms, both links and restore', (

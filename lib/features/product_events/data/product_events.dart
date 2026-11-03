@@ -39,7 +39,21 @@ enum ProductEvent {
 
   /// La hoja se cerró sin compra ni restauración exitosa. Props: `source`,
   /// `seconds_open`, `tapped_plan`.
-  paywallDismissed('paywall_dismissed');
+  paywallDismissed('paywall_dismissed'),
+
+  /// Tocó la salida alternativa de una pantalla bloqueada. Props: `surface`
+  /// (`broker_locked_binance` | `broker_locked_snaptrade`), `action`.
+  nudgeTapped('nudge_tapped'),
+
+  /// Terminó un intento de conectar un bróker. Props: `broker` (`etoro` |
+  /// `binance` | `snaptrade`), `result` (`ok` | `plan_required` | `limit` |
+  /// `cancelled` | `error`).
+  brokerConnectResult('broker_connect_result'),
+
+  /// Se cerró el pedido de permiso de notificaciones (si se mostró). Props:
+  /// `source` (`PushPromptReason.name`), `result` (`granted` | `denied` |
+  /// `dismissed`).
+  pushOptIn('push_opt_in');
 
   const ProductEvent(this.wire, {this.once = false});
 

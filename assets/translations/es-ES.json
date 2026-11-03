@@ -1649,5 +1649,19 @@
   "settings_section_bring_portfolio": "Cargar tu cartera",
   "onboarding_bring_broker_title": "Conectá tu bróker",
   "onboarding_bring_broker_body": "eToro, Binance, Interactive Brokers y más. Se actualiza sola. Solo lectura.",
-  "position_detail_date_unknown": "Fecha de compra desconocida"
+  "position_detail_date_unknown": "Fecha de compra desconocida",
+  "binance_screenshot_exit": "Mientras tanto, traela con una captura",
+  "snaptrade_screenshot_exit": "Mientras tanto, traela con un extracto o una captura",
+  "diagnosis_sync_title": "Que se actualice sola",
+  "diagnosis_sync_detail_locked": "Conectá un bróker compatible y Porty la mantiene al día. Viene con Premium.",
+  "diagnosis_sync_detail": "Conectá un bróker compatible y Porty la mantiene al día.",
+  "diagnosis_push_title": "¿Te aviso el sábado?",
+  "diagnosis_push_detail": "Te cuento qué pasó en tu semana.",
+  "push_prompt_title_diagnosis": "El resumen de tu semana, el sábado",
+  "push_prompt_body_diagnosis": "Los sábados te llega cómo le fue a tu cartera en la semana. Lo apagás cuando quieras.",
+  "assistant_quota_nudge": "Te quedan {remaining} consultas este mes. Con {plan} tenés {count}.",
+  "assistant_quota_nudge_cta": "Ver planes",
+  "paywall_title_quota_low": "Te quedan pocas consultas",
+  "paywall_subtitle_quota_low": "Con Premium tenés {count} por mes y consultás también tickers fuera de tu cartera.",
+  "paywall_quota_returns": "Tus consultas vuelven el {date}."
 }

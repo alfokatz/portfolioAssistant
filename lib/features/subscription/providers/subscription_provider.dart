@@ -37,6 +37,10 @@ enum PaywallReason {
   goldRequired,
   quotaExceeded,
 
+  /// Quedan pocas consultas del mes (la línea del chat). Como
+  /// [quotaExceeded] pero todavía puede consultar.
+  quotaLow,
+
   /// Conectar eToro (Premium y Gold).
   brokerSync,
 

@@ -66,6 +66,7 @@ class PlanSpec {
     required this.watchlistLimit,
     required this.highlights,
     this.extraMarketingKeys = const [],
+    this.quotaNudgeAtRemaining,
   });
 
   final Set<PlanFeature> features;
@@ -92,6 +93,10 @@ class PlanSpec {
 
   /// Textos de marketing que no corresponden a una feature con gating.
   final List<String> extraMarketingKeys;
+
+  /// Avisar en el chat cuando quedan estas consultas del mes. null = no
+  /// avisar.
+  final int? quotaNudgeAtRemaining;
 }
 
 /// Matriz de planes: única fuente de verdad de qué incluye cada uno.
@@ -135,6 +140,7 @@ abstract final class PlanMatrix {
       // Precios de lo que no tiene: Premium.
       watchlistLimit: 0,
       highlights: [PlanFeature.ownPortfolio],
+      quotaNudgeAtRemaining: 5,
     ),
     SubscriptionTier.premium: PlanSpec(
       features: _premium,
@@ -173,6 +179,14 @@ abstract final class PlanMatrix {
       extraMarketingKeys: ['plan_feature_weekly_report'],
     ),
   };
+
+  /// El plan siguiente (para "Con Premium tenés 500"). null en Gold.
+  static SubscriptionTier? nextTier(SubscriptionTier tier) {
+    final i = SubscriptionTier.values.indexOf(tier);
+    return i + 1 < SubscriptionTier.values.length
+        ? SubscriptionTier.values[i + 1]
+        : null;
+  }
 
   static PlanSpec of(SubscriptionTier tier) => plans[tier]!;
 

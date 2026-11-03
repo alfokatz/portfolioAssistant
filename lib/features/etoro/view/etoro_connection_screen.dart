@@ -61,6 +61,11 @@ class _EtoroConnectionScreenState
     });
   }
 
+  void _logConnect(String result) => ref.read(productEventsProvider).log(
+    ProductEvent.brokerConnectResult,
+    {'broker': 'etoro', 'result': result},
+  );
+
   Future<void> _connect() async {
     final haptics = PortyHapticsService.maybeOf(context);
     final tier = ref.read(subscriptionProvider).tier;
@@ -68,6 +73,7 @@ class _EtoroConnectionScreenState
     if (!SubscriptionPolicy.allows(tier, PlanFeature.brokerSync) &&
         ref.read(etoroConnectionProvider).connection.freeImportUsed) {
       haptics?.lockedTap();
+      _logConnect('plan_required');
       await SubscriptionPaywallSheet.show(
         context,
         ref,
@@ -82,6 +88,7 @@ class _EtoroConnectionScreenState
     if (!mounted) return;
     switch (outcome) {
       case EtoroConnected(:final syncFailed, :final freeImport):
+        _logConnect('ok');
         haptics?.brokerSynced();
         ref.read(portfolioLoadMethodProvider.notifier).state =
             PortfolioLoadMethod.etoro;
@@ -93,8 +100,9 @@ class _EtoroConnectionScreenState
           },
         );
       case EtoroConnectCancelled():
-        break;
+        _logConnect('cancelled');
       case EtoroConnectPlanRequired():
+        _logConnect('plan_required');
         await SubscriptionPaywallSheet.show(
           context,
           ref,
@@ -102,6 +110,7 @@ class _EtoroConnectionScreenState
           source: 'etoro_connect',
         );
       case EtoroConnectFailed(:final reason):
+        _logConnect('error');
         final message = EtoroMessages.connectError(reason);
         if (message != null) {
           haptics?.brokerFailed();
@@ -451,10 +460,7 @@ class _IconBubble extends StatelessWidget {
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
-        color: colors.chip,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: colors.chip, shape: BoxShape.circle),
       child: Icon(icon, size: 18, color: colors.onChip),
     );
   }
@@ -481,10 +487,9 @@ class _ConnectBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: colors.textSecondary,
-      height: 1.45,
-    );
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.45);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

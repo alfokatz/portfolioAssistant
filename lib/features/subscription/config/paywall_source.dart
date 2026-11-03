@@ -34,6 +34,12 @@ abstract final class PaywallSource {
   /// SnapTrade: otro bróker más (`_addAnother`, `snaptrade_connection_limit`).
   static const snaptradeMulti = 'snaptrade_multi';
 
+  /// Diagnóstico: la fila "que se actualice sola" (plan sin `brokerSync`).
+  static const diagnosisSync = 'diagnosis_sync';
+
+  /// Chat: la línea "te quedan N consultas".
+  static const quotaSoft = 'quota_soft';
+
   /// Chat: el turno se rechazó por cuota.
   static const quotaZero = 'quota_zero';
 
@@ -64,6 +70,8 @@ abstract final class PaywallSource {
     binanceConnect,
     snaptradeConnect,
     snaptradeMulti,
+    diagnosisSync,
+    quotaSoft,
     quotaZero,
     quotaZeroHeader,
     chatActionWatchlist,

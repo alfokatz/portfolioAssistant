@@ -67,6 +67,18 @@ void main() {
       expect(AiUsageLimits.goldMonthly, 1000);
     });
 
+    test('quota nudge: only Free warns, at 5 left', () {
+      expect(PlanMatrix.of(_free).quotaNudgeAtRemaining, 5);
+      expect(PlanMatrix.of(_premium).quotaNudgeAtRemaining, isNull);
+      expect(PlanMatrix.of(_gold).quotaNudgeAtRemaining, isNull);
+    });
+
+    test('nextTier: free -> premium -> gold -> null', () {
+      expect(PlanMatrix.nextTier(_free), _premium);
+      expect(PlanMatrix.nextTier(_premium), _gold);
+      expect(PlanMatrix.nextTier(_gold), isNull);
+    });
+
     test('weekly free analysis: Free and Premium, never Gold', () {
       expect(PlanMatrix.hasWeeklyFreeAnalysis(_free), isTrue);
       expect(PlanMatrix.hasWeeklyFreeAnalysis(_premium), isTrue);

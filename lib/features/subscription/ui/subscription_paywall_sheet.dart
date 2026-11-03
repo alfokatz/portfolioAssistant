@@ -26,6 +26,16 @@ import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.da
 import 'package:portfolio_assistant/presentation/shared/widgets/segmented_choice.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// El reloj del paywall (los tests lo reemplazan).
+final paywallClockProvider = Provider<DateTime Function()>((_) => DateTime.now);
+
+/// Día 1 del mes UTC siguiente: cuándo vuelven las consultas (igual que
+/// `_current_usage_month` en el servidor).
+DateTime nextQuotaReset(DateTime now) {
+  final utc = now.toUtc();
+  return DateTime(utc.year, utc.month + 1, 1);
+}
+
 /// El paywall: planes visibles según el motivo, precios de la tienda,
 /// selector Mensual/Anual (si la tienda trae los anuales y el interruptor
 /// `paywall_annual` está prendido) y los términos de la suscripción.
@@ -127,6 +137,7 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     PaywallReason.marketDataLocked => 'paywall_title_market_data',
     PaywallReason.goldRequired => 'paywall_title_gold',
     PaywallReason.quotaExceeded => 'paywall_title_quota',
+    PaywallReason.quotaLow => 'paywall_title_quota_low',
     PaywallReason.brokerSync => 'paywall_title_broker_sync',
     PaywallReason.priceAlerts => 'paywall_title_price_alerts',
   };
@@ -141,6 +152,7 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     PaywallReason.marketDataLocked => 'paywall_subtitle_market_data',
     PaywallReason.goldRequired => 'paywall_subtitle_gold',
     PaywallReason.quotaExceeded => 'paywall_subtitle_quota',
+    PaywallReason.quotaLow => 'paywall_subtitle_quota_low',
     PaywallReason.brokerSync => 'paywall_subtitle_broker_sync',
     PaywallReason.priceAlerts => 'paywall_subtitle_price_alerts',
   };
@@ -311,6 +323,14 @@ class _SubscriptionPaywallSheetState
 
   String _subtitle() {
     final key = SubscriptionPaywallSheet.subtitleKeyFor(widget.reason);
+    if (widget.reason == PaywallReason.quotaLow) {
+      final next =
+          PlanMatrix.nextTier(ref.read(subscriptionProvider).tier) ??
+          SubscriptionTier.premium;
+      return key.tr(
+        namedArgs: {'count': '${PlanMatrix.of(next).monthlyQueries}'},
+      );
+    }
     if (widget.reason != PaywallReason.positionLimit) return key.tr();
     final limit = SubscriptionPolicy.positionLimit(SubscriptionTier.free);
     return key.tr(namedArgs: {'limit': '${limit ?? ''}'});
@@ -386,11 +406,28 @@ class _SubscriptionPaywallSheetState
               ],
               // El medidor solo cuando el motivo es la cuota: en el resto
               // distrae de lo que el usuario vino a desbloquear.
-              if (reason == PaywallReason.quotaExceeded) ...[
+              if (reason == PaywallReason.quotaExceeded ||
+                  reason == PaywallReason.quotaLow) ...[
                 const SizedBox(height: AppDimens.sp16),
                 _PaywallUsageMeter(
                   used: subscription.queriesUsed,
                   limit: subscription.queriesLimit,
+                ),
+                const SizedBox(height: AppDimens.sp8),
+                Text(
+                  'paywall_quota_returns'.tr(
+                    namedArgs: {
+                      'date': DateFormat.MMMMd(
+                        Localizations.localeOf(context).toLanguageTag(),
+                      ).format(
+                        nextQuotaReset(ref.read(paywallClockProvider)()),
+                      ),
+                    },
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                    height: 1.4,
+                  ),
                 ),
               ],
               // Solo tiene sentido avisarlo si una consulta de noticias pesa
