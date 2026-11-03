@@ -2,3 +2,4 @@
 
 - 2026-11-02 Paywall medible: `TurnAbortedException.reason` es un `ChatPaywall(reason, source)` (en assistant_toolset.dart); los sources de cards se arman con `PaywallSource.snake` (camelCase o "+" rompían el assert de `show`). Cambiar solo el string del source no mueve el hash del prompt (verificado).
 - Entorno: no hay Flutter en el PATH del contenedor; se baja el SDK estable al scratchpad para correr tests. El hook bloquea `dart format` con flags aunque se listen archivos.
+- 2026-11-03 Línea de cuota baja (3c): la decide el provider tras `refresh()` (no el modelo), una vez por mes UTC en SharedPreferences `quota_nudge_shown`; no toca prompt (allowlist verde sin flag). El `RevealEntrance` ignora toques hasta terminar el fade: en tests pumpear ~2 s antes de tocar el link.
