@@ -56,8 +56,8 @@ const SCENES = {
   colectivo: { x: 70, y: 1090, size: 200, bx: 50, by: 760, bw: 660, flip: false,
     text: 'Tenés tu plata en <span class="num">3 apps</span>.', sub: 'La junto acá.', pop: .1, say: .45 },
   sillon: { x: 24, y: 1440, size: 200, bx: 24, by: 0, bw: 520,
-    text: '<span class="num">NVDA</span> ya es el <span class="num">38%</span> de tu cartera.', sub: '¿Te explico qué significa?', pop: .15, say: .55 },
-  pulgar: { x: 120, y: 520, size: 190, bx: 100, by: 250, bw: 330,
+    text: 'Esta semana <span class="num">NVDA</span> subió <span class="num">6%</span> por sus resultados.', sub: '¿Te cuento el resto?', pop: .15, say: .55 },
+  pulgar: { x: 120, y: 520, size: 190, bx: 100, by: 250, bw: 470,
     thinking: true, pop: .05, say: .3 },
 };
 
@@ -88,7 +88,7 @@ window.render = function (name, t) {
   if (s.thinking) {
     const answered = t > s.say + 1.0;
     bub.innerHTML = answered
-      ? 'Dale, te explico.'
+      ? 'Preguntame lo que quieras.'
       : '<div class="dots"><span></span><span></span><span></span></div>';
     if (!answered) [...bub.querySelectorAll('.dots span')].forEach((d, i) => {
       d.style.opacity = .35 + .65 * Math.abs(Math.sin(t * 6 - i * .7));

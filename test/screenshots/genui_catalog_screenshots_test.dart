@@ -14,6 +14,9 @@
 // Con TICKER_SWAP=VOO:SPY (pares separados por coma) se reemplazan tickers en
 // los datos de ejemplo y la evidencia, solo para estas capturas: los ejemplos
 // de lib/ no se tocan porque forman parte del prompt (allowlist de ai-chat).
+//
+// Con DEMO_PRICES=1 los gráficos de precios (QaCompareChart) reciben una serie
+// de demo determinística en vez de pedir cotizaciones (el test no tiene red).
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -28,6 +31,9 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dar
 import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/domain/repositories/company_brand_repository.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
+import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'dart:math' as math;
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -261,6 +267,47 @@ class _LocalLogoRepository implements CompanyBrandRepository {
       CompanyBrand(ticker: ticker, logoUrl: '$_logoBase/$ticker.png');
 }
 
+final _demoPrices = Platform.environment['DEMO_PRICES'] == '1';
+
+/// Serie de demo: paseo suave y determinístico por ticker que termina en la
+/// variación del ejemplo de la card (o ±1,5 % si el ticker no está).
+class _DemoPriceLoader implements PriceChartDataLoader {
+  static const _endPct = {
+    'QQQ': -1.96,
+    'SPY': 1.39,
+    'AAPL': -1.96,
+    'MSFT': 1.39,
+  };
+
+  @override
+  Future<List<PriceCandle>?> load(String ticker, PriceChartRange range) async {
+    const n = 22;
+    final seed = ticker.codeUnits.fold<int>(7, (a, c) => a * 31 + c);
+    final rnd = math.Random(seed);
+    final end = (_endPct[ticker] ?? 1.5) / 100;
+    var walk = 0.0;
+    final noise = <double>[];
+    for (var i = 0; i < n; i++) {
+      walk += (rnd.nextDouble() - .5) * .012;
+      noise.add(walk);
+    }
+    final start = DateTime(2026, 9, 21);
+    return [
+      for (var i = 0; i < n; i++)
+        PriceCandle(
+          date: start.add(Duration(days: i + (i ~/ 5) * 2)),
+          // Tendencia lineal al final + ruido que vuelve a 0 en los extremos.
+          close:
+              100 *
+              (1 +
+                  end * i / (n - 1) +
+                  (noise[i] - noise.last * i / (n - 1)) -
+                  noise.first * (1 - i / (n - 1))),
+        ),
+    ];
+  }
+}
+
 Future<void> _loadFonts() async {
   Future<void> load(String family, List<String> files) async {
     final loader = FontLoader(family);
@@ -314,6 +361,10 @@ void main() {
               if (_logoBase != null)
                 companyBrandLoaderProvider.overrideWithValue(
                   CompanyBrandLoader(_LocalLogoRepository()),
+                ),
+              if (_demoPrices)
+                priceChartDataLoaderProvider.overrideWithValue(
+                  _DemoPriceLoader(),
                 ),
             ],
           );

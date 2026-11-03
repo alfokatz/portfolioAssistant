@@ -19,7 +19,7 @@ const fps = Number(fpsArg ?? 60);
 
 const browser = await chromium.launch({ args: ['--allow-file-access-from-files'] });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
-await page.goto('file://' + path.resolve('tools/marketing/video/porty_ad.html'));
+await page.goto('file://' + path.resolve(process.env.AD_HTML ?? 'tools/marketing/video/porty_ad.html'));
 await page.evaluate(() => document.fonts.ready);
 // Precarga las dos caras del avatar del chat para que el cambio no parpadee.
 await page.evaluate(async () => {
