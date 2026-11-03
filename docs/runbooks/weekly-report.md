@@ -77,6 +77,29 @@ Corta en el acto, también para versiones viejas de la app:
 
 Los informes ya generados quedan guardados y vuelven a mostrarse al prender.
 
+## Informes de regalo (hábito del sábado)
+
+Spec: `docs/superpowers/specs/2026-11-03-habito-del-sabado.md`. Migraciones `20261103110000_rollout_flag_sql.sql` (`_rollout_on`) y `20261103120000_weekly_report_courtesy.sql`. Free y Premium reciben los **primeros N informes completos** (no las primeras N semanas desde el alta); Gold siempre. Apagado = 1 (lo de siempre).
+
+Fila `app_config.weekly_report_courtesy`: `{"percent", "users", "reports"}`. Es aparte de `weekly_report` para que el `update` de arriba no pise N.
+
+```sql
+-- Prender para todos, 3 informes
+update public.app_config set value = '{"percent": 100, "users": [], "reports": 3}'::jsonb, updated_at = now()
+ where key = 'weekly_report_courtesy';
+-- Probar con una cuenta: "percent": 0, "users": ["<uuid>"]
+-- Cambiar N: solo `reports` (se acota a 1..8; falta o no es número = 3)
+-- Apagar: "percent": 0, "users": []
+```
+
+Los usuarios que ya usaron su regalo reciben N-1 más al prender. Un regalo que falla 3 veces cuenta como usado.
+
+Lectura (regalos por usuario y fallas):
+```sql
+select user_id, count(*) as regalos, count(*) filter (where status = 'failed') as fallidos
+from public.weekly_reports where courtesy group by user_id order by regalos desc;
+```
+
 ## Si el informe sale con "Porty no pudo escribir su parte"
 
 La reserva funcionó y falló la llamada al LLM. En la consola de la app (debug) aparece `[WeeklyReport] generation failed for <semana>: <tipo>`:
