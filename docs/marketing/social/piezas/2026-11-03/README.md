@@ -9,6 +9,6 @@ Generadas con `tools/marketing/render_social.mjs` (imágenes) y `tools/marketing
 | PR3 "Conocé a Porty" | `PR3_conoce_a_porty_feed.png` (1080x1350), `PR3_conoce_a_porty_story.png` (1080x1920) | IG feed + Stories | Caption del plan. |
 | PR5 Stories de presentación | `PR5_story1.png` … `PR5_story5.png` (1080x1920) | IG Stories (día 1) | Stickers en Instagram, en el espacio libre: placa 2 encuesta "¿En cuántos lugares tenés tu plata? 1 / 2 o más"; placa 4 pregunta "¿Qué te gustaría que Porty te explique? No me cuentes montos ni datos de tu cuenta."; placa 5 link con el UTM de Stories. Sin cuenta regresiva. |
 
-Pendiente antes de publicar: el link de descarga / UTM (plan §7) y los logos reales de las empresas en las cards (hay que habilitar `static2.finnhub.io` en la red del entorno; el test de capturas ya los soporta con `LOGO_BASE_URL`). Las respuestas a la caja de preguntas usan la plantilla del review (§4, Stories 6.2), sin handle ni foto de quien preguntó.
+Pendiente antes de publicar: el link de descarga / UTM (plan §7). Logos: bajados de Finnhub (`static2.finnhub.io` → `static9`) y servidos con `LOGO_BASE_URL` al test de capturas; VOO no tiene logo en Finnhub y queda con iniciales, como en la app. Las respuestas a la caja de preguntas usan la plantilla del review (§4, Stories 6.2), sin handle ni foto de quien preguntó.
 
 Para regenerar (por ejemplo, con otras capturas): ver el encabezado de cada script.
