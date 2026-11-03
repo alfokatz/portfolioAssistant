@@ -43,6 +43,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_ad
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quota_nudge.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_starter_suggestions.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
@@ -560,6 +561,18 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       _scheduleFollow();
     }
     return false;
+  }
+
+  /// "Ver planes" de la línea de cuota baja (quedan pocas consultas). Cerrarlo
+  /// deja el chat donde estaba; si compra, se refresca la cuota.
+  void _openQuotaLowPaywall() {
+    SubscriptionPaywallSheet.show(
+      context,
+      ref,
+      reason: PaywallReason.quotaLow,
+      source: PaywallSource.quotaSoft,
+      onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
+    );
   }
 
   /// Swap limpio: se limpia el input y el mensaje pasa a existir en el
@@ -1292,11 +1305,35 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.
+      final quotaLeft = message.quotaNudgeRemaining;
       content =
-          AssistantAdviceFooter.hasContent(message)
+          AssistantAdviceFooter.hasContent(message) || quotaLeft != null
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [surface, _AdviceFooterEntrance(message: message)],
+                children: [
+                  surface,
+                  _AdviceFooterEntrance(
+                    message: message,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (AssistantAdviceFooter.hasContent(message))
+                          AssistantAdviceFooter(message: message),
+                        if (quotaLeft != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimens.sp12,
+                            ),
+                            child: AssistantQuotaNudge(
+                              remaining: quotaLeft,
+                              tier: ref.watch(subscriptionProvider).tier,
+                              onSeePlans: _openQuotaLowPaywall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               )
               : surface;
     } else {
@@ -1503,14 +1540,16 @@ class _MessageAvatarState extends State<_MessageAvatar> {
   );
 }
 
-/// El footer de avisos entra último, cuando la respuesta terminó su reveal:
-/// fade simple (sin slide ni escala) mientras abre su espacio, así el final
-/// de la lista crece en vez de saltar. Si el mensaje ya estaba revelado al
-/// montarse (se reconstruyó el historial), aparece directo.
+/// El footer de avisos (y la línea de cuota baja) entra último, cuando la
+/// respuesta terminó su reveal: fade simple (sin slide ni escala) mientras
+/// abre su espacio, así el final de la lista crece en vez de saltar. Si el
+/// mensaje ya estaba revelado al montarse (se reconstruyó el historial),
+/// aparece directo.
 class _AdviceFooterEntrance extends StatefulWidget {
-  const _AdviceFooterEntrance({required this.message});
+  const _AdviceFooterEntrance({required this.message, required this.child});
 
   final PortfolioQaMessage message;
+  final Widget child;
 
   @override
   State<_AdviceFooterEntrance> createState() => _AdviceFooterEntranceState();
@@ -1526,7 +1565,7 @@ class _AdviceFooterEntranceState extends State<_AdviceFooterEntrance> {
       skip: _revealedAtMount,
       slideDistance: 0,
       scaleFrom: 1,
-      child: AssistantAdviceFooter(message: widget.message),
+      child: widget.child,
     );
   }
 }

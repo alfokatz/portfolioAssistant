@@ -24,6 +24,7 @@ class PortfolioQaMessage {
     this.rememberedFacts = const [],
     this.sources = const [],
     this.notice,
+    this.quotaNudgeRemaining,
   });
 
   final PortfolioQaRole role;
@@ -54,6 +55,11 @@ class PortfolioQaMessage {
   /// Conserva [surfaceId] (misma fila que la espera, que se funde en el
   /// aviso sin saltos de layout).
   final AssistantNotice? notice;
+
+  /// Si no es `null`, la pantalla agrega debajo la línea de cuota baja
+  /// ("Te quedan N consultas…") con link a los planes. El número sale de
+  /// la suscripción, nunca del modelo — ver `AssistantProvider` (3c).
+  final int? quotaNudgeRemaining;
 
   /// `true` cuando [content] es un mensaje de fallback en texto plano
   /// mostrado porque la generación de esta surface falló, pero [surfaceId]
@@ -94,6 +100,7 @@ class PortfolioQaMessage {
     List<String>? rememberedFacts,
     List<MessageSource>? sources,
     AssistantNotice? notice,
+    int? quotaNudgeRemaining,
   }) {
     return PortfolioQaMessage(
       role: role ?? this.role,
@@ -108,6 +115,7 @@ class PortfolioQaMessage {
       rememberedFacts: rememberedFacts ?? this.rememberedFacts,
       sources: sources ?? this.sources,
       notice: notice ?? this.notice,
+      quotaNudgeRemaining: quotaNudgeRemaining ?? this.quotaNudgeRemaining,
     );
   }
 }

@@ -34,6 +34,10 @@ import 'package:portfolio_assistant/features/subscription/services/revenue_cat_s
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
 import '../fakes/assistant_fakes.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -49,7 +53,7 @@ class _FakeSubscriptionRepository implements SubscriptionRepository {
   _FakeSubscriptionRepository(this.tier, {this.used = 0});
 
   final SubscriptionTier tier;
-  final int used;
+  int used;
   final consumed = <int>[];
 
   @override
@@ -72,20 +76,21 @@ class _Session implements SupabaseAuthService {
 
   final bool signedIn;
 
+  static const _user = User(
+    id: 'user',
+    appMetadata: {},
+    userMetadata: {},
+    aud: 'authenticated',
+    createdAt: '2026-01-01T00:00:00Z',
+  );
+
+  @override
+  User? get currentUser => signedIn ? _user : null;
+
   @override
   Session? get currentSession =>
       signedIn
-          ? Session(
-            accessToken: 'token',
-            tokenType: 'bearer',
-            user: const User(
-              id: 'user',
-              appMetadata: {},
-              userMetadata: {},
-              aud: 'authenticated',
-              createdAt: '2026-01-01T00:00:00Z',
-            ),
-          )
+          ? Session(accessToken: 'token', tokenType: 'bearer', user: _user)
           : null;
 
   @override
@@ -173,6 +178,17 @@ class _FakeTopics implements PortyTopicsRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Lo que la línea de cuota baja lee fuera del plan: el teléfono, el
+/// interruptor del servidor y el reloj (mutable: pasa el mes).
+class _Nudge {
+  _Nudge(this.prefs, {this.flagOn = true, DateTime? now})
+    : now = now ?? DateTime.utc(2026, 11, 10);
+
+  final SharedPreferences prefs;
+  final bool flagOn;
+  DateTime now;
+}
+
 class _Harness {
   _Harness(
     SubscriptionTier tier,
@@ -180,11 +196,18 @@ class _Harness {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    this.nudge,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
     container = ProviderContainer(
       overrides: [
+        if (nudge case final n?) ...[
+          sharedPreferencesProvider.overrideWithValue(n.prefs),
+          supabaseAuthServiceProvider.overrideWithValue(_Session()),
+          quotaNudgeEnabledProvider.overrideWith((_) async => n.flagOn),
+          quotaNudgeClockProvider.overrideWithValue(() => n.now),
+        ],
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
         portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
@@ -225,6 +248,7 @@ class _Harness {
   }
 
   static const args = AssistantArgs();
+  final _Nudge? nudge;
   final _FakeSubscriptionRepository subscriptionRepo;
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
@@ -272,6 +296,7 @@ void main() {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    _Nudge? nudge,
   }) {
     final h = _Harness(
       tier,
@@ -279,6 +304,7 @@ void main() {
       used: used,
       streaming: streaming,
       variant: variant,
+      nudge: nudge,
     );
     addTearDown(h.dispose);
     return h;
@@ -1042,6 +1068,157 @@ void main() {
       expect(h.state.paywallSource, 'chat_turn_locked_portfolio_actions');
       expect(h.state.messages, hasLength(1));
       expect(h.quotes.dailyCalls, isEmpty);
+    });
+  });
+
+  group('low quota line (quota_nudge)', () {
+    Future<_Nudge> nudgeWorld({bool flagOn = true, DateTime? now}) async {
+      SharedPreferences.setMockInitialValues({});
+      return _Nudge(
+        await SharedPreferences.getInstance(),
+        flagOn: flagOn,
+        now: now,
+      );
+    }
+
+    // El servidor cobra al responder: la consulta sube a [usedAfter] recién
+    // cuando el modelo contesta, y el refresh posterior la trae.
+    _Harness charging(
+      SubscriptionTier tier,
+      _Nudge nudge, {
+      required int used,
+      int turns = 1,
+      Map<String, Object?> Function(Map<String, dynamic>)? first,
+    }) {
+      late final _Harness h;
+      Map<String, Object?> Function(Map<String, dynamic>) turn() => (body) {
+        h.subscriptionRepo.used += 1;
+        return _answer('ok')(body);
+      };
+      h = harness(tier, [
+        for (var i = 0; i < turns; i++) first ?? turn(),
+      ], used: used, nudge: nudge);
+      return h;
+    }
+
+    test('free, 6 -> 5 left: that answer carries the line, once per month; '
+        'a new UTC month shows it again', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        turns: 3,
+      );
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 5);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-11'],
+      );
+
+      await h.notifier.submitMessage('Dos');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(
+        h.state.messages.where((m) => m.quotaNudgeRemaining != null),
+        hasLength(1),
+        reason: 'la primera respuesta la conserva',
+      );
+
+      nudge.now = DateTime.utc(2026, 12, 1);
+      await h.notifier.submitMessage('Tres');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 3);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-12'],
+        reason: 'los meses anteriores se descartan',
+      );
+    });
+
+    test('flag off: no line, and the month is not spent', () async {
+      final nudge = await nudgeWorld(flagOn: false);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('still above the threshold (7 -> 6 left): no line', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 13);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    test('the last query (1 -> 0 left): no line, the zero paywall owns '
+        'that moment', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 19);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+      test('${tier.name}: no line even when few are left', () async {
+        final nudge = await nudgeWorld();
+        final h = charging(tier, nudge, used: 14);
+
+        await h.notifier.submitMessage('Uno');
+        await pumpEventQueue();
+
+        expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+        expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+      });
+    }
+
+    test('a turn cut by the plan paywall leaves no message, no line and '
+        'does not spend the month', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        first:
+            _call('get_invest_candidates', {
+              'tickers': ['NEE', 'KO'],
+              'budget_usd': 500,
+            }),
+      );
+
+      await h.notifier.submitMessage('Tengo \$500 para invertir');
+      await pumpEventQueue();
+
+      expect(h.state.paywallReason, PaywallReason.simulations);
+      expect(h.state.messages.any((m) => m.quotaNudgeRemaining != null),
+          isFalse);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('already shown this month on this phone (another session): no '
+        'line', () async {
+      final nudge = await nudgeWorld();
+      await nudge.prefs.setStringList(QuotaNudgeMemory.prefsKey, [
+        'user:2026-11',
+      ]);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
     });
   });
 }

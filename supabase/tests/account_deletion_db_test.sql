@@ -27,7 +27,7 @@ insert into inventory values
   ('ai_turn_usage', 'cascade'), ('ai_usage_monthly', 'cascade'), ('allocation_plans', 'cascade'),
   ('api_rate_limits', 'cascade'), ('binance_connections', 'cascade'), ('binance_keys', 'cascade'),
   ('closed_positions', 'cascade'), ('etoro_connections', 'cascade'), ('etoro_oauth_states', 'cascade'),
-  ('etoro_tokens', 'cascade'), ('investor_profiles', 'cascade'), ('news_context_usage', 'cascade'),
+  ('etoro_tokens', 'cascade'), ('investor_profiles', 'cascade'), ('market_tastes', 'cascade'), ('news_context_usage', 'cascade'),
   ('notification_log', 'cascade'), ('notification_outbox', 'cascade'), ('notification_preferences', 'cascade'),
   ('porty_topics', 'cascade'), ('positions', 'cascade'), ('price_alerts', 'cascade'),
   ('product_events', 'cascade'), ('push_devices', 'cascade'), ('snaptrade_connections', 'cascade'),
@@ -111,6 +111,7 @@ begin
   insert into public.snaptrade_connections (user_id) values (u);
   perform public.snaptrade_secret_save(u, '{"user_id":"st-' || tag || '","user_secret":"s"}');
   insert into public.investor_profiles (user_id, risk_tolerance, horizon, objective) values (u, 'moderate', 'long', 'growth');
+  insert into public.market_tastes (user_id, turn_id, month, tickers) values (u, 'taste-' || tag || '-0001', to_char(now(), 'YYYY-MM'), array['NVDA']);
   insert into public.news_context_usage (user_id, day) values (u, current_date);
   insert into public.notification_log (user_id, kind) values (u, 'test');
   insert into public.notification_outbox (user_id, kind, dedupe_key) values (u, 'test', 'k-' || tag);

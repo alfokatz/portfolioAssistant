@@ -69,7 +69,10 @@ import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -126,6 +129,46 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
   bool _profileNudgeShown = false;
+
+  /// Línea de cuota baja (3c): tras un turno que cobró y con la cuota ya
+  /// refrescada, marca la respuesta de [surfaceId] para que la pantalla
+  /// agregue "te quedan N consultas" con link a los planes. Una vez por mes
+  /// UTC y por usuario ([QuotaNudgeMemory]). Nunca falla: sin sesión, sin
+  /// red o sin el interruptor, no hay línea. El número sale de la
+  /// suscripción, no del modelo.
+  Future<void> _maybeNudgeLowQuota(String surfaceId) async {
+    try {
+      final sub = ref.read(subscriptionProvider);
+      final threshold = PlanMatrix.of(sub.tier).quotaNudgeAtRemaining;
+      final remaining = sub.queriesRemaining;
+      if (threshold == null || remaining <= 0 || remaining > threshold) return;
+      if (PlanMatrix.nextTier(sub.tier) == null) return;
+      final userId = ref.read(supabaseAuthServiceProvider).currentUser?.id;
+      if (userId == null) return;
+      final memory = ref.read(quotaNudgeMemoryProvider);
+      final now = ref.read(quotaNudgeClockProvider)();
+      if (memory.wasShown(userId, now)) return;
+      if (!await ref.read(quotaNudgeEnabledProvider.future)) return;
+      // Después de esperar: otro turno pudo haberla mostrado, o el chat
+      // cerrarse.
+      if (!mounted || memory.wasShown(userId, now)) return;
+      final i = state.messages.lastIndexWhere(
+        (m) =>
+            m.surfaceId == surfaceId &&
+            m.role == PortfolioQaRole.assistant &&
+            m.isGenUiSurface &&
+            !m.isStreaming,
+      );
+      if (i < 0) return;
+      final write = memory.markShown(userId, now);
+      final updated = [...state.messages];
+      updated[i] = updated[i].copyWith(quotaNudgeRemaining: remaining);
+      state = state.copyWith(messages: updated);
+      await write;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Assistant/quotaNudge] skipped: $e');
+    }
+  }
 
   /// Sugerencias iniciales según el plan: cada una se responde con lo que el
   /// plan incluye (ninguna lleva a un paywall gastando una consulta) y
@@ -596,8 +639,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             sources: notices.sources,
           ),
         );
-        // El contador del header refleja lo que cobró el servidor.
-        unawaited(subscription.refresh());
+        // El contador del header refleja lo que cobró el servidor; con la
+        // cuota ya refrescada se decide la línea de cuota baja.
+        unawaited(
+          subscription.refresh().then((_) => _maybeNudgeLowQuota(surfaceId)),
+        );
         ref.read(productEventsProvider).log(ProductEvent.firstChatAnswer, {
           if (screenContext?['screen'] case final String screen)
             'screen': screen,
