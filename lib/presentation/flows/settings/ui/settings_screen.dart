@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -353,14 +354,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                           ? '${alerts.activeCount}'
                           : null,
                   onTap:
-                      () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                      () => context.pushNamed(
+                        NotificationsRouter.alertsRouteName,
+                      ),
                 ),
                 const SettingsDivider(),
                 SettingsToggleRow(
                   icon: Icons.vibration_rounded,
                   label: 'settings_haptics'.tr(),
                   value: hapticsEnabled,
-                  onChanged: ref.read(hapticsEnabledProvider.notifier).setEnabled,
+                  onChanged:
+                      ref.read(hapticsEnabledProvider.notifier).setEnabled,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
@@ -411,13 +415,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 SettingsNavRow(
                   icon: Icons.description_outlined,
                   label: 'settings_terms'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/terms'),
+                  onTap: () => _openUrl(LegalLinks.terms),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
                   icon: Icons.shield_outlined,
                   label: 'settings_privacy'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/privacy'),
+                  onTap: () => _openUrl(LegalLinks.privacy),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
