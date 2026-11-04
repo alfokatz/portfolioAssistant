@@ -1,6 +1,6 @@
 # Tareas del fundador
 
-Lista maestra que mantiene `porty-chief-of-staff`. Prioridad: **P0** bloquea el release · **P1** esta semana · **P2** este mes · **P3** algún día. Quién: **F** = fundador · **A** = un agente (pedíselo a Claude).
+Lista maestra que mantiene `porty-chief-of-staff`. Prioridad: **P0** bloquea el release · **P1** esta semana · **P2** este mes · **P3** algún día. Quién: **F** = fundador · **A** = un agente (el chief of staff se la delega solo, salvo que necesite tu autorización).
 
 Última revisión: 2026-11-04.
 
@@ -15,7 +15,7 @@ Lista maestra que mantiene `porty-chief-of-staff`. Prioridad: **P0** bloquea el 
 - [ ] P0 · F · Completar en porty-web `src/config/site.ts`: `legalEntity` (razón social y domicilio) y `backupRetention` (plazo de backups de tu plan de Supabase).
 - [ ] P0 · F · **Abogado**: revisar Términos, Privacidad y Borrado de la app; si el Diagnóstico y el informe semanal quedan del lado de "información" (CNV); uso de marcas S&P 500, SnapTrade, Binance, eToro. — `docs/legal/reviews/`
 - [ ] P0 · F · **App Store Connect**: URL de privacidad (`portyassistant.com/app/privacidad`) y EULA estándar o Términos. **Play Console**: Data safety y URL de borrado (`portyassistant.com/borrar-cuenta`).
-- [ ] P0 · A · **Revisar y mergear** la rama `claude/porty-dev-agents` (abrir PR, revisión final). Pedí: "abrí el PR de claude/porty-dev-agents".
+- [ ] P0 · F · **Aprobar el PR** de la rama `claude/porty-dev-agents` (revisión final y merge). Pedí: "abrí el PR de claude/porty-dev-agents".
 - [ ] P1 · F · **Firebase/APNs** para push (revisar antes el bundle id de iOS). Sin esto no llega el aviso del sábado. — `docs/runbooks/push-notifications.md`
 - [ ] P1 · F · Build con `APPLE_SIGN_IN_ENABLED=true` (checklist de rename) y probar el toast de revocación de Apple al borrar la cuenta.
 - [ ] P1 · F · Prueba de humo en TestFlight / Play internal (comprar, restaurar, borrar cuenta, paywall anual). Pedí a Claude el checklist de QA.
@@ -43,4 +43,4 @@ Lista maestra que mantiene `porty-chief-of-staff`. Prioridad: **P0** bloquea el 
 - [x] 2026-11-04 · Email Routing: `soporte@`, `privacidad@`, `hola@`, `admin@` → Gmail.
 - [ ] P2 · F · Probar que llega un mail a `soporte@portyassistant.com` desde otra cuenta.
 - [ ] P2 · F · Responder desde el dominio: "Enviar como" en Gmail con SMTP (Brevo gratis) o Google Workspace.
-- [ ] P3 · A · Sacar los subdominios de Email Routing que sobran (`admin.` y `soporte.portyassistant.com`).
+- [x] 2026-11-04 · Sacar los subdominios de Email Routing que sobran (`admin.` y `soporte.portyassistant.com`).
