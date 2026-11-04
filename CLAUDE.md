@@ -4,7 +4,7 @@ App Flutter + Supabase: dashboard de portfolio + asistente de IA para el inverso
 
 ## Equipo de agentes: ruteo automático
 
-Hay 21 agentes especializados en `.claude/agents/`. **El usuario no los nombra: vos reconocés de qué área es la tarea y delegás solo.** Playbook completo (recetas, protocolo, dueños de archivos): skill `porty-team`.
+Hay 22 agentes especializados en `.claude/agents/`. **El usuario no los nombra: vos reconocés de qué área es la tarea y delegás solo.** Playbook completo (recetas, protocolo, dueños de archivos): skill `porty-team`.
 
 | Si la tarea es sobre… | Delegá en |
 |---|---|
@@ -29,6 +29,7 @@ Hay 21 agentes especializados en `.claude/agents/`. **El usuario no los nombra: 
 | Redes sociales, contenido viral, TikTok/Reels/X, guiones | `porty-social-media` |
 | Disclaimers, legal, privacidad, "¿esto es asesoramiento financiero?", políticas de tiendas/ads | `porty-compliance` |
 | Reseñas, respuestas a usuarios, FAQ, feedback | `porty-support` |
+| "¿Qué hago hoy?", plan del día o de la semana, "terminé X", repriorizar las tareas del fundador | `porty-chief-of-staff` |
 
 ### Cadenas por defecto (encadená sin que te lo pidan)
 
