@@ -6,6 +6,7 @@
 // La app llama GET /functions/v1/finnhub/<endpoint>?<params> con su JWT.
 
 import { bearer, corsHeaders, type Deps, json, sleep, typedError } from "../_shared/common.ts";
+import { goldAllowed, newsAllowed } from "../_shared/data_cache.ts";
 
 /// Endpoints permitidos → cuánto vale la caché (mismos TTL que tenía el
 /// cliente; profile2 y search cambian muy poco).
@@ -17,6 +18,20 @@ export const endpointTtlSeconds: Record<string, number> = {
   "/stock/profile2": 24 * 60 * 60,
   "/search": 24 * 60 * 60,
 };
+
+/// Endpoints con datos de Gold (noticias, resultados, fundamentals): el plan
+/// se valida acá, como en sec/headlines/news-context. Noticias con
+/// `news_data_allowed` (Gold, o Premium con el ticker en cartera en v2); el
+/// resto con `gold_data_allowed`.
+/// El gate de la app (`ctx.gate`) es solo UX: sin esto, cualquier cuenta
+/// podía pedirlos directo con su JWT. profile2 (logo, nombre) y search
+/// quedan abiertos.
+export const goldEndpoints = new Set([
+  "/company-news",
+  "/calendar/earnings",
+  "/stock/earnings",
+  "/stock/metric",
+]);
 
 export const config = {
   baseUrl: "https://finnhub.io/api/v1",
@@ -54,6 +69,15 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const path = url.pathname.replace(/^.*\/finnhub/, "") || "/";
   const ttl = endpointTtlSeconds[path];
   if (ttl === undefined) return typedError(404, "endpoint_not_allowed", `${path} not allowed`);
+
+  if (goldEndpoints.has(path)) {
+    // Sin símbolo (calendario general) solo pasa Gold o un informe en curso.
+    const symbol = (url.searchParams.get("symbol") ?? "").trim().toUpperCase();
+    const check = path === "/company-news" ? newsAllowed : goldAllowed;
+    if (!(await check(deps, userId, symbol ? [symbol] : []))) {
+      return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
+    }
+  }
 
   const allowed = await deps.db.rpc("rate_limit_hit", {
     p_user_id: userId,

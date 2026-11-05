@@ -57,6 +57,12 @@ export interface EtoroStore {
   saveOAuthState(s: OAuthState): Promise<void>;
   /// Lee y BORRA el state (un solo uso). null si no existe.
   takeOAuthState(state: string): Promise<OAuthState | null>;
+  /// La vuelta de eToro: guarda el código y el hash del handle que recibe la
+  /// app, sin vincular nada todavía. null si el state no existe o ya volvió.
+  attachCallback(state: string, code: string, completionHash: string): Promise<OAuthState | null>;
+  /// Lee y BORRA el intento por el hash del handle (un solo uso). null si no
+  /// existe o eToro todavía no volvió.
+  takeCompletion(completionHash: string): Promise<(OAuthState & { code: string }) | null>;
 
   getConnection(userId: string): Promise<Connection | null>;
   upsertConnected(userId: string, etoroSub: string, scopes: string[]): Promise<void>;
@@ -129,6 +135,45 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
         codeVerifier: data.code_verifier,
         nonce: data.nonce,
         createdAt: data.created_at,
+      };
+    },
+
+    async attachCallback(state, code, completionHash) {
+      const { data, error } = await db
+        .from("etoro_oauth_states")
+        .update({ auth_code: code, completion_hash: completionHash, returned_at: new Date().toISOString() })
+        .eq("state", state)
+        .is("auth_code", null)
+        .select("state, user_id, code_verifier, nonce, created_at")
+        .maybeSingle();
+      fail("attachCallback", error);
+      if (!data) return null;
+      return {
+        state: data.state,
+        userId: data.user_id,
+        codeVerifier: data.code_verifier,
+        nonce: data.nonce,
+        createdAt: data.created_at,
+      };
+    },
+
+    async takeCompletion(completionHash) {
+      const { data, error } = await db
+        .from("etoro_oauth_states")
+        .delete()
+        .eq("completion_hash", completionHash)
+        .not("auth_code", "is", null)
+        .select("state, user_id, code_verifier, nonce, created_at, auth_code")
+        .maybeSingle();
+      fail("takeCompletion", error);
+      if (!data) return null;
+      return {
+        state: data.state,
+        userId: data.user_id,
+        codeVerifier: data.code_verifier,
+        nonce: data.nonce,
+        createdAt: data.created_at,
+        code: data.auth_code,
       };
     },
 

@@ -72,6 +72,9 @@ class EtoroConnectionRepository {
 
   Future<Uri> startConnect() => _syncClient.startConnect();
 
+  Future<Map<String, String>> completeConnect(String handle) =>
+      _syncClient.completeConnect(handle);
+
   Future<({EtoroImportResult result, bool throttled})> sync() =>
       _syncClient.sync();
 
