@@ -1,0 +1,78 @@
+# CI de Porty: en cada PR y en cada push a main o a ramas claude/**.
+# - flutter: analyze (falla solo con errores) + suite completa de tests.
+# - supabase: levanta el stack local (aplica TODAS las migraciones: si una no
+#   corre, falla acá), corre los tests de Deno de las edge functions y los
+#   tests SQL de supabase/tests/.
+# Runbook: docs/runbooks/ci-cd.md
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Flutter (analyze + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.9"
+          channel: stable
+          cache: true
+      - name: Dependencias
+        run: flutter pub get
+      - name: Analyze (sin errores; los warnings e infos no frenan)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Tests
+        run: flutter test --reporter github
+
+  supabase:
+    name: Supabase (migraciones + Deno + SQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Levantar Supabase local (aplica las migraciones)
+        run: supabase start -x studio,imgproxy,inbucket,logflare,vector,supavisor
+      - name: Variables del stack
+        run: |
+          supabase status -o env | sed 's/^/export /' > "$RUNNER_TEMP/sb.env"
+          source "$RUNNER_TEMP/sb.env"
+          {
+            echo "API_URL=$API_URL"
+            echo "SUPABASE_URL=$API_URL"
+            echo "DB_URL=$DB_URL"
+            echo "ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+      - name: Tests de edge functions (Deno)
+        working-directory: supabase/functions
+        run: deno test --allow-net --allow-env --allow-read tests/
+      - name: Tests SQL
+        run: |
+          set -euo pipefail
+          for f in supabase/tests/*_db_test.sql; do
+            echo "::group::$f"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done
+      - name: Apagar Supabase
+        if: always()
+        run: supabase stop --no-backup
