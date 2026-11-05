@@ -1,9 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/account_deletion/view/widgets/delete_account_flow.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
@@ -208,19 +210,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
   }
 
-  Future<void> _onDeleteAccount() async {
-    final confirmed = await ConfirmSheet.show(
-      context,
-      title: 'settings_delete_account_title'.tr(),
-      body: 'settings_delete_account_message'.tr(),
-      confirmLabel: 'settings_delete_account'.tr(),
-    );
-    if (!confirmed) return;
-
-    ref
-        .read(alertProvider.notifier)
-        .showWarning(message: 'settings_delete_account_unavailable'.tr());
-  }
+  Future<void> _onDeleteAccount() => DeleteAccountFlow.run(context);
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -364,14 +354,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                           ? '${alerts.activeCount}'
                           : null,
                   onTap:
-                      () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                      () => context.pushNamed(
+                        NotificationsRouter.alertsRouteName,
+                      ),
                 ),
                 const SettingsDivider(),
                 SettingsToggleRow(
                   icon: Icons.vibration_rounded,
                   label: 'settings_haptics'.tr(),
                   value: hapticsEnabled,
-                  onChanged: ref.read(hapticsEnabledProvider.notifier).setEnabled,
+                  onChanged:
+                      ref.read(hapticsEnabledProvider.notifier).setEnabled,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
@@ -422,13 +415,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 SettingsNavRow(
                   icon: Icons.description_outlined,
                   label: 'settings_terms'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/terms'),
+                  onTap: () => _openUrl(LegalLinks.terms),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
                   icon: Icons.shield_outlined,
                   label: 'settings_privacy'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/privacy'),
+                  onTap: () => _openUrl(LegalLinks.privacy),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

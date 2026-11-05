@@ -13,6 +13,9 @@ import 'package:portfolio_assistant/features/product_events/data/product_events.
 import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_brand.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -61,8 +64,21 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
     });
   }
 
-  void _paywall(PaywallReason reason) =>
-      SubscriptionPaywallSheet.show(context, ref, reason: reason);
+  void _paywall(PaywallReason reason, String source) =>
+      SubscriptionPaywallSheet.show(
+        context,
+        ref,
+        reason: reason,
+        source: source,
+      );
+
+  void _screenshotExit(String surface) {
+    ref.read(productEventsProvider).log(ProductEvent.nudgeTapped, {
+      'surface': surface,
+      'action': 'screenshot',
+    });
+    context.pushNamed(StatementImportRouter.routeName);
+  }
 
   Future<void> _connect({String? reconnect}) async {
     final darkMode = Theme.of(context).brightness == Brightness.dark;
@@ -78,6 +94,19 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
       method.state = null;
     }
     final error = ref.read(snaptradeProvider).errorType;
+    ref.read(productEventsProvider).log(ProductEvent.brokerConnectResult, {
+      'broker': 'snaptrade',
+      'result':
+          ok && error == null
+              ? 'ok'
+              : error == 'snaptrade_plan_required'
+              ? 'plan_required'
+              : error == 'snaptrade_connection_limit'
+              ? 'limit'
+              : error == null
+              ? 'cancelled'
+              : 'error',
+    });
     if (ok && error == null) {
       ref
           .read(alertProvider.notifier)
@@ -90,16 +119,16 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
             imported.length == 1 ? imported.single.name : 'snaptrade_tile'.tr(),
       );
     } else if (error == 'snaptrade_plan_required') {
-      _paywall(PaywallReason.brokerSync);
+      _paywall(PaywallReason.brokerSync, PaywallSource.snaptradeConnect);
     } else if (error == 'snaptrade_connection_limit') {
-      _paywall(PaywallReason.goldRequired);
+      _paywall(PaywallReason.goldRequired, PaywallSource.snaptradeMulti);
     }
   }
 
   /// Otro bróker: Gold lo conecta; Premium con uno ya conectado ve Gold.
   void _addAnother(bool multiAllowed) {
     if (!multiAllowed) {
-      _paywall(PaywallReason.goldRequired);
+      _paywall(PaywallReason.goldRequired, PaywallSource.snaptradeMulti);
       return;
     }
     _connect();
@@ -165,10 +194,22 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
           if (!allowed) ...[
             PositionPrimaryButton(
               label: 'snaptrade_see_plans'.tr(),
-              onPressed: () => _paywall(PaywallReason.brokerSync),
+              onPressed:
+                  () => _paywall(
+                    PaywallReason.brokerSync,
+                    PaywallSource.snaptradeConnect,
+                  ),
             ),
             const SizedBox(height: AppDimens.sp12),
             _Footnote('snaptrade_locked_note'.tr()),
+            if (ref.watch(brokerScreenshotExitEnabledProvider).value ??
+                false) ...[
+              const SizedBox(height: AppDimens.sp8),
+              _ScreenshotExit(
+                label: 'snaptrade_screenshot_exit'.tr(),
+                onPressed: () => _screenshotExit('broker_locked_snaptrade'),
+              ),
+            ],
           ] else ...[
             PositionPrimaryButton(
               label: 'snaptrade_connect_cta'.tr(),
@@ -863,6 +904,31 @@ class _CardDivider extends StatelessWidget {
 }
 
 /// Secundario: borde, sin relleno (como en eToro y Binance).
+/// Salida secundaria de la pantalla bloqueada: traer la cartera con una
+/// captura. Texto, no relleno: "Ver planes" sigue siendo lo primero.
+class _ScreenshotExit extends StatelessWidget {
+  const _ScreenshotExit({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Center(
+      child: TextButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.photo_camera_outlined, size: AppDimens.iconMd),
+        label: Text(label, textAlign: TextAlign.center),
+        style: TextButton.styleFrom(
+          foregroundColor: colors.accentBlue,
+          minimumSize: const Size(48, 48),
+        ),
+      ),
+    );
+  }
+}
+
 class _SecondaryButton extends StatelessWidget {
   const _SecondaryButton({
     required this.icon,

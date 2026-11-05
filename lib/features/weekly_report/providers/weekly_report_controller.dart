@@ -89,6 +89,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
   final WeeklyReportStore _store;
   final WeeklyReportInputBuilder _builder;
   final WeeklyReportGenerator _generator;
+
   /// El plan del usuario, ya cargado (no el `free` por defecto mientras
   /// carga la suscripción: con ese, un Gold veía el teaser de Gold).
   final FutureOr<SubscriptionTier> Function() _tier;
@@ -206,11 +207,7 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     );
   }
 
-  Future<void> _load(
-    ReportWeek week,
-    int epoch, {
-    bool useCache = true,
-  }) async {
+  Future<void> _load(ReportWeek week, int epoch, {bool useCache = true}) async {
     if (useCache && state.report?.week != week) {
       final cached = _readCache(week);
       if (cached != null) _show(cached, persist: false);
@@ -239,8 +236,18 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
           // Payload de otra versión: se recalculan los números.
           await _numbers(week, WeeklyReportVariant.numbersUnavailable, epoch);
         }
-      case ClaimGranted(:final courtesy):
-        await _generate(week, epoch, courtesy: courtesy);
+      case ClaimGranted(
+        :final courtesy,
+        :final courtesyNumber,
+        :final courtesyTotal,
+      ):
+        await _generate(
+          week,
+          epoch,
+          courtesy: courtesy,
+          courtesyNumber: courtesyNumber,
+          courtesyTotal: courtesyTotal,
+        );
       case ClaimInProgress():
         if (state.report?.week != week) {
           await _numbers(week, WeeklyReportVariant.numbersUnavailable, epoch);
@@ -270,6 +277,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     ReportWeek week,
     int epoch, {
     required bool courtesy,
+    int? courtesyNumber,
+    int? courtesyTotal,
   }) async {
     state = WeeklyReportState(
       status: WeeklyReportStatus.loading,
@@ -296,6 +305,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
           draft: WeeklyReportDraft.empty,
           variant: WeeklyReportVariant.numbersUnavailable,
           courtesy: courtesy,
+          courtesyNumber: courtesyNumber,
+          courtesyTotal: courtesyTotal,
         ),
       );
       return;
@@ -305,6 +316,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       draft: generation.draft,
       variant: WeeklyReportVariant.full,
       courtesy: courtesy,
+      courtesyNumber: courtesyNumber,
+      courtesyTotal: courtesyTotal,
     );
     final saved = await _store.complete(week, report.toJson());
     if (!saved) debugPrint('[WeeklyReport] complete rejected for ${week.key}');

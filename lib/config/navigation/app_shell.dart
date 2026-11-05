@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_open_listener.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/first_portfolio_watcher.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_screen.dart';
@@ -43,7 +44,8 @@ class AppShell extends ConsumerWidget with BaseScreen {
       SubscriptionPaywallSheet.show(
         context,
         ref,
-        reason: PaywallReason.modeLocked,
+        reason: PaywallReason.positionLimit,
+        source: PaywallSource.addPositionLimit,
       );
       return;
     }
@@ -108,4 +110,3 @@ class AppShell extends ConsumerWidget with BaseScreen {
     );
   }
 }
-

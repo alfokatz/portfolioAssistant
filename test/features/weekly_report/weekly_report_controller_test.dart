@@ -343,10 +343,21 @@ void main() {
       ),
       variant: WeeklyReportVariant.full,
       courtesy: true,
+      courtesyNumber: 2,
+      courtesyTotal: 3,
     );
     final back = WeeklyReport.tryParse(report.toJson())!;
     expect(back.toJson(), report.toJson());
     expect(back.courtesy, isTrue);
+    expect((back.courtesyNumber, back.courtesyTotal), (2, 3));
+    // Payload anterior, sin los campos nuevos: sigue siendo válido.
+    final old =
+        report.toJson()
+          ..remove('courtesy_number')
+          ..remove('courtesy_total');
+    final legacy = WeeklyReport.tryParse(old)!;
+    expect(legacy.courtesyNumber, isNull);
+    expect(legacy.courtesyTotal, isNull);
     expect(back.investors.single.who, 'Bill Ackman');
     expect(WeeklyReport.tryParse({'v': 99}), isNull);
   });

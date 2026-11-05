@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -10,6 +11,9 @@ import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -75,6 +79,15 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
         .connect(apiKey: _key.text, apiSecret: _secret.text);
     if (!mounted) return;
     if (!ok && method.state == PortfolioLoadMethod.binance) method.state = null;
+    ref.read(productEventsProvider).log(ProductEvent.brokerConnectResult, {
+      'broker': 'binance',
+      'result':
+          ok
+              ? 'ok'
+              : ref.read(binanceProvider).errorType == 'binance_plan_required'
+              ? 'plan_required'
+              : 'error',
+    });
     if (ok) {
       _key.clear();
       _secret.clear();
@@ -87,10 +100,19 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
     }
   }
 
+  void _screenshotExit(String surface) {
+    ref.read(productEventsProvider).log(ProductEvent.nudgeTapped, {
+      'surface': surface,
+      'action': 'screenshot',
+    });
+    context.pushNamed(StatementImportRouter.routeName);
+  }
+
   void _paywall() => SubscriptionPaywallSheet.show(
     context,
     ref,
     reason: PaywallReason.brokerSync,
+    source: PaywallSource.binanceConnect,
   );
 
   Future<void> _disconnect() async {
@@ -132,6 +154,14 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
             ),
             const SizedBox(height: AppDimens.sp12),
             _Footnote('binance_locked_note'.tr()),
+            if (ref.watch(brokerScreenshotExitEnabledProvider).value ??
+                false) ...[
+              const SizedBox(height: AppDimens.sp8),
+              _ScreenshotExit(
+                label: 'binance_screenshot_exit'.tr(),
+                onPressed: () => _screenshotExit('broker_locked_binance'),
+              ),
+            ],
           ] else
             ..._keyForm(state: state, error: error, reconnect: false),
         ]);
@@ -816,6 +846,31 @@ class _CardDivider extends StatelessWidget {
     endIndent: AppDimens.sp16,
     color: color,
   );
+}
+
+/// Salida secundaria de la pantalla bloqueada: traer la cartera con una
+/// captura. Texto, no relleno: "Ver planes" sigue siendo lo primero.
+class _ScreenshotExit extends StatelessWidget {
+  const _ScreenshotExit({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return Center(
+      child: TextButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.photo_camera_outlined, size: AppDimens.iconMd),
+        label: Text(label, textAlign: TextAlign.center),
+        style: TextButton.styleFrom(
+          foregroundColor: colors.accentBlue,
+          minimumSize: const Size(48, 48),
+        ),
+      ),
+    );
+  }
 }
 
 /// Secundario: borde, sin relleno (como en eToro).

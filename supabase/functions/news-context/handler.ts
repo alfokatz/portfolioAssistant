@@ -1,4 +1,5 @@
-// "Qué está pasando y por qué" para Porty (tool `get_news`, plan Gold):
+// "Qué está pasando y por qué" para Porty (tool `get_news`, Gold; Premium solo
+// de tickers en cartera):
 // la herramienta `web_search` de OpenAI (Responses API), llamada desde el
 // servidor, restringida a una lista de medios permitidos
 // (`news_source_allowlist`) y con citas. Reemplaza a Google News RSS y a
@@ -15,12 +16,14 @@
 //   aparte y en paralelo, ver [partsOf]); con pregunta, por (tickers|tema,
 //   pregunta, idioma). Un hit no gasta cupo ni llama a OpenAI.
 // - Topes: 1 pedido por turno (sin pregunta, hasta 5 búsquedas: una por
-//   empresa que no estaba en caché) y un tope diario de pedidos por plan
-//   (`plan_limits.news_context_per_day`).
+//   empresa que no estaba en caché), un tope diario de pedidos por plan
+//   (`plan_limits.news_context_per_day`) y uno mensual de búsquedas
+//   (`news_context_per_month`). Con `monthly_limit` se sirve la caché vencida
+//   si hay; si no, 429 `monthly_limit`.
 // - Costo: cada búsqueda se suma al turno en `ai_turn_usage`.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { goldAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
 import { readResponse, type ResponsesOutput } from "../_shared/openai_responses.ts";
@@ -97,7 +100,11 @@ export function cacheKey(b: Body): string {
   const subject = b.tickers.length ? [...b.tickers].sort().join(",") : (b.topic ?? "").toLowerCase();
   const q = (b.question ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f¿?¡!.,]/g, "")
     .replace(/\s+/g, " ").trim();
-  return `news:${subject}|${q}|${b.lang}`;
+  // Los nombres que manda el cliente (solo con permiso Gold) entran en la
+  // clave: un nombre armado no puede pisar la entrada compartida del ticker.
+  const named = Object.entries(b.names).filter(([t]) => b.tickers.includes(t))
+    .map(([t, n]) => `${t}=${n.toLowerCase()}`).sort().join(";");
+  return `news:${subject}|${q}|${b.lang}${named ? `|n:${named}` : ""}`;
 }
 
 function subjectOf(b: Body): string {
@@ -350,8 +357,16 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
   if (!body) return typedError(400, "invalid_body", "tickers (1-5) or topic expected");
 
-  if (!(await goldAllowed(deps, userId, body.tickers))) {
+  // Gold, cortesía, o Premium con el ticker en cartera (camino v2).
+  if (!(await newsAllowed(deps, userId, body.tickers))) {
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
+  }
+
+  // names y question del cliente: no cuentan si el permiso viene de la
+  // cartera (Premium); ver clientTextTrusted.
+  if ((Object.keys(body.names).length > 0 || body.question !== null) && !(await clientTextTrusted(deps, userId, body.tickers))) {
+    body.names = {};
+    body.question = null;
   }
 
   const rate = await deps.db.rpc("rate_limit_hit", {
@@ -389,10 +404,15 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     if (cached) return json(200, cached, { "x-cache": "stale" });
     return typedError(429, "turn_limit", "One news search per turn");
   }
-  const daily = await deps.db.rpc("news_context_hit", { p_user_id: userId });
-  if (daily.data !== true) {
+  // Unidad = búsqueda sin caché (un ticker), no el pedido: 5 tickers sin
+  // caché gastan 5 del tope mensual y 1 del diario.
+  const quota = await deps.db.rpc("news_context_quota_hit", { p_user_id: userId, p_units: missing.length });
+  if ((quota.data as { ok?: boolean } | null)?.ok !== true) {
     const cached = fromCache();
     if (cached) return json(200, cached, { "x-cache": "stale" });
+    if ((quota.data as { reason?: string } | null)?.reason === "monthly_limit") {
+      return typedError(429, "monthly_limit", "Monthly news search limit reached");
+    }
     return typedError(429, "daily_limit", "Daily news search limit reached");
   }
 

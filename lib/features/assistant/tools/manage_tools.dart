@@ -134,8 +134,7 @@ class ProposeWatchlistChangeTool implements DataTool {
       'confirm in a card: remove it ("dejá de seguir AMZN", "sacá Netflix '
       'de mi lista"), or turn its sharp-move alerts on/off ("no me avises '
       'más de NVDA"). Nothing changes until they confirm. status: ok | '
-      'not_on_watchlist | no_change | needs_input | locked (Premium) | '
-      'failed.';
+      'not_on_watchlist | no_change | needs_input | failed.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -153,7 +152,7 @@ class ProposeWatchlistChangeTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.marketDataAllowed) {
+    if (!ctx.watchlistAllowed) {
       return ctx.lockedFeature(PlanFeature.marketData);
     }
     final raw = ToolArgs.string(args, 'ticker');

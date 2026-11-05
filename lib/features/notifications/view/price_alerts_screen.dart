@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
 import 'package:portfolio_assistant/features/notifications/view/create_price_alert_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -80,7 +81,7 @@ class _PriceAlertsScreenState extends BaseStatefulWidget<PriceAlertsScreen> {
           context,
           ref,
           reason: PaywallReason.priceAlerts,
-          source: 'price_alert_reactivate',
+          source: PaywallSource.priceAlertReactivate,
         );
       }
     } catch (_) {

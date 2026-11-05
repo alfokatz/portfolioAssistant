@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 
 /// Por qué se ofrece el permiso: cambia el texto (plan §6, siempre en un
 /// momento en que aporta valor).
-enum PushPromptReason { priceAlert, weeklyReport, etoro, settings }
+enum PushPromptReason { priceAlert, weeklyReport, etoro, settings, diagnosis }
 
 /// La pantalla previa al diálogo del sistema. iOS deja mostrar ese diálogo
 /// UNA vez: si el usuario no quiere, que diga "Ahora no" acá y no allá.
@@ -44,11 +45,25 @@ class PushPermissionSheet extends ConsumerWidget {
       isScrollControlled: true,
       builder: (_) => PushPermissionSheet(reason: reason),
     );
+    final events = ref.read(productEventsProvider);
     if (accepted != true) {
       await policy.recordDismissed();
+      events.log(ProductEvent.pushOptIn, {
+        'source': reason.name,
+        'result': 'dismissed',
+      });
       return permission;
     }
-    return controller.requestPermission();
+    final result = await controller.requestPermission();
+    events.log(ProductEvent.pushOptIn, {
+      'source': reason.name,
+      'result':
+          result == PushPermission.granted ||
+                  result == PushPermission.provisional
+              ? 'granted'
+              : 'denied',
+    });
+    return result;
   }
 
   String get _titleKey => switch (reason) {
@@ -56,6 +71,7 @@ class PushPermissionSheet extends ConsumerWidget {
     PushPromptReason.weeklyReport => 'push_prompt_title_weekly_report',
     PushPromptReason.etoro => 'push_prompt_title_etoro',
     PushPromptReason.settings => 'push_prompt_title_settings',
+    PushPromptReason.diagnosis => 'push_prompt_title_diagnosis',
   };
 
   String get _bodyKey => switch (reason) {
@@ -63,6 +79,7 @@ class PushPermissionSheet extends ConsumerWidget {
     PushPromptReason.weeklyReport => 'push_prompt_body_weekly_report',
     PushPromptReason.etoro => 'push_prompt_body_etoro',
     PushPromptReason.settings => 'push_prompt_body_settings',
+    PushPromptReason.diagnosis => 'push_prompt_body_diagnosis',
   };
 
   @override

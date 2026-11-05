@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
@@ -19,7 +19,10 @@ import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_ca
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import '../../subscription/paywall_test_harness.dart' show FakeProductEvents;
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
@@ -29,11 +32,16 @@ import 'package:portfolio_assistant/features/assistant/states/assistant_state.da
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
 import '../fakes/assistant_fakes.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -49,7 +57,7 @@ class _FakeSubscriptionRepository implements SubscriptionRepository {
   _FakeSubscriptionRepository(this.tier, {this.used = 0});
 
   final SubscriptionTier tier;
-  final int used;
+  int used;
   final consumed = <int>[];
 
   @override
@@ -72,20 +80,21 @@ class _Session implements SupabaseAuthService {
 
   final bool signedIn;
 
+  static const _user = User(
+    id: 'user',
+    appMetadata: {},
+    userMetadata: {},
+    aud: 'authenticated',
+    createdAt: '2026-01-01T00:00:00Z',
+  );
+
+  @override
+  User? get currentUser => signedIn ? _user : null;
+
   @override
   Session? get currentSession =>
       signedIn
-          ? Session(
-            accessToken: 'token',
-            tokenType: 'bearer',
-            user: const User(
-              id: 'user',
-              appMetadata: {},
-              userMetadata: {},
-              aud: 'authenticated',
-              createdAt: '2026-01-01T00:00:00Z',
-            ),
-          )
+          ? Session(accessToken: 'token', tokenType: 'bearer', user: _user)
           : null;
 
   @override
@@ -173,6 +182,17 @@ class _FakeTopics implements PortyTopicsRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Lo que la línea de cuota baja lee fuera del plan: el teléfono, el
+/// interruptor del servidor y el reloj (mutable: pasa el mes).
+class _Nudge {
+  _Nudge(this.prefs, {this.flagOn = true, DateTime? now})
+    : now = now ?? DateTime.utc(2026, 11, 10);
+
+  final SharedPreferences prefs;
+  final bool flagOn;
+  DateTime now;
+}
+
 class _Harness {
   _Harness(
     SubscriptionTier tier,
@@ -180,11 +200,21 @@ class _Harness {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    this.nudge,
+    this.taste,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
        api = ScriptedOpenAi(script) {
     final tracker = AiUsageTracker(repository: subscriptionRepo);
     container = ProviderContainer(
       overrides: [
+        if (nudge case final n?) ...[
+          sharedPreferencesProvider.overrideWithValue(n.prefs),
+          supabaseAuthServiceProvider.overrideWithValue(_Session()),
+          quotaNudgeEnabledProvider.overrideWith((_) async => n.flagOn),
+          quotaNudgeClockProvider.overrideWithValue(() => n.now),
+        ],
+        productEventsProvider.overrideWithValue(events),
+        if (taste case final t?) marketTasteRepositoryProvider.overrideWithValue(t),
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
         portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
@@ -225,6 +255,9 @@ class _Harness {
   }
 
   static const args = AssistantArgs();
+  final _Nudge? nudge;
+  final FakeMarketTasteRepository? taste;
+  final events = FakeProductEvents();
   final _FakeSubscriptionRepository subscriptionRepo;
   final ScriptedOpenAi api;
   final quotes = CountingQuoteRepository();
@@ -272,6 +305,8 @@ void main() {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    _Nudge? nudge,
+    FakeMarketTasteRepository? taste,
   }) {
     final h = _Harness(
       tier,
@@ -279,6 +314,8 @@ void main() {
       used: used,
       streaming: streaming,
       variant: variant,
+      nudge: nudge,
+      taste: taste,
     );
     addTearDown(h.dispose);
     return h;
@@ -366,6 +403,7 @@ void main() {
     await h.notifier.submitMessage('¿A cuánto está AMZN?');
 
     expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+    expect(h.state.paywallSource, 'chat_turn_locked_market_data');
     expect(h.state.messages, hasLength(1)); // solo la bienvenida
     expect(h.subscriptionRepo.consumed, isEmpty);
     expect(h.quotes.priceCalls, isEmpty); // nunca se pidió el dato
@@ -522,7 +560,9 @@ void main() {
 
     await h.notifier.submitMessage('Tengo \$500 para invertir');
 
-    expect(h.state.paywallReason, PaywallReason.modeLocked);
+    expect(h.state.paywallReason, PaywallReason.simulations);
+    expect(h.state.paywallSource, 'chat_turn_locked_invest_simulation');
+    expect(h.state.paywallFeature, PlanFeature.investSimulation);
     expect(h.state.messages, hasLength(1));
   });
 
@@ -535,6 +575,7 @@ void main() {
     await h.notifier.submitMessage('Hola');
 
     expect(h.state.paywallReason, PaywallReason.quotaExceeded);
+    expect(h.state.paywallSource, PaywallSource.quotaZero);
     expect(h.api.requests, hasLength(1));
     expect(h.state.messages, hasLength(1));
     expect(h.state.error, isNull);
@@ -1023,21 +1064,307 @@ void main() {
       expect(brief, contains(proposal.id));
     });
 
-    test('free: proposing is locked and the Premium paywall replaces the '
-        'turn', () async {
+    test('free: proposing is in every plan, so the card is prepared and '
+        'there is no paywall', () async {
       final h = harness(SubscriptionTier.free, [
         _call('propose_buy', {
           'ticker': 'AAPL',
           'shares': 10,
           'date': '2026-09-25',
         }),
+        answerWithProposals,
       ]);
 
       await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
 
-      expect(h.state.paywallReason, PaywallReason.modeLocked);
+      expect(h.state.paywallReason, isNull);
+      expect(h.lastAnswer.isFallback, isFalse);
+      final calls =
+          h.notifier.service!
+              .evidenceListenable(h.lastAnswer.surfaceId!)
+              .value
+              .calls;
+      final result = calls.singleWhere((c) => c.name == 'propose_buy').result;
+      expect(result['status'], 'ok');
+      expect(ActionProposal.fromToolResult(result)!.ticker, 'AAPL');
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(
+        h.state.actionProgress(result['proposal_id'] as String).status,
+        ActionProposalStatus.pending,
+      );
+    });
+  });
+
+  group('free market lookups (market_taste)', () {
+    Map<String, Object?> Function(Map<String, dynamic>) quote(
+      String ticker,
+    ) => _call('get_quote', {
+      'tickers': [ticker],
+    });
+
+    test('a foreign ticker with lookups left: it is answered with data, '
+        'the line says how many are left and the event is logged', () async {
+      final taste = FakeMarketTasteRepository(used: 1);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.quotes.priceCalls, ['AMZN']);
+      expect(taste.consumed, hasLength(1));
+      expect(taste.consumed.single.$2, ['AMZN']);
+      // El mismo id que viaja al proxy como x-porty-turn-id.
+      expect(
+        taste.consumed.single.$1,
+        h.notifier.service!.log.currentTurn!.id,
+      );
+      expect(h.lastAnswer.marketTasteRemaining, 1);
+      expect(h.lastAnswer.marketTeaser, isFalse);
+      expect(h.events.of(ProductEvent.marketTasteUsed), [
+        {'remaining': 1},
+      ]);
+      expect(h.events.of(ProductEvent.marketTeaserShown), isEmpty);
+    });
+
+    test('the last one says 0 left', () async {
+      final taste = FakeMarketTasteRepository(used: 2);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AMZN?');
+      expect(h.lastAnswer.marketTasteRemaining, 0);
+    });
+
+    test('after the limit the turn is answered (not cut), the tool carries '
+        'the guide, and the message gets the Premium teaser', () async {
+      final taste = FakeMarketTasteRepository(used: 3);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer('Es una empresa de comercio electrónico.'),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿Qué opinás de AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.state.messages, hasLength(3));
+      expect(h.quotes.priceCalls, isEmpty); // ningún dato del ticker ajeno
+      final toolResult =
+          jsonDecode(_textOf((h.api.requests[1]['messages'] as List)[4] as Map))
+              as Map;
+      expect(toolResult['status'], 'locked');
+      expect(toolResult['answer_guide'], contains('Do not state any price'));
+      expect(h.lastAnswer.marketTeaser, isTrue);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+      expect(h.events.of(ProductEvent.marketTasteUsed), isEmpty);
+      // El servidor cobra el turno respondido: la app no descuenta nada.
+      expect(h.subscriptionRepo.consumed, isEmpty);
+
+      // Se registra como mostrado cuando entra con el reveal, una sola vez.
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      expect(h.events.of(ProductEvent.marketTeaserShown), hasLength(1));
+    });
+
+    test('disabled by the server: the turn is cut as always', () async {
+      final taste = FakeMarketTasteRepository(enabled: false);
+      final h = harness(SubscriptionTier.free, [quote('AMZN')], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallSource, 'chat_turn_locked_market_data');
       expect(h.state.messages, hasLength(1));
-      expect(h.quotes.dailyCalls, isEmpty);
+      expect(taste.consumed, isEmpty); // available=false: ni se intenta
+    });
+
+    test('premium and gold never touch the server', () async {
+      for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+        final taste = FakeMarketTasteRepository();
+        final h = harness(tier, [quote('AMZN'), _answer()], taste: taste);
+        await h.notifier.submitMessage('¿AMZN?');
+        expect(taste.statusCalls, 0, reason: tier.name);
+        expect(taste.consumed, isEmpty, reason: tier.name);
+        expect(h.lastAnswer.marketTasteRemaining, isNull);
+        expect(h.lastAnswer.marketTeaser, isFalse);
+      }
+    });
+
+    test('a held ticker spends nothing', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AAPL?');
+      expect(taste.consumed, isEmpty);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+    });
+
+    test('the status is read once per chat', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('uno');
+      await h.notifier.submitMessage('dos');
+      expect(taste.statusCalls, 1);
+    });
+  });
+
+  group('low quota line (quota_nudge)', () {
+    Future<_Nudge> nudgeWorld({bool flagOn = true, DateTime? now}) async {
+      SharedPreferences.setMockInitialValues({});
+      return _Nudge(
+        await SharedPreferences.getInstance(),
+        flagOn: flagOn,
+        now: now,
+      );
+    }
+
+    // El servidor cobra al responder: la consulta sube a [usedAfter] recién
+    // cuando el modelo contesta, y el refresh posterior la trae.
+    _Harness charging(
+      SubscriptionTier tier,
+      _Nudge nudge, {
+      required int used,
+      int turns = 1,
+      Map<String, Object?> Function(Map<String, dynamic>)? first,
+    }) {
+      late final _Harness h;
+      Map<String, Object?> Function(Map<String, dynamic>) turn() => (body) {
+        h.subscriptionRepo.used += 1;
+        return _answer('ok')(body);
+      };
+      h = harness(tier, [
+        for (var i = 0; i < turns; i++) first ?? turn(),
+      ], used: used, nudge: nudge);
+      return h;
+    }
+
+    test('free, 6 -> 5 left: that answer carries the line, once per month; '
+        'a new UTC month shows it again', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        turns: 3,
+      );
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 5);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-11'],
+      );
+
+      await h.notifier.submitMessage('Dos');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(
+        h.state.messages.where((m) => m.quotaNudgeRemaining != null),
+        hasLength(1),
+        reason: 'la primera respuesta la conserva',
+      );
+
+      nudge.now = DateTime.utc(2026, 12, 1);
+      await h.notifier.submitMessage('Tres');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 3);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-12'],
+        reason: 'los meses anteriores se descartan',
+      );
+    });
+
+    test('flag off: no line, and the month is not spent', () async {
+      final nudge = await nudgeWorld(flagOn: false);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('still above the threshold (7 -> 6 left): no line', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 13);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    test('the last query (1 -> 0 left): no line, the zero paywall owns '
+        'that moment', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 19);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+      test('${tier.name}: no line even when few are left', () async {
+        final nudge = await nudgeWorld();
+        final h = charging(tier, nudge, used: 14);
+
+        await h.notifier.submitMessage('Uno');
+        await pumpEventQueue();
+
+        expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+        expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+      });
+    }
+
+    test('a turn cut by the plan paywall leaves no message, no line and '
+        'does not spend the month', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        first:
+            _call('get_invest_candidates', {
+              'tickers': ['NEE', 'KO'],
+              'budget_usd': 500,
+            }),
+      );
+
+      await h.notifier.submitMessage('Tengo \$500 para invertir');
+      await pumpEventQueue();
+
+      expect(h.state.paywallReason, PaywallReason.simulations);
+      expect(h.state.messages.any((m) => m.quotaNudgeRemaining != null),
+          isFalse);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('already shown this month on this phone (another session): no '
+        'line', () async {
+      final nudge = await nudgeWorld();
+      await nudge.prefs.setStringList(QuotaNudgeMemory.prefsKey, [
+        'user:2026-11',
+      ]);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
     });
   });
 }

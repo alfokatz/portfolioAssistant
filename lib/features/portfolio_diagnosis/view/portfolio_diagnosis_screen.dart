@@ -4,18 +4,29 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
+import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/domain/portfolio_diagnosis.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/providers/portfolio_diagnosis_provider.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/diagnosis_copy.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
@@ -156,7 +167,7 @@ class _PortfolioDiagnosisScreenState
   }
 }
 
-class _DiagnosisBody extends StatelessWidget {
+class _DiagnosisBody extends ConsumerWidget {
   const _DiagnosisBody({
     required this.diagnosis,
     required this.fewPositions,
@@ -169,11 +180,69 @@ class _DiagnosisBody extends StatelessWidget {
   final int maxQuestions;
   final void Function(DiagnosisFinding) onAsk;
 
+  /// Las dos filas del final (sync y aviso del sábado), con el interruptor
+  /// `diagnosis_bridge` prendido. Sin red o apagado: ninguna.
+  List<Widget> _bridgeRows(BuildContext context, WidgetRef ref) {
+    if (!(ref.watch(diagnosisBridgeEnabledProvider).value ?? false)) {
+      return const [];
+    }
+    final tier = ref.watch(subscriptionProvider).tier;
+    final canSync = SubscriptionPolicy.allows(tier, PlanFeature.brokerSync);
+    final valuations = ref.watch(homeProvider).summary?.valuations ?? const [];
+    final noneImported = valuations.every(
+      (v) => !v.position.source.hasImported,
+    );
+    final askPush =
+        ref.watch(pushControllerProvider).permission ==
+        PushPermission.notDetermined;
+    return [
+      if (noneImported)
+        _FindingRow.action(
+          icon: Icons.sync_rounded,
+          title: 'diagnosis_sync_title'.tr(),
+          detail:
+              (canSync
+                      ? 'diagnosis_sync_detail'
+                      : 'diagnosis_sync_detail_locked')
+                  .tr(),
+          onTap: () {
+            PortyHapticsService.maybeOf(context)?.selectionTap();
+            if (canSync) {
+              context.pushNamed(ConnectBrokerRouter.routeName);
+            } else {
+              SubscriptionPaywallSheet.show(
+                context,
+                ref,
+                reason: PaywallReason.brokerSync,
+                source: PaywallSource.diagnosisSync,
+              );
+            }
+          },
+        ),
+      if (askPush)
+        _FindingRow.action(
+          icon: Icons.notifications_none_rounded,
+          title: 'diagnosis_push_title'.tr(),
+          detail: 'diagnosis_push_detail'.tr(),
+          onTap: () {
+            PortyHapticsService.maybeOf(context)?.selectionTap();
+            PushPermissionSheet.maybeShow(
+              context,
+              ref,
+              reason: PushPromptReason.diagnosis,
+              force: true,
+            );
+          },
+        ),
+    ];
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final findings = diagnosis.findings;
+    final bridgeRows = _bridgeRows(context, ref);
     var order = 0;
     Widget enter(Widget child) =>
         FadeSlideIn(delay: Duration(milliseconds: 80 * order++), child: child);
@@ -238,6 +307,13 @@ class _DiagnosisBody extends StatelessWidget {
             onAsk: onAsk,
           ),
         ),
+        if (bridgeRows.isNotEmpty) ...[
+          const SizedBox(height: AppDimens.sp12),
+          for (final (i, row) in bridgeRows.indexed) ...[
+            if (i > 0) divider,
+            enter(row),
+          ],
+        ],
         const SizedBox(height: AppDimens.sp20),
         enter(
           Text(

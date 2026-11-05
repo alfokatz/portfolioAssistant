@@ -75,3 +75,22 @@ final weeklyReportRepositoryProvider = Provider<WeeklyReportStore>(
     authService: ref.watch(supabaseAuthServiceProvider),
   ),
 );
+
+/// Informes de regalo que el usuario ya recibió (`weekly_reports.courtesy`,
+/// RLS: solo los propios). Con 2 o más, el teaser de Gold del informe sabe
+/// que se le terminaron los regalos. Nunca lanza: sin dato, 0.
+final weeklyReportCourtesyCountProvider = FutureProvider.autoDispose<int>((
+  ref,
+) async {
+  try {
+    final client = ref.read(supabaseClientProvider);
+    if (client.auth.currentUser == null) return 0;
+    final rows = await client
+        .from('weekly_reports')
+        .select('week_start')
+        .eq('courtesy', true);
+    return rows.length;
+  } catch (_) {
+    return 0;
+  }
+});

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:genui/genui.dart' show SurfaceDefinition;
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_streamed_text_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
@@ -43,6 +44,8 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_ad
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_market_taste_notice.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quota_nudge.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_starter_suggestions.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
@@ -57,6 +60,7 @@ import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -561,6 +565,31 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     return false;
   }
 
+  /// "Ver planes" de la línea de cuota baja (quedan pocas consultas). Cerrarlo
+  /// deja el chat donde estaba; si compra, se refresca la cuota.
+  void _openQuotaLowPaywall() {
+    SubscriptionPaywallSheet.show(
+      context,
+      ref,
+      reason: PaywallReason.quotaLow,
+      source: PaywallSource.quotaSoft,
+      onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
+    );
+  }
+
+  /// "Ver Premium" del aviso de consultas de mercado agotadas. Cerrarlo deja
+  /// el chat donde estaba; si compra, se refresca el plan.
+  void _openMarketTeaserPaywall() {
+    SubscriptionPaywallSheet.show(
+      context,
+      ref,
+      reason: PaywallReason.marketDataLocked,
+      source: PaywallSource.chatMarketTeaser,
+      lockedFeature: PlanFeature.marketData,
+      onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
+    );
+  }
+
   /// Swap limpio: se limpia el input y el mensaje pasa a existir en el
   /// estado — sin desplazamiento espacial, `MessageAppearFade` en la lista
   /// se encarga del fade corto de entrada. Ambos triggers (sugerencia
@@ -575,11 +604,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   void _openGoldPaywall(AssistantProvider notifier, QaPaywallRequest request) {
     final surfaceId = request.surfaceId;
     final ticker = request.ticker;
+    final feature = request.feature;
     SubscriptionPaywallSheet.show(
       context,
       ref,
-      reason: PaywallReason.goldRequired,
+      // Noticias de lo que tiene: es de Premium, no de Gold.
+      reason:
+          feature == PlanFeature.heldNews
+              ? PaywallReason.heldNews
+              : PaywallReason.goldRequired,
       source: request.source,
+      lockedFeature: feature,
       preview: request.preview,
       onUpgraded:
           surfaceId == null || ticker == null
@@ -813,6 +848,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             context,
             ref,
             reason: reason,
+            // Todo lugar que setea el motivo setea el source (lo chequea el
+            // assert de AssistantState); el fallback solo evita perder la
+            // hoja si alguno nuevo se olvida.
+            source: next.paywallSource ?? 'chat_unattributed',
+            lockedFeature: next.paywallFeature,
             onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
           ).whenComplete(notifier.clearPaywall);
         });
@@ -855,6 +895,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                         context,
                         ref,
                         reason: PaywallReason.quotaExceeded,
+                        source: PaywallSource.quotaZeroHeader,
                         onUpgraded:
                             () =>
                                 ref
@@ -1286,11 +1327,51 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.
+      final quotaLeft = message.quotaNudgeRemaining;
+      final hasMarketTaste = AssistantMarketTasteNotice.hasContent(message);
       content =
-          AssistantAdviceFooter.hasContent(message)
+          AssistantAdviceFooter.hasContent(message) ||
+                  quotaLeft != null ||
+                  hasMarketTaste
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [surface, _AdviceFooterEntrance(message: message)],
+                children: [
+                  surface,
+                  _AdviceFooterEntrance(
+                    message: message,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (AssistantAdviceFooter.hasContent(message))
+                          AssistantAdviceFooter(message: message),
+                        // La de mercado va antes que la de cuota.
+                        if (hasMarketTaste)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimens.sp12,
+                            ),
+                            child: AssistantMarketTasteNotice(
+                              remaining: message.marketTasteRemaining,
+                              teaser: message.marketTeaser,
+                              tier: ref.watch(subscriptionProvider).tier,
+                              onSeePremium: _openMarketTeaserPaywall,
+                            ),
+                          ),
+                        if (quotaLeft != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppDimens.sp12,
+                            ),
+                            child: AssistantQuotaNudge(
+                              remaining: quotaLeft,
+                              tier: ref.watch(subscriptionProvider).tier,
+                              onSeePlans: _openQuotaLowPaywall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               )
               : surface;
     } else {
@@ -1497,14 +1578,16 @@ class _MessageAvatarState extends State<_MessageAvatar> {
   );
 }
 
-/// El footer de avisos entra último, cuando la respuesta terminó su reveal:
-/// fade simple (sin slide ni escala) mientras abre su espacio, así el final
-/// de la lista crece en vez de saltar. Si el mensaje ya estaba revelado al
-/// montarse (se reconstruyó el historial), aparece directo.
+/// El footer de avisos (y la línea de cuota baja) entra último, cuando la
+/// respuesta terminó su reveal: fade simple (sin slide ni escala) mientras
+/// abre su espacio, así el final de la lista crece en vez de saltar. Si el
+/// mensaje ya estaba revelado al montarse (se reconstruyó el historial),
+/// aparece directo.
 class _AdviceFooterEntrance extends StatefulWidget {
-  const _AdviceFooterEntrance({required this.message});
+  const _AdviceFooterEntrance({required this.message, required this.child});
 
   final PortfolioQaMessage message;
+  final Widget child;
 
   @override
   State<_AdviceFooterEntrance> createState() => _AdviceFooterEntranceState();
@@ -1520,7 +1603,7 @@ class _AdviceFooterEntranceState extends State<_AdviceFooterEntrance> {
       skip: _revealedAtMount,
       slideDistance: 0,
       scaleFrom: 1,
-      child: AssistantAdviceFooter(message: widget.message),
+      child: widget.child,
     );
   }
 }

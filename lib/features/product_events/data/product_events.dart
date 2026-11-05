@@ -21,7 +21,46 @@ enum ProductEvent {
 
   /// Tocó la pregunta del diagnóstico. Props: `kind`.
   diagnosisQuestion('diagnosis_question'),
-  firstChatAnswer('first_chat_answer', once: true);
+  firstChatAnswer('first_chat_answer', once: true),
+
+  /// Se abrió el paywall. Props: `reason`, `source`, `tier`,
+  /// `visible_tiers`, `queries_used`, `queries_limit`.
+  paywallViewed('paywall_viewed'),
+
+  /// Tocó el botón de un plan, antes de comprar. Props: `tier`, `period`,
+  /// `source`.
+  paywallPlanTapped('paywall_plan_tapped'),
+
+  /// Volvió de comprar o de restaurar. Props: `action` (`purchase` |
+  /// `restore`), `tier` y `period` (solo en compras), `source`, `result`
+  /// (`success` | `cancelled` | `failed` | `not_configured`) y
+  /// `error_code` (solo en `failed`).
+  purchaseResult('purchase_result'),
+
+  /// La hoja se cerró sin compra ni restauración exitosa. Props: `source`,
+  /// `seconds_open`, `tapped_plan`.
+  paywallDismissed('paywall_dismissed'),
+
+  /// Tocó la salida alternativa de una pantalla bloqueada. Props: `surface`
+  /// (`broker_locked_binance` | `broker_locked_snaptrade`), `action`.
+  nudgeTapped('nudge_tapped'),
+
+  /// Terminó un intento de conectar un bróker. Props: `broker` (`etoro` |
+  /// `binance` | `snaptrade`), `result` (`ok` | `plan_required` | `limit` |
+  /// `cancelled` | `error`).
+  brokerConnectResult('broker_connect_result'),
+
+  /// Se cerró el pedido de permiso de notificaciones (si se mostró). Props:
+  /// `source` (`PushPromptReason.name`), `result` (`granted` | `denied` |
+  /// `dismissed`).
+  pushOptIn('push_opt_in'),
+
+  /// Un turno del chat se respondió con una consulta de mercado gratis.
+  /// Props: `remaining`.
+  marketTasteUsed('market_taste_used'),
+
+  /// Se mostró el aviso de Premium tras agotar las consultas de mercado.
+  marketTeaserShown('market_teaser_shown');
 
   const ProductEvent(this.wire, {this.once = false});
 

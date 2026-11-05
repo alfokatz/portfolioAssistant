@@ -5,14 +5,17 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart' show goalHoldingsProvider;
+import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_repository.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report.dart';
 import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
@@ -294,7 +297,7 @@ class _Header extends StatelessWidget {
         if (report.courtesy) ...[
           const SizedBox(height: AppDimens.sp12),
           _Meta(
-            'weekly_report_courtesy'.tr(),
+            _courtesyText(report),
             leading: PortySpark(size: 12, color: colors.accentBlue),
           ),
         ],
@@ -401,8 +404,9 @@ class _WeekState extends ConsumerState<_Week> {
                   () => SubscriptionPaywallSheet.show(
                     context,
                     ref,
-                    reason: PaywallReason.modeLocked,
-                    source: 'weekly_report_sp500',
+                    reason: PaywallReason.benchmark,
+                    source: PaywallSource.weeklyReportSp500,
+                    lockedFeature: PlanFeature.benchmark,
                   ),
             ),
           const SizedBox(height: AppDimens.sp8),
@@ -642,6 +646,9 @@ class _GoldTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
+    // Con 2 o más informes de regalo recibidos, los números bloqueados son
+    // "se terminaron los regalos": otro source para medir esa conversión.
+    final courtesyReceived = ref.watch(weeklyReportCourtesyCountProvider).value;
     return Semantics(
         button: true,
         child: InkWell(
@@ -652,7 +659,10 @@ class _GoldTeaser extends ConsumerWidget {
               context,
               ref,
               reason: PaywallReason.goldRequired,
-              source: 'weekly_report',
+              source:
+                  (courtesyReceived ?? 0) >= 2
+                      ? PaywallSource.weeklyReportCourtesyEnded
+                      : PaywallSource.weeklyReportLocked,
             );
           },
           child: ConstrainedBox(
@@ -1192,4 +1202,18 @@ String _filingLabel(String? form) {
     final f => f,
   };
   return 'SEC · $name';
+}
+
+/// Texto del regalo: dice cuál es ("2 de 3") o que es el último. Sin total, o
+/// con un solo informe, el texto de siempre.
+String _courtesyText(WeeklyReport report) {
+  final n = report.courtesyNumber;
+  final total = report.courtesyTotal;
+  if (n == null || total == null || total <= 1) {
+    return 'weekly_report_courtesy'.tr();
+  }
+  if (n >= total) return 'weekly_report_courtesy_last'.tr();
+  return 'weekly_report_courtesy_n'.tr(
+    namedArgs: {'n': '$n', 'total': '$total'},
+  );
 }

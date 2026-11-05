@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/subscription/config/subscription_catalog.dart';
+import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
 
 sealed class RevenueCatPurchaseResult {
   const RevenueCatPurchaseResult();
@@ -24,13 +25,44 @@ final class RevenueCatPurchaseNotConfigured extends RevenueCatPurchaseResult {
 }
 
 final class RevenueCatPurchaseFailed extends RevenueCatPurchaseResult {
-  const RevenueCatPurchaseFailed(this.message);
+  const RevenueCatPurchaseFailed(this.code, [String? message])
+    : message = message ?? code;
 
+  /// Código corto para los eventos (`error_code`): `offerings_unavailable`,
+  /// `package_not_found`, `invalid_tier`, el `PurchasesErrorCode.name` de
+  /// RevenueCat o `unknown`. Nunca el mensaje libre de la tienda.
+  final String code;
+
+  /// Detalle para debug (puede traer el texto de la tienda).
   final String message;
 }
 
 class RevenueCatService {
+  /// Los parámetros son costuras para tests (`configuredForTest` hace de
+  /// cuenta que [configure] anduvo); en la app van los de [Purchases].
+  RevenueCatService({
+    Future<Offerings> Function()? getOfferings,
+    Future<void> Function(Map<String, String> attributes)? setAttributes,
+    Future<void> Function(Package package)? purchasePackage,
+    Future<void> Function()? restorePurchases,
+    bool configuredForTest = false,
+  }) : _getOfferings = getOfferings ?? Purchases.getOfferings,
+       _setAttributes = setAttributes ?? Purchases.setAttributes,
+       _purchasePackage =
+           purchasePackage ??
+           ((package) => Purchases.purchase(PurchaseParams.package(package))),
+       _restorePurchases = restorePurchases ?? Purchases.restorePurchases,
+       _configuredForTest = configuredForTest;
+
+  final Future<Offerings> Function() _getOfferings;
+  final Future<void> Function(Map<String, String> attributes) _setAttributes;
+  final Future<void> Function(Package package) _purchasePackage;
+  final Future<void> Function() _restorePurchases;
+  final bool _configuredForTest;
+
   bool _configured = false;
+
+  bool get _isReady => _configured || _configuredForTest;
 
   static bool get isPlatformSupported {
     if (kIsWeb) return false;
@@ -70,8 +102,15 @@ class RevenueCatService {
     await Purchases.logOut();
   }
 
-  Future<RevenueCatPurchaseResult> purchaseTier(SubscriptionTier tier) async {
-    if (!_configured) {
+  /// Compra [tier] en [period]. Antes de comprar deja el atributo
+  /// `paywall_source` en el suscriptor (lo lee el webhook); si eso falla,
+  /// se compra igual.
+  Future<RevenueCatPurchaseResult> purchase(
+    SubscriptionTier tier,
+    BillingPeriod period, {
+    required String source,
+  }) async {
+    if (!_isReady) {
       return const RevenueCatPurchaseNotConfigured();
     }
     if (tier == SubscriptionTier.free) {
@@ -79,86 +118,66 @@ class RevenueCatService {
     }
 
     try {
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
+      final current = (await _getOfferings()).current;
       if (current == null) {
         return const RevenueCatPurchaseFailed('offerings_unavailable');
       }
 
-      final packageId = SubscriptionCatalog.packageIdFor(tier);
-      final package = current.getPackage(packageId) ??
-          _findPackageByProductId(current, tier);
-
+      final package = PaywallOffer.packageFor(current, tier, period);
       if (package == null) {
-        return RevenueCatPurchaseFailed('package_not_found:$packageId');
+        return RevenueCatPurchaseFailed(
+          'package_not_found',
+          'package_not_found:${SubscriptionCatalog.packageIdFor(tier, period)}',
+        );
       }
 
-      await Purchases.purchase(PurchaseParams.package(package));
+      try {
+        await _setAttributes({'paywall_source': source});
+      } catch (_) {
+        // La atribución nunca frena una compra.
+      }
+      await _purchasePackage(package);
       return const RevenueCatPurchaseSuccess();
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code == PurchasesErrorCode.purchaseCancelledError) {
         return const RevenueCatPurchaseCancelled();
       }
-      return RevenueCatPurchaseFailed(e.message ?? code.name);
+      return RevenueCatPurchaseFailed(code.name, e.message);
     } catch (e) {
-      return RevenueCatPurchaseFailed(e.toString());
+      return RevenueCatPurchaseFailed('unknown', e.toString());
     }
   }
 
-  /// Precios localizados desde la store (vacío si RevenueCat no está configurado).
-  Future<Map<SubscriptionTier, String>> fetchTierPrices() async {
-    if (!_configured) return {};
+  /// Precios mensuales y anuales de la tienda ([PaywallOffer.empty] si
+  /// RevenueCat no está configurado o falla).
+  Future<PaywallOffer> fetchOffer() async {
+    if (!_isReady) return PaywallOffer.empty;
 
     try {
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
-      if (current == null) return {};
-
-      final prices = <SubscriptionTier, String>{};
-      for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
-        final packageId = SubscriptionCatalog.packageIdFor(tier);
-        final package =
-            current.getPackage(packageId) ??
-            _findPackageByProductId(current, tier);
-        if (package != null) {
-          prices[tier] = package.storeProduct.priceString;
-        }
-      }
-      return prices;
+      final current = (await _getOfferings()).current;
+      if (current == null) return PaywallOffer.empty;
+      return PaywallOffer.fromOffering(current);
     } catch (_) {
-      return {};
+      return PaywallOffer.empty;
     }
   }
 
   Future<RevenueCatPurchaseResult> restorePurchases() async {
-    if (!_configured) {
+    if (!_isReady) {
       return const RevenueCatPurchaseNotConfigured();
     }
 
     try {
-      await Purchases.restorePurchases();
+      await _restorePurchases();
       return const RevenueCatPurchaseSuccess();
     } on PlatformException catch (e) {
-      return RevenueCatPurchaseFailed(e.message ?? e.code);
+      return RevenueCatPurchaseFailed(
+        PurchasesErrorHelper.getErrorCode(e).name,
+        e.message ?? e.code,
+      );
     } catch (e) {
-      return RevenueCatPurchaseFailed(e.toString());
+      return RevenueCatPurchaseFailed('unknown', e.toString());
     }
-  }
-
-  Package? _findPackageByProductId(Offering offering, SubscriptionTier tier) {
-    final productId = switch (tier) {
-      SubscriptionTier.premium => SubscriptionCatalog.premiumProductId,
-      SubscriptionTier.gold => SubscriptionCatalog.goldProductId,
-      SubscriptionTier.free => null,
-    };
-    if (productId == null) return null;
-
-    for (final package in offering.availablePackages) {
-      if (package.storeProduct.identifier == productId) {
-        return package;
-      }
-    }
-    return null;
   }
 }

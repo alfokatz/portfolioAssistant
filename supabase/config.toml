@@ -470,6 +470,11 @@ verify_jwt = false
 [functions.snaptrade-sync]
 verify_jwt = false
 
+# Borrado de cuenta: valida el JWT del usuario ella misma (antes de cualquier
+# paso), como snaptrade-sync.
+[functions.delete-account]
+verify_jwt = false
+
 # Funciones internas de las notificaciones push: las llama pg_cron (o otra
 # función) con el header `x-cron-secret` (secret CRON_SECRET), sin JWT.
 [functions.notify-dispatch]

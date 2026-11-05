@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
@@ -43,6 +44,14 @@ class AssistantState {
   final bool isServiceReady;
   final PaywallReason? paywallReason;
 
+  /// Desde dónde se pidió [paywallReason] (`PaywallSource`). Se setean y
+  /// se limpian juntos.
+  final String? paywallSource;
+
+  /// La capacidad que el plan no incluyó, para `locked_feature` en
+  /// `paywall_viewed`. Se limpia junto con [paywallReason].
+  final PlanFeature? paywallFeature;
+
   /// `true` una vez que la cascada de entrada del saludo inicial + chips de
   /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
   /// menos una vez. Vive acá (no en el `State` de ningún widget) por la
@@ -65,9 +74,14 @@ class AssistantState {
     this.turnCounter = 0,
     this.isServiceReady = false,
     this.paywallReason,
+    this.paywallSource,
+    this.paywallFeature,
     this.introRevealed = false,
     this.actionProposals = const {},
-  });
+  }) : assert(
+         paywallReason == null || paywallSource != null,
+         'paywallReason sin paywallSource: pasá un PaywallSource',
+       );
 
   ActionProposalProgress actionProgress(String proposalId) =>
       actionProposals[proposalId] ?? ActionProposalProgress.pending;
@@ -81,6 +95,8 @@ class AssistantState {
     int? turnCounter,
     bool? isServiceReady,
     PaywallReason? paywallReason,
+    String? paywallSource,
+    PlanFeature? paywallFeature,
     bool? introRevealed,
     Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
@@ -96,6 +112,18 @@ class AssistantState {
       isServiceReady: isServiceReady ?? this.isServiceReady,
       paywallReason:
           clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
+      paywallSource:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallSource
+              : this.paywallSource,
+      paywallFeature:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallFeature
+              : this.paywallFeature,
       introRevealed: introRevealed ?? this.introRevealed,
       actionProposals: actionProposals ?? this.actionProposals,
     );

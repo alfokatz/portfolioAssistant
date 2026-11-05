@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/allocation/providers/allocation_pro
 import 'package:portfolio_assistant/features/allocation/view/widgets/allocation_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -230,7 +231,8 @@ class _AllocationWizardScreenState
       SubscriptionPaywallSheet.show(
         context,
         ref,
-        reason: PaywallReason.modeLocked,
+        reason: PaywallReason.allocationPlan,
+        source: PaywallSource.allocationWizard,
       );
     } else {
       ref

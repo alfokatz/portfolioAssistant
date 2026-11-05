@@ -12,7 +12,6 @@ import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
-import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 import '../fakes/assistant_fakes.dart';
 
@@ -97,7 +96,7 @@ Map<String, Object?> _data(Map<String, Object?> result) =>
 
 void main() {
   group('plan', () {
-    test('Free gets locked with the Premium paywall, for every tool', () async {
+    test('portfolio actions are in every plan: no tool is locked', () async {
       for (final tier in SubscriptionTier.values) {
         final ctx = _ctx(tier: tier);
         for (final tool in ActionTools.build(ctx)) {
@@ -107,14 +106,12 @@ void main() {
             'date': '2026-09-25',
           });
           expect(
-            result['status'] == 'locked',
-            tier == SubscriptionTier.free,
+            result['status'],
+            isNot('locked'),
             reason: '${tool.name} × ${tier.name}',
           );
-          if (tier == SubscriptionTier.free) {
-            expect(result['required_plan'], 'premium');
-            expect(ctx.lockedReasons, contains(PaywallReason.modeLocked));
-          }
+          expect(ctx.lockedReasons, isEmpty);
+          expect(ctx.lockedFeatures, isEmpty);
         }
       }
     });
@@ -124,6 +121,70 @@ void main() {
         ActionTools.build(_ctx()).map((t) => t.name).toSet(),
         ActionTools.names,
       );
+    });
+  });
+
+  group('propose_buy position limit', () {
+    PortfolioSummary summaryOf(int n) => PortfolioSummary(
+      totalValue: 1000,
+      totalCostBasis: 1000,
+      totalPnlAbsolute: 0,
+      totalPnlPercent: 0,
+      valuations: [for (var i = 0; i < n; i++) valuation('T$i', qty: 1)],
+    );
+
+    AssistantToolContext ctxWith(SubscriptionTier tier, int n) =>
+        AssistantToolContext(
+          tier: tier,
+          data: fakeDataSources(quotes: _Quotes()),
+          summary: summaryOf(n),
+          now: DateTime(2026, 9, 29),
+        );
+
+    const buy = {'ticker': 'NEWCO', 'shares': 1, 'date': '2026-09-28'};
+
+    test('Free with 10 holdings: a new ticker is limit_reached', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run(buy);
+      expect(result['status'], 'limit_reached');
+      expect(result['limit'], 10);
+      expect(result[AnswerGuide.key], ActionGuides.positionLimit);
+      expect(result.containsKey('proposal_id'), isFalse);
+    });
+
+    test('the 11th ticker is refused before asking for date or quantity', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run({'ticker': 'NEWCO'});
+      expect(result['status'], 'limit_reached');
+    });
+
+    test('Free with 9 holdings can still add the 10th ticker', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 9),
+      ).run(buy);
+      expect(result['status'], 'ok');
+    });
+
+    test('Free at the limit can still buy more of a ticker it holds', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run({...buy, 'ticker': 't3'});
+      expect(result['status'], 'ok');
+    });
+
+    test('Premium has no limit', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.premium, 40),
+      ).run(buy);
+      expect(result['status'], 'ok');
+    });
+
+    test('a limit_reached never opens a turn paywall', () async {
+      final ctx = ctxWith(SubscriptionTier.free, 10);
+      await ProposeBuyTool(ctx).run(buy);
+      expect(ctx.lockedReasons, isEmpty);
     });
   });
 
@@ -431,7 +492,7 @@ void main() {
   group('answer_guide', () {
     String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
 
-    test('ok, needs_input e invalid traen su guía; locked no', () async {
+    test('ok, needs_input, invalid y limit_reached traen su guía', () async {
       expect(
         guideOf(
           await ProposeBuyTool(
@@ -461,13 +522,27 @@ void main() {
         ).ticker,
         'AAPL',
       );
+      // Free con la cartera en el tope y un ticker nuevo.
       expect(
         guideOf(
           await ProposeBuyTool(
-            _ctx(tier: SubscriptionTier.free),
-          ).run({'ticker': 'AAPL', 'shares': 1, 'date': '2026-09-28'}),
+            AssistantToolContext(
+              tier: SubscriptionTier.free,
+              data: fakeDataSources(quotes: _Quotes()),
+              summary: PortfolioSummary(
+                totalValue: 1000,
+                totalCostBasis: 1000,
+                totalPnlAbsolute: 0,
+                totalPnlPercent: 0,
+                valuations: [
+                  for (var i = 0; i < 10; i++) valuation('T$i', qty: 1),
+                ],
+              ),
+              now: DateTime(2026, 9, 29),
+            ),
+          ).run({'ticker': 'NEWCO', 'shares': 1, 'date': '2026-09-28'}),
         ),
-        isNull,
+        ActionGuides.positionLimit,
       );
     });
   });

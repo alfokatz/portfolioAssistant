@@ -14,6 +14,8 @@ import 'package:portfolio_assistant/features/notifications/nav/notifications_rou
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/notifications/view/notification_settings_screen.dart';
 import 'package:portfolio_assistant/features/notifications/view/price_alerts_screen.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_open_listener.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
@@ -24,6 +26,7 @@ import 'package:portfolio_assistant/presentation/flows/position/nav/position_rou
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../subscription/paywall_test_harness.dart' show FakeProductEvents;
 import 'push_controller_test.dart' show FakeDeviceInfo, FakeMessaging, FakeRepo;
 
 ThemeData get _light => ProviderContainer().read(themeDataLightProvider);
@@ -70,6 +73,7 @@ Future<void> _pump(
   FakeRepo? repo,
   List<PriceAlert> alerts = const [],
   SubscriptionTier tier = SubscriptionTier.premium,
+  List<Override> extra = const [],
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -82,6 +86,7 @@ Future<void> _pump(
         deviceInfoSourceProvider.overrideWithValue(FakeDeviceInfo()),
         priceAlertsRepositoryProvider.overrideWithValue(_FakeAlerts(alerts)),
         subscriptionProvider.overrideWith((ref) => _FixedSubscription(tier)),
+        ...extra,
       ],
       child: MaterialApp(theme: _light, home: child),
     ),
@@ -147,6 +152,85 @@ void main() {
     });
   });
 
+  group('PushPermissionSheet (diagnosis)', () {
+    Future<(FakeProductEvents, FakeMessaging)> open(WidgetTester tester) async {
+      final events = FakeProductEvents();
+      final messaging = FakeMessaging();
+      await _pump(
+        tester,
+        Consumer(
+          builder:
+              (context, ref, _) => TextButton(
+                onPressed:
+                    () => PushPermissionSheet.maybeShow(
+                      context,
+                      ref,
+                      reason: PushPromptReason.diagnosis,
+                      force: true,
+                    ),
+                child: const Text('ask'),
+              ),
+        ),
+        messaging: messaging,
+        extra: [productEventsProvider.overrideWithValue(events)],
+      );
+      await tester.tap(find.text('ask'));
+      await tester.pumpAndSettle();
+      return (events, messaging);
+    }
+
+    testWidgets('shows the diagnosis texts and logs granted', (tester) async {
+      final (events, messaging) = await open(tester);
+      expect(find.text('push_prompt_title_diagnosis'), findsOneWidget);
+      expect(find.text('push_prompt_body_diagnosis'), findsOneWidget);
+      await tester.tap(find.text('push_prompt_enable'));
+      await tester.pumpAndSettle();
+      expect(messaging.requests, 1);
+      expect(events.of(ProductEvent.pushOptIn), [
+        {'source': 'diagnosis', 'result': 'granted'},
+      ]);
+    });
+
+    testWidgets('"Ahora no" logs dismissed', (tester) async {
+      final (events, messaging) = await open(tester);
+      await tester.tap(find.text('push_prompt_not_now'));
+      await tester.pumpAndSettle();
+      expect(messaging.requests, 0);
+      expect(events.of(ProductEvent.pushOptIn), [
+        {'source': 'diagnosis', 'result': 'dismissed'},
+      ]);
+    });
+
+    testWidgets('the system dialog refused logs denied', (tester) async {
+      final events = FakeProductEvents();
+      final messaging = FakeMessaging()..onRequest = PushPermission.denied;
+      await _pump(
+        tester,
+        Consumer(
+          builder:
+              (context, ref, _) => TextButton(
+                onPressed:
+                    () => PushPermissionSheet.maybeShow(
+                      context,
+                      ref,
+                      reason: PushPromptReason.etoro,
+                    ),
+                child: const Text('ask'),
+              ),
+        ),
+        messaging: messaging,
+        extra: [productEventsProvider.overrideWithValue(events)],
+      );
+      await tester.tap(find.text('ask'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('push_prompt_enable'));
+      await tester.pumpAndSettle();
+      expect(events.of(ProductEvent.pushOptIn), [
+        {'source': 'etoro', 'result': 'denied'},
+      ]);
+    });
+  });
+
   group('Alertas de precio', () {
     testWidgets('agrupa activas, cumplidas y pausadas', (tester) async {
       await _pump(
@@ -193,7 +277,11 @@ void main() {
         visited.add(name);
         final extra = state.extra;
         return Text(
-          '$name ${extra is AssistantQuestionRequest ? extra.question : extra is Map ? extra['ticker'] : ''}',
+          '$name ${extra is AssistantQuestionRequest
+              ? extra.question
+              : extra is Map
+              ? extra['ticker']
+              : ''}',
         );
       },
     );
@@ -235,14 +323,21 @@ void main() {
         holds: (t) => t == 'VOO',
       );
       await tester.pumpAndSettle();
-      expect(find.text('${PositionRouter.detailRouteName} VOO'), findsOneWidget);
+      expect(
+        find.text('${PositionRouter.detailRouteName} VOO'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('alerta de un ticker que no tiene: la lista de alertas', (
       tester,
     ) async {
       final context = await pumpRouter(tester);
-      openPushRoute(context, const PushRouteTicker('AAPL'), holds: (_) => false);
+      openPushRoute(
+        context,
+        const PushRouteTicker('AAPL'),
+        holds: (_) => false,
+      );
       await tester.pumpAndSettle();
       expect(visited.last, NotificationsRouter.alertsRouteName);
     });

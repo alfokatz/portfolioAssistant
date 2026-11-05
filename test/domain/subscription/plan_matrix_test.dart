@@ -17,7 +17,8 @@ const _free = SubscriptionTier.free;
 const _premium = SubscriptionTier.premium;
 const _gold = SubscriptionTier.gold;
 
-/// La tabla acordada (2026-09-30): feature → planes que la incluyen.
+/// La tabla acordada (2026-09-30; 2026-11-05: operaciones por chat en Free y
+/// noticias de lo que tenés en Premium): feature → planes que la incluyen.
 const _expected = <PlanFeature, Set<SubscriptionTier>>{
   PlanFeature.ownPortfolio: {_free, _premium, _gold},
   PlanFeature.marketData: {_premium, _gold},
@@ -25,9 +26,10 @@ const _expected = <PlanFeature, Set<SubscriptionTier>>{
   PlanFeature.unlimitedPositions: {_premium, _gold},
   PlanFeature.investSimulation: {_premium, _gold},
   PlanFeature.goals: {_premium, _gold},
-  PlanFeature.portfolioActions: {_premium, _gold},
+  PlanFeature.portfolioActions: {_free, _premium, _gold},
   PlanFeature.companyAnalysis: {_gold},
   PlanFeature.news: {_gold},
+  PlanFeature.heldNews: {_premium, _gold},
   PlanFeature.earnings: {_gold},
   PlanFeature.fundamentals: {_gold},
   PlanFeature.brokerSync: {_premium, _gold},
@@ -51,11 +53,15 @@ void main() {
 
     test('each plan includes everything of the plan below', () {
       expect(
-        PlanMatrix.of(_premium).features.containsAll(PlanMatrix.of(_free).features),
+        PlanMatrix.of(
+          _premium,
+        ).features.containsAll(PlanMatrix.of(_free).features),
         isTrue,
       );
       expect(
-        PlanMatrix.of(_gold).features.containsAll(PlanMatrix.of(_premium).features),
+        PlanMatrix.of(
+          _gold,
+        ).features.containsAll(PlanMatrix.of(_premium).features),
         isTrue,
       );
     });
@@ -65,6 +71,44 @@ void main() {
       expect(_premium.monthlyQuota, 500);
       expect(_gold.monthlyQuota, 1000);
       expect(AiUsageLimits.goldMonthly, 1000);
+    });
+
+    test('quota nudge: only Free warns, at 5 left', () {
+      expect(PlanMatrix.of(_free).quotaNudgeAtRemaining, 5);
+      expect(PlanMatrix.of(_premium).quotaNudgeAtRemaining, isNull);
+      expect(PlanMatrix.of(_gold).quotaNudgeAtRemaining, isNull);
+    });
+
+    test('market data tastes: Free 3, Premium and Gold 0', () {
+      expect(PlanMatrix.of(_free).marketDataTastesPerMonth, 3);
+      expect(PlanMatrix.of(_premium).marketDataTastesPerMonth, 0);
+      expect(PlanMatrix.of(_gold).marketDataTastesPerMonth, 0);
+    });
+
+    test('watchlist limits: Free 3, Premium 30, Gold 100', () {
+      expect(PlanMatrix.of(_free).watchlistLimit, 3);
+      expect(PlanMatrix.of(_premium).watchlistLimit, 30);
+      expect(PlanMatrix.of(_gold).watchlistLimit, 100);
+    });
+
+    test('allowsNewsFor: Gold all, Premium only held, Free none', () {
+      for (final held in [true, false]) {
+        expect(PlanMatrix.allowsNewsFor(_gold, held: held), isTrue);
+        expect(PlanMatrix.allowsNewsFor(_free, held: held), isFalse);
+      }
+      expect(PlanMatrix.allowsNewsFor(_premium, held: true), isTrue);
+      expect(PlanMatrix.allowsNewsFor(_premium, held: false), isFalse);
+      expect(SubscriptionPolicy.isNewsAllowedFor(_premium, held: true), isTrue);
+      expect(
+        SubscriptionPolicy.isNewsAllowedFor(_premium, held: false),
+        isFalse,
+      );
+    });
+
+    test('nextTier: free -> premium -> gold -> null', () {
+      expect(PlanMatrix.nextTier(_free), _premium);
+      expect(PlanMatrix.nextTier(_premium), _gold);
+      expect(PlanMatrix.nextTier(_gold), isNull);
     });
 
     test('weekly free analysis: Free and Premium, never Gold', () {
@@ -127,6 +171,57 @@ void main() {
           SubscriptionPaywallSheet.featureKeysFor(tier),
           containsAll(PlanMatrix.marketingKeys(tier)),
         );
+      }
+    });
+
+    test('highlights are features the plan includes', () {
+      for (final tier in SubscriptionTier.values) {
+        final spec = PlanMatrix.of(tier);
+        expect(spec.features.containsAll(spec.highlights), isTrue);
+      }
+    });
+
+    test('Premium marketing: held news in, simulations and benchmark out', () {
+      expect(PlanMatrix.marketingKeys(_premium), [
+        'plan_feature_broker_sync',
+        'plan_feature_unlimited_positions',
+        'plan_feature_held_news',
+        'plan_feature_allocation_plan',
+        'plan_feature_goals',
+        'plan_feature_market_data',
+      ]);
+    });
+
+    test('Gold marketing leads with the weekly report', () {
+      expect(PlanMatrix.marketingKeys(_gold), [
+        'plan_feature_weekly_report',
+        'plan_feature_multi_broker_sync',
+        'plan_feature_company_analysis',
+        'plan_feature_news',
+        'plan_feature_earnings',
+      ]);
+    });
+
+    test('Gold paywall closes with "everything in Premium"', () {
+      final keys = SubscriptionPaywallSheet.featureKeysFor(_gold);
+      expect(keys.last, 'plan_feature_everything_premium');
+      expect(keys.first, 'plan_feature_weekly_report');
+      expect(
+        SubscriptionPaywallSheet.featureKeysFor(_premium),
+        isNot(contains('plan_feature_everything_premium')),
+      );
+    });
+
+    test('every PlanFeature has a label key in both translations', () {
+      for (final path in [
+        'assets/translations/es-ES.json',
+        'assets/translations/en-US.json',
+      ]) {
+        final keys =
+            (jsonDecode(File(path).readAsStringSync()) as Map).keys.toSet();
+        for (final f in PlanFeature.values) {
+          expect(keys, contains(PlanMatrix.labelKey(f)), reason: path);
+        }
       }
     });
 

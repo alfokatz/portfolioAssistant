@@ -35,6 +35,7 @@ class CompanyAnalysisData {
     required this.earningsStatus,
     required this.news,
     required this.newsStatus,
+    required this.newsNotHeld,
     required this.position,
     required this.isCourtesy,
   });
@@ -49,6 +50,7 @@ class CompanyAnalysisData {
     var fundamentalsStatus = AnalysisSourceStatus.missing;
     var earningsStatus = AnalysisSourceStatus.missing;
     var newsStatus = AnalysisSourceStatus.missing;
+    var newsNotHeld = false;
     var courtesy = false;
 
     bool asksFor(ToolCallRecord call) {
@@ -92,10 +94,20 @@ class CompanyAnalysisData {
             earningsStatus = AnalysisSourceStatus.ok;
           }
         case 'get_news':
-          if (locked) {
+          // Premium sin el ticker en cartera: la tool lo marca `not_held`
+          // (todo el pedido) o lo deja en `locked_tickers` (pedido mixto).
+          final notHeld =
+              result['reason'] == 'not_held' ||
+              (result['locked_tickers'] is List &&
+                  (result['locked_tickers'] as List).any(
+                    (x) => '$x'.toUpperCase() == t,
+                  ));
+          if (locked || notHeld) {
             newsStatus = AnalysisSourceStatus.locked;
+            newsNotHeld = notHeld;
             break;
           }
+          newsNotHeld = false;
           final items = [
             for (final n in (result['news'] as List? ?? const []))
               if (_map(n) case final m?)
@@ -118,6 +130,7 @@ class CompanyAnalysisData {
       earningsStatus: earningsStatus,
       news: news ?? const [],
       newsStatus: newsStatus,
+      newsNotHeld: newsNotHeld,
       position: _positionFrom(evidence.pinnedContext, t),
       isCourtesy: courtesy,
     );
@@ -132,6 +145,10 @@ class CompanyAnalysisData {
   final AnalysisSourceStatus earningsStatus;
   final List<Map<String, Object?>> news;
   final AnalysisSourceStatus newsStatus;
+
+  /// Las noticias están bloqueadas porque el ticker no está en la cartera
+  /// (Premium): el paywall es el de Gold, desde `chat_news_not_held`.
+  final bool newsNotHeld;
 
   /// La posición del usuario en este ticker (de PORTFOLIO_BRIEF), si la tiene.
   final Map<String, Object?>? position;

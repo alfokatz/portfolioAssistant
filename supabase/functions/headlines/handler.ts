@@ -1,5 +1,5 @@
 // Titulares por empresa para Porty (card de noticias, informe semanal),
-// plan Gold: GDELT DOC 2.0 filtrado por los medios permitidos
+// plan Gold (Premium solo de tickers en cartera): GDELT DOC 2.0 filtrado por los medios permitidos
 // (`news_source_allowlist`). Reemplaza a Google News RSS y Finnhub
 // `/company-news` cuando `app_config.news_provider = v2`.
 //
@@ -14,7 +14,7 @@
 // para lo reciente, 24 h para una semana ya cerrada.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { goldAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { assignByName, gdeltFetch, gdeltUrl, type Headline, newsAllowlist, parseArticles, pressName } from "../_shared/gdelt.ts";
 import { normalizeTicker } from "../_shared/sec.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
@@ -74,7 +74,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return typedError(400, "invalid_window", "from/to must be YYYY-MM-DD with from < to");
   }
 
-  if (!(await goldAllowed(deps, userId, symbols))) {
+  // Gold, cortesía, o Premium con el ticker en cartera (camino v2). Se
+  // chequea con el ticker como vino en el pedido, antes de normalizarlo.
+  if (!(await newsAllowed(deps, userId, tickers, normalizeTicker))) {
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
   }
   const rate = await deps.db.rpc("rate_limit_hit", {
@@ -85,7 +87,14 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (rate.data === false) return typedError(429, "rate_limited", "Too many requests");
 
   const started = Date.now();
-  const key = `gdelt:${symbols.join(",")}|${from ?? ""}|${to ?? ""}`;
+  // Los nombres del cliente se usan solo con permiso Gold y entran en la
+  // clave: un nombre armado no puede pisar la entrada compartida.
+  const trusted = await clientTextTrusted(deps, userId, tickers);
+  const clientNames = tickers.map((_, i) => (trusted ? givenNames[i] ?? "" : "").trim().slice(0, 80));
+  const nameTag = tickers
+    .map((t, i) => (clientNames[i].length >= 2 ? `${normalizeTicker(t)}=${clientNames[i].toLowerCase()}` : ""))
+    .filter(Boolean).sort().join(";");
+  const key = `gdelt:${symbols.join(",")}|${from ?? ""}|${to ?? ""}${nameTag ? `|n:${nameTag}` : ""}`;
   const today = new Date(deps.now()).toISOString().slice(0, 10);
   const ttl = to && to <= today ? config.closedWindowTtlSeconds : config.recentTtlSeconds;
   const hit = await readCache<HeadlinesBody>(deps, key);
@@ -96,7 +105,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
 
   const names: Record<string, string> = {};
   for (const [i, t] of tickers.entries()) {
-    const given = (givenNames[i] ?? "").trim().slice(0, 80);
+    const given = clientNames[i];
     const symbol = normalizeTicker(t);
     names[symbol] = given.length >= 2 ? pressName(given) : await companyName(deps, symbol) ?? symbol;
   }

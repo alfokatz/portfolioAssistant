@@ -35,7 +35,14 @@ await setEnabled(true);
 async function claim(jwt: string, w = week) {
   const { data, error } = await asUser(jwt).rpc("claim_weekly_report", { p_week_start: w });
   if (error) throw error;
-  return data as { state: string; courtesy?: boolean; attempt?: number; payload?: unknown };
+  return data as {
+    state: string;
+    courtesy?: boolean;
+    attempt?: number;
+    payload?: unknown;
+    courtesy_number?: number;
+    courtesy_total?: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +69,9 @@ Deno.test("Free: la primera vez es degustación; después, solo números", async
   const first = await claim(user.jwt);
   assertEquals(first.state, "claimed");
   assertEquals(first.courtesy, true);
+  // Interruptor de regalos apagado (default): 1 de 1.
+  assertEquals(first.courtesy_number, 1);
+  assertEquals(first.courtesy_total, 1);
 
   // Otra semana: la degustación ya se usó.
   const other = await createUser("premium");

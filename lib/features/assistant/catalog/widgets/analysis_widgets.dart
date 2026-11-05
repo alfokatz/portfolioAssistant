@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -20,6 +21,7 @@ import 'package:portfolio_assistant/features/assistant/services/price_chart_data
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:portfolio_assistant/shared/utils/provider_lookup.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
@@ -525,6 +527,18 @@ class _GoldArea extends StatelessWidget {
       if (w != null) w,
   ];
 
+  /// La capacidad de Gold que falta, para `locked_feature` (con varias
+  /// bloqueadas, el análisis completo).
+  static PlanFeature _featureOf(List<String> locked) =>
+      locked.length == 1
+          ? switch (locked.single) {
+            'news' => PlanFeature.news,
+            'earnings' => PlanFeature.earnings,
+            'fundamentals' => PlanFeature.fundamentals,
+            _ => PlanFeature.companyAnalysis,
+          }
+          : PlanFeature.companyAnalysis;
+
   static const _titles = {
     'fundamentals': 'Valuación',
     'earnings': 'resultados',
@@ -551,11 +565,16 @@ class _GoldArea extends StatelessWidget {
         title: titleFor(locked),
         request: QaPaywallRequest(
           source:
-              teaser
-                  ? 'answer_locked_${locked.join('+')}'
+              teaser && data.newsNotHeld && locked.length == 1
+                  // Premium pidió noticias de algo que no tiene (la tool
+                  // respondió `not_held`): se mide aparte.
+                  ? PaywallSource.chatNewsNotHeld
+                  : teaser
+                  ? 'answer_locked_${PaywallSource.snake(locked.join('_'))}'
                   : locked.length == 1
                   ? 'analysis_locked_${locked.single}'
                   : 'analysis_locked_group',
+          feature: _featureOf(locked),
           ticker: data.ticker,
           surfaceId: surfaceId,
           preview: (_) => _PaywallPreview(data: data, summary: prose.summary),
@@ -617,6 +636,7 @@ class _CourtesyLine extends StatelessWidget {
                   QaPaywallRequest(
                     source: 'weekly_free_analysis',
                     ticker: ticker,
+                    feature: PlanFeature.companyAnalysis,
                   ),
                 );
               },

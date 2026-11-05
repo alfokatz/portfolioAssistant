@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -9,8 +10,13 @@ import 'package:portfolio_assistant/features/binance/providers/binance_provider.
 import 'package:portfolio_assistant/features/binance/view/binance_screen.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+
+import '../subscription/paywall_test_harness.dart' show FakeProductEvents;
 
 class _Repo implements BinanceRepository {
   _Repo(this.connection);
@@ -179,21 +185,43 @@ void main() {
       WidgetTester tester, {
       required SubscriptionTier tier,
       required BinanceConnection connection,
+      bool exitFlag = false,
+      FakeProductEvents? events,
+      Brightness brightness = Brightness.light,
     }) async {
       tester.view.physicalSize = const Size(320, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final theme = ProviderContainer().read(themeDataLightProvider);
+      final theme = ProviderContainer().read(
+        brightness == Brightness.dark
+            ? themeDataDarkProvider
+            : themeDataLightProvider,
+      );
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const BinanceScreen()),
+          GoRoute(
+            name: StatementImportRouter.routeName,
+            path: '/import',
+            builder: (_, _) => const Text('IMPORT SCREEN'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            brokerScreenshotExitEnabledProvider.overrideWith(
+              (ref) async => exitFlag,
+            ),
+            if (events != null) productEventsProvider.overrideWithValue(events),
             binanceRepositoryProvider.overrideWithValue(_Repo(connection)),
             subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
             binanceProvider.overrideWith(
               (ref) => BinanceNotifier(ref.watch(binanceRepositoryProvider)),
             ),
           ],
-          child: MaterialApp(theme: theme, home: const BinanceScreen()),
+          child: MaterialApp.router(theme: theme, routerConfig: router),
         ),
       );
       // Porty respira (animación sin fin): avanzar el tiempo a mano.
@@ -221,6 +249,56 @@ void main() {
       );
       expect(find.text('binance_see_plans'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
+    });
+
+    for (final brightness in Brightness.values) {
+      testWidgets('Free with the exit flag: screenshot exit after the plans '
+          'button (${brightness.name})', (tester) async {
+        final events = FakeProductEvents();
+        await pump(
+          tester,
+          tier: SubscriptionTier.free,
+          connection: const BinanceConnection(),
+          exitFlag: true,
+          events: events,
+          brightness: brightness,
+        );
+        final plans = tester.getTopLeft(find.text('binance_see_plans')).dy;
+        final exit = find.text('binance_screenshot_exit');
+        expect(exit, findsOneWidget);
+        expect(tester.getTopLeft(exit).dy, greaterThan(plans));
+        expect(
+          tester.getSize(find.byType(TextButton).first).height,
+          greaterThanOrEqualTo(48),
+        );
+
+        await tester.tap(exit);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        expect(events.of(ProductEvent.nudgeTapped), [
+          {'surface': 'broker_locked_binance', 'action': 'screenshot'},
+        ]);
+        expect(find.text('IMPORT SCREEN'), findsOneWidget);
+      });
+    }
+
+    testWidgets('no exit with the flag off, nor with Premium', (tester) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.free,
+        connection: const BinanceConnection(),
+      );
+      expect(find.text('binance_screenshot_exit'), findsNothing);
+    });
+
+    testWidgets('Premium with the flag on: no exit', (tester) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.premium,
+        connection: const BinanceConnection(),
+        exitFlag: true,
+      );
+      expect(find.text('binance_screenshot_exit'), findsNothing);
     });
 
     testWidgets('conectada: resultado, costo estimado y acciones', (

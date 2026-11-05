@@ -9,6 +9,7 @@ class QaPaywallRequest {
     this.ticker,
     this.surfaceId,
     this.preview,
+    this.feature,
   });
 
   /// De dónde viene, para medir conversiones: "analysis_locked_news",
@@ -22,6 +23,10 @@ class QaPaywallRequest {
 
   /// Vista previa que la hoja muestra como gancho (sin datos de Gold).
   final WidgetBuilder? preview;
+
+  /// La capacidad que el plan no incluye (`locked_feature` de
+  /// `paywall_viewed`). `PlanFeature.heldNews` abre la hoja de Premium.
+  final PlanFeature? feature;
 }
 
 /// El plan del usuario visto desde las cards: qué incluye, si le queda el
@@ -51,6 +56,12 @@ class QaPlanScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<QaPlanScope>();
 
   bool allows(PlanFeature feature) => PlanMatrix.allows(tier, feature);
+
+  /// Noticias de [ticker]: Gold todas, Premium solo las de su cartera.
+  bool allowsNews(String ticker) => PlanMatrix.allowsNewsFor(
+    tier,
+    held: heldTickers.contains(ticker.toUpperCase()),
+  );
 
   /// Si el análisis de cortesía de la semana cubre [ticker]: Free solo en
   /// sus propios tickers (la cortesía abre Gold, no el mercado de Premium).

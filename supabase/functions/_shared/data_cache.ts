@@ -71,3 +71,49 @@ export async function goldAllowed(
   );
   return checks.every(({ data }) => data === true);
 }
+
+/// Titulares y contexto de noticias (`headlines`, `news-context`): lo de
+/// [goldAllowed] más Premium con el ticker en cartera, solo con el camino v2
+/// (RPC `news_data_allowed`). [tickers] va como llegó en el pedido, antes de
+/// normalizarlo (así coincide con `positions.ticker`: sufijos .BA, -USD); sin
+/// tickers solo pasa lo de Gold (informe, cortesía). Si el caller normaliza,
+/// [normalize] mantiene el chequeo de la cortesía semanal, que se guardó con
+/// el ticker normalizado.
+export async function newsAllowed(
+  deps: Pick<Deps, "db">,
+  userId: string,
+  tickers: string[],
+  normalize?: (ticker: string) => string,
+): Promise<boolean> {
+  if (tickers.length === 0) {
+    const { data } = await deps.db.rpc("news_data_allowed", { p_user_id: userId, p_ticker: null });
+    return data === true;
+  }
+  const checks = await Promise.all(tickers.map(async (ticker) => {
+    const { data } = await deps.db.rpc("news_data_allowed", { p_user_id: userId, p_ticker: ticker });
+    if (data === true) return true;
+    const normalized = normalize?.(ticker);
+    if (!normalized || normalized === ticker) return false;
+    const alt = await deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: normalized });
+    return alt.data === true;
+  }));
+  return checks.every(Boolean);
+}
+
+/// El `names` y la `question` que manda el cliente solo se respetan si el
+/// permiso NO viene de tener el ticker en cartera (Gold, cortesía de ese
+/// ticker, informe en curso: `gold_data_allowed`). Entran en la búsqueda y
+/// en una caché que ve todo el mundo: un Premium no puede usarlos para
+/// envenenarla ni para pedir noticias de otra empresa. Para Premium el
+/// servidor resuelve el nombre y la pregunta se ignora.
+export async function clientTextTrusted(
+  deps: Pick<Deps, "db">,
+  userId: string,
+  tickers: string[],
+): Promise<boolean> {
+  const list = tickers.length === 0 ? [null] : tickers;
+  const checks = await Promise.all(
+    list.map((t) => deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: t })),
+  );
+  return checks.every(({ data }) => data === true);
+}

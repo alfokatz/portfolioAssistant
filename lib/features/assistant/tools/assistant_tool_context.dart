@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/assistant/data/market/news_provider
 import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -263,9 +264,52 @@ class AssistantToolContext {
   /// turno (ver `AssistantTurnPolicy.paywallFor`).
   final lockedReasons = <PaywallReason>{};
 
+  /// Capacidades que el plan no incluyó en el turno (por `lockedFeature`):
+  /// de acá sale el `source` del paywall que corta el turno
+  /// (`PaywallSource.chatTurnLocked`).
+  final lockedFeatures = <PlanFeature>{};
+
   bool allows(PlanFeature feature) => SubscriptionPolicy.allows(tier, feature);
 
   bool get marketDataAllowed => allows(PlanFeature.marketData);
+
+  /// Si el plan incluye una lista de seguimiento (cualquier tope > 0). Las
+  /// tools de watchlist preguntan esto, no [marketDataAllowed]: desde
+  /// 2026-11-05 Free sigue hasta 3 tickers.
+  bool get watchlistAllowed => PlanMatrix.of(tier).watchlistLimit > 0;
+
+  /// Este turno usa la consulta de mercado gratis del mes (ver
+  /// `MarketTasteGrant`): el precio, los holdings y los dividendos de
+  /// cualquier ticker se sirven aunque el plan no incluya mercado.
+  bool marketTaste = false;
+
+  /// Consultas gratis que quedan este mes, tras gastar la de este turno.
+  int? marketTasteRemaining;
+
+  /// Ya usó todas las del mes: el turno no se corta, responde sin datos del
+  /// ticker ajeno.
+  bool marketTasteExhausted = false;
+
+  /// Si get_quote, get_etf_holdings y get_dividends sirven cualquier ticker.
+  /// Las tools de watchlist usan [watchlistAllowed]: la consulta
+  /// gratis no las abre.
+  bool get marketDataServed => marketDataAllowed || marketTaste;
+
+  /// Guía para la respuesta cuando hay tickers de mercado bloqueados y ya
+  /// no quedan consultas gratis. Viaja con el resultado `locked` (no en el
+  /// system prompt); la app agrega el aviso de Premium, no el modelo.
+  static const marketTasteExhaustedGuide =
+      "The user's plan does not include market data for these tickers this "
+      'month. Do not state any price, return or other number about them, and '
+      'do not guess. Answer conceptually and, if relevant, relate it to the '
+      "user's own portfolio. Do not mention plans or upgrades: the app shows "
+      'that.';
+
+  /// [result] de una tool de mercado con la guía de arriba si corresponde.
+  Map<String, Object?> withMarketGuide(Map<String, Object?> result) =>
+      marketTasteExhausted
+          ? AnswerGuide.attach(result, marketTasteExhaustedGuide)
+          : result;
 
   /// El plan más barato que incluye [feature], como lo nombra la tool
   /// ("premium" / "gold") en `required_plan`.
@@ -287,26 +331,50 @@ class AssistantToolContext {
   /// el resultado `locked` a devolverle al modelo.
   Map<String, Object?>? gate(PlanFeature feature, List<String> tickers) {
     if (allows(feature)) return null;
+    if (courtesyCovers(tickers)) return null;
+    return lockedFeature(feature);
+  }
+
+  /// Si el análisis de cortesía de la semana cubre todos los [tickers]. Si
+  /// sí, lo marca como usado en este turno ([courtesyServed]).
+  bool courtesyCovers(List<String> tickers) {
     final grant = courtesyTicker;
     if (grant != null &&
         tickers.isNotEmpty &&
         tickers.every((t) => t.toUpperCase() == grant)) {
       courtesyServed = true;
-      return null;
+      return true;
     }
-    return lockedFeature(feature);
+    return false;
   }
 
   /// `locked` con el plan mínimo y el paywall que corresponden a [feature].
   Map<String, Object?> lockedFeature(PlanFeature feature) {
-    final plan = PlanMatrix.minimumTier(feature);
-    final reason = switch (feature) {
-      PlanFeature.marketData => PaywallReason.marketDataLocked,
-      _ when plan == SubscriptionTier.gold => PaywallReason.goldRequired,
-      _ => PaywallReason.modeLocked,
-    };
-    return locked(plan.name, reason);
+    lockedFeatures.add(feature);
+    return locked(PlanMatrix.minimumTier(feature).name, reasonFor(feature));
   }
+
+  /// La hoja de upgrade que corresponde a [feature] (spec 2026-11-05 §3.5).
+  /// Exhaustivo y sin `_`: una feature nueva obliga a decidir su motivo.
+  static PaywallReason reasonFor(PlanFeature feature) => switch (feature) {
+    PlanFeature.marketData => PaywallReason.marketDataLocked,
+    PlanFeature.investSimulation => PaywallReason.simulations,
+    PlanFeature.goals => PaywallReason.goals,
+    PlanFeature.allocationPlan => PaywallReason.allocationPlan,
+    PlanFeature.benchmark => PaywallReason.benchmark,
+    PlanFeature.unlimitedPositions => PaywallReason.positionLimit,
+    PlanFeature.brokerSync => PaywallReason.brokerSync,
+    PlanFeature.heldNews => PaywallReason.heldNews,
+    // Incluidas en todos los planes: nunca llegan bloqueadas.
+    PlanFeature.ownPortfolio || PlanFeature.portfolioActions =>
+      PaywallReason.plans,
+    PlanFeature.companyAnalysis ||
+    PlanFeature.news ||
+    PlanFeature.earnings ||
+    PlanFeature.fundamentals ||
+    PlanFeature.multiBrokerSync ||
+    PlanFeature.brokerManualRefresh => PaywallReason.goldRequired,
+  };
 
   /// Marca un resultado servido por la cortesía, para que la card lo diga.
   Map<String, Object?> courtesyTag(Map<String, Object?> result) =>

@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/features/assistant/data/market/ticker_quote_builder.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -52,7 +53,7 @@ class GetQuoteTool implements DataTool {
     final quotes = await Future.wait(
       tickers.map((ticker) async {
         final held = ctx.heldTickers.contains(ticker);
-        if (!held && !ctx.marketDataAllowed) {
+        if (!held && !ctx.marketDataServed) {
           ctx.lockedReasons.add(PaywallReason.marketDataLocked);
           return <String, Object?>{
             'held': false,
@@ -76,7 +77,7 @@ class GetQuoteTool implements DataTool {
       for (var i = 0; i < tickers.length; i++) tickers[i]: quotes[i],
     };
     final statuses = [for (final q in quotes) q['status'] ?? 'ok'];
-    return {
+    final result = <String, Object?>{
       'status':
           statuses.every((s) => s == 'locked')
               ? 'locked'
@@ -86,6 +87,7 @@ class GetQuoteTool implements DataTool {
       'as_of': ctx.asOf,
       'tickers': byTicker,
     };
+    return statuses.contains('locked') ? ctx.withMarketGuide(result) : result;
   }
 
   double? _weightPct(String ticker) {
@@ -350,13 +352,47 @@ class GetNewsTool implements SlowDataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    final tickers = ToolArgs.tickers(
+    var tickers = ToolArgs.tickers(
       args,
       max: ctx.secData ? maxContextTickers : 3,
     );
     if (tickers.isEmpty) return ToolArgs.invalid();
-    final locked = ctx.gate(PlanFeature.news, tickers);
-    if (locked != null) return locked;
+
+    // Spec 2026-11-05 §3.4: Gold (o la cortesía) todo; Premium solo lo que
+    // tiene en cartera; Free nada.
+    var lockedTickers = const <String>[];
+    if (!ctx.allows(PlanFeature.news) && !ctx.courtesyCovers(tickers)) {
+      // Sin v2 no hay fuente permitida para noticias de cartera: Gold.
+      if (!ctx.secData) return ctx.lockedFeature(PlanFeature.news);
+      final held = [
+        for (final t in tickers)
+          if (ctx.heldTickers.contains(t)) t,
+      ];
+      final others = [
+        for (final t in tickers)
+          if (!ctx.heldTickers.contains(t)) t,
+      ];
+      if (!ctx.allows(PlanFeature.heldNews)) {
+        return ctx.lockedFeature(
+          held.isNotEmpty ? PlanFeature.heldNews : PlanFeature.news,
+        );
+      }
+      if (held.isEmpty) {
+        // Premium pidió noticias de algo que no tiene: no corta el turno, la
+        // app agrega el bloque de Gold (`chat_news_not_held`).
+        ctx.lockedFeatures.add(PlanFeature.news);
+        return {
+          ...ctx.locked(
+            ctx.requiredPlanFor(PlanFeature.news),
+            PaywallReason.goldRequired,
+          ),
+          'reason': notHeldReason,
+        };
+      }
+      tickers = held;
+      lockedTickers = others;
+    }
+
     final news = await ctx.data.news();
     if (!ctx.secData) {
       return ctx.courtesyTag({...await news.fetch(tickers), 'as_of': ctx.asOf});
@@ -389,7 +425,7 @@ class GetNewsTool implements SlowDataTool {
     }
     final headlines = await headlinesF;
     final ok = headlines['status'] == 'ok' || context['status'] == 'ok';
-    return ctx.courtesyTag({
+    var result = <String, Object?>{
       ...headlines,
       'status':
           ok
@@ -401,8 +437,43 @@ class GetNewsTool implements SlowDataTool {
               : 'failed',
       'context': context,
       'as_of': ctx.asOf,
-    });
+    };
+    // Tope mensual de búsquedas con citas: es de costo, no una oferta de
+    // plan (sin paywall). Responde con los titulares.
+    if (context['reason'] == monthlyLimitReason) {
+      result = AnswerGuide.attach(result, monthlyLimitGuide);
+    }
+    if (lockedTickers.isNotEmpty) {
+      ctx.lockedFeatures.add(PlanFeature.news);
+      result = {
+        ...result,
+        'locked_tickers': lockedTickers,
+        'required_plan': ctx.requiredPlanFor(PlanFeature.news),
+      };
+      // La guía de tickers bloqueados no pisa la del tope mensual.
+      final current = result[AnswerGuide.key];
+      result = AnswerGuide.attach(
+        result,
+        current == null ? lockedTickersGuide : '$current $lockedTickersGuide',
+      );
+    }
+    return ctx.courtesyTag(result);
   }
+
+  /// `reason` del `locked` de un ticker que Premium no tiene en cartera.
+  static const notHeldReason = 'not_held';
+
+  /// `context.reason` cuando se agotó el tope mensual de búsquedas.
+  static const monthlyLimitReason = 'monthly_limit';
+
+  static const monthlyLimitGuide =
+      "This month's source-backed searches are used up; they come back on "
+      'the 1st. Say it in one short clause; answer from the headlines; do '
+      'not mention plans.';
+
+  static const lockedTickersGuide =
+      'News for locked_tickers needs Gold: say it in one clause, never '
+      'invent.';
 }
 
 /// Qué tiene adentro un ETF o fondo (10 posiciones principales, sectores,
@@ -440,14 +511,19 @@ class GetEtfHoldingsTool implements DataTool {
     if (tickers.isEmpty) return ToolArgs.invalid();
     final allowed = [
       for (final t in tickers)
-        if (ctx.marketDataAllowed || ctx.heldTickers.contains(t)) t,
+        if (ctx.marketDataServed || ctx.heldTickers.contains(t)) t,
     ];
-    if (allowed.isEmpty) return ctx.lockedFeature(PlanFeature.marketData);
+    if (allowed.isEmpty) {
+      return ctx.withMarketGuide(ctx.lockedFeature(PlanFeature.marketData));
+    }
     final lockedTickers = [
       for (final t in tickers)
         if (!allowed.contains(t)) t,
     ];
-    return {
+    if (lockedTickers.isNotEmpty) {
+      ctx.lockedReasons.add(PaywallReason.marketDataLocked);
+    }
+    final result = <String, Object?>{
       ...await ctx.data.etfHoldings.fetch(allowed),
       if (lockedTickers.isNotEmpty) ...{
         'locked_tickers': lockedTickers,
@@ -455,6 +531,7 @@ class GetEtfHoldingsTool implements DataTool {
       },
       'as_of': ctx.asOf,
     };
+    return lockedTickers.isEmpty ? result : ctx.withMarketGuide(result);
   }
 }
 
@@ -502,21 +579,27 @@ class GetDividendsTool implements DataTool {
     if (tickers.isEmpty) return ToolArgs.invalid();
     final allowed = [
       for (final t in tickers)
-        if (ctx.heldTickers.contains(t) || ctx.marketDataAllowed) t,
+        if (ctx.heldTickers.contains(t) || ctx.marketDataServed) t,
     ];
     final locked = [
       for (final t in tickers)
         if (!allowed.contains(t)) t,
     ];
-    if (allowed.isEmpty) {
+    if (locked.isNotEmpty) {
       ctx.lockedReasons.add(PaywallReason.marketDataLocked);
-      return {'status': 'locked', 'required_plan': 'premium'};
+    }
+    if (allowed.isEmpty) {
+      return ctx.withMarketGuide({
+        'status': 'locked',
+        'required_plan': 'premium',
+      });
     }
     final fetched = await ctx.data.dividends.fetch(allowed);
-    return {
+    final result = <String, Object?>{
       ...fetched,
       'as_of': ctx.asOf,
       if (locked.isNotEmpty) 'locked_tickers': locked,
     };
+    return locked.isEmpty ? result : ctx.withMarketGuide(result);
   }
 }

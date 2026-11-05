@@ -106,16 +106,23 @@ const _qqq = FundLook(
   stockPct: 100,
 );
 
+/// TICKER_SWAP=VOO:SPY cambia el ETF del S&P 500 de la cartera demo (piezas
+/// de marketing). Por defecto queda VOO.
+final _sp500Etf =
+    (Platform.environment['TICKER_SWAP'] ?? '').contains('VOO:SPY')
+        ? 'SPY'
+        : 'VOO';
+
 PortfolioDiagnosis _diagnosis(String scenario) {
   final positions = switch (scenario) {
     'attention' => [
       _pos('NVDA', 3200, gain: 2.4),
       _pos('QQQ', 4100, gain: 1.05),
-      _pos('VOO', 2600, gain: 1.04),
+      _pos(_sp500Etf, 2600, gain: 1.04),
       _pos('ARKK', 1500, gain: 0.7),
     ],
     'good' => [
-      _pos('VOO', 3000, gain: 1.3),
+      _pos(_sp500Etf, 3000, gain: 1.3),
       _pos('VXUS', 2000, gain: 1.25),
       _pos('BND', 1500, gain: 1.1),
       _pos('KO', 1000, gain: 1.2),
@@ -135,7 +142,7 @@ PortfolioDiagnosis _diagnosis(String scenario) {
       },
       funds: {
         'QQQ': _qqq,
-        'VOO': _voo,
+        _sp500Etf: _voo,
         'ARKK': const FundLook(expenseRatioPct: 0.75, stockPct: 100),
         'VXUS': const FundLook(expenseRatioPct: 0.05, stockPct: 99),
         'BND': const FundLook(expenseRatioPct: 0.03, stockPct: 0),

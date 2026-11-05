@@ -135,12 +135,13 @@ void main() {
       final r = await run({'ticker': 'TSLA', 'change': 'remove'});
       expect(r['status'], 'not_on_watchlist');
       expect(r['items'], ['AMZN', 'NFLX']);
+      // Free también tiene lista de seguimiento (hasta 3).
       expect(
         (await run({
           'ticker': 'AMZN',
           'change': 'remove',
         }, tier: SubscriptionTier.free))['status'],
-        'locked',
+        'ok',
       );
       expect((await run({'ticker': 'AMZN'}))['status'], 'needs_input');
     });

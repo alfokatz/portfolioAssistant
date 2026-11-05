@@ -51,6 +51,8 @@ import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
+import 'package:portfolio_assistant/features/assistant/tools/market_taste_grant.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
@@ -69,6 +71,10 @@ import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
@@ -122,9 +128,83 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   bool _screenPending = false;
   PortyScreenContext? _pendingScreen;
 
+  /// Lo que el servidor dijo de las consultas de mercado gratis, leído una
+  /// vez por chat y solo si el plan las tiene (Premium y Gold no llaman a la
+  /// RPC). Una respuesta fallida no se guarda: se reintenta en el próximo
+  /// turno.
+  MarketTasteStatus? _tasteStatus;
+
+  /// Respuestas cuyo aviso de Premium ya se registró como mostrado.
+  final _teaserLogged = <String>{};
+
+  /// Sin Supabase (tests, sin sesión), la consulta gratis simplemente no se
+  /// ofrece.
+  MarketTasteRepository? _tasteRepository() {
+    try {
+      return ref.read(marketTasteRepositoryProvider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Si este turno puede pedir la consulta de mercado gratis: el plan la
+  /// tiene (por capacidad, no por tier) y el servidor la tiene prendida.
+  Future<bool> _marketTasteAvailable() async {
+    if (PlanMatrix.of(
+          ref.read(subscriptionProvider).tier,
+        ).marketDataTastesPerMonth <=
+        0) {
+      return false;
+    }
+    final repo = _tasteRepository();
+    if (repo == null) return false;
+    final status = _tasteStatus ??= await repo.status();
+    return status?.enabled == true;
+  }
+
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
   bool _profileNudgeShown = false;
+
+  /// Línea de cuota baja (3c): tras un turno que cobró y con la cuota ya
+  /// refrescada, marca la respuesta de [surfaceId] para que la pantalla
+  /// agregue "te quedan N consultas" con link a los planes. Una vez por mes
+  /// UTC y por usuario ([QuotaNudgeMemory]). Nunca falla: sin sesión, sin
+  /// red o sin el interruptor, no hay línea. El número sale de la
+  /// suscripción, no del modelo.
+  Future<void> _maybeNudgeLowQuota(String surfaceId) async {
+    try {
+      final sub = ref.read(subscriptionProvider);
+      final threshold = PlanMatrix.of(sub.tier).quotaNudgeAtRemaining;
+      final remaining = sub.queriesRemaining;
+      if (threshold == null || remaining <= 0 || remaining > threshold) return;
+      if (PlanMatrix.nextTier(sub.tier) == null) return;
+      final userId = ref.read(supabaseAuthServiceProvider).currentUser?.id;
+      if (userId == null) return;
+      final memory = ref.read(quotaNudgeMemoryProvider);
+      final now = ref.read(quotaNudgeClockProvider)();
+      if (memory.wasShown(userId, now)) return;
+      if (!await ref.read(quotaNudgeEnabledProvider.future)) return;
+      // Después de esperar: otro turno pudo haberla mostrado, o el chat
+      // cerrarse.
+      if (!mounted || memory.wasShown(userId, now)) return;
+      final i = state.messages.lastIndexWhere(
+        (m) =>
+            m.surfaceId == surfaceId &&
+            m.role == PortfolioQaRole.assistant &&
+            m.isGenUiSurface &&
+            !m.isStreaming,
+      );
+      if (i < 0) return;
+      final write = memory.markShown(userId, now);
+      final updated = [...state.messages];
+      updated[i] = updated[i].copyWith(quotaNudgeRemaining: remaining);
+      state = state.copyWith(messages: updated);
+      await write;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Assistant/quotaNudge] skipped: $e');
+    }
+  }
 
   /// Sugerencias iniciales según el plan: cada una se responde con lo que el
   /// plan incluye (ninguna lleva a un paywall gastando una consulta) y
@@ -296,6 +376,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             ),
       );
     } catch (_) {}
+
+    // El estado de las consultas de mercado gratis, a mano antes del primer
+    // turno (solo si ya se sabe el plan).
+    if (!ref.read(subscriptionProvider).isLoading) {
+      unawaited(_marketTasteAvailable());
+    }
 
     final question = _initialQuestion;
     _initialQuestion = null;
@@ -472,6 +558,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         goalsF,
         topicsF,
       ]);
+      // Con el plan ya refrescado: Premium y Gold no llaman a la RPC.
+      final tasteAvailable = await _marketTasteAvailable();
 
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
@@ -525,6 +613,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                 ref.read(weeklyFreeAnalysisProvider.notifier).consume(ticker),
       );
 
+      // Consulta de mercado gratis del mes (Free): se gasta en el servidor,
+      // por turno, la primera vez que el modelo pide datos de un ticker ajeno.
+      final taste = MarketTasteGrant(
+        ctx: ctx,
+        available: tasteAvailable,
+        turnId: () => service.log.currentTurn?.id,
+        consume:
+            (turnId, tickers) =>
+                _tasteRepository()?.consume(turnId, tickers) ??
+                Future.value(MarketTasteConsume.unavailable),
+      );
+
       final surfaceId = GenUiSurfaceIds.assistantTurn(state.turnCounter);
       state = state.copyWith(
         messages: [
@@ -556,7 +656,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   (firstRound) =>
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
               onActivity: _setActivity,
-              beforeRound: courtesy.beforeRound,
+              beforeRound: (calls) async {
+                await courtesy.beforeRound(calls);
+                await taste.beforeRound(calls);
+              },
               onContent: service.streaming ? _previewSink(surfaceId) : null,
             );
           },
@@ -595,8 +698,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             sources: notices.sources,
           ),
         );
-        // El contador del header refleja lo que cobró el servidor.
-        unawaited(subscription.refresh());
+        _markMarketTaste(surfaceId, ctx);
+        // El contador del header refleja lo que cobró el servidor; con la
+        // cuota ya refrescada se decide la línea de cuota baja.
+        unawaited(
+          subscription.refresh().then((_) => _maybeNudgeLowQuota(surfaceId)),
+        );
         ref.read(productEventsProvider).log(ProductEvent.firstChatAnswer, {
           if (screenContext?['screen'] case final String screen)
             'screen': screen,
@@ -611,9 +718,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // Todo lo que pidió el modelo está fuera del plan: igual que antes
         // de las tools, el turno no deja mensajes ni consume cuota — se
         // ofrece el upgrade.
+        // El único que corta turnos es `AssistantTurnPolicy.paywallFor`.
+        final paywall = e.reason as ChatPaywall;
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
-          paywallReason: e.reason as PaywallReason,
+          paywallReason: paywall.reason,
+          paywallSource: paywall.source,
+          paywallFeature: paywall.feature,
           clearPaywallReason: false,
         );
       } on TimeoutException catch (e) {
@@ -660,6 +771,33 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// Las líneas de la consulta de mercado gratis de la respuesta de
+  /// [surfaceId]: "te quedan N" si el turno gastó una, o el aviso de Premium
+  /// si se respondió sin datos del ticker ajeno porque ya no quedan. Las fija
+  /// la app con lo que dijo el servidor, nunca el modelo.
+  void _markMarketTaste(String surfaceId, AssistantToolContext ctx) {
+    final remaining = ctx.marketTaste ? ctx.marketTasteRemaining : null;
+    final teaser =
+        ctx.marketTasteExhausted &&
+        ctx.lockedReasons.contains(PaywallReason.marketDataLocked);
+    if (ctx.marketTaste) {
+      ref.read(productEventsProvider).log(ProductEvent.marketTasteUsed, {
+        if (remaining != null) 'remaining': remaining,
+      });
+    }
+    if (remaining == null && !teaser) return;
+    final i = state.messages.lastIndexWhere(
+      (m) => m.surfaceId == surfaceId && m.role == PortfolioQaRole.assistant,
+    );
+    if (i < 0) return;
+    final updated = [...state.messages];
+    updated[i] = updated[i].copyWith(
+      marketTasteRemaining: remaining,
+      marketTeaser: teaser,
+    );
+    state = state.copyWith(messages: updated);
+  }
+
   /// Rechazo del servidor antes de responder: la cuota del mes abre el
   /// paywall (como antes); el tope diario es un aviso discreto en la fila
   /// de la respuesta, no una venta; el resto, el banner de error.
@@ -672,6 +810,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       return current.copyWith(
         messages: _removeTurn(current.messages, surfaceId),
         paywallReason: PaywallReason.quotaExceeded,
+        paywallSource: PaywallSource.quotaZero,
         clearPaywallReason: false,
       );
     }
@@ -736,14 +875,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {}
     if (!mounted) return;
     final tier = ref.read(subscriptionProvider).tier;
-    // Seguir un ticker (o tocar la lista) es de la lista de seguimiento
-    // (Premium), no una operación de cartera.
-    if ((draft.kind == ActionKind.watch ||
-            draft.manageOp?.link == ManageLink.watchlist) &&
-        PlanMatrix.of(tier).watchlistLimit == 0) {
+    // Seguir un ticker: cada plan tiene su tope (Free 3). Se mira antes de
+    // escribir para abrir el paywall en vez de un error. Las demás
+    // operaciones de la lista (dejar de seguir, avisos) no suman.
+    if (draft.kind == ActionKind.watch && await _watchlistFull(draft.ticker)) {
+      if (!mounted) return;
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.marketDataLocked,
+        paywallReason: PaywallReason.watchlistLimit,
+        paywallSource: PaywallSource.chatActionWatchlist,
+        paywallFeature: PlanFeature.marketData,
         clearPaywallReason: false,
       );
       return;
@@ -754,6 +895,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
         paywallReason: PaywallReason.brokerSync,
+        paywallSource: PaywallSource.chatActionBroker,
+        paywallFeature: PlanFeature.brokerSync,
         clearPaywallReason: false,
       );
       return;
@@ -767,6 +910,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         _setAction(id, ActionProposalProgress.pending);
         state = state.copyWith(
           paywallReason: PaywallReason.goldRequired,
+          paywallSource: PaywallSource.chatActionMultiBroker,
+          paywallFeature: PlanFeature.multiBrokerSync,
           clearPaywallReason: false,
         );
         return;
@@ -777,20 +922,22 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         !PlanMatrix.allows(tier, PlanFeature.allocationPlan)) {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatActionAllocation,
+        paywallFeature: PlanFeature.allocationPlan,
         clearPaywallReason: false,
       );
       return;
     }
-    // Las alertas no son una operación de cartera: Free tiene una y el tope
-    // lo controla la base al crearla.
-    if (draft.kind != ActionKind.alert &&
-        draft.kind != ActionKind.watch &&
-        draft.kind != ActionKind.manage &&
-        !PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
+    // Registrar operaciones es de todos los planes; lo que Free no puede es
+    // pasar el tope de posiciones con un ticker nuevo (se vuelve a mirar
+    // acá: pudo cambiar desde que Porty lo propuso).
+    if (draft.kind == ActionKind.buy && _exceedsPositionLimit(draft, tier)) {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.positionLimit,
+        paywallSource: PaywallSource.chatActionPositionLimit,
+        paywallFeature: PlanFeature.unlimitedPositions,
         clearPaywallReason: false,
       );
       return;
@@ -1085,6 +1232,34 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// Si [draft] es la compra de un ticker nuevo y la cartera ya está en el
+  /// tope de posiciones del plan (Free: 10). Más compras de lo que ya tiene
+  /// siguen valiendo.
+  bool _exceedsPositionLimit(ActionDraft draft, SubscriptionTier tier) {
+    final limit = PlanMatrix.of(tier).positionLimit;
+    if (limit == null) return false;
+    final held = {
+      for (final v in ref.read(homeProvider).summary?.valuations ?? const [])
+        v.position.ticker.toUpperCase(),
+    };
+    return !held.contains(draft.ticker.toUpperCase()) && held.length >= limit;
+  }
+
+  /// Si seguir [ticker] pasaría el tope de la lista de seguimiento del plan.
+  /// Si ya lo sigue, no suma (el alta lo avisa).
+  Future<bool> _watchlistFull(String ticker) async {
+    final watchlist = ref.read(watchlistProvider.notifier);
+    try {
+      if (!ref.read(watchlistProvider).loaded) await watchlist.load();
+    } catch (_) {
+      return false;
+    }
+    final list = ref.read(watchlistProvider);
+    final limit =
+        PlanMatrix.of(ref.read(subscriptionProvider).tier).watchlistLimit;
+    return !list.contains(ticker) && list.items.length >= limit;
+  }
+
   /// Suma [draft] a la lista de seguimiento (lo mismo que la pantalla) y,
   /// si el usuario apagó el interruptor, le saca los avisos.
   Future<String?> _follow(ActionDraft draft) async {
@@ -1261,7 +1436,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (await notifier.save(plan)) return null;
     if (ref.read(allocationProvider).error == AllocationError.locked) {
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatPlanSave,
+        paywallFeature: PlanFeature.allocationPlan,
         clearPaywallReason: false,
       );
       return 'El plan de cartera es de Premium.';
@@ -1291,6 +1468,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       if (tier != SubscriptionTier.gold) {
         state = state.copyWith(
           paywallReason: PaywallReason.priceAlerts,
+          paywallSource: PaywallSource.chatAlertLimit,
           clearPaywallReason: false,
         );
       }
@@ -1577,6 +1755,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         final updated = [...messages];
         updated[i] = message.copyWith(hasRevealed: true);
         state = state.copyWith(messages: updated);
+        // El aviso de Premium entra con el reveal: recién ahí se vio.
+        if (message.marketTeaser && _teaserLogged.add(surfaceId)) {
+          ref.read(productEventsProvider).log(ProductEvent.marketTeaserShown);
+        }
         return;
       }
     }

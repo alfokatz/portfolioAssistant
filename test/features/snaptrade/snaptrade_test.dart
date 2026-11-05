@@ -3,6 +3,7 @@
 // la pantalla en sus estados (claro y oscuro, a 320 de ancho).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -12,8 +13,13 @@ import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connecti
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/snaptrade_screen.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_source_badge.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+
+import '../subscription/paywall_test_harness.dart' show FakeProductEvents;
 
 class _Repo implements SnaptradeRepository {
   _Repo(this.connection);
@@ -308,6 +314,8 @@ void main() {
       required SubscriptionTier tier,
       required SnaptradeConnection connection,
       Brightness brightness = Brightness.light,
+      bool exitFlag = false,
+      FakeProductEvents? events,
     }) async {
       tester.view.physicalSize = const Size(320, 2400);
       tester.view.devicePixelRatio = 1;
@@ -317,9 +325,24 @@ void main() {
             ? themeDataLightProvider
             : themeDataDarkProvider,
       );
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const SnaptradeScreen()),
+          GoRoute(
+            name: StatementImportRouter.routeName,
+            path: '/import',
+            builder: (_, _) => const Text('IMPORT SCREEN'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            brokerScreenshotExitEnabledProvider.overrideWith(
+              (ref) async => exitFlag,
+            ),
+            if (events != null) productEventsProvider.overrideWithValue(events),
             snaptradeRepositoryProvider.overrideWithValue(_Repo(connection)),
             snaptradePortalLauncherProvider.overrideWithValue(_Portal()),
             subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
@@ -330,7 +353,7 @@ void main() {
               ),
             ),
           ],
-          child: MaterialApp(theme: theme, home: const SnaptradeScreen()),
+          child: MaterialApp.router(theme: theme, routerConfig: router),
         ),
       );
       // Porty respira (animación sin fin): avanzar el tiempo a mano.
@@ -402,6 +425,52 @@ void main() {
       );
       expect(find.text('snaptrade_see_plans'), findsOneWidget);
       expect(find.text('snaptrade_connect_cta'), findsNothing);
+    });
+
+    for (final brightness in Brightness.values) {
+      testWidgets('Free with the exit flag: screenshot exit after the plans '
+          'button (${brightness.name})', (tester) async {
+        final events = FakeProductEvents();
+        await pump(
+          tester,
+          tier: SubscriptionTier.free,
+          connection: const SnaptradeConnection(),
+          exitFlag: true,
+          events: events,
+          brightness: brightness,
+        );
+        final plans = tester.getTopLeft(find.text('snaptrade_see_plans')).dy;
+        final exit = find.text('snaptrade_screenshot_exit');
+        expect(exit, findsOneWidget);
+        expect(tester.getTopLeft(exit).dy, greaterThan(plans));
+
+        await tester.tap(exit);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        expect(events.of(ProductEvent.nudgeTapped), [
+          {'surface': 'broker_locked_snaptrade', 'action': 'screenshot'},
+        ]);
+        expect(find.text('IMPORT SCREEN'), findsOneWidget);
+      });
+    }
+
+    testWidgets('no exit with the flag off', (tester) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.free,
+        connection: const SnaptradeConnection(),
+      );
+      expect(find.text('snaptrade_screenshot_exit'), findsNothing);
+    });
+
+    testWidgets('Premium with the flag on: no exit', (tester) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.premium,
+        connection: const SnaptradeConnection(),
+        exitFlag: true,
+      );
+      expect(find.text('snaptrade_screenshot_exit'), findsNothing);
     });
 
     testWidgets('Gold: all brokers, no Gold upsell', (tester) async {

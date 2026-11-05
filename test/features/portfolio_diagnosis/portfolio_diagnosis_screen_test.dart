@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
+import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/services/paywall_offer.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/domain/portfolio_diagnosis.dart';
@@ -12,6 +23,8 @@ import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/di
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
+
+import '../subscription/paywall_test_harness.dart' show FakeProductEvents;
 
 ThemeData get _light => ProviderContainer().read(themeDataLightProvider);
 
@@ -57,7 +70,33 @@ class _Home extends StateNotifier<HomeState> implements HomeProvider {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-HomeState _homeWith(int positions) => HomeState(
+class _Sub extends StateNotifier<SubscriptionState>
+    implements SubscriptionNotifier {
+  _Sub(SubscriptionTier tier)
+    : super(SubscriptionState(tier: tier, queriesUsed: 0, queriesLimit: 20));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Push extends StateNotifier<PushState> implements PushController {
+  _Push(PushPermission permission)
+    : super(PushState(permission: permission, loaded: true));
+
+  @override
+  Future<void> refreshPermission() async {}
+
+  @override
+  Future<PushPermission> requestPermission() async {
+    state = state.copyWith(permission: PushPermission.granted);
+    return PushPermission.granted;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+HomeState _homeWith(int positions, {PositionSource? source}) => HomeState(
   loading: false,
   summary: PortfolioSummary(
     totalValue: 1000.0 * positions,
@@ -73,6 +112,7 @@ HomeState _homeWith(int positions) => HomeState(
             quantity: 1,
             purchasePrice: 1000,
             purchaseDate: DateTime(2025),
+            source: i == 0 && source != null ? source : PositionSource.manual,
           ),
           currentPrice: 1000,
         ),
@@ -129,6 +169,133 @@ void main() {
     expect(find.text('diagnosis_unavailable'), findsOneWidget);
     expect(find.text('retry'), findsOneWidget);
     expect(seen.marks, 0);
+  });
+
+  group('puente al final (diagnosis_bridge)', () {
+    Future<FakeProductEvents> pumpBridge(
+      WidgetTester tester, {
+      bool flag = true,
+      SubscriptionTier tier = SubscriptionTier.free,
+      PositionSource? imported,
+      PushPermission permission = PushPermission.notDetermined,
+      Brightness brightness = Brightness.light,
+    }) async {
+      tester.view.physicalSize = const Size(375, 2600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final events = FakeProductEvents();
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final theme = ProviderContainer().read(
+        brightness == Brightness.dark
+            ? themeDataDarkProvider
+            : themeDataLightProvider,
+      );
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const PortfolioDiagnosisScreen(),
+          ),
+          GoRoute(
+            name: ConnectBrokerRouter.routeName,
+            path: '/connect',
+            builder: (_, _) => const Text('CONNECT SCREEN'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            portfolioDiagnosisProvider.overrideWith((ref) async => _diagnosis),
+            diagnosisSeenProvider.overrideWith((ref) => _Seen(false)),
+            diagnosisBridgeEnabledProvider.overrideWith((ref) async => flag),
+            subscriptionProvider.overrideWith((ref) => _Sub(tier)),
+            homeProvider.overrideWith(
+              (ref) => _Home(_homeWith(3, source: imported)),
+            ),
+            pushControllerProvider.overrideWith((ref) => _Push(permission)),
+            paywallOfferProvider.overrideWith(
+              (ref) async => PaywallOffer.empty,
+            ),
+            productEventsProvider.overrideWithValue(events),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+          ],
+          child: MaterialApp.router(theme: theme, routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return events;
+    }
+
+    for (final brightness in Brightness.values) {
+      testWidgets('Free, nothing imported: both rows, sync opens the paywall '
+          '(${brightness.name})', (tester) async {
+        final events = await pumpBridge(tester, brightness: brightness);
+        expect(find.text('diagnosis_sync_title'), findsOneWidget);
+        expect(find.text('diagnosis_sync_detail_locked'), findsOneWidget);
+        expect(find.text('diagnosis_push_title'), findsOneWidget);
+        // Siguen todos los hallazgos y las preguntas.
+        expect(find.text('diagnosis_overlap_title'), findsOneWidget);
+        expect(find.text('diagnosis_overlap_question'), findsOneWidget);
+
+        await tester.tap(find.text('diagnosis_sync_title'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        final viewed = events.of(ProductEvent.paywallViewed).single;
+        expect(viewed['reason'], 'brokerSync');
+        expect(viewed['source'], 'diagnosis_sync');
+      });
+    }
+
+    testWidgets('Premium: sync goes to the connect screen, no paywall', (
+      tester,
+    ) async {
+      final events = await pumpBridge(tester, tier: SubscriptionTier.premium);
+      expect(find.text('diagnosis_sync_detail'), findsOneWidget);
+      await tester.tap(find.text('diagnosis_sync_title'));
+      await tester.pumpAndSettle();
+      expect(find.text('CONNECT SCREEN'), findsOneWidget);
+      expect(events.of(ProductEvent.paywallViewed), isEmpty);
+    });
+
+    testWidgets('an imported position hides the sync row', (tester) async {
+      await pumpBridge(tester, imported: PositionSource.binance);
+      expect(find.text('diagnosis_sync_title'), findsNothing);
+      expect(find.text('diagnosis_push_title'), findsOneWidget);
+    });
+
+    testWidgets('push row opens the sheet with the diagnosis texts and '
+        'disappears after accepting', (tester) async {
+      final events = await pumpBridge(tester);
+      await tester.ensureVisible(find.text('diagnosis_push_title'));
+      await tester.tap(find.text('diagnosis_push_title'));
+      await tester.pumpAndSettle();
+      expect(find.text('push_prompt_title_diagnosis'), findsOneWidget);
+      await tester.tap(find.text('push_prompt_enable'));
+      await tester.pumpAndSettle();
+      expect(find.text('diagnosis_push_title'), findsNothing);
+      expect(events.of(ProductEvent.pushOptIn), [
+        {'source': 'diagnosis', 'result': 'granted'},
+      ]);
+    });
+
+    testWidgets('unavailable or decided permission: no push row', (
+      tester,
+    ) async {
+      await pumpBridge(tester, permission: PushPermission.unavailable);
+      expect(find.text('diagnosis_push_title'), findsNothing);
+    });
+
+    testWidgets('flag off: the diagnosis is the same as before', (
+      tester,
+    ) async {
+      await pumpBridge(tester, flag: false);
+      expect(find.text('diagnosis_sync_title'), findsNothing);
+      expect(find.text('diagnosis_push_title'), findsNothing);
+      expect(find.text('diagnosis_overlap_title'), findsOneWidget);
+    });
   });
 
   group('entrada en la Home', () {
