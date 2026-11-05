@@ -30,6 +30,8 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Compatibilidad de config con la CLI actual
+        run: sed -i 's/^\[inbucket\]$/[local_smtp]/' supabase/config.toml
       - name: Vincular el proyecto
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
       - name: Migraciones pendientes (vista previa)
