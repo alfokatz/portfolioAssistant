@@ -127,7 +127,7 @@ void main() {
   });
 
   group('get_watchlist', () {
-    test('devuelve los items; vacía; Free bloqueada', () async {
+    test('devuelve los items; vacía; Free también la tiene', () async {
       final ok = await GetWatchlistTool(
         _ctx(
           watchlist: [
@@ -138,9 +138,15 @@ void main() {
       expect(ok['status'], 'ok');
       expect((ok['items'] as List).single, containsPair('ticker', 'AMZN'));
       expect((await GetWatchlistTool(_ctx()).run({}))['status'], 'empty');
-      final ctx = _ctx(tier: SubscriptionTier.free);
-      expect((await GetWatchlistTool(ctx).run({}))['status'], 'locked');
-      expect(ctx.lockedReasons, contains(PaywallReason.marketDataLocked));
+      final ctx = _ctx(
+        tier: SubscriptionTier.free,
+        watchlist: [
+          {'ticker': 'AMZN', 'price': 180.0},
+        ],
+      );
+      expect((await GetWatchlistTool(ctx).run({}))['status'], 'ok');
+      expect(ctx.lockedReasons, isEmpty);
+      expect(ctx.lockedFeatures, isEmpty);
     });
   });
 
@@ -194,13 +200,25 @@ void main() {
       );
     });
 
-    test('Free bloqueada y sin ticker pide el dato', () async {
-      expect(
-        (await ProposeWatchTool(
-          _ctx(tier: SubscriptionTier.free),
-        ).run({'ticker': 'AMZN'}))['status'],
-        'locked',
-      );
+    test('Free propone hasta 3; el 4.º es limit_reached con su tope', () async {
+      Future<Map<String, Object?>> free(int following) =>
+          ProposeWatchTool(
+            _ctx(
+              tier: SubscriptionTier.free,
+              watchlist: [
+                for (var i = 0; i < following; i++) {'ticker': 'T$i'},
+              ],
+            ),
+          ).run({'ticker': 'AMZN'});
+      expect((await free(0))['status'], 'ok');
+      expect((await free(2))['status'], 'ok');
+      final full = await free(3);
+      expect(full['status'], 'limit_reached');
+      expect(full['limit'], 3);
+      expect(full[AnswerGuide.key], PlanGuides.addLimit);
+    });
+
+    test('sin ticker pide el dato', () async {
       expect((await ProposeWatchTool(_ctx()).run({}))['status'], 'needs_input');
     });
 
@@ -248,7 +266,12 @@ void main() {
       // Lo general (locked, failed) lo resuelve el prompt.
       expect(
         guideOf(
-          await GetWatchlistTool(_ctx(tier: SubscriptionTier.free)).run({}),
+          await GetWatchlistTool(
+            AssistantToolContext(
+              tier: SubscriptionTier.premium,
+              data: fakeDataSources(),
+            ),
+          ).run({}),
         ),
         isNull,
       );

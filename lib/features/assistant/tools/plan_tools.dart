@@ -201,7 +201,7 @@ class GetWatchlistTool implements DataTool {
   String get description =>
       'The user\'s WATCHLIST (tickers they follow but don\'t own): items '
       '{ticker, price, day_change_pct, since_added_pct, alerts_on}. '
-      'status: ok | empty | locked (Premium) | failed.';
+      'status: ok | empty | failed.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -212,7 +212,7 @@ class GetWatchlistTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.marketDataAllowed) {
+    if (!ctx.watchlistAllowed) {
       return ctx.lockedFeature(PlanFeature.marketData);
     }
     final load = ctx.loadWatchlist;
@@ -247,7 +247,7 @@ class ProposeWatchTool implements DataTool {
       'Card to confirm a WATCHLIST change: follow a ticker ("seguí AMZN"), '
       'unfollow it, or turn its sharp-move alerts on/off. status: ok | '
       'already_there | not_on_watchlist | no_change | held | limit_reached '
-      '| unknown_symbol | locked.';
+      '| unknown_symbol.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -265,7 +265,7 @@ class ProposeWatchTool implements DataTool {
 
   @override
   Future<Map<String, Object?>> run(Map<String, Object?> args) async {
-    if (!ctx.marketDataAllowed) {
+    if (!ctx.watchlistAllowed) {
       return ctx.lockedFeature(PlanFeature.marketData);
     }
     // Dejar de seguir y los avisos: otra card (ver ProposeWatchlistChange).

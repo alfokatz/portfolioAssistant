@@ -485,7 +485,12 @@ class QaFollowUpBar extends StatelessWidget {
     var courtesy = false;
     for (final item in items) {
       final feature = item.feature;
-      final allowed = plan == null || feature == null || plan.allows(feature);
+      final allowed =
+          plan == null ||
+          feature == null ||
+          (feature == PlanFeature.news && item.ticker != null
+              ? plan.allowsNews(item.ticker!)
+              : plan.allows(feature));
       final free =
           !allowed &&
           feature == PlanFeature.companyAnalysis &&
@@ -633,13 +638,22 @@ class _LockedChipState extends State<_LockedChip> {
   @override
   Widget build(BuildContext context) {
     final plan = QaPlanScope.maybeOf(context);
-    final feature = widget.item.feature;
+    final ticker = widget.item.ticker;
+    // Las noticias de algo que tiene en cartera se abren con Premium
+    // (`heldNews`); las demás, con Gold.
+    final feature =
+        widget.item.feature == PlanFeature.news &&
+                ticker != null &&
+                (plan?.heldTickers.contains(ticker.toUpperCase()) ?? false)
+            ? PlanFeature.heldNews
+            : widget.item.feature;
     // snake_case: el source tiene que cumplir `PaywallSource.isValid`.
     final source = 'chip_${PaywallSource.snake(feature?.name ?? 'gold')}';
     // Toque mínimo de 44 px aunque el chip se vea más bajo.
     return Semantics(
       button: true,
-      label: 'Desbloquear con Gold: ${widget.item.label}',
+      label:
+          'Desbloquear con ${feature == PlanFeature.heldNews ? 'Premium' : 'Gold'}: ${widget.item.label}',
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -655,6 +669,7 @@ class _LockedChipState extends State<_LockedChip> {
                 source: source,
                 ticker: widget.item.ticker,
                 surfaceId: widget.surfaceId,
+                feature: feature,
               ),
             ),
         child: ConstrainedBox(

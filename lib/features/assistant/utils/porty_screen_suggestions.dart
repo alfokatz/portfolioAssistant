@@ -28,8 +28,9 @@ abstract final class PortyScreenSuggestions {
     final all = <PortyScreenSuggestion>[
       ...switch (screen.screen) {
         PortyScreen.positionDetail when ticker != null => [
-          // El "por qué" sale de las noticias (Gold); sin ellas, cómo viene.
-          allows(PlanFeature.news)
+          // El "por qué" sale de las noticias de lo que tiene (Premium y
+          // Gold); sin ellas, cómo viene.
+          PlanMatrix.allowsNewsFor(tier, held: true)
               ? (
                 key: 'porty_ask_position_why_moved',
                 args: t,

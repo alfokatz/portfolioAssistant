@@ -1062,22 +1062,34 @@ void main() {
       expect(brief, contains(proposal.id));
     });
 
-    test('free: proposing is locked and the Premium paywall replaces the '
-        'turn', () async {
+    test('free: proposing is in every plan, so the card is prepared and '
+        'there is no paywall', () async {
       final h = harness(SubscriptionTier.free, [
         _call('propose_buy', {
           'ticker': 'AAPL',
           'shares': 10,
           'date': '2026-09-25',
         }),
+        answerWithProposals,
       ]);
 
       await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
 
-      expect(h.state.paywallReason, PaywallReason.modeLocked);
-      expect(h.state.paywallSource, 'chat_turn_locked_portfolio_actions');
-      expect(h.state.messages, hasLength(1));
-      expect(h.quotes.dailyCalls, isEmpty);
+      expect(h.state.paywallReason, isNull);
+      expect(h.lastAnswer.isFallback, isFalse);
+      final calls =
+          h.notifier.service!
+              .evidenceListenable(h.lastAnswer.surfaceId!)
+              .value
+              .calls;
+      final result = calls.singleWhere((c) => c.name == 'propose_buy').result;
+      expect(result['status'], 'ok');
+      expect(ActionProposal.fromToolResult(result)!.ticker, 'AAPL');
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(
+        h.state.actionProgress(result['proposal_id'] as String).status,
+        ActionProposalStatus.pending,
+      );
     });
   });
 

@@ -152,17 +152,19 @@ void main() {
       },
     );
 
-    test('it does not open the watchlist or the Gold sources', () async {
+    test('it does not open the Gold sources (the watchlist has its own '
+        'limit, in every plan)', () async {
       final c = ctx(SubscriptionTier.free);
       await grant(c, FakeMarketTasteRepository()).beforeRound([
         _call('get_quote', ['AMZN']),
       ]);
       expect(c.marketTaste, isTrue);
 
+      // La lista de seguimiento es de todos los planes: no la abre la
+      // consulta gratis, tampoco la cierra.
+      expect(c.watchlistAllowed, isTrue);
       final watch = await GetWatchlistTool(c).run({});
-      expect(watch['status'], 'locked');
-      final propose = await ProposeWatchTool(c).run({'ticker': 'AMZN'});
-      expect(propose['status'], 'locked');
+      expect(watch['status'], isNot('locked'));
       for (final tool in <DataTool>[
         GetFundamentalsTool(c),
         GetEarningsTool(c),
@@ -264,6 +266,7 @@ void main() {
           const ChatPaywall(
             PaywallReason.marketDataLocked,
             'chat_turn_locked_market_data',
+            PlanFeature.marketData,
           ),
         );
       },

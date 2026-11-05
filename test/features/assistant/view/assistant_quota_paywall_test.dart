@@ -110,7 +110,7 @@ void main() {
         'reason': 'quotaExceeded',
         'source': PaywallSource.quotaZeroHeader,
         'tier': 'free',
-        'visible_tiers': ['gold', 'premium'],
+        'visible_tiers': ['premium', 'gold'],
         'queries_used': 20,
         'queries_limit': 20,
       },

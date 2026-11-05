@@ -273,6 +273,11 @@ class AssistantToolContext {
 
   bool get marketDataAllowed => allows(PlanFeature.marketData);
 
+  /// Si el plan incluye una lista de seguimiento (cualquier tope > 0). Las
+  /// tools de watchlist preguntan esto, no [marketDataAllowed]: desde
+  /// 2026-11-05 Free sigue hasta 3 tickers.
+  bool get watchlistAllowed => PlanMatrix.of(tier).watchlistLimit > 0;
+
   /// Este turno usa la consulta de mercado gratis del mes (ver
   /// `MarketTasteGrant`): el precio, los holdings y los dividendos de
   /// cualquier ticker se sirven aunque el plan no incluya mercado.
@@ -286,7 +291,7 @@ class AssistantToolContext {
   bool marketTasteExhausted = false;
 
   /// Si get_quote, get_etf_holdings y get_dividends sirven cualquier ticker.
-  /// Las tools de watchlist siguen con [marketDataAllowed]: la consulta
+  /// Las tools de watchlist usan [watchlistAllowed]: la consulta
   /// gratis no las abre.
   bool get marketDataServed => marketDataAllowed || marketTaste;
 
@@ -326,14 +331,21 @@ class AssistantToolContext {
   /// el resultado `locked` a devolverle al modelo.
   Map<String, Object?>? gate(PlanFeature feature, List<String> tickers) {
     if (allows(feature)) return null;
+    if (courtesyCovers(tickers)) return null;
+    return lockedFeature(feature);
+  }
+
+  /// Si el análisis de cortesía de la semana cubre todos los [tickers]. Si
+  /// sí, lo marca como usado en este turno ([courtesyServed]).
+  bool courtesyCovers(List<String> tickers) {
     final grant = courtesyTicker;
     if (grant != null &&
         tickers.isNotEmpty &&
         tickers.every((t) => t.toUpperCase() == grant)) {
       courtesyServed = true;
-      return null;
+      return true;
     }
-    return lockedFeature(feature);
+    return false;
   }
 
   /// `locked` con el plan mínimo y el paywall que corresponden a [feature].
@@ -342,15 +354,26 @@ class AssistantToolContext {
     return locked(PlanMatrix.minimumTier(feature).name, reasonFor(feature));
   }
 
-  /// La hoja de upgrade que corresponde a [feature] (spec 2026-11-02 §3.2).
+  /// La hoja de upgrade que corresponde a [feature] (spec 2026-11-05 §3.5).
+  /// Exhaustivo y sin `_`: una feature nueva obliga a decidir su motivo.
   static PaywallReason reasonFor(PlanFeature feature) => switch (feature) {
     PlanFeature.marketData => PaywallReason.marketDataLocked,
     PlanFeature.investSimulation => PaywallReason.simulations,
     PlanFeature.goals => PaywallReason.goals,
     PlanFeature.allocationPlan => PaywallReason.allocationPlan,
-    _ when PlanMatrix.minimumTier(feature) == SubscriptionTier.gold =>
-      PaywallReason.goldRequired,
-    _ => PaywallReason.modeLocked,
+    PlanFeature.benchmark => PaywallReason.benchmark,
+    PlanFeature.unlimitedPositions => PaywallReason.positionLimit,
+    PlanFeature.brokerSync => PaywallReason.brokerSync,
+    PlanFeature.heldNews => PaywallReason.heldNews,
+    // Incluidas en todos los planes: nunca llegan bloqueadas.
+    PlanFeature.ownPortfolio || PlanFeature.portfolioActions =>
+      PaywallReason.plans,
+    PlanFeature.companyAnalysis ||
+    PlanFeature.news ||
+    PlanFeature.earnings ||
+    PlanFeature.fundamentals ||
+    PlanFeature.multiBrokerSync ||
+    PlanFeature.brokerManualRefresh => PaywallReason.goldRequired,
   };
 
   /// Marca un resultado servido por la cortesía, para que la card lo diga.

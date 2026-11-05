@@ -652,6 +652,7 @@ void main() {
         const ChatPaywall(
           PaywallReason.marketDataLocked,
           'chat_turn_locked_market_data',
+          PlanFeature.marketData,
         ),
       );
       expect(
@@ -678,16 +679,51 @@ void main() {
         const ChatPaywall(
           PaywallReason.simulations,
           'chat_turn_locked_invest_simulation',
+          PlanFeature.investSimulation,
         ),
       );
-      ctx.lockedFeature(PlanFeature.portfolioActions);
+      // Noticias de lo que tiene gana a las simulaciones...
+      ctx.lockedFeature(PlanFeature.heldNews);
       expect(
         AssistantTurnPolicy.paywallFor(locked, ctx),
         const ChatPaywall(
-          PaywallReason.modeLocked,
-          'chat_turn_locked_portfolio_actions',
+          PaywallReason.heldNews,
+          'chat_turn_locked_held_news',
+          PlanFeature.heldNews,
         ),
       );
+      // ...y conectar el bróker gana a todo.
+      ctx.lockedFeature(PlanFeature.brokerSync);
+      expect(
+        AssistantTurnPolicy.paywallFor(locked, ctx),
+        const ChatPaywall(
+          PaywallReason.brokerSync,
+          'chat_turn_locked_broker_sync',
+          PlanFeature.brokerSync,
+        ),
+      );
+    });
+
+    test('reasonFor covers every feature with its own paywall', () {
+      final expected = {
+        PlanFeature.marketData: PaywallReason.marketDataLocked,
+        PlanFeature.investSimulation: PaywallReason.simulations,
+        PlanFeature.goals: PaywallReason.goals,
+        PlanFeature.allocationPlan: PaywallReason.allocationPlan,
+        PlanFeature.benchmark: PaywallReason.benchmark,
+        PlanFeature.unlimitedPositions: PaywallReason.positionLimit,
+        PlanFeature.brokerSync: PaywallReason.brokerSync,
+        PlanFeature.heldNews: PaywallReason.heldNews,
+        PlanFeature.ownPortfolio: PaywallReason.plans,
+        PlanFeature.portfolioActions: PaywallReason.plans,
+      };
+      for (final feature in PlanFeature.values) {
+        expect(
+          AssistantToolContext.reasonFor(feature),
+          expected[feature] ?? PaywallReason.goldRequired,
+          reason: feature.name,
+        );
+      }
     });
 
     test('Gold data never cuts the turn', () {
