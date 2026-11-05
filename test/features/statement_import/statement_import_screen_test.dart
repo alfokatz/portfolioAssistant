@@ -63,6 +63,36 @@ class _Client implements StatementImportClient {
   });
 }
 
+/// Como [_Client], más un ticker nuevo (MSFT): suma una posición y pasa
+/// el tope de Free.
+class _ClientWithNewTicker implements StatementImportClient {
+  @override
+  Future<StatementReadResult> readNote(String note) =>
+      read(filename: 'nota', bytes: Uint8List(0));
+
+  @override
+  Future<StatementReadResult> read({
+    required String filename,
+    required Uint8List bytes,
+  }) async => StatementReadResult.fromJson({
+    'source': 'ai',
+    'rows': [
+      {
+        'ticker': 'AAPL',
+        'quantity': 12.5,
+        'purchase_price': 150.25,
+        'purchase_date': '2024-03-15',
+      },
+      {
+        'ticker': 'MSFT',
+        'quantity': 2,
+        'purchase_price': 300,
+        'purchase_date': '2024-03-15',
+      },
+    ],
+  });
+}
+
 class _Quotes implements QuoteRepository {
   @override
   Future<Either<HttpError, double>> getCurrentPrice(String ticker) async =>
@@ -362,6 +392,7 @@ void main() {
           tester,
           width: 375,
           height: 2400,
+          client: _ClientWithNewTicker(),
           limit: 1,
           firstImport: _FirstImport(),
           brightness: brightness,
@@ -382,6 +413,7 @@ void main() {
           tester,
           width: 375,
           height: 2400,
+          client: _ClientWithNewTicker(),
           limit: 1,
           firstImport: _FirstImport(available: false),
           brightness: brightness,
@@ -404,6 +436,7 @@ void main() {
         tester,
         width: 375,
         height: 2400,
+        client: _ClientWithNewTicker(),
         limit: 1,
         firstImport: _FirstImport(offline: true),
       );

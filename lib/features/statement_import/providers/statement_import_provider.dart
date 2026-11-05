@@ -222,9 +222,12 @@ class StatementImportState {
   };
 
   /// Las posiciones que quedarían en la cartera pasan el tope del plan,
-  /// tenga o no el cupo de la primera importación.
+  /// tenga o no el cupo de la primera importación. Solo cuenta si suma
+  /// tickers nuevos: quien quedó arriba del tope por la primera importación
+  /// puede seguir actualizando o vendiendo lo que ya tiene.
   bool get overLimit =>
       positionLimit != null &&
+      newTickers.isNotEmpty &&
       heldTickers.length + newTickers.length > positionLimit!;
 
   /// Importarlas pasaría el tope de posiciones del plan y no hay cupo de
@@ -561,9 +564,14 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   /// [StatementImportState.failedTickers].
   Future<void> importReady() async {
     if (!state.canImport) return;
-    if (state.usesFirstImport && !await _claimFirstImport()) return;
     final snapshot = state;
+    // La fase cambia antes de pedir el cupo: un segundo toque mientras
+    // espera la red no vuelve a importar.
     state = state.copyWith(phase: ImportPhase.importing);
+    if (snapshot.usesFirstImport && !await _claimFirstImport()) {
+      if (mounted) state = state.copyWith(phase: ImportPhase.preview);
+      return;
+    }
     final now = _now();
     final today = DateTime(now.year, now.month, now.day);
     var imported = 0;

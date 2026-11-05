@@ -549,6 +549,43 @@ void main() {
         expect(store.claims, isEmpty);
       });
 
+      test('doble toque mientras pide el cupo: importa una sola vez', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(store);
+        await Future.wait([n.importReady(), n.importReady()]);
+        expect(positions.added, ['AAPL', 'MSFT']);
+        expect(store.claims, hasLength(1));
+      });
+
+      test(
+        'arriba del tope por la primera: puede actualizar lo que ya tiene',
+        () async {
+          final n = build(
+            held: {
+              'VOO': _held(1, 10),
+              'AAPL': _held(1, 10),
+              'MSFT': _held(1, 10),
+            },
+            limit: 2,
+            firstImport: _FakeFirstImport(available: false),
+            result:
+                () => _result([
+                  {
+                    'ticker': 'VOO',
+                    'quantity': 2,
+                    'purchase_price': 10,
+                    'purchase_date': '2024-01-01',
+                  },
+                ]),
+          );
+          await n.read(file, origin: ImportOrigin.screenshot);
+          await n.checkQuotes();
+          expect(n.state.newTickers, isEmpty);
+          expect(n.state.overLimit, isFalse);
+          expect(n.state.exceedsLimit, isFalse);
+        },
+      );
+
       test('un plan sin tope ni consulta el estado', () async {
         final store = _FakeFirstImport();
         final n = await preview(store, limit: null);
