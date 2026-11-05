@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/domain/entities/subscription_status.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/repositories/subscription_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_tracker.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
@@ -202,6 +203,7 @@ class PaywallHarness {
     Brightness brightness = Brightness.light,
     WidgetBuilder? preview,
     VoidCallback? onUpgraded,
+    PlanFeature? lockedFeature,
     Size size = const Size(375, 2200),
   }) async {
     tester.view.physicalSize = size;
@@ -233,6 +235,7 @@ class PaywallHarness {
                             source: source,
                             preview: preview,
                             onUpgraded: onUpgraded,
+                            lockedFeature: lockedFeature,
                           ),
                       child: const Text('open'),
                     ),

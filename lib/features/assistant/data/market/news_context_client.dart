@@ -14,7 +14,9 @@ class NewsContextClient {
   final TtlCache<Map<String, Object?>> _cache;
 
   /// `{status: ok|empty|failed|limit|locked, summary: [..], sources:
-  /// [{title, url, source}]}`. Nunca lanza.
+  /// [{title, url, source}]}`. `limit` lleva `reason`: `daily_limit`,
+  /// `turn_limit` o `monthly_limit` (tope mensual de costo, sin paywall).
+  /// Nunca lanza.
   Future<Map<String, Object?>> fetch(
     List<String> tickers, {
     Map<String, String> names = const {},
@@ -36,7 +38,9 @@ class NewsContextClient {
     }
     if (!response.ok) {
       final type = response.errorType;
-      if (type == 'daily_limit' || type == 'turn_limit') {
+      if (type == 'daily_limit' ||
+          type == 'turn_limit' ||
+          type == 'monthly_limit') {
         return {'status': 'limit', 'reason': type};
       }
       return const {'status': 'failed'};

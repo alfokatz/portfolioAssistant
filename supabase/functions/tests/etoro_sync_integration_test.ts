@@ -41,12 +41,23 @@ async function connect(fake: FakeEtoro, d: ReturnType<typeof deps>, jwt: string)
   assertEquals(start.status, 200);
   const authorizeUrl = new URL((await start.json()).authorizeUrl);
   fake.nonce = authorizeUrl.searchParams.get("nonce")!;
-  return await handle(
+  const cb = await handle(
     new Request(
       `http://local/functions/v1/etoro-sync/callback?code=good-code&state=${authorizeUrl.searchParams.get("state")}`,
     ),
     d,
   );
+  // La app completa con su JWT y el handle del deep link.
+  const back = new URL(cb.headers.get("location")!);
+  assertEquals(back.searchParams.get("status"), "pending");
+  const done = await handle(post("/connect/complete", jwt, { handle: back.searchParams.get("handle") }), d);
+  assertEquals(done.status, 200);
+  const result = await done.json();
+  const url = new URL("porty-etoro://callback");
+  url.searchParams.set("status", result.status);
+  if (result.reason) url.searchParams.set("reason", result.reason);
+  if (result.mode) url.searchParams.set("mode", result.mode);
+  return new Response(null, { status: 302, headers: { location: url.toString() } });
 }
 
 Deno.test("punta a punta: conectar, importar, convivir con lo manual, token vencido, desconectar", async () => {

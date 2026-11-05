@@ -724,6 +724,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           messages: _removeTurn(state.messages, surfaceId),
           paywallReason: paywall.reason,
           paywallSource: paywall.source,
+          paywallFeature: paywall.feature,
           clearPaywallReason: false,
         );
       } on TimeoutException catch (e) {
@@ -874,15 +875,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {}
     if (!mounted) return;
     final tier = ref.read(subscriptionProvider).tier;
-    // Seguir un ticker (o tocar la lista) es de la lista de seguimiento
-    // (Premium), no una operación de cartera.
-    if ((draft.kind == ActionKind.watch ||
-            draft.manageOp?.link == ManageLink.watchlist) &&
-        PlanMatrix.of(tier).watchlistLimit == 0) {
+    // Seguir un ticker: cada plan tiene su tope (Free 3). Se mira antes de
+    // escribir para abrir el paywall en vez de un error. Las demás
+    // operaciones de la lista (dejar de seguir, avisos) no suman.
+    if (draft.kind == ActionKind.watch && await _watchlistFull(draft.ticker)) {
+      if (!mounted) return;
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.marketDataLocked,
+        paywallReason: PaywallReason.watchlistLimit,
         paywallSource: PaywallSource.chatActionWatchlist,
+        paywallFeature: PlanFeature.marketData,
         clearPaywallReason: false,
       );
       return;
@@ -894,6 +896,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       state = state.copyWith(
         paywallReason: PaywallReason.brokerSync,
         paywallSource: PaywallSource.chatActionBroker,
+        paywallFeature: PlanFeature.brokerSync,
         clearPaywallReason: false,
       );
       return;
@@ -908,6 +911,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         state = state.copyWith(
           paywallReason: PaywallReason.goldRequired,
           paywallSource: PaywallSource.chatActionMultiBroker,
+          paywallFeature: PlanFeature.multiBrokerSync,
           clearPaywallReason: false,
         );
         return;
@@ -920,20 +924,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       state = state.copyWith(
         paywallReason: PaywallReason.allocationPlan,
         paywallSource: PaywallSource.chatActionAllocation,
+        paywallFeature: PlanFeature.allocationPlan,
         clearPaywallReason: false,
       );
       return;
     }
-    // Las alertas no son una operación de cartera: Free tiene una y el tope
-    // lo controla la base al crearla.
-    if (draft.kind != ActionKind.alert &&
-        draft.kind != ActionKind.watch &&
-        draft.kind != ActionKind.manage &&
-        !PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
+    // Registrar operaciones es de todos los planes; lo que Free no puede es
+    // pasar el tope de posiciones con un ticker nuevo (se vuelve a mirar
+    // acá: pudo cambiar desde que Porty lo propuso).
+    if (draft.kind == ActionKind.buy && _exceedsPositionLimit(draft, tier)) {
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
-        paywallSource: PaywallSource.chatActionPortfolio,
+        paywallReason: PaywallReason.positionLimit,
+        paywallSource: PaywallSource.chatActionPositionLimit,
+        paywallFeature: PlanFeature.unlimitedPositions,
         clearPaywallReason: false,
       );
       return;
@@ -1228,6 +1232,34 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// Si [draft] es la compra de un ticker nuevo y la cartera ya está en el
+  /// tope de posiciones del plan (Free: 10). Más compras de lo que ya tiene
+  /// siguen valiendo.
+  bool _exceedsPositionLimit(ActionDraft draft, SubscriptionTier tier) {
+    final limit = PlanMatrix.of(tier).positionLimit;
+    if (limit == null) return false;
+    final held = {
+      for (final v in ref.read(homeProvider).summary?.valuations ?? const [])
+        v.position.ticker.toUpperCase(),
+    };
+    return !held.contains(draft.ticker.toUpperCase()) && held.length >= limit;
+  }
+
+  /// Si seguir [ticker] pasaría el tope de la lista de seguimiento del plan.
+  /// Si ya lo sigue, no suma (el alta lo avisa).
+  Future<bool> _watchlistFull(String ticker) async {
+    final watchlist = ref.read(watchlistProvider.notifier);
+    try {
+      if (!ref.read(watchlistProvider).loaded) await watchlist.load();
+    } catch (_) {
+      return false;
+    }
+    final list = ref.read(watchlistProvider);
+    final limit =
+        PlanMatrix.of(ref.read(subscriptionProvider).tier).watchlistLimit;
+    return !list.contains(ticker) && list.items.length >= limit;
+  }
+
   /// Suma [draft] a la lista de seguimiento (lo mismo que la pantalla) y,
   /// si el usuario apagó el interruptor, le saca los avisos.
   Future<String?> _follow(ActionDraft draft) async {
@@ -1406,6 +1438,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       state = state.copyWith(
         paywallReason: PaywallReason.allocationPlan,
         paywallSource: PaywallSource.chatPlanSave,
+        paywallFeature: PlanFeature.allocationPlan,
         clearPaywallReason: false,
       );
       return 'El plan de cartera es de Premium.';

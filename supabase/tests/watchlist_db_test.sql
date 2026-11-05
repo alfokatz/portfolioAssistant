@@ -79,7 +79,7 @@ begin
   delete from public.watchlist_items where symbol like 'T%';
 end $$;
 
--- Free: tope 0.
+-- Free: tope 3 (20261105100300_free_watchlist.sql).
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000d2","role":"authenticated"}';
 
 do $$
@@ -87,13 +87,18 @@ begin
   if exists (select 1 from public.watchlist_items) then
     raise exception 'free sees other lists';
   end if;
+  insert into public.watchlist_items (user_id, symbol) values
+    ('00000000-0000-0000-0000-0000000000d2', 'AMZN'),
+    ('00000000-0000-0000-0000-0000000000d2', 'TSLA'),
+    ('00000000-0000-0000-0000-0000000000d2', 'MELI');
   begin
     insert into public.watchlist_items (user_id, symbol)
-    values ('00000000-0000-0000-0000-0000000000d2', 'AMZN');
+    values ('00000000-0000-0000-0000-0000000000d2', 'NVDA');
     raise exception 'should have failed: free';
   exception when others then
     if sqlerrm <> 'watchlist_limit_reached' then raise; end if;
   end;
+  delete from public.watchlist_items where user_id = '00000000-0000-0000-0000-0000000000d2';
   begin
     perform public.watchlist_watch_items();
     raise exception 'should have failed: rpc';

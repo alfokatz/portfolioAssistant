@@ -130,6 +130,81 @@ Deno.test("tope diario → 429 daily_limit, distinto del de cuota mensual", asyn
   assertEquals((await r.json()).error.type, "daily_limit");
 });
 
+Deno.test("forzar tool calls en cada turno no esquiva la cuota: pasado el tope de rondas sin cobrar → 429 daily_limit", async () => {
+  const user = await createUser("free");
+  const f = fakeFetch(toolReply);
+  const d = deps(f.fetch, env);
+  // Siempre la misma tool forzada, cada vez con un turn_id nuevo: ninguna
+  // ronda llega a ser "final", así que nada se cobra.
+  const forced = body({
+    tools: [{ type: "function", function: { name: "answer", parameters: { type: "object" } } }],
+    tool_choice: { type: "function", function: { name: "answer" } },
+  });
+  // El tope cuenta rondas sin cobrar del día; se siembra casi lleno para no
+  // chocar con el rate limit de 30/min.
+  const seeded = await db.from("ai_turn_usage").insert({
+    turn_id: `seed-${crypto.randomUUID()}`,
+    user_id: user.id,
+    tier: "free",
+    model: "gpt-6-luna",
+    round_count: 38,
+  });
+  assertEquals(seeded.error, null);
+  const statuses: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, forced), d, { allowedPromptHashes: hashes });
+    statuses.push(r.status);
+    if (r.status === 429) {
+      const err = (await r.json()).error;
+      assertEquals(err.type, "daily_limit");
+      assertEquals(err.cause, "uncharged_rounds");
+    } else {
+      await r.text();
+    }
+  }
+  await d.settle();
+  assertEquals(statuses, [200, 200, 429]);
+  assertEquals(f.calls.length, 2);
+  assertEquals(await monthlyUsed(user.id), 0);
+});
+
+Deno.test("el tope de rondas sin cobrar no frena un turno que ya se cobró ni cuenta los cobrados", async () => {
+  const user = await createUser("premium");
+  // Muchas rondas de turnos cobrados hoy: no cuentan para el tope.
+  const charged = await db.from("ai_turn_usage").insert({
+    turn_id: `seed-${crypto.randomUUID()}`,
+    user_id: user.id,
+    tier: "premium",
+    model: "gpt-6-luna",
+    round_count: 500,
+    charged_at: new Date().toISOString(),
+  });
+  assertEquals(charged.error, null);
+  const turn = `turn-${crypto.randomUUID()}`;
+  const replies = [toolReply, finalReply];
+  const f = fakeFetch((_u, _i, n) => replies[(n ?? 1) - 1]());
+  const d = deps(f.fetch, env);
+  for (let i = 0; i < 2; i++) {
+    const r = await handle(req(user.jwt, turn, body()), d, { allowedPromptHashes: hashes });
+    assertEquals(r.status, 200);
+    await r.text();
+    await d.settle();
+  }
+  assertEquals(await monthlyUsed(user.id), 1);
+  // Ya cobrado: aunque ahora haya rondas sin cobrar de sobra, puede seguir.
+  const open = await db.from("ai_turn_usage").insert({
+    turn_id: `seed-${crypto.randomUUID()}`,
+    user_id: user.id,
+    tier: "premium",
+    model: "gpt-6-luna",
+    round_count: 40,
+  });
+  assertEquals(open.error, null);
+  const repair = await handle(req(user.jwt, turn, body()), deps(fakeFetch(finalReply).fetch, env), { allowedPromptHashes: hashes });
+  assertEquals(repair.status, 200);
+  await repair.text();
+});
+
 Deno.test("modelo fuera de la allowlist → 400", async () => {
   const user = await createUser("gold");
   const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body({ model: "gpt-4.1" })), deps(fakeFetch(finalReply).fetch, env), { allowedPromptHashes: hashes });

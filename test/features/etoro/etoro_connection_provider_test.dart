@@ -33,6 +33,24 @@ class _FakeRepository implements EtoroConnectionRepository {
   @override
   Future<Uri> startConnect() async => Uri.parse('https://www.etoro.com/sso?state=s');
 
+  /// Lo que responde `/connect/complete` (o el error que tira).
+  Map<String, String> completeResult = const {'status': 'ok'};
+  EtoroSyncException? completeError;
+  final completedHandles = <String>[];
+
+  @override
+  Future<Map<String, String>> completeConnect(String handle) async {
+    completedHandles.add(handle);
+    final error = completeError;
+    if (error != null) throw error;
+    connection = EtoroConnection(
+      status: EtoroConnectionStatus.connected,
+      lastSyncAt: _now,
+      lastResult: _result(),
+    );
+    return completeResult;
+  }
+
   @override
   Future<({EtoroImportResult result, bool throttled})> sync() async {
     syncCalls++;
@@ -79,6 +97,53 @@ EtoroConnectionNotifier _notifier(_FakeRepository repo, _FakeLauncher launcher) 
     EtoroConnectionNotifier(repository: repo, launcher: launcher, clock: () => _now);
 
 void main() {
+  group('conectar (vuelta pending + /connect/complete)', () {
+    test('pending: completes the link with the handle and reads the connection', () async {
+      final repo = _FakeRepository();
+      final launcher = _FakeLauncher(
+        Uri.parse('porty-etoro://callback?status=pending&handle=h-1234567890abcdefghij'),
+      );
+      final notifier = _notifier(repo, launcher);
+      final outcome = await notifier.connect();
+      expect(repo.completedHandles, ['h-1234567890abcdefghij']);
+      expect(outcome, isA<EtoroConnected>());
+      expect((outcome as EtoroConnected).freeImport, isFalse);
+      expect(notifier.state.connection.isConnected, isTrue);
+    });
+
+    test('pending free import: mode comes from the complete response', () async {
+      final repo = _FakeRepository()
+        ..completeResult = const {'status': 'ok', 'mode': 'free_import'};
+      final launcher = _FakeLauncher(
+        Uri.parse('porty-etoro://callback?status=pending&handle=h-1234567890abcdefghij'),
+      );
+      final outcome = await _notifier(repo, launcher).connect();
+      expect((outcome as EtoroConnected).freeImport, isTrue);
+    });
+
+    test('another account cannot complete: typed failure, nothing connected', () async {
+      final repo = _FakeRepository()
+        ..completeError = const EtoroSyncException('etoro_link_mismatch');
+      final launcher = _FakeLauncher(
+        Uri.parse('porty-etoro://callback?status=pending&handle=h-1234567890abcdefghij'),
+      );
+      final outcome = await _notifier(repo, launcher).connect();
+      expect(outcome, isA<EtoroConnectFailed>());
+      expect((outcome as EtoroConnectFailed).reason, 'etoro_link_mismatch');
+      expect(repo.connection.isConnected, isFalse);
+    });
+
+    test('cancelled or error deep links do not call complete', () async {
+      final repo = _FakeRepository();
+      final outcome = await _notifier(
+        repo,
+        _FakeLauncher(Uri.parse('porty-etoro://callback?status=error&reason=expired')),
+      ).connect();
+      expect(outcome, isA<EtoroConnectFailed>());
+      expect(repo.completedHandles, isEmpty);
+    });
+  });
+
   group('conectar', () {
     test('ok: abre eToro en el navegador, lee la conexión y avisa a la Home', () async {
       final repo = _FakeRepository();

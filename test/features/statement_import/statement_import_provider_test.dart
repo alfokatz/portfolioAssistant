@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
+import 'package:portfolio_assistant/features/statement_import/data/first_import_repository.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
@@ -40,6 +41,36 @@ class _FakeClient implements StatementImportClient {
   Future<StatementReadResult> readNote(String note) {
     notes.add(note);
     return respond();
+  }
+}
+
+/// El cupo de la primera importación completa, en memoria.
+class _FakeFirstImport implements FirstImportStore {
+  _FakeFirstImport({this.available = true, this.offline = false});
+
+  bool available;
+
+  /// Sin red: todo lanza `FirstImportUnavailable`.
+  bool offline;
+  final claims = <({String importId, String origin, int positions})>[];
+  int statusCalls = 0;
+
+  @override
+  Future<bool> isAvailable() async {
+    statusCalls++;
+    if (offline) throw const FirstImportUnavailable();
+    return available;
+  }
+
+  @override
+  Future<FirstImportClaim> claim({
+    required String importId,
+    required String origin,
+    required int positions,
+  }) async {
+    if (offline) throw const FirstImportUnavailable();
+    claims.add((importId: importId, origin: origin, positions: positions));
+    return available ? FirstImportClaim.granted : FirstImportClaim.alreadyUsed;
   }
 }
 
@@ -159,6 +190,7 @@ void main() {
     Map<String, double> prices = const {'AAPL': 200, 'MSFT': 400, 'VOO': 500},
     Map<String, HeldHolding> held = const {},
     int? limit,
+    FirstImportStore? firstImport,
     Future<PickedStatement?> Function()? pick,
   }) {
     positions = _FakePositions();
@@ -174,6 +206,8 @@ void main() {
       closePosition: ClosePositionUseCase(repository: closes),
       held: () => held,
       positionLimit: () => limit,
+      firstImport: firstImport,
+      newImportId: () => 'import-id-1',
       onImported: (_) async => refreshed++,
       now: () => today,
     );
@@ -394,6 +428,172 @@ void main() {
         expect(n.state.canImport, isTrue);
       },
     );
+
+    group('primera importación completa (Free)', () {
+      // VOO ya está; AAPL y MSFT son nuevas: 3 en total con tope 2.
+      StatementReadResult overTheLimit() => _result([
+        for (final t in ['AAPL', 'MSFT'])
+          {
+            'ticker': t,
+            'quantity': 1,
+            'purchase_price': 10,
+            'purchase_date': '2024-01-01',
+          },
+      ]);
+
+      Future<StatementImportNotifier> preview(
+        _FakeFirstImport store, {
+        StatementReadResult Function()? result,
+        int? limit = 2,
+      }) async {
+        final n = build(
+          held: {'VOO': _held(1, 10)},
+          limit: limit,
+          firstImport: store,
+          result: result ?? overTheLimit,
+        );
+        await n.read(file, origin: ImportOrigin.screenshot);
+        await n.checkQuotes();
+        return n;
+      }
+
+      test('con el cupo, pasar el tope no bloquea y entra entera', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(store);
+        expect(n.state.firstImportAvailable, isTrue);
+        expect(n.state.overLimit, isTrue);
+        expect(n.state.exceedsLimit, isFalse);
+        expect(n.state.usesFirstImport, isTrue);
+        expect(n.state.canImport, isTrue);
+
+        await n.importReady();
+        expect(positions.added, ['AAPL', 'MSFT']);
+        expect(n.state.phase, ImportPhase.done);
+        // Pide el cupo antes de escribir, con tenidas + nuevas.
+        expect(store.claims, [
+          (importId: 'import-id-1', origin: 'screenshot', positions: 3),
+        ]);
+      });
+
+      test('already_used: vuelve el tope y no se importa nada', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(store);
+        // Otro dispositivo lo gastó entre la vista previa y el botón.
+        store.available = false;
+        await n.importReady();
+
+        expect(positions.added, isEmpty);
+        expect(n.state.phase, ImportPhase.preview);
+        expect(n.state.firstImportAvailable, isFalse);
+        expect(n.state.exceedsLimit, isTrue);
+        expect(n.state.canImport, isFalse);
+        expect(n.state.claimFailed, isFalse);
+      });
+
+      test(
+        'sin red al pedir el cupo: falla cerrado y se puede reintentar',
+        () async {
+          final store = _FakeFirstImport();
+          final n = await preview(store);
+          store.offline = true;
+          await n.importReady();
+
+          expect(positions.added, isEmpty);
+          expect(n.state.phase, ImportPhase.preview);
+          expect(n.state.claimFailed, isTrue);
+          expect(n.state.firstImportAvailable, isTrue);
+
+          store.offline = false;
+          await n.importReady();
+          expect(positions.added, ['AAPL', 'MSFT']);
+          expect(n.state.claimFailed, isFalse);
+          expect(n.state.phase, ImportPhase.done);
+        },
+      );
+
+      test('sin red al leer el estado: rige el tope', () async {
+        final n = await preview(_FakeFirstImport(offline: true));
+        expect(n.state.firstImportAvailable, isFalse);
+        expect(n.state.exceedsLimit, isTrue);
+        expect(n.state.canImport, isFalse);
+      });
+
+      test('cupo gastado: la segunda importación respeta el tope', () async {
+        final n = await preview(_FakeFirstImport(available: false));
+        expect(n.state.exceedsLimit, isTrue);
+        expect(n.state.canImport, isFalse);
+        n.toggle(n.state.rows.firstWhere((r) => r.ticker == 'MSFT').id);
+        expect(n.state.exceedsLimit, isFalse);
+        expect(n.state.canImport, isTrue);
+      });
+
+      test('una importación que no pasa el tope no gasta el cupo', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(
+          store,
+          limit: 10,
+          result:
+              () => _result([
+                {
+                  'ticker': 'AAPL',
+                  'quantity': 1,
+                  'purchase_price': 10,
+                  'purchase_date': '2024-01-01',
+                },
+              ]),
+        );
+        expect(n.state.overLimit, isFalse);
+        expect(n.state.usesFirstImport, isFalse);
+        await n.importReady();
+        expect(positions.added, ['AAPL']);
+        expect(store.claims, isEmpty);
+      });
+
+      test('doble toque mientras pide el cupo: importa una sola vez', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(store);
+        await Future.wait([n.importReady(), n.importReady()]);
+        expect(positions.added, ['AAPL', 'MSFT']);
+        expect(store.claims, hasLength(1));
+      });
+
+      test(
+        'arriba del tope por la primera: puede actualizar lo que ya tiene',
+        () async {
+          final n = build(
+            held: {
+              'VOO': _held(1, 10),
+              'AAPL': _held(1, 10),
+              'MSFT': _held(1, 10),
+            },
+            limit: 2,
+            firstImport: _FakeFirstImport(available: false),
+            result:
+                () => _result([
+                  {
+                    'ticker': 'VOO',
+                    'quantity': 2,
+                    'purchase_price': 10,
+                    'purchase_date': '2024-01-01',
+                  },
+                ]),
+          );
+          await n.read(file, origin: ImportOrigin.screenshot);
+          await n.checkQuotes();
+          expect(n.state.newTickers, isEmpty);
+          expect(n.state.overLimit, isFalse);
+          expect(n.state.exceedsLimit, isFalse);
+        },
+      );
+
+      test('un plan sin tope ni consulta el estado', () async {
+        final store = _FakeFirstImport();
+        final n = await preview(store, limit: null);
+        expect(store.statusCalls, 0);
+        expect(n.state.firstImportAvailable, isFalse);
+        expect(n.state.canImport, isTrue);
+      });
+    });
 
     test('importa solo las listas e informa las que fallan', () async {
       final n = build(

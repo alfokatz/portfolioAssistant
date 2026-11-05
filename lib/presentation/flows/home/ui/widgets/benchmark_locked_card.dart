@@ -1,7 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -35,8 +37,9 @@ class BenchmarkLockedCard extends ConsumerWidget {
               SubscriptionPaywallSheet.show(
                 context,
                 ref,
-                reason: PaywallReason.modeLocked,
-                source: 'home_benchmark',
+                reason: PaywallReason.benchmark,
+                source: PaywallSource.homeBenchmark,
+                lockedFeature: PlanFeature.benchmark,
               );
             },
             child: ConstrainedBox(

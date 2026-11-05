@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { handle, queryKey, withoutCiteMarkers } from "../web-search/handler.ts";
-import { createUser, db, deps, fakeFetch } from "./helpers.ts";
+import { createUser, db, deps, fakeFetch, withPlanLimit } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
 
@@ -89,4 +89,52 @@ Deno.test("el texto sale sin marcadores de cita (las fuentes van aparte)", () =>
     "El iPhone 17 cuesta $799 USD.",
   );
   assertEquals(withoutCiteMarkers("Según [Apple](https://apple.com), 799 USD."), "Según Apple, 799 USD.");
+});
+
+Deno.test("tope mensual del plan: 429 monthly_limit sin llamar a OpenAI, y la caché sigue sirviendo", async () => {
+  await withPlanLimit("free", "web_searches_per_month", 2, async () => {
+    const user = await createUser("free");
+    const f = fakeFetch(() => openAiAnswer("ok"));
+    const d = deps(f.fetch, env);
+    const cachedQuery = `precio con caché ${crypto.randomUUID()}`;
+
+    const first = await handle(req(user.jwt, { query: cachedQuery }), d);
+    assertEquals(first.status, 200);
+    await first.body?.cancel();
+    const second = await handle(req(user.jwt, { query: `precio ${crypto.randomUUID()}` }), d);
+    assertEquals(second.status, 200);
+    await second.body?.cancel();
+    assertEquals(f.calls.length, 2);
+
+    const third = await handle(req(user.jwt, { query: `precio ${crypto.randomUUID()}` }), d);
+    assertEquals(third.status, 429);
+    assertEquals((await third.json()).error.type, "monthly_limit");
+    assertEquals(f.calls.length, 2);
+
+    // Un hit de caché no gasta cupo ni se corta.
+    const hit = await handle(req(user.jwt, { query: cachedQuery }), d);
+    assertEquals(hit.headers.get("x-cache"), "hit");
+    await hit.body?.cancel();
+    assertEquals(f.calls.length, 2);
+  });
+});
+
+Deno.test("el tope diario sigue cortando con daily_limit (no monthly_limit)", async () => {
+  const user = await createUser("free");
+  const d = deps(fakeFetch(() => openAiAnswer("ok")).fetch, env);
+  let last: Response | null = null;
+  for (let i = 0; i < 4; i++) {
+    last = await handle(req(user.jwt, { query: `precio ${crypto.randomUUID()}` }), d);
+    if (i < 3) await last.body?.cancel();
+  }
+  assertEquals(last!.status, 429);
+  assertEquals((await last!.json()).error.type, "daily_limit");
+});
+
+Deno.test("la booleana vieja web_search_hit también aplica el tope mensual", async () => {
+  await withPlanLimit("free", "web_searches_per_month", 1, async () => {
+    const user = await createUser("free");
+    assertEquals((await db.rpc("web_search_hit", { p_user_id: user.id })).data, true);
+    assertEquals((await db.rpc("web_search_hit", { p_user_id: user.id })).data, false);
+  });
 });

@@ -41,21 +41,24 @@ void main() {
       }
     });
 
-    test('a position: the "why" and the analysis only where the plan '
-        'includes news and the company analysis', () {
+    test('a position: the "why" where the plan includes news of what the '
+        'user holds (Premium and Gold), the analysis only in Gold', () {
       const screen = PortyScreenContext.position('AAPL');
       expect(_keys(screen, SubscriptionTier.gold), [
         'porty_ask_position_why_moved',
         'porty_ask_position_weight',
         'porty_ask_position_analysis',
       ]);
-      for (final tier in [SubscriptionTier.free, SubscriptionTier.premium]) {
-        expect(_keys(screen, tier), [
-          'porty_ask_position_week',
-          'porty_ask_position_weight',
-          'porty_ask_position_since_buy',
-        ]);
-      }
+      expect(_keys(screen, SubscriptionTier.premium), [
+        'porty_ask_position_why_moved',
+        'porty_ask_position_weight',
+        'porty_ask_position_since_buy',
+      ]);
+      expect(_keys(screen, SubscriptionTier.free), [
+        'porty_ask_position_week',
+        'porty_ask_position_weight',
+        'porty_ask_position_since_buy',
+      ]);
     });
 
     test('a sale: what it did after selling needs market data (Premium)', () {

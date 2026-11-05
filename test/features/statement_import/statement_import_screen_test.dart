@@ -18,6 +18,7 @@ import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dar
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/services/company_brand_loader.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/statement_import/data/first_import_repository.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
@@ -57,6 +58,36 @@ class _Client implements StatementImportClient {
       {
         'type': 'non_usd_currency',
         'currencies': ['EUR'],
+      },
+    ],
+  });
+}
+
+/// Como [_Client], más un ticker nuevo (MSFT): suma una posición y pasa
+/// el tope de Free.
+class _ClientWithNewTicker implements StatementImportClient {
+  @override
+  Future<StatementReadResult> readNote(String note) =>
+      read(filename: 'nota', bytes: Uint8List(0));
+
+  @override
+  Future<StatementReadResult> read({
+    required String filename,
+    required Uint8List bytes,
+  }) async => StatementReadResult.fromJson({
+    'source': 'ai',
+    'rows': [
+      {
+        'ticker': 'AAPL',
+        'quantity': 12.5,
+        'purchase_price': 150.25,
+        'purchase_date': '2024-03-15',
+      },
+      {
+        'ticker': 'MSFT',
+        'quantity': 2,
+        'purchase_price': 300,
+        'purchase_date': '2024-03-15',
       },
     ],
   });
@@ -129,6 +160,27 @@ class _Dictation extends ChatDictation {
   }
 }
 
+/// El cupo de la primera importación completa, a elección del test.
+class _FirstImport implements FirstImportStore {
+  _FirstImport({this.available = true, this.offline = false});
+
+  final bool available;
+  final bool offline;
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<FirstImportClaim> claim({
+    required String importId,
+    required String origin,
+    required int positions,
+  }) async {
+    if (offline) throw const FirstImportUnavailable();
+    return available ? FirstImportClaim.granted : FirstImportClaim.alreadyUsed;
+  }
+}
+
 class _Positions implements PositionRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -149,13 +201,20 @@ void main() {
     double width = 320,
     double height = 700,
     double textScale = 1,
+    int limit = 10,
+    FirstImportStore? firstImport,
+    Brightness brightness = Brightness.light,
     List<Override> overrides = const [],
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     late StatementImportNotifier notifier;
-    final theme = ProviderContainer().read(themeDataLightProvider);
+    final theme = ProviderContainer().read(
+      brightness == Brightness.dark
+          ? themeDataDarkProvider
+          : themeDataLightProvider,
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -189,7 +248,8 @@ void main() {
                       currentPrice: 250,
                     ),
                   },
-              positionLimit: () => 10,
+              positionLimit: () => limit,
+              firstImport: firstImport,
             );
           }),
         ],
@@ -321,5 +381,75 @@ void main() {
     expect(find.text('statement_import_pick_again'), findsOneWidget);
     expect(find.text('statement_import_intro_porty'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  group('tope de posiciones de Free', () {
+    // Tiene AAPL y TSLA (2) y el tope es 1: pasa el tope.
+    for (final brightness in Brightness.values) {
+      testWidgets('primera importación: entra entera y lo avisa '
+          '(${brightness.name})', (tester) async {
+        final notifier = await pump(
+          tester,
+          width: 375,
+          height: 2400,
+          client: _ClientWithNewTicker(),
+          limit: 1,
+          firstImport: _FirstImport(),
+          brightness: brightness,
+        );
+        await notifier.pickAndRead();
+        await notifier.checkQuotes();
+        await tester.pumpAndSettle();
+
+        expect(find.text('import_first_full_note'), findsOneWidget);
+        expect(find.text('import_limit_exceeded'), findsNothing);
+        expect(notifier.state.canImport, isTrue);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('cupo gastado: aviso de tope y paywall disponible '
+          '(${brightness.name})', (tester) async {
+        final notifier = await pump(
+          tester,
+          width: 375,
+          height: 2400,
+          client: _ClientWithNewTicker(),
+          limit: 1,
+          firstImport: _FirstImport(available: false),
+          brightness: brightness,
+        );
+        await notifier.pickAndRead();
+        await notifier.checkQuotes();
+        await tester.pumpAndSettle();
+
+        expect(find.text('import_limit_exceeded'), findsOneWidget);
+        expect(find.text('import_see_plans'), findsOneWidget);
+        expect(find.text('import_first_full_note'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('sin red al pedir el cupo: error de red y no importa', (
+      tester,
+    ) async {
+      final notifier = await pump(
+        tester,
+        width: 375,
+        height: 2400,
+        client: _ClientWithNewTicker(),
+        limit: 1,
+        firstImport: _FirstImport(offline: true),
+      );
+      await notifier.pickAndRead();
+      await notifier.checkQuotes();
+      await tester.pumpAndSettle();
+      expect(find.text('import_first_full_note'), findsOneWidget);
+
+      await notifier.importReady();
+      await tester.pumpAndSettle();
+      expect(find.text('statement_import_error_network'), findsOneWidget);
+      expect(notifier.state.phase, ImportPhase.preview);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

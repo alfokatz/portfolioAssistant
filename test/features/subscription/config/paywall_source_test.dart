@@ -20,6 +20,44 @@ void main() {
       }
     });
 
+    test('2026-11-05 sources keep their wire values', () {
+      expect(PaywallSource.homeBenchmark, 'home_benchmark');
+      expect(PaywallSource.weeklyReportSp500, 'weekly_report_sp500');
+      expect(PaywallSource.weeklyReportLocked, 'weekly_report');
+      expect(
+        PaywallSource.weeklyReportCourtesyEnded,
+        'weekly_report_courtesy_ended',
+      );
+      expect(PaywallSource.etoroConnect, 'etoro_connect');
+      expect(PaywallSource.priceAlertLimit, 'price_alert_limit');
+      expect(PaywallSource.priceAlertReactivate, 'price_alert_reactivate');
+      expect(
+        PaywallSource.chatActionPositionLimit,
+        'chat_action_position_limit',
+      );
+      expect(PaywallSource.chatNewsNotHeld, 'chat_news_not_held');
+      for (final s in [
+        PaywallSource.homeBenchmark,
+        PaywallSource.weeklyReportSp500,
+        PaywallSource.weeklyReportLocked,
+        PaywallSource.weeklyReportCourtesyEnded,
+        PaywallSource.etoroConnect,
+        PaywallSource.priceAlertLimit,
+        PaywallSource.priceAlertReactivate,
+        PaywallSource.chatActionPositionLimit,
+        PaywallSource.chatNewsNotHeld,
+      ]) {
+        expect(PaywallSource.values, contains(s));
+      }
+    });
+
+    test('chatTurnLocked for heldNews', () {
+      expect(
+        PaywallSource.chatTurnLocked(PlanFeature.heldNews),
+        'chat_turn_locked_held_news',
+      );
+    });
+
     test('chatTurnLocked builds snake_case sources for every feature', () {
       expect(
         PaywallSource.chatTurnLocked(PlanFeature.investSimulation),

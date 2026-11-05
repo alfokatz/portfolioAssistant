@@ -50,6 +50,7 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     required this.source,
     this.onUpgraded,
     this.preview,
+    this.lockedFeature,
   });
 
   final PaywallReason reason;
@@ -62,6 +63,10 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
   /// análisis del ticker desde el que se abrió).
   final WidgetBuilder? preview;
 
+  /// La feature que el usuario quiso usar y estaba bloqueada (para medir
+  /// qué feature convierte: `locked_feature` en `paywall_viewed`).
+  final PlanFeature? lockedFeature;
+
   static Future<void> show(
     BuildContext context,
     WidgetRef ref, {
@@ -69,6 +74,7 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     required String source,
     VoidCallback? onUpgraded,
     WidgetBuilder? preview,
+    PlanFeature? lockedFeature,
   }) {
     assert(
       PaywallSource.isValid(source) && source != reason.name,
@@ -104,31 +110,38 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
             source: source,
             onUpgraded: onUpgraded,
             preview: preview,
+            lockedFeature: lockedFeature,
           ),
     );
   }
 
   /// Lo que el paywall lista de cada plan, de la matriz de planes (la misma
-  /// fuente que el gating): Gold abre con "Todo lo de Premium".
+  /// fuente que el gating): Gold cierra con "Todo lo de Premium".
   static List<String> featureKeysFor(SubscriptionTier tier) => [
-    if (tier == SubscriptionTier.gold) 'plan_feature_everything_premium',
     ...PlanMatrix.marketingKeys(tier),
+    if (tier == SubscriptionTier.gold) 'plan_feature_everything_premium',
   ];
 
-  /// Planes que se ofrecen: Gold primero; desde Premium solo Gold.
+  /// Planes que se ofrecen, en orden según lo que el motivo vende
+  /// ([PaywallReason.offerTier]): quien ya es Premium o el motivo de Gold ven
+  /// solo Gold; un motivo de Premium abre con Premium y Gold segundo; sin
+  /// preferencia, Gold primero.
   static List<SubscriptionTier> visibleTiersFor(
     PaywallReason reason,
     SubscriptionTier currentTier,
   ) {
-    if (reason == PaywallReason.goldRequired ||
+    final offer = reason.offerTier(currentTier: currentTier);
+    if (offer == SubscriptionTier.gold ||
         currentTier == SubscriptionTier.premium) {
       return const [SubscriptionTier.gold];
+    }
+    if (offer == SubscriptionTier.premium) {
+      return const [SubscriptionTier.premium, SubscriptionTier.gold];
     }
     return const [SubscriptionTier.gold, SubscriptionTier.premium];
   }
 
   static String titleKeyFor(PaywallReason reason) => switch (reason) {
-    PaywallReason.modeLocked => 'paywall_title_mode_locked',
     PaywallReason.plans => 'paywall_title_plans',
     PaywallReason.positionLimit => 'paywall_title_position_limit',
     PaywallReason.simulations => 'paywall_title_simulations',
@@ -140,10 +153,12 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     PaywallReason.quotaLow => 'paywall_title_quota_low',
     PaywallReason.brokerSync => 'paywall_title_broker_sync',
     PaywallReason.priceAlerts => 'paywall_title_price_alerts',
+    PaywallReason.benchmark => 'paywall_title_benchmark',
+    PaywallReason.watchlistLimit => 'paywall_title_watchlist_limit',
+    PaywallReason.heldNews => 'paywall_title_held_news',
   };
 
   static String subtitleKeyFor(PaywallReason reason) => switch (reason) {
-    PaywallReason.modeLocked => 'paywall_subtitle_mode_locked',
     PaywallReason.plans => 'paywall_subtitle_plans',
     PaywallReason.positionLimit => 'paywall_subtitle_position_limit',
     PaywallReason.simulations => 'paywall_subtitle_simulations',
@@ -155,6 +170,9 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
     PaywallReason.quotaLow => 'paywall_subtitle_quota_low',
     PaywallReason.brokerSync => 'paywall_subtitle_broker_sync',
     PaywallReason.priceAlerts => 'paywall_subtitle_price_alerts',
+    PaywallReason.benchmark => 'paywall_subtitle_benchmark',
+    PaywallReason.watchlistLimit => 'paywall_subtitle_watchlist_limit',
+    PaywallReason.heldNews => 'paywall_subtitle_held_news',
   };
 
   @override
@@ -200,6 +218,8 @@ class _SubscriptionPaywallSheetState
       ],
       'queries_used': subscription.queriesUsed,
       'queries_limit': subscription.queriesLimit,
+      if (widget.lockedFeature != null)
+        'locked_feature': PaywallSource.snake(widget.lockedFeature!.name),
     });
   }
 
@@ -329,6 +349,15 @@ class _SubscriptionPaywallSheetState
           SubscriptionTier.premium;
       return key.tr(
         namedArgs: {'count': '${PlanMatrix.of(next).monthlyQueries}'},
+      );
+    }
+    if (widget.reason == PaywallReason.watchlistLimit) {
+      return key.tr(
+        namedArgs: {
+          'limit': '${PlanMatrix.of(SubscriptionTier.free).watchlistLimit}',
+          'premium':
+              '${PlanMatrix.of(SubscriptionTier.premium).watchlistLimit}',
+        },
       );
     }
     if (widget.reason != PaywallReason.positionLimit) return key.tr();
@@ -472,9 +501,8 @@ class _SubscriptionPaywallSheetState
                   tier: visibleTiers[i],
                   period: period,
                   featured: visibleTiers[i] == SubscriptionTier.gold,
-                  showRecommendedBadge:
-                      visibleTiers.length > 1 &&
-                      visibleTiers[i] == SubscriptionTier.gold,
+                  // El badge va en la primera tarjeta cuando hay dos.
+                  showRecommendedBadge: visibleTiers.length > 1 && i == 0,
                   price: offer.priceOf(visibleTiers[i], period),
                   savingsPercent:
                       period == BillingPeriod.annual
@@ -672,6 +700,12 @@ class _PaywallPlanCard extends StatelessWidget {
     SubscriptionTier.free => '',
   };
 
+  String get _promiseKey => switch (tier) {
+    SubscriptionTier.premium => 'paywall_premium_promise',
+    SubscriptionTier.gold => 'paywall_gold_promise',
+    SubscriptionTier.free => '',
+  };
+
   String get _buttonKey => switch (tier) {
     SubscriptionTier.premium => 'paywall_upgrade_premium',
     SubscriptionTier.gold => 'paywall_upgrade_gold',
@@ -757,6 +791,13 @@ class _PaywallPlanCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (_promiseKey.isNotEmpty) ...[
+                const SizedBox(height: AppDimens.sp6),
+                Text(
+                  _promiseKey.tr(),
+                  style: small?.copyWith(color: secondary, height: 1.4),
+                ),
+              ],
               const SizedBox(height: AppDimens.sp6),
               // El skeleton del precio sigue las reglas de todos los
               // loaders: aparece si tarda más de 300 ms y dura al menos 400.

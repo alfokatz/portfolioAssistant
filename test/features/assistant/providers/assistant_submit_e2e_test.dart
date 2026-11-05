@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
@@ -561,6 +562,7 @@ void main() {
 
     expect(h.state.paywallReason, PaywallReason.simulations);
     expect(h.state.paywallSource, 'chat_turn_locked_invest_simulation');
+    expect(h.state.paywallFeature, PlanFeature.investSimulation);
     expect(h.state.messages, hasLength(1));
   });
 
@@ -1062,22 +1064,34 @@ void main() {
       expect(brief, contains(proposal.id));
     });
 
-    test('free: proposing is locked and the Premium paywall replaces the '
-        'turn', () async {
+    test('free: proposing is in every plan, so the card is prepared and '
+        'there is no paywall', () async {
       final h = harness(SubscriptionTier.free, [
         _call('propose_buy', {
           'ticker': 'AAPL',
           'shares': 10,
           'date': '2026-09-25',
         }),
+        answerWithProposals,
       ]);
 
       await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
 
-      expect(h.state.paywallReason, PaywallReason.modeLocked);
-      expect(h.state.paywallSource, 'chat_turn_locked_portfolio_actions');
-      expect(h.state.messages, hasLength(1));
-      expect(h.quotes.dailyCalls, isEmpty);
+      expect(h.state.paywallReason, isNull);
+      expect(h.lastAnswer.isFallback, isFalse);
+      final calls =
+          h.notifier.service!
+              .evidenceListenable(h.lastAnswer.surfaceId!)
+              .value
+              .calls;
+      final result = calls.singleWhere((c) => c.name == 'propose_buy').result;
+      expect(result['status'], 'ok');
+      expect(ActionProposal.fromToolResult(result)!.ticker, 'AAPL');
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(
+        h.state.actionProgress(result['proposal_id'] as String).status,
+        ActionProposalStatus.pending,
+      );
     });
   });
 

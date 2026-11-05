@@ -23,6 +23,9 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+
+import '../subscription/paywall_test_harness.dart' show FakeProductEvents;
 
 final _today = DateTime(2026, 10, 16, 15);
 
@@ -167,6 +170,7 @@ void main() {
     tearDownAll(() => PortyAvatar.ambientMotion = true);
 
     late _Repo repo;
+    late FakeProductEvents events;
 
     Future<void> pump(
       WidgetTester tester, {
@@ -178,10 +182,12 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       repo = _Repo(List.of(items));
+      events = FakeProductEvents();
       final theme = ProviderContainer().read(themeDataLightProvider);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            productEventsProvider.overrideWithValue(events),
             watchlistRepositoryProvider.overrideWithValue(repo),
             quoteRepositoryProvider.overrideWithValue(_Quotes()),
             subscriptionProvider.overrideWith((ref) => _Subscription(tier)),
@@ -210,14 +216,60 @@ void main() {
       await settle(tester);
     }
 
-    testWidgets('Free: Porty explica para qué sirve y lleva a los planes', (
+    testWidgets('Free vacía: puede seguir hasta 3, sin pantalla bloqueada', (
       tester,
     ) async {
       await pump(tester, tier: SubscriptionTier.free);
-      expect(find.text('watchlist_intro_porty'), findsOneWidget);
-      expect(find.text('watchlist_locked_body'), findsOneWidget);
-      expect(find.text('watchlist_see_plans'), findsOneWidget);
-      expect(find.byTooltip('watchlist_add'), findsNothing);
+      expect(find.text('watchlist_add_first'), findsOneWidget);
+      expect(find.text('watchlist_locked_body'), findsNothing);
+      expect(find.text('watchlist_see_plans'), findsNothing);
+    });
+
+    testWidgets('Free con 3: ve "N de 3" y el + abre el paywall del tope', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.free,
+        items: [
+          for (final t in ['AMZN', 'MSFT', 'NVDA'])
+            WatchlistItem(id: t, symbol: t, addedPrice: 100, createdAt: _today),
+        ],
+      );
+      expect(find.text('watchlist_count'), findsOneWidget);
+      expect(repo.items, hasLength(3));
+
+      await tester.tap(find.byTooltip('watchlist_add'));
+      await settle(tester);
+
+      expect(find.text('paywall_title_watchlist_limit'), findsOneWidget);
+      final viewed = events.of(ProductEvent.paywallViewed).single;
+      expect(viewed['reason'], 'watchlistLimit');
+      expect(viewed['source'], 'watchlist');
+      expect(viewed['locked_feature'], 'market_data');
+      // Free ve Premium primero.
+      expect(viewed['visible_tiers'], ['premium', 'gold']);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Free: si el servidor corta con watchlist_limit_reached, '
+        'abre el mismo paywall', (tester) async {
+      await pump(tester, tier: SubscriptionTier.free);
+      repo.failAdd = const WatchlistLimitReached();
+      await tester.tap(find.text('watchlist_add_first'));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField), 'a');
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
+      await tester.tap(find.text('AMZN'));
+      await settle(tester);
+
+      expect(find.text('paywall_title_watchlist_limit'), findsOneWidget);
+      expect(repo.items, isEmpty);
+      expect(
+        events.of(ProductEvent.paywallViewed).single['locked_feature'],
+        'market_data',
+      );
     });
 
     testWidgets('Premium vacía: invita a buscar una acción', (tester) async {

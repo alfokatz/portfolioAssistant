@@ -23,20 +23,27 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 /// abrió ([source], ver `PaywallSource`). Viaja como el `reason` de
 /// `TurnAbortedException`.
 class ChatPaywall {
-  const ChatPaywall(this.reason, this.source);
+  const ChatPaywall(this.reason, this.source, [this.feature]);
 
   final PaywallReason reason;
   final String source;
 
+  /// La capacidad que el plan no incluyó: va como `locked_feature` en
+  /// `paywall_viewed` (ver `SubscriptionPaywallSheet.show`).
+  final PlanFeature? feature;
+
   @override
   bool operator ==(Object other) =>
-      other is ChatPaywall && other.reason == reason && other.source == source;
+      other is ChatPaywall &&
+      other.reason == reason &&
+      other.source == source &&
+      other.feature == feature;
 
   @override
-  int get hashCode => Object.hash(reason, source);
+  int get hashCode => Object.hash(reason, source, feature);
 
   @override
-  String toString() => 'ChatPaywall(${reason.name}, $source)';
+  String toString() => 'ChatPaywall(${reason.name}, $source, ${feature?.name})';
 }
 
 /// Las tools de datos del asistente, en un orden fijo: la lista completa
@@ -145,15 +152,20 @@ abstract final class AssistantTurnPolicy {
           // get_quote / get_dividends marcan el mercado ajeno sin pasar
           // por `lockedFeature`.
           PlanFeature.marketData;
-      return ChatPaywall(reason, PaywallSource.chatTurnLocked(feature));
+      return ChatPaywall(
+        reason,
+        PaywallSource.chatTurnLocked(feature),
+        feature,
+      );
     }
     return null;
   }
 
   /// Los paywalls de Premium que cortan el turno, en orden de prioridad
-  /// (spec 2026-11-02 §3.2). Gold no corta: lo muestra `QaGoldTeaser`.
+  /// (spec 2026-11-05 §3.5). Gold no corta: lo muestra `QaGoldTeaser`.
   static const _turnPaywallPriority = [
-    PaywallReason.modeLocked,
+    PaywallReason.brokerSync,
+    PaywallReason.heldNews,
     PaywallReason.simulations,
     PaywallReason.goals,
     PaywallReason.allocationPlan,

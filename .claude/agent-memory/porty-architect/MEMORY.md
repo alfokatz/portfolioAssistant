@@ -19,3 +19,7 @@
 - Cupos de regalo (degustaciones, cortesías): contador en servidor, tabla con PK idempotente (por turno o semana) + RPC `consume_*`/`*_status`, límite en `plan_limits` espejado en `PlanSpec`; patrón `weekly_free_analysis`.
 - Hash del allowlist = solo system prompt + catálogo: descripciones y resultados de tools (`AnswerGuide`) no lo cambian; teasers nuevos fuera del catálogo para no desplegar `ai-chat`.
 - `claim_weekly_report` vigente es la de 20261002130000 (con `disabled`): redefinirla copiando ese cuerpo.
+- Tope de posiciones Free vive solo en la app (sin trigger en migraciones); cupos "una vez" que deben sobrevivir reinstalación → tabla PK user_id + RPC claim idempotente por import_id.
+- Topes de costo nuevos sobre RPC booleanas ya desplegadas: redefinir la booleana llamando a la nueva jsonb, así el db push protege antes del deploy de functions.
+- Cohortes de flags: `app_config_history` (trigger, sin `users`) en vez de prop `flags` en eventos.
+- Noticias para Premium solo con news_provider v2 (Google News RSS sin uso comercial); servidor valida con `news_data_allowed` (Gold o Premium + ticker en positions).

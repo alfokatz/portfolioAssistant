@@ -70,6 +70,21 @@ class EtoroSyncClient {
     return Uri.parse(url);
   }
 
+  /// Termina la vinculación con el `handle` que trajo el deep link de vuelta
+  /// (`status=pending`). El servidor solo la acepta con el JWT del mismo
+  /// usuario que la inició. Devuelve `status`, `reason` y `mode`, los mismos
+  /// valores que antes viajaban en el deep link.
+  Future<Map<String, String>> completeConnect(String handle) async {
+    final data = await _post('/connect/complete', body: {'handle': handle});
+    final status = data['status'];
+    if (status is! String) throw const EtoroSyncException('bad_response');
+    return {
+      'status': status,
+      if (data['reason'] is String) 'reason': data['reason'] as String,
+      if (data['mode'] is String) 'mode': data['mode'] as String,
+    };
+  }
+
   /// Sincroniza. `throttled`: el servidor devolvió la última (hubo una hace
   /// menos de 5 minutos).
   Future<({EtoroImportResult result, bool throttled})> sync() async {

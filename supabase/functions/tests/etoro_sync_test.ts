@@ -48,7 +48,26 @@ class MemoryStore implements EtoroStore {
   takeOAuthState(state: string) {
     const s = this.states.get(state) ?? null;
     this.states.delete(state);
+    this.pending.delete(state);
     return Promise.resolve(s);
+  }
+  /// state → código y hash del handle (lo que guarda el callback).
+  pending = new Map<string, { code: string; hash: string }>();
+  attachCallback(state: string, code: string, hash: string) {
+    const s = this.states.get(state);
+    if (!s || this.pending.has(state)) return Promise.resolve(null);
+    this.pending.set(state, { code, hash });
+    return Promise.resolve(s);
+  }
+  takeCompletion(hash: string) {
+    for (const [state, p] of this.pending) {
+      if (p.hash !== hash) continue;
+      const s = this.states.get(state)!;
+      this.pending.delete(state);
+      this.states.delete(state);
+      return Promise.resolve({ ...s, code: p.code });
+    }
+    return Promise.resolve(null);
   }
   getConnection(u: string) {
     return Promise.resolve(this.connections.get(u) ?? null);
@@ -191,11 +210,29 @@ async function connect(store: MemoryStore, fake: FakeEtoro, deps: Deps, user = "
   const authorizeUrl = new URL((await start.json()).authorizeUrl);
   fake.nonce = authorizeUrl.searchParams.get("nonce")!;
   const state = authorizeUrl.searchParams.get("state")!;
-  return await handle(
+  const cb = await handle(
     new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${state}`),
     deps,
     () => store,
   );
+  return await finish(cb, store, deps, user);
+}
+
+/// Lo que hace la app con la vuelta: si eToro autorizó (`pending` + handle),
+/// completa con su JWT. Devuelve el resultado como el deep link de antes
+/// (`porty-etoro://callback?status=...`) para comparar fácil.
+async function finish(cb: Response, store: MemoryStore, deps: Deps, user = "u1"): Promise<Response> {
+  const location = new URL(cb.headers.get("location")!);
+  const handleToken = location.searchParams.get("handle");
+  if (location.searchParams.get("status") !== "pending" || !handleToken) return cb;
+  const done = await handle(post("/connect/complete", user, { handle: handleToken }), deps, () => store);
+  assertEquals(done.status, 200);
+  const result = await done.json();
+  const url = new URL("porty-etoro://callback");
+  url.searchParams.set("status", result.status);
+  if (result.reason) url.searchParams.set("reason", result.reason);
+  if (result.mode) url.searchParams.set("mode", result.mode);
+  return new Response(null, { status: 302, headers: { location: url.toString() } });
 }
 
 function setup(tier = "premium") {
@@ -388,10 +425,14 @@ Deno.test("callback: ID token con otro nonce → falla cerrado, sin guardar nada
   const start = await handle(post("/connect/start", "u1"), deps, () => store);
   const url = new URL((await start.json()).authorizeUrl);
   fake.nonce = "otro-nonce";
-  const r = await handle(
-    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+  const r = await finish(
+    await handle(
+      new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+      deps,
+      () => store,
+    ),
+    store,
     deps,
-    () => store,
   );
   assertEquals(r.headers.get("location"), "porty-etoro://callback?status=error&reason=failed");
   assertEquals(store.tokens.size, 0);
@@ -414,6 +455,83 @@ Deno.test("callback: state reusado, vencido o el usuario canceló", async () => 
   const state2 = new URL((await start2.json()).authorizeUrl).searchParams.get("state")!;
   deps.nowRef.t += 11 * 60 * 1000;
   assertEquals((await cb(`code=good-code&state=${state2}`)).headers.get("location"), "porty-etoro://callback?status=error&reason=expired");
+});
+
+Deno.test("callback: solo guarda el código; sin /connect/complete no hay tokens ni importación", async () => {
+  const { store, fake, deps } = setup();
+  const start = await handle(post("/connect/start", "u1"), deps, () => store);
+  const url = new URL((await start.json()).authorizeUrl);
+  fake.nonce = url.searchParams.get("nonce")!;
+  const cb = await handle(
+    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+    deps,
+    () => store,
+  );
+  const location = new URL(cb.headers.get("location")!);
+  assertEquals(location.searchParams.get("status"), "pending");
+  assert(/^[A-Za-z0-9_-]{40,}$/.test(location.searchParams.get("handle")!));
+  // Ni el código ni el state viajan de vuelta.
+  assertFalse(cb.headers.get("location")!.includes("good-code"));
+  assertEquals(store.tokens.size, 0);
+  assertEquals(store.connections.size, 0);
+  assertEquals(fake.apiCalls().length, 0);
+});
+
+Deno.test("callback: otra cuenta no puede completar la vinculación que inició u1 (y el handle se quema)", async () => {
+  const { store, fake, deps } = setup();
+  store.tiers.set("atacante", "premium");
+  // u1 genera la URL; la completa el navegador de otra persona y el handle
+  // termina en manos de otra cuenta de Porty.
+  const start = await handle(post("/connect/start", "u1"), deps, () => store);
+  const url = new URL((await start.json()).authorizeUrl);
+  fake.nonce = url.searchParams.get("nonce")!;
+  const cb = await handle(
+    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+    deps,
+    () => store,
+  );
+  const handleToken = new URL(cb.headers.get("location")!).searchParams.get("handle")!;
+
+  const other = await handle(post("/connect/complete", "atacante", { handle: handleToken }), deps, () => store);
+  assertEquals(other.status, 403);
+  assertEquals((await other.json()).error.type, "etoro_link_mismatch");
+  assertEquals(store.tokens.size, 0);
+  assertEquals(store.connections.size, 0);
+
+  // Un solo uso: tampoco sirve después para u1.
+  const late = await handle(post("/connect/complete", "u1", { handle: handleToken }), deps, () => store);
+  assertEquals(late.status, 410);
+  assertEquals((await late.json()).error.type, "etoro_link_expired");
+});
+
+Deno.test("connect/complete: sin JWT 401, handle inválido 400, handle reusado 410, vencido 410", async () => {
+  const { store, fake, deps } = setup();
+  assertEquals((await handle(post("/connect/complete", null, { handle: "x".repeat(40) }), deps, () => store)).status, 401);
+  assertEquals((await handle(post("/connect/complete", "u1", { handle: "corto" }), deps, () => store)).status, 400);
+
+  const ok = await connect(store, fake, deps);
+  assertEquals(ok.headers.get("location"), "porty-etoro://callback?status=ok");
+
+  const start = await handle(post("/connect/start", "u1"), deps, () => store);
+  const url = new URL((await start.json()).authorizeUrl);
+  fake.nonce = url.searchParams.get("nonce")!;
+  const state = url.searchParams.get("state")!;
+  const cb = await handle(
+    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${state}`),
+    deps,
+    () => store,
+  );
+  // La misma vuelta repetida (replay del callback) no genera otro handle.
+  const replay = await handle(
+    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${state}`),
+    deps,
+    () => store,
+  );
+  assertEquals(replay.headers.get("location"), "porty-etoro://callback?status=error&reason=expired");
+  const handleToken = new URL(cb.headers.get("location")!).searchParams.get("handle")!;
+  deps.nowRef.t += 11 * 60 * 1000;
+  const expired = await handle(post("/connect/complete", "u1", { handle: handleToken }), deps, () => store);
+  assertEquals(expired.status, 410);
 });
 
 // ── sincronizar ─────────────────────────────────────────────────────────────
@@ -631,10 +749,14 @@ Deno.test("ETORO_ENVIRONMENT=demo: pide demo:read y lee los endpoints demo (nunc
   const url = new URL((await start.json()).authorizeUrl);
   assertEquals(url.searchParams.get("scope"), "openid etoro-public:demo:read");
   fake.nonce = url.searchParams.get("nonce")!;
-  const r = await handle(
-    new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+  const r = await finish(
+    await handle(
+      new Request(`http://local/functions/v1/etoro-sync/callback?code=good-code&state=${url.searchParams.get("state")}`),
+      demoDeps,
+      () => store,
+    ),
+    store,
     demoDeps,
-    () => store,
   );
   assertEquals(r.headers.get("location"), "porty-etoro://callback?status=ok");
   const paths = fake.apiCalls().map((c) => new URL(c.url).pathname);

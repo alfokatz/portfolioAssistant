@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/features/notifications/domain/price_alert.da
 import 'package:portfolio_assistant/features/notifications/domain/price_alert_form.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -171,7 +172,7 @@ class _CreatePriceAlertSheetState extends ConsumerState<CreatePriceAlertSheet> {
         context,
         ref,
         reason: PaywallReason.priceAlerts,
-        source: 'price_alert_limit',
+        source: PaywallSource.priceAlertLimit,
       );
     } on PriceAlertFailure catch (e) {
       if (!mounted) return;

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:genui/genui.dart' show SurfaceDefinition;
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_streamed_text_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_text_indent_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
@@ -584,6 +585,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       ref,
       reason: PaywallReason.marketDataLocked,
       source: PaywallSource.chatMarketTeaser,
+      lockedFeature: PlanFeature.marketData,
       onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
     );
   }
@@ -602,11 +604,17 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
   void _openGoldPaywall(AssistantProvider notifier, QaPaywallRequest request) {
     final surfaceId = request.surfaceId;
     final ticker = request.ticker;
+    final feature = request.feature;
     SubscriptionPaywallSheet.show(
       context,
       ref,
-      reason: PaywallReason.goldRequired,
+      // Noticias de lo que tiene: es de Premium, no de Gold.
+      reason:
+          feature == PlanFeature.heldNews
+              ? PaywallReason.heldNews
+              : PaywallReason.goldRequired,
       source: request.source,
+      lockedFeature: feature,
       preview: request.preview,
       onUpgraded:
           surfaceId == null || ticker == null
@@ -844,6 +852,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
             // assert de AssistantState); el fallback solo evita perder la
             // hoja si alguno nuevo se olvida.
             source: next.paywallSource ?? 'chat_unattributed',
+            lockedFeature: next.paywallFeature,
             onUpgraded: () => ref.read(subscriptionProvider.notifier).refresh(),
           ).whenComplete(notifier.clearPaywall);
         });

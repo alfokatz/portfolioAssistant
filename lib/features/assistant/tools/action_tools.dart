@@ -95,11 +95,18 @@ abstract final class ActionGuides {
       'adds a link to open it) and it updates by itself; future_date, '
       'sale_before_purchase…: say why).';
 
+  static const positionLimit =
+      'QaAnswerText only: their plan allows up to `limit` holdings and they '
+      'are at the limit, so you cannot prepare a buy of a ticker they do not '
+      'hold yet; they can upgrade to Premium for unlimited holdings. Say it '
+      'in one or two sentences; do not prepare anything.';
+
   static Map<String, Object?> attachTo(Map<String, Object?> result) =>
       switch (result['status']) {
         'ok' => AnswerGuide.attach(result, ok),
         'needs_input' => AnswerGuide.attach(result, needsInput),
         'invalid' => AnswerGuide.attach(result, invalid),
+        'limit_reached' => AnswerGuide.attach(result, positionLimit),
         _ => result,
       };
 }
@@ -278,8 +285,8 @@ class ProposeBuyTool extends _ProposeTool {
       'for that. Nothing is saved until the user confirms. NOT for advice ("¿compro?") '
       'or hypotheticals ("si comprara…"). One call per purchase. Pass shares '
       'OR amount_usd, as the user said it. status: ok | needs_input | '
-      'invalid | failed (price_unavailable: could not verify the ticker) | '
-      'locked.';
+      'invalid | limit_reached | failed (price_unavailable: could not verify '
+      'the ticker) | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -304,6 +311,16 @@ class ProposeBuyTool extends _ProposeTool {
     if (locked != null) return locked;
 
     final ticker = _ticker(args);
+    // Un ticker nuevo con la cartera en el tope del plan (Free: 10): no se
+    // pide fecha ni cantidad para después no poder guardarlo. Más compras de
+    // lo que ya tiene siguen valiendo.
+    final limit = PlanMatrix.of(ctx.tier).positionLimit;
+    if (ticker != null &&
+        limit != null &&
+        !ctx.heldTickers.contains(ticker) &&
+        (ctx.summary?.valuations.length ?? 0) >= limit) {
+      return {'status': 'limit_reached', 'limit': limit};
+    }
     final shares = _positive(args, 'shares');
     final amountUsd = _positive(args, 'amount_usd');
     final date = _date(args);

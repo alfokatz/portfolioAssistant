@@ -10,6 +10,9 @@
 // - cuota: 1 consulta por turn_id, cobrada al llegar la respuesta final
 //   (ronda sin tool calls); rondas y reintentos del mismo turno no cobran;
 // - tope diario por plan, rate limit por usuario, tope de rondas por turno;
+// - tope diario de rondas SIN cobrar (turnos que nunca llegan a la final):
+//   el cliente elige tools y tool_choice, así que podía forzar una tool call
+//   en cada ronda y no pagar nunca (migración 20261105110000);
 // - registro de tokens y costo por turno (ai_turn_usage).
 // Streaming (stream: true) se reenvía tal cual, chunk a chunk.
 //

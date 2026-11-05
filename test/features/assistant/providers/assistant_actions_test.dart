@@ -6,6 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_status.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -21,6 +22,7 @@ import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_us
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
 import 'package:portfolio_assistant/features/binance/data/binance_repository.dart';
@@ -132,7 +134,7 @@ class _Session implements SupabaseAuthService {
 /// Home cargada que cuenta los refresh (después de guardar, la cartera se
 /// vuelve a traer).
 class _Home extends HomeProvider {
-  _Home(Ref ref)
+  _Home(Ref ref, PortfolioSummary summary)
     : super(
         ref: ref,
         getPortfolioSummaryUseCase: _UnusedSummary(),
@@ -141,7 +143,7 @@ class _Home extends HomeProvider {
         deletePositionsByTickerUseCase: _UnusedDeleteByTicker(),
         getClosedPositionsUseCase: _UnusedClosed(),
       ) {
-    state = HomeState(summary: heldSummary);
+    state = HomeState(summary: summary);
   }
 
   int refreshes = 0;
@@ -454,12 +456,17 @@ class _Portal implements SnaptradePortalLauncher {
 }
 
 class _Harness {
-  _Harness({SubscriptionTier tier = SubscriptionTier.premium, this.prefs})
-    : subscriptions = _Subscriptions(tier) {
+  _Harness({
+    SubscriptionTier tier = SubscriptionTier.premium,
+    this.prefs,
+    PortfolioSummary? summary,
+  }) : subscriptions = _Subscriptions(tier) {
     final tracker = AiUsageTracker(repository: subscriptions);
     container = ProviderContainer(
       overrides: [
-        homeProvider.overrideWith((ref) => home = _Home(ref)),
+        homeProvider.overrideWith(
+          (ref) => home = _Home(ref, summary ?? heldSummary),
+        ),
         aiUsageTrackerProvider.overrideWithValue(tracker),
         revenueCatServiceProvider.overrideWithValue(_UnusedRevenueCat()),
         subscriptionProvider.overrideWith(
@@ -528,6 +535,24 @@ final _buy = ActionDraft(
   ticker: 'AAPL',
   shares: 10,
   price: 210,
+  date: DateTime(2026, 9, 28),
+);
+
+/// Cartera de Free en el tope: diez tickers (T0…T9).
+final _tenHoldings = PortfolioSummary(
+  totalValue: 1000,
+  totalCostBasis: 1000,
+  totalPnlAbsolute: 0,
+  totalPnlPercent: 0,
+  valuations: [for (var i = 0; i < 10; i++) valuation('T$i', qty: 1)],
+);
+
+final _newTicker = ActionDraft(
+  proposalId: 'p9',
+  kind: ActionKind.buy,
+  ticker: 'NEWCO',
+  shares: 1,
+  price: 10,
   date: DateTime(2026, 9, 28),
 );
 
@@ -647,13 +672,51 @@ void main() {
       expect(h.progress('p4').status, ActionProposalStatus.failed);
     });
 
-    test('if the plan no longer includes it: nothing saved, paywall', () async {
+    test('Free registers a buy of a ticker it holds: no paywall', () async {
       h = _Harness(tier: SubscriptionTier.free);
       await h.notifier.executeAction(_buy);
+      expect(h.add.calls, hasLength(1));
+      expect(h.progress('p1').status, ActionProposalStatus.done);
+      expect(h.state.paywallReason, isNull);
+    });
+
+    test('Free at the position limit: a NEW ticker is not saved, paywall', () async {
+      h = _Harness(
+        tier: SubscriptionTier.free,
+        summary: _tenHoldings,
+      );
+      await h.notifier.executeAction(_newTicker);
       expect(h.add.calls, isEmpty);
-      expect(h.progress('p1').status, ActionProposalStatus.pending);
-      expect(h.state.paywallReason, PaywallReason.modeLocked);
-      expect(h.state.paywallSource, PaywallSource.chatActionPortfolio);
+      expect(h.progress('p9').status, ActionProposalStatus.pending);
+      expect(h.state.paywallReason, PaywallReason.positionLimit);
+      expect(h.state.paywallSource, PaywallSource.chatActionPositionLimit);
+      expect(h.state.paywallFeature, PlanFeature.unlimitedPositions);
+    });
+
+    test('Free at the position limit can still buy a ticker it holds', () async {
+      h = _Harness(
+        tier: SubscriptionTier.free,
+        summary: _tenHoldings,
+      );
+      await h.notifier.executeAction(
+        ActionDraft(
+          proposalId: 'p8',
+          kind: ActionKind.buy,
+          ticker: 'T3',
+          shares: 1,
+          price: 10,
+          date: DateTime(2026, 9, 28),
+        ),
+      );
+      expect(h.add.calls, hasLength(1));
+      expect(h.state.paywallReason, isNull);
+    });
+
+    test('Premium has no position limit', () async {
+      h = _Harness(summary: _tenHoldings);
+      await h.notifier.executeAction(_newTicker);
+      expect(h.add.calls, hasLength(1));
+      expect(h.state.paywallReason, isNull);
     });
   });
 
@@ -695,12 +758,51 @@ void main() {
       );
     });
 
-    test('Free: no se suma y abre los planes', () async {
+    test('Free sigue hasta 3 sin paywall', () async {
       h = _Harness(tier: SubscriptionTier.free);
-      await h.notifier.executeAction(follow('w6', 'NFLX'));
-      expect(h.watch.items, isEmpty);
-      expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+      for (final t in ['NFLX', 'DIS', 'KO']) {
+        await h.notifier.executeAction(follow('f$t', t));
+      }
+      expect(h.watch.items, hasLength(3));
+      expect(h.state.paywallReason, isNull);
+    });
+
+    test('Free en el tope: la 4.ª no se suma y abre watchlistLimit', () async {
+      h = _Harness(tier: SubscriptionTier.free);
+      for (final t in ['NFLX', 'DIS', 'KO']) {
+        await h.notifier.executeAction(follow('f$t', t));
+      }
+      await h.notifier.executeAction(follow('w6', 'PEP'));
+      expect(h.watch.items, hasLength(3));
+      expect(h.progress('w6').status, ActionProposalStatus.pending);
+      expect(h.state.paywallReason, PaywallReason.watchlistLimit);
       expect(h.state.paywallSource, PaywallSource.chatActionWatchlist);
+      expect(h.state.paywallFeature, PlanFeature.marketData);
+    });
+
+    test('Free en el tope: dejar de seguir sigue andando', () async {
+      h = _Harness(tier: SubscriptionTier.free);
+      for (final t in ['NFLX', 'DIS', 'KO']) {
+        await h.notifier.executeAction(follow('f$t', t));
+      }
+      await h.notifier.executeAction(
+        ActionDraft(
+          proposalId: 'u1',
+          kind: ActionKind.manage,
+          ticker: 'KO',
+          manageOp: ManageOp.unwatch,
+        ),
+      );
+      expect(h.watch.items, hasLength(2));
+      expect(h.state.paywallReason, isNull);
+    });
+
+    test('Premium sigue más de 3', () async {
+      h = _Harness();
+      for (final t in ['NFLX', 'DIS', 'KO', 'PEP']) {
+        await h.notifier.executeAction(follow('f$t', t));
+      }
+      expect(h.watch.items, hasLength(4));
     });
   });
 

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 
 void main() {
@@ -10,10 +11,7 @@ void main() {
         SubscriptionTier.fromStorageString('premium'),
         SubscriptionTier.premium,
       );
-      expect(
-        SubscriptionTier.fromStorageString('gold'),
-        SubscriptionTier.gold,
-      );
+      expect(SubscriptionTier.fromStorageString('gold'), SubscriptionTier.gold);
     });
 
     test('fromStorageString defaults to free for unknown values', () {
@@ -59,6 +57,55 @@ void main() {
   });
 
   group('SubscriptionPolicy per-data access', () {
+    // 2026-11-05: Premium lee noticias solo de lo que tiene (heldNews).
+    test('news by ticker: Gold all, Premium only held, Free none', () {
+      for (final held in [true, false]) {
+        expect(
+          SubscriptionPolicy.isNewsAllowedFor(
+            SubscriptionTier.gold,
+            held: held,
+          ),
+          isTrue,
+        );
+        expect(
+          SubscriptionPolicy.isNewsAllowedFor(
+            SubscriptionTier.free,
+            held: held,
+          ),
+          isFalse,
+        );
+      }
+      expect(
+        SubscriptionPolicy.isNewsAllowedFor(
+          SubscriptionTier.premium,
+          held: true,
+        ),
+        isTrue,
+      );
+      expect(
+        SubscriptionPolicy.isNewsAllowedFor(
+          SubscriptionTier.premium,
+          held: false,
+        ),
+        isFalse,
+      );
+      // La noticia sin ticker propio sigue siendo de Gold.
+      expect(
+        SubscriptionPolicy.isNewsAllowed(SubscriptionTier.premium),
+        isFalse,
+      );
+    });
+
+    test('portfolio actions and a watchlist of 3 are in every plan', () {
+      for (final tier in SubscriptionTier.values) {
+        expect(
+          SubscriptionPolicy.allows(tier, PlanFeature.portfolioActions),
+          isTrue,
+        );
+        expect(PlanMatrix.of(tier).watchlistLimit, greaterThanOrEqualTo(3));
+      }
+    });
+
     test('market data for non-held tickers: premium and gold', () {
       expect(
         SubscriptionPolicy.isMarketDataAllowed(SubscriptionTier.free),
@@ -97,7 +144,10 @@ void main() {
     });
 
     test('premium and gold have unlimited positions', () {
-      expect(SubscriptionPolicy.positionLimit(SubscriptionTier.premium), isNull);
+      expect(
+        SubscriptionPolicy.positionLimit(SubscriptionTier.premium),
+        isNull,
+      );
       expect(SubscriptionPolicy.positionLimit(SubscriptionTier.gold), isNull);
     });
   });
@@ -124,18 +174,12 @@ void main() {
 
   group('SubscriptionPolicy.isNewsAllowed', () {
     test('only gold tier can use news queries', () {
-      expect(
-        SubscriptionPolicy.isNewsAllowed(SubscriptionTier.free),
-        isFalse,
-      );
+      expect(SubscriptionPolicy.isNewsAllowed(SubscriptionTier.free), isFalse);
       expect(
         SubscriptionPolicy.isNewsAllowed(SubscriptionTier.premium),
         isFalse,
       );
-      expect(
-        SubscriptionPolicy.isNewsAllowed(SubscriptionTier.gold),
-        isTrue,
-      );
+      expect(SubscriptionPolicy.isNewsAllowed(SubscriptionTier.gold), isTrue);
     });
   });
 

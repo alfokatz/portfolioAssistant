@@ -56,8 +56,9 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   void _paywall() => SubscriptionPaywallSheet.show(
     context,
     ref,
-    reason: PaywallReason.marketDataLocked,
+    reason: PaywallReason.watchlistLimit,
     source: PaywallSource.watchlist,
+    lockedFeature: PlanFeature.marketData,
   );
 
   Future<void> _add() async {

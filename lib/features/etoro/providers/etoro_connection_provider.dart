@@ -145,9 +145,16 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
       final callback = await _launcher.authenticate(url);
       if (callback == null) return const EtoroConnectCancelled();
 
-      final status = callback.queryParameters['status'];
-      final reason = callback.queryParameters['reason'];
-      final freeImport = callback.queryParameters['mode'] == 'free_import';
+      // eToro autorizó: el servidor guardó el código y la vinculación la
+      // termina la app con su sesión (así nadie más puede completarla).
+      var result = callback.queryParameters;
+      final handle = result['handle'];
+      if (result['status'] == 'pending' && handle != null) {
+        result = await _repository.completeConnect(handle);
+      }
+      final status = result['status'];
+      final reason = result['reason'];
+      final freeImport = result['mode'] == 'free_import';
       // La importación gratis que falla no deja nada (ni conexión): se
       // puede volver a intentar.
       if (freeImport && status == 'sync_error') {

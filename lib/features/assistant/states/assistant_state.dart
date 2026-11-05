@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
@@ -47,6 +48,10 @@ class AssistantState {
   /// se limpian juntos.
   final String? paywallSource;
 
+  /// La capacidad que el plan no incluyó, para `locked_feature` en
+  /// `paywall_viewed`. Se limpia junto con [paywallReason].
+  final PlanFeature? paywallFeature;
+
   /// `true` una vez que la cascada de entrada del saludo inicial + chips de
   /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
   /// menos una vez. Vive acá (no en el `State` de ningún widget) por la
@@ -70,6 +75,7 @@ class AssistantState {
     this.isServiceReady = false,
     this.paywallReason,
     this.paywallSource,
+    this.paywallFeature,
     this.introRevealed = false,
     this.actionProposals = const {},
   }) : assert(
@@ -90,6 +96,7 @@ class AssistantState {
     bool? isServiceReady,
     PaywallReason? paywallReason,
     String? paywallSource,
+    PlanFeature? paywallFeature,
     bool? introRevealed,
     Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
@@ -111,6 +118,12 @@ class AssistantState {
               : paywallReason != null
               ? paywallSource
               : this.paywallSource,
+      paywallFeature:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallFeature
+              : this.paywallFeature,
       introRevealed: introRevealed ?? this.introRevealed,
       actionProposals: actionProposals ?? this.actionProposals,
     );
