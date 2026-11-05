@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_generator.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_input_builder.dart';
 import 'package:portfolio_assistant/features/weekly_report/data/weekly_report_repository.dart';
@@ -27,6 +28,7 @@ import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_sc
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 
+import '../subscription/paywall_test_harness.dart';
 import 'weekly_report_fixtures.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_chart.dart';
@@ -156,6 +158,8 @@ Widget reportApp(
   List<LocalizationsDelegate<Object?>>? localizationsDelegates,
   List<Locale>? supportedLocales,
   Locale? locale,
+  // Para los tests que abren el paywall (suscripción, eventos, regalos).
+  List<Override> extraOverrides = const [],
 }) {
   final container = ProviderContainer();
   final theme =
@@ -182,6 +186,7 @@ Widget reportApp(
   );
   return ProviderScope(
     overrides: [
+      ...extraOverrides,
       weeklyReportControllerProvider.overrideWith((ref) => controller),
       weeklyReportBenchmarkAllowedProvider.overrideWithValue(benchmarkAllowed),
       // Lo que tiene hoy (las filas que siguen en cartera abren la
@@ -563,6 +568,74 @@ void main() {
       expect(find.text('weekly_report_comparison'), findsNothing);
       expect(find.text('weekly_report_upcoming_section'), findsNothing);
       expect(find.text('weekly_report_follow_section'), findsNothing);
+    });
+
+    // El source del paywall del teaser de Gold según los regalos recibidos.
+    for (final (received, source) in <(int, String)>[
+      (0, 'weekly_report'),
+      (1, 'weekly_report'),
+      (2, 'weekly_report_courtesy_ended'),
+      (3, 'weekly_report_courtesy_ended'),
+    ]) {
+      testWidgets('Gold teaser with $received gifts received opens the '
+          'paywall from "$source"', (tester) async {
+        // Alto de sobra: el teaser queda abajo del informe.
+        tester.view.physicalSize = const Size(375, 3000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final h = PaywallHarness();
+        await tester.pumpWidget(
+          reportApp(
+            FixedWeeklyReportController(
+              ready(numbersReport(WeeklyReportVariant.numbersLocked)),
+            ),
+            benchmarkAllowed: false,
+            openScreen: true,
+            extraOverrides: [
+              ...h.overrides,
+              weeklyReportCourtesyCountProvider.overrideWith(
+                (ref) async => received,
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('weekly_report_locked_title'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        final viewed = h.events.of(ProductEvent.paywallViewed).single;
+        expect(viewed['source'], source);
+        expect(viewed['reason'], 'goldRequired');
+      });
+    }
+
+    testWidgets('Free S&P row opens the benchmark paywall, not a generic '
+        'one', (tester) async {
+      final h = PaywallHarness();
+      await tester.pumpWidget(
+        reportApp(
+          FixedWeeklyReportController(
+            ready(numbersReport(WeeklyReportVariant.numbersLocked)),
+          ),
+          benchmarkAllowed: false,
+          openScreen: true,
+          extraOverrides: [
+            ...h.overrides,
+            weeklyReportCourtesyCountProvider.overrideWith((ref) async => 0),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('weekly_report_sp500_locked'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final viewed = h.events.of(ProductEvent.paywallViewed).single;
+      expect(viewed['reason'], 'benchmark');
+      expect(viewed['source'], 'weekly_report_sp500');
+      expect(viewed['locked_feature'], 'benchmark');
+      expect(viewed['visible_tiers'], ['premium', 'gold']);
     });
 
     testWidgets('generation failed (has access): a note, no teaser', (

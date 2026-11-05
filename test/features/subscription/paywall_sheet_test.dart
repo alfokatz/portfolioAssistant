@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_skeleton.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
@@ -72,11 +73,90 @@ void main() {
           'reason': 'positionLimit',
           'source': 'add_position_limit',
           'tier': 'free',
-          'visible_tiers': ['gold', 'premium'],
+          'visible_tiers': ['premium', 'gold'],
           'queries_used': 7,
           'queries_limit': 20,
         },
       ]);
+    });
+
+    testWidgets('paywall_viewed carries locked_feature when it comes', (
+      tester,
+    ) async {
+      final h = PaywallHarness();
+      await h.pump(
+        tester,
+        reason: PaywallReason.heldNews,
+        source: 'chat_turn_locked_held_news',
+        lockedFeature: PlanFeature.heldNews,
+      );
+      await h.open(tester);
+
+      final viewed = h.events.of(ProductEvent.paywallViewed).single;
+      expect(viewed['locked_feature'], 'held_news');
+      expect(viewed['reason'], 'heldNews');
+    });
+
+    testWidgets('paywall_viewed has no locked_feature when none is given', (
+      tester,
+    ) async {
+      final h = PaywallHarness();
+      await h.pump(tester, reason: PaywallReason.plans, source: 'settings');
+      await h.open(tester);
+
+      expect(
+        h.events
+            .of(ProductEvent.paywallViewed)
+            .single
+            .containsKey('locked_feature'),
+        isFalse,
+      );
+    });
+
+    testWidgets('a Premium reason opens with Premium first, badge on it and '
+        'both promises', (tester) async {
+      final h = PaywallHarness(offer: monthlyOffer);
+      await h.pump(tester, reason: PaywallReason.marketDataLocked);
+      await h.open(tester);
+
+      final premium = tester.getTopLeft(find.text('paywall_upgrade_premium'));
+      final gold = tester.getTopLeft(find.text('paywall_upgrade_gold'));
+      expect(premium.dy, lessThan(gold.dy));
+      // Un solo badge, en la primera tarjeta.
+      expect(find.text('paywall_recommended'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('paywall_recommended')).dy,
+        lessThan(premium.dy),
+      );
+      expect(find.text('paywall_premium_promise'), findsOneWidget);
+      expect(find.text('paywall_gold_promise'), findsOneWidget);
+    });
+
+    testWidgets('a Gold reason from Free shows only Gold, no badge', (
+      tester,
+    ) async {
+      final h = PaywallHarness(offer: monthlyOffer);
+      await h.pump(tester, reason: PaywallReason.goldRequired);
+      await h.open(tester);
+
+      expect(find.text('paywall_upgrade_gold'), findsOneWidget);
+      expect(find.text('paywall_upgrade_premium'), findsNothing);
+      expect(find.text('paywall_recommended'), findsNothing);
+      expect(find.text('paywall_gold_promise'), findsOneWidget);
+    });
+
+    testWidgets('Gold plan card ends with "everything in Premium"', (
+      tester,
+    ) async {
+      final h = PaywallHarness(offer: monthlyOffer);
+      await h.pump(tester, reason: PaywallReason.goldRequired);
+      await h.open(tester);
+
+      final last = tester.getTopLeft(find.text('plan_feature_earnings'));
+      final all = tester.getTopLeft(
+        find.text('plan_feature_everything_premium'),
+      );
+      expect(all.dy, greaterThan(last.dy));
     });
 
     testWidgets('closing without buying logs paywall_dismissed', (
@@ -392,30 +472,71 @@ void main() {
   });
 
   group('SubscriptionPaywallSheet.visibleTiersFor', () {
-    test('Gold reason or a Premium user only see Gold', () {
+    const free = SubscriptionTier.free;
+    const gold = SubscriptionTier.gold;
+    const premium = SubscriptionTier.premium;
+
+    test('a Premium user only sees Gold, whatever the reason', () {
+      for (final reason in PaywallReason.values) {
+        expect(SubscriptionPaywallSheet.visibleTiersFor(reason, premium), [
+          gold,
+        ], reason: reason.name);
+      }
+    });
+
+    test('goldRequired only offers Gold', () {
       expect(
         SubscriptionPaywallSheet.visibleTiersFor(
           PaywallReason.goldRequired,
-          SubscriptionTier.free,
+          free,
         ),
-        [SubscriptionTier.gold],
+        [gold],
       );
+    });
+
+    test('every Premium-offer reason opens with Premium for a Free user', () {
       for (final reason in PaywallReason.values) {
-        expect(
-          SubscriptionPaywallSheet.visibleTiersFor(
-            reason,
-            SubscriptionTier.premium,
-          ),
-          [SubscriptionTier.gold],
-        );
+        if (reason.offerTier() != SubscriptionTier.premium) continue;
+        expect(SubscriptionPaywallSheet.visibleTiersFor(reason, free), [
+          premium,
+          gold,
+        ], reason: reason.name);
       }
+    });
+
+    test('plans keeps Gold first', () {
       expect(
-        SubscriptionPaywallSheet.visibleTiersFor(
-          PaywallReason.plans,
-          SubscriptionTier.free,
-        ),
-        [SubscriptionTier.gold, SubscriptionTier.premium],
+        SubscriptionPaywallSheet.visibleTiersFor(PaywallReason.plans, free),
+        [gold, premium],
       );
+    });
+  });
+
+  group('PaywallReason.offerTier', () {
+    test('Premium reasons, Gold reason and no preference', () {
+      for (final r in [
+        PaywallReason.positionLimit,
+        PaywallReason.simulations,
+        PaywallReason.goals,
+        PaywallReason.allocationPlan,
+        PaywallReason.marketDataLocked,
+        PaywallReason.brokerSync,
+        PaywallReason.priceAlerts,
+        PaywallReason.benchmark,
+        PaywallReason.watchlistLimit,
+        PaywallReason.heldNews,
+      ]) {
+        expect(r.offerTier(), SubscriptionTier.premium, reason: r.name);
+      }
+      expect(PaywallReason.goldRequired.offerTier(), SubscriptionTier.gold);
+      expect(PaywallReason.plans.offerTier(), isNull);
+    });
+
+    test('quota reasons offer Premium only from Free', () {
+      for (final r in [PaywallReason.quotaExceeded, PaywallReason.quotaLow]) {
+        expect(r.offerTier(), SubscriptionTier.premium);
+        expect(r.offerTier(currentTier: SubscriptionTier.premium), isNull);
+      }
     });
   });
 }

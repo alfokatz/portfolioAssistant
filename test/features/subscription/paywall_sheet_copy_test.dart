@@ -94,6 +94,77 @@ void main() {
       );
     });
 
+    testWidgets('watchlist limit fills {limit} and {premium} from the matrix', (
+      tester,
+    ) async {
+      final h = PaywallHarness();
+      await h.pump(tester, reason: PaywallReason.watchlistLimit);
+      await h.open(tester);
+      expect(find.text('Seguí todas las que te interesan'), findsOneWidget);
+      expect(
+        find.textContaining('Free sigue hasta 3. Con Premium seguís hasta 30'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('benchmark and held news titles, and both plan promises', (
+      tester,
+    ) async {
+      final h = PaywallHarness();
+      await h.pump(tester, reason: PaywallReason.benchmark);
+      await h.open(tester);
+      expect(find.text('¿Le ganás al mercado?'), findsOneWidget);
+      expect(
+        find.text('Tu plata ordenada y al día, y por qué se movió lo tuyo.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Porty te explica cualquier empresa y qué está pasando.'),
+        findsOneWidget,
+      );
+    });
+
+    test('2026-11-05 plan copy: es and en have the same keys, none of the '
+        'removed ones', () {
+      final es = _json('es-ES');
+      final en = _json('en-US');
+      expect(es.keys.toSet(), en.keys.toSet());
+      for (final key in [
+        'settings_plan_free_desc',
+        'settings_plan_premium_desc',
+        'settings_plan_gold_desc',
+        'settings_upgrade_pro',
+        'paywall_premium_desc',
+        'paywall_premium_feature_explore',
+        'paywall_premium_feature_benchmark',
+        'paywall_premium_feature_alerts',
+        'paywall_gold_desc',
+        'paywall_gold_feature_invest',
+        'paywall_gold_feature_plan',
+        'paywall_gold_feature_news',
+        'paywall_title_news',
+        'paywall_subtitle_news',
+      ]) {
+        expect(es.containsKey(key), isFalse, reason: key);
+      }
+      for (final key in [
+        'paywall_premium_promise',
+        'paywall_gold_promise',
+        'plan_feature_held_news',
+        'import_first_full_note',
+        'watchlist_locked_body',
+      ]) {
+        expect(es[key], isA<String>(), reason: key);
+        expect(en[key], isA<String>(), reason: key);
+      }
+      // Los placeholders de los avisos con números.
+      for (final json in [es, en]) {
+        expect(json['import_first_full_note'], contains('{limit}'));
+        expect(json['paywall_subtitle_watchlist_limit'], contains('{limit}'));
+        expect(json['paywall_subtitle_watchlist_limit'], contains('{premium}'));
+      }
+    });
+
     testWidgets(
       'iOS terms name the App Store',
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),

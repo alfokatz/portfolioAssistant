@@ -11,12 +11,14 @@ import 'package:portfolio_assistant/domain/use_cases/close_position_use_case.dar
 import 'package:portfolio_assistant/domain/use_cases/get_current_price_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/features/statement_import/data/first_import_repository.dart';
 import 'package:portfolio_assistant/features/statement_import/data/screenshot_shrinker.dart';
 import 'package:portfolio_assistant/features/statement_import/data/statement_import_client.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/holding_change.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:uuid/uuid.dart';
 
 /// Un archivo elegido por el usuario.
 class PickedStatement {
@@ -92,6 +94,9 @@ class StatementImportState {
     this.held = const {},
     this.sellMissing = const {},
     this.positionLimit,
+    this.firstImportAvailable = false,
+    this.importId = '',
+    this.claimFailed = false,
     this.importedCount = 0,
     this.failedTickers = const [],
     this.origin = ImportOrigin.file,
@@ -121,6 +126,16 @@ class StatementImportState {
 
   /// Tope de posiciones (distintos tickers) del plan; `null` = sin tope.
   final int? positionLimit;
+
+  /// Free con el cupo de la primera importación completa sin gastar: si
+  /// pasa el tope, entra entera (una sola vez).
+  final bool firstImportAvailable;
+
+  /// Uno por vista previa: con él se pide el cupo (un reintento es el mismo).
+  final String importId;
+
+  /// No se pudo pedir el cupo (sin red): no se importó nada.
+  final bool claimFailed;
 
   final int importedCount;
   final List<String> failedTickers;
@@ -206,10 +221,18 @@ class StatementImportState {
       if (!heldTickers.contains(r.ticker)) r.ticker,
   };
 
-  /// Importarlas pasaría el tope de posiciones del plan.
-  bool get exceedsLimit =>
+  /// Las posiciones que quedarían en la cartera pasan el tope del plan,
+  /// tenga o no el cupo de la primera importación.
+  bool get overLimit =>
       positionLimit != null &&
       heldTickers.length + newTickers.length > positionLimit!;
+
+  /// Importarlas pasaría el tope de posiciones del plan y no hay cupo de
+  /// primera importación que lo levante.
+  bool get exceedsLimit => overLimit && !firstImportAvailable;
+
+  /// La importación pasa el tope pero entra entera por ser la primera.
+  bool get usesFirstImport => overLimit && firstImportAvailable;
 
   bool get canImport =>
       phase == ImportPhase.preview &&
@@ -239,6 +262,8 @@ class StatementImportState {
     Map<String, HeldHolding>? held,
     Set<String>? sellMissing,
     int? positionLimit,
+    bool? firstImportAvailable,
+    bool? claimFailed,
     int? importedCount,
     List<String>? failedTickers,
     ImportOrigin? origin,
@@ -253,6 +278,9 @@ class StatementImportState {
       held: held ?? this.held,
       sellMissing: sellMissing ?? this.sellMissing,
       positionLimit: positionLimit ?? this.positionLimit,
+      firstImportAvailable: firstImportAvailable ?? this.firstImportAvailable,
+      importId: importId,
+      claimFailed: claimFailed ?? this.claimFailed,
       importedCount: importedCount ?? this.importedCount,
       failedTickers: failedTickers ?? this.failedTickers,
       origin: origin ?? this.origin,
@@ -274,6 +302,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     required ClosePositionUseCase closePosition,
     required Map<String, HeldHolding> Function() held,
     required int? Function() positionLimit,
+    FirstImportStore? firstImport,
+    String Function()? newImportId,
     Future<void> Function(ImportOrigin origin)? onImported,
     DateTime Function()? now,
   }) : _client = client,
@@ -284,6 +314,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
        _closePosition = closePosition,
        _held = held,
        _positionLimit = positionLimit,
+       _firstImport = firstImport,
+       _newImportId = newImportId ?? (() => const Uuid().v4()),
        _onImported = onImported,
        _now = now ?? DateTime.now,
        super(const StatementImportState());
@@ -296,6 +328,8 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   final ClosePositionUseCase _closePosition;
   final Map<String, HeldHolding> Function() _held;
   final int? Function() _positionLimit;
+  final FirstImportStore? _firstImport;
+  final String Function() _newImportId;
   final Future<void> Function(ImportOrigin origin)? _onImported;
   final DateTime Function() _now;
 
@@ -347,6 +381,9 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
       final result = await fetch();
       if (!mounted) return;
       final held = _held();
+      final limit = _positionLimit();
+      final firstAvailable = await _firstImportAvailable(limit);
+      if (!mounted) return;
       state = StatementImportState(
         phase: ImportPhase.preview,
         // Lo que ya llega de un bróker conectado arranca afuera: el archivo
@@ -358,13 +395,27 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
         source: result.source,
         warnings: result.warnings,
         held: held,
-        positionLimit: _positionLimit(),
+        positionLimit: limit,
+        firstImportAvailable: firstAvailable,
+        importId: _newImportId(),
         origin: origin,
       );
       unawaited(_checkQuotesAndFill(origin));
     } on StatementImportException catch (e) {
       if (!mounted) return;
       state = state.copyWith(phase: ImportPhase.intro, errorType: e.type);
+    }
+  }
+
+  /// Solo un plan con tope necesita saber si le queda la primera importación
+  /// completa. Si no se puede saber, rige el tope (falla cerrado).
+  Future<bool> _firstImportAvailable(int? limit) async {
+    final store = _firstImport;
+    if (limit == null || store == null) return false;
+    try {
+      return await store.isAvailable();
+    } on FirstImportUnavailable {
+      return false;
     }
   }
 
@@ -510,6 +561,7 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   /// [StatementImportState.failedTickers].
   Future<void> importReady() async {
     if (!state.canImport) return;
+    if (state.usesFirstImport && !await _claimFirstImport()) return;
     final snapshot = state;
     state = state.copyWith(phase: ImportPhase.importing);
     final now = _now();
@@ -559,6 +611,28 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     );
   }
 
+  /// Pide el cupo de la primera importación antes de escribir nada. `false`
+  /// si no hay que importar: el cupo ya se gastó (vuelve el tope) o no hubo
+  /// red (falla cerrado, se puede reintentar).
+  Future<bool> _claimFirstImport() async {
+    final store = _firstImport;
+    final current = state;
+    state = current.copyWith(claimFailed: false);
+    try {
+      final claim = await store!.claim(
+        importId: current.importId,
+        origin: current.origin.name,
+        positions: current.heldTickers.length + current.newTickers.length,
+      );
+      if (!mounted) return false;
+      if (claim == FirstImportClaim.granted) return true;
+      state = state.copyWith(firstImportAvailable: false);
+    } on FirstImportUnavailable {
+      if (mounted) state = state.copyWith(claimFailed: true);
+    }
+    return false;
+  }
+
   /// Vuelve al inicio (elegir otro archivo).
   void reset() {
     state = const StatementImportState();
@@ -606,6 +680,7 @@ final statementImportProvider = StateNotifierProvider.autoDispose<
         () => SubscriptionPolicy.positionLimit(
           ref.read(subscriptionProvider).tier,
         ),
+    firstImport: ref.watch(firstImportRepositoryProvider),
     onImported: (origin) {
       // Si era la primera carga, la Home la registra con el camino (archivo,
       // captura o escrita).

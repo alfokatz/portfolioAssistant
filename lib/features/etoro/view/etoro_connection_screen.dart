@@ -14,6 +14,7 @@ import 'package:portfolio_assistant/features/product_events/data/product_events.
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect_sheet.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -78,7 +79,7 @@ class _EtoroConnectionScreenState
         context,
         ref,
         reason: PaywallReason.brokerSync,
-        source: 'etoro_connect',
+        source: PaywallSource.etoroConnect,
       );
       return;
     }
@@ -107,7 +108,7 @@ class _EtoroConnectionScreenState
           context,
           ref,
           reason: PaywallReason.brokerSync,
-          source: 'etoro_connect',
+          source: PaywallSource.etoroConnect,
         );
       case EtoroConnectFailed(:final reason):
         _logConnect('error');
