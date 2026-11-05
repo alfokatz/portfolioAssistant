@@ -63,9 +63,13 @@ begin
     raise exception 'FK a auth.users fuera del inventario: %', v_missing;
   end if;
 
+  -- Solo las tablas de Porty (public): los esquemas de Supabase (auth,
+  -- storage…) traen sus propias FK, que cambian entre versiones del servicio
+  -- (p. ej. auth.scim_users, de SSO/SCIM, que Porty no usa).
   select string_agg(conrelid::regclass::text || ' (' || conname || ')', ', ') into v_bad
   from pg_constraint
-  where contype = 'f' and confrelid = 'auth.users'::regclass and confdeltype <> 'c';
+  where contype = 'f' and confrelid = 'auth.users'::regclass and confdeltype <> 'c'
+    and connamespace = 'public'::regnamespace;
   if v_bad is not null then
     raise exception 'FK a auth.users sin on delete cascade: %', v_bad;
   end if;
