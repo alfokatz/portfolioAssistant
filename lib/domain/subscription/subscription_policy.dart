@@ -31,6 +31,10 @@ abstract final class SubscriptionPolicy {
   static bool isNewsAllowed(SubscriptionTier tier) =>
       allows(tier, PlanFeature.news);
 
+  /// Noticias de un ticker: Gold todas, Premium solo las de su cartera.
+  static bool isNewsAllowedFor(SubscriptionTier tier, {required bool held}) =>
+      PlanMatrix.allowsNewsFor(tier, held: held);
+
   static bool isEarningsAllowed(SubscriptionTier tier) =>
       allows(tier, PlanFeature.earnings);
 

@@ -46,6 +46,39 @@ enum PaywallReason {
 
   /// Llegó al tope de alertas de precio activas de su plan.
   priceAlerts,
+
+  /// Comparar la cartera contra el S&P 500 (`PlanFeature.benchmark`).
+  benchmark,
+
+  /// Llegó al tope de tickers en seguimiento de su plan.
+  watchlistLimit,
+
+  /// Noticias de lo que tiene en cartera (`PlanFeature.heldNews`).
+  heldNews;
+
+  /// Qué plan se ofrece primero: `premium`, `gold` o `null` (sin
+  /// preferencia: el paywall muestra Gold y Premium). [currentTier] solo
+  /// importa para la cuota: a un Free se le ofrece Premium.
+  SubscriptionTier? offerTier({
+    SubscriptionTier currentTier = SubscriptionTier.free,
+  }) => switch (this) {
+    PaywallReason.positionLimit ||
+    PaywallReason.simulations ||
+    PaywallReason.goals ||
+    PaywallReason.allocationPlan ||
+    PaywallReason.marketDataLocked ||
+    PaywallReason.brokerSync ||
+    PaywallReason.priceAlerts ||
+    PaywallReason.benchmark ||
+    PaywallReason.watchlistLimit ||
+    PaywallReason.heldNews => SubscriptionTier.premium,
+    PaywallReason.quotaExceeded ||
+    PaywallReason.quotaLow =>
+      currentTier == SubscriptionTier.free ? SubscriptionTier.premium : null,
+    PaywallReason.goldRequired => SubscriptionTier.gold,
+    // modeLocked se borra en la fase C (F6); mientras tanto no tiene oferta.
+    PaywallReason.modeLocked || PaywallReason.plans => null,
+  };
 }
 
 class SubscriptionState {

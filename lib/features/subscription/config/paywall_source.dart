@@ -62,6 +62,33 @@ abstract final class PaywallSource {
   /// gratis.
   static const chatMarketTeaser = 'chat_market_teaser';
 
+  /// Home: la tarjeta bloqueada del benchmark contra el S&P 500.
+  static const homeBenchmark = 'home_benchmark';
+
+  /// Informe semanal: la línea del S&P 500 bloqueada.
+  static const weeklyReportSp500 = 'weekly_report_sp500';
+
+  /// Informe semanal: los números bloqueados (teaser de Gold).
+  static const weeklyReportLocked = 'weekly_report';
+
+  /// Informe semanal: se terminaron los informes de regalo.
+  static const weeklyReportCourtesyEnded = 'weekly_report_courtesy_ended';
+
+  /// Conectar eToro sin plan.
+  static const etoroConnect = 'etoro_connect';
+
+  /// Alertas de precio: tope del plan.
+  static const priceAlertLimit = 'price_alert_limit';
+
+  /// Alertas de precio: reactivar una alerta con el tope lleno.
+  static const priceAlertReactivate = 'price_alert_reactivate';
+
+  /// Chat: comprar un ticker nuevo con el tope de posiciones lleno.
+  static const chatActionPositionLimit = 'chat_action_position_limit';
+
+  /// Chat: noticias de un ticker que el usuario no tiene (Premium → Gold).
+  static const chatNewsNotHeld = 'chat_news_not_held';
+
   /// Las constantes fijas (los tests chequean que sean únicas y válidas).
   static const values = <String>[
     settings,
@@ -86,6 +113,15 @@ abstract final class PaywallSource {
     chatPlanSave,
     chatAlertLimit,
     chatMarketTeaser,
+    homeBenchmark,
+    weeklyReportSp500,
+    weeklyReportLocked,
+    weeklyReportCourtesyEnded,
+    etoroConnect,
+    priceAlertLimit,
+    priceAlertReactivate,
+    chatActionPositionLimit,
+    chatNewsNotHeld,
   ];
 
   static final _format = RegExp(r'^[a-z][a-z0-9_]{2,59}$');
