@@ -100,7 +100,11 @@ export function cacheKey(b: Body): string {
   const subject = b.tickers.length ? [...b.tickers].sort().join(",") : (b.topic ?? "").toLowerCase();
   const q = (b.question ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f¿?¡!.,]/g, "")
     .replace(/\s+/g, " ").trim();
-  return `news:${subject}|${q}|${b.lang}`;
+  // Los nombres que manda el cliente (solo con permiso Gold) entran en la
+  // clave: un nombre armado no puede pisar la entrada compartida del ticker.
+  const named = Object.entries(b.names).filter(([t]) => b.tickers.includes(t))
+    .map(([t, n]) => `${t}=${n.toLowerCase()}`).sort().join(";");
+  return `news:${subject}|${q}|${b.lang}${named ? `|n:${named}` : ""}`;
 }
 
 function subjectOf(b: Body): string {

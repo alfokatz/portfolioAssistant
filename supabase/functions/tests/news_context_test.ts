@@ -3,7 +3,7 @@
 // con la forma de la Responses API (output: web_search_call + message con
 // url_citation).
 
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1";
 import { bullets, cacheKey, handle, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
 import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider, withPlanLimit } from "./helpers.ts";
 
@@ -176,7 +176,14 @@ Deno.test("partsOf: sin pregunta, una parte por empresa (con su nombre); con pre
   const parts = partsOf(b);
   assertEquals(parts.map((p) => p.tickers), [["MSFT"], ["GOOGL"]]);
   assertEquals(parts[0].names, { MSFT: "Microsoft" });
-  assertEquals(cacheKey(parts[0]), cacheKey(parseBody({ tickers: ["MSFT"] })!));
+  // Un nombre del cliente no comparte la entrada del ticker sin nombre (no
+  // envenena la caché de los demás).
+  assertNotEquals(cacheKey(parts[0]), cacheKey(parseBody({ tickers: ["MSFT"] })!));
+  assertEquals(cacheKey(parts[1]), cacheKey(parseBody({ tickers: ["GOOGL"] })!));
+  assertNotEquals(
+    cacheKey(parseBody({ tickers: ["AAPL"], names: { AAPL: "Apple" } })!),
+    cacheKey(parseBody({ tickers: ["AAPL"], names: { AAPL: "Tesla" } })!),
+  );
   assertEquals(partsOf(parseBody({ tickers: ["MSFT", "GOOGL"], question: "¿Qué pasó?" })!).length, 1);
 });
 

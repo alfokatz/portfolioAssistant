@@ -87,7 +87,14 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (rate.data === false) return typedError(429, "rate_limited", "Too many requests");
 
   const started = Date.now();
-  const key = `gdelt:${symbols.join(",")}|${from ?? ""}|${to ?? ""}`;
+  // Los nombres del cliente se usan solo con permiso Gold y entran en la
+  // clave: un nombre armado no puede pisar la entrada compartida.
+  const trusted = await clientTextTrusted(deps, userId, tickers);
+  const clientNames = tickers.map((_, i) => (trusted ? givenNames[i] ?? "" : "").trim().slice(0, 80));
+  const nameTag = tickers
+    .map((t, i) => (clientNames[i].length >= 2 ? `${normalizeTicker(t)}=${clientNames[i].toLowerCase()}` : ""))
+    .filter(Boolean).sort().join(";");
+  const key = `gdelt:${symbols.join(",")}|${from ?? ""}|${to ?? ""}${nameTag ? `|n:${nameTag}` : ""}`;
   const today = new Date(deps.now()).toISOString().slice(0, 10);
   const ttl = to && to <= today ? config.closedWindowTtlSeconds : config.recentTtlSeconds;
   const hit = await readCache<HeadlinesBody>(deps, key);
@@ -97,9 +104,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
 
   const names: Record<string, string> = {};
-  const trusted = await clientTextTrusted(deps, userId, tickers);
   for (const [i, t] of tickers.entries()) {
-    const given = (trusted ? givenNames[i] ?? "" : "").trim().slice(0, 80);
+    const given = clientNames[i];
     const symbol = normalizeTicker(t);
     names[symbol] = given.length >= 2 ? pressName(given) : await companyName(deps, symbol) ?? symbol;
   }
