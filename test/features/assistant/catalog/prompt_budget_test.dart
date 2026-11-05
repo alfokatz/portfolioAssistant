@@ -22,7 +22,9 @@ import 'prompt_blocks.dart';
 /// guías: 32.476).
 const _budgets = {
   // bloque: (tokens, caracteres por token medidos)
-  'rules': (tokens: 9400, charsPerToken: 3.78),
+  // 2026-11-05: 9400 → 9450 por "¿estoy muy concentrado?" →
+  // [W:PORTFOLIO_NOW] y no QaInvestOption (merge de feature/ui_redesign).
+  'rules': (tokens: 9450, charsPerToken: 3.78),
   // 2026-10-23: 9400 → 9600 por QaWatchlist, QaWeeklyReport (sin props) y
   // QaInfoList (la card genérica): casi todo es lo fijo de cada item.
   'schemas': (tokens: 9600, charsPerToken: 4.17),
