@@ -47,8 +47,12 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Compatibilidad de config con la CLI actual
+        # La CLI nueva renombró [inbucket] a [local_smtp]. Se adapta solo en el
+        # CI para no romper el `supabase start` local con CLIs anteriores.
+        run: sed -i 's/^\[inbucket\]$/[local_smtp]/' supabase/config.toml
       - name: Levantar Supabase local (aplica las migraciones)
-        run: supabase start -x studio,imgproxy,inbucket,logflare,vector,supavisor
+        run: supabase start -x studio,imgproxy,mailpit,logflare,vector,supavisor
       - name: Variables del stack
         run: |
           supabase status -o env | sed 's/^/export /' > "$RUNNER_TEMP/sb.env"
