@@ -8,6 +8,8 @@ Lista maestra que mantiene `porty-chief-of-staff`. Prioridad: **P0** bloquea el 
 
 - [ ] P0 · F · **Productos anuales**: crear `portfolio_premium_annual` y `portfolio_gold_annual` en App Store Connect y Google Play (sin ofertas introductorias) y sumarlos a los offerings de RevenueCat; decidir el precio (propuesta: 10× el mensual). La revisión de las tiendas tarda. — `docs/product/roadmap.md`
 - [ ] P0 · F · **Consulta de solo lectura en producción** antes del `db push` del borrado: confirmar que `positions`/`closed_positions` borran en cascada. — `docs/runbooks/account-deletion.md`
+- [x] 2026-11-05 · CI en GitHub Actions (Flutter + migraciones + Deno + SQL) en verde.
+- [ ] P0 · F · **Configurar el deploy automático de Supabase**: GitHub → Settings → Environments → `production` con vos como *Required reviewer* y los secretos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`. Con eso el `db push` y los deploys de abajo se hacen solos al mergear, con tu aprobación. — `docs/runbooks/ci-cd.md`
 - [ ] P0 · F · **`db push`** de las migraciones nuevas (20261102120000, 120100, 120200, 130000; 20261103110000, 120000, 130000). — runbooks
 - [ ] P0 · F · **Deploy** de `revenuecat-webhook` y `delete-account` (después del `db push`). `ai-chat` no cambió.
 - [ ] P0 · F · **Verificar secretos** en Supabase (`supabase secrets list`): `REVENUECAT_SECRET_API_KEY` (v1 `sk_`), `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY`, `ETORO_CLIENT_ID`, `ETORO_CLIENT_SECRET`.
