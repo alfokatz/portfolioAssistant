@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
@@ -561,6 +562,7 @@ void main() {
 
     expect(h.state.paywallReason, PaywallReason.simulations);
     expect(h.state.paywallSource, 'chat_turn_locked_invest_simulation');
+    expect(h.state.paywallFeature, PlanFeature.investSimulation);
     expect(h.state.messages, hasLength(1));
   });
 

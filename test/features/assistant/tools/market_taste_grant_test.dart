@@ -3,6 +3,7 @@
 // flutter test test/features/assistant/tools/market_taste_grant_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';

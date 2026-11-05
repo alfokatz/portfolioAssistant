@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
@@ -236,6 +237,129 @@ void main() {
     final source = h.requests.single.source;
     expect(source, 'answer_locked_fundamentals_earnings_news');
     expect(PaywallSource.isValid(source), isTrue);
+    expect(h.requests.single.feature, PlanFeature.companyAnalysis);
+  });
+
+  testWidgets('Premium asked for news of a ticker it does not hold: the teaser '
+      'measures chat_news_not_held', (tester) async {
+    final catalog = AssistantCatalog.build();
+    final teaser = catalog.items.firstWhere((i) => i.name == 'QaGoldTeaser');
+    final h = await _pump(
+      tester,
+      evidence: ValueNotifier(
+        TurnEvidence(
+          calls: [
+            _call('get_news', {
+              'status': 'locked',
+              'required_plan': 'gold',
+              'reason': 'not_held',
+            }),
+          ],
+        ),
+      ),
+      body:
+          (context) => teaser.widgetBuilder(
+            catalogContextFor(
+              buildContext: context,
+              component: {
+                'id': 'teaser',
+                'component': 'QaGoldTeaser',
+                'ticker': 'BAC',
+              },
+              catalog: catalog,
+              surfaceId: 's1',
+            ),
+          ),
+    );
+    await tester.tap(find.text('Noticias'));
+    await tester.pump();
+    expect(h.requests.single.source, PaywallSource.chatNewsNotHeld);
+    expect(h.requests.single.feature, PlanFeature.news);
+  });
+
+  testWidgets('a locked news source without not_held keeps the generic '
+      'teaser source', (tester) async {
+    final catalog = AssistantCatalog.build();
+    final teaser = catalog.items.firstWhere((i) => i.name == 'QaGoldTeaser');
+    final h = await _pump(
+      tester,
+      evidence: ValueNotifier(TurnEvidence(calls: [_locked('get_news')])),
+      body:
+          (context) => teaser.widgetBuilder(
+            catalogContextFor(
+              buildContext: context,
+              component: {
+                'id': 'teaser',
+                'component': 'QaGoldTeaser',
+                'ticker': 'BAC',
+              },
+              catalog: catalog,
+              surfaceId: 's1',
+            ),
+          ),
+    );
+    await tester.tap(find.text('Noticias'));
+    await tester.pump();
+    expect(h.requests.single.source, 'answer_locked_news');
+  });
+
+  group('news chip by plan', () {
+    const newsChip = [
+      QaFollowUp(
+        'Noticias',
+        '¿Qué noticias hay?',
+        feature: PlanFeature.news,
+        ticker: 'AAPL',
+      ),
+    ];
+    const otherChip = [
+      QaFollowUp(
+        'Noticias',
+        '¿Qué noticias hay?',
+        feature: PlanFeature.news,
+        ticker: 'BAC',
+      ),
+    ];
+
+    testWidgets('Premium: a held ticker asks right away', (tester) async {
+      final h = await _pump(
+        tester,
+        evidence: ValueNotifier(_premiumLocked),
+        body: (_) => const QaFollowUpBar(items: newsChip),
+      );
+      await tester.tap(find.text('Noticias'));
+      await tester.pump();
+      expect(h.requests, isEmpty);
+      expect(h.sent, ['¿Qué noticias hay?']);
+    });
+
+    testWidgets('Premium: a ticker it does not hold opens the Gold paywall',
+        (tester) async {
+      final h = await _pump(
+        tester,
+        evidence: ValueNotifier(_premiumLocked),
+        body: (_) => const QaFollowUpBar(items: otherChip),
+      );
+      await tester.tap(find.text('Noticias'));
+      await tester.pump();
+      expect(h.sent, isEmpty);
+      expect(h.requests.single.source, 'chip_news');
+      expect(h.requests.single.feature, PlanFeature.news);
+    });
+
+    testWidgets('Free: a held ticker opens the Premium paywall (held_news)',
+        (tester) async {
+      final h = await _pump(
+        tester,
+        tier: SubscriptionTier.free,
+        evidence: ValueNotifier(_premiumLocked),
+        body: (_) => const QaFollowUpBar(items: newsChip),
+      );
+      await tester.tap(find.text('Noticias'));
+      await tester.pump();
+      expect(h.requests.single.source, 'chip_held_news');
+      expect(h.requests.single.feature, PlanFeature.heldNews);
+    });
   });
 
   testWidgets('at most ONE locked block per card, and no locked chip on top',
