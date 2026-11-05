@@ -66,8 +66,34 @@ export type EtoroCredentials = {
 /// de dinero virtual (staging). Cambia los endpoints y el scope de lectura.
 export type EtoroEnvironment = "real" | "demo";
 
-export function etoroEnvironment(value: string | undefined): EtoroEnvironment {
-  return value === "demo" ? "demo" : "real";
+/// `demo` solo si lo piden DOS secrets que coinciden con el proyecto:
+/// `ETORO_ENVIRONMENT=demo` y `ETORO_DEMO_PROJECT_REF` igual al ref de
+/// `SUPABASE_URL` (el de staging). Así, un `ETORO_ENVIRONMENT=demo` copiado
+/// por error a producción no cambia nada: producción siempre conecta las
+/// cuentas reales.
+export function etoroEnvironment(env: (name: string) => string | undefined): EtoroEnvironment {
+  if (env("ETORO_ENVIRONMENT")?.trim() !== "demo") return "real";
+  const allowedRef = env("ETORO_DEMO_PROJECT_REF")?.trim();
+  const ref = projectRef(env("SUPABASE_URL"));
+  if (allowedRef && ref && allowedRef === ref) return "demo";
+  console.warn(JSON.stringify({
+    fn: "etoro-sync",
+    warning: "etoro_demo_ignored",
+    detail: "ETORO_ENVIRONMENT=demo sin ETORO_DEMO_PROJECT_REF de este proyecto: se usan las cuentas reales",
+  }));
+  return "real";
+}
+
+/// `https://<ref>.supabase.co` → `<ref>`. `null` si no es una URL de Supabase.
+function projectRef(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname;
+    const m = /^([a-z0-9]+)\.supabase\.co$/.exec(host);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 /// Solo lectura: identidad + portfolio/historial de la cuenta.

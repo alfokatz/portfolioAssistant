@@ -1,7 +1,10 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/areas/porty_areas.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/broker_link_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
@@ -24,6 +27,10 @@ abstract final class AssistantCatalog {
     'QaFundamentals',
     'QaCompanyAnalysis',
     'QaEtfHoldings',
+    'QaAllocationPlan',
+    'QaWatchlist',
+    'QaWeeklyReport',
+    'QaInfoList',
     'QaGoldTeaser',
     'QaNewsSummary',
     'QaPositionsSnapshot',
@@ -45,6 +52,13 @@ abstract final class AssistantCatalog {
 
   static const basicComponentNames = {'Column', 'Text'};
 
+  /// Widgets que solo agrega la app después del turno: se registran para
+  /// MOSTRARLOS ([build] con `forDisplay`), pero no van en el prompt (el
+  /// modelo no los conoce, así que el hash del prompt no cambia).
+  static const appOnlyWidgetNames = {'QaBrokerLink'};
+
+  static List<CatalogItem> get _appOnlyItems => [qaBrokerLinkItem];
+
   static List<CatalogItem> get items => [
     qaAnswerTextItem,
     qaTipBannerItem,
@@ -57,6 +71,10 @@ abstract final class AssistantCatalog {
     qaFundamentalsItem,
     qaCompanyAnalysisItem,
     qaEtfHoldingsItem,
+    qaAllocationPlanItem,
+    qaWatchlistItem,
+    qaWeeklyReportItem,
+    qaInfoListItem,
     qaGoldTeaserItem,
     qaNewsSummaryItem,
     qaPositionsSnapshotItem,
@@ -76,20 +94,35 @@ abstract final class AssistantCatalog {
     qaActionProposalItem,
   ];
 
-  static Catalog build() {
+  /// [variant] lean: el catálogo para ARMAR EL PROMPT, sin los widgets que
+  /// viajan con el resultado de su tool (`area_spec`) y con las reglas lean.
+  /// Para mostrar las respuestas se usa siempre el completo, con
+  /// [forDisplay] (suma los [appOnlyWidgetNames]).
+  static Catalog build({
+    PromptVariant variant = PromptVariant.classic,
+    bool forDisplay = false,
+  }) {
     final base = BasicCatalogItems.asCatalog();
     final unused = [
       for (final item in base.items)
         if (!basicComponentNames.contains(item.name)) item,
     ];
+    final lean = variant == PromptVariant.lean;
+    final deferred = lean ? PortyAreas.deferredWidgets : const <String>{};
     return base
         .copyWithout(itemsToRemove: unused)
         .copyWith(
-          newItems: items,
+          newItems: [
+            for (final item in items)
+              if (!deferred.contains(item.name)) item,
+            if (forDisplay) ..._appOnlyItems,
+          ],
           systemPromptFragments: [
             criticalOutputFormatRules,
             ...base.systemPromptFragments,
-            assistantPromptRules,
+            lean
+                ? AreaSpecs.leanRules(assistantPromptRules)
+                : assistantPromptRules,
           ],
         );
   }

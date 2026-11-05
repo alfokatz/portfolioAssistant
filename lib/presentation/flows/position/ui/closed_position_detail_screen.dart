@@ -4,18 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
 import 'package:portfolio_assistant/presentation/flows/position/providers/closed_position_detail_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_ticker_header.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// El detalle de una venta: cuánto ganaste o perdiste, qué vendiste y a
 /// cuánto, y una pregunta lista para Porty. Se abre desde la lista de
@@ -103,6 +104,14 @@ class _ClosedPositionDetailScreenState
     QaColors.resolve(Theme.of(context).brightness);
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          PortyAskButton(
+            screen: PortyScreenContext(
+              PortyScreen.closedPosition,
+              ticker: widget.ticker,
+            ),
+          ),
+        ],
         title: AnimatedOpacity(
           opacity: _titleInBar ? 1 : 0,
           duration:
@@ -173,9 +182,11 @@ class _DetailList extends StatelessWidget {
             child: PortyQuestionPill(
               question: question,
               onTap:
-                  () => GotoAssistant(
-                    initialQuestion: question,
-                  ).navigate(context: context),
+                  () => PortyChatSheet.show(context, question: question,
+                    screen: PortyScreenContext(
+                      PortyScreen.closedPosition,
+                      ticker: ticker,
+                    ),),
             ),
           ),
         ],
@@ -235,13 +246,13 @@ class _ResultCard extends StatelessWidget {
               fontFeatures: tabular,
             ),
           ),
-          // Venta importada: el resultado es el neto que informó eToro
-          // (comisiones y dividendos incluidos), no precio × cantidad.
+          // Venta importada: el resultado es el neto del bróker (con
+          // comisiones), no precio × cantidad. La marca dice de cuál.
           if (s?.hasBrokerPnl ?? false) ...[
             const SizedBox(height: AppDimens.sp8),
             Row(
               children: [
-                const EtoroSourceBadge(),
+                BrokerSourceBadge(source: s!.source),
                 const SizedBox(width: AppDimens.sp8),
                 Expanded(
                   child: Text(

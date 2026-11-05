@@ -1,6 +1,6 @@
 # Asistente Porty: arquitectura con tool calling
 
-**Estado:** implementado (2026-09-29) · **Modelo:** `gpt-6-luna` con `reasoning_effort: none` desde 2026-10-14, antes `gpt-4.1-mini` (override con `OPENAI_MODEL`; ver [runbook](../runbooks/gpt6-luna-migration.md)) · **API:** OpenAI Chat Completions
+**Estado:** implementado (2026-09-29), actualizado 2026-10-22 · **Modelo:** `gpt-6-luna` con `reasoning_effort: none` desde 2026-10-14, antes `gpt-4.1-mini` (override con `OPENAI_MODEL`; ver [runbook](../runbooks/gpt6-luna-migration.md)) · **API:** OpenAI Chat Completions
 **Diseño y decisiones:** [plan de migración](../superpowers/plans/2026-09-29-tool-calling-migration.md) · [investigación genui / `ClientFunction`](../superpowers/research/2026-09-28-genui-client-function-research.md)
 
 Este documento describe cómo funciona hoy el asistente y dónde está cada pieza. Para entender por qué se eligió cada cosa, está el plan de migración.
@@ -10,7 +10,7 @@ Este documento describe cómo funciona hoy el asistente y dónde está cada piez
 ## 1. En una frase
 
 Cada mensaje del usuario es **un turno de tool calling**:
-1. El modelo recibe la conversación y un catálogo de 9 tools de datos.
+1. El modelo recibe la conversación y un catálogo de 24 tools (de datos y de acciones propuestas).
 2. Decide qué datos pedir. La app los trae y aplica el plan de suscripción al ejecutar cada tool.
 3. El modelo responde con **A2UI** (JSON de UI), que **genui solo renderiza**.
 
@@ -30,7 +30,7 @@ flowchart TD
     S --> L[OpenAIGenUiService.runTurn<br/>loop de tool calling]
     L -->|request| OAI[(OpenAI<br/>Chat Completions)]
     OAI -->|tool_calls| EX[_ToolExecutor<br/>en paralelo, timeout, presupuesto]
-    EX --> T[9 DataTools<br/>gating por plan]
+    EX --> T[24 DataTools<br/>gating por plan]
     T --> DS[(Yahoo · Finnhub ·<br/>Supabase · prefs)]
     T -->|resultados| L
     OAI -->|texto A2UI| G[Checks: grounding y layout]
@@ -45,7 +45,7 @@ flowchart TD
 | Capa | Carpeta | Responsabilidad | ¿Conoce el negocio? |
 |---|---|---|---|
 | Tool calling genérico | `lib/features/genui_core/tool_calling/` y `services/openai_genui_service.dart` | Loop de rondas, ejecución de tools, historial por turnos, reintentos, timeouts, puente a genui | No: no sabe de tiers, tickers ni widgets |
-| Tools de Porty | `lib/features/assistant/tools/` | Las 9 tools, sus schemas y descripciones, el gating por plan, la política del turno (paywall, cuota, avisos) | Sí |
+| Tools de Porty | `lib/features/assistant/tools/` | Las 24 tools, sus schemas y descripciones, el gating por plan, la política del turno (paywall, cuota, avisos) | Sí |
 | Datos | `lib/features/assistant/data/` | Fetchers de mercado con caché, candidatos de inversión, proyección de metas | Sí, sin LLM |
 | Prompt y catálogo | `prompts/assistant_prompt_rules.dart` y `catalog/assistant_catalog.dart` | Cómo responder y qué widget usar con los datos | Sí |
 | UI | `providers/`, `view/`, `utils/assistant_message_sync.dart` | Estado del chat, placeholder, fallback, avisos | Sí |
@@ -133,6 +133,20 @@ abstract interface class DataTool {
 | `get_goal_projection` | `target_amount?`, `target_date?`, `goal_label?`, `monthly_contribution?` | prefs + `GoalProjectionBuilder` | Gold | `locked` + `modeLocked` |
 | `save_goal` | `target_amount`, `target_date`, `goal_label?` | prefs | Gold | `locked` + `modeLocked` |
 
+La tabla describe las 9 tools originales (2026-09-29). Desde entonces se sumaron 15, todas al final de la lista o en su grupo, sin reordenar las anteriores. Para argumentos, fuente y plan de cada una, la fuente de verdad es el código:
+
+| Grupo | Archivo | Tools |
+|---|---|---|
+| Mercado | `market_tools.dart` | `get_etf_holdings`, `get_dividends` |
+| Metas y compras | `advice_tools.dart` | `get_monthly_buy_plan`, `update_goal_savings` |
+| Acciones propuestas (nunca escriben; la app muestra una card de confirmación) | `action_tools.dart` | `propose_buy`, `propose_sell`, `propose_delete_position` |
+| Alertas | `alert_tools.dart` | `propose_price_alert`, `list_price_alerts` |
+| Plan de cartera y watchlist | `plan_tools.dart` | `get_allocation_plan`, `get_watchlist`, `add_to_watchlist` |
+| Memoria de Porty | `memory_tools.dart` | `remember_about_user`, `forget_about_user` |
+| Web | `web_tools.dart` | `search_web` |
+
+El orden completo está fijado en `AssistantToolset.build` y en el test `the toolset order is stable` de `test/features/assistant/tools/assistant_tools_test.dart`. Las fuentes de noticias también cambiaron después de esta tabla (ver [news-sources-v2](../runbooks/news-sources-v2.md)).
+
 **Puntos de diseño:**
 - **Sin listas precargadas.** En Invest **el modelo elige** los candidatos (cualquier empresa o ETF de cualquier industria). La tool trae sus datos reales: sector, industria y beta desde Yahoo `quoteSummary` (`assetProfile,summaryDetail`). El nivel de riesgo se calcula de la beta: < 0,9 defensivo, > 1,3 crecimiento, lo demás intermedio. Sin dato → "Sin clasificar" o `null`, nunca se adivina.
 - **`needs_retry`.** Si el modelo manda candidatos vacíos, o solo las tenencias del usuario sin que el tema sea la cartera, la tool pide reintentar. El loop fuerza la ronda siguiente a esa tool (`tool_choice` con la función), una vez por turno. Hace falta porque gpt-4.1-mini tiende a copiar las tenencias o a esperar que la tool proponga (verificado en evals).
@@ -217,7 +231,7 @@ El prompt las pide, pero el modelo no siempre las cumple. Cada una salió de una
   - la semántica de los estados de las tools;
   - el ranking de widgets con **IDs estables `[W:…]`** (nada de "step N"; un test de contrato verifica que cada ID referenciado exista);
   - las reglas por dominio: precio, comparaciones, cartera, earnings, fundamentals, news, why, invest y metas.
-- **Catálogo** (`catalog/assistant_catalog.dart`): 24 widgets `Qa*` + `Column` y `Text` de genui (raíz y fallback del normalizer). Las definiciones de widgets siguen en `portfolio_qa_catalog.dart` / `portfolio_qa_catalog_widgets.dart`.
+- **Catálogo** (`catalog/assistant_catalog.dart`): 29 widgets `Qa*` + `Column` y `Text` de genui (raíz y fallback del normalizer). Las definiciones de widgets siguen en `portfolio_qa_catalog.dart` / `portfolio_qa_catalog_widgets.dart`.
 
 ---
 
@@ -279,7 +293,7 @@ Las evals tienen **skip** por default: cuestan (~$0,11 la corrida completa) y no
 - **Rate limit de OpenAI:** unas 15 respuestas 429 por corrida de evals. Con carga real, revisar el tier de la cuenta.
 - **Grounding en el texto:** `AssistantGroundingCheck` cubre los widgets; un número de memoria escrito solo en `QaAnswerText` no se detecta.
 - **"Interfaz no válida" intermitente:** 1 caso en ~40 corridas. Cae al fallback de texto y el usuario no se queda sin respuesta.
-- **Keys dentro del bundle de la app** (OpenAI, Finnhub): son las mismas para todos los usuarios, y Finnhub permite 60 req/min en total. Mitigado con caché TTL, presupuesto por turno y `maxItems`. Solución de fondo: un proxy en el servidor.
+- **Keys fuera de la app (resuelto):** OpenAI, Finnhub y Yahoo pasan por las edge functions `ai-chat`, `finnhub` y `yahoo` (ver [ai-proxy-cutover](../runbooks/ai-proxy-cutover.md)). El proxy `ai-chat` solo acepta system prompts cuyo hash esté en `supabase/functions/ai-chat/allowed_system_prompts.json`, y la cuota se cobra en el servidor. `test/security/no_secrets_in_app_test.dart` impide que vuelva una key al bundle. Sigue vigente el límite de Finnhub (60 req/min para todos), mitigado con caché TTL, presupuesto por turno y `maxItems`.
 - **`dart_openai` 5.1.0:** no soporta `strict`, `prompt_cache_key` ni `cached_tokens`. Parte se cubre con `OpenAiBodyPatchClient`; si crece, pasar a `dio` directo.
 - **Ciclo de vida del modelo y de la API:** OpenAI recomienda la Responses API y algunos modelos nuevos exigen Responses para tool calling. El loop está aislado en `OpenAIGenUiService`: cambiar de API sería reescribir `_request` y el formato de `ConversationLog`, no el resto.
 - **genui 0.10.x:**

@@ -30,6 +30,9 @@ export type Prefs = {
   weekly_report: boolean;
   earnings: boolean;
   service: boolean;
+  /// Opcional: una base sin la migración del resumen de la mañana no la
+  /// tiene (y sin dato, se manda).
+  morning_brief?: boolean;
   big_move_sensitivity: "low" | "normal" | "high";
   quiet_start: string;
   quiet_end: string;

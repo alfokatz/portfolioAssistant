@@ -19,6 +19,8 @@ class SupabasePortfolioMapper {
       source: PositionSource.fromWire(row['source'] as String?),
       syncedAt: _optionalDate(row['synced_at']),
       brokerPrice: _optionalDouble(row['broker_price']),
+      // Sin la columna (antes de la migración): conocida.
+      purchaseDateKnown: row['purchase_date_known'] != false,
     );
   }
 

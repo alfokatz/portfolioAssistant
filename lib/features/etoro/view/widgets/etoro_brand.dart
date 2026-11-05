@@ -81,6 +81,32 @@ class EtoroPortyLockup extends StatelessWidget {
   final bool animated;
 
   @override
+  Widget build(BuildContext context) => PortyPartnerLockup(
+    state: state,
+    size: size,
+    animated: animated,
+    partner: EtoroLogoTile(height: size),
+  );
+}
+
+/// Porty ↔ una cuenta conectada ([partner], del alto de [size]): el avatar
+/// con la cara del estado, el enlace (punteado, lleno con check o cortado) y
+/// la marca. Lo usan eToro y Binance.
+class PortyPartnerLockup extends StatelessWidget {
+  const PortyPartnerLockup({
+    super.key,
+    required this.state,
+    required this.partner,
+    this.size = 56,
+    this.animated = true,
+  });
+
+  final EtoroLinkState state;
+  final Widget partner;
+  final double size;
+  final bool animated;
+
+  @override
   Widget build(BuildContext context) {
     final mood = switch (state) {
       EtoroLinkState.idle => PortyAvatarState.idle,
@@ -93,7 +119,7 @@ class EtoroPortyLockup extends StatelessWidget {
         children: [
           PortyAvatar(size: size, state: mood, animated: animated),
           _Link(state: state, height: size),
-          EtoroLogoTile(height: size),
+          partner,
         ],
       ),
     );

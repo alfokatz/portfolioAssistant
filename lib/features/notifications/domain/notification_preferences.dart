@@ -21,6 +21,7 @@ class NotificationPreferences {
     this.weeklyReport = true,
     this.earnings = true,
     this.service = true,
+    this.morningBrief = true,
     this.bigMoveSensitivity = BigMoveSensitivity.normal,
     this.quietStartMinutes = 22 * 60,
     this.quietEndMinutes = 8 * 60,
@@ -36,6 +37,9 @@ class NotificationPreferences {
 
   /// Avisos de la cuenta (eToro desconectado).
   final bool service;
+
+  /// "Porty te marca algo hoy", a las 8 si hay algo nuevo en la cartera.
+  final bool morningBrief;
   final BigMoveSensitivity bigMoveSensitivity;
 
   /// Horario de silencio en minutos desde la medianoche (hora local).
@@ -78,6 +82,7 @@ class NotificationPreferences {
       weeklyReport: flag('weekly_report', d.weeklyReport),
       earnings: flag('earnings', d.earnings),
       service: flag('service', d.service),
+      morningBrief: flag('morning_brief', d.morningBrief),
       bigMoveSensitivity: BigMoveSensitivity.parse(
         row['big_move_sensitivity'],
       ),
@@ -95,6 +100,7 @@ class NotificationPreferences {
     'weekly_report': weeklyReport,
     'earnings': earnings,
     'service': service,
+    'morning_brief': morningBrief,
     'big_move_sensitivity': bigMoveSensitivity.name,
     'quiet_start': formatClock(quietStartMinutes),
     'quiet_end': formatClock(quietEndMinutes),
@@ -109,6 +115,7 @@ class NotificationPreferences {
     bool? weeklyReport,
     bool? earnings,
     bool? service,
+    bool? morningBrief,
     BigMoveSensitivity? bigMoveSensitivity,
     int? quietStartMinutes,
     int? quietEndMinutes,
@@ -122,6 +129,7 @@ class NotificationPreferences {
       weeklyReport: weeklyReport ?? this.weeklyReport,
       earnings: earnings ?? this.earnings,
       service: service ?? this.service,
+      morningBrief: morningBrief ?? this.morningBrief,
       bigMoveSensitivity: bigMoveSensitivity ?? this.bigMoveSensitivity,
       quietStartMinutes: quietStartMinutes ?? this.quietStartMinutes,
       quietEndMinutes: quietEndMinutes ?? this.quietEndMinutes,

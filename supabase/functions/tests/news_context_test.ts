@@ -3,9 +3,9 @@
 // con la forma de la Responses API (output: web_search_call + message con
 // url_citation).
 
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1";
 import { bullets, cacheKey, handle, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
-import { createUser, db, deps, fakeFetch } from "./helpers.ts";
+import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider, withPlanLimit } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
 
@@ -140,7 +140,8 @@ Deno.test("news-context Gold: web_search con medios permitidos, citas limpias, c
   // gpt-5-mini: 1 búsqueda (US$0,01) + 9.000 × 0,25/M + 300 × 2/M.
   assertEquals(Number(usage!.web_search_cost_usd), 0.01285);
 
-  const again = await handle(req(b.jwt, { tickers: [ticker] }), d);
+  // Mismos tickers y mismos nombres (b83dfba los suma a la clave) → la entrada es compartida.
+  const again = await handle(req(b.jwt, { tickers: [ticker], names: { [ticker]: "Nvidia" } }), d);
   assertEquals(again.headers.get("x-cache"), "hit");
   await again.body?.cancel();
   assertEquals(f.calls.length, 1);
@@ -176,7 +177,14 @@ Deno.test("partsOf: sin pregunta, una parte por empresa (con su nombre); con pre
   const parts = partsOf(b);
   assertEquals(parts.map((p) => p.tickers), [["MSFT"], ["GOOGL"]]);
   assertEquals(parts[0].names, { MSFT: "Microsoft" });
-  assertEquals(cacheKey(parts[0]), cacheKey(parseBody({ tickers: ["MSFT"] })!));
+  // Un nombre del cliente no comparte la entrada del ticker sin nombre (no
+  // envenena la caché de los demás).
+  assertNotEquals(cacheKey(parts[0]), cacheKey(parseBody({ tickers: ["MSFT"] })!));
+  assertEquals(cacheKey(parts[1]), cacheKey(parseBody({ tickers: ["GOOGL"] })!));
+  assertNotEquals(
+    cacheKey(parseBody({ tickers: ["AAPL"], names: { AAPL: "Apple" } })!),
+    cacheKey(parseBody({ tickers: ["AAPL"], names: { AAPL: "Tesla" } })!),
+  );
   assertEquals(partsOf(parseBody({ tickers: ["MSFT", "GOOGL"], question: "¿Qué pasó?" })!).length, 1);
 });
 
@@ -218,9 +226,173 @@ Deno.test("news-context sin pregunta: una búsqueda por empresa, en paralelo, y 
   assert(body.summary.some((l: string) => l.startsWith(a)));
   assert(body.summary.some((l: string) => l.startsWith(b)));
 
-  // Otra consulta con una de esas empresas: sale de caché, sin buscar.
-  const again = await handle(req(u.jwt, { tickers: [b] }, await turnRow(u.id)), d);
+  // Otra consulta con una de esas empresas (mismo nombre): sale de caché, sin buscar.
+  const again = await handle(req(u.jwt, { tickers: [b], names: { [b]: "Beta" } }, await turnRow(u.id)), d);
   assertEquals(again.headers.get("x-cache"), "hit");
   await again.body?.cancel();
   assertEquals(f.calls.length, 2);
+});
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+Deno.test("news-context: la unidad es una búsqueda sin caché (2 empresas = 2 unidades, 1 pedido)", async () => {
+  const u = await createUser("gold");
+  const a = `A${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const b = `B${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const f = fakeFetch(() => responsesAnswer(answer));
+  const d = deps(f.fetch, env);
+
+  const r = await handle(req(u.jwt, { tickers: [a, b], names: { [a]: "Alfa", [b]: "Beta" } }, await turnRow(u.id)), d);
+  assertEquals(r.status, 200);
+  await r.body?.cancel();
+  const { data } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).single();
+  assertEquals(data, { count: 1, units: 2 });
+
+  // Con una empresa ya en caché, otro pedido con una nueva gasta 1 unidad.
+  const c = `C${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const again = await handle(req(u.jwt, { tickers: [a, c], names: { [a]: "Alfa", [c]: "Gama" } }, await turnRow(u.id)), d);
+  assertEquals(again.status, 200);
+  await again.body?.cancel();
+  const { data: after } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).single();
+  assertEquals(after, { count: 2, units: 3 });
+});
+
+Deno.test("news-context: tope mensual → 429 monthly_limit sin llamar a OpenAI", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    const a = `A${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const b = `B${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const f = fakeFetch(() => responsesAnswer(answer));
+    // 2 búsquedas sin caché no entran en 1 unidad al mes.
+    const r = await handle(req(u.jwt, { tickers: [a, b], names: { [a]: "Alfa", [b]: "Beta" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 429);
+    assertEquals((await r.json()).error.type, "monthly_limit");
+    assertEquals(f.calls.length, 0);
+    const { data } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).maybeSingle();
+    assertEquals(data?.units ?? 0, 0);
+  });
+});
+
+Deno.test("news-context: con el tope mensual agotado sirve la caché vencida si hay", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    const t = `S${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const stale: NewsContext = {
+      status: "ok",
+      subject: t,
+      summary: ["(2026-10-01): Dato viejo."],
+      citations: [{ title: "Reuters", url: "https://www.reuters.com/old", source: "Reuters", domain: "reuters.com" }],
+      as_of: "2026-10-01T00:00:00Z",
+    };
+    const old = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await db.from("data_source_cache").upsert({ cache_key: cacheKey(parseBody({ tickers: [t] })!), body: stale, fetched_at: old });
+    // Se gasta la única unidad del mes con otra empresa y después se pide la vencida.
+    const other = `O${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const f = fakeFetch(() => responsesAnswer(answer));
+    const d = deps(f.fetch, env);
+    const first = await handle(req(u.jwt, { tickers: [other] }, await turnRow(u.id)), d);
+    assertEquals(first.status, 200);
+    await first.body?.cancel();
+    const r = await handle(req(u.jwt, { tickers: [t] }, await turnRow(u.id)), d);
+    assertEquals(r.status, 200);
+    assertEquals(r.headers.get("x-cache"), "stale");
+    assertEquals((await r.json()).summary, stale.summary);
+    assertEquals(f.calls.length, 1);
+  });
+});
+
+Deno.test("news-context: la booleana vieja news_context_hit también aplica el tope mensual", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    assertEquals((await db.rpc("news_context_hit", { p_user_id: u.id })).data, true);
+    assertEquals((await db.rpc("news_context_hit", { p_user_id: u.id })).data, false);
+  });
+});
+
+Deno.test("news-context Premium: solo tickers en cartera y solo con news_provider v2", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const foreign = `X${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch(() => responsesAnswer(answer));
+  const d = deps(f.fetch, env);
+
+  await withNewsProvider("legacy", async () => {
+    const r = await handle(req(u.jwt, { tickers: [held] }), d);
+    assertEquals(r.status, 403);
+    await r.body?.cancel();
+  });
+  await withNewsProvider("v2", async () => {
+    const own = await handle(req(u.jwt, { tickers: [held], names: { [held]: "Held" } }, await turnRow(u.id)), d);
+    assertEquals(own.status, 200);
+    assertEquals((await own.json()).status, "ok");
+    assertEquals(f.calls.filter((c) => c.url.includes("openai")).length, 1);
+
+    // Uno propio y uno ajeno: se corta el pedido entero.
+    const mixed = await handle(req(u.jwt, { tickers: [held, foreign] }), d);
+    assertEquals(mixed.status, 403);
+    assertEquals((await mixed.json()).error, { type: "plan_required", message: "Gold required", required_plan: "gold" });
+    // Solo el ajeno, y un tema sin ticker.
+    const other = await handle(req(u.jwt, { tickers: [foreign] }), d);
+    assertEquals(other.status, 403);
+    await other.body?.cancel();
+    const topic = await handle(req(u.jwt, { topic: "inflación en EE. UU." }), d);
+    assertEquals(topic.status, 403);
+    await topic.body?.cancel();
+    assertEquals(f.calls.filter((c) => c.url.includes("openai")).length, 1);
+  });
+});
+
+Deno.test("news-context Premium: tickers con sufijo (.BA, -USD) coinciden con la cartera", async () => {
+  const u = await createUser("premium");
+  const tag = crypto.randomUUID().slice(0, 3).toUpperCase();
+  const ba = `G${tag}.BA`;
+  const usd = `B${tag}-USD`;
+  await addPosition(u.id, ba);
+  await addPosition(u.id, usd.toLowerCase());
+  const f = fakeFetch(() => responsesAnswer(answer));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(u.jwt, { tickers: [ba, usd], names: { [ba]: "Galicia", [usd]: "Bitcoin" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
+});
+
+Deno.test("news-context Premium: el nombre que manda el cliente no entra en la búsqueda", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch((url) => url.includes("openai") ? responsesAnswer(answer) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(u.jwt, { tickers: [held], names: { [held]: "Tesla" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
+  const sent = f.calls.find((c) => c.url.includes("openai"))!;
+  assert(!JSON.stringify(sent.body).includes("Tesla"));
+});
+
+Deno.test("news-context Premium: names y question del cliente se ignoran y la entrada compartida no se ensucia", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch((url) => url.includes("openai") ? responsesAnswer(answer) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(
+      req(u.jwt, { tickers: [held], names: { [held]: "Tesla" }, question: "¿Qué pasó con Tesla y su CEO?" }, await turnRow(u.id)),
+      deps(f.fetch, env),
+    );
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
+  const sent = JSON.stringify(f.calls.find((c) => c.url.includes("openai"))!.body);
+  assert(!sent.includes("Tesla"));
+  // Se guardó en la clave sin pregunta (la que lee cualquiera), con el subject del servidor.
+  const shared = cacheKey(parseBody({ tickers: [held] })!);
+  const { data } = await db.from("data_source_cache").select("body").eq("cache_key", shared).single();
+  assert(!JSON.stringify(data!.body).includes("Tesla"));
+  // Ninguna otra entrada del ticker (ni con pregunta ni con nombre). Ojo: en
+  // LIKE "_" es comodín, por eso se comparan las claves enteras.
+  const { data: all } = await db.from("data_source_cache").select("cache_key").like("cache_key", `news:${held}|%`);
+  assertEquals(all!.map((r) => r.cache_key), [shared]);
 });

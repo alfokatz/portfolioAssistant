@@ -298,6 +298,7 @@ Nunca un `AlertDialog` de Material. Una hoja desde abajo, como "Desconectar eTor
 ### Navigation
 - **App bar:** transparente (revela `AppBackgroundGradient` detrás), título titleMedium w600 charcoal, iconos 20px, elevation 0
 - **Bottom nav bar:** pill flotante translúcida sobre el fondo, ítem activo en Charcoal Ink; FAB en Warm Accent
+- **Pestañas por gesto:** Inicio, Porty, Metas y Ajustes se pasan deslizando el dedo, como en Instagram (`ShellBranchPager`). Cambia de pestaña al pasar la mitad, sin rebote en los bordes; tocar la barra salta directo con la entrada corta (cae y se asienta), deslizar no la repite. Lo de adentro que también se arrastra en horizontal (gráficos con scrub, filas que se borran deslizando, chips con scroll) gana el gesto. Cambiar de pestaña cierra el teclado.
 - **Settings rows:** icon box 36px en Elevated Mist, label bodyLarge w500, value bodyMedium secondary, chevron 14px
 - **Bottom sheet:** radius xl superior, drag handle border color, fondo surface-card
 

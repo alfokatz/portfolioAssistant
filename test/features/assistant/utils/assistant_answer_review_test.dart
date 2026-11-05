@@ -310,6 +310,56 @@ void main() {
     );
   });
 
+  test(
+    'selling something imported adds "open in the broker" after the text',
+    () {
+      const sell = ToolCallRecord(
+        name: 'propose_sell',
+        args: {'ticker': 'voo', 'all': true},
+        result: {
+          'status': 'invalid',
+          'reason': 'managed_by_broker',
+          'broker': 'etoro',
+        },
+      );
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('VOO vino de eToro: se vende allá.')]),
+        const TurnEvidence(calls: [sell], turnCalls: [sell]),
+      );
+      final update = (jsonDecode(out) as Map)['updateComponents'] as Map;
+      final components = (update['components'] as List).cast<Map>();
+      final root = components.firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'brokerLink']);
+      final link = components.firstWhere((c) => c['id'] == 'brokerLink');
+      expect(link['component'], 'QaBrokerLink');
+      expect(link['ticker'], 'VOO');
+      expect(link['broker'], 'etoro');
+    },
+  );
+
+  test('no broker link for a normal sale or a previous turn', () {
+    const notHeld = ToolCallRecord(
+      name: 'propose_sell',
+      args: {'ticker': 'TSLA'},
+      result: {'status': 'invalid', 'reason': 'not_held'},
+    );
+    const earlier = ToolCallRecord(
+      name: 'propose_sell',
+      args: {'ticker': 'VOO'},
+      result: {
+        'status': 'invalid',
+        'reason': 'managed_by_broker',
+        'broker': 'etoro',
+      },
+    );
+    final out = AssistantAnswerReview.postProcess(
+      _answer([_intro('No tenés TSLA.')]),
+      // `earlier` es de un turno anterior: no está en turnCalls.
+      const TurnEvidence(calls: [earlier, notHeld], turnCalls: [notHeld]),
+    );
+    expect(out, isNot(contains('QaBrokerLink')));
+  });
+
   test('no teaser when a data card already answers', () {
     const locked = ToolCallRecord(
       name: 'get_news',
@@ -381,7 +431,10 @@ void main() {
         'Amazon in Talks to Acquire Decart AI',
         'Amazon Launches Alexa+ Tablet',
       ]);
-      expect(items.first['url'], 'https://www.bloomberg.com/news/amazon-decart');
+      expect(
+        items.first['url'],
+        'https://www.bloomberg.com/news/amazon-decart',
+      );
       expect(items.first['source'], 'Bloomberg');
       expect(items.first['dateLabel'], 'ayer');
       expect(items.last['summaryLine'], 'The tablet runs Google apps.');
@@ -403,7 +456,12 @@ void main() {
         'card answers, or without headlines', () {
       final shown = _answer([
         _intro('Noticias de AMZN.'),
-        {'id': 'n', 'component': 'QaNewsSummary', 'ticker': 'AMZN', 'items': []},
+        {
+          'id': 'n',
+          'component': 'QaNewsSummary',
+          'ticker': 'AMZN',
+          'items': [],
+        },
       ]);
       expect(
         AssistantAnswerReview.postProcess(
@@ -422,7 +480,11 @@ void main() {
       const empty = ToolCallRecord(
         name: 'get_news',
         args: {},
-        result: {'status': 'ok', 'news': [], 'context': {'status': 'ok'}},
+        result: {
+          'status': 'ok',
+          'news': [],
+          'context': {'status': 'ok'},
+        },
       );
       expect(
         AssistantAnswerReview.postProcess(
@@ -542,6 +604,69 @@ void main() {
         TurnEvidence(calls: [plan]),
       );
       expect(out, isNot(contains('QaSavingsPlan')));
+    });
+  });
+
+  group('proposal card', () {
+    const watch = ToolCallRecord(
+      name: 'propose_watch',
+      args: {'ticker': 'NFLX'},
+      result: {'status': 'ok', 'proposal_id': 'p1'},
+    );
+
+    test('a ready proposal without its card gets the card', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Listo, preparé seguir NFLX.')]),
+        const TurnEvidence(calls: [watch], turnCalls: [watch]),
+      );
+      final update = (jsonDecode(out) as Map)['updateComponents'] as Map;
+      final components = (update['components'] as List).cast<Map>();
+      final root = components.firstWhere((c) => c['id'] == 'root');
+      expect(root['children'], ['a', 'proposal_p1']);
+      expect(
+        components.firstWhere((c) => c['id'] == 'proposal_p1')['proposalId'],
+        'p1',
+      );
+    });
+
+    test('not added twice when the model already shows it', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('Listo.'),
+          {'id': 'x', 'component': 'QaActionProposal', 'proposalId': 'p1'},
+        ]),
+        const TurnEvidence(calls: [watch], turnCalls: [watch]),
+      );
+      expect('QaActionProposal'.allMatches(out).length, 1);
+    });
+
+    test('the same proposal repeated in the turn shows one card', () {
+      const again = ToolCallRecord(
+        name: 'propose_watch',
+        args: {'ticker': 'NFLX'},
+        result: {'status': 'ok', 'proposal_id': 'p2'},
+      );
+      final shown = AssistantAnswerReview.postProcess(
+        _answer([
+          _intro('Listo.'),
+          {'id': 'x', 'component': 'QaActionProposal', 'proposalId': 'p1'},
+        ]),
+        const TurnEvidence(calls: [watch, again], turnCalls: [watch, again]),
+      );
+      expect(shown, isNot(contains('p2')));
+      final none = AssistantAnswerReview.postProcess(
+        _answer([_intro('Listo.')]),
+        const TurnEvidence(calls: [watch, again], turnCalls: [watch, again]),
+      );
+      expect('"QaActionProposal"'.allMatches(none).length, 1);
+    });
+
+    test('a proposal from an earlier turn is not added', () {
+      final out = AssistantAnswerReview.postProcess(
+        _answer([_intro('Hola.')]),
+        const TurnEvidence(calls: [watch]),
+      );
+      expect(out, isNot(contains('QaActionProposal')));
     });
   });
 }

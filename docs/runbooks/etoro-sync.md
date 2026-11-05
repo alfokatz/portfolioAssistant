@@ -18,7 +18,7 @@ Investigación y decisiones: `docs/superpowers/research/2026-10-08-etoro-integra
 
 | | App | Servidor |
 |---|---|---|
-| Conectar | Ajustes → eToro (o la Home vacía, o el onboarding) → `POST etoro-sync/connect/start` → abre `authorizeUrl` en el navegador del sistema (`flutter_web_auth_2`: ASWebAuthenticationSession / Custom Tabs, sin WebView) | Genera `state`, `nonce` y PKCE S256 y los guarda en `etoro_oauth_states`. eToro vuelve a `GET etoro-sync/callback`, que intercambia el código, valida el ID token (RS256/JWKS, iss, aud, nonce), **rechaza y revoca si hay cualquier scope de escritura**, guarda los tokens en Vault, importa y redirige a `porty-etoro://callback?status=ok` (sin tokens en el deep link) |
+| Conectar | Ajustes → eToro (o la Home vacía, o el onboarding) → `POST etoro-sync/connect/start` → abre `authorizeUrl` en el navegador del sistema (`flutter_web_auth_2`: ASWebAuthenticationSession / Custom Tabs, sin WebView) | Genera `state`, `nonce` y PKCE S256 y los guarda en `etoro_oauth_states`. eToro vuelve a `GET etoro-sync/callback`, que **solo guarda el código** y redirige a `porty-etoro://callback?status=pending&handle=…` (handle de un solo uso; sin código ni tokens en el deep link). La app termina con `POST etoro-sync/connect/complete {handle}` y su JWT: la función exige que sea el mismo usuario que hizo `connect/start` (si no, `403 etoro_link_mismatch`; handle usado o vencido, `410 etoro_link_expired`), intercambia el código, valida el ID token (RS256/JWKS, iss, aud, nonce), **rechaza y revoca si hay cualquier scope de escritura**, guarda los tokens en Vault, importa y responde `{status, reason?, mode?}`. En dos pasos para que nadie pueda vincularle a otro usuario la cuenta de eToro de quien complete la URL |
 | Sincronizar | Al abrir la app o volver a ella (si lo último tiene más de 15 min), con pull-to-refresh en Inicio y con "Actualizar ahora" | `POST etoro-sync/sync`: como mucho una cada 5 min (si no, devuelve la última), lease por usuario, refresco con rotación guardada antes de usar el token, un solo reintento ante 401, y `etoro_apply_sync` atómico |
 | Leer estado | `select` de `etoro_connections` (RLS: la suya) | — |
 | Desconectar | Hoja "¿Qué hacemos con lo importado?" | `POST etoro-sync/disconnect {keepAsManual}`: revoca en eToro (si falla, sigue igual), borra el secreto de Vault y convierte en manuales o borra las filas `etoro` |
@@ -37,6 +37,7 @@ Secrets de `etoro-sync`:
 | `ETORO_REDIRECT_URI` | `https://<project-ref>.supabase.co/functions/v1/etoro-sync/callback`, idéntica a la registrada |
 | `ETORO_APP_REDIRECT` | opcional, por defecto `porty-etoro://callback` |
 | `ETORO_ENVIRONMENT` | **solo staging**: `demo` usa los endpoints demo y el scope `etoro-public:demo:read`. En producción no se define (o se pone `real`) |
+| `ETORO_DEMO_PROJECT_REF` | **solo staging**: el ref del proyecto de staging. `demo` solo se aplica si coincide con el ref de `SUPABASE_URL`; si no, se ignora (log `etoro_demo_ignored`) y se conectan las cuentas reales. Así un `ETORO_ENVIRONMENT=demo` copiado a producción no tiene efecto |
 
 Sin `ETORO_CLIENT_ID`, `ETORO_CLIENT_SECRET` o `ETORO_REDIRECT_URI`, la función responde `503 etoro_not_configured` y la app muestra "no disponible": eso sirve de interruptor de apagado.
 
@@ -134,7 +135,7 @@ supabase functions deploy etoro-sync --no-verify-jwt
 
 ## 6. Prueba de punta a punta (staging, cuenta demo)
 
-Requiere el cliente OAuth registrado (paso 2), la función en staging con `ETORO_ENVIRONMENT=demo` y un build de la app apuntando a staging.
+Requiere el cliente OAuth registrado (paso 2), la función en staging con `ETORO_ENVIRONMENT=demo` y `ETORO_DEMO_PROJECT_REF=<ref de staging>` y un build de la app apuntando a staging.
 
 1. Free → Ajustes → eToro → "Conectar eToro" abre el paywall y no hace ningún pedido.
 2. Premium → "Conectar eToro" → se abre el navegador del sistema en `www.etoro.com/sso` → login con la **cuenta demo** → la pantalla de consentimiento muestra solo lectura → vuelve a la app con "Importamos N posiciones" y lo que no se importó, explicado.
@@ -161,7 +162,7 @@ Antes de producción: sacar `ETORO_ENVIRONMENT` y registrar la redirect URI de p
 
 ## 8. Operación
 
-- **Logs:** `fn=etoro-sync`, con `op` igual a `connect_start`, `callback`, `sync` o `disconnect` y su `outcome`.
+- **Logs:** `fn=etoro-sync`, con `op` igual a `connect_start`, `callback`, `complete`, `sync` o `disconnect` y su `outcome` (`complete` / `user_mismatch` indica un intento de completar la vinculación de otra cuenta).
 - **Señales a vigilar:**
   - suba de `etoro_unavailable` o `etoro_rate_limited`;
   - cualquier `write_scope` en callback (indicaría un cambio en eToro);

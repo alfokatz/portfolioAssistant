@@ -114,6 +114,20 @@ abstract final class GenUiDebugLog {
     debugPrint('[GenUI/grounding] reescritura descartada: perdió la card');
   }
 
+  /// La respuesta llegó al tope de tokens de salida del proxy.
+  static void outputTruncated(int length) {
+    if (!kDebugMode) return;
+    debugPrint('[GenUI/truncated] la ronda llegó al tope de salida '
+        '(finish_reason: length, $length caracteres)');
+  }
+
+  /// La ronda final llegó vacía o rota: se reintenta antes del fallback.
+  static void unreadableFinal(int length) {
+    if (!kDebugMode) return;
+    debugPrint('[GenUI/final] respuesta vacía o rota ($length caracteres): '
+        'reintento');
+  }
+
   static void answerRejected(String correction) {
     if (!kDebugMode) return;
     debugPrint('[GenUI/grounding] respuesta rechazada: $correction');

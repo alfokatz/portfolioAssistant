@@ -3,6 +3,28 @@ import 'dart:async';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
+import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
+import 'package:portfolio_assistant/features/weekly_report/providers/weekly_report_controller.dart';
+import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
+import 'package:portfolio_assistant/features/etoro/view/etoro_messages.dart';
+import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/binance/view/binance_screen.dart'
+    show binanceErrorMessage;
+import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
+import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
+import 'package:portfolio_assistant/features/snaptrade/view/snaptrade_screen.dart'
+    show snaptradeErrorMessage;
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
+import 'package:portfolio_assistant/features/notifications/domain/notification_preferences.dart';
+import 'package:portfolio_assistant/features/notifications/providers/notification_preferences_provider.dart';
+import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
+import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
+import 'package:portfolio_assistant/features/watchlist/data/watchlist_repository.dart';
+import 'package:portfolio_assistant/features/watchlist/providers/watchlist_provider.dart';
 import 'package:genui/genui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -18,7 +40,10 @@ import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_tools.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -26,6 +51,8 @@ import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
+import 'package:portfolio_assistant/features/assistant/tools/market_taste_grant.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
@@ -39,14 +66,22 @@ import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_rea
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/porty_memory/providers/user_memory_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/weekly_free_analysis_provider.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
+import 'package:portfolio_assistant/features/assistant/utils/porty_topics_extractor.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
 /// modelo decide qué datos pedir (ver `AssistantToolset`), el plan del
@@ -64,7 +99,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           ],
         ),
       ) {
-    _initialQuestion = args.initialQuestion;
+    if (args.initialQuestion case final q?) {
+      _initialQuestion = (text: q, screen: args.initialScreen);
+    }
   }
 
   final Ref ref;
@@ -75,15 +112,99 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   GenUiConversationSubscription? _subscription;
   AssistantDataSources? _data;
 
-  String? _initialQuestion;
+  _OutsideQuestion? _initialQuestion;
 
   /// Pregunta llegada de afuera mientras corría un turno: sale apenas
   /// termina (ver [askFromOutside]).
-  String? _queuedQuestion;
+  _OutsideQuestion? _queuedQuestion;
+
+  /// La pantalla desde donde se abrió el chat por última vez (ver
+  /// [PortyScreenContext]) y cuántos turnos pasaron desde entonces.
+  PortyScreenContext? _screen;
+  int _screenTurns = 0;
+
+  /// La pregunta de afuera que está por salir cambia [_screen] (también a
+  /// `null`: una pregunta de la Home no es sobre la pantalla anterior).
+  bool _screenPending = false;
+  PortyScreenContext? _pendingScreen;
+
+  /// Lo que el servidor dijo de las consultas de mercado gratis, leído una
+  /// vez por chat y solo si el plan las tiene (Premium y Gold no llaman a la
+  /// RPC). Una respuesta fallida no se guarda: se reintenta en el próximo
+  /// turno.
+  MarketTasteStatus? _tasteStatus;
+
+  /// Respuestas cuyo aviso de Premium ya se registró como mostrado.
+  final _teaserLogged = <String>{};
+
+  /// Sin Supabase (tests, sin sesión), la consulta gratis simplemente no se
+  /// ofrece.
+  MarketTasteRepository? _tasteRepository() {
+    try {
+      return ref.read(marketTasteRepositoryProvider);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Si este turno puede pedir la consulta de mercado gratis: el plan la
+  /// tiene (por capacidad, no por tier) y el servidor la tiene prendida.
+  Future<bool> _marketTasteAvailable() async {
+    if (PlanMatrix.of(
+          ref.read(subscriptionProvider).tier,
+        ).marketDataTastesPerMonth <=
+        0) {
+      return false;
+    }
+    final repo = _tasteRepository();
+    if (repo == null) return false;
+    final status = _tasteStatus ??= await repo.status();
+    return status?.enabled == true;
+  }
 
   // El aviso de completar/revisar el perfil de inversor sale una sola vez
   // por conversación — ver `AssistantTurnPolicy.noticesFor`.
   bool _profileNudgeShown = false;
+
+  /// Línea de cuota baja (3c): tras un turno que cobró y con la cuota ya
+  /// refrescada, marca la respuesta de [surfaceId] para que la pantalla
+  /// agregue "te quedan N consultas" con link a los planes. Una vez por mes
+  /// UTC y por usuario ([QuotaNudgeMemory]). Nunca falla: sin sesión, sin
+  /// red o sin el interruptor, no hay línea. El número sale de la
+  /// suscripción, no del modelo.
+  Future<void> _maybeNudgeLowQuota(String surfaceId) async {
+    try {
+      final sub = ref.read(subscriptionProvider);
+      final threshold = PlanMatrix.of(sub.tier).quotaNudgeAtRemaining;
+      final remaining = sub.queriesRemaining;
+      if (threshold == null || remaining <= 0 || remaining > threshold) return;
+      if (PlanMatrix.nextTier(sub.tier) == null) return;
+      final userId = ref.read(supabaseAuthServiceProvider).currentUser?.id;
+      if (userId == null) return;
+      final memory = ref.read(quotaNudgeMemoryProvider);
+      final now = ref.read(quotaNudgeClockProvider)();
+      if (memory.wasShown(userId, now)) return;
+      if (!await ref.read(quotaNudgeEnabledProvider.future)) return;
+      // Después de esperar: otro turno pudo haberla mostrado, o el chat
+      // cerrarse.
+      if (!mounted || memory.wasShown(userId, now)) return;
+      final i = state.messages.lastIndexWhere(
+        (m) =>
+            m.surfaceId == surfaceId &&
+            m.role == PortfolioQaRole.assistant &&
+            m.isGenUiSurface &&
+            !m.isStreaming,
+      );
+      if (i < 0) return;
+      final write = memory.markShown(userId, now);
+      final updated = [...state.messages];
+      updated[i] = updated[i].copyWith(quotaNudgeRemaining: remaining);
+      state = state.copyWith(messages: updated);
+      await write;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Assistant/quotaNudge] skipped: $e');
+    }
+  }
 
   /// Sugerencias iniciales según el plan: cada una se responde con lo que el
   /// plan incluye (ninguna lleva a un paywall gastando una consulta) y
@@ -115,6 +236,27 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// Sugerencias iniciales del plan actual (ver [starterChipKeysFor]).
   List<String> get chipKeys =>
       starterChipKeysFor(ref.read(subscriptionProvider).tier);
+
+  /// El ticker de la última charla (últimos 14 días) para ofrecer retomarla
+  /// en el chat vacío. Solo si el plan lo cubre: lo que tiene, siempre; lo
+  /// que no tiene, con datos de mercado (ninguna sugerencia lleva a un
+  /// paywall).
+  PortyTopic? resumeTopic(List<PortyTopic> topics, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final tier = ref.read(subscriptionProvider).tier;
+    final held = ref.read(homeProvider).summary?.valuations.map(
+          (v) => v.position.ticker.toUpperCase(),
+        ) ??
+        const <String>[];
+    for (final t in topics) {
+      if (today.difference(t.lastAskedAt) > const Duration(days: 14)) break;
+      if (held.contains(t.ticker) ||
+          PlanMatrix.allows(tier, PlanFeature.marketData)) {
+        return t;
+      }
+    }
+    return null;
+  }
 
   /// La conversación de Porty (sus surfaces). `null` hasta `bootstrap`.
   AssistantOpenAiService? get service => _service;
@@ -212,6 +354,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
     }
 
+    _leanPrompt = await _leanPromptForConversation();
+    // Para ofrecer retomar la última charla en el chat vacío.
+    unawaited(ref.read(portyTopicsProvider.notifier).ensureLoaded());
     _ensureService();
     state = state.copyWith(isServiceReady: true);
     // Arranca la función del proxy mientras el usuario lee o escribe.
@@ -232,10 +377,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       );
     } catch (_) {}
 
-    final question = _initialQuestion?.trim();
+    // El estado de las consultas de mercado gratis, a mano antes del primer
+    // turno (solo si ya se sabe el plan).
+    if (!ref.read(subscriptionProvider).isLoading) {
+      unawaited(_marketTasteAvailable());
+    }
+
+    final question = _initialQuestion;
     _initialQuestion = null;
-    if (question != null && question.isNotEmpty) {
-      await submitMessage(question);
+    if (question != null && question.text.trim().isNotEmpty) {
+      await _submitFromOutside(question);
     }
   }
 
@@ -243,21 +394,77 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// informe) con la pantalla de Porty ya montada. Si la conversación
   /// todavía se está preparando, la toma `bootstrap`; si hay un turno en
   /// curso, sale cuando termina (la última tocada gana).
-  void askFromOutside(String question) {
+  ///
+  /// [screen] es lo que el usuario estaba mirando (ver
+  /// [PortyScreenContext]); `null` si la pregunta no es de una pantalla.
+  void askFromOutside(String question, {PortyScreenContext? screen}) {
     final trimmed = question.trim();
     if (trimmed.isEmpty) return;
+    final outside = (text: trimmed, screen: screen);
     if (!state.isServiceReady) {
-      _initialQuestion = trimmed;
+      _initialQuestion = outside;
     } else if (state.isWaiting) {
-      _queuedQuestion = trimmed;
+      _queuedQuestion = outside;
     } else {
-      unawaited(submitMessage(trimmed));
+      unawaited(_submitFromOutside(outside));
+    }
+  }
+
+  Future<void> _submitFromOutside(_OutsideQuestion question) {
+    _screenPending = true;
+    _pendingScreen = question.screen;
+    return submitMessage(question.text);
+  }
+
+  /// La próxima pregunta que se escriba es de [screen] (el chat abierto como
+  /// hoja sobre esa pantalla; ver `PortyChatSheet`).
+  void useScreenForNextQuestion(PortyScreenContext? screen) {
+    _screenPending = true;
+    _pendingScreen = screen;
+  }
+
+  /// El `screen_context` de este turno: la pantalla de la pregunta de
+  /// afuera que sale ahora o, en los turnos siguientes, la misma con
+  /// `turns_ago` sumando, hasta [PortyScreenContext.maxTurns].
+  Map<String, Object?>? _screenForTurn() {
+    if (_screenPending) {
+      _screen = _pendingScreen;
+      _screenTurns = 0;
+      _screenPending = false;
+      _pendingScreen = null;
+    } else if (_screen != null) {
+      _screenTurns++;
+    }
+    final screen = _screen;
+    if (screen == null) return null;
+    if (_screenTurns >= PortyScreenContext.maxTurns) {
+      _screen = null;
+      return null;
+    }
+    return screen.toBrief(turnsAgo: _screenTurns);
+  }
+
+  /// Si esta conversación usa el prompt lean (`PromptVariant.lean`). Se
+  /// decide una vez, al abrir el chat: cambiar de prompt a mitad de una
+  /// conversación rompería la caché y dejaría `area_spec` sin su regla.
+  bool _leanPrompt = false;
+
+  Future<bool> _leanPromptForConversation() async {
+    final enabled = ref.read(assistantDepsProvider).leanPromptEnabled;
+    if (enabled == null) return false;
+    try {
+      return await enabled();
+    } catch (_) {
+      return false;
     }
   }
 
   void _ensureService() {
     if (_service != null) return;
-    final service = ref.read(assistantDepsProvider).createService();
+    final deps = ref.read(assistantDepsProvider);
+    final service =
+        (_leanPrompt ? deps.createLeanService : null)?.call() ??
+        deps.createService();
     _service = service;
     _subscription =
         GenUiConversationSubscription()
@@ -316,6 +523,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // se prende en el mismo instante para que la UI refleje exactamente la
     // ventana en la que el guard está tomado.
     if (!_sendGuard.tryAcquire()) return;
+    // Con el lock ya tomado: la pantalla pendiente es de esta pregunta.
+    final screenContext = _screenForTurn();
     state = state.copyWith(clearError: true, isWaiting: true);
     _setActivity(TurnActivity.thinking);
 
@@ -337,6 +546,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final profileF = _profileForTurn();
       final memoriesF = _memoriesForTurn();
       final goalsF = _goalsForTurn();
+      final topicsF = _topicsForTurn();
       final streamingF = _streamingForTurn();
       await Future.wait<Object?>([
         subscription.refresh(),
@@ -346,7 +556,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         profileF,
         memoriesF,
         goalsF,
+        topicsF,
       ]);
+      // Con el plan ya refrescado: Premium y Gold no llaman a la RPC.
+      final tasteAvailable = await _marketTasteAvailable();
 
       final ctx = AssistantToolContext(
         tier: ref.read(subscriptionProvider).tier,
@@ -364,17 +577,30 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             progress.toBrief(id),
         ],
         loadPriceAlerts: _priceAlertsForTool,
+        loadAllocationPlan: () async {
+          await ref.read(allocationProvider.notifier).load();
+          return ref.read(allocationProvider).saved;
+        },
+        loadWatchlist: _watchlistForTool,
+        loadAppSettings: _settingsForTool,
+        loadConnectedAccounts: _accountsForTool,
+        loadAccountOverview: _accountOverviewForTool,
+        pendingRequest: _pendingRequest,
+        screenContext: screenContext,
+        queriesLeftThisMonth: () {
+          final sub = ref.read(subscriptionProvider);
+          final left = sub.queriesLimit - sub.queriesUsed;
+          return left < 0 ? 0 : left;
+        }(),
+        loadWeeklyReport: _weeklyReportForTool,
         userMemories: await memoriesF,
         saveMemory: _saveMemory,
         deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),
         savedGoals: await goalsF,
         saveGoal: (draft) => ref.read(goalsProvider.notifier).save(draft),
-        updateGoalSavings: (goalId, amount) async {
-          await ref
-              .read(goalsProvider.notifier)
-              .setExternalSavings(goalId, amount);
-          return ref.read(goalsProvider).byId(goalId);
-        },
+        recentTopics: [
+          for (final t in await topicsF) t.toBrief(DateTime.now()),
+        ],
       );
 
       // Análisis Gold de cortesía de la semana: se gasta solo si el modelo
@@ -385,6 +611,18 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         consume:
             (ticker) =>
                 ref.read(weeklyFreeAnalysisProvider.notifier).consume(ticker),
+      );
+
+      // Consulta de mercado gratis del mes (Free): se gasta en el servidor,
+      // por turno, la primera vez que el modelo pide datos de un ticker ajeno.
+      final taste = MarketTasteGrant(
+        ctx: ctx,
+        available: tasteAvailable,
+        turnId: () => service.log.currentTurn?.id,
+        consume:
+            (turnId, tickers) =>
+                _tasteRepository()?.consume(turnId, tickers) ??
+                Future.value(MarketTasteConsume.unavailable),
       );
 
       final surfaceId = GenUiSurfaceIds.assistantTurn(state.turnCounter);
@@ -418,10 +656,30 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   (firstRound) =>
                       AssistantTurnPolicy.paywallFor(firstRound, ctx),
               onActivity: _setActivity,
-              beforeRound: courtesy.beforeRound,
+              beforeRound: (calls) async {
+                await courtesy.beforeRound(calls);
+                await taste.beforeRound(calls);
+              },
               onContent: service.streaming ? _previewSink(surfaceId) : null,
             );
           },
+        );
+        _pendingRequest = AssistantTurnPolicy.pendingRequest(
+          outcome ?? const TurnOutcome([]),
+        );
+        // De qué tickers habló (sin el modelo): Porty lo retoma en otra
+        // charla y la bandeja avisa si se movió fuerte desde entonces.
+        unawaited(
+          ref
+              .read(portyTopicsProvider.notifier)
+              .record(
+                PortyTopicsExtractor.extract(
+                  question: trimmed,
+                  calls: outcome?.toolCalls ?? const [],
+                  heldTickers: ctx.heldTickers,
+                  screenTicker: screenContext?['ticker'] as String?,
+                ),
+              ),
         );
         final notices = AssistantTurnPolicy.noticesFor(
           outcome ?? const TurnOutcome([]),
@@ -440,8 +698,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             sources: notices.sources,
           ),
         );
-        // El contador del header refleja lo que cobró el servidor.
-        unawaited(subscription.refresh());
+        _markMarketTaste(surfaceId, ctx);
+        // El contador del header refleja lo que cobró el servidor; con la
+        // cuota ya refrescada se decide la línea de cuota baja.
+        unawaited(
+          subscription.refresh().then((_) => _maybeNudgeLowQuota(surfaceId)),
+        );
+        ref.read(productEventsProvider).log(ProductEvent.firstChatAnswer, {
+          if (screenContext?['screen'] case final String screen)
+            'screen': screen,
+        });
       } on ProxyLimitException catch (e) {
         // `prompt_not_allowed` en desarrollo = cambió el prompt y falta
         // regenerar la allowlist y desplegar `ai-chat` (ver runbook).
@@ -452,9 +718,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // Todo lo que pidió el modelo está fuera del plan: igual que antes
         // de las tools, el turno no deja mensajes ni consume cuota — se
         // ofrece el upgrade.
+        // El único que corta turnos es `AssistantTurnPolicy.paywallFor`.
+        final paywall = e.reason as ChatPaywall;
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
-          paywallReason: e.reason as PaywallReason,
+          paywallReason: paywall.reason,
+          paywallSource: paywall.source,
+          paywallFeature: paywall.feature,
           clearPaywallReason: false,
         );
       } on TimeoutException catch (e) {
@@ -496,9 +766,36 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final queued = _queuedQuestion;
       _queuedQuestion = null;
       if (queued != null && mounted) {
-        unawaited(Future.microtask(() => submitMessage(queued)));
+        unawaited(Future.microtask(() => _submitFromOutside(queued)));
       }
     }
+  }
+
+  /// Las líneas de la consulta de mercado gratis de la respuesta de
+  /// [surfaceId]: "te quedan N" si el turno gastó una, o el aviso de Premium
+  /// si se respondió sin datos del ticker ajeno porque ya no quedan. Las fija
+  /// la app con lo que dijo el servidor, nunca el modelo.
+  void _markMarketTaste(String surfaceId, AssistantToolContext ctx) {
+    final remaining = ctx.marketTaste ? ctx.marketTasteRemaining : null;
+    final teaser =
+        ctx.marketTasteExhausted &&
+        ctx.lockedReasons.contains(PaywallReason.marketDataLocked);
+    if (ctx.marketTaste) {
+      ref.read(productEventsProvider).log(ProductEvent.marketTasteUsed, {
+        if (remaining != null) 'remaining': remaining,
+      });
+    }
+    if (remaining == null && !teaser) return;
+    final i = state.messages.lastIndexWhere(
+      (m) => m.surfaceId == surfaceId && m.role == PortfolioQaRole.assistant,
+    );
+    if (i < 0) return;
+    final updated = [...state.messages];
+    updated[i] = updated[i].copyWith(
+      marketTasteRemaining: remaining,
+      marketTeaser: teaser,
+    );
+    state = state.copyWith(messages: updated);
   }
 
   /// Rechazo del servidor antes de responder: la cuota del mes abre el
@@ -513,6 +810,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       return current.copyWith(
         messages: _removeTurn(current.messages, surfaceId),
         paywallReason: PaywallReason.quotaExceeded,
+        paywallSource: PaywallSource.quotaZero,
         clearPaywallReason: false,
       );
     }
@@ -577,13 +875,69 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     } catch (_) {}
     if (!mounted) return;
     final tier = ref.read(subscriptionProvider).tier;
-    // Las alertas no son una operación de cartera: Free tiene una y el tope
-    // lo controla la base al crearla.
-    if (draft.kind != ActionKind.alert &&
-        !PlanMatrix.allows(tier, PlanFeature.portfolioActions)) {
+    // Seguir un ticker: cada plan tiene su tope (Free 3). Se mira antes de
+    // escribir para abrir el paywall en vez de un error. Las demás
+    // operaciones de la lista (dejar de seguir, avisos) no suman.
+    if (draft.kind == ActionKind.watch && await _watchlistFull(draft.ticker)) {
+      if (!mounted) return;
       _setAction(id, ActionProposalProgress.pending);
       state = state.copyWith(
-        paywallReason: PaywallReason.modeLocked,
+        paywallReason: PaywallReason.watchlistLimit,
+        paywallSource: PaywallSource.chatActionWatchlist,
+        paywallFeature: PlanFeature.marketData,
+        clearPaywallReason: false,
+      );
+      return;
+    }
+    // Las cuentas conectadas son de Premium.
+    if (draft.manageOp?.link == ManageLink.broker &&
+        !PlanMatrix.allows(tier, PlanFeature.brokerSync)) {
+      _setAction(id, ActionProposalProgress.pending);
+      state = state.copyWith(
+        paywallReason: PaywallReason.brokerSync,
+        paywallSource: PaywallSource.chatActionBroker,
+        paywallFeature: PlanFeature.brokerSync,
+        clearPaywallReason: false,
+      );
+      return;
+    }
+    // Sumar otro bróker por SnapTrade es de Gold (Premium importa uno).
+    if (draft.manageOp == ManageOp.brokerConnect &&
+        !PlanMatrix.allows(tier, PlanFeature.multiBrokerSync)) {
+      final snaptrade = ref.read(snaptradeProvider.notifier);
+      if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
+      if (ref.read(snaptradeProvider).connection.isConnected) {
+        _setAction(id, ActionProposalProgress.pending);
+        state = state.copyWith(
+          paywallReason: PaywallReason.goldRequired,
+          paywallSource: PaywallSource.chatActionMultiBroker,
+          paywallFeature: PlanFeature.multiBrokerSync,
+          clearPaywallReason: false,
+        );
+        return;
+      }
+    }
+    // El plan de cartera es de Premium.
+    if (draft.manageOp?.link == ManageLink.allocation &&
+        !PlanMatrix.allows(tier, PlanFeature.allocationPlan)) {
+      _setAction(id, ActionProposalProgress.pending);
+      state = state.copyWith(
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatActionAllocation,
+        paywallFeature: PlanFeature.allocationPlan,
+        clearPaywallReason: false,
+      );
+      return;
+    }
+    // Registrar operaciones es de todos los planes; lo que Free no puede es
+    // pasar el tope de posiciones con un ticker nuevo (se vuelve a mirar
+    // acá: pudo cambiar desde que Porty lo propuso).
+    if (draft.kind == ActionKind.buy && _exceedsPositionLimit(draft, tier)) {
+      _setAction(id, ActionProposalProgress.pending);
+      state = state.copyWith(
+        paywallReason: PaywallReason.positionLimit,
+        paywallSource: PaywallSource.chatActionPositionLimit,
+        paywallFeature: PlanFeature.unlimitedPositions,
         clearPaywallReason: false,
       );
       return;
@@ -626,15 +980,29 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     ref
         .read(alertProvider.notifier)
         .showSuccess(
-          message: switch (draft.kind) {
-            ActionKind.buy => 'assistant_action_saved_buy',
-            ActionKind.sell => 'assistant_action_saved_sell',
-            ActionKind.delete => 'assistant_action_saved_delete',
-            ActionKind.alert => 'assistant_action_saved_alert',
-          }.tr(namedArgs: {'ticker': draft.ticker}),
+          message:
+              draft.manageOp?.done(draft.manageTarget) ??
+              switch (draft.kind) {
+                ActionKind.buy => 'assistant_action_saved_buy',
+                ActionKind.sell => 'assistant_action_saved_sell',
+                ActionKind.delete => 'assistant_action_saved_delete',
+                ActionKind.alert => 'assistant_action_saved_alert',
+                ActionKind.watch ||
+                ActionKind.manage => 'assistant_action_saved_watch',
+              }.tr(namedArgs: {'ticker': draft.ticker}),
         );
-    if (draft.kind == ActionKind.alert) return;
+    if (draft.kind == ActionKind.alert ||
+        draft.kind == ActionKind.watch ||
+        draft.kind == ActionKind.manage) {
+      return;
+    }
     // La Home y el PORTFOLIO_BRIEF del próximo turno ya con la operación.
+    // Si era la primera posición, la Home la registra como cargada desde el
+    // chat.
+    if (draft.kind == ActionKind.buy) {
+      ref.read(portfolioLoadMethodProvider.notifier).state =
+          PortfolioLoadMethod.chat;
+    }
     try {
       await ref.read(homeProvider.notifier).refresh(silent: true);
     } catch (_) {}
@@ -689,6 +1057,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
   /// La card ya valida, pero esto es lo último antes de escribir.
   String? _invalidDraft(ActionDraft draft) {
+    if (draft.kind == ActionKind.watch) return null;
+    if (draft.kind == ActionKind.manage) {
+      return draft.manageOp == null ? _actionFailedMessage : null;
+    }
     if (draft.kind == ActionKind.alert) {
       final target = draft.alertTarget;
       return target == null || target <= 0 || draft.alertCondition == null
@@ -767,7 +1139,311 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         return (error: null, closed: null);
       case ActionKind.alert:
         return (error: await _createAlert(draft), closed: null);
+      case ActionKind.watch:
+        return (error: await _follow(draft), closed: null);
+      case ActionKind.manage:
+        return (error: await _manage(draft), closed: null);
     }
+  }
+
+  /// Ejecuta una operación de gestión ([ManageOp]) con los mismos
+  /// notifiers que las pantallas. Devuelve el error para el usuario.
+  Future<String?> _manage(ActionDraft draft) async {
+    final op = draft.manageOp!;
+    try {
+      switch (op) {
+        case ManageOp.unwatch ||
+            ManageOp.watchNotifyOn ||
+            ManageOp.watchNotifyOff:
+          final notifier = ref.read(watchlistProvider.notifier);
+          if (!ref.read(watchlistProvider).loaded) await notifier.load();
+          final item =
+              ref
+                  .read(watchlistProvider)
+                  .items
+                  .where((i) => i.symbol == draft.ticker)
+                  .firstOrNull;
+          if (item == null) return 'Ya no seguís ${draft.ticker}.';
+          if (op == ManageOp.unwatch) {
+            await notifier.remove(item);
+          } else {
+            await notifier.setNotify(item, op == ManageOp.watchNotifyOn);
+          }
+        case ManageOp.alertPause ||
+            ManageOp.alertResume ||
+            ManageOp.alertDelete:
+          final notifier = ref.read(priceAlertsProvider.notifier);
+          await notifier.load();
+          final alert =
+              ref
+                  .read(priceAlertsProvider)
+                  .alerts
+                  .where((a) => a.id == draft.targetId)
+                  .firstOrNull;
+          if (alert == null) return 'Esa alerta ya no existe.';
+          if (op == ManageOp.alertDelete) {
+            await notifier.delete(alert);
+          } else {
+            await notifier.setActive(alert, active: op == ManageOp.alertResume);
+          }
+        case ManageOp.goalDelete ||
+            ManageOp.goalAchieved ||
+            ManageOp.goalHoldings ||
+            ManageOp.goalOutsideSavings:
+          final goals = ref.read(goalsProvider.notifier);
+          await goals.ensureLoaded();
+          final id = draft.targetId;
+          if (id == null || ref.read(goalsProvider).byId(id) == null) {
+            return 'Esa meta ya no existe.';
+          }
+          final target = draft.manageTarget;
+          switch (op) {
+            case ManageOp.goalDelete:
+              await goals.delete(id);
+            case ManageOp.goalAchieved:
+              await goals.setStatus(id, GoalStatus.achieved);
+            case ManageOp.goalHoldings:
+              await goals.setLinkedTickers(id, target.tickers.toSet());
+            default:
+              await goals.setExternalSavings(id, target.amount ?? 0);
+          }
+        case ManageOp.allocationSave:
+          return await _saveAllocation(draft.manageTarget);
+        case ManageOp.settingsChange:
+          return await _applySettings(draft.manageTarget.changes);
+        case ManageOp.memoryClear:
+          await ref.read(userMemoryProvider.notifier).clear();
+          await ref.read(portyTopicsProvider.notifier).clear();
+        case ManageOp.brokerSync ||
+            ManageOp.brokerConnect ||
+            ManageOp.brokerDisconnect:
+          return await _brokerAction(draft.manageTarget, op);
+      }
+      return null;
+    } on GoalsFailure {
+      return 'No me pude conectar. Probá de nuevo.';
+    } on WatchlistFailure {
+      return 'No me pude conectar. Probá de nuevo.';
+    } on PriceAlertLimitReached catch (e) {
+      final limit =
+          e.limit ??
+          PlanMatrix.of(ref.read(subscriptionProvider).tier).priceAlertLimit;
+      return 'Llegaste al máximo de $limit alertas activas de tu plan.';
+    }
+  }
+
+  /// Si [draft] es la compra de un ticker nuevo y la cartera ya está en el
+  /// tope de posiciones del plan (Free: 10). Más compras de lo que ya tiene
+  /// siguen valiendo.
+  bool _exceedsPositionLimit(ActionDraft draft, SubscriptionTier tier) {
+    final limit = PlanMatrix.of(tier).positionLimit;
+    if (limit == null) return false;
+    final held = {
+      for (final v in ref.read(homeProvider).summary?.valuations ?? const [])
+        v.position.ticker.toUpperCase(),
+    };
+    return !held.contains(draft.ticker.toUpperCase()) && held.length >= limit;
+  }
+
+  /// Si seguir [ticker] pasaría el tope de la lista de seguimiento del plan.
+  /// Si ya lo sigue, no suma (el alta lo avisa).
+  Future<bool> _watchlistFull(String ticker) async {
+    final watchlist = ref.read(watchlistProvider.notifier);
+    try {
+      if (!ref.read(watchlistProvider).loaded) await watchlist.load();
+    } catch (_) {
+      return false;
+    }
+    final list = ref.read(watchlistProvider);
+    final limit =
+        PlanMatrix.of(ref.read(subscriptionProvider).tier).watchlistLimit;
+    return !list.contains(ticker) && list.items.length >= limit;
+  }
+
+  /// Suma [draft] a la lista de seguimiento (lo mismo que la pantalla) y,
+  /// si el usuario apagó el interruptor, le saca los avisos.
+  Future<String?> _follow(ActionDraft draft) async {
+    final watchlist = ref.read(watchlistProvider.notifier);
+    try {
+      if (!ref.read(watchlistProvider).loaded) await watchlist.load();
+      if (ref.read(watchlistProvider).contains(draft.ticker)) {
+        return 'Ya seguís ${draft.ticker}.';
+      }
+      final item = await watchlist.add(draft.ticker);
+      if (!draft.watchNotify) await watchlist.setNotify(item, false);
+      return null;
+    } on WatchlistUnknownSymbol {
+      return 'No encontré cotización para ${draft.ticker}.';
+    } on WatchlistDuplicate {
+      return 'Ya seguís ${draft.ticker}.';
+    } on WatchlistLimitReached {
+      final limit =
+          PlanMatrix.of(ref.read(subscriptionProvider).tier).watchlistLimit;
+      return 'Llegaste al máximo de $limit tickers de tu plan.';
+    } on WatchlistFailure {
+      return 'No me pude conectar. Probá de nuevo.';
+    }
+  }
+
+  /// Actualiza o desconecta eToro o Binance, o conecta, actualiza o
+  /// desconecta los otros brókers (SnapTrade): lo mismo que sus pantallas.
+  Future<String?> _brokerAction(ManageTarget target, ManageOp op) async {
+    final keep = target.params['keep'] != false;
+    if (target.params['broker'] == 'snaptrade') {
+      return _snaptradeAction(op, keep: keep);
+    }
+    if (target.params['broker'] == 'binance') {
+      final binance = ref.read(binanceProvider.notifier);
+      if (!ref.read(binanceProvider).loaded) await binance.load();
+      if (!ref.read(binanceProvider).connection.isConnected) {
+        return 'Binance no está conectada.';
+      }
+      if (op == ManageOp.brokerSync) {
+        await binance.sync();
+      } else {
+        await binance.disconnect(keepAsManual: keep);
+      }
+      final error = ref.read(binanceProvider).errorType;
+      return error == null ? null : binanceErrorMessage(error);
+    }
+    final etoro = ref.read(etoroConnectionProvider.notifier);
+    if (!ref.read(etoroConnectionProvider).loaded) await etoro.load();
+    final etoroState = ref.read(etoroConnectionProvider).connection;
+    if (op == ManageOp.brokerSync
+        ? !etoroState.isConnected
+        : !etoroState.hasImportedData) {
+      return 'eToro no está conectada.';
+    }
+    final ok =
+        op == ManageOp.brokerSync
+            ? await etoro.sync(userInitiated: true)
+            : await etoro.disconnect(keepAsManual: keep);
+    if (ok) return null;
+    final error = ref.read(etoroConnectionProvider).lastActionError;
+    return error == null
+        ? 'eToro está ocupada. Probá en unos segundos.'
+        : EtoroMessages.syncError(error);
+  }
+
+  /// Aplica los ajustes de [changes] con los mismos notifiers que Ajustes.
+  /// El idioma lo cambia la pantalla (necesita su `BuildContext`).
+  Future<String?> _applySettings(Map<String, Object?> changes) async {
+    bool? flag(String key) =>
+        changes[key] is bool ? changes[key] as bool : null;
+    final touchesNotifications = changes.keys.any(
+      (key) =>
+          key.startsWith('notif') ||
+          key == AppSettingKeys.sensitivity ||
+          key == AppSettingKeys.quietHours,
+    );
+    if (touchesNotifications) {
+      final prefs = ref.read(notificationPreferencesProvider.notifier);
+      if (!ref.read(notificationPreferencesProvider).loaded) {
+        await prefs.load();
+      }
+      int? start;
+      int? end;
+      final quiet = changes[AppSettingKeys.quietHours];
+      if (quiet == 'off') {
+        start = 0;
+        end = 0;
+      } else if (quiet is String) {
+        final parts = quiet.split('-');
+        int? clock(String v) {
+          final hm = v.trim().split(':');
+          final h = int.tryParse(hm.first);
+          final m = hm.length > 1 ? int.tryParse(hm[1]) : 0;
+          return h == null || m == null ? null : h * 60 + m;
+        }
+
+        start = parts.isNotEmpty ? clock(parts.first) : null;
+        end = parts.length > 1 ? clock(parts[1]) : null;
+      }
+      await prefs.update(
+        (p) => p.copyWith(
+          enabled: flag(AppSettingKeys.notifications),
+          priceAlerts: flag(AppSettingKeys.priceAlerts),
+          bigMoves: flag(AppSettingKeys.bigMoves),
+          portfolioMoves: flag(AppSettingKeys.portfolioMoves),
+          weeklyReport: flag(AppSettingKeys.weeklyReport),
+          earnings: flag(AppSettingKeys.earnings),
+          showAmounts: flag(AppSettingKeys.showAmounts),
+          bigMoveSensitivity:
+              changes[AppSettingKeys.sensitivity] == null
+                  ? null
+                  : BigMoveSensitivity.parse(
+                    changes[AppSettingKeys.sensitivity],
+                  ),
+          quietStartMinutes: start,
+          quietEndMinutes: end,
+        ),
+      );
+      if (ref.read(notificationPreferencesProvider).saveFailed) {
+        return 'No pude guardar las notificaciones. Probá de nuevo.';
+      }
+    }
+    final currency = changes[AppSettingKeys.currency];
+    if (currency is String) {
+      await ref
+          .read(displayCurrencyProvider.notifier)
+          .set(DisplayCurrency.fromCode(currency));
+    }
+    final theme = changes[AppSettingKeys.theme];
+    if (theme is String) {
+      await ref.read(themeModeProvider.notifier).setThemeMode(switch (theme) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      });
+    }
+    final haptics = flag(AppSettingKeys.haptics);
+    if (haptics != null) {
+      await ref.read(hapticsEnabledProvider.notifier).setEnabled(haptics);
+    }
+    return null;
+  }
+
+  /// Guarda el plan de cartera de [target] sobre el que ya tiene (lo que
+  /// no viene en `params` queda como estaba).
+  Future<String?> _saveAllocation(ManageTarget target) async {
+    final notifier = ref.read(allocationProvider.notifier);
+    await notifier.load();
+    final saved = ref.read(allocationProvider).saved;
+    final p = target.params;
+    final threshold = (p['threshold'] as num?)?.toDouble();
+    final plan = saved.copyWith(
+      targets: target.targets.isEmpty ? null : target.targets,
+      driftThreshold: threshold?.clamp(1, 50).toDouble(),
+      notify: p['notify'] is bool ? p['notify'] as bool : null,
+      frequency:
+          p['frequency'] == null
+              ? null
+              : AllocationAlertFrequency.parse(p['frequency']),
+      // 0 apaga el recordatorio; un monto solo, sin día, cambia el monto.
+      contributionDay: switch (p['contribution_day']) {
+        final num d when d == 0 => () => null,
+        final num d => () => d.round(),
+        _ => null,
+      },
+      contributionAmount: switch (p['contribution_amount']) {
+        final num a => () => a.toDouble(),
+        _ when p['contribution_day'] == 0 => () => null,
+        _ => null,
+      },
+    );
+    if (plan.isEmpty) return 'Todavía no tenés un plan: decime qué querés.';
+    if (!plan.sumsTo100) return 'El plan tiene que sumar 100%.';
+    if (await notifier.save(plan)) return null;
+    if (ref.read(allocationProvider).error == AllocationError.locked) {
+      state = state.copyWith(
+        paywallReason: PaywallReason.allocationPlan,
+        paywallSource: PaywallSource.chatPlanSave,
+        paywallFeature: PlanFeature.allocationPlan,
+        clearPaywallReason: false,
+      );
+      return 'El plan de cartera es de Premium.';
+    }
+    return 'No pude guardar tu plan. Probá de nuevo.';
   }
 
   /// Crea la alerta de [draft] (la misma que la hoja de la app). Al tope
@@ -792,6 +1468,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       if (tier != SubscriptionTier.gold) {
         state = state.copyWith(
           paywallReason: PaywallReason.priceAlerts,
+          paywallSource: PaywallSource.chatAlertLimit,
           clearPaywallReason: false,
         );
       }
@@ -803,12 +1480,212 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   /// Para list_price_alerts: lo mínimo que necesita el modelo.
+  Future<List<Map<String, Object?>>> _watchlistForTool() async {
+    final notifier = ref.read(watchlistProvider.notifier);
+    if (!ref.read(watchlistProvider).loaded) await notifier.load();
+    // Las cotizaciones tardan (precio + historial por ticker): se esperan
+    // un rato y, si no llegan todas, la lista sale igual sin ese precio.
+    // Antes esperaba todo y con varios tickers pasaba el tope de 8 s de la
+    // tool ("no tengo acceso a tu lista").
+    try {
+      await notifier.refreshQuotes().timeout(_watchlistQuotesWait);
+    } on TimeoutException {
+      // Lo que llegó, llegó.
+    } catch (_) {}
+    final state = ref.read(watchlistProvider);
+    double? round2(double? v) =>
+        v == null ? null : (v * 100).roundToDouble() / 100;
+    return [
+      for (final item in state.items)
+        {
+          'ticker': item.symbol,
+          'price': state.quotes[item.symbol]?.price,
+          'day_change_pct': round2(state.quotes[item.symbol]?.dayChangePct),
+          'since_added_pct': round2(
+            state.quotes[item.symbol]?.sinceAddedPct(item.addedPrice),
+          ),
+          'alerts_on': item.notify,
+        },
+    ];
+  }
+
+  static const _watchlistQuotesWait = Duration(seconds: 5);
+
+  /// La acción que el último turno dejó esperando un dato (ver
+  /// [AssistantTurnPolicy.pendingRequest]); vive lo que la conversación.
+  Map<String, Object?>? _pendingRequest;
+
+  /// Los otros brókers (SnapTrade) desde el chat. Conectar abre el mismo
+  /// portal de solo lectura que la pantalla.
+  Future<String?> _snaptradeAction(ManageOp op, {required bool keep}) async {
+    final snaptrade = ref.read(snaptradeProvider.notifier);
+    if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
+    final connection = ref.read(snaptradeProvider).connection;
+    if (op != ManageOp.brokerConnect && !connection.isConnected) {
+      return 'No tenés otros brókers conectados.';
+    }
+    final bool ok;
+    switch (op) {
+      case ManageOp.brokerConnect:
+        ok = await snaptrade.connect(darkMode: _darkMode());
+      case ManageOp.brokerDisconnect:
+        ok = await snaptrade.disconnect(keepAsManual: keep);
+      default:
+        await snaptrade.sync();
+        ok = true;
+    }
+    final error = ref.read(snaptradeProvider).errorType;
+    if (error != null) return snaptradeErrorMessage(error);
+    // Cerró el portal sin conectar nada.
+    return ok ? null : 'No conectaste ningún bróker.';
+  }
+
+  /// El portal se abre en el tema que ve el usuario.
+  bool _darkMode() {
+    final system =
+        PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    try {
+      return switch (ref.read(themeModeProvider)) {
+        ThemeMode.dark => true,
+        ThemeMode.light => false,
+        ThemeMode.system => system,
+      };
+    } catch (_) {
+      return system; // preferencias sin cargar
+    }
+  }
+
+  /// Para get_app_settings: la cuenta además de los ajustes.
+  Future<Map<String, Object?>> _accountOverviewForTool() async {
+    final accounts = await _accountsForTool();
+    final sub = ref.read(subscriptionProvider);
+    final e = ref.read(etoroConnectionProvider).connection;
+    final b = ref.read(binanceProvider).connection;
+    final s = ref.read(snaptradeProvider).connection;
+    String? day(DateTime? d) => d?.toUtc().toIso8601String();
+    List<Map<String, Object?>> achieved = const [];
+    try {
+      await ref.read(goalsProvider.notifier).ensureLoaded();
+      achieved = [
+        for (final g in ref.read(goalsProvider).goals)
+          if (g.status == GoalStatus.achieved)
+            {'label': g.label, 'target_amount': g.targetAmount.round()},
+      ];
+    } catch (_) {}
+    return {
+      'plan': sub.tier.name,
+      'queries_used_this_month': sub.queriesUsed,
+      'queries_limit_this_month': sub.queriesLimit,
+      'connected_accounts': {
+        'etoro': {
+          'status': accounts['etoro'],
+          if (e.lastSyncAt != null) 'last_sync': day(e.lastSyncAt),
+          if (e.lastResult != null) 'imported': e.lastResult!.imported,
+        },
+        'binance': {
+          'status': accounts['binance'],
+          if (b.lastSyncAt != null) 'last_sync': day(b.lastSyncAt),
+          if (b.lastResult != null) 'imported': b.lastResult!.imported,
+        },
+        'snaptrade': {
+          'status': accounts['snaptrade'],
+          if (s.imported.isNotEmpty)
+            'brokers': [for (final x in s.imported) x.name],
+          if (s.lastSyncAt != null) 'last_sync': day(s.lastSyncAt),
+          if (s.lastResult != null) 'imported': s.lastResult!.imported,
+        },
+      },
+      if (achieved.isNotEmpty) 'achieved_goals': achieved,
+    };
+  }
+
+  /// Para get_weekly_report: el informe de esta semana (sin la serie
+  /// diaria, que es para el gráfico). `null` si todavía no está.
+  Future<Map<String, Object?>?> _weeklyReportForTool() async {
+    final report = ref.read(weeklyReportControllerProvider).report;
+    if (report == null) return null;
+    return {...report.toJson()}
+      ..remove('v')
+      ..remove('daily');
+  }
+
+  /// Para propose_broker_action: cómo está cada cuenta conectada.
+  Future<Map<String, String>> _accountsForTool() async {
+    final etoro = ref.read(etoroConnectionProvider.notifier);
+    final binance = ref.read(binanceProvider.notifier);
+    final snaptrade = ref.read(snaptradeProvider.notifier);
+    await Future.wait([
+      if (!ref.read(etoroConnectionProvider).loaded) etoro.load(),
+      if (!ref.read(binanceProvider).loaded) binance.load(),
+      if (!ref.read(snaptradeProvider).loaded) snaptrade.load(),
+    ]);
+    final e = ref.read(etoroConnectionProvider).connection;
+    final b = ref.read(binanceProvider).connection;
+    final s = ref.read(snaptradeProvider).connection;
+    return {
+      'etoro':
+          e.needsReconnect
+              ? 'reconnect_required'
+              : e.isConnected
+              ? 'connected'
+              : 'not_connected',
+      'binance': switch (b.status) {
+        BinanceStatus.connected => 'connected',
+        BinanceStatus.reconnectRequired => 'reconnect_required',
+        BinanceStatus.notConnected => 'not_connected',
+      },
+      'snaptrade': switch (s.status) {
+        SnaptradeStatus.connected when s.imported.any((x) => x.disabled) =>
+          'reconnect_required',
+        SnaptradeStatus.connected => 'connected',
+        SnaptradeStatus.reconnectRequired => 'reconnect_required',
+        SnaptradeStatus.notConnected ||
+        SnaptradeStatus.pending => 'not_connected',
+      },
+    };
+  }
+
+  /// Para get_app_settings y propose_settings_change: lo que hay hoy.
+  Future<Map<String, Object?>> _settingsForTool() async {
+    final prefsNotifier = ref.read(notificationPreferencesProvider.notifier);
+    if (!ref.read(notificationPreferencesProvider).loaded) {
+      await prefsNotifier.load();
+    }
+    final p = ref.read(notificationPreferencesProvider).preferences;
+    final theme = ref.read(themeModeProvider);
+    return {
+      AppSettingKeys.notifications: p.enabled,
+      AppSettingKeys.priceAlerts: p.priceAlerts,
+      AppSettingKeys.bigMoves: p.bigMoves,
+      AppSettingKeys.portfolioMoves: p.portfolioMoves,
+      AppSettingKeys.weeklyReport: p.weeklyReport,
+      AppSettingKeys.earnings: p.earnings,
+      AppSettingKeys.showAmounts: p.showAmounts,
+      AppSettingKeys.sensitivity: p.bigMoveSensitivity.name,
+      AppSettingKeys.quietHours:
+          p.hasQuietHours
+              ? '${NotificationPreferences.formatClock(p.quietStartMinutes)}-'
+                  '${NotificationPreferences.formatClock(p.quietEndMinutes)}'
+              : 'off',
+      AppSettingKeys.currency: ref.read(displayCurrencyProvider).code,
+      AppSettingKeys.theme: switch (theme) {
+        ThemeMode.light => 'light',
+        ThemeMode.dark => 'dark',
+        _ => 'system',
+      },
+      AppSettingKeys.haptics: ref.read(hapticsEnabledProvider),
+      AppSettingKeys.language:
+          Intl.getCurrentLocale().startsWith('en') ? 'en' : 'es',
+    };
+  }
+
   Future<List<Map<String, Object?>>> _priceAlertsForTool() async {
     final notifier = ref.read(priceAlertsProvider.notifier);
     await notifier.load();
     return [
       for (final a in ref.read(priceAlertsProvider).alerts)
         {
+          'id': a.id,
           'symbol': a.symbol,
           'condition': a.condition.storage,
           'target': a.target,
@@ -878,6 +1755,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         final updated = [...messages];
         updated[i] = message.copyWith(hasRevealed: true);
         state = state.copyWith(messages: updated);
+        // El aviso de Premium entra con el reveal: recién ahí se vio.
+        if (message.marketTeaser && _teaserLogged.add(surfaceId)) {
+          ref.read(productEventsProvider).log(ProductEvent.marketTeaserShown);
+        }
         return;
       }
     }
@@ -957,6 +1838,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// Los tickers de charlas anteriores (últimos 30 días) para el brief.
+  /// Nunca frena el turno.
+  Future<List<PortyTopic>> _topicsForTurn() async {
+    try {
+      await ref.read(portyTopicsProvider.notifier).ensureLoaded();
+      return ref
+          .read(portyTopicsProvider)
+          .recent(DateTime.now())
+          .take(PortyTopic.maxInBrief)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Las metas activas para PORTFOLIO_BRIEF (una lectura por conversación;
   /// la pestaña y las tools las mantienen al día). Nunca frena el turno.
   Future<List<UserGoal>> _goalsForTurn() async {
@@ -992,6 +1888,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
 
 final assistantProvider = StateNotifierProvider.autoDispose
     .family<AssistantProvider, AssistantState, AssistantArgs>((ref, args) {
+      // La de la sesión vive mientras la app: cerrar la hoja del chat (o no
+      // haber abierto nunca la pestaña) no borra la conversación.
+      if (identical(args, AssistantArgs.session)) ref.keepAlive();
       final provider = AssistantProvider(ref: ref, args: args);
       ref.onDispose(provider.disposeResources);
       return provider;
@@ -1005,3 +1904,6 @@ class AnswerPreview {
   final String surfaceId;
   final String text;
 }
+
+/// Una pregunta tocada fuera del chat y la pantalla desde donde llegó.
+typedef _OutsideQuestion = ({String text, PortyScreenContext? screen});

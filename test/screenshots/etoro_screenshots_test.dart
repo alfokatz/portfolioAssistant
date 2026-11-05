@@ -37,7 +37,6 @@ import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
-import 'package:portfolio_assistant/presentation/flows/onboarding/ui/onboarding_screen.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/app_background_gradient.dart';
@@ -330,29 +329,6 @@ void main() {
       await settle(tester);
       await _capture(tester, boundary, 'etoro_home_banner_$b');
     }, skip: !_enabled);
-
-    for (final page in [1, 5]) {
-      testWidgets('etoro_onboarding_${page}_$b', (tester) async {
-        await setUp(tester, brightness);
-        final boundary = GlobalKey();
-        await tester.pumpWidget(
-          RepaintBoundary(
-            key: boundary,
-            child: _app(
-              brightness,
-              const OnboardingScreen(),
-              _connection(EtoroConnectionStatus.notConnected),
-            ),
-          ),
-        );
-        await settle(tester);
-        for (var i = 0; i < page; i++) {
-          await tester.tap(find.text('Siguiente'));
-          await settle(tester);
-        }
-        await _capture(tester, boundary, 'etoro_onboarding_${page}_$b');
-      }, skip: !_enabled);
-    }
 
     testWidgets('etoro_position_rows_$b', (tester) async {
       await setUp(tester, brightness);

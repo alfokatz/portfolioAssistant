@@ -1,16 +1,21 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/account_deletion/view/widgets/delete_account_flow.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
-import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
-import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/connect_broker_card.dart';
+import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
 import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
@@ -57,6 +62,8 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     runAfterPostFrameCallback(() {
       ref.read(investorProfileProvider.notifier).refresh();
       ref.read(etoroConnectionProvider.notifier).load();
+      ref.read(binanceProvider.notifier).load();
+      ref.read(snaptradeProvider.notifier).load();
       ref.read(pushControllerProvider.notifier).refreshPermission();
       ref.read(priceAlertsProvider.notifier).load();
     });
@@ -96,6 +103,34 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
   }
 
+  Future<void> _showCurrencyPicker() async {
+    final current = ref.read(displayCurrencyProvider);
+    final selected = await showModalBottomSheet<DisplayCurrency>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (ctx) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.8,
+            ),
+            child: SettingsPickerSheet(
+              title: 'settings_currency'.tr(),
+              children: [
+                for (final c in DisplayCurrency.values)
+                  SettingsPickerOption(
+                    label: '${c.labelKey.tr()} (${c.code})',
+                    isSelected: c == current,
+                    onTap: () => Navigator.of(ctx).pop(c),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (selected != null && mounted) {
+      await ref.read(displayCurrencyProvider.notifier).set(selected);
+    }
+  }
+
   /// Guarda el nombre en la metadata del usuario (`full_name`). `false` si
   /// falló (la hoja queda abierta y se avisa).
   Future<bool> _saveName(String name) async {
@@ -124,25 +159,6 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
     return '${'investor_profile_risk_${profile.risk.storageValue}'.tr()} · '
         '${'investor_profile_horizon_${profile.horizon.storageValue}'.tr()}';
-  }
-
-  /// Estado de eToro en una línea (null hasta que se sepa: sin saltos).
-  String? _etoroLabel(EtoroState state) {
-    if (!state.loaded) return null;
-    final connection = state.connection;
-    return switch (connection.status) {
-      EtoroConnectionStatus.notConnected => 'etoro_settings_not_connected'.tr(),
-      EtoroConnectionStatus.reconnectRequired =>
-        'etoro_settings_reconnect'.tr(),
-      EtoroConnectionStatus.connected =>
-        connection.lastSyncAt == null
-            ? 'etoro_settings_connected'.tr()
-            : 'etoro_settings_connected_synced'.tr(
-              namedArgs: {
-                'when': EtoroSyncTime.relative(connection.lastSyncAt!),
-              },
-            ),
-    };
   }
 
   /// Una línea con el estado del permiso, solo si hay algo que hacer.
@@ -194,19 +210,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     }
   }
 
-  Future<void> _onDeleteAccount() async {
-    final confirmed = await ConfirmSheet.show(
-      context,
-      title: 'settings_delete_account_title'.tr(),
-      body: 'settings_delete_account_message'.tr(),
-      confirmLabel: 'settings_delete_account'.tr(),
-    );
-    if (!confirmed) return;
-
-    ref
-        .read(alertProvider.notifier)
-        .showWarning(message: 'settings_delete_account_unavailable'.tr());
-  }
+  Future<void> _onDeleteAccount() => DeleteAccountFlow.run(context);
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -223,9 +227,9 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final themeMode = ref.watch(themeModeProvider);
     final hapticsEnabled = ref.watch(hapticsEnabledProvider);
     final investorProfile = ref.watch(investorProfileProvider);
-    final etoro = ref.watch(etoroConnectionProvider);
     final push = ref.watch(pushControllerProvider);
     final alerts = ref.watch(priceAlertsProvider);
+    final displayCurrency = ref.watch(displayCurrencyProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
     final metadata = user?.userMetadata;
@@ -266,6 +270,10 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
               onSaveName: _saveName,
             ),
             const SizedBox(height: AppDimens.sp16),
+            // Conectar el bróker, destacado: es lo que hace que la cartera
+            // se actualice sola.
+            const ConnectBrokerCard(),
+            const SizedBox(height: AppDimens.sectionGap),
             SettingsSectionCard(
               title: 'settings_section_profile'.tr(),
               children: [
@@ -275,6 +283,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   subtitle: _investorProfileLabel(investorProfile),
                   onTap:
                       () => context.pushNamed(InvestorProfileRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.donut_large_rounded,
+                  label: 'allocation_title'.tr(),
+                  subtitle: 'allocation_settings_subtitle'.tr(),
+                  onTap: () => context.pushNamed(AllocationRouter.routeName),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
@@ -304,6 +319,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
+                  icon: Icons.currency_exchange_rounded,
+                  label: 'settings_currency'.tr(),
+                  value: displayCurrency.code,
+                  subtitle:
+                      displayCurrency.isUsd
+                          ? null
+                          : 'settings_currency_subtitle'.tr(),
+                  onTap: _showCurrencyPicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
                   icon: Icons.dark_mode_outlined,
                   label: 'settings_appearance'.tr(),
                   value: settingsAppearanceLabel(themeMode),
@@ -328,14 +354,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                           ? '${alerts.activeCount}'
                           : null,
                   onTap:
-                      () => context.pushNamed(NotificationsRouter.alertsRouteName),
+                      () => context.pushNamed(
+                        NotificationsRouter.alertsRouteName,
+                      ),
                 ),
                 const SettingsDivider(),
                 SettingsToggleRow(
                   icon: Icons.vibration_rounded,
                   label: 'settings_haptics'.tr(),
                   value: hapticsEnabled,
-                  onChanged: ref.read(hapticsEnabledProvider.notifier).setEnabled,
+                  onChanged:
+                      ref.read(hapticsEnabledProvider.notifier).setEnabled,
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
@@ -358,15 +387,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
             ),
             const SizedBox(height: AppDimens.sectionGap),
             SettingsSectionCard(
-              title: 'settings_section_connected_accounts'.tr(),
+              title: 'settings_section_bring_portfolio'.tr(),
               children: [
                 SettingsNavRow(
-                  icon: Icons.link_rounded,
-                  leading: const ExcludeSemantics(child: EtoroAppIcon()),
-                  label: 'etoro_title'.tr(),
-                  subtitle: _etoroLabel(etoro),
+                  icon: Icons.upload_file_rounded,
+                  label: 'import_entry_cta'.tr(),
+                  subtitle: 'import_settings_subtitle'.tr(),
                   onTap:
-                      () => context.pushNamed(EtoroRouter.connectionRouteName),
+                      () => context.pushNamed(StatementImportRouter.routeName),
                 ),
               ],
             ),
@@ -387,13 +415,13 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 SettingsNavRow(
                   icon: Icons.description_outlined,
                   label: 'settings_terms'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/terms'),
+                  onTap: () => _openUrl(LegalLinks.terms),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(
                   icon: Icons.shield_outlined,
                   label: 'settings_privacy'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/privacy'),
+                  onTap: () => _openUrl(LegalLinks.privacy),
                 ),
                 const SettingsDivider(),
                 SettingsNavRow(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
 
 import 'package:dartz/dartz.dart';
@@ -536,4 +537,51 @@ class ScriptedOpenAi {
     for (final m in (requests[request]['messages'] as List).cast<Map>())
       m['role'] as String,
   ];
+}
+
+/// Las consultas de mercado gratis como las cuenta el servidor: [limit] por
+/// mes, idempotentes por `turn_id`.
+class FakeMarketTasteRepository implements MarketTasteRepository {
+  FakeMarketTasteRepository({
+    this.enabled = true,
+    this.limit = 3,
+    int used = 0,
+  }) : _used = {for (var i = 0; i < used; i++) 'previous-turn-$i'};
+
+  final bool enabled;
+  final int limit;
+  final Set<String> _used;
+
+  var statusCalls = 0;
+
+  /// (turn_id, tickers) de cada `consume`.
+  final consumed = <(String, List<String>)>[];
+
+  @override
+  Future<MarketTasteStatus?> status() async {
+    statusCalls++;
+    return MarketTasteStatus(
+      enabled: enabled,
+      limit: limit,
+      used: _used.length,
+      remaining: limit - _used.length,
+    );
+  }
+
+  @override
+  Future<MarketTasteConsume> consume(
+    String turnId,
+    List<String> tickers,
+  ) async {
+    consumed.add((turnId, tickers));
+    if (!enabled) return MarketTasteConsume.unavailable;
+    if (!_used.contains(turnId)) {
+      if (_used.length >= limit) return MarketTasteConsume.exhausted;
+      _used.add(turnId);
+    }
+    return MarketTasteConsume(
+      MarketTasteOutcome.granted,
+      limit - _used.length,
+    );
+  }
 }

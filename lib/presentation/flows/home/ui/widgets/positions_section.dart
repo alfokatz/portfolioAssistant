@@ -4,7 +4,7 @@ import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.da
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/connect_broker_card.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
@@ -151,7 +151,7 @@ class PositionsSection extends StatelessWidget {
                       // Alternativa a cargar a mano (el + flotante).
                       if (showConnectEtoro) ...[
                         const SizedBox(height: AppDimens.sp16),
-                        const EtoroConnectButton(),
+                        const ConnectBrokerButton(),
                       ],
                     ],
                   ),

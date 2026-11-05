@@ -3,6 +3,9 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -30,7 +33,12 @@ abstract final class ActionTools {
 
   /// Todas las tools cuyo resultado `ok` es una card `QaActionProposal`
   /// (las de la cartera y la de alertas de precio).
-  static const proposalTools = {...names, AlertTools.proposePriceAlert};
+  static const proposalTools = {
+    ...names,
+    AlertTools.proposePriceAlert,
+    PlanTools.proposeWatch,
+    ...ManageTools.names,
+  };
 
   static List<DataTool> build(AssistantToolContext ctx) => [
     ProposeBuyTool(ctx),
@@ -67,6 +75,42 @@ abstract final class ActionPrices {
   }
 }
 
+/// Cómo responder con cada resultado (ver [AnswerGuide]). `locked` y
+/// `failed` no traen guía: los resuelve el prompt.
+abstract final class ActionGuides {
+  static const ok =
+      'QaAnswerText, one sentence: you PREPARED it for them to review and '
+      'confirm ("Preparé la compra, revisala y confirmala"); never that it '
+      'was saved, registered or done ("registré", "guardé", "agregué"). '
+      'Plus one QaActionProposal {proposalId: proposal_id} per ok result; no '
+      'other data widget.';
+  static const needsInput =
+      'QaAnswerText only: ask for EVERYTHING in missing in ONE short '
+      'question.';
+  static const invalid =
+      'QaAnswerText only: explain reason plainly (exceeds_holdings: they '
+      'hold held_shares; not_held: they don\'t hold it; managed_by_broker: '
+      'imported from their broker (broker: etoro | binance | snaptrade = '
+      'their other broker), read-only in Porty — they sell it there (the app '
+      'adds a link to open it) and it updates by itself; future_date, '
+      'sale_before_purchase…: say why).';
+
+  static const positionLimit =
+      'QaAnswerText only: their plan allows up to `limit` holdings and they '
+      'are at the limit, so you cannot prepare a buy of a ticker they do not '
+      'hold yet; they can upgrade to Premium for unlimited holdings. Say it '
+      'in one or two sentences; do not prepare anything.';
+
+  static Map<String, Object?> attachTo(Map<String, Object?> result) =>
+      switch (result['status']) {
+        'ok' => AnswerGuide.attach(result, ok),
+        'needs_input' => AnswerGuide.attach(result, needsInput),
+        'invalid' => AnswerGuide.attach(result, invalid),
+        'limit_reached' => AnswerGuide.attach(result, positionLimit),
+        _ => result,
+      };
+}
+
 const _uuid = Uuid();
 
 /// Margen para comparar cantidades fraccionarias (mismo criterio que el
@@ -99,6 +143,13 @@ abstract class _ProposeTool implements DataTool {
   _ProposeTool(this.ctx);
 
   final AssistantToolContext ctx;
+
+  /// La operación propuesta (o por qué no), sin la guía de respuesta.
+  Future<Map<String, Object?>> propose(Map<String, Object?> args);
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async =>
+      ActionGuides.attachTo(await propose(args));
 
   DateTime get _today => DateTime(ctx.now.year, ctx.now.month, ctx.now.day);
 
@@ -156,8 +207,7 @@ abstract class _ProposeTool implements DataTool {
   List<ActionLot> _lotsOf(String ticker) {
     final lots = [
       for (final v in ctx.summary?.lots ?? const [])
-        if (v.position.ticker.toUpperCase() == ticker &&
-            !v.position.isReadOnly)
+        if (v.position.ticker.toUpperCase() == ticker && !v.position.isReadOnly)
           ActionLot(
             id: v.position.id,
             quantity: v.position.quantity,
@@ -189,12 +239,22 @@ abstract class _ProposeTool implements DataTool {
   }
 
   /// `not_held`, o `managed_by_broker` si [ticker] está en la cartera pero
-  /// solo importado de eToro (se vende en eToro y llega solo).
+  /// solo importado de un bróker (se vende allá y llega solo). `broker` dice
+  /// de cuál: la app agrega "Abrir en …" (`QaBrokerLink`).
   Map<String, Object?> _notHeld(String ticker) {
-    final imported = (ctx.summary?.lots ?? const []).any(
-      (v) => v.position.ticker.toUpperCase() == ticker && v.position.isReadOnly,
-    );
-    return _invalid(imported ? 'managed_by_broker' : 'not_held');
+    final imported = [
+      for (final v in ctx.summary?.lots ?? const [])
+        if (v.position.ticker.toUpperCase() == ticker && v.position.isReadOnly)
+          v.position.source,
+    ];
+    if (imported.isEmpty) return _invalid('not_held');
+    final broker =
+        imported.any((s) => s.isSnaptrade)
+            ? 'snaptrade'
+            : imported.any((s) => s.isBinance)
+            ? 'binance'
+            : 'etoro';
+    return _invalid('managed_by_broker', {'broker': broker});
   }
 
   String? _ticker(Map<String, Object?> args) {
@@ -224,11 +284,9 @@ class ProposeBuyTool extends _ProposeTool {
       'SELLING or DELETING imported shares is read-only; never refuse a buy '
       'for that. Nothing is saved until the user confirms. NOT for advice ("¿compro?") '
       'or hypotheticals ("si comprara…"). One call per purchase. Pass shares '
-      'OR amount_usd, as the user said it. status: ok (show '
-      'QaActionProposal with proposal_id) | needs_input (ask for everything '
-      'in missing, in ONE question) | invalid (explain reason) | failed '
-      '(price_unavailable: could not verify the ticker; ask the user to '
-      'check it or give the price) | locked.';
+      'OR amount_usd, as the user said it. status: ok | needs_input | '
+      'invalid | limit_reached | failed (price_unavailable: could not verify '
+      'the ticker) | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -248,11 +306,21 @@ class ProposeBuyTool extends _ProposeTool {
   };
 
   @override
-  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+  Future<Map<String, Object?>> propose(Map<String, Object?> args) async {
     final locked = _gate();
     if (locked != null) return locked;
 
     final ticker = _ticker(args);
+    // Un ticker nuevo con la cartera en el tope del plan (Free: 10): no se
+    // pide fecha ni cantidad para después no poder guardarlo. Más compras de
+    // lo que ya tiene siguen valiendo.
+    final limit = PlanMatrix.of(ctx.tier).positionLimit;
+    if (ticker != null &&
+        limit != null &&
+        !ctx.heldTickers.contains(ticker) &&
+        (ctx.summary?.valuations.length ?? 0) >= limit) {
+      return {'status': 'limit_reached', 'limit': limit};
+    }
     final shares = _positive(args, 'shares');
     final amountUsd = _positive(args, 'amount_usd');
     final date = _date(args);
@@ -313,12 +381,7 @@ class ProposeSellTool extends _ProposeTool {
       'review and confirm in a card. Nothing is saved until the user '
       'confirms. NOT for advice or hypotheticals. One call per sale. Pass '
       'shares, amount_usd or all=true. Shares are sold oldest purchase '
-      'first. status: ok (show QaActionProposal with proposal_id) | '
-      'needs_input (ask for everything in missing, in ONE question) | '
-      'invalid (not_held, exceeds_holdings with held_shares, '
-      'sale_before_purchase, future_date…: explain it; managed_by_broker = '
-      'the position is imported from eToro, read-only in Porty: it is sold '
-      'in eToro and updates by itself) | locked.';
+      'first. status: ok | needs_input | invalid | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -342,7 +405,7 @@ class ProposeSellTool extends _ProposeTool {
   };
 
   @override
-  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+  Future<Map<String, Object?>> propose(Map<String, Object?> args) async {
     final locked = _gate();
     if (locked != null) return locked;
 
@@ -356,6 +419,8 @@ class ProposeSellTool extends _ProposeTool {
             _sentNonPositive(args, 'amount_usd'))) {
       return _invalid('invalid_quantity');
     }
+    // Si no la tiene (o es de un bróker), decirlo antes de pedir datos.
+    if (ticker != null && _heldShares(ticker) == null) return _notHeld(ticker);
     final missing = [
       if (ticker == null) 'ticker',
       if (!all && shares == null && amountUsd == null) 'quantity',
@@ -363,8 +428,7 @@ class ProposeSellTool extends _ProposeTool {
     ];
     if (missing.isNotEmpty) return _needsInput(missing);
 
-    final held = _heldShares(ticker!);
-    if (held == null) return _notHeld(ticker);
+    final held = _heldShares(ticker!)!;
 
     final dateError = _checkDate(date!);
     if (dateError != null) return dateError;
@@ -417,9 +481,7 @@ class ProposeDeletePositionTool extends _ProposeTool {
       'mistake ("la cargué mal", "borrá AAPL"). It is NOT a sale: no P&L is '
       'recorded — if they sold it, use propose_sell. The card lists the '
       'purchases so the user picks which to delete, and nothing is deleted '
-      'until they confirm. status: ok (show QaActionProposal with '
-      'proposal_id) | needs_input | invalid (not_held; managed_by_broker = '
-      'imported from eToro, read-only in Porty) | locked.';
+      'until they confirm. status: ok | needs_input | invalid | locked.';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -430,7 +492,7 @@ class ProposeDeletePositionTool extends _ProposeTool {
   };
 
   @override
-  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+  Future<Map<String, Object?>> propose(Map<String, Object?> args) async {
     final locked = _gate();
     if (locked != null) return locked;
 

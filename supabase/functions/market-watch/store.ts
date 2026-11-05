@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { AlertRow, AlertUpdate } from "./alerts.ts";
-import type { Holding, UserMoves } from "./moves.ts";
+import type { Holding, UserMoves, WatchItem } from "./moves.ts";
 import type { Quote } from "./quotes.ts";
 
 export interface MarketStore {
@@ -15,6 +15,11 @@ export interface MarketStore {
   recordAlerts(updates: AlertUpdate[]): Promise<number>;
   /// Devuelve cuántas notificaciones quedaron pendientes en el outbox.
   enqueueMoves(marketDate: string, items: UserMoves[]): Promise<number>;
+  /// Lista de seguimiento a mirar (`watchlist_watch_items`). Opcional para
+  /// los fakes de antes de la lista.
+  watchItems?(): Promise<WatchItem[]>;
+  /// Encola filas sueltas (`push_enqueue`); devuelve cuántas entraron.
+  enqueue?(rows: { user_id: string; kind: string; dedupe_key: string; data: Record<string, unknown> }[]): Promise<number>;
 }
 
 function fail(what: string, error: { message: string } | null) {
@@ -67,6 +72,22 @@ export function supabaseMarketStore(db: SupabaseClient): MarketStore {
       if (updates.length === 0) return 0;
       const { data, error } = await db.rpc("price_alerts_record", { p_rows: updates });
       fail("recordAlerts", error);
+      return (data as number) ?? 0;
+    },
+    async watchItems() {
+      const { data, error } = await db.rpc("watchlist_watch_items");
+      fail("watchItems", error);
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        user_id: r.user_id as string,
+        symbol: r.symbol as string,
+        added_price: r.added_price === null || r.added_price === undefined ? null : Number(r.added_price),
+        sensitivity: (r.sensitivity as WatchItem["sensitivity"]) ?? "normal",
+      }));
+    },
+    async enqueue(rows) {
+      if (rows.length === 0) return 0;
+      const { data, error } = await db.rpc("push_enqueue", { p_rows: rows });
+      fail("enqueue", error);
       return (data as number) ?? 0;
     },
     async enqueueMoves(marketDate, items) {

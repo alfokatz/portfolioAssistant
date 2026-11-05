@@ -25,6 +25,8 @@ export type RenderOptions = { locale: Locale; showAmounts: boolean };
 type Data = Record<string, unknown>;
 
 const num = (v: unknown): number => (typeof v === "number" ? v : Number(v));
+/// Como [num], pero lo que falta (null, undefined, "") es NaN y no 0.
+const optNum = (v: unknown): number => (v === null || v === undefined || v === "" ? NaN : num(v));
 const str = (v: unknown): string => (typeof v === "string" ? v : String(v ?? ""));
 
 export function money(value: number): string {
@@ -69,6 +71,46 @@ const askPorty = (question: string): Pick<Rendered, "route" | "routeArgs"> => ({
   route: "assistant",
   routeArgs: { question },
 });
+
+type EarningsItem = { symbol: string; weight: number; eps: number; hour: string };
+
+/// Una acción: "Pesa 18% en tu cartera; se espera una ganancia por acción de
+/// $0.85, después del cierre." Varias: "Pesan: NVDA 18% · AAPL 6%." Sin
+/// datos (versión vieja del productor): la invitación de siempre.
+function earningsTomorrowBody(items: EarningsItem[], es: boolean): string {
+  const invite = es ? "Tocá para ver el resumen de Porty." : "Tap for Porty's briefing.";
+  if (items.length === 0) return es ? "Tocá para ver qué se espera." : "Tap to see what's expected.";
+  if (items.length === 1) {
+    const i = items[0];
+    const parts: string[] = [];
+    if (Number.isFinite(i.weight)) {
+      parts.push(es ? `Pesa ${percent(i.weight, false, 0)} en tu cartera` : `It's ${percent(i.weight, false, 0)} of your portfolio`);
+    }
+    if (Number.isFinite(i.eps)) {
+      parts.push(
+        es
+          ? `se espera una ganancia por acción de ${money(i.eps)}`
+          : `expected earnings per share: ${money(i.eps)}`,
+      );
+    }
+    const when = i.hour === "bmo"
+      ? es ? "antes de la apertura" : "before the open"
+      : i.hour === "amc"
+      ? es ? "después del cierre" : "after the close"
+      : "";
+    if (parts.length === 0) return (when ? `${capitalize(when)}. ` : "") + invite;
+    const sentence = capitalize(parts.join("; ")) + (when ? `, ${when}` : "") + ".";
+    return `${sentence} ${invite}`;
+  }
+  const weighted = items.filter((i) => Number.isFinite(i.weight)).sort((a, b) => b.weight - a.weight);
+  if (weighted.length === 0) return invite;
+  const line = weighted.map((i) => `${i.symbol} ${percent(i.weight, false, 0)}`).join(" · ");
+  return `${es ? "Pesan" : "Weights"}: ${line}. ${invite}`;
+}
+
+function capitalize(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
 
 export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
   const es = opts.locale === "es";
@@ -212,18 +254,137 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       const symbols = (Array.isArray(data.symbols) ? data.symbols : []).map(str).filter(Boolean);
       const list = joinList(symbols, opts.locale);
       const one = symbols.length === 1;
+      const items = (Array.isArray(data.items) ? data.items : []).map((i) => ({
+        symbol: str((i as Data).symbol),
+        weight: optNum((i as Data).weight_pct),
+        eps: optNum((i as Data).eps_estimate),
+        hour: str((i as Data).hour),
+      }));
       return {
         title: es
           ? `${list} ${one ? "presenta" : "presentan"} resultados mañana`
           : `${list} ${one ? "reports" : "report"} earnings tomorrow`,
-        body: es
-          ? "Tocá para ver qué se espera."
-          : "Tap to see what's expected.",
+        body: earningsTomorrowBody(items, es),
         ...askPorty(
           es
-            ? `¿Qué se espera de los resultados de ${list}?`
-            : `What's expected from ${list}'s earnings?`,
+            ? `Armame un resumen antes de los resultados de ${list}: qué se espera, qué conviene mirar y cuánto pesa en mi cartera.`
+            : `Give me a briefing before ${list}'s earnings: what's expected, what to watch and how much it weighs in my portfolio.`,
         ),
+      };
+    }
+
+    case "allocation_drift": {
+      const items = (Array.isArray(data.items) ? data.items : [])
+        .map((i) => ({
+          symbol: str((i as Data).symbol),
+          current: num((i as Data).current_pct),
+          target: num((i as Data).target_pct),
+        }))
+        .filter((i) => i.symbol && Number.isFinite(i.current) && Number.isFinite(i.target))
+        .slice(0, 2);
+      const line = items
+        .map((i) =>
+          es
+            ? `${i.symbol} pesa ${percent(i.current, false, 0)} (tu objetivo: ${percent(i.target, false, 0)})`
+            : `${i.symbol} is ${percent(i.current, false, 0)} (your target: ${percent(i.target, false, 0)})`
+        )
+        .join("; ");
+      return {
+        title: es ? "Tu cartera se alejó de tu plan" : "Your portfolio drifted from your plan",
+        body: (line ? `${line}. ` : "") +
+          (es ? "Tocá para ver cómo volver a tu plan." : "Tap to see how to get back to your plan."),
+        route: "allocation",
+        routeArgs: {},
+      };
+    }
+
+    case "watchlist_move": {
+      const symbol = str(data.symbol);
+      const change = num(data.change_pct);
+      const since = num(data.since_added_pct);
+      const up = change >= 0;
+      const sinceText = Number.isFinite(since)
+        ? es ? `Desde que la agregaste: ${percent(since, true)}. ` : `Since you added it: ${percent(since, true)}. `
+        : "";
+      return {
+        title: es
+          ? `${symbol}, de tu lista, ${up ? "sube" : "baja"} ${percent(change)} hoy`
+          : `${symbol}, on your watchlist, is ${up ? "up" : "down"} ${percent(change)} today`,
+        body: sinceText +
+          (es ? "Tocá para preguntarle a Porty qué está pasando." : "Tap to ask Porty what's going on."),
+        ...askPorty(es ? `¿Qué está pasando con ${symbol}?` : `What's going on with ${symbol}?`),
+      };
+    }
+
+    case "contribution_reminder": {
+      const amount = optNum(data.amount);
+      const split = ((Array.isArray(data.split) ? data.split : []) as Data[])
+        .map((i) => ({ symbol: str(i.symbol), amount: num(i.amount) }))
+        .filter((i) => i.symbol && Number.isFinite(i.amount) && i.amount > 0);
+      const more = num(data.more);
+      const hasAmount = Number.isFinite(amount) && amount > 0;
+      // El aporte es un monto del usuario: en $ solo con show_amounts; si
+      // no, qué parte del aporte va a cada uno.
+      const showMoney = opts.showAmounts && hasAmount;
+      const items = split.map((i) => {
+        const part = showMoney ? money(i.amount) : percent((i.amount / amount) * 100, false, 0);
+        return es ? `${part} a ${i.symbol}` : `${part} to ${i.symbol}`;
+      });
+      if (more > 0) items.push(es ? `el resto a ${more} más` : `the rest to ${more} more`);
+      const splitText = items.length > 0 && hasAmount
+        ? (es
+          ? `Para acercarte a tu plan: ${joinList(items, opts.locale)}. `
+          : `To get closer to your plan: ${joinList(items, opts.locale)}. `)
+        : "";
+      return {
+        title: showMoney
+          ? es ? `Te toca aportar ${money(amount)}` : `Time to add ${money(amount)}`
+          : es
+          ? "Te toca tu aporte del mes"
+          : "Time for this month's contribution",
+        body: splitText +
+          (es ? "Tocá para armarlo con Porty." : "Tap to plan it with Porty."),
+        // La pregunta no se ve en la pantalla bloqueada: lleva el monto.
+        ...askPorty(
+          hasAmount
+            ? es
+              ? `Armame el aporte de ${money(amount)} según mi plan`
+              : `Plan my ${money(amount)} contribution according to my plan`
+            : es
+            ? "¿Cómo reparto mi aporte de este mes según mi plan?"
+            : "How should I split this month's contribution according to my plan?",
+        ),
+      };
+    }
+
+    case "morning_brief": {
+      const signals = (Array.isArray(data.signals) ? data.signals : []) as Data[];
+      const top = signals[0];
+      const symbol = str(top?.symbol);
+      const line = !top
+        ? ""
+        : str(top.kind) === "drift"
+        ? es
+          ? `${symbol} pesa ${percent(num(top.current_pct), false, 0)} (tu objetivo: ${percent(num(top.target_pct), false, 0)}).`
+          : `${symbol} is ${percent(num(top.current_pct), false, 0)} (your target: ${percent(num(top.target_pct), false, 0)}).`
+        : es
+        ? `${symbol} pesa ${percent(num(top.weight_pct), false, 0)} de tu cartera.`
+        : `${symbol} is ${percent(num(top.weight_pct), false, 0)} of your portfolio.`;
+      const more = signals.length - 1;
+      const moreText = more <= 0 ? "" : es
+        ? more === 1 ? " Y una cosa más." : ` Y ${more} cosas más.`
+        : more === 1
+        ? " And one more thing."
+        : ` And ${more} more things.`;
+      return {
+        title: signals.length > 1
+          ? es ? `Porty te marca ${signals.length} cosas hoy` : `Porty noticed ${signals.length} things today`
+          : es
+          ? "Porty te marca algo hoy"
+          : "Porty noticed something today",
+        body: `${line}${moreText} ` + (es ? "Tocá para verlo." : "Tap to see it."),
+        route: "home",
+        routeArgs: {},
       };
     }
 

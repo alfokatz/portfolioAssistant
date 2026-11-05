@@ -34,6 +34,9 @@ abstract final class AssistantGroundingCheck {
     'QaCompanyAnalysis': {'get_quote', 'get_fundamentals'},
     'QaEarningsCalendar': {'get_earnings'},
     'QaEtfHoldings': {'get_etf_holdings'},
+    'QaAllocationPlan': {'get_allocation_plan'},
+    'QaWatchlist': {'get_watchlist'},
+    'QaWeeklyReport': {'get_weekly_report'},
     'QaNewsSummary': {'get_news'},
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},
@@ -99,10 +102,29 @@ abstract final class AssistantGroundingCheck {
         'the tool results.';
   }
 
-  static Set<String> _tickersOf(ToolCallRecord call) => {
-    for (final t in (call.args['tickers'] as List? ?? const []))
-      '$t'.toUpperCase(),
-  };
+  /// Tickers que [call] pidió Y devolvió con datos. Los que el plan dejó
+  /// `locked` (por ticker en `get_quote`, en `locked_tickers` en los demás)
+  /// no respaldan una card: una consulta mixta (uno propio, uno ajeno sin
+  /// consultas gratis) vuelve `ok` y, sin esto, dejaba pasar la card del
+  /// ajeno con números de memoria.
+  static Set<String> _tickersOf(ToolCallRecord call) {
+    final lockedTickers = {
+      for (final t in (call.result['locked_tickers'] as List? ?? const []))
+        '$t'.toUpperCase(),
+    };
+    final entries = call.result['tickers'];
+    if (entries is Map) {
+      for (final MapEntry(:key, :value) in entries.entries) {
+        if (value is Map && value['status'] == 'locked') {
+          lockedTickers.add('$key'.toUpperCase());
+        }
+      }
+    }
+    return {
+      for (final t in (call.args['tickers'] as List? ?? const []))
+        if (!lockedTickers.contains('$t'.toUpperCase())) '$t'.toUpperCase(),
+    };
+  }
 
   /// Componentes de los `updateComponents` de la respuesta (con o sin
   /// fences de markdown).

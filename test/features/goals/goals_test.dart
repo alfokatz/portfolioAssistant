@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
+import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
@@ -114,7 +117,6 @@ void main() {
         saved?.add(draft);
         return _goal();
       },
-      updateGoalSavings: (id, amount) async => _goal(outside: amount),
       now: DateTime(2026, 2, 2),
     );
 
@@ -162,8 +164,8 @@ void main() {
       expect(saved.single.label, 'MacBook');
     });
 
-    test('saved goals travel in the brief with their progress, and a '
-        'outside-savings update comes back with the updated progress', () async {
+    test('saved goals travel in the brief with their progress, and an '
+        'outside-savings change is proposed (the user confirms it)', () async {
       final c = ctx(goals: [_goal()]);
       final brief = PortfolioBrief.build(c)[PortfolioBrief.savedGoalsKey]!;
       final first = (brief as List).single as Map;
@@ -171,21 +173,40 @@ void main() {
       expect(first['label'], 'MacBook');
       expect(first.containsKey('required_monthly_from_now'), isTrue);
 
-      final result = await UpdateGoalSavingsTool(c).run({
+      final result = await ProposeGoalChangeTool(c).run({
         'goal_id': 'g1',
+        'change': 'set_outside_savings',
         'outside_savings_usd': 1500,
       });
-      expect(result['status'], 'ok');
-      // 1.500 afuera ≥ 1.200 de la meta: ya la tiene.
-      expect((result['progress']! as Map)['status'], 'achieved');
-      expect((result['progress']! as Map)['outside_savings'], 1500);
+      final proposal = ActionProposal.fromToolResult(result)!;
+      expect(proposal.manageOp, ManageOp.goalOutsideSavings);
+      expect(proposal.targetLabel, 'MacBook');
+      expect(proposal.manageTarget.amount, 1500);
       expect(
-        (await UpdateGoalSavingsTool(c).run({
+        (await ProposeGoalChangeTool(c).run({
           'goal_id': 'g7',
-          'outside_savings_usd': 1,
+          'change': 'delete',
         }))['reason'],
         'unknown_goal_id',
       );
+    });
+
+    test('which holdings count: only what they own', () async {
+      final c = ctx(goals: [_goal()]);
+      final ok = ActionProposal.fromToolResult(
+        await ProposeGoalChangeTool(c).run({
+          'goal_id': 'g1',
+          'change': 'set_holdings',
+          'tickers': ['nvda', 'AAPL'],
+        }),
+      )!;
+      expect(ok.manageTarget.tickers, ['AAPL', 'NVDA']);
+      final bad = await ProposeGoalChangeTool(c).run({
+        'goal_id': 'g1',
+        'change': 'set_holdings',
+        'tickers': ['TSLA'],
+      });
+      expect(bad['reason'], 'not_held');
     });
   });
 }

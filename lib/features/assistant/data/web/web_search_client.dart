@@ -3,8 +3,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 
 /// Búsqueda web de Porty: habla con la edge function `web-search`, que
-/// tiene la key, cachea para todos y aplica el tope diario del plan. La
-/// respuesta ya viene en el formato del resultado de la tool `search_web`.
+/// tiene la key, cachea para todos y aplica los topes diario y mensual del
+/// plan. La respuesta ya viene en el formato del resultado de la tool
+/// `search_web`.
 class WebSearchClient {
   WebSearchClient({
     Dio? dio,
@@ -63,8 +64,8 @@ class WebSearchClient {
       }
       final error = body is Map ? body['error'] : null;
       final type = error is Map ? error['type'] : null;
-      if (type == 'daily_limit') {
-        return const {'status': 'limit', 'reason': 'daily_limit'};
+      if (type == 'daily_limit' || type == 'monthly_limit') {
+        return {'status': 'limit', 'reason': type};
       }
       return const {'status': 'failed'};
     } catch (_) {

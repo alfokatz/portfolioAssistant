@@ -147,6 +147,67 @@ export function computeMoves(holdings: Holding[], quotes: Map<string, Quote>): U
   return out;
 }
 
+/// Un ticker de la lista de seguimiento de un usuario (de
+/// `watchlist_watch_items`: ya filtrado por plan, preferencias y lo que no
+/// tiene en cartera).
+export type WatchItem = {
+  user_id: string;
+  symbol: string;
+  added_price: number | null;
+  sensitivity: Sensitivity;
+};
+
+export type WatchMove = {
+  user_id: string;
+  symbol: string;
+  change_pct: number;
+  since_added_pct: number | null;
+  direction: "up" | "down";
+};
+
+/// Movimientos fuertes de la lista de seguimiento, con los mismos umbrales
+/// que la cartera. Uno por usuario y corrida (el mayor): una lista larga no
+/// puede llenar el teléfono; el que sigue avisa en la corrida siguiente.
+export function watchlistMoves(items: WatchItem[], quotes: Map<string, Quote>): WatchMove[] {
+  const best = new Map<string, WatchMove>();
+  for (const item of items) {
+    const q = quotes.get(item.symbol);
+    if (!q || q.prevClose === null || !(q.prevClose > 0)) continue;
+    const cls = assetClass(q);
+    if (!cls) continue;
+    const t = thresholds[item.sensitivity] ?? thresholds.normal;
+    const change = ((q.price - q.prevClose) / q.prevClose) * 100;
+    if (Math.abs(change) < t[cls]) continue;
+    const move: WatchMove = {
+      user_id: item.user_id,
+      symbol: item.symbol,
+      change_pct: round(change, 2),
+      since_added_pct: item.added_price && item.added_price > 0
+        ? round(((q.price - item.added_price) / item.added_price) * 100, 2)
+        : null,
+      direction: change >= 0 ? "up" : "down",
+    };
+    const current = best.get(item.user_id);
+    if (!current || Math.abs(move.change_pct) > Math.abs(current.change_pct)) best.set(item.user_id, move);
+  }
+  return [...best.values()];
+}
+
+/// Filas para el outbox: una por día, ticker y dirección.
+export function watchlistOutboxRows(marketDate: string, moves: WatchMove[]) {
+  return moves.map((m) => ({
+    user_id: m.user_id,
+    kind: "watchlist_move",
+    dedupe_key: `watchlist_move:${m.symbol}:${marketDate}:${m.direction}`,
+    data: {
+      symbol: m.symbol,
+      change_pct: m.change_pct,
+      since_added_pct: m.since_added_pct,
+      direction: m.direction,
+    },
+  }));
+}
+
 function round(v: number, decimals: number): number {
   const f = 10 ** decimals;
   return Math.round(v * f) / f;

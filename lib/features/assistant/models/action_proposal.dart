@@ -1,9 +1,13 @@
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/features/assistant/models/manage_action.dart';
 
 /// Qué operación propone Porty (ver `docs/superpowers/plans/
 /// 2026-10-08-acciones-de-porty.md`). `alert`: una alerta de precio (plan
-/// de notificaciones push, F5); no toca la cartera.
-enum ActionKind { buy, sell, delete, alert }
+/// de notificaciones push, F5); no toca la cartera. `watch`: sumar un
+/// ticker a la lista de seguimiento; tampoco toca la cartera. `manage`:
+/// una operación de gestión sin montos (quitar, pausar, borrar, un ajuste),
+/// ver [ManageOp].
+enum ActionKind { buy, sell, delete, alert, watch, manage }
 
 /// En qué unidad dio el usuario la cantidad: acciones o un monto en USD.
 enum AmountUnit { shares, usd }
@@ -80,6 +84,11 @@ class ActionProposal {
     this.alertCondition,
     this.alertTarget,
     this.alertRepeatDaily = false,
+    this.watchNotify = true,
+    this.manageOp,
+    this.targetId,
+    this.targetLabel,
+    this.params = const {},
   });
 
   /// `proposal_id`: lo único que el modelo le pasa a la card.
@@ -115,6 +124,25 @@ class ActionProposal {
   /// Alerta: precio (above/below) o porcentaje (pct_*).
   final double? alertTarget;
   final bool alertRepeatDaily;
+
+  /// Seguir: avisar si se mueve fuerte en el día (la card lo deja cambiar).
+  final bool watchNotify;
+
+  /// Gestión: qué se hace, sobre qué id y cómo se nombra en la card.
+  final ManageOp? manageOp;
+  final String? targetId;
+  final String? targetLabel;
+
+  /// Gestión: los datos propios de la operación (tickers, un monto, un
+  /// valor de un ajuste), ver [ManageOp].
+  final Map<String, Object?> params;
+
+  ManageTarget get manageTarget => ManageTarget(
+    ticker: ticker,
+    id: targetId,
+    label: targetLabel,
+    params: params,
+  );
 
   static const toolResultIdKey = 'proposal_id';
 
@@ -152,6 +180,11 @@ class ActionProposal {
     if (alertCondition != null) 'condition': alertCondition,
     if (alertTarget != null) 'target': alertTarget,
     if (kind == ActionKind.alert) 'repeat': alertRepeatDaily ? 'daily' : 'once',
+    if (kind == ActionKind.watch) 'notify': watchNotify,
+    if (manageOp != null) 'op': manageOp!.wire,
+    if (targetId != null) 'target_id': targetId,
+    if (targetLabel != null) 'target_label': targetLabel,
+    if (params.isNotEmpty) 'params': params,
   };
 
   /// `null` si [result] no es una propuesta válida (otro status, o le faltan
@@ -162,6 +195,8 @@ class ActionProposal {
     final kind = _byName(ActionKind.values, result['kind']);
     final ticker = result['ticker'];
     if (id is! String || kind == null || ticker is! String) return null;
+    final op = ManageOp.parse(result['op']);
+    if (kind == ActionKind.manage && op == null) return null;
     final lots = result['lots'];
     return ActionProposal(
       id: id,
@@ -187,6 +222,14 @@ class ActionProposal {
       alertCondition: result['condition'] as String?,
       alertTarget: _double(result['target']),
       alertRepeatDaily: result['repeat'] == 'daily',
+      watchNotify: result['notify'] != false,
+      manageOp: op,
+      targetId: result['target_id'] as String?,
+      targetLabel: result['target_label'] as String?,
+      params: {
+        if (result['params'] case final Map<dynamic, dynamic> p)
+          for (final e in p.entries) '${e.key}': e.value,
+      },
     );
   }
 }
@@ -204,6 +247,11 @@ class ActionDraft {
     this.alertCondition,
     this.alertTarget,
     this.alertRepeatDaily = false,
+    this.watchNotify = true,
+    this.manageOp,
+    this.targetId,
+    this.targetLabel,
+    this.params = const {},
   });
 
   final String proposalId;
@@ -224,6 +272,22 @@ class ActionDraft {
   final String? alertCondition;
   final double? alertTarget;
   final bool alertRepeatDaily;
+
+  /// Seguir: ver [ActionProposal.watchNotify].
+  final bool watchNotify;
+
+  /// Gestión: ver [ActionProposal.manageOp].
+  final ManageOp? manageOp;
+  final String? targetId;
+  final String? targetLabel;
+  final Map<String, Object?> params;
+
+  ManageTarget get manageTarget => ManageTarget(
+    ticker: ticker,
+    id: targetId,
+    label: targetLabel,
+    params: params,
+  );
 }
 
 /// Lo que el usuario lleva editado en una card todavía sin resolver, tal
@@ -253,6 +317,7 @@ class ActionForm {
   final Set<String> selectedLots;
 
   /// Alerta: avisar cada vez que cruce ([priceText] es el objetivo).
+  /// Seguir: avisar si se mueve fuerte (el mismo interruptor de la card).
   final bool repeatDaily;
 }
 
@@ -309,6 +374,9 @@ class ActionProposalProgress {
         if (draft.date != null) 'date': _formatDate(draft.date!),
         if (draft.alertCondition != null) 'condition': draft.alertCondition,
         if (draft.alertTarget != null) 'target': draft.alertTarget,
+        if (draft.kind == ActionKind.watch) 'notify': draft.watchNotify,
+        if (draft.manageOp != null) 'op': draft.manageOp!.wire,
+        if (draft.targetLabel != null) 'target': draft.targetLabel,
       },
     };
   }
@@ -330,7 +398,9 @@ String _formatDate(DateTime date) =>
 DateTime? _parseDate(Object? value) {
   if (value is! String) return null;
   final parsed = DateTime.tryParse(value);
-  return parsed == null ? null : DateTime(parsed.year, parsed.month, parsed.day);
+  return parsed == null
+      ? null
+      : DateTime(parsed.year, parsed.month, parsed.day);
 }
 
 double? _double(Object? value) => value is num ? value.toDouble() : null;

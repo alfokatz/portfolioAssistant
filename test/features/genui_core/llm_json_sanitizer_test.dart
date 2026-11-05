@@ -40,8 +40,8 @@ Hope that helps!
       expect(result.split('\n').length, 2);
     });
 
-    test('sanitizeOrFallback returns A2UI fallback for broken JSON', () {
-      const raw = 'This is not JSON at all, sorry!';
+    test('a plain-text answer is shown, not replaced by the error', () {
+      const raw = '¿Qué acción querés seguir?';
 
       final result = LlmJsonSanitizer.sanitizeOrFallback(
         raw,
@@ -49,8 +49,20 @@ Hope that helps!
       );
 
       expect(result, contains('"createSurface"'));
-      expect(result, contains('"updateComponents"'));
       expect(result, contains('"component":"Text"'));
+      expect(result, contains('¿Qué acción querés seguir?'));
+      expect(result, isNot(contains('No pude procesar')));
+    });
+
+    test('broken JSON still gets the A2UI fallback', () {
+      const raw = '{"updateComponents": {"components": [{"id": "a"';
+
+      final result = LlmJsonSanitizer.sanitizeOrFallback(
+        raw,
+        surfaceId: GenUiSurfaceIds.portfolioAnalysis,
+      );
+
+      expect(result, contains('"updateComponents"'));
       expect(result, contains('No pude procesar'));
     });
 

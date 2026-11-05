@@ -269,7 +269,9 @@ void main() {
           summary: '',
           url: 'https://example.com/a',
           source: 'Reuters',
-          publishedAt: DateTime.now().subtract(const Duration(hours: 2)),
+          // En minutos: "hace 2 h" pasaba a "ayer" si se corría entre las
+          // 00:00 y las 02:00 (la hora real cruzaba la medianoche).
+          publishedAt: DateTime.now().subtract(const Duration(minutes: 20)),
           imageUrl: 'https://example.com/a.jpg',
         ),
       );
@@ -286,7 +288,7 @@ void main() {
         ],
       });
       expect(find.byType(Image), findsOneWidget);
-      expect(find.text('Reuters · hace 2 h'), findsOneWidget);
+      expect(find.text('Reuters · hace 20 min'), findsOneWidget);
     });
 
     testWidgets('multi-ticker card uses a generic title and tags rows', (

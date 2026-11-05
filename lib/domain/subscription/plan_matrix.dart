@@ -24,7 +24,8 @@ enum PlanFeature {
 
   /// Registrar operaciones desde el chat (compras, ventas, borrados) con
   /// confirmación del usuario (propose_buy, propose_sell,
-  /// propose_delete_position).
+  /// propose_delete_position). Desde 2026-11-05 está en todos los planes; el
+  /// tope de posiciones sigue rigiendo las compras de tickers nuevos.
   portfolioActions,
 
   /// El análisis completo de una empresa (QaCompanyAnalysis).
@@ -32,6 +33,10 @@ enum PlanFeature {
 
   /// Titulares y noticias (get_news).
   news,
+
+  /// Noticias y "por qué se movió" SOLO de tickers en cartera (get_news).
+  /// Está en Premium (y por herencia en Gold). Ver [PlanMatrix.allowsNewsFor].
+  heldNews,
 
   /// Calendario y resultados de earnings (get_earnings).
   earnings,
@@ -42,6 +47,18 @@ enum PlanFeature {
   /// Conectar la cuenta de eToro (solo lectura) y que la cartera se
   /// actualice sola. El servidor (etoro-sync) también lo exige.
   brokerSync,
+
+  /// Conectar más de un bróker por SnapTrade (Premium conecta uno). El
+  /// servidor (snaptrade-sync) también lo exige.
+  multiBrokerSync,
+
+  /// "Actualizar ahora" de los brókers conectados por SnapTrade (cada una
+  /// se paga; el servidor además la habilita y le pone cupo diario).
+  brokerManualRefresh,
+
+  /// Plan de cartera: asignación objetivo, desvío y cómo repartir el
+  /// próximo aporte. La base también lo exige (`allocation_plans`).
+  allocationPlan,
 }
 
 /// Un plan: qué incluye, sus límites y cómo se presenta.
@@ -51,8 +68,12 @@ class PlanSpec {
     required this.monthlyQueries,
     required this.positionLimit,
     required this.priceAlertLimit,
+    required this.watchlistLimit,
     required this.highlights,
+    this.leadingMarketingKeys = const [],
     this.extraMarketingKeys = const [],
+    this.quotaNudgeAtRemaining,
+    this.marketDataTastesPerMonth = 0,
   });
 
   final Set<PlanFeature> features;
@@ -69,22 +90,40 @@ class PlanSpec {
   /// `alert_limit_reached`).
   final int priceAlertLimit;
 
+  /// Tickers en la lista de seguimiento. Espejo de `plan_limits.watchlist`
+  /// en Supabase, que es el que manda (`watchlist_limit_reached`).
+  final int watchlistLimit;
+
   /// Qué se destaca en el paywall y en la pantalla de suscripción, en orden.
   /// Solo lo NUEVO respecto del plan de abajo (el de arriba incluye todo).
   final List<PlanFeature> highlights;
 
+  /// Textos de marketing que van ANTES de los highlights (p. ej. el informe
+  /// semanal en Gold, que lidera su promesa).
+  final List<String> leadingMarketingKeys;
+
   /// Textos de marketing que no corresponden a una feature con gating.
   final List<String> extraMarketingKeys;
+
+  /// Avisar en el chat cuando quedan estas consultas del mes. null = no
+  /// avisar.
+  final int? quotaNudgeAtRemaining;
+
+  /// Consultas de mercado (tickers que no tiene) de regalo por mes, si el plan
+  /// no incluye PlanFeature.marketData. Espejo de
+  /// plan_limits.market_tastes_per_month (el servidor manda). El chat
+  /// pregunta `> 0`, nunca por el plan.
+  final int marketDataTastesPerMonth;
 }
 
 /// Matriz de planes: única fuente de verdad de qué incluye cada uno.
 ///
-/// Estructura (2026-09-30):
-/// - Free    — "¿Cómo está mi cartera?"
-/// - Premium — "¿Cómo está el mercado?"
-/// - Gold    — "¿Qué significa, qué está pasando y por qué?"
+/// Estructura (2026-11-05):
+/// - Free    — la cartera completa, operaciones por chat y 3 tickers.
+/// - Premium — tu plata ordenada y al día, y por qué se movió lo tuyo.
+/// - Gold    — Porty te explica cualquier empresa y qué pasó.
 abstract final class PlanMatrix {
-  static const _free = {PlanFeature.ownPortfolio};
+  static const _free = {PlanFeature.ownPortfolio, PlanFeature.portfolioActions};
 
   static const _premium = {
     ..._free,
@@ -93,8 +132,9 @@ abstract final class PlanMatrix {
     PlanFeature.unlimitedPositions,
     PlanFeature.investSimulation,
     PlanFeature.goals,
-    PlanFeature.portfolioActions,
+    PlanFeature.heldNews,
     PlanFeature.brokerSync,
+    PlanFeature.allocationPlan,
   };
 
   static const _gold = {
@@ -103,6 +143,8 @@ abstract final class PlanMatrix {
     PlanFeature.news,
     PlanFeature.earnings,
     PlanFeature.fundamentals,
+    PlanFeature.multiBrokerSync,
+    PlanFeature.brokerManualRefresh,
   };
 
   static const plans = <SubscriptionTier, PlanSpec>{
@@ -112,46 +154,67 @@ abstract final class PlanMatrix {
       positionLimit: 10,
       // Una, para conocer la feature (decisión D1 del plan de push).
       priceAlertLimit: 1,
+      // Seguir 3 tickers que no tiene (decisión 2026-11-05). Espejo de
+      // plan_limits.watchlist.
+      watchlistLimit: 3,
       highlights: [PlanFeature.ownPortfolio],
+      quotaNudgeAtRemaining: 5,
+      marketDataTastesPerMonth: 3,
     ),
     SubscriptionTier.premium: PlanSpec(
       features: _premium,
       monthlyQueries: 500,
       positionLimit: null,
       priceAlertLimit: 20,
+      watchlistLimit: 30,
+      // Simulaciones, benchmark y alertas siguen incluidos, pero no se
+      // destacan en el marketing.
       highlights: [
-        PlanFeature.marketData,
-        PlanFeature.investSimulation,
-        PlanFeature.goals,
-        PlanFeature.benchmark,
         PlanFeature.brokerSync,
+        PlanFeature.unlimitedPositions,
+        PlanFeature.heldNews,
+        PlanFeature.allocationPlan,
+        PlanFeature.goals,
+        PlanFeature.marketData,
       ],
-      // Free tiene 1 alerta; Premium, 20 (ver priceAlertLimit). No es una
-      // PlanFeature porque no se bloquea: cambia el tope.
-      extraMarketingKeys: ['plan_feature_price_alerts'],
     ),
     SubscriptionTier.gold: PlanSpec(
       features: _gold,
       monthlyQueries: 1000,
       positionLimit: null,
       priceAlertLimit: 50,
+      watchlistLimit: 100,
+      // El informe semanal no es una feature con gating en la app: el
+      // permiso lo decide el servidor (`claim_weekly_report`), igual que la
+      // degustación. Lidera la lista.
+      leadingMarketingKeys: ['plan_feature_weekly_report'],
       highlights: [
+        PlanFeature.multiBrokerSync,
         PlanFeature.companyAnalysis,
         PlanFeature.news,
         PlanFeature.earnings,
-        PlanFeature.fundamentals,
       ],
-      // El informe semanal no es una feature con gating en la app: el
-      // permiso lo decide el servidor (`claim_weekly_report`), igual que la
-      // degustación.
-      extraMarketingKeys: ['plan_feature_weekly_report'],
     ),
   };
+
+  /// El plan siguiente (para "Con Premium tenés 500"). null en Gold.
+  static SubscriptionTier? nextTier(SubscriptionTier tier) {
+    final i = SubscriptionTier.values.indexOf(tier);
+    return i + 1 < SubscriptionTier.values.length
+        ? SubscriptionTier.values[i + 1]
+        : null;
+  }
 
   static PlanSpec of(SubscriptionTier tier) => plans[tier]!;
 
   static bool allows(SubscriptionTier tier, PlanFeature feature) =>
       of(tier).features.contains(feature);
+
+  /// Noticias de un ticker: todas con `news` (Gold) o, con `heldNews`
+  /// (Premium), solo las de tickers que el usuario tiene en cartera.
+  static bool allowsNewsFor(SubscriptionTier tier, {required bool held}) =>
+      allows(tier, PlanFeature.news) ||
+      (held && allows(tier, PlanFeature.heldNews));
 
   /// El plan más barato que incluye [feature] (para "incluido en X").
   static SubscriptionTier minimumTier(PlanFeature feature) {
@@ -172,13 +235,18 @@ abstract final class PlanMatrix {
     PlanFeature.portfolioActions => 'plan_feature_portfolio_actions',
     PlanFeature.companyAnalysis => 'plan_feature_company_analysis',
     PlanFeature.news => 'plan_feature_news',
+    PlanFeature.heldNews => 'plan_feature_held_news',
     PlanFeature.earnings => 'plan_feature_earnings',
     PlanFeature.fundamentals => 'plan_feature_fundamentals',
     PlanFeature.brokerSync => 'plan_feature_broker_sync',
+    PlanFeature.multiBrokerSync => 'plan_feature_multi_broker_sync',
+    PlanFeature.brokerManualRefresh => 'plan_feature_broker_manual_refresh',
+    PlanFeature.allocationPlan => 'plan_feature_allocation_plan',
   };
 
   /// Claves de marketing del plan, en el orden en que se muestran.
   static List<String> marketingKeys(SubscriptionTier tier) => [
+    ...of(tier).leadingMarketingKeys,
     for (final f in of(tier).highlights) labelKey(f),
     ...of(tier).extraMarketingKeys,
   ];

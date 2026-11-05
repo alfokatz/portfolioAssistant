@@ -15,6 +15,7 @@ abstract final class EtoroMessages {
     'etoro_not_configured' ||
     'unavailable' => 'etoro_error_unavailable'.tr(),
     'busy' => 'etoro_error_busy'.tr(),
+    'free_import_failed' => 'etoro_error_free_import'.tr(),
     _ => 'etoro_error_connect'.tr(),
   };
 

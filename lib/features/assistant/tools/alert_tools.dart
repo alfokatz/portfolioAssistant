@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
@@ -25,6 +26,36 @@ abstract final class AlertTools {
 
 const _uuid = Uuid();
 
+/// Cómo responder con cada resultado de `propose_price_alert` (ver
+/// [AnswerGuide]). `failed` no trae guía: lo resuelve el prompt.
+abstract final class AlertGuides {
+  static const ok =
+      'QaAnswerText, one sentence: you PREPARED the alert for them to review '
+      'and confirm ("Preparé la alerta, revisala y confirmala"), never that '
+      'it is active; it notifies during US market hours, with a few minutes '
+      'of delay. Plus QaActionProposal {proposalId: proposal_id}.';
+  static const needsInput =
+      'QaAnswerText only: ask for EVERYTHING in missing in ONE short '
+      'question.';
+  static const list =
+      'QaAnswerText (one sentence) + QaInfoList icon "alert": one row per '
+      'alert (title like "VOO sube a \$750", detail: once/daily and status, '
+      'ticker).';
+  static const invalid =
+      'QaAnswerText only: already_met → the price is already there '
+      '(current_price): say so and ask for another target; percent_range → '
+      'it must be between 1% and 90%; invalid_target → ask for a valid '
+      'price.';
+
+  static Map<String, Object?> attachTo(Map<String, Object?> result) =>
+      switch (result['status']) {
+        'ok' => AnswerGuide.attach(result, ok),
+        'needs_input' => AnswerGuide.attach(result, needsInput),
+        'invalid' => AnswerGuide.attach(result, invalid),
+        _ => result,
+      };
+}
+
 class ProposePriceAlertTool implements DataTool {
   ProposePriceAlertTool(this.ctx);
 
@@ -42,11 +73,8 @@ class ProposePriceAlertTool implements DataTool {
       'created until they confirm; the app then sends a notification when '
       'the price crosses. condition: above / below (target = price in USD) '
       'or pct_up / pct_down (target = percent from today). repeat=true only '
-      'if they want it every time it crosses. status: ok (show '
-      'QaActionProposal with proposal_id) | needs_input (ask for everything '
-      'in missing, in ONE question) | invalid (already_met: the price is '
-      'already there, current_price says where; percent_range: 1-90) | '
-      'failed (price_unavailable: check the ticker).';
+      'if they want it every time it crosses. status: ok | needs_input | '
+      'invalid | failed (price_unavailable: check the ticker).';
 
   @override
   Map<String, Object?> get parameters => const {
@@ -78,7 +106,10 @@ class ProposePriceAlertTool implements DataTool {
   };
 
   @override
-  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async =>
+      AlertGuides.attachTo(await _propose(args));
+
+  Future<Map<String, Object?>> _propose(Map<String, Object?> args) async {
     final raw = ToolArgs.string(args, 'ticker');
     final tickers =
         raw == null
@@ -162,11 +193,14 @@ class ListPriceAlertsTool implements DataTool {
     if (load == null) return {'status': 'failed', 'reason': 'unavailable'};
     try {
       final alerts = await load();
-      return {
+      final result = {
         'status': alerts.isEmpty ? 'empty' : 'ok',
         'alerts': alerts,
         'as_of': ctx.asOf,
       };
+      return alerts.isEmpty
+          ? result
+          : AnswerGuide.attach(result, AlertGuides.list);
     } catch (_) {
       return {'status': 'failed', 'reason': 'unavailable'};
     }

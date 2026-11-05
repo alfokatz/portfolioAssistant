@@ -22,6 +22,7 @@ class ConfirmSheet extends StatelessWidget {
     this.body,
     this.destructive = true,
     this.leading,
+    this.notice,
   });
 
   final String title;
@@ -32,6 +33,9 @@ class ConfirmSheet extends StatelessWidget {
   /// Lo de arriba. Default: Porty, preocupado si la acción destruye algo.
   final Widget? leading;
 
+  /// Aviso entre el cuerpo y el botón (texto de peso normal, siempre visible).
+  final Widget? notice;
+
   static Future<bool> show(
     BuildContext context, {
     required String title,
@@ -39,6 +43,7 @@ class ConfirmSheet extends StatelessWidget {
     String? body,
     bool destructive = true,
     Widget? leading,
+    Widget? notice,
   }) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -51,6 +56,7 @@ class ConfirmSheet extends StatelessWidget {
             confirmLabel: confirmLabel,
             destructive: destructive,
             leading: leading,
+            notice: notice,
           ),
     );
     return confirmed ?? false;
@@ -111,6 +117,10 @@ class ConfirmSheet extends StatelessWidget {
                   height: 1.5,
                 ),
               ),
+            ],
+            if (notice case final notice?) ...[
+              const SizedBox(height: AppDimens.sp16),
+              notice,
             ],
             const SizedBox(height: AppDimens.sp24),
             SizedBox(

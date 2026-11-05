@@ -20,7 +20,9 @@ UserMemory _memory(String id, String content) => UserMemory(
   content: content,
   category: UserMemoryCategory.goal,
   source: UserMemorySource.porty,
-  updatedAt: DateTime.utc(2026, 10, 1),
+  // Hora local: `since` se muestra en la fecha del usuario, y la medianoche
+  // UTC cae el día anterior en husos negativos (Uruguay, Argentina).
+  updatedAt: DateTime(2026, 10, 1),
 );
 
 /// Una memoria en memoria: lo que harían el provider y Supabase.

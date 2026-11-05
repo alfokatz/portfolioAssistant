@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
@@ -99,6 +100,8 @@ void openPushRoute(
       context.pushNamed(NotificationsRouter.settingsRouteName);
     case PushRoutePriceAlerts():
       context.pushNamed(NotificationsRouter.alertsRouteName);
+    case PushRouteAllocation():
+      context.pushNamed(AllocationRouter.routeName);
     case PushRouteTicker(:final ticker):
       if (holds(ticker.toUpperCase())) {
         GotoPositionDetail(ticker: ticker).navigate(context: context);

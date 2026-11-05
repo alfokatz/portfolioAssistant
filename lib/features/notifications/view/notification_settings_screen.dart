@@ -226,6 +226,14 @@ class _NotificationSettingsScreenState
                 ),
                 const SettingsDivider(),
                 SettingsToggleRow(
+                  icon: Icons.wb_twilight_rounded,
+                  label: 'notifications_morning_brief'.tr(),
+                  subtitle: 'notifications_morning_brief_desc'.tr(),
+                  value: prefs.morningBrief,
+                  onChanged: toggle((p, v) => p.copyWith(morningBrief: v)),
+                ),
+                const SettingsDivider(),
+                SettingsToggleRow(
                   icon: Icons.event_note_outlined,
                   label: 'notifications_weekly_report'.tr(),
                   subtitle: 'notifications_weekly_report_desc'.tr(),

@@ -29,6 +29,18 @@ abstract final class PortfolioBrief {
   /// Las metas guardadas en la pestaña Metas, con cómo van.
   static const savedGoalsKey = 'saved_goals';
 
+  /// La acción que quedó esperando un dato del usuario.
+  static const pendingRequestKey = 'pending_request';
+
+  /// La pantalla desde donde abrió el chat (ver `PortyScreenContext`).
+  static const screenContextKey = 'screen_context';
+
+  /// De qué tickers habló en charlas anteriores (ver `PortyTopic`).
+  static const recentTopicsKey = 'recent_topics';
+
+  /// Su plan y cuántas consultas le quedan este mes.
+  static const accountKey = 'account';
+
   /// Cuántos datos de la memoria viajan por turno (los más recientes).
   static const maxMemoriesInBrief = 30;
 
@@ -59,6 +71,20 @@ abstract final class PortfolioBrief {
     }
     if (ctx.savedGoals.isNotEmpty) {
       map[savedGoalsKey] = GoalTools.brief(ctx);
+    }
+    map[accountKey] = {
+      'plan': ctx.tier.name,
+      if (ctx.queriesLeftThisMonth != null)
+        'queries_left_this_month': ctx.queriesLeftThisMonth,
+    };
+    if (ctx.pendingRequest case final pending?) {
+      map[pendingRequestKey] = pending;
+    }
+    if (ctx.screenContext case final screen?) {
+      map[screenContextKey] = screen;
+    }
+    if (ctx.recentTopics.isNotEmpty) {
+      map[recentTopicsKey] = ctx.recentTopics;
     }
     if (ctx.actionsThisConversation.isNotEmpty) {
       map[actionsKey] = ctx.actionsThisConversation;

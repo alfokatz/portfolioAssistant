@@ -62,7 +62,8 @@ class EtoroConnectionRepository {
         await client
             .from('etoro_connections')
             .select(
-              'status, last_sync_at, last_sync_status, last_error_type, last_result',
+              'status, last_sync_at, last_sync_status, last_error_type, '
+              'last_result, free_import_at',
             )
             .maybeSingle();
     if (row == null) return EtoroConnection.notConnected;
@@ -70,6 +71,9 @@ class EtoroConnectionRepository {
   }
 
   Future<Uri> startConnect() => _syncClient.startConnect();
+
+  Future<Map<String, String>> completeConnect(String handle) =>
+      _syncClient.completeConnect(handle);
 
   Future<({EtoroImportResult result, bool throttled})> sync() =>
       _syncClient.sync();

@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/manual_positions/view/manual_positions_choice.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -9,9 +10,11 @@ import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart'
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/etoro_messages.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect_sheet.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -59,16 +62,24 @@ class _EtoroConnectionScreenState
     });
   }
 
+  void _logConnect(String result) => ref.read(productEventsProvider).log(
+    ProductEvent.brokerConnectResult,
+    {'broker': 'etoro', 'result': result},
+  );
+
   Future<void> _connect() async {
     final haptics = PortyHapticsService.maybeOf(context);
     final tier = ref.read(subscriptionProvider).tier;
-    if (!SubscriptionPolicy.allows(tier, PlanFeature.brokerSync)) {
+    // Free: la primera importación es gratis; después, Premium.
+    if (!SubscriptionPolicy.allows(tier, PlanFeature.brokerSync) &&
+        ref.read(etoroConnectionProvider).connection.freeImportUsed) {
       haptics?.lockedTap();
+      _logConnect('plan_required');
       await SubscriptionPaywallSheet.show(
         context,
         ref,
         reason: PaywallReason.brokerSync,
-        source: 'etoro_connect',
+        source: PaywallSource.etoroConnect,
       );
       return;
     }
@@ -77,24 +88,30 @@ class _EtoroConnectionScreenState
     final outcome = await ref.read(etoroConnectionProvider.notifier).connect();
     if (!mounted) return;
     switch (outcome) {
-      case EtoroConnected(:final syncFailed):
+      case EtoroConnected(:final syncFailed, :final freeImport):
+        _logConnect('ok');
         haptics?.brokerSynced();
+        ref.read(portfolioLoadMethodProvider.notifier).state =
+            PortfolioLoadMethod.etoro;
         context.pushReplacementNamed(
           EtoroRouter.resultRouteName,
           queryParameters: {
             if (syncFailed) EtoroRouter.syncFailedParam: 'failed',
+            if (freeImport) EtoroRouter.freeImportParam: '1',
           },
         );
       case EtoroConnectCancelled():
-        break;
+        _logConnect('cancelled');
       case EtoroConnectPlanRequired():
+        _logConnect('plan_required');
         await SubscriptionPaywallSheet.show(
           context,
           ref,
           reason: PaywallReason.brokerSync,
-          source: 'etoro_connect',
+          source: PaywallSource.etoroConnect,
         );
       case EtoroConnectFailed(:final reason):
+        _logConnect('error');
         final message = EtoroMessages.connectError(reason);
         if (message != null) {
           haptics?.brokerFailed();
@@ -150,6 +167,12 @@ class _EtoroConnectionScreenState
     if (loading) {
       children.add(const _StatusCard.skeleton());
     } else if (connection.status == EtoroConnectionStatus.notConnected) {
+      final freeImportAvailable =
+          !SubscriptionPolicy.allows(
+            ref.watch(subscriptionProvider).tier,
+            PlanFeature.brokerSync,
+          ) &&
+          !connection.freeImportUsed;
       children.addAll([
         enter(1, const _ReadOnlyPoints()),
         const SizedBox(height: AppDimens.sectionGap),
@@ -159,9 +182,12 @@ class _EtoroConnectionScreenState
             label:
                 state.activity == EtoroActivity.connecting
                     ? 'etoro_connect_waiting'.tr()
+                    : freeImportAvailable
+                    ? 'etoro_free_import_cta'.tr()
                     : 'etoro_connect_cta'.tr(),
             onPressed: state.isBusy ? null : _connect,
             error: _connectError,
+            note: freeImportAvailable ? 'etoro_free_import_note'.tr() : null,
           ),
         ),
       ]);
@@ -192,6 +218,7 @@ class _EtoroConnectionScreenState
                     : () => context.pushNamed(EtoroRouter.resultRouteName),
           ),
         ),
+        const ManualPositionsRow(broker: 'eToro'),
         MotionAwareSize(
           duration: const Duration(milliseconds: 200),
           child:
@@ -434,10 +461,7 @@ class _IconBubble extends StatelessWidget {
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
-        color: colors.chip,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: colors.chip, shape: BoxShape.circle),
       child: Icon(icon, size: 18, color: colors.onChip),
     );
   }
@@ -450,22 +474,37 @@ class _ConnectBlock extends StatelessWidget {
     required this.label,
     required this.onPressed,
     required this.error,
+    this.note,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final String? error;
 
+  /// Qué incluye conectar con su plan (Free: una importación, sin
+  /// actualizarse sola). Arriba del botón.
+  final String? note;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: colors.textSecondary,
-      height: 1.45,
-    );
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.45);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (note case final note?) ...[
+          Text(
+            note,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppDimens.sp16),
+        ],
         PositionPrimaryButton(label: label, onPressed: onPressed),
         MotionAwareSize(
           duration: const Duration(milliseconds: 200),

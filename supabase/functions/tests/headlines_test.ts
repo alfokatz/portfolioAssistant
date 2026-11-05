@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { handle } from "../headlines/handler.ts";
 import { assignByName, gdeltUrl, parseArticles } from "../_shared/gdelt.ts";
-import { createUser, db, deps, fakeFetch } from "./helpers.ts";
+import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider } from "./helpers.ts";
 
 const allow = new Map([["reuters.com", "Reuters"], ["infobae.com", "Infobae"], ["cnbc.com", "CNBC"]]);
 
@@ -84,4 +84,74 @@ Deno.test("headlines: GDELT limitado (429) → error controlado, o el dato viejo
   const r = await handle(req(gold.jwt, `tickers=Z${crypto.randomUUID().slice(0, 4).toUpperCase()}`), deps(f.fetch));
   assertEquals(r.status, 502);
   assertEquals((await r.json()).error.type, "upstream_unavailable");
+});
+
+Deno.test("headlines Premium: 200 con tickers en cartera (v2), 403 plan_required con uno ajeno", async () => {
+  await db.from("upstream_rate_gate").delete().eq("source", "gdelt");
+  const premium = await createUser("premium");
+  const tag = crypto.randomUUID().slice(0, 3).toUpperCase();
+  const held = `H${tag}`;
+  const heldBa = `G${tag}.BA`;
+  const heldUsd = `B${tag}-USD`;
+  const foreign = `X${tag}`;
+  for (const t of [held, heldBa, heldUsd]) await addPosition(premium.id, t);
+  const f = fakeFetch(() => Response.json(artList));
+  const d = deps(f.fetch);
+
+  await withNewsProvider("v2", async () => {
+    // Propios, incluidos los que se normalizan distinto (.BA, -USD → .USD).
+    const own = await handle(req(premium.jwt, `tickers=${held},${heldBa},${heldUsd}&names=Nvidia|Apple|Bitcoin`), d);
+    assertEquals(own.status, 200);
+    await own.body?.cancel();
+    assertEquals(f.calls.filter((c) => c.url.includes("gdeltproject")).length, 1);
+
+    // Uno ajeno corta todo el pedido, con la forma de error de siempre.
+    const mixed = await handle(req(premium.jwt, `tickers=${held},${foreign}&names=Nvidia|Apple`), d);
+    assertEquals(mixed.status, 403);
+    assertEquals((await mixed.json()).error, { type: "plan_required", message: "Gold required", required_plan: "gold" });
+    const only = await handle(req(premium.jwt, `tickers=${foreign}&names=Apple`), d);
+    assertEquals(only.status, 403);
+    await only.body?.cancel();
+    assertEquals(f.calls.filter((c) => c.url.includes("gdeltproject")).length, 1);
+  });
+
+  // Con el camino legacy, ni lo propio.
+  await withNewsProvider("legacy", async () => {
+    const r = await handle(req(premium.jwt, `tickers=${held}&names=Nvidia`), d);
+    assertEquals(r.status, 403);
+    await r.body?.cancel();
+  });
+});
+
+Deno.test("headlines: Free con el ticker en cartera sigue en 403; Gold no necesita cartera", async () => {
+  await db.from("upstream_rate_gate").delete().eq("source", "gdelt");
+  const free = await createUser("free");
+  const gold = await createUser("gold");
+  const t = `F${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(free.id, t);
+  const f = fakeFetch(() => Response.json(artList));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(free.jwt, `tickers=${t}&names=Nvidia`), deps(f.fetch));
+    assertEquals(r.status, 403);
+    await r.body?.cancel();
+    const g = await handle(req(gold.jwt, `tickers=${t}&names=Nvidia`), deps(f.fetch));
+    assertEquals(g.status, 200);
+    await g.body?.cancel();
+  });
+});
+
+Deno.test("headlines Premium: el name del cliente no entra en la búsqueda ni en la entrada compartida", async () => {
+  await db.from("upstream_rate_gate").delete().eq("source", "gdelt");
+  const premium = await createUser("premium");
+  const t = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(premium.id, t);
+  const f = fakeFetch((url) => url.includes("gdeltproject") ? Response.json(artList) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(premium.jwt, `tickers=${t}&names=Tesla`), deps(f.fetch));
+    assertEquals(r.status, 200);
+    const body = await r.json();
+    assert(!JSON.stringify(body).includes("Tesla"));
+  });
+  const gdelt = f.calls.find((c) => c.url.includes("gdeltproject"))!;
+  assert(!decodeURIComponent(gdelt.url).includes("Tesla"));
 });

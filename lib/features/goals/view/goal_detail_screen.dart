@@ -7,7 +7,6 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.d
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
@@ -21,6 +20,8 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 /// Una meta: cuánto lleva y si va en camino (el análisis de Porty), el plan
 /// que armó Porty (ahorro mensual, cartera y compra mensual) y qué cuenta
@@ -88,6 +89,12 @@ class GoalDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          PortyAskButton(
+            screen: PortyScreenContext(
+              PortyScreen.goalDetail,
+              goalLabel: goal.label,
+            ),
+          ),
           IconButton(
             tooltip: 'goal_options'.tr(),
             icon: Icon(Icons.more_horiz_rounded, color: colors.textPrimary),
@@ -973,11 +980,13 @@ class _AskPortyButton extends StatelessWidget {
       ),
       child: InkWell(
         onTap:
-            () => GotoAssistant(
-              initialQuestion: 'goal_ask_porty_question'.tr(
+            () => PortyChatSheet.show(context, question: 'goal_ask_porty_question'.tr(
                 namedArgs: {'goal': goal.label},
               ),
-            ).navigate(context: context),
+              screen: PortyScreenContext(
+                PortyScreen.goalDetail,
+                goalLabel: goal.label,
+              ),),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppDimens.cardPadding,

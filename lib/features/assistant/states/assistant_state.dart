@@ -1,11 +1,21 @@
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 class AssistantArgs {
-  const AssistantArgs({this.initialQuestion});
+  const AssistantArgs({this.initialQuestion, this.initialScreen});
+
+  /// La conversación de Porty de la sesión: la misma en la pestaña y en el
+  /// chat que se abre como hoja sobre otra pantalla (`PortyChatSheet`).
+  /// Las preguntas de afuera llegan por `askFromOutside`, no por acá.
+  static const session = AssistantArgs();
 
   final String? initialQuestion;
+
+  /// Desde qué pantalla llegó [initialQuestion] (ver [PortyScreenContext]).
+  final PortyScreenContext? initialScreen;
 }
 
 /// Una pregunta para Porty que llega desde fuera del chat (chips de Home,
@@ -14,9 +24,13 @@ class AssistantArgs {
 /// en el shell, así que la pantalla se entera por `didUpdateWidget` y tiene
 /// que distinguir un toque nuevo aunque repita la misma pregunta.
 class AssistantQuestionRequest {
-  AssistantQuestionRequest(this.question);
+  AssistantQuestionRequest(this.question, {this.screen});
 
   final String question;
+
+  /// La pantalla desde donde se preguntó; `null` si no es de una en
+  /// particular (Home, una notificación).
+  final PortyScreenContext? screen;
 }
 
 /// Estado del asistente: un único hilo de conversación con Porty.
@@ -29,6 +43,14 @@ class AssistantState {
   final int turnCounter;
   final bool isServiceReady;
   final PaywallReason? paywallReason;
+
+  /// Desde dónde se pidió [paywallReason] (`PaywallSource`). Se setean y
+  /// se limpian juntos.
+  final String? paywallSource;
+
+  /// La capacidad que el plan no incluyó, para `locked_feature` en
+  /// `paywall_viewed`. Se limpia junto con [paywallReason].
+  final PlanFeature? paywallFeature;
 
   /// `true` una vez que la cascada de entrada del saludo inicial + chips de
   /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
@@ -52,9 +74,14 @@ class AssistantState {
     this.turnCounter = 0,
     this.isServiceReady = false,
     this.paywallReason,
+    this.paywallSource,
+    this.paywallFeature,
     this.introRevealed = false,
     this.actionProposals = const {},
-  });
+  }) : assert(
+         paywallReason == null || paywallSource != null,
+         'paywallReason sin paywallSource: pasá un PaywallSource',
+       );
 
   ActionProposalProgress actionProgress(String proposalId) =>
       actionProposals[proposalId] ?? ActionProposalProgress.pending;
@@ -68,6 +95,8 @@ class AssistantState {
     int? turnCounter,
     bool? isServiceReady,
     PaywallReason? paywallReason,
+    String? paywallSource,
+    PlanFeature? paywallFeature,
     bool? introRevealed,
     Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
@@ -83,6 +112,18 @@ class AssistantState {
       isServiceReady: isServiceReady ?? this.isServiceReady,
       paywallReason:
           clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
+      paywallSource:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallSource
+              : this.paywallSource,
+      paywallFeature:
+          clearPaywallReason
+              ? null
+              : paywallReason != null
+              ? paywallFeature
+              : this.paywallFeature,
       introRevealed: introRevealed ?? this.introRevealed,
       actionProposals: actionProposals ?? this.actionProposals,
     );

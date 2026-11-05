@@ -5,10 +5,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
-import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_source_badge.dart';
+import 'package:portfolio_assistant/features/binance/view/widgets/binance_source_badge.dart';
+import 'package:portfolio_assistant/features/broker_links/view/open_in_broker_links.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_sync_note.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
@@ -27,6 +27,8 @@ import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_siz
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_status_message.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_question_pill.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/view/porty_chat_sheet.dart';
 
 class PositionDetailScreen extends StatefulHookConsumerWidget {
   const PositionDetailScreen({super.key, required this.ticker, this.seed});
@@ -149,9 +151,8 @@ class _PositionDetailScreenState
           onCloseAll: notifier.closeAll,
           onCloseLot: notifier.closeLot,
           onAskPorty:
-              (question) => GotoAssistant(
-                initialQuestion: question,
-              ).navigate(context: context),
+              (question) => PortyChatSheet.show(context, question: question,
+                screen: PortyScreenContext.position(widget.ticker),),
           animateEntrance: !_seeded,
         ),
       );
@@ -201,6 +202,7 @@ class _PositionDetailScreenState
     return Scaffold(
       appBar: AppBar(
         actions: [
+          PortyAskButton(screen: PortyScreenContext.position(widget.ticker)),
           IconButton(
             tooltip: 'price_alert_create_tooltip'.tr(),
             onPressed:
@@ -348,7 +350,24 @@ class _DetailList extends StatelessWidget {
           ),
           const SizedBox(height: AppDimens.sp32),
           if (imported.isNotEmpty) ...[
-            enter(EtoroSyncNote(syncedAt: lastSync, partial: !allImported)),
+            enter(
+              EtoroSyncNote(
+                syncedAt: lastSync,
+                partial: !allImported,
+                binance: imported.any((l) => l.position.source.isBinance),
+                snaptrade: imported.any((l) => l.position.source.isSnaptrade),
+              ),
+            ),
+            // Porty no opera: "Abrir en eToro ↗" lleva al bróker.
+            enter(
+              Padding(
+                padding: const EdgeInsets.only(top: AppDimens.sp8),
+                child: OpenInBrokerLinks(
+                  ticker: ticker,
+                  sources: {for (final l in imported) l.position.source},
+                ),
+              ),
+            ),
             if (!allImported) const SizedBox(height: AppDimens.sp24),
           ],
           // Con alguna compra importada, "cerrar todo" no aplica: las
@@ -650,7 +669,9 @@ class _PurchaseRow extends StatelessWidget {
                     child: SkeletonText(
                       lot == null
                           ? null
-                          : DateFormat.yMMMd().format(lot.position.purchaseDate),
+                          : lot.position.purchaseDateKnown
+                          ? DateFormat.yMMMd().format(lot.position.purchaseDate)
+                          : 'position_detail_date_unknown'.tr(),
                       placeholder: '30 sept 2026',
                       style: tt.titleSmall?.copyWith(
                         color: colors.textPrimary,
@@ -661,7 +682,7 @@ class _PurchaseRow extends StatelessWidget {
                   ),
                   if (lot?.position.isReadOnly ?? false) ...[
                     const SizedBox(width: AppDimens.sp6),
-                    const EtoroSourceBadge(),
+                    BrokerSourceBadge(source: lot!.position.source),
                   ],
                 ],
               ),

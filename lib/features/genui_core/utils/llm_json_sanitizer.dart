@@ -35,14 +35,44 @@ abstract final class LlmJsonSanitizer {
 
     final sanitized = sanitize(trimmed);
     if (sanitized.isEmpty || !_hasParseableJson(sanitized)) {
+      // El modelo contestó en texto plano (pasa con repreguntas cortas,
+      // "¿cuál querés seguir?"): se muestra ese texto, no se tira la
+      // respuesta. El mensaje genérico queda para lo que de verdad no se
+      // puede leer (JSON roto).
+      final prose = plainText(trimmed);
       return A2uiResponseNormalizer.fallbackResponse(
         surfaceId,
-        fallbackMessage,
+        prose ?? fallbackMessage,
         catalogId: catalogId,
       );
     }
 
     return sanitized;
+  }
+
+  /// [raw] no deja nada para mostrar: vacío, o un JSON roto (cortado por
+  /// el tope de salida) que tampoco sirve como texto. Es lo que termina en
+  /// [defaultFallbackMessage].
+  static bool isUnreadable(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return true;
+    final sanitized = sanitize(trimmed);
+    if (sanitized.isNotEmpty && _hasParseableJson(sanitized)) return false;
+    return plainText(trimmed) == null;
+  }
+
+  /// [raw] como texto para mostrar si es prosa y no un JSON roto; `null` si
+  /// no sirve (vacío, con llaves o restos de componentes, o muy largo).
+  static String? plainText(String raw) {
+    final text = _stripMarkdown(raw).trim();
+    if (text.isEmpty || text.length > 1200) return null;
+    if (text.contains('{') ||
+        text.contains('}') ||
+        text.contains('"component"') ||
+        text.contains('updateComponents')) {
+      return null;
+    }
+    return text;
   }
 
   static bool _hasParseableJson(String text) {

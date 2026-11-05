@@ -4,6 +4,7 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "npm:@supabase/supabase-js@2": "2.117.2",
+    "npm:gpt-tokenizer@2.9.0": "2.9.0",
     "npm:jose@5": "5.10.0"
   },
   "jsr": {
@@ -62,6 +63,9 @@
         "@supabase/realtime-js",
         "@supabase/storage-js"
       ]
+    },
+    "gpt-tokenizer@2.9.0": {
+      "integrity": "sha512-YSpexBL/k4bfliAzMrRqn3M6+it02LutVyhVpDeMKrC/O9+pCe/5s8U2hYKa2vFLD5/vHhsKc8sOn/qGqII8Kg=="
     },
     "iceberg-js@0.8.1": {
       "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="

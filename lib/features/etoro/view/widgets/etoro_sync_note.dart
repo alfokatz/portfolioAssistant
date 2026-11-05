@@ -24,12 +24,24 @@ abstract final class EtoroSyncTime {
 /// hace 5 min". Va donde estarían las acciones de editar o cerrar, que una
 /// posición importada no tiene.
 class EtoroSyncNote extends StatelessWidget {
-  const EtoroSyncNote({super.key, required this.syncedAt, this.partial = false});
+  const EtoroSyncNote({
+    super.key,
+    required this.syncedAt,
+    this.partial = false,
+    this.binance = false,
+    this.snaptrade = false,
+  });
 
   final DateTime? syncedAt;
 
   /// Solo algunas compras vienen de eToro (el resto es manual).
   final bool partial;
+
+  /// Lo importado viene de Binance (mismos textos, otro bróker).
+  final bool binance;
+
+  /// Lo importado viene de un bróker conectado por SnapTrade.
+  final bool snaptrade;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +67,17 @@ class EtoroSyncNote extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  partial
+                  snaptrade
+                      ? (partial
+                              ? 'snaptrade_detail_partial_note'
+                              : 'snaptrade_detail_note')
+                          .tr()
+                      : binance
+                      ? (partial
+                              ? 'binance_detail_partial_note'
+                              : 'binance_detail_note')
+                          .tr()
+                      : partial
                       ? 'etoro_detail_partial_note'.tr()
                       : 'etoro_detail_note'.tr(),
                   style: tt.bodyMedium?.copyWith(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_gold_theme.dart';
@@ -114,7 +115,8 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                     onPressed: () => SubscriptionPaywallSheet.show(
                       context,
                       ref,
-                      reason: PaywallReason.modeLocked,
+                      reason: PaywallReason.plans,
+                      source: PaywallSource.settings,
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: colors.textPrimary,

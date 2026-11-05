@@ -162,7 +162,7 @@ abstract final class WeeklyPortfolioCalculator {
 
     for (final lot in lots) {
       final ticker = PortfolioCalculator.normalizeTicker(lot.ticker);
-      final buy = _day(lot.purchaseDate);
+      final buy = _buyDay(lot);
       if (buy.isAfter(week.friday)) continue; // compró después de la semana
       final series = candles[ticker] ?? const <PriceCandle>[];
       final endPrice = _closeOnOrBefore(series, week.friday);
@@ -260,7 +260,7 @@ abstract final class WeeklyPortfolioCalculator {
       var start = 0.0;
       var value = 0.0;
       for (final lot in lots) {
-        final buy = _day(lot.purchaseDate);
+        final buy = _buyDay(lot);
         if (buy.isAfter(day)) continue;
         final series =
             candles[PortfolioCalculator.normalizeTicker(lot.ticker)] ??
@@ -322,7 +322,7 @@ abstract final class WeeklyPortfolioCalculator {
     );
     final values = <String, double>{};
     for (final lot in lots) {
-      if (_day(lot.purchaseDate).isAfter(then)) continue;
+      if (_buyDay(lot).isAfter(then)) continue;
       final ticker = PortfolioCalculator.normalizeTicker(lot.ticker);
       final price = _closeOnOrBefore(candles[ticker] ?? const [], then);
       if (price == null) continue;
@@ -391,6 +391,11 @@ abstract final class WeeklyPortfolioCalculator {
 
   /// Fecha de calendario local (compras y cierres que carga el usuario).
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// El día de la compra. Sin fecha conocida (un bróker que no la informa)
+  /// cuenta como de antes: no es plata nueva de esta semana.
+  static DateTime _buyDay(Position lot) =>
+      lot.purchaseDateKnown ? _day(lot.purchaseDate) : DateTime(1970);
 
   /// Día bursátil de una vela diaria. Yahoo la fecha con el timestamp de la
   /// apertura (13:30–14:30 UTC) convertido a hora local: en UTC+10 eso ya es

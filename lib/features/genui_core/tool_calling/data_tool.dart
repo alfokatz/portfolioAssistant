@@ -59,3 +59,18 @@ class ToolCallRecord {
 
   String? get status => result['status'] as String?;
 }
+
+/// Datos que viajan con el resultado de una tool hacia el modelo sin ser
+/// parte del resultado (no entran en la evidencia ni en los chequeos): por
+/// ejemplo, instrucciones o esquemas que solo hacen falta con esos datos.
+/// [key] identifica el contenido: mientras uno con la misma clave siga a la
+/// vista del modelo, no se repite.
+class ResultExtra {
+  const ResultExtra(this.key, this.fields);
+
+  final String key;
+  final Map<String, Object?> fields;
+}
+
+/// Qué [ResultExtra] lleva el resultado de [record] (`null`: nada).
+typedef ResultExtrasFor = ResultExtra? Function(ToolCallRecord record);

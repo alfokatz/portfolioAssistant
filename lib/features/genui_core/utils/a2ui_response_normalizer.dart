@@ -314,7 +314,9 @@ abstract final class A2uiResponseNormalizer {
 
     for (var i = 0; i < components.length; i++) {
       final component = Map<String, dynamic>.from(components[i]);
-      if (component['id'] == 'root') {
+      // Sin id (o "root" sin ser la Column): uno propio. Un componente sin
+      // id rompía el turno entero (`Null` no es `String`, visto en evals).
+      if (component['id'] == 'root' || component['id'] is! String) {
         component['id'] = 'child_$i';
       }
       childIds.add(component['id'] as String);

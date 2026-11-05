@@ -36,7 +36,9 @@ class AlertProvider extends StateNotifier<AlertData?> {
     Future.delayed(
       Duration(milliseconds: 350),
       () {
-        state = null;
+        // El provider es autoDispose: si nadie lo escucha ya se descartó, y
+        // tocar el estado después tira (visto en tests, intermitente).
+        if (mounted) state = null;
       },
     );
   }

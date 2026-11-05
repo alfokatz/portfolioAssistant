@@ -183,6 +183,10 @@ class OpenAIGenUiService {
 
   static const _temperature = 0.35;
 
+  static const _shorterAnswer =
+      'Tu respuesta anterior se cortó por largo. Respondé de nuevo lo mismo, '
+      'más corto: menos texto y una sola card.';
+
   OpenAIGenUiService({
     AiProxyConfig? proxy,
     String? model,
@@ -266,6 +270,8 @@ class OpenAIGenUiService {
   /// primera ronda de tools. [onActivity] avisa en qué anda el turno
   /// (esperando al modelo, qué tools corren, armando la respuesta) — solo
   /// para mostrarlo; no emite `idle`, el fin del turno lo marca el llamador.
+  /// [resultExtras] suma datos a lo que el modelo lee de cada resultado
+  /// (ver [ResultExtra]); la evidencia del turno no los ve.
   Future<TurnOutcome> runTurn({
     required String userText,
     required String surfaceId,
@@ -276,6 +282,7 @@ class OpenAIGenUiService {
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
     ContentDeltaCallback? onContent,
+    ResultExtrasFor? resultExtras,
   }) {
     return _sendQueue.run(() async {
       log.pinnedContext = pinnedContext;
@@ -289,6 +296,7 @@ class OpenAIGenUiService {
           abortCheck: abortCheck,
           onActivity: onActivity,
           beforeRound: beforeRound,
+          resultExtras: resultExtras,
         );
       } on ProxyLimitException {
         // El servidor no dejó responder (cuota, tope diario…): el turno no
@@ -317,6 +325,32 @@ class OpenAIGenUiService {
     );
   }
 
+  /// El texto de cada resultado para el modelo: el resultado y, si
+  /// corresponde, su [ResultExtra] — una vez por clave mientras siga a la
+  /// vista (ver `ConversationLog.visibleExtraKeys`).
+  List<String> _withExtras(
+    List<ToolCallRecord> records,
+    ResultExtrasFor? extrasFor,
+    TurnRecord turn,
+  ) {
+    if (extrasFor == null) {
+      return [for (final r in records) jsonEncode(r.result)];
+    }
+    final visible = log.visibleExtraKeys;
+    return [
+      for (final r in records)
+        () {
+          final extra = extrasFor(r);
+          if (extra == null || visible.contains(extra.key)) {
+            return jsonEncode(r.result);
+          }
+          visible.add(extra.key);
+          turn.extraKeys.add(extra.key);
+          return jsonEncode({...r.result, ...extra.fields});
+        }(),
+    ];
+  }
+
   Future<TurnOutcome> _runTurn({
     required String userText,
     required String surfaceId,
@@ -325,6 +359,7 @@ class OpenAIGenUiService {
     TurnAbortCheck? abortCheck,
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
+    ResultExtrasFor? resultExtras,
   }) async {
     _lastTools = tools;
     _lastSurfaceId = surfaceId;
@@ -379,6 +414,7 @@ class OpenAIGenUiService {
         final records = await executor.runAll(calls);
         onActivity?.call(TurnActivity.composing);
         turn.calls.addAll(records);
+        final contents = _withExtras(records, resultExtras, turn);
         turn.exchanges.add(
           ToolExchange(
             call: message,
@@ -388,7 +424,7 @@ class OpenAIGenUiService {
                   role: OpenAIChatMessageRole.tool,
                   content: [
                     OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                      jsonEncode(records[i].result),
+                      contents[i],
                     ),
                   ],
                   toolCallId: calls[i].id!,
@@ -474,8 +510,10 @@ class OpenAIGenUiService {
     }
   }
 
-  /// Aplica la respuesta final; si no deja una surface válida, reintenta
-  /// una sola vez la ronda final (las tools ya están en el historial).
+  /// Aplica la respuesta final; si no deja una surface válida, o llegó
+  /// vacía o rota (sin nada para mostrar), reintenta una sola vez la ronda
+  /// final (las tools ya están en el historial). Recién si el reintento
+  /// tampoco sirve sale el "No pude procesar tu consulta".
   Future<void> _finishTurn(
     TurnRecord turn,
     String raw,
@@ -485,12 +523,17 @@ class OpenAIGenUiService {
   ) async {
     var attempt = raw;
     for (var transient = 0; ; transient++) {
+      final lastTry = isDisposed || transient >= maxTransientRetries;
       try {
+        if (!lastTry && LlmJsonSanitizer.isUnreadable(attempt)) {
+          GenUiDebugLog.unreadableFinal(attempt.length);
+          throw StateError('Respuesta final vacía o cortada.');
+        }
         _applyFinal(attempt, surfaceId);
         turn.finalText = attempt;
         return;
       } on StateError {
-        if (isDisposed || transient >= maxTransientRetries) rethrow;
+        if (lastTry) rethrow;
         await Future<void>.delayed(_transientRetryBackoff);
         final retry = await _request(
           tools: tools,
@@ -498,6 +541,19 @@ class OpenAIGenUiService {
           timeout: roundTimeout,
           throttle: false,
           deadline: deadline,
+          // Cortada por el tope de salida: el mismo pedido se volvería a
+          // cortar.
+          extra: [
+            if (turn.truncatedRounds > 0)
+              OpenAIChatCompletionChoiceMessageModel(
+                role: OpenAIChatMessageRole.user,
+                content: [
+                  OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                    _shorterAnswer,
+                  ),
+                ],
+              ),
+          ],
         );
         attempt = _textOf(retry);
       }
@@ -581,6 +637,7 @@ class OpenAIGenUiService {
         final messages = [...log.render(), ...extra];
         final openAiTools =
             tools.isEmpty ? null : [for (final tool in tools) tool.toOpenAi()];
+        String? finishReason;
         final reply =
             streaming
                 ? ChatCompletionStream.create(
@@ -591,6 +648,7 @@ class OpenAIGenUiService {
                   toolChoice: tools.isEmpty ? null : toolChoice,
                   temperature: _temperature,
                   onContent: _onContent,
+                  onFinish: (reason) => finishReason = reason,
                 )
                 : OpenAI.instance.chat
                     .create(
@@ -601,8 +659,11 @@ class OpenAIGenUiService {
                       temperature: _temperature,
                       client: _httpClient,
                     )
-                    .then((response) => response.choices.first.message);
-        return await reply.timeout(
+                    .then((response) {
+                      finishReason = response.choices.first.finishReason;
+                      return response.choices.first.message;
+                    });
+        final message = await reply.timeout(
           timeout,
           onTimeout:
               () =>
@@ -610,6 +671,11 @@ class OpenAIGenUiService {
                     'El modelo tardó demasiado en responder.',
                   ),
         );
+        if (finishReason == 'length') {
+          log.currentTurn?.truncatedRounds++;
+          GenUiDebugLog.outputTruncated(_textOf(message).length);
+        }
+        return message;
       } on RequestFailedException catch (e) {
         final canRetry =
             isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;

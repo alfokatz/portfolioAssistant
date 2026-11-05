@@ -9,9 +9,9 @@ import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
-import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
 import '../fakes/assistant_fakes.dart';
 
@@ -90,9 +90,13 @@ ActionProposal _proposal(Map<String, Object?> result) {
   return ActionProposal.fromToolResult(result)!;
 }
 
+/// El resultado sin su `answer_guide` (lo cubre el grupo de guías).
+Map<String, Object?> _data(Map<String, Object?> result) =>
+    {...result}..remove(AnswerGuide.key);
+
 void main() {
   group('plan', () {
-    test('Free gets locked with the Premium paywall, for every tool', () async {
+    test('portfolio actions are in every plan: no tool is locked', () async {
       for (final tier in SubscriptionTier.values) {
         final ctx = _ctx(tier: tier);
         for (final tool in ActionTools.build(ctx)) {
@@ -102,14 +106,12 @@ void main() {
             'date': '2026-09-25',
           });
           expect(
-            result['status'] == 'locked',
-            tier == SubscriptionTier.free,
+            result['status'],
+            isNot('locked'),
             reason: '${tool.name} × ${tier.name}',
           );
-          if (tier == SubscriptionTier.free) {
-            expect(result['required_plan'], 'premium');
-            expect(ctx.lockedReasons, contains(PaywallReason.modeLocked));
-          }
+          expect(ctx.lockedReasons, isEmpty);
+          expect(ctx.lockedFeatures, isEmpty);
         }
       }
     });
@@ -119,6 +121,70 @@ void main() {
         ActionTools.build(_ctx()).map((t) => t.name).toSet(),
         ActionTools.names,
       );
+    });
+  });
+
+  group('propose_buy position limit', () {
+    PortfolioSummary summaryOf(int n) => PortfolioSummary(
+      totalValue: 1000,
+      totalCostBasis: 1000,
+      totalPnlAbsolute: 0,
+      totalPnlPercent: 0,
+      valuations: [for (var i = 0; i < n; i++) valuation('T$i', qty: 1)],
+    );
+
+    AssistantToolContext ctxWith(SubscriptionTier tier, int n) =>
+        AssistantToolContext(
+          tier: tier,
+          data: fakeDataSources(quotes: _Quotes()),
+          summary: summaryOf(n),
+          now: DateTime(2026, 9, 29),
+        );
+
+    const buy = {'ticker': 'NEWCO', 'shares': 1, 'date': '2026-09-28'};
+
+    test('Free with 10 holdings: a new ticker is limit_reached', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run(buy);
+      expect(result['status'], 'limit_reached');
+      expect(result['limit'], 10);
+      expect(result[AnswerGuide.key], ActionGuides.positionLimit);
+      expect(result.containsKey('proposal_id'), isFalse);
+    });
+
+    test('the 11th ticker is refused before asking for date or quantity', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run({'ticker': 'NEWCO'});
+      expect(result['status'], 'limit_reached');
+    });
+
+    test('Free with 9 holdings can still add the 10th ticker', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 9),
+      ).run(buy);
+      expect(result['status'], 'ok');
+    });
+
+    test('Free at the limit can still buy more of a ticker it holds', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.free, 10),
+      ).run({...buy, 'ticker': 't3'});
+      expect(result['status'], 'ok');
+    });
+
+    test('Premium has no limit', () async {
+      final result = await ProposeBuyTool(
+        ctxWith(SubscriptionTier.premium, 40),
+      ).run(buy);
+      expect(result['status'], 'ok');
+    });
+
+    test('a limit_reached never opens a turn paywall', () async {
+      final ctx = ctxWith(SubscriptionTier.free, 10);
+      await ProposeBuyTool(ctx).run(buy);
+      expect(ctx.lockedReasons, isEmpty);
     });
   });
 
@@ -226,7 +292,7 @@ void main() {
 
     test('missing data → needs_input listing all of it', () async {
       final tool = ProposeBuyTool(_ctx());
-      expect(await tool.run({'ticker': 'AAPL'}), {
+      expect(_data(await tool.run({'ticker': 'AAPL'})), {
         'status': 'needs_input',
         'missing': ['quantity', 'date'],
       });
@@ -250,7 +316,7 @@ void main() {
       final result = await ProposeBuyTool(
         _ctx(),
       ).run({'ticker': 'AAPL', 'shares': 1, 'date': '2026-09-30'});
-      expect(result, {'status': 'invalid', 'reason': 'future_date'});
+      expect(_data(result), {'status': 'invalid', 'reason': 'future_date'});
     });
 
     test('zero or negative quantity → invalid', () async {
@@ -335,14 +401,14 @@ void main() {
       final result = await ProposeSellTool(
         _ctx(),
       ).run({'ticker': 'MSFT', 'all': true, 'date': '2026-09-25'});
-      expect(result, {'status': 'invalid', 'reason': 'not_held'});
+      expect(_data(result), {'status': 'invalid', 'reason': 'not_held'});
     });
 
     test('more than held → invalid with held_shares', () async {
       final result = await ProposeSellTool(
         _ctx(),
       ).run({'ticker': 'TSLA', 'shares': 20, 'date': '2026-09-25'});
-      expect(result, {
+      expect(_data(result), {
         'status': 'invalid',
         'reason': 'exceeds_holdings',
         'held_shares': 15.0,
@@ -358,7 +424,7 @@ void main() {
     });
 
     test('missing quantity and date → needs_input', () async {
-      expect(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'}), {
+      expect(_data(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'})), {
         'status': 'needs_input',
         'missing': ['quantity', 'date'],
       });
@@ -416,10 +482,68 @@ void main() {
     });
 
     test('without ticker → needs_input', () async {
-      expect(await ProposeDeletePositionTool(_ctx()).run({}), {
+      expect(_data(await ProposeDeletePositionTool(_ctx()).run({})), {
         'status': 'needs_input',
         'missing': ['ticker'],
       });
+    });
+  });
+
+  group('answer_guide', () {
+    String? guideOf(Map<String, Object?> r) => r[AnswerGuide.key] as String?;
+
+    test('ok, needs_input, invalid y limit_reached traen su guía', () async {
+      expect(
+        guideOf(
+          await ProposeBuyTool(
+            _ctx(quotes: _Quotes()),
+          ).run({'ticker': 'AAPL', 'shares': 10, 'date': '2026-09-28'}),
+        ),
+        ActionGuides.ok,
+      );
+      expect(
+        guideOf(await ProposeSellTool(_ctx()).run({'ticker': 'TSLA'})),
+        ActionGuides.needsInput,
+      );
+      expect(
+        guideOf(
+          await ProposeSellTool(
+            _ctx(),
+          ).run({'ticker': 'MSFT', 'all': true, 'date': '2026-09-25'}),
+        ),
+        ActionGuides.invalid,
+      );
+      // La card lee el mismo resultado: la guía no la rompe.
+      expect(
+        _proposal(
+          await ProposeBuyTool(
+            _ctx(quotes: _Quotes()),
+          ).run({'ticker': 'AAPL', 'shares': 10, 'date': '2026-09-28'}),
+        ).ticker,
+        'AAPL',
+      );
+      // Free con la cartera en el tope y un ticker nuevo.
+      expect(
+        guideOf(
+          await ProposeBuyTool(
+            AssistantToolContext(
+              tier: SubscriptionTier.free,
+              data: fakeDataSources(quotes: _Quotes()),
+              summary: PortfolioSummary(
+                totalValue: 1000,
+                totalCostBasis: 1000,
+                totalPnlAbsolute: 0,
+                totalPnlPercent: 0,
+                valuations: [
+                  for (var i = 0; i < 10; i++) valuation('T$i', qty: 1),
+                ],
+              ),
+              now: DateTime(2026, 9, 29),
+            ),
+          ).run({'ticker': 'NEWCO', 'shares': 1, 'date': '2026-09-28'}),
+        ),
+        ActionGuides.positionLimit,
+      );
     });
   });
 }
