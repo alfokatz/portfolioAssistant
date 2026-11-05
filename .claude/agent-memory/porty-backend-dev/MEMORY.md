@@ -12,3 +12,7 @@
 - Probar los tests SQL nuevos con mutaciones de la migración (sacar una línea y ver que el test falle): un test que pasa a la primera no prueba nada.
 - `rate_limit_hit` inserta en `api_rate_limits` (FK a auth.users): para un uid borrado devuelve 23503. Sirve para detectar "ya borrado".
 - El inventario de una spec puede estar viejo (`goal_contributions` se borró en goal_funding): la guardia de catálogo tiene que salir de `information_schema`, no de la lista de la spec.
+- Tests SQL con `\i supabase/migrations/...` (psql, desde la raíz): para PGlite preprocesar reemplazando el `\i` por el contenido; no mezclar dos tests en la misma instancia (el jwt/estado de uno rompe al otro).
+- Topes mensuales (`web_search_quota_hit`, `news_context_quota_hit`): mes UTC; `news_context_usage.count` = pedidos/día, `units` = búsquedas sin caché (mes). Las booleanas viejas delegan en las nuevas: toda RPC nueva necesita `grant execute ... to service_role` explícito tras el `revoke`.
+- Cambiar límites de `plan_limits` en tests de edge: usar `withPlanLimit` de `tests/helpers.ts` (restaura en finally); `withNewsProvider` hace lo mismo con `news_provider`.
+- `normalizeTicker` cambia `-` por `.`: para comparar contra `positions.ticker` usar el ticker crudo del pedido (`newsAllowed`).

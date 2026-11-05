@@ -5,7 +5,7 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { bullets, cacheKey, handle, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
-import { createUser, db, deps, fakeFetch } from "./helpers.ts";
+import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider, withPlanLimit } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
 
@@ -223,4 +223,129 @@ Deno.test("news-context sin pregunta: una búsqueda por empresa, en paralelo, y 
   assertEquals(again.headers.get("x-cache"), "hit");
   await again.body?.cancel();
   assertEquals(f.calls.length, 2);
+});
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+Deno.test("news-context: la unidad es una búsqueda sin caché (2 empresas = 2 unidades, 1 pedido)", async () => {
+  const u = await createUser("gold");
+  const a = `A${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const b = `B${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const f = fakeFetch(() => responsesAnswer(answer));
+  const d = deps(f.fetch, env);
+
+  const r = await handle(req(u.jwt, { tickers: [a, b], names: { [a]: "Alfa", [b]: "Beta" } }, await turnRow(u.id)), d);
+  assertEquals(r.status, 200);
+  await r.body?.cancel();
+  const { data } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).single();
+  assertEquals(data, { count: 1, units: 2 });
+
+  // Con una empresa ya en caché, otro pedido con una nueva gasta 1 unidad.
+  const c = `C${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const again = await handle(req(u.jwt, { tickers: [a, c], names: { [c]: "Gama" } }, await turnRow(u.id)), d);
+  assertEquals(again.status, 200);
+  await again.body?.cancel();
+  const { data: after } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).single();
+  assertEquals(after, { count: 2, units: 3 });
+});
+
+Deno.test("news-context: tope mensual → 429 monthly_limit sin llamar a OpenAI", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    const a = `A${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const b = `B${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const f = fakeFetch(() => responsesAnswer(answer));
+    // 2 búsquedas sin caché no entran en 1 unidad al mes.
+    const r = await handle(req(u.jwt, { tickers: [a, b], names: { [a]: "Alfa", [b]: "Beta" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 429);
+    assertEquals((await r.json()).error.type, "monthly_limit");
+    assertEquals(f.calls.length, 0);
+    const { data } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).maybeSingle();
+    assertEquals(data?.units ?? 0, 0);
+  });
+});
+
+Deno.test("news-context: con el tope mensual agotado sirve la caché vencida si hay", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    const t = `S${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const stale: NewsContext = {
+      status: "ok",
+      subject: t,
+      summary: ["(2026-10-01): Dato viejo."],
+      citations: [{ title: "Reuters", url: "https://www.reuters.com/old", source: "Reuters", domain: "reuters.com" }],
+      as_of: "2026-10-01T00:00:00Z",
+    };
+    const old = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await db.from("data_source_cache").upsert({ cache_key: cacheKey(parseBody({ tickers: [t] })!), body: stale, fetched_at: old });
+    // Se gasta la única unidad del mes con otra empresa y después se pide la vencida.
+    const other = `O${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+    const f = fakeFetch(() => responsesAnswer(answer));
+    const d = deps(f.fetch, env);
+    const first = await handle(req(u.jwt, { tickers: [other] }, await turnRow(u.id)), d);
+    assertEquals(first.status, 200);
+    await first.body?.cancel();
+    const r = await handle(req(u.jwt, { tickers: [t] }, await turnRow(u.id)), d);
+    assertEquals(r.status, 200);
+    assertEquals(r.headers.get("x-cache"), "stale");
+    assertEquals((await r.json()).summary, stale.summary);
+    assertEquals(f.calls.length, 1);
+  });
+});
+
+Deno.test("news-context: la booleana vieja news_context_hit también aplica el tope mensual", async () => {
+  await withPlanLimit("gold", "news_context_per_month", 1, async () => {
+    const u = await createUser("gold");
+    assertEquals((await db.rpc("news_context_hit", { p_user_id: u.id })).data, true);
+    assertEquals((await db.rpc("news_context_hit", { p_user_id: u.id })).data, false);
+  });
+});
+
+Deno.test("news-context Premium: solo tickers en cartera y solo con news_provider v2", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  const foreign = `X${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch(() => responsesAnswer(answer));
+  const d = deps(f.fetch, env);
+
+  await withNewsProvider("legacy", async () => {
+    const r = await handle(req(u.jwt, { tickers: [held] }), d);
+    assertEquals(r.status, 403);
+    await r.body?.cancel();
+  });
+  await withNewsProvider("v2", async () => {
+    const own = await handle(req(u.jwt, { tickers: [held], names: { [held]: "Held" } }, await turnRow(u.id)), d);
+    assertEquals(own.status, 200);
+    assertEquals((await own.json()).status, "ok");
+    assertEquals(f.calls.length, 1);
+
+    // Uno propio y uno ajeno: se corta el pedido entero.
+    const mixed = await handle(req(u.jwt, { tickers: [held, foreign] }), d);
+    assertEquals(mixed.status, 403);
+    assertEquals((await mixed.json()).error, { type: "plan_required", message: "Gold required", required_plan: "gold" });
+    // Solo el ajeno, y un tema sin ticker.
+    const other = await handle(req(u.jwt, { tickers: [foreign] }), d);
+    assertEquals(other.status, 403);
+    await other.body?.cancel();
+    const topic = await handle(req(u.jwt, { topic: "inflación en EE. UU." }), d);
+    assertEquals(topic.status, 403);
+    await topic.body?.cancel();
+    assertEquals(f.calls.length, 1);
+  });
+});
+
+Deno.test("news-context Premium: tickers con sufijo (.BA, -USD) coinciden con la cartera", async () => {
+  const u = await createUser("premium");
+  const tag = crypto.randomUUID().slice(0, 3).toUpperCase();
+  const ba = `G${tag}.BA`;
+  const usd = `B${tag}-USD`;
+  await addPosition(u.id, ba);
+  await addPosition(u.id, usd.toLowerCase());
+  const f = fakeFetch(() => responsesAnswer(answer));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(u.jwt, { tickers: [ba, usd], names: { [ba]: "Galicia", [usd]: "Bitcoin" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
 });

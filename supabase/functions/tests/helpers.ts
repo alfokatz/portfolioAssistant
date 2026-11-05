@@ -108,3 +108,46 @@ export function sseResponse(chunks: string[]): Response {
     { headers: { "Content-Type": "text/event-stream" } },
   );
 }
+
+/// Cambia un límite de `plan_limits` mientras corre [fn] y lo deja como
+/// estaba (los tests de una corrida son secuenciales, ver `deno task test`).
+export async function withPlanLimit<T>(
+  tier: "free" | "premium" | "gold",
+  column: string,
+  value: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const { data } = await db.from("plan_limits").select(column).eq("tier", tier).single();
+  const before = (data as unknown as Record<string, number>)[column];
+  await db.from("plan_limits").update({ [column]: value }).eq("tier", tier);
+  try {
+    return await fn();
+  } finally {
+    await db.from("plan_limits").update({ [column]: before }).eq("tier", tier);
+  }
+}
+
+/// Fija `app_config.news_provider` mientras corre [fn] y lo restaura.
+export async function withNewsProvider<T>(provider: "legacy" | "v2", fn: () => Promise<T>): Promise<T> {
+  const { data } = await db.from("app_config").select("value").eq("key", "news_provider").maybeSingle();
+  await db.from("app_config").upsert({ key: "news_provider", value: { provider } });
+  try {
+    return await fn();
+  } finally {
+    if (data) await db.from("app_config").update({ value: data.value }).eq("key", "news_provider");
+    else await db.from("app_config").delete().eq("key", "news_provider");
+  }
+}
+
+/// Una posición abierta de [userId] (la cartera que mira `news_data_allowed`).
+export async function addPosition(userId: string, ticker: string, quantity = 1): Promise<void> {
+  const { error } = await db.from("positions").insert({
+    id: crypto.randomUUID(),
+    user_id: userId,
+    ticker,
+    quantity,
+    purchase_price: 100,
+    purchase_date: new Date().toISOString(),
+  });
+  if (error) throw error;
+}

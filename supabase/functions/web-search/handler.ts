@@ -5,8 +5,9 @@
 //
 // - Caché compartida por consulta normalizada (24 h, `web_search_cache`):
 //   un hit no gasta cupo ni llama a OpenAI.
-// - Tope diario por plan (`plan_limits.web_searches_per_day`, RPC
-//   `web_search_hit`) y rate limit por minuto.
+// - Tope diario y mensual por plan (`plan_limits.web_searches_per_day` y
+//   `_per_month`, RPC `web_search_quota_hit`: 429 `daily_limit` o
+//   `monthly_limit`) y rate limit por minuto.
 // - Devuelve una respuesta corta + las fuentes citadas (url_citation): el
 //   modelo de Porty solo puede citar lo que viene acá.
 
@@ -105,8 +106,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return json(200, cached.body, { "x-cache": "hit" });
   }
 
-  const allowed = await deps.db.rpc("web_search_hit", { p_user_id: userId });
-  if (allowed.data !== true) {
+  const quota = await deps.db.rpc("web_search_quota_hit", { p_user_id: userId });
+  if ((quota.data as { ok?: boolean } | null)?.ok !== true) {
+    // Sin respuesta de la RPC también corta (falla cerrado), como daily_limit.
+    if ((quota.data as { reason?: string } | null)?.reason === "monthly_limit") {
+      return typedError(429, "monthly_limit", "Monthly web search limit reached");
+    }
     return typedError(429, "daily_limit", "Daily web search limit reached");
   }
 
