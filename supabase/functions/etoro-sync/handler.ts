@@ -78,7 +78,7 @@ function readEnv(deps: Deps): Env | null {
     redirectUri,
     appRedirect: deps.env("ETORO_APP_REDIRECT") ?? handlerConfig.defaultAppRedirect,
     // Solo staging: "demo" para probar con una cuenta de dinero virtual.
-    environment: etoroEnvironment(deps.env("ETORO_ENVIRONMENT")),
+    environment: etoroEnvironment(deps.env),
   };
 }
 

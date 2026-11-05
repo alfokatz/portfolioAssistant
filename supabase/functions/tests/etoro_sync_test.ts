@@ -7,7 +7,7 @@
 
 import { assert, assertEquals, assertFalse, assertMatch } from "jsr:@std/assert@1";
 import type { Deps } from "../_shared/common.ts";
-import { type EtoroTokens, resetEtoroCaches } from "../etoro-sync/etoro.ts";
+import { etoroEnvironment, type EtoroTokens, resetEtoroCaches } from "../etoro-sync/etoro.ts";
 import { handle } from "../etoro-sync/handler.ts";
 import type { InstrumentMeta } from "../etoro-sync/mapping.ts";
 import type { ApplySync, Connection, EtoroStore, OAuthState } from "../etoro-sync/store.ts";
@@ -741,9 +741,38 @@ Deno.test("ningún log ni respuesta incluye tokens, códigos o el client secret"
 
 // ── staging con cuenta demo ─────────────────────────────────────────────────
 
-Deno.test("ETORO_ENVIRONMENT=demo: pide demo:read y lee los endpoints demo (nunca los reales)", async () => {
+const stagingEnv: Record<string, string> = {
+  ...env,
+  ETORO_ENVIRONMENT: "demo",
+  ETORO_DEMO_PROJECT_REF: "stagingref",
+  SUPABASE_URL: "https://stagingref.supabase.co",
+};
+
+Deno.test("etoroEnvironment: demo solo con los dos secrets del mismo proyecto", () => {
+  const of = (e: Record<string, string>) => etoroEnvironment((n) => e[n]);
+  assertEquals(of(stagingEnv), "demo");
+  assertEquals(of(env), "real");
+  // Producción con ETORO_ENVIRONMENT=demo copiado por error: sigue real.
+  assertEquals(of({ ...stagingEnv, ETORO_DEMO_PROJECT_REF: "" }), "real");
+  assertEquals(of({ ...stagingEnv, SUPABASE_URL: "https://prodref.supabase.co" }), "real");
+  assertEquals(of({ ...stagingEnv, SUPABASE_URL: "http://127.0.0.1:54321" }), "real");
+  assertEquals(of({ ...stagingEnv, ETORO_ENVIRONMENT: "real" }), "real");
+});
+
+Deno.test("producción con ETORO_ENVIRONMENT=demo pero otro proyecto: pide real:read", async () => {
+  const { store, deps } = setup();
+  const prodDeps = {
+    ...deps,
+    env: (n: string) => ({ ...stagingEnv, SUPABASE_URL: "https://prodref.supabase.co" } as Record<string, string>)[n],
+  };
+  const start = await handle(post("/connect/start", "u1"), prodDeps, () => store);
+  const url = new URL((await start.json()).authorizeUrl);
+  assertEquals(url.searchParams.get("scope"), "openid etoro-public:real:read");
+});
+
+Deno.test("staging (demo habilitado): pide demo:read y lee los endpoints demo (nunca los reales)", async () => {
   const { store, fake, deps } = setup();
-  const demoDeps = { ...deps, env: (n: string) => (n === "ETORO_ENVIRONMENT" ? "demo" : (env as Record<string, string>)[n]) };
+  const demoDeps = { ...deps, env: (n: string) => stagingEnv[n] };
   fake.grantedScope = "openid etoro-public:demo:read";
   const start = await handle(post("/connect/start", "u1"), demoDeps, () => store);
   const url = new URL((await start.json()).authorizeUrl);
