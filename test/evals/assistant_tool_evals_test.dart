@@ -1185,7 +1185,7 @@ final _cases = <_Case>[
     tier: SubscriptionTier.free,
     (t, _) => [
       ..._expect(
-        '${t.aborted}' == '${PaywallReason.modeLocked}',
+        '${t.aborted}' == '${PaywallReason.allocationPlan}',
         'esperaba el paywall de Premium, fue ${t.aborted}',
       ),
     ],

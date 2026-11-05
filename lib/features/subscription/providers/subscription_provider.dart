@@ -11,10 +11,6 @@ import 'package:portfolio_assistant/infraestructure/repositories/subscription_re
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum PaywallReason {
-  /// Función de Premium fuera del plan sin un motivo propio (benchmark,
-  /// operaciones de cartera, S&P del informe).
-  modeLocked,
-
   /// "Ver planes" sin un motivo puntual (Ajustes).
   plans,
 
@@ -76,8 +72,7 @@ enum PaywallReason {
     PaywallReason.quotaLow =>
       currentTier == SubscriptionTier.free ? SubscriptionTier.premium : null,
     PaywallReason.goldRequired => SubscriptionTier.gold,
-    // modeLocked se borra en la fase C (F6); mientras tanto no tiene oferta.
-    PaywallReason.modeLocked || PaywallReason.plans => null,
+    PaywallReason.plans => null,
   };
 }
 

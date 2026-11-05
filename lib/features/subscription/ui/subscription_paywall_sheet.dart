@@ -142,7 +142,6 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
   }
 
   static String titleKeyFor(PaywallReason reason) => switch (reason) {
-    PaywallReason.modeLocked => 'paywall_title_mode_locked',
     PaywallReason.plans => 'paywall_title_plans',
     PaywallReason.positionLimit => 'paywall_title_position_limit',
     PaywallReason.simulations => 'paywall_title_simulations',
@@ -160,7 +159,6 @@ class SubscriptionPaywallSheet extends ConsumerStatefulWidget {
   };
 
   static String subtitleKeyFor(PaywallReason reason) => switch (reason) {
-    PaywallReason.modeLocked => 'paywall_subtitle_mode_locked',
     PaywallReason.plans => 'paywall_subtitle_plans',
     PaywallReason.positionLimit => 'paywall_subtitle_position_limit',
     PaywallReason.simulations => 'paywall_subtitle_simulations',
