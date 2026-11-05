@@ -318,7 +318,7 @@ Deno.test("news-context Premium: solo tickers en cartera y solo con news_provide
     const own = await handle(req(u.jwt, { tickers: [held], names: { [held]: "Held" } }, await turnRow(u.id)), d);
     assertEquals(own.status, 200);
     assertEquals((await own.json()).status, "ok");
-    assertEquals(f.calls.length, 1);
+    assertEquals(f.calls.filter((c) => c.url.includes("openai")).length, 1);
 
     // Uno propio y uno ajeno: se corta el pedido entero.
     const mixed = await handle(req(u.jwt, { tickers: [held, foreign] }), d);
@@ -331,7 +331,7 @@ Deno.test("news-context Premium: solo tickers en cartera y solo con news_provide
     const topic = await handle(req(u.jwt, { topic: "inflación en EE. UU." }), d);
     assertEquals(topic.status, 403);
     await topic.body?.cancel();
-    assertEquals(f.calls.length, 1);
+    assertEquals(f.calls.filter((c) => c.url.includes("openai")).length, 1);
   });
 });
 
@@ -348,4 +348,40 @@ Deno.test("news-context Premium: tickers con sufijo (.BA, -USD) coinciden con la
     assertEquals(r.status, 200);
     await r.body?.cancel();
   });
+});
+
+Deno.test("news-context Premium: el nombre que manda el cliente no entra en la búsqueda", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch((url) => url.includes("openai") ? responsesAnswer(answer) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(u.jwt, { tickers: [held], names: { [held]: "Tesla" } }, await turnRow(u.id)), deps(f.fetch, env));
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
+  const sent = f.calls.find((c) => c.url.includes("openai"))!;
+  assert(!JSON.stringify(sent.body).includes("Tesla"));
+});
+
+Deno.test("news-context Premium: names y question del cliente se ignoran y la entrada compartida no se ensucia", async () => {
+  const u = await createUser("premium");
+  const held = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(u.id, held);
+  const f = fakeFetch((url) => url.includes("openai") ? responsesAnswer(answer) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(
+      req(u.jwt, { tickers: [held], names: { [held]: "Tesla" }, question: "¿Qué pasó con Tesla y su CEO?" }, await turnRow(u.id)),
+      deps(f.fetch, env),
+    );
+    assertEquals(r.status, 200);
+    await r.body?.cancel();
+  });
+  const sent = JSON.stringify(f.calls.find((c) => c.url.includes("openai"))!.body);
+  assert(!sent.includes("Tesla"));
+  // Se guardó en la clave sin pregunta (la que lee cualquiera), con el subject del servidor.
+  const { data } = await db.from("data_source_cache").select("body").eq("cache_key", cacheKey(parseBody({ tickers: [held] })!)).single();
+  assert(!JSON.stringify(data!.body).includes("Tesla"));
+  const { data: asked } = await db.from("data_source_cache").select("cache_key").like("cache_key", `news:${held}|_%`);
+  assertEquals(asked, []);
 });

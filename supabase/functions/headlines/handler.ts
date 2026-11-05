@@ -14,7 +14,7 @@
 // para lo reciente, 24 h para una semana ya cerrada.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { assignByName, gdeltFetch, gdeltUrl, type Headline, newsAllowlist, parseArticles, pressName } from "../_shared/gdelt.ts";
 import { normalizeTicker } from "../_shared/sec.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
@@ -97,8 +97,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
 
   const names: Record<string, string> = {};
+  const trusted = await clientTextTrusted(deps, userId, tickers);
   for (const [i, t] of tickers.entries()) {
-    const given = (givenNames[i] ?? "").trim().slice(0, 80);
+    const given = (trusted ? givenNames[i] ?? "" : "").trim().slice(0, 80);
     const symbol = normalizeTicker(t);
     names[symbol] = given.length >= 2 ? pressName(given) : await companyName(deps, symbol) ?? symbol;
   }

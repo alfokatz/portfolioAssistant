@@ -99,3 +99,21 @@ export async function newsAllowed(
   }));
   return checks.every(Boolean);
 }
+
+/// El `names` y la `question` que manda el cliente solo se respetan si el
+/// permiso NO viene de tener el ticker en cartera (Gold, cortesía de ese
+/// ticker, informe en curso: `gold_data_allowed`). Entran en la búsqueda y
+/// en una caché que ve todo el mundo: un Premium no puede usarlos para
+/// envenenarla ni para pedir noticias de otra empresa. Para Premium el
+/// servidor resuelve el nombre y la pregunta se ignora.
+export async function clientTextTrusted(
+  deps: Pick<Deps, "db">,
+  userId: string,
+  tickers: string[],
+): Promise<boolean> {
+  const list = tickers.length === 0 ? [null] : tickers;
+  const checks = await Promise.all(
+    list.map((t) => deps.db.rpc("gold_data_allowed", { p_user_id: userId, p_ticker: t })),
+  );
+  return checks.every(({ data }) => data === true);
+}

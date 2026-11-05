@@ -160,6 +160,25 @@ begin
   if v_symbols is distinct from 'AMZN,TSLA' then raise exception 'watch items de Free: %', v_symbols; end if;
 end $$;
 
+-- 7b. Tope por plan en lo que mira market-watch: quien bajó de plan solo
+--     conserva los más viejos hasta el tope de su plan actual.
+update public.user_subscriptions set tier = 'free' where user_id = '00000000-0000-0000-0000-0000000000f3';
+insert into public.push_devices (user_id, token, platform, locale, timezone)
+values ('00000000-0000-0000-0000-0000000000f3', 'token-f3-xxxxxxxxxxxxxxxxxxxx', 'ios', 'es', 'America/Montevideo');
+insert into public.watchlist_items (user_id, symbol, created_at) values
+  ('00000000-0000-0000-0000-0000000000f3', 'A1', now() - interval '5 days'),
+  ('00000000-0000-0000-0000-0000000000f3', 'A2', now() - interval '4 days'),
+  ('00000000-0000-0000-0000-0000000000f3', 'A3', now() - interval '3 days'),
+  ('00000000-0000-0000-0000-0000000000f3', 'A4', now() - interval '2 days'),
+  ('00000000-0000-0000-0000-0000000000f3', 'A5', now() - interval '1 days');
+do $$
+declare v_symbols text;
+begin
+  select string_agg(symbol, ',' order by symbol) into v_symbols
+    from public.watchlist_watch_items() where user_id = '00000000-0000-0000-0000-0000000000f3';
+  if v_symbols is distinct from 'A1,A2,A3' then raise exception 'tope de watch items de Free: %', v_symbols; end if;
+end $$;
+
 -- 8. Borrar la cuenta se lleva el cupo (FK con cascade).
 delete from auth.users where id = '00000000-0000-0000-0000-0000000000f1';
 do $$

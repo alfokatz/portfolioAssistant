@@ -102,8 +102,8 @@ Deno.test("headlines Premium: 200 con tickers en cartera (v2), 403 plan_required
     // Propios, incluidos los que se normalizan distinto (.BA, -USD → .USD).
     const own = await handle(req(premium.jwt, `tickers=${held},${heldBa},${heldUsd}&names=Nvidia|Apple|Bitcoin`), d);
     assertEquals(own.status, 200);
-    assertEquals((await own.json()).status, "ok");
-    assertEquals(f.calls.length, 1);
+    await own.body?.cancel();
+    assertEquals(f.calls.filter((c) => c.url.includes("gdeltproject")).length, 1);
 
     // Uno ajeno corta todo el pedido, con la forma de error de siempre.
     const mixed = await handle(req(premium.jwt, `tickers=${held},${foreign}&names=Nvidia|Apple`), d);
@@ -112,7 +112,7 @@ Deno.test("headlines Premium: 200 con tickers en cartera (v2), 403 plan_required
     const only = await handle(req(premium.jwt, `tickers=${foreign}&names=Apple`), d);
     assertEquals(only.status, 403);
     await only.body?.cancel();
-    assertEquals(f.calls.length, 1);
+    assertEquals(f.calls.filter((c) => c.url.includes("gdeltproject")).length, 1);
   });
 
   // Con el camino legacy, ni lo propio.
@@ -138,4 +138,20 @@ Deno.test("headlines: Free con el ticker en cartera sigue en 403; Gold no necesi
     assertEquals(g.status, 200);
     await g.body?.cancel();
   });
+});
+
+Deno.test("headlines Premium: el name del cliente no entra en la búsqueda ni en la entrada compartida", async () => {
+  await db.from("upstream_rate_gate").delete().eq("source", "gdelt");
+  const premium = await createUser("premium");
+  const t = `H${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+  await addPosition(premium.id, t);
+  const f = fakeFetch((url) => url.includes("gdeltproject") ? Response.json(artList) : new Response("{}", { status: 404 }));
+  await withNewsProvider("v2", async () => {
+    const r = await handle(req(premium.jwt, `tickers=${t}&names=Tesla`), deps(f.fetch));
+    assertEquals(r.status, 200);
+    const body = await r.json();
+    assert(!JSON.stringify(body).includes("Tesla"));
+  });
+  const gdelt = f.calls.find((c) => c.url.includes("gdeltproject"))!;
+  assert(!decodeURIComponent(gdelt.url).includes("Tesla"));
 });

@@ -23,7 +23,7 @@
 // - Costo: cada búsqueda se suma al turno en `ai_turn_usage`.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
 import { readResponse, type ResponsesOutput } from "../_shared/openai_responses.ts";
@@ -356,6 +356,13 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   // Gold, cortesía, o Premium con el ticker en cartera (camino v2).
   if (!(await newsAllowed(deps, userId, body.tickers))) {
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
+  }
+
+  // names y question del cliente: no cuentan si el permiso viene de la
+  // cartera (Premium); ver clientTextTrusted.
+  if ((Object.keys(body.names).length > 0 || body.question !== null) && !(await clientTextTrusted(deps, userId, body.tickers))) {
+    body.names = {};
+    body.question = null;
   }
 
   const rate = await deps.db.rpc("rate_limit_hit", {
