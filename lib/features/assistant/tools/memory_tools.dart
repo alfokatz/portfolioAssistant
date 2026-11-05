@@ -52,9 +52,9 @@ class RememberAboutUserTool implements DataTool {
       '24 años") and investing preferences ("prefiero ETFs", "no quiero '
       'tabacaleras"). Call it in the SAME turn you answer, alongside other '
       'tools, without asking permission (the app tells the user what you '
-      'noted). Write `fact` in Spanish, third person, short and specific, '
-      'merging what you learned in this conversation ("Quiere comprarse una '
-      'MacBook Neo rosa en unos 14 meses"). If it updates or contradicts a '
+      'noted). Write `fact` in the conversation\'s language, third person, '
+      'short and specific, merging what you learned in this conversation '
+      '("Quiere comprarse una MacBook Neo rosa en unos 14 meses"). If it updates or contradicts a '
       'fact in PORTFOLIO_BRIEF user_memory, pass its id as replaces_id '
       'instead of adding a duplicate. NEVER for: one-off questions, things '
       'already in user_memory or user_profile, their portfolio positions, '
@@ -67,7 +67,7 @@ class RememberAboutUserTool implements DataTool {
     'properties': {
       'fact': {
         'type': 'string',
-        'description': 'The fact, in Spanish, max 200 characters.',
+        'description': 'The fact, max 200 characters.',
       },
       'category': {
         'type': 'string',

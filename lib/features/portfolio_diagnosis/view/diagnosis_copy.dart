@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/assistant/data/invest/sector_display_name.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/domain/portfolio_diagnosis.dart';
@@ -45,7 +46,7 @@ abstract final class DiagnosisCopy {
         namedArgs: {'ticker': f.ticker!, 'total': _pct(n['total'])},
       ),
       DiagnosisKind.sector => 'diagnosis_sector_title'.tr(
-        namedArgs: {'sector': f.sector!, 'total': _pct(n['total'])},
+        namedArgs: {'sector': SectorDisplayName.localize(f.sector!), 'total': _pct(n['total'])},
       ),
       DiagnosisKind.topHolding =>
         (n['pct'] ?? 0) >= 99.5
@@ -173,7 +174,7 @@ abstract final class DiagnosisCopy {
         namedArgs: {'ticker': f.ticker!, 'total': _pct(n['total'])},
       ),
       DiagnosisKind.sector => 'diagnosis_sector_question'.tr(
-        namedArgs: {'sector': f.sector!, 'total': _pct(n['total'])},
+        namedArgs: {'sector': SectorDisplayName.localize(f.sector!), 'total': _pct(n['total'])},
       ),
       DiagnosisKind.topHolding => 'diagnosis_top_question'.tr(
         namedArgs: {'ticker': f.ticker!, 'pct': _pct(n['pct'])},

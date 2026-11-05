@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
@@ -292,7 +293,9 @@ class _QaCompareChartState extends State<QaCompareChart>
       children: [
         CompareHeader(
           tickers: widget.tickers,
-          subtitle: 'Rendimiento · ${QaMarketParts.rangeSummaryLabel(_range)}',
+          subtitle: 'qa_cc_return'.tr(
+            namedArgs: {'range': QaMarketParts.rangeSummaryLabel(_range)},
+          ),
         ),
         const SizedBox(height: QaSpace.sectionGap),
         _Legend(tickers: widget.tickers, series: shown, scrubIndex: scrub),
@@ -350,7 +353,7 @@ class _QaCompareChartState extends State<QaCompareChart>
         return const QaChartSkeleton();
       }
       return Center(
-        child: Text('Sin datos para este período', style: QaText.label),
+        child: Text('qa_cc_no_data_period'.tr(), style: QaText.label),
       );
     }
 
@@ -377,7 +380,12 @@ class _QaCompareChartState extends State<QaCompareChart>
 
     return Semantics(
       label:
-          'Gráfico comparado de ${widget.tickers.join(', ')}, ${_range.label}',
+          'qa_cc_chart_semantics'.tr(
+          namedArgs: {
+            'tickers': widget.tickers.join(', '),
+            'range': QaMarketParts.rangeChipLabel(_range),
+          },
+        ),
       child: AnimatedOpacity(
         opacity: loading ? 0.35 : 1,
         duration: const Duration(milliseconds: 150),
@@ -410,16 +418,16 @@ class _QaCompareChartState extends State<QaCompareChart>
 List<QaFollowUp> compareFollowUps(List<String> tickers) => [
   for (final t in tickers.take(2))
     QaFollowUp(
-      'Noticias de $t',
-      '¿Qué noticias hay de $t?',
+      'qa_mk_news_of'.tr(namedArgs: {'ticker': t}),
+      'qa_followup_news_q'.tr(namedArgs: {'ticker': t}),
       icon: Icons.article_outlined,
       feature: PlanFeature.news,
       ticker: t,
     ),
   if (tickers.isNotEmpty)
     QaFollowUp(
-      'Fundamentals de ${tickers.first}',
-      'Pasame los fundamentals de ${tickers.first}',
+      'qa_cc_fundamentals_of'.tr(namedArgs: {'ticker': tickers.first}),
+      'qa_followup_fundamentals_q'.tr(namedArgs: {'ticker': tickers.first}),
       icon: Icons.analytics_outlined,
       feature: PlanFeature.fundamentals,
       ticker: tickers.first,
@@ -530,7 +538,9 @@ class _Legend extends StatelessWidget {
           if (i > 0) const SizedBox(width: 8),
           Expanded(
             child: QaTappable(
-              question: '¿Cómo viene ${tickers[i]}?',
+              question: 'qa_followup_chart_q'.tr(
+                namedArgs: {'ticker': tickers[i]},
+              ),
               child: _LegendCell(
                 ticker: tickers[i],
                 color: QaPalette.series(i),
@@ -624,7 +634,10 @@ class _LegendCell extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: QaDeltaChip(value: value),
                       )
-                      : Text(loaded ? 'Sin datos' : '—', style: QaText.caption),
+                      : Text(
+                  loaded ? 'qa_cc_no_data'.tr() : '—',
+                  style: QaText.caption,
+                ),
             ),
           ),
         ],

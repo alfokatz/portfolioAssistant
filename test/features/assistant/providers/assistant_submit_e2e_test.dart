@@ -723,7 +723,7 @@ void main() {
       });
       expect(
         _textOf((h.api.requests[0]['messages'] as List)[1] as Map),
-        contains('Sobre screen_context'),
+        contains('About screen_context'),
       );
       expect(screenOf(h.api.requests[1])?['turns_ago'], 1);
       expect(screenOf(h.api.requests[2])?['turns_ago'], 2);
@@ -818,7 +818,7 @@ void main() {
 
       await h.notifier.submitMessage('Gracias');
       final pinned = _textOf((h.api.requests[2]['messages'] as List)[1] as Map);
-      expect(pinned, contains('Sobre recent_topics'));
+      expect(pinned, contains('About recent_topics'));
       final brief =
           jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
       final topics = (brief['recent_topics'] as List).cast<Map>();

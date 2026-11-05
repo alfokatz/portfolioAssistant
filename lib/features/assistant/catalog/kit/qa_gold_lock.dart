@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_plan_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
@@ -64,7 +65,7 @@ class _QaGoldLockState extends State<QaGoldLock> {
                   style: QaText.bodyStrong.copyWith(fontSize: 13.5),
                 ),
                 Text(
-                  widget.caption ?? 'Incluido en el plan Gold',
+                  widget.caption ?? 'qa_gold_lock_included'.tr(),
                   style: QaText.label,
                 ),
               ],
@@ -78,7 +79,9 @@ class _QaGoldLockState extends State<QaGoldLock> {
     if (scope == null) return row;
     return Semantics(
       button: true,
-      label: 'Desbloquear con Gold: ${widget.title}',
+      label: 'qa_unlock_with'.tr(
+        namedArgs: {'plan': 'Gold', 'label': widget.title},
+      ),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

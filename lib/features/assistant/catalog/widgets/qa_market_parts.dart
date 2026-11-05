@@ -1,4 +1,6 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
@@ -10,21 +12,6 @@ import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 /// el portfolio, fechas y rótulos de rango. Viven acá y no en el kit
 /// porque dependen de [PriceChartRange].
 abstract final class QaMarketParts {
-  static const monthsEs = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
-
   /// Fecha de un punto del gráfico: hora en 1D, día + mes + año en el resto.
   static String formatDate(DateTime date, PriceChartRange range) {
     if (range == PriceChartRange.day) {
@@ -32,23 +19,36 @@ abstract final class QaMarketParts {
       final m = date.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
-    return '${date.day} ${monthsEs[date.month - 1]} ${date.year}';
+    return QaTime.day(date);
   }
 
   static String rangeSummaryLabel(PriceChartRange range) => switch (range) {
-    PriceChartRange.day => 'Hoy',
-    PriceChartRange.week => 'Última semana',
-    PriceChartRange.month => 'Último mes',
-    PriceChartRange.quarter => 'Últimos 3 meses',
-    PriceChartRange.year => 'Último año',
-    PriceChartRange.all => 'Todo el histórico',
+    PriceChartRange.day => 'qa_range_sum_day'.tr(),
+    PriceChartRange.week => 'qa_range_sum_week'.tr(),
+    PriceChartRange.month => 'qa_range_sum_month'.tr(),
+    PriceChartRange.quarter => 'qa_range_sum_quarter'.tr(),
+    PriceChartRange.year => 'qa_range_sum_year'.tr(),
+    PriceChartRange.all => 'qa_range_sum_all'.tr(),
+  };
+
+  /// Rótulo corto del selector de período ("1S", "1A", "Todo").
+  static String rangeChipLabel(PriceChartRange range) => switch (range) {
+    PriceChartRange.day => 'qa_range_day'.tr(),
+    PriceChartRange.week => 'qa_range_week'.tr(),
+    PriceChartRange.month => 'qa_range_month'.tr(),
+    PriceChartRange.quarter => 'qa_range_quarter'.tr(),
+    PriceChartRange.year => 'qa_range_year'.tr(),
+    PriceChartRange.all => 'qa_range_all'.tr(),
   };
 
   /// "12% de tu portfolio" — un decimal solo por debajo de 10%, donde la
   /// diferencia entre 2% y 2,5% todavía importa.
   static String weightLabel(double weightPct) =>
-      '${QaFormat.pct(weightPct, digits: weightPct >= 10 ? 0 : 1)} '
-      'de tu portfolio';
+      'qa_mp_weight'.tr(
+        namedArgs: {
+          'pct': QaFormat.pct(weightPct, digits: weightPct >= 10 ? 0 : 1),
+        },
+      );
 
   /// Tag de peso para el trailing de un header de ticker; `null` si el
   /// usuario no lo tiene.
@@ -154,7 +154,7 @@ class QaRangeTabs extends StatelessWidget {
                               : null,
                     ),
                     child: Text(
-                      range.label,
+                      QaMarketParts.rangeChipLabel(range),
                       style: QaText.caption.copyWith(
                         fontSize: 12,
                         color:

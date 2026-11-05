@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
@@ -72,22 +73,12 @@ class SavingsPlanEditSheet extends StatefulWidget {
         ),
   );
 
-  static const _months = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
-  ];
-
-  static String monthYear(DateTime d) => '${_months[d.month - 1]} de ${d.year}';
+  static String monthYear(DateTime d) => 'qa_month_year'.tr(
+    namedArgs: {
+      'month': 'qa_month_long_${d.month}'.tr(),
+      'year': '${d.year}',
+    },
+  );
 
   @override
   State<SavingsPlanEditSheet> createState() => _SavingsPlanEditSheetState();
@@ -177,7 +168,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
       firstDate: first,
       lastDate: DateTime(_today.year + 60, _today.month, _today.day),
       initialDatePickerMode: DatePickerMode.year,
-      helpText: 'Para cuándo',
+      helpText: 'qa_edit_when'.tr(),
     );
     if (picked != null) setState(() => _date = picked);
   }
@@ -247,27 +238,27 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Editar plan', style: QaText.cardTitle),
+            Text('qa_edit_title'.tr(), style: QaText.cardTitle),
             const SizedBox(height: 4),
             Text(
-              'Cambiá lo que quieras y el plan se recalcula al toque.',
+              'qa_edit_hint'.tr(),
               style: QaText.caption,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _label,
               textCapitalization: TextCapitalization.sentences,
-              decoration: _decoration('Nombre de la meta'),
+              decoration: _decoration('qa_edit_goal_name'.tr()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _amount,
               keyboardType: TextInputType.number,
               inputFormatters: digits,
-              decoration: _decoration('Cuánto necesitás', prefix: r'$ '),
+              decoration: _decoration('qa_edit_how_much'.tr(), prefix: r'$ '),
             ),
             const SizedBox(height: 16),
-            Text('Para cuándo', style: QaText.label),
+            Text('qa_edit_when'.tr(), style: QaText.label),
             const SizedBox(height: 8),
             Material(
               color: QaPalette.inset,
@@ -295,7 +286,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
                         ),
                       ),
                       Text(
-                        'Cambiar',
+                        'qa_edit_change'.tr(),
                         style: QaText.label.copyWith(
                           color: QaColors.accentBlue,
                           fontWeight: FontWeight.w600,
@@ -313,7 +304,9 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               children: [
                 for (final y in quickYears)
                   _chip(
-                    y == 1 ? 'En 1 año' : 'En $y años',
+                    y == 1
+                        ? 'qa_edit_in_1_year'.tr()
+                        : 'qa_edit_in_years'.tr(namedArgs: {'years': '$y'}),
                     selected: _isInYears(y),
                     onTap: () => setState(() => _date = _inYears(y)),
                   ),
@@ -325,7 +318,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               keyboardType: TextInputType.number,
               inputFormatters: digits,
               decoration: _decoration(
-                widget.currentLabel ?? 'Lo que ya tenés para esto',
+                widget.currentLabel ?? 'qa_edit_current'.tr(),
                 prefix: r'$ ',
                 hint: '0',
               ).copyWith(
@@ -335,13 +328,11 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Cómo invertir', style: QaText.label),
+            Text('qa_edit_how_invest'.tr(), style: QaText.label),
             const SizedBox(height: 8),
             if (_shortTerm)
               Text(
-                'La necesitás en 3 años o menos: va a liquidez y bonos '
-                'cortos, sin acciones, para que una caída no te agarre justo '
-                'antes de usarla.',
+                'qa_edit_short_term_note'.tr(),
                 style: QaText.caption,
               )
             else
@@ -349,10 +340,10 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final (risk, name) in const [
-                    (RiskTolerance.conservative, 'Conservadora'),
-                    (RiskTolerance.moderate, 'Moderada'),
-                    (RiskTolerance.aggressive, 'Agresiva'),
+                  for (final (risk, name) in [
+                    (RiskTolerance.conservative, 'qa_risk_conservative'.tr()),
+                    (RiskTolerance.moderate, 'qa_risk_moderate'.tr()),
+                    (RiskTolerance.aggressive, 'qa_risk_aggressive'.tr()),
                   ])
                     _chip(
                       name,
@@ -371,7 +362,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
                 shape: const StadiumBorder(),
               ),
               child: Text(
-                'Aplicar cambios',
+                'qa_edit_apply'.tr(),
                 style: QaText.label.copyWith(
                   color: QaColors.onAccent,
                   fontWeight: FontWeight.w700,

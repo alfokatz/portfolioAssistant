@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/utils/period_labels.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
@@ -158,26 +159,20 @@ abstract final class PortfolioContextBuilder {
   static Map<String, Object?> _buildPeriodReturns(
     List<PortfolioHistoryPoint> history,
   ) {
-    const periods = <String, ({String labelEs, Duration duration})>{
-      'day': (labelEs: 'último día', duration: Duration(days: 1)),
-      'week': (labelEs: 'últimos 7 días', duration: Duration(days: 7)),
-      'month': (labelEs: 'últimos 30 días', duration: Duration(days: 30)),
-      'quarter': (labelEs: 'últimos 90 días', duration: Duration(days: 90)),
-      'year': (labelEs: 'último año', duration: Duration(days: 365)),
-    };
+    const periods = PeriodLabels.durations;
 
     final result = <String, Object?>{};
     for (final entry in periods.entries) {
       final pnl = PortfolioPeriodUtils.forDuration(
         history: history,
-        duration: entry.value.duration,
+        duration: entry.value,
       );
       final hasSufficientHistory = PortfolioPeriodUtils.hasSufficientHistory(
         history,
-        entry.value.duration,
+        entry.value,
       );
       result[entry.key] = {
-        'label_es': entry.value.labelEs,
+        'label_es': PeriodLabels.of(entry.key),
         'pnl_abs': _round2(pnl.absolute),
         'pnl_pct': _round2(pnl.percent),
         'value_start': _round2(pnl.valueStart),

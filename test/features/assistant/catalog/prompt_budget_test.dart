@@ -24,7 +24,9 @@ const _budgets = {
   // bloque: (tokens, caracteres por token medidos)
   // 2026-11-05: 9400 → 9450 por "¿estoy muy concentrado?" →
   // [W:PORTFOLIO_NOW] y no QaInvestOption (merge de feature/ui_redesign).
-  'rules': (tokens: 9450, charsPerToken: 3.78),
+  // 2026-11-05: 9450 → 9650 por LANGUAGE (Porty bilingüe es/en: aplica a
+  // todos los turnos, no puede ir en un answer_guide).
+  'rules': (tokens: 9650, charsPerToken: 3.78),
   // 2026-10-23: 9400 → 9600 por QaWatchlist, QaWeeklyReport (sin props) y
   // QaInfoList (la card genérica): casi todo es lo fijo de cada item.
   'schemas': (tokens: 9600, charsPerToken: 4.17),
@@ -35,7 +37,9 @@ const _budgets = {
   // 2026-10-24: 6800 → 6850 por el recordatorio de aporte mensual en
   // propose_allocation_plan (fase 6; dos parámetros y media línea, ~45
   // tokens). El área planning sigue en su presupuesto (porty_areas_test).
-  'tools': (tokens: 6850, charsPerToken: 4.19),
+  // 2026-11-05: 6850 → 6880 por months_from_now en get_goal_projection
+  // (la app calcula la fecha; el modelo sumaba mal los meses).
+  'tools': (tokens: 6880, charsPerToken: 4.19),
 };
 
 void main() {

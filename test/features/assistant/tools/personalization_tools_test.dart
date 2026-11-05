@@ -168,7 +168,7 @@ void main() {
       );
       expect(
         AssistantOpenAiService.pinnedContextFor(withMemory),
-        contains('Sobre user_memory'),
+        contains('About user_memory'),
       );
     });
   });

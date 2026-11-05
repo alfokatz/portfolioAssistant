@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -1047,7 +1048,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  static const _actionFailedMessage = 'No se pudo guardar. Probá de nuevo.';
+  static String get _actionFailedMessage => 'qa_act_save_failed'.tr();
 
   void _setAction(String id, ActionProposalProgress progress) {
     state = state.copyWith(
@@ -1064,20 +1065,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (draft.kind == ActionKind.alert) {
       final target = draft.alertTarget;
       return target == null || target <= 0 || draft.alertCondition == null
-          ? 'Revisá el objetivo de la alerta.'
+          ? 'qa_pv_alert_target'.tr()
           : null;
     }
     if (draft.kind == ActionKind.delete) {
-      return draft.lotIds.isEmpty ? 'Elegí qué compra borrar.' : null;
+      return draft.lotIds.isEmpty ? 'qa_pv_pick_lot'.tr() : null;
     }
     final shares = draft.shares;
     final price = draft.price;
     final date = draft.date;
     if (shares == null || shares <= 0 || price == null || price <= 0) {
-      return 'Revisá la cantidad y el precio.';
+      return 'qa_pv_check_amount'.tr();
     }
     if (date == null || date.isAfter(DateTime.now())) {
-      return 'Revisá la fecha.';
+      return 'qa_pv_check_date'.tr();
     }
     return null;
   }
@@ -1163,7 +1164,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   .items
                   .where((i) => i.symbol == draft.ticker)
                   .firstOrNull;
-          if (item == null) return 'Ya no seguís ${draft.ticker}.';
+          if (item == null) {
+            return 'qa_pv_not_following'.tr(namedArgs: {'ticker': draft.ticker});
+          }
           if (op == ManageOp.unwatch) {
             await notifier.remove(item);
           } else {
@@ -1180,7 +1183,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   .alerts
                   .where((a) => a.id == draft.targetId)
                   .firstOrNull;
-          if (alert == null) return 'Esa alerta ya no existe.';
+          if (alert == null) return 'qa_pv_alert_gone'.tr();
           if (op == ManageOp.alertDelete) {
             await notifier.delete(alert);
           } else {
@@ -1194,7 +1197,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           await goals.ensureLoaded();
           final id = draft.targetId;
           if (id == null || ref.read(goalsProvider).byId(id) == null) {
-            return 'Esa meta ya no existe.';
+            return 'qa_pv_goal_gone'.tr();
           }
           final target = draft.manageTarget;
           switch (op) {
@@ -1221,14 +1224,14 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
       return null;
     } on GoalsFailure {
-      return 'No me pude conectar. Probá de nuevo.';
+      return 'qa_pv_connect_failed'.tr();
     } on WatchlistFailure {
-      return 'No me pude conectar. Probá de nuevo.';
+      return 'qa_pv_connect_failed'.tr();
     } on PriceAlertLimitReached catch (e) {
       final limit =
           e.limit ??
           PlanMatrix.of(ref.read(subscriptionProvider).tier).priceAlertLimit;
-      return 'Llegaste al máximo de $limit alertas activas de tu plan.';
+      return 'qa_pv_alert_limit'.tr(namedArgs: {'limit': '$limit'});
     }
   }
 
@@ -1267,21 +1270,21 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     try {
       if (!ref.read(watchlistProvider).loaded) await watchlist.load();
       if (ref.read(watchlistProvider).contains(draft.ticker)) {
-        return 'Ya seguís ${draft.ticker}.';
+        return 'qa_pv_already_following'.tr(namedArgs: {'ticker': draft.ticker});
       }
       final item = await watchlist.add(draft.ticker);
       if (!draft.watchNotify) await watchlist.setNotify(item, false);
       return null;
     } on WatchlistUnknownSymbol {
-      return 'No encontré cotización para ${draft.ticker}.';
+      return 'qa_pv_no_quote'.tr(namedArgs: {'ticker': draft.ticker});
     } on WatchlistDuplicate {
-      return 'Ya seguís ${draft.ticker}.';
+      return 'qa_pv_already_following'.tr(namedArgs: {'ticker': draft.ticker});
     } on WatchlistLimitReached {
       final limit =
           PlanMatrix.of(ref.read(subscriptionProvider).tier).watchlistLimit;
-      return 'Llegaste al máximo de $limit tickers de tu plan.';
+      return 'qa_pv_ticker_limit'.tr(namedArgs: {'limit': '$limit'});
     } on WatchlistFailure {
-      return 'No me pude conectar. Probá de nuevo.';
+      return 'qa_pv_connect_failed'.tr();
     }
   }
 
@@ -1296,7 +1299,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final binance = ref.read(binanceProvider.notifier);
       if (!ref.read(binanceProvider).loaded) await binance.load();
       if (!ref.read(binanceProvider).connection.isConnected) {
-        return 'Binance no está conectada.';
+        return 'qa_pv_binance_not_connected'.tr();
       }
       if (op == ManageOp.brokerSync) {
         await binance.sync();
@@ -1312,7 +1315,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (op == ManageOp.brokerSync
         ? !etoroState.isConnected
         : !etoroState.hasImportedData) {
-      return 'eToro no está conectada.';
+      return 'qa_pv_etoro_not_connected'.tr();
     }
     final ok =
         op == ManageOp.brokerSync
@@ -1321,7 +1324,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (ok) return null;
     final error = ref.read(etoroConnectionProvider).lastActionError;
     return error == null
-        ? 'eToro está ocupada. Probá en unos segundos.'
+        ? 'qa_pv_etoro_busy'.tr()
         : EtoroMessages.syncError(error);
   }
 
@@ -1379,7 +1382,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         ),
       );
       if (ref.read(notificationPreferencesProvider).saveFailed) {
-        return 'No pude guardar las notificaciones. Probá de nuevo.';
+        return 'qa_pv_notif_save_failed'.tr();
       }
     }
     final currency = changes[AppSettingKeys.currency];
@@ -1431,8 +1434,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         _ => null,
       },
     );
-    if (plan.isEmpty) return 'Todavía no tenés un plan: decime qué querés.';
-    if (!plan.sumsTo100) return 'El plan tiene que sumar 100%.';
+    if (plan.isEmpty) return 'qa_pv_no_plan'.tr();
+    if (!plan.sumsTo100) return 'qa_pv_plan_100'.tr();
     if (await notifier.save(plan)) return null;
     if (ref.read(allocationProvider).error == AllocationError.locked) {
       state = state.copyWith(
@@ -1441,9 +1444,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         paywallFeature: PlanFeature.allocationPlan,
         clearPaywallReason: false,
       );
-      return 'El plan de cartera es de Premium.';
+      return 'qa_pv_plan_premium'.tr();
     }
-    return 'No pude guardar tu plan. Probá de nuevo.';
+    return 'qa_pv_plan_save_failed'.tr();
   }
 
   /// Crea la alerta de [draft] (la misma que la hoja de la app). Al tope
@@ -1473,9 +1476,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
       }
       final limit = e.limit ?? PlanMatrix.of(tier).priceAlertLimit;
-      return 'Llegaste al máximo de $limit alertas activas de tu plan.';
+      return 'qa_pv_alert_limit'.tr(namedArgs: {'limit': '$limit'});
     } on PriceAlertInvalid {
-      return 'Revisá el ticker y el objetivo de la alerta.';
+      return 'qa_pv_alert_ticker_target'.tr();
     }
   }
 
@@ -1522,7 +1525,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
     final connection = ref.read(snaptradeProvider).connection;
     if (op != ManageOp.brokerConnect && !connection.isConnected) {
-      return 'No tenés otros brókers conectados.';
+      return 'qa_pv_no_other_brokers'.tr();
     }
     final bool ok;
     switch (op) {
@@ -1537,7 +1540,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final error = ref.read(snaptradeProvider).errorType;
     if (error != null) return snaptradeErrorMessage(error);
     // Cerró el portal sin conectar nada.
-    return ok ? null : 'No conectaste ningún bróker.';
+    return ok ? null : 'qa_pv_no_broker'.tr();
   }
 
   /// El portal se abre en el tema que ve el usuario.
@@ -1674,8 +1677,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         _ => 'system',
       },
       AppSettingKeys.haptics: ref.read(hapticsEnabledProvider),
-      AppSettingKeys.language:
-          Intl.getCurrentLocale().startsWith('en') ? 'en' : 'es',
+      AppSettingKeys.language: AppLanguage.code,
     };
   }
 

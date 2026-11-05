@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -8,6 +9,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_fit_scorer.dart';
+import 'package:portfolio_assistant/features/assistant/data/invest/sector_display_name.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
@@ -44,21 +46,25 @@ abstract final class AdviceWidgets {
     final total = data.totalBudget;
     final items = data.items;
     final tickers = items.map((i) => i.ticker).where((t) => t.isNotEmpty);
-    final tickerList = _joinSpanish(tickers.toList());
+    final tickerList = _joinList(tickers.toList());
     final totalLabel = QaFormat.money(total);
 
     return QaCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const QaSectionLabel('Reparto simulado'),
+          QaSectionLabel('qa_adv_simulated_split'.tr()),
           const SizedBox(height: 6),
           Text(totalLabel, style: QaText.display),
           const SizedBox(height: 2),
           Text(
             items.isEmpty
-                ? 'Sin activos asignados'
-                : 'entre ${QaFormat.plural(items.length, 'activo', 'activos')}',
+                ? 'qa_adv_no_assets'.tr()
+                : 'qa_adv_among'.tr(
+                  namedArgs: {
+                    'assets': QaFormat.units(items.length, 'qa_unit_assets'),
+                  },
+                ),
             style: QaText.label,
           ),
           if (items.isNotEmpty) ...[
@@ -80,18 +86,20 @@ abstract final class AdviceWidgets {
             items: [
               if (items.length > 1)
                 QaFollowUp(
-                  'Confirmar',
-                  'Confirmo la simulación de $totalLabel en $tickerList',
+                  'qa_adv_confirm'.tr(),
+                  'qa_adv_confirm_q'.tr(
+                    namedArgs: {'total': totalLabel, 'tickers': tickerList},
+                  ),
                   icon: Icons.check_rounded,
                 ),
               QaFollowUp(
-                '¿Por qué así?',
-                '¿Por qué repartiste así los $totalLabel?',
+                'qa_adv_why'.tr(),
+                'qa_adv_why_q'.tr(namedArgs: {'total': totalLabel}),
                 icon: Icons.help_outline_rounded,
               ),
               QaFollowUp(
-                'Más defensivo',
-                'Proponeme un reparto más defensivo de $totalLabel',
+                'qa_adv_defensive'.tr(),
+                'qa_adv_defensive_q'.tr(namedArgs: {'total': totalLabel}),
                 icon: Icons.shield_outlined,
               ),
             ],
@@ -109,11 +117,14 @@ abstract final class AdviceWidgets {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const QaCardTitle(
-            title: 'Simulación lista',
-            subtitle: 'Resumen educativo, sin operaciones reales',
+          QaCardTitle(
+            title: 'qa_adv_sim_ready'.tr(),
+            subtitle: 'qa_adv_sim_ready_sub'.tr(),
             icon: Icons.receipt_long_outlined,
-            trailing: QaTag('Simulada', icon: Icons.science_outlined),
+            trailing: QaTag(
+              'qa_adv_simulated_tag'.tr(),
+              icon: Icons.science_outlined,
+            ),
           ),
           const SizedBox(height: QaSpace.sectionGap),
           QaInset(
@@ -122,7 +133,7 @@ abstract final class AdviceWidgets {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (budget != null) ...[
-                  Text('Presupuesto simulado', style: QaText.label),
+                  Text('qa_adv_sim_budget'.tr(), style: QaText.label),
                   const SizedBox(height: 4),
                   Text(budget, style: QaText.display),
                 ],
@@ -169,13 +180,13 @@ abstract final class AdviceWidgets {
             items: [
               if (budget != null)
                 QaFollowUp(
-                  'Otra alternativa',
-                  'Proponeme otra alternativa para invertir $budget',
+                  'qa_adv_other_alt'.tr(),
+                  'qa_adv_other_alt_q'.tr(namedArgs: {'budget': budget}),
                   icon: Icons.swap_horiz_rounded,
                 ),
-              const QaFollowUp(
-                '¿Cómo diversifico?',
-                '¿Cómo diversifico mi portfolio?',
+              QaFollowUp(
+                'qa_adv_how_diversify'.tr(),
+                'qa_adv_how_diversify_q'.tr(),
                 icon: Icons.pie_chart_outline_rounded,
               ),
             ],
@@ -189,10 +200,15 @@ abstract final class AdviceWidgets {
   // Helpers
   // ---------------------------------------------------------------------
 
-  static String _joinSpanish(List<String> items) {
+  static String _joinList(List<String> items) {
     if (items.isEmpty) return '';
     if (items.length == 1) return items.first;
-    return '${items.sublist(0, items.length - 1).join(', ')} y ${items.last}';
+    return 'qa_list_and'.tr(
+      namedArgs: {
+        'list': items.sublist(0, items.length - 1).join(', '),
+        'last': items.last,
+      },
+    );
   }
 }
 
@@ -276,7 +292,7 @@ class _InvestOptionCard extends StatelessWidget {
     final ticker = data.ticker;
     final risk = _riskTag(data.riskLevel);
     final tags = <Widget>[
-      if (data.sector.isNotEmpty) QaTag(data.sector),
+      if (data.sector.isNotEmpty) QaTag(SectorDisplayName.localize(data.sector)),
       if (risk != null) risk,
     ];
     final budget =
@@ -305,7 +321,7 @@ class _InvestOptionCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   QaDeltaChip(value: data.weekChangePct!, dense: true),
                   const SizedBox(width: 4),
-                  Text('7 días', style: QaText.caption),
+                  Text('qa_adv_7d'.tr(), style: QaText.caption),
                 ],
               ],
             ),
@@ -327,19 +343,21 @@ class _InvestOptionCard extends StatelessWidget {
               items: [
                 QaTickerFollowUps.analysisFor(ticker),
                 QaFollowUp(
-                  'Gráfico',
-                  '¿Cómo viene $ticker?',
+                  'qa_followup_chart'.tr(),
+                  'qa_followup_chart_q'.tr(namedArgs: {'ticker': ticker}),
                   icon: Icons.show_chart_rounded,
                 ),
                 if (budget != null)
                   QaFollowUp(
-                    'Simular $budget',
-                    'Simulá invertir $budget en $ticker',
+                    'qa_adv_simulate'.tr(namedArgs: {'budget': budget}),
+                    'qa_adv_simulate_q'.tr(
+                      namedArgs: {'budget': budget, 'ticker': ticker},
+                    ),
                     icon: Icons.science_outlined,
                   ),
                 QaFollowUp(
-                  'Noticias',
-                  '¿Qué noticias hay de $ticker?',
+                  'qa_followup_news'.tr(),
+                  'qa_followup_news_q'.tr(namedArgs: {'ticker': ticker}),
                   icon: Icons.article_outlined,
                   feature: PlanFeature.news,
                   ticker: ticker,
@@ -352,10 +370,13 @@ class _InvestOptionCard extends StatelessWidget {
   }
 
   static Widget? _riskTag(String level) => switch (level) {
-    'defensivo' => const QaTag('Defensivo', icon: Icons.shield_outlined),
-    'intermedio' => const QaTag('Riesgo intermedio', icon: Icons.tune_rounded),
-    'crecimiento' => const QaTag(
-      'Crecimiento',
+    'defensivo' => QaTag(
+      'qa_adv_risk_defensive'.tr(),
+      icon: Icons.shield_outlined,
+    ),
+    'intermedio' => QaTag('qa_adv_risk_mid'.tr(), icon: Icons.tune_rounded),
+    'crecimiento' => QaTag(
+      'qa_adv_risk_growth'.tr(),
       icon: Icons.trending_up_rounded,
     ),
     _ => null,
@@ -374,13 +395,20 @@ class _FitIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tier = FitTier.of(score);
+    final tierLabel = switch (tier) {
+      FitTier.good => 'qa_fit_good'.tr(),
+      FitTier.medium => 'qa_fit_medium'.tr(),
+      FitTier.low => 'qa_fit_low'.tr(),
+    };
     final color = switch (tier) {
       FitTier.good => QaColors.accentBlue,
       FitTier.medium => QaColors.accentBlue.withValues(alpha: 0.55),
       FitTier.low => QaColors.textSecondary,
     };
     return Semantics(
-      label: 'Encaje con tu portfolio ${score.round()} de 100, ${tier.label}',
+      label: 'qa_adv_fit_semantics'.tr(
+        namedArgs: {'score': '${score.round()}', 'tier': tierLabel},
+      ),
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -390,7 +418,7 @@ class _FitIndicator extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                tier.label,
+                tierLabel,
                 style: QaText.caption.copyWith(
                   color:
                       tier == FitTier.low
@@ -399,7 +427,7 @@ class _FitIndicator extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Text('con tu perfil', style: QaText.caption),
+              Text('qa_adv_with_profile'.tr(), style: QaText.caption),
             ],
           ),
           const SizedBox(width: 8),
@@ -467,7 +495,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 4),
                   child: Text(
-                    _expanded ? 'Ver menos' : 'Ver más',
+                    _expanded ? 'qa_see_less'.tr() : 'qa_see_more'.tr(),
                     style: QaText.label.copyWith(
                       color: QaColors.accentBlue,
                       fontWeight: FontWeight.w600,
@@ -496,14 +524,14 @@ class _ProsCons extends StatelessWidget {
     final blocks = [
       if (pro.isNotEmpty)
         _ProConBlock(
-          label: 'A favor',
+          label: 'qa_adv_pro'.tr(),
           text: pro,
           icon: Icons.add_rounded,
           color: QaColors.profit,
         ),
       if (con.isNotEmpty)
         _ProConBlock(
-          label: 'En contra',
+          label: 'qa_adv_con'.tr(),
           text: con,
           icon: Icons.remove_rounded,
           color: QaColors.loss,
@@ -633,7 +661,7 @@ class _BudgetRow extends StatelessWidget {
       ),
     );
     if (item.ticker.isEmpty) return row;
-    return QaTappable(question: '¿Cómo viene ${item.ticker}?', child: row);
+    return QaTappable(question: 'qa_followup_chart_q'.tr(namedArgs: {'ticker': item.ticker}), child: row);
   }
 }
 
@@ -645,7 +673,7 @@ class _TickerChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QaTappable(
-      question: '¿Cómo viene $ticker?',
+      question: 'qa_followup_chart_q'.tr(namedArgs: {'ticker': ticker}),
       child: Container(
         padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
         decoration: BoxDecoration(
@@ -808,9 +836,7 @@ final class _BudgetSplitData {
   final List<_BudgetSplitItem> items;
 }
 
-const _defaultInvestDisclaimer =
-    'Simulación educativa. No constituye asesoramiento financiero ni '
-    'recomendación de inversión.';
+String get _defaultInvestDisclaimer => 'qa_adv_default_disclaimer'.tr();
 
 final class _InvestConfirmData {
   _InvestConfirmData({

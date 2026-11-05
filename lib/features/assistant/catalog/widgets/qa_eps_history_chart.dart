@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 
@@ -154,12 +155,14 @@ class QaEpsLegend extends StatelessWidget {
       children: [
         dot(hollow: false),
         const SizedBox(width: 4),
-        Text('Real', style: QaText.caption),
+        Text('qa_eps_actual'.tr(), style: QaText.caption),
         const SizedBox(width: 10),
         dot(hollow: true),
         const SizedBox(width: 4),
         Text(
-          baseline == QaEpsBaseline.yearAgo ? 'Hace un año' : 'Estimado',
+          baseline == QaEpsBaseline.yearAgo
+              ? 'qa_eps_year_ago'.tr()
+              : 'qa_eps_estimated'.tr(),
           style: QaText.caption,
         ),
       ],

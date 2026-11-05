@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_calendar_entry.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_report_result.dart';
 import 'package:portfolio_assistant/domain/entities/earnings_surprise.dart';
@@ -171,18 +172,24 @@ class EarningsFetcher implements EarningsSource {
 
   static double _round1(double v) => double.parse(v.toStringAsFixed(1));
 
-  static String? _timingLabel(String? hour) => switch (hour) {
-    'bmo' => 'Antes de la apertura',
-    'amc' => 'Después del cierre',
-    'dmh' => 'Durante la sesión',
-    _ => null,
-  };
+  static String? _timingLabel(String? hour) {
+    final en = AppLanguage.isEnglish;
+    return switch (hour) {
+      'bmo' => en ? 'Before the open' : 'Antes de la apertura',
+      'amc' => en ? 'After the close' : 'Después del cierre',
+      'dmh' => en ? 'During the session' : 'Durante la sesión',
+      _ => null,
+    };
+  }
 
   String _fiscalPeriodLabel(int? quarter, int? year) {
     if (quarter == null || quarter < 1 || quarter > 4 || year == null) {
       return '';
     }
-    return '${_fiscalQuarterLabels[quarter - 1]} FY${year.toString().substring(2)}';
+    // T1–T4 en español, Q1–Q4 en inglés.
+    final q =
+        AppLanguage.isEnglish ? 'Q$quarter' : _fiscalQuarterLabels[quarter - 1];
+    return '$q FY${year.toString().substring(2)}';
   }
 
   static const _months = [
@@ -202,9 +209,27 @@ class EarningsFetcher implements EarningsSource {
 
   String _dateLabel(DateTime date) => dateLabel(date);
 
-  /// "29 oct 2026": el formato de fechas de las cards de resultados.
+  static const _monthsEn = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  /// "29 oct 2026" / "Oct 29, 2026": el formato de fechas de las cards de
+  /// resultados, en el idioma de la app.
   static String dateLabel(DateTime date) =>
-      '${date.day} ${_months[date.month - 1]} ${date.year}';
+      AppLanguage.isEnglish
+          ? '${_monthsEn[date.month - 1]} ${date.day}, ${date.year}'
+          : '${date.day} ${_months[date.month - 1]} ${date.year}';
 
   static String isoDate(DateTime d) => _isoDate(d);
 

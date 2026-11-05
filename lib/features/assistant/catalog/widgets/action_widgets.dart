@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
@@ -167,18 +168,18 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
   String? get _alertError {
     final target = _priceValue;
     final now = _p.price;
-    if (target == null) return 'Escribí un número mayor que cero.';
+    if (target == null) return 'qa_act_err_positive'.tr();
     if (_alertIsPercent) {
       return target < 1 || target > 90
-          ? 'Elegí un porcentaje entre 1 y 90.'
+          ? 'qa_act_err_pct'.tr()
           : null;
     }
     if (now == null) return null;
     if (_p.alertCondition == 'above' && target <= now) {
-      return 'El precio ya está por encima: elegí uno más alto.';
+      return 'qa_act_err_above'.tr();
     }
     if (_p.alertCondition == 'below' && target >= now) {
-      return 'El precio ya está por debajo: elegí uno más bajo.';
+      return 'qa_act_err_below'.tr();
     }
     return null;
   }
@@ -424,30 +425,33 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     );
     return switch (_p.manageOp?.link) {
       ManageLink.goal when openGoal != null && id != null => (
-        label: 'Ver la meta',
+        label: 'qa_act_link_goal'.tr(),
         onTap: () => openGoal(id),
       ),
       ManageLink.goals when openGoals != null => (
-        label: 'Ver mis metas',
+        label: 'qa_act_link_goals'.tr(),
         onTap: openGoals,
       ),
       ManageLink.allocation when openAllocation != null => (
-        label: 'Ver mi plan',
+        label: 'qa_act_link_plan'.tr(),
         onTap: openAllocation,
       ),
       ManageLink.settings when openSettings != null => (
-        label: touchesNotifications ? 'Ver notificaciones' : 'Ver ajustes',
+        label:
+            touchesNotifications
+                ? 'qa_act_link_notifications'.tr()
+                : 'qa_act_link_settings'.tr(),
         onTap: () => openSettings(notifications: touchesNotifications),
       ),
       ManageLink.memory when openMemory != null => (
-        label: 'Ver lo que sé de vos',
+        label: 'qa_act_link_memory'.tr(),
         onTap: openMemory,
       ),
       ManageLink.broker when openBroker != null => (
         label: switch (broker) {
-          'binance' => 'Ver Binance',
-          'snaptrade' => 'Ver mis brókers',
-          _ => 'Ver eToro',
+          'binance' => 'qa_act_link_binance'.tr(),
+          'snaptrade' => 'qa_act_link_brokers'.tr(),
+          _ => 'qa_act_link_etoro'.tr(),
         },
         onTap: () => openBroker(broker),
       ),
@@ -456,27 +460,27 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
   }
 
   String get _eyebrow => switch (_p.kind) {
-    ActionKind.buy => 'Registrar compra',
-    ActionKind.sell => 'Registrar venta',
-    ActionKind.delete => 'Borrar posición',
-    ActionKind.alert => 'Alerta de precio',
-    ActionKind.watch => 'Seguir',
-    ActionKind.manage => _p.manageOp?.eyebrow ?? 'Cambio',
+    ActionKind.buy => 'qa_act_eyebrow_buy'.tr(),
+    ActionKind.sell => 'qa_act_eyebrow_sell'.tr(),
+    ActionKind.delete => 'qa_act_eyebrow_delete'.tr(),
+    ActionKind.alert => 'qa_act_eyebrow_alert'.tr(),
+    ActionKind.watch => 'qa_act_eyebrow_watch'.tr(),
+    ActionKind.manage => _p.manageOp?.eyebrow ?? 'qa_act_eyebrow_manage'.tr(),
   };
 
   Widget? _statusTag(ActionProposalStatus status) => switch (status) {
     ActionProposalStatus.done => QaTag(
       switch (_p.kind) {
-        ActionKind.delete => 'Borrada',
-        ActionKind.alert => 'Creada',
-        ActionKind.watch => 'Siguiendo',
-        ActionKind.manage => _p.manageOp?.doneTag ?? 'Hecho',
-        _ => 'Registrada',
+        ActionKind.delete => 'qa_act_tag_deleted'.tr(),
+        ActionKind.alert => 'qa_act_tag_created'.tr(),
+        ActionKind.watch => 'qa_act_tag_following'.tr(),
+        ActionKind.manage => _p.manageOp?.doneTag ?? 'qa_act_tag_done'.tr(),
+        _ => 'qa_act_tag_recorded'.tr(),
       },
       color: QaColors.profit,
       icon: Icons.check_rounded,
     ),
-    ActionProposalStatus.cancelled => const QaTag('Cancelada'),
+    ActionProposalStatus.cancelled => QaTag('qa_act_tag_cancelled'.tr()),
     _ => null,
   };
 
@@ -504,7 +508,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         if (failed) ...[
           const SizedBox(height: QaSpace.gap),
           Text(
-            progress.errorMessage ?? 'No se pudo guardar. Probá de nuevo.',
+            progress.errorMessage ?? 'qa_act_save_failed'.tr(),
             style: QaText.body.copyWith(color: QaColors.loss),
           ),
         ],
@@ -512,16 +516,16 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         PositionPrimaryButton(
           label:
               failed
-                  ? 'Reintentar'
+                  ? 'qa_act_btn_retry'.tr()
                   : _p.kind == ActionKind.delete
-                  ? 'Confirmar borrado'
+                  ? 'qa_act_btn_confirm_delete'.tr()
                   : _isAlert
-                  ? 'Crear alerta'
+                  ? 'qa_act_btn_create_alert'.tr()
                   : _isWatch
-                  ? 'Seguir ${_p.ticker}'
+                  ? 'qa_act_btn_follow'.tr(namedArgs: {'ticker': _p.ticker})
                   : _isManage
                   ? _p.manageOp!.confirmLabel(_p.manageTarget)
-                  : 'Confirmar',
+                  : 'qa_act_btn_confirm'.tr(),
           loading: saving,
           onPressed:
               scope != null && _valid && progress.canConfirm
@@ -533,7 +537,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
             child: TextButton(
               onPressed: scope == null ? null : () => scope.onCancel(_draft()),
               child: Text(
-                'Cancelar',
+                'qa_act_btn_cancel'.tr(),
                 style: QaText.bodyStrong.copyWith(
                   color: QaColors.textSecondary,
                 ),
@@ -551,7 +555,8 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final held = _p.heldShares;
     return [
       _DateField(
-        label: isSell ? 'Fecha de venta' : 'Fecha de compra',
+        label:
+            isSell ? 'qa_act_sell_date'.tr() : 'qa_act_buy_date'.tr(),
         date: _date,
         onTap: enabled ? () => _pickDate(scope!) : null,
       ),
@@ -561,9 +566,9 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         child: SegmentedChoice<AmountUnit>(
           selected: _unit,
           onChanged: _setUnit,
-          options: const [
-            (value: AmountUnit.shares, label: 'Acciones'),
-            (value: AmountUnit.usd, label: 'USD'),
+          options: [
+            (value: AmountUnit.shares, label: 'qa_act_unit_shares'.tr()),
+            (value: AmountUnit.usd, label: 'qa_act_unit_usd'.tr()),
           ],
         ),
       ),
@@ -576,16 +581,18 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         decoration: InputDecoration(
           labelText:
               _unit == AmountUnit.shares
-                  ? 'Cantidad de acciones'
+                  ? 'qa_act_amount_shares'.tr()
                   : isSell
-                  ? 'Monto vendido (USD)'
-                  : 'Monto invertido (USD)',
+                  ? 'qa_act_amount_sold'.tr()
+                  : 'qa_act_amount_invested'.tr(),
         ),
       ),
       if (_unit == AmountUnit.usd && shares != null) ...[
         const SizedBox(height: 6),
         Text(
-          'Equivale a ${AppNumberFormat.shares(shares)} acciones',
+          'qa_act_equals_shares'.tr(
+            namedArgs: {'shares': AppNumberFormat.shares(shares)},
+          ),
           style: QaText.label.copyWith(color: QaColors.accentBlue),
         ),
       ],
@@ -595,14 +602,16 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
           children: [
             Expanded(
               child: Text(
-                'Tenés ${AppNumberFormat.shares(held)} acciones',
+                'qa_act_you_hold'.tr(
+                  namedArgs: {'shares': AppNumberFormat.shares(held)},
+                ),
                 style: QaText.label,
               ),
             ),
             TextButton(
               onPressed: enabled ? _sellAll : null,
               child: Text(
-                'Vender todo',
+                'qa_act_sell_all'.tr(),
                 style: QaText.valueSm.copyWith(color: QaColors.accentBlue),
               ),
             ),
@@ -611,7 +620,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       ],
       if (_exceeds)
         Text(
-          'No podés vender más acciones de las que tenés',
+          'qa_act_cant_sell_more'.tr(),
           style: QaText.label.copyWith(color: QaColors.loss),
         ),
       const SizedBox(height: QaSpace.gap),
@@ -625,7 +634,10 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
           _saveForm();
         },
         decoration: InputDecoration(
-          labelText: isSell ? 'Precio de venta' : 'Precio de compra',
+          labelText:
+              isSell
+                  ? 'qa_act_sell_price'.tr()
+                  : 'qa_act_buy_price'.tr(),
           prefixText: r'$ ',
           suffixIcon:
               _loadingPrice
@@ -639,10 +651,10 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       const SizedBox(height: 6),
       Text(
         price == null && !_loadingPrice
-            ? 'No encontramos el precio de ese día: completalo para confirmar.'
+            ? 'qa_act_price_missing'.tr()
             : _priceEdited
-            ? 'El precio que nos dijiste.'
-            : 'Cierre de ese día. Cambialo si operaste a otro precio.',
+            ? 'qa_act_price_yours'.tr()
+            : 'qa_act_price_close'.tr(),
         style: QaText.caption,
       ),
       if (shares != null && price != null) ...[
@@ -656,7 +668,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final total = shares * price;
     if (_p.kind == ActionKind.buy) {
       return QaInset(
-        child: QaStat(label: 'Total', value: QaFormat.price(total)),
+        child: QaStat(label: 'qa_act_total'.tr(), value: QaFormat.price(total)),
       );
     }
     final cost = _p.fifoCostBasis(shares);
@@ -666,14 +678,14 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         children: [
           Expanded(
             child: QaStat(
-              label: 'Monto recibido',
+              label: 'qa_act_received'.tr(),
               value: QaFormat.price(total),
             ),
           ),
           if (pnl != null)
             Expanded(
               child: QaStat(
-                label: 'Resultado estimado',
+                label: 'qa_act_est_result'.tr(),
                 value: QaFormat.signedPrice(pnl),
                 valueColor: QaPalette.trend(pnl),
               ),
@@ -688,10 +700,10 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final target = _priceValue;
     final error = _price.text.trim().isEmpty ? null : _alertError;
     final label = switch (_p.alertCondition) {
-      'above' => 'Avisame si sube a',
-      'below' => 'Avisame si baja a',
-      'pct_up' => 'Avisame si sube',
-      _ => 'Avisame si baja',
+      'above' => 'qa_act_alert_above'.tr(),
+      'below' => 'qa_act_alert_below'.tr(),
+      'pct_up' => 'qa_act_alert_pct_up'.tr(),
+      _ => 'qa_act_alert_pct_down'.tr(),
     };
     final threshold =
         target == null || now == null || !_alertIsPercent
@@ -713,8 +725,12 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       const SizedBox(height: 6),
       Text(
         [
-          if (now != null) 'Ahora: ${QaFormat.price(now)}',
-          if (threshold != null) 'te avisamos en ${QaFormat.price(threshold)}',
+          if (now != null)
+            'qa_act_alert_now'.tr(namedArgs: {'price': QaFormat.price(now)}),
+          if (threshold != null)
+            'qa_act_alert_threshold'.tr(
+              namedArgs: {'price': QaFormat.price(threshold)},
+            ),
         ].join(' · '),
         style: QaText.caption,
       ),
@@ -726,7 +742,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
       Row(
         children: [
           Expanded(
-            child: Text('Avisarme cada vez que cruce', style: QaText.body),
+            child: Text('qa_act_alert_repeat'.tr(), style: QaText.body),
           ),
           Switch.adaptive(
             key: const ValueKey('qa_action_alert_repeat'),
@@ -743,8 +759,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         ],
       ),
       Text(
-        'Si no, te avisamos una vez. Revisamos cada 5 minutos con el '
-        'mercado abierto.',
+        'qa_act_alert_repeat_note'.tr(),
         style: QaText.caption,
       ),
     ];
@@ -754,14 +769,16 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
     final now = _p.price;
     return [
       Text(
-        'La sumo a tu lista de seguimiento: vas a ver cómo se mueve sin '
-        'tenerla en tu cartera.',
+        'qa_act_watch_note'.tr(),
         style: QaText.body.copyWith(color: QaColors.textSecondary),
       ),
       if (now != null) ...[
         const SizedBox(height: QaSpace.gap),
         QaInset(
-          child: QaStat(label: 'Precio de hoy', value: QaFormat.price(now)),
+          child: QaStat(
+            label: 'qa_act_today_price'.tr(),
+            value: QaFormat.price(now),
+          ),
         ),
       ],
       const SizedBox(height: QaSpace.gap),
@@ -769,7 +786,7 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
         children: [
           Expanded(
             child: Text(
-              'Avisarme si se mueve fuerte en el día',
+              'qa_act_watch_notify'.tr(),
               style: QaText.body,
             ),
           ),
@@ -793,13 +810,12 @@ class _QaActionProposalCardState extends State<QaActionProposalCard> {
   List<Widget> _deleteFields(bool enabled) {
     return [
       Text(
-        'Borrar no registra una venta: la compra desaparece de tu cartera. '
-        'Si la vendiste, pedile a Porty que registre la venta.',
+        'qa_act_delete_note'.tr(),
         style: QaText.body.copyWith(color: QaColors.textSecondary),
       ),
       if (_p.lots.length > 1) ...[
         const SizedBox(height: QaSpace.gap),
-        Text('¿Qué compra querés borrar?', style: QaText.bodyStrong),
+        Text('qa_act_delete_which'.tr(), style: QaText.bodyStrong),
       ],
       const SizedBox(height: 4),
       for (final lot in _p.lots)
@@ -871,12 +887,18 @@ class _LotRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${AppNumberFormat.shares(lot.quantity)} acciones a '
-                      '${QaFormat.price(lot.purchasePrice)}',
+                      'qa_act_lot_shares_at'.tr(
+                        namedArgs: {
+                          'shares': AppNumberFormat.shares(lot.quantity),
+                          'price': QaFormat.price(lot.purchasePrice),
+                        },
+                      ),
                       style: QaText.value,
                     ),
                     Text(
-                      'Compradas el ${QaTime.day(lot.purchaseDate)}',
+                      'qa_act_lot_bought_on'.tr(
+                        namedArgs: {'date': QaTime.day(lot.purchaseDate)},
+                      ),
                       style: QaText.label,
                     ),
                   ],
@@ -923,7 +945,9 @@ class _DateField extends StatelessWidget {
                       Text(label, style: QaText.label),
                       const SizedBox(height: 2),
                       Text(
-                        date == null ? 'Elegí la fecha' : QaTime.day(date!),
+                        date == null
+                            ? 'qa_act_pick_date'.tr()
+                            : QaTime.day(date!),
                         style: QaText.value,
                       ),
                     ],
@@ -985,55 +1009,80 @@ class _Summary extends StatelessWidget {
     final op = proposal.manageOp;
     if (proposal.kind == ActionKind.manage && op != null) {
       body = Text(
-        cancelled ? 'No cambié nada.' : op.done(proposal.manageTarget),
+        cancelled
+            ? 'qa_act_nothing_changed'.tr()
+            : op.done(proposal.manageTarget),
         style: QaText.body,
       );
     } else if (proposal.kind == ActionKind.watch) {
       body = Text(
         cancelled
-            ? 'No se sumó a tu lista.'
+            ? 'qa_act_not_added'.tr()
             : draft.watchNotify
-            ? 'Ahora seguís ${proposal.ticker}. Te aviso si se mueve fuerte '
-                'en el día.'
-            : 'Ahora seguís ${proposal.ticker}, sin avisos.',
+            ? 'qa_act_now_following_notify'.tr(
+              namedArgs: {'ticker': proposal.ticker},
+            )
+            : 'qa_act_now_following'.tr(namedArgs: {'ticker': proposal.ticker}),
         style: QaText.body,
       );
     } else if (proposal.kind == ActionKind.alert) {
       final target = draft.alertTarget;
       final what = switch (draft.alertCondition) {
-        'above' => 'suba a ${QaFormat.price(target ?? 0)}',
-        'below' => 'baje a ${QaFormat.price(target ?? 0)}',
-        'pct_up' => 'suba ${QaFormat.pct(target ?? 0, digits: 0)}',
-        _ => 'baje ${QaFormat.pct(target ?? 0, digits: 0)}',
+        'above' => 'qa_act_what_above'.tr(
+          namedArgs: {'price': QaFormat.price(target ?? 0)},
+        ),
+        'below' => 'qa_act_what_below'.tr(
+          namedArgs: {'price': QaFormat.price(target ?? 0)},
+        ),
+        'pct_up' => 'qa_act_what_pct_up'.tr(
+          namedArgs: {'pct': QaFormat.pct(target ?? 0, digits: 0)},
+        ),
+        _ => 'qa_act_what_pct_down'.tr(
+          namedArgs: {'pct': QaFormat.pct(target ?? 0, digits: 0)},
+        ),
       };
       body = Text(
         cancelled
-            ? 'No se creó la alerta.'
-            : 'Te avisamos cuando ${proposal.ticker} $what'
-                '${draft.alertRepeatDaily ? ', cada vez que cruce' : ''}.',
+            ? 'qa_act_alert_not_created'.tr()
+            : 'qa_act_alert_done'.tr(
+              namedArgs: {
+                'ticker': proposal.ticker,
+                'what': what,
+                'repeat':
+                    draft.alertRepeatDaily
+                        ? 'qa_act_alert_done_repeat'.tr()
+                        : '',
+              },
+            ),
         style: QaText.body,
       );
     } else if (proposal.kind == ActionKind.delete) {
       final count = draft.lotIds.length;
       body = Text(
         cancelled
-            ? 'No se borró nada.'
-            : '${QaFormat.plural(count, 'compra borrada', 'compras borradas')}'
-                '${shares != null ? ' · ${AppNumberFormat.shares(shares)} acciones' : ''}',
+            ? 'qa_act_nothing_deleted'.tr()
+            : '${QaFormat.units(count, 'qa_unit_lots_deleted')}'
+                '${shares != null ? 'qa_act_shares_suffix'.tr(namedArgs: {'shares': AppNumberFormat.shares(shares)}) : ''}',
         style: QaText.body,
       );
     } else {
       body = QaStatGrid(
         stats: [
-          if (date != null) QaStat(label: 'Fecha', value: QaTime.day(date)),
+          if (date != null)
+            QaStat(label: 'qa_act_date'.tr(), value: QaTime.day(date)),
           if (shares != null)
-            QaStat(label: 'Acciones', value: AppNumberFormat.shares(shares)),
+            QaStat(
+              label: 'qa_act_shares'.tr(),
+              value: AppNumberFormat.shares(shares),
+            ),
           if (price != null)
-            QaStat(label: 'Precio', value: QaFormat.price(price)),
+            QaStat(label: 'qa_act_price'.tr(), value: QaFormat.price(price)),
           if (shares != null && price != null)
             QaStat(
               label:
-                  proposal.kind == ActionKind.sell ? 'Monto recibido' : 'Total',
+                  proposal.kind == ActionKind.sell
+                      ? 'qa_act_received'.tr()
+                      : 'qa_act_total'.tr(),
               value: QaFormat.price(shares * price),
             ),
         ],
@@ -1050,16 +1099,16 @@ class _Summary extends StatelessWidget {
       linkLabel = managed.label;
     } else if (onOpenWatchlist != null) {
       onLink = onOpenWatchlist;
-      linkLabel = 'Ver mi lista';
+      linkLabel = 'qa_act_link_watchlist'.tr();
     } else if (onOpenAlerts != null) {
       onLink = onOpenAlerts;
-      linkLabel = 'Ver mis alertas';
+      linkLabel = 'qa_act_link_alerts'.tr();
     } else if (closed != null && openClosed != null) {
       onLink = () => openClosed(closed);
-      linkLabel = 'Ver posición cerrada';
+      linkLabel = 'qa_act_link_closed'.tr();
     } else if (onOpenPosition != null) {
       onLink = () => onOpenPosition!(proposal.ticker);
-      linkLabel = 'Ver en cartera';
+      linkLabel = 'qa_act_link_portfolio'.tr();
     } else {
       onLink = null;
       linkLabel = '';

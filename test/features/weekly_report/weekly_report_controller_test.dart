@@ -98,6 +98,7 @@ class _Generator extends WeeklyReportGenerator {
   Future<WeeklyReportGeneration> generate({
     required ReportWeek week,
     required WeeklyReportInput input,
+    String? language,
   }) async {
     calls++;
     await gate;

@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/ticker_quote_builder.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
@@ -340,9 +341,8 @@ class GetNewsTool implements SlowDataTool {
               'question': {
                 'type': 'string',
                 'description':
-                    'Optional. A specific question, in Spanish, about recent '
-                    'facts (e.g. "¿Cuándo presenta NVDA sus próximos '
-                    'resultados? ¿Qué espera el consenso?").',
+                    'Optional. A specific question about recent facts '
+                    '("When does NVDA report next?").',
               },
             },
             'required': ['tickers'],
@@ -421,6 +421,8 @@ class GetNewsTool implements SlowDataTool {
         tickers,
         names: names,
         question: question,
+        // El resumen viene en el idioma de la pregunta (o el de la app).
+        lang: AppLanguage.detect(question ?? '', fallback: ctx.appLanguage),
       );
     }
     final headlines = await headlinesF;

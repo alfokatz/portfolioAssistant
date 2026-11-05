@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -107,9 +108,11 @@ class MyApp extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(revenueCatAuthSyncProvider);
     ref.watch(pushAuthSyncProvider);
-    // El idioma de la app (no el del sistema) es el de las notificaciones.
+    // El idioma de la app (no el del sistema) es el de las notificaciones
+    // y el de Porty.
     ref.read(pushControllerProvider.notifier).localeCode =
         context.locale.languageCode;
+    AppLanguage.set(context.locale.languageCode);
     final lightTheme = ref.watch(themeDataLightProvider);
     final darkTheme = ref.watch(themeDataDarkProvider);
     final themeMode = ref.watch(themeModeProvider);

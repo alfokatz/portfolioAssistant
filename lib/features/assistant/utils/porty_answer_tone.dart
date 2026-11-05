@@ -27,18 +27,23 @@ abstract final class PortyAnswerTone {
   static final _portfolioLoss = RegExp(
     r'\b(cartera|portfolio|portafolio|inversiones)\b[^.!?]{0,40}?'
     r'\b(baj[oó]|bajaron|cay[oó]|cayeron|perdi[oó]|perdieron|retroced|'
-    r'en rojo|en negativo)',
+    r'en rojo|en negativo)'
+    // Inglés: "your portfolio fell 3%", "your investments are in the red".
+    r'|\b(portfolio|investments|holdings)\b[^.!?]{0,40}?'
+    r"\b(fell|dropped|declined|went\s+down|is\s+down|was\s+down|are\s+down|lost|in\s+the\s+red|negative)",
     caseSensitive: false,
   );
   static final _youLost = RegExp(
-    r'\b(perdiste|est[aá]s perdiendo|vas perdiendo)\b',
+    r"\b(perdiste|est[aá]s perdiendo|vas perdiendo|you\s+lost|you're\s+losing|you\s+are\s+losing|you've\s+lost|you\s+have\s+lost)\b",
     caseSensitive: false,
   );
 
   /// Lo que nombra la pérdida sin afirmarla: "cuánto ganaste o perdiste",
   /// "si perdiste o ganaste", "no perdiste". Se saca antes de buscar.
   static final _notALoss = RegExp(
-    r'\b(gan\w*\s+o\s+perd\w*|perd\w*\s+o\s+gan\w*|no\s+perd\w*)',
+    r'\b(gan\w*\s+o\s+perd\w*|perd\w*\s+o\s+gan\w*|no\s+perd\w*|'
+    r"(?:made|gained|earned|won)\s+or\s+lost|lost\s+or\s+(?:made|gained|earned)|"
+    r"(?:didn't|did\s+not|haven't|have\s+not|never)\s+lost?)",
     caseSensitive: false,
   );
 

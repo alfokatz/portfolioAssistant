@@ -865,7 +865,7 @@ final CatalogItem qaCompanyAnalysisItem = CatalogItem(
   dataSchema: S.object(
     description:
         'Análisis de UNA empresa para un inversor casual. Escribí SOLO texto '
-        'en español llano: la app completa sola precio, métricas, rango 52 '
+        'llano, en el idioma de la respuesta: la app completa sola precio, métricas, rango 52 '
         'semanas, resultados, titulares, riesgo y cartera desde tus tools. '
         'Cada número que escribas debe estar en un resultado de tool; sin '
         'consejos de compra/venta ni "barata/cara" sin un dato comparable.',

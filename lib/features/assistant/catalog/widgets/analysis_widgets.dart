@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -116,103 +117,30 @@ abstract final class AnalysisWidgets {
 /// Métricas que el modelo puede destacar, con el rótulo, el formato y una
 /// explicación por defecto (sin números) por si no escribe la suya.
 enum AnalysisMetric {
-  peTtm(
-    'pe_ttm',
-    'P/E',
-    AnalysisMetricUnit.times,
-    'Cuántos años de ganancias actuales pagás al comprar la acción.',
-  ),
-  forwardPe(
-    'forward_pe',
-    'P/E proyectado',
-    AnalysisMetricUnit.times,
-    'Lo mismo, con las ganancias que se esperan para el próximo año.',
-  ),
-  pb(
-    'pb',
-    'Precio / valor libros',
-    AnalysisMetricUnit.times,
-    'Cuánto pagás por cada dólar de patrimonio de la empresa.',
-  ),
-  psTtm(
-    'ps_ttm',
-    'Precio / ventas',
-    AnalysisMetricUnit.times,
-    'Cuánto pagás por cada dólar que la empresa vende en un año.',
-  ),
-  pegTtm(
-    'peg_ttm',
-    'PEG',
-    AnalysisMetricUnit.times,
-    'El P/E ajustado por lo rápido que crecen sus ganancias.',
-  ),
-  evEbitda(
-    'ev_ebitda_ttm',
-    'EV / EBITDA',
-    AnalysisMetricUnit.times,
-    'Lo que vale el negocio entero frente a lo que genera por año.',
-  ),
-  roeTtm(
-    'roe_ttm',
-    'ROE',
-    AnalysisMetricUnit.percent,
-    'Cuánto gana por cada dólar que pusieron sus accionistas.',
-  ),
-  roaTtm(
-    'roa_ttm',
-    'ROA',
-    AnalysisMetricUnit.percent,
-    'Cuánto gana por cada dólar de activos que maneja.',
-  ),
-  grossMargin(
-    'gross_margin_ttm',
-    'Margen bruto',
-    AnalysisMetricUnit.percent,
-    'Lo que queda de cada venta después del costo directo.',
-  ),
-  operatingMargin(
-    'operating_margin_ttm',
-    'Margen operativo',
-    AnalysisMetricUnit.percent,
-    'Lo que queda de cada venta después de operar el negocio.',
-  ),
-  netMargin(
-    'net_margin_ttm',
-    'Margen neto',
-    AnalysisMetricUnit.percent,
-    'Lo que queda de cada venta después de todos los gastos.',
-  ),
-  epsGrowth(
-    'eps_growth_ttm_yoy',
-    'Crecimiento de ganancias',
-    AnalysisMetricUnit.percent,
-    'Cuánto crecieron sus ganancias por acción en el último año.',
-  ),
-  dividendYield(
-    'dividend_yield_indicated_annual',
-    'Dividendo',
-    AnalysisMetricUnit.percent,
-    'Lo que paga por año en dividendos, sobre el precio de la acción.',
-  ),
-  payout(
-    'payout_ratio_ttm',
-    'Payout',
-    AnalysisMetricUnit.percent,
-    'Qué parte de sus ganancias reparte como dividendo.',
-  ),
-  marketCap(
-    'market_capitalization',
-    'Valor de mercado',
-    AnalysisMetricUnit.millions,
-    'Lo que vale la empresa entera en la bolsa.',
-  );
+  peTtm('pe_ttm', AnalysisMetricUnit.times),
+  forwardPe('forward_pe', AnalysisMetricUnit.times),
+  pb('pb', AnalysisMetricUnit.times),
+  psTtm('ps_ttm', AnalysisMetricUnit.times),
+  pegTtm('peg_ttm', AnalysisMetricUnit.times),
+  evEbitda('ev_ebitda_ttm', AnalysisMetricUnit.times),
+  roeTtm('roe_ttm', AnalysisMetricUnit.percent),
+  roaTtm('roa_ttm', AnalysisMetricUnit.percent),
+  grossMargin('gross_margin_ttm', AnalysisMetricUnit.percent),
+  operatingMargin('operating_margin_ttm', AnalysisMetricUnit.percent),
+  netMargin('net_margin_ttm', AnalysisMetricUnit.percent),
+  epsGrowth('eps_growth_ttm_yoy', AnalysisMetricUnit.percent),
+  dividendYield('dividend_yield_indicated_annual', AnalysisMetricUnit.percent),
+  payout('payout_ratio_ttm', AnalysisMetricUnit.percent),
+  marketCap('market_capitalization', AnalysisMetricUnit.millions);
 
-  const AnalysisMetric(this.key, this.label, this.unit, this.fallback);
+  const AnalysisMetric(this.key, this.unit);
 
   final String key;
-  final String label;
   final AnalysisMetricUnit unit;
-  final String fallback;
+
+  String get label => 'qa_metric_${key}_label'.tr();
+
+  String get fallback => 'qa_metric_${key}_fallback'.tr();
 
   static AnalysisMetric? byKey(String key) {
     for (final m in values) {
@@ -234,8 +162,7 @@ enum AnalysisMetric {
 
 enum AnalysisMetricUnit { times, percent, millions }
 
-String _decimal(double v, int digits) =>
-    v.toStringAsFixed(digits).replaceAll('.', ',');
+String _decimal(double v, int digits) => QaFormat.decimal(v, digits: digits);
 
 enum _Tone { strength, neutral, watch }
 
@@ -539,20 +466,26 @@ class _GoldArea extends StatelessWidget {
           }
           : PlanFeature.companyAnalysis;
 
-  static const _titles = {
-    'fundamentals': 'Valuación',
-    'earnings': 'resultados',
-    'news': 'noticias',
+  static String _titleOf(String feature) => switch (feature) {
+    'fundamentals' => 'qa_an_val'.tr(),
+    'earnings' => 'qa_an_earnings_l'.tr(),
+    'news' => 'qa_an_news_l'.tr(),
+    _ => feature,
   };
 
   /// "Valuación, resultados y noticias" con lo que esté bloqueado.
   static String titleFor(List<String> locked) {
-    final names = [for (final f in locked) _titles[f] ?? f];
+    final names = [for (final f in locked) _titleOf(f)];
     if (names.isEmpty) return '';
     final first = names.first;
     names[0] = first[0].toUpperCase() + first.substring(1);
     if (names.length == 1) return names.single;
-    return '${names.sublist(0, names.length - 1).join(', ')} y ${names.last}';
+    return 'qa_list_and'.tr(
+      namedArgs: {
+        'list': names.sublist(0, names.length - 1).join(', '),
+        'last': names.last,
+      },
+    );
   }
 
   @override
@@ -622,12 +555,12 @@ class _CourtesyLine extends StatelessWidget {
         PortySpark(size: 11, color: QaColors.accentBlue),
         const SizedBox(width: 6),
         Expanded(
-          child: Text('Análisis Gold de cortesía', style: QaText.caption),
+          child: Text('qa_an_courtesy'.tr(), style: QaText.caption),
         ),
         if (plan != null)
           Semantics(
             button: true,
-            label: 'Conocer el plan Gold',
+            label: 'qa_an_learn_gold_sem'.tr(),
             excludeSemantics: true,
             child: QaTappable(
               onTap: () {
@@ -645,7 +578,7 @@ class _CourtesyLine extends StatelessWidget {
                 child: Center(
                   widthFactor: 1,
                   child: Text(
-                    'Conocer Gold',
+                    'qa_an_learn_gold'.tr(),
                     style: QaText.caption.copyWith(
                       color: QaColors.accentBlue,
                       fontWeight: FontWeight.w600,
@@ -772,7 +705,9 @@ class _Header extends StatelessWidget {
         QaTickerHeader(
           ticker: data.ticker,
           subtitle: subtitle.isEmpty ? null : subtitle,
-          tapQuestion: '¿Cómo viene ${data.ticker}?',
+          tapQuestion: 'qa_followup_chart_q'.tr(
+            namedArgs: {'ticker': data.ticker},
+          ),
         ),
         if (price != null) ...[
           const SizedBox(height: QaSpace.gap),
@@ -814,7 +749,7 @@ class _Summary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('En resumen'),
+        QaSectionTitle('qa_an_summary'.tr()),
         const SizedBox(height: QaSpace.gap),
         Text(text, style: QaText.body.copyWith(fontSize: 15, height: 1.45)),
       ],
@@ -836,7 +771,7 @@ class _KeyPoints extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('Puntos clave'),
+        QaSectionTitle('qa_an_key_points'.tr()),
         const SizedBox(height: QaSpace.gap),
         for (var i = 0; i < points.length; i++) ...[
           if (i > 0) const SizedBox(height: QaSpace.rowGap),
@@ -861,19 +796,19 @@ class _KeyPointRow extends StatelessWidget {
         Icons.check_rounded,
         QaColors.profit,
         QaColors.profitContainer,
-        'Fortaleza',
+        'qa_an_strength'.tr(),
       ),
       _Tone.watch => (
         Icons.priority_high_rounded,
         QaColors.loss,
         QaColors.lossContainer,
-        'A vigilar',
+        'qa_an_watch'.tr(),
       ),
       _Tone.neutral => (
         Icons.remove_rounded,
         QaColors.textSecondary,
         QaPalette.track,
-        'Neutral',
+        'qa_an_neutral'.tr(),
       ),
     };
     return Semantics(
@@ -935,7 +870,7 @@ class _Metrics extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('Valuación y rentabilidad'),
+        QaSectionTitle('qa_an_valuation_profit'.tr()),
         for (final (i, row) in rows.indexed) ...[
           SizedBox(height: i == 0 ? QaSpace.gap : QaSpace.rowGap),
           Row(
@@ -984,19 +919,24 @@ class _PriceRange extends StatelessWidget {
     final fromTop = ((high - math.min(price, high)) / high * 100);
     final caption =
         fromTop < 1
-            ? 'Cerca de su máximo de 52 semanas'
-            : 'A ${_decimal(fromTop, 1)}% de su máximo de 52 semanas';
+            ? 'qa_an_near_high'.tr()
+            : 'qa_an_from_high'.tr(
+              namedArgs: {'pct': _decimal(fromTop, 1)},
+            );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        QaSectionTitle('Precio', trailing: _MonthSparkline(ticker: ticker)),
+        QaSectionTitle(
+          'qa_an_price'.tr(),
+          trailing: _MonthSparkline(ticker: ticker),
+        ),
         const SizedBox(height: QaSpace.gap),
         QaRangeBar(
           min: low,
           max: high,
           value: price,
-          minLabel: 'Mín. 52 sem. ${QaFormat.price(low)}',
-          maxLabel: 'Máx. ${QaFormat.price(high)}',
+          minLabel: 'qa_an_min52'.tr(namedArgs: {'price': QaFormat.price(low)}),
+          maxLabel: 'qa_an_max52'.tr(namedArgs: {'price': QaFormat.price(high)}),
         ),
         const SizedBox(height: 6),
         Text(caption, style: QaText.label),
@@ -1044,7 +984,7 @@ class _MonthSparklineState extends State<_MonthSparkline> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('1 mes', style: QaText.caption),
+        Text('qa_an_1m'.tr(), style: QaText.caption),
         const SizedBox(width: 6),
         QaSparkline(values: values, width: 56, height: 18),
       ],
@@ -1081,7 +1021,7 @@ class _Results extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('Resultados'),
+        QaSectionTitle('qa_an_results'.tr()),
         if (l != null) ...[
           const SizedBox(height: QaSpace.gap),
           _LatestRow(result: l),
@@ -1129,18 +1069,30 @@ class _LatestRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                when.isEmpty ? 'Último reporte' : 'Último reporte · $when',
+                when.isEmpty
+                    ? 'qa_an_last_report'.tr()
+                    : 'qa_an_last_report_when'.tr(namedArgs: {'when': when}),
                 style: QaText.label,
               ),
               const SizedBox(height: 2),
               Text(
                 estimate != null
-                    ? 'Ganó ${QaFormat.price(actual)} por acción; '
-                        'se esperaban ${QaFormat.price(estimate)}'
+                    ? 'qa_an_earned_vs_est'.tr(
+                      namedArgs: {
+                        'actual': QaFormat.price(actual),
+                        'estimate': QaFormat.price(estimate),
+                      },
+                    )
                     : yearAgo != null
-                    ? 'Ganó ${QaFormat.price(actual)} por acción; '
-                        'hace un año, ${QaFormat.price(yearAgo)}'
-                    : 'Ganó ${QaFormat.price(actual)} por acción',
+                    ? 'qa_an_earned_vs_year'.tr(
+                      namedArgs: {
+                        'actual': QaFormat.price(actual),
+                        'yearAgo': QaFormat.price(yearAgo),
+                      },
+                    )
+                    : 'qa_an_earned'.tr(
+                      namedArgs: {'actual': QaFormat.price(actual)},
+                    ),
                 style: QaText.body,
               ),
             ],
@@ -1149,13 +1101,13 @@ class _LatestRow extends StatelessWidget {
         const SizedBox(width: 8),
         if (beat != null)
           QaTag(
-            beat ? 'Superó' : 'No alcanzó',
+            beat ? 'qa_an_beat'.tr() : 'qa_an_missed'.tr(),
             color: beat ? QaColors.profit : QaColors.loss,
           )
         // Sin consenso (SEC): contra el mismo trimestre del año anterior.
         else if (grew != null)
           QaTag(
-            grew ? 'Creció' : 'Cayó',
+            grew ? 'qa_an_grew'.tr() : 'qa_an_fell'.tr(),
             color: grew ? QaColors.profit : QaColors.loss,
           )
         else if (yoy is num && yoy != 0)
@@ -1184,15 +1136,17 @@ class _NextRow extends StatelessWidget {
             children: [
               Text(
                 report['estimated'] == true
-                    ? 'Próximo reporte (fecha estimada)'
-                    : 'Próximo reporte',
+                    ? 'qa_an_next_report_est'.tr()
+                    : 'qa_an_next_report'.tr(),
                 style: QaText.label,
               ),
               const SizedBox(height: 2),
               Text(label, style: QaText.bodyStrong),
               if (eps is num)
                 Text(
-                  'Se espera que gane ${QaFormat.price(eps)} por acción',
+                  'qa_an_expected_eps'.tr(
+                    namedArgs: {'eps': QaFormat.price(eps)},
+                  ),
                   style: QaText.label,
                 ),
             ],
@@ -1226,7 +1180,7 @@ class _News extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('Noticias'),
+        QaSectionTitle('qa_an_news'.tr()),
         const SizedBox(height: QaSpace.gap),
         if (take.isNotEmpty) ...[
           Text(take, style: QaText.body),
@@ -1303,27 +1257,32 @@ class _Risk extends StatelessWidget {
   Widget build(BuildContext context) {
     final (String tag, String line) = switch (level) {
       ProfileCandidateMatcher.riskDefensive => (
-        'Riesgo bajo',
-        'Suele moverse menos que el mercado: en las caídas tiende a bajar menos.',
+        'qa_an_risk_low'.tr(),
+        'qa_an_risk_low_line'.tr(),
       ),
       ProfileCandidateMatcher.riskGrowth => (
-        'Riesgo alto',
-        'Suele moverse más que el mercado: sube y baja con más fuerza.',
+        'qa_an_risk_high'.tr(),
+        'qa_an_risk_high_line'.tr(),
       ),
       _ => (
-        'Riesgo medio',
-        'Suele moverse parecido al mercado en su conjunto.',
+        'qa_an_risk_mid'.tr(),
+        'qa_an_risk_mid_line'.tr(),
       ),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaSectionTitle(
-          'Riesgo',
+          'qa_an_risk'.tr(),
           trailing: QaTag(tag, icon: Icons.speed_rounded),
         ),
         const SizedBox(height: QaSpace.gap),
-        Text('$line (beta ${_decimal(beta, 2)})', style: QaText.label),
+        Text(
+          'qa_an_risk_beta'.tr(
+            namedArgs: {'line': line, 'beta': _decimal(beta, 2)},
+          ),
+          style: QaText.label,
+        ),
       ],
     );
   }
@@ -1350,17 +1309,23 @@ class _Holding extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const QaSectionTitle('En tu cartera'),
+        QaSectionTitle('qa_an_in_portfolio'.tr()),
         const SizedBox(height: QaSpace.gap),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: QaStat(label: 'Peso', value: '${_decimal(weight, 1)}%'),
+              child: QaStat(
+                label: 'qa_an_weight'.tr(),
+                value: '${_decimal(weight, 1)}%',
+              ),
             ),
             if (value is num)
               Expanded(
-                child: QaStat(label: 'Valor', value: QaFormat.money(value)),
+                child: QaStat(
+                  label: 'qa_an_value'.tr(),
+                  value: QaFormat.money(value),
+                ),
               ),
             if (pnlAbs is num)
               Expanded(
@@ -1368,7 +1333,7 @@ class _Holding extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     QaStat(
-                      label: 'Resultado',
+                      label: 'qa_an_result'.tr(),
                       value: QaFormat.signedMoney(pnlAbs),
                       valueColor: QaPalette.trend(pnlAbs),
                     ),
@@ -1404,7 +1369,7 @@ class _Disclaimer extends StatelessWidget {
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            'Análisis informativo, no asesoramiento financiero personalizado.',
+            'qa_an_disclaimer'.tr(),
             style: QaText.caption,
           ),
         ),

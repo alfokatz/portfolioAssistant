@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
@@ -34,7 +35,7 @@ abstract final class InfoListWidgets {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           QaCardTitle(
-            title: title.isEmpty ? 'Lo que encontré' : title,
+            title: title.isEmpty ? 'qa_info_found'.tr() : title,
             icon: icons[data['icon']] ?? Icons.list_alt_rounded,
           ),
           const SizedBox(height: QaSpace.sectionGap),

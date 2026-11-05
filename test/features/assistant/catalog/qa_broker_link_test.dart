@@ -52,6 +52,6 @@ void main() {
       find.byType(OpenInBrokerLinks),
     );
     expect(links.ticker, 'AAPL');
-    expect(find.text('broker_open_in'), findsOneWidget);
+    expect(find.text('Abrir en eToro'), findsOneWidget);
   });
 }

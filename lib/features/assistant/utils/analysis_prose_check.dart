@@ -11,16 +11,46 @@ import 'dart:math' as math;
 /// sacan las oraciones problemáticas — nunca se muestra un número inventado).
 abstract final class AnalysisProseCheck {
   /// Un número citado, con cuántos decimales se escribió y su sufijo de
-  /// escala ("3,78T").
-  static List<({double value, int decimals, String scale, bool percent})>
+  /// escala ("3,78T"). Entiende el formato español (1.234,5) y el inglés
+  /// (1,234.5). "1,234" o "1.234" son ambiguos (mil doscientos o uno coma
+  /// dos): [value] es la lectura española de siempre y [alt] la otra, y
+  /// [isBacked] acepta cualquiera de las dos.
+  static List<
+    ({
+      double value,
+      int decimals,
+      String scale,
+      bool percent,
+      double? alt,
+      int altDecimals,
+    })
+  >
   numbersIn(String text) {
-    final out = <({double value, int decimals, String scale, bool percent})>[];
-    // Miles con punto ("1.234,5") o número simple con coma/punto decimal.
-    // Escalas en palabras (escala larga del español: "billón" = 10^12):
-    // "3,5 billones", "330 mil millones", "12 millones".
+    final out =
+        <
+          ({
+            double value,
+            int decimals,
+            String scale,
+            bool percent,
+            double? alt,
+            int altDecimals,
+          })
+        >[];
+    // Miles con punto o coma, decimales con coma o punto. Escalas en
+    // palabras: español (escala larga: "billón" = 10^12; "3,5 billones",
+    // "330 mil millones", "12 millones") e inglés ("billion" = 10^9).
     final re = RegExp(
-      r'(?<![\w.,])(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)\s?'
-      r'(%|x|×|billones|bill[oó]n|mil\s+millones|millones|mill[oó]n|[TBMK](?![a-záéíóú]))?',
+      r'(?<![\w.,])('
+      r'\d{1,3}(?:,\d{3})+\.\d+|'
+      r'\d{1,3}(?:\.\d{3})+,\d+|'
+      r'\d{1,3}(?:,\d{3}){2,}(?![.,]?\d)|'
+      r'\d{1,3}(?:\.\d{3}){2,}(?![.,]?\d)|'
+      r'\d+(?:[.,]\d+)?'
+      r')\s?'
+      r'(%|x|×|billones|bill[oó]n|mil\s+millones|millones|mill[oó]n|'
+      r'trillions?|billions?|millions?|thousands?|bn|'
+      r'[TBMK](?![a-záéíóú]))?',
       caseSensitive: false,
     );
     for (final m in re.allMatches(text)) {
@@ -31,29 +61,50 @@ abstract final class AnalysisProseCheck {
       );
       final suffix = switch (word) {
         'billones' || 'billón' || 'billon' => 'T',
-        'mil millones' => 'B',
+        'trillion' || 'trillions' => 'T',
+        'mil millones' || 'billion' || 'billions' || 'bn' => 'B',
         'millones' || 'millón' || 'millon' => 'M',
+        'million' || 'millions' => 'M',
+        'thousand' || 'thousands' => 'K',
         _ => word.toUpperCase(),
       };
-      final String normalized;
-      int decimals;
-      if (RegExp(r'^\d{1,3}(\.\d{3})+').hasMatch(raw)) {
-        normalized = raw.replaceAll('.', '').replaceAll(',', '.');
+      String normalized;
+      String? altNormalized;
+      if (raw.contains('.') && raw.contains(',')) {
+        // El último separador es el decimal.
+        final decimalSep =
+            raw.lastIndexOf('.') > raw.lastIndexOf(',') ? '.' : ',';
+        normalized = raw
+            .replaceAll(decimalSep == '.' ? ',' : '.', '')
+            .replaceAll(decimalSep, '.');
+      } else if (RegExp(r'^\d{1,3}([.,])\d{3}(\1\d{3})+$').hasMatch(raw)) {
+        normalized = raw.replaceAll(RegExp('[.,]'), '');
+      } else if (RegExp(r'^[1-9]\d{0,2}[.,]\d{3}$').hasMatch(raw)) {
+        final thousands = raw.replaceAll(RegExp('[.,]'), '');
+        final decimal = raw.replaceAll(',', '.');
+        final dotIsThousands = raw.contains('.');
+        normalized = dotIsThousands ? thousands : decimal;
+        altNormalized = dotIsThousands ? decimal : thousands;
       } else {
         normalized = raw.replaceAll(',', '.');
       }
-      final dot = normalized.indexOf('.');
-      decimals = dot < 0 ? 0 : normalized.length - dot - 1;
       final value = double.tryParse(normalized);
       if (value == null) continue;
       out.add((
         value: value,
-        decimals: decimals,
+        decimals: _decimalsOf(normalized),
         scale: const {'T', 'B', 'M', 'K'}.contains(suffix) ? suffix : '',
         percent: suffix == '%',
+        alt: altNormalized == null ? null : double.tryParse(altNormalized),
+        altDecimals: altNormalized == null ? 0 : _decimalsOf(altNormalized),
       ));
     }
     return out;
+  }
+
+  static int _decimalsOf(String normalized) {
+    final dot = normalized.indexOf('.');
+    return dot < 0 ? 0 : normalized.length - dot - 1;
   }
 
   /// Números de lenguaje llano que no son datos: "2 de cada 3", "los
@@ -67,9 +118,27 @@ abstract final class AnalysisProseCheck {
 
   /// `true` si [n] (tal como se escribió) sale de alguno de [backing].
   static bool isBacked(
-    ({double value, int decimals, String scale, bool percent}) n,
+    ({
+      double value,
+      int decimals,
+      String scale,
+      bool percent,
+      double? alt,
+      int altDecimals,
+    })
+    n,
+    Iterable<double> backing,
+  ) =>
+      _isBacked(n.value, n.decimals, n.scale, backing) ||
+      (n.alt != null && _isBacked(n.alt!, n.altDecimals, n.scale, backing));
+
+  static bool _isBacked(
+    double value,
+    int decimals,
+    String scale,
     Iterable<double> backing,
   ) {
+    final n = (value: value, decimals: decimals, scale: scale);
     if (_isFraming(n.value, n.decimals, n.scale)) return true;
     // Tolerancia de UN paso de la precisión escrita: cubre redondear
     // (11,6 por 11,63; 28 por 27,6) y truncar, que en lenguaje llano es lo
@@ -108,7 +177,13 @@ abstract final class AnalysisProseCheck {
     r'|\b(te\s+)?(conviene|recomiendo|recomendamos|deber[ií]as?)\s+(comprar|vender|entrar|salir|invertir)'
     r'|\b(buen|mal|mejor)\s+momento\s+(para|de)\s+(comprar|vender|entrar|salir|invertir)'
     r'|\boportunidad\s+de\s+(compra|venta)'
-    r'|\bes\s+hora\s+de\s+(comprar|vender|entrar|salir)',
+    r'|\bes\s+hora\s+de\s+(comprar|vender|entrar|salir)'
+    // Inglés.
+    r"|\b(you\s+should|you'd\s+better|you\s+had\s+better|i\s+(would\s+)?recommend|we\s+recommend|i\s+suggest)\s+(buying|selling|to\s+buy|to\s+sell|buy|sell|getting\s+in|getting\s+out|investing\s+in|invest\s+in)"
+    r'|\b(good|bad|great|best|right|perfect)\s+(time|moment)\s+to\s+(buy|sell|get\s+in|get\s+out|invest)'
+    r'|\b(buying|selling)\s+opportunity'
+    r'|\b(it.s\s+)?time\s+to\s+(buy|sell|get\s+in|get\s+out)\b'
+    r'|\b(buy|sell)\s+(it|them|now)\b',
     caseSensitive: false,
   );
 
@@ -117,7 +192,12 @@ abstract final class AnalysisProseCheck {
   static final _valuationJudgment = RegExp(
     r'\b(barat[oa]s?|car[oa]s?\s+(para|frente|comparad)|sobrevaluad[oa]s?|'
     r'sobrevalorad[oa]s?|infravalorad[oa]s?|subvaluad[oa]s?|subvalorad[oa]s?|'
-    r'(valuaci[oó]n|precio)\s+atractiv[oa]|(p/e|per)\s+(alto|bajo|elevado|razonable))',
+    r'(valuaci[oó]n|precio)\s+atractiv[oa]|(p/e|per)\s+(alto|bajo|elevado|razonable)|'
+    // Inglés.
+    r'cheap(er|est)?|undervalued|overvalued|overpriced|underpriced|'
+    r'expensive\s+(for|compared|relative|versus|vs)|'
+    r'attractive(ly)?\s+(valuation|price|priced)|'
+    r'(p/e|pe)\s+(ratio\s+)?(is\s+)?(high|low|elevated|reasonable))',
     caseSensitive: false,
   );
 
@@ -209,7 +289,8 @@ abstract final class AnalysisProseCheck {
   }
 
   static final _timeSpan = RegExp(
-    r'\b\d+\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?|horas?|trimestres?)\b',
+    r'\b\d+\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?|horas?|trimestres?|'
+    r'days?|weeks?|months?|years?|hours?|quarters?)\b',
     caseSensitive: false,
   );
 

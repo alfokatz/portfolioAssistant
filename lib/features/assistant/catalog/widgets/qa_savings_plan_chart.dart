@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -206,7 +207,7 @@ class _PlanLineChart extends StatelessWidget {
                 alignment: Alignment.topLeft,
                 padding: const EdgeInsets.only(left: 2, bottom: 2),
                 style: QaText.caption,
-                labelResolver: (_) => 'Meta',
+                labelResolver: (_) => 'qa_bp_goal'.tr(),
               ),
             ),
           ],

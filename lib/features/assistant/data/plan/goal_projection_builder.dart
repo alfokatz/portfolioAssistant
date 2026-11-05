@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 
@@ -84,8 +85,8 @@ abstract final class GoalProjectionBuilder {
                   stated['label'] ??
                   saved?['label'] ??
                   (isRetirement == true || incomeTarget != null
-                      ? 'Jubilación'
-                      : 'Mi meta'),
+                      ? (AppLanguage.isEnglish ? 'Retirement' : 'Jubilación')
+                      : (AppLanguage.isEnglish ? 'My goal' : 'Mi meta')),
               'target_amount':
                   stated['target_amount'] ?? saved?['target_amount'],
               'target_date': stated['target_date'] ?? saved?['target_date'],
@@ -277,6 +278,7 @@ abstract final class GoalProjectionBuilder {
       'retirarme',
       'pensión',
       'pension',
+      'retire',
     ].any(l.contains);
   }
 

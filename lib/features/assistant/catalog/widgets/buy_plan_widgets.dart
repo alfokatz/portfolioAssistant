@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
@@ -174,7 +175,9 @@ class BuyPlanCardData {
 String _joinTickers(List<BuyPlanItem> items) {
   final t = [for (final i in items) i.ticker];
   if (t.length <= 1) return t.join();
-  return '${t.sublist(0, t.length - 1).join(', ')} y ${t.last}';
+  return 'qa_list_and'.tr(
+    namedArgs: {'list': t.sublist(0, t.length - 1).join(', '), 'last': t.last},
+  );
 }
 
 class QaBuyPlanCard extends StatelessWidget {
@@ -190,12 +193,12 @@ class QaBuyPlanCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         QaCardTitle(
-          title: 'Tu compra mensual',
-          subtitle: 'Lo que comprarías cada mes',
+          title: 'qa_bp_title'.tr(),
+          subtitle: 'qa_bp_subtitle'.tr(),
           icon: Icons.shopping_basket_outlined,
         ),
         const SizedBox(height: QaSpace.sectionGap),
-        const QaSectionLabel('Cada mes invertís'),
+        QaSectionLabel('qa_bp_each_month'.tr()),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -203,7 +206,7 @@ class QaBuyPlanCard extends StatelessWidget {
           children: [
             Text(QaFormat.money(data.monthlyAmount), style: QaText.display),
             const SizedBox(width: 4),
-            Text('/ mes', style: QaText.label),
+            Text('qa_sp_per_month'.tr(), style: QaText.label),
           ],
         ),
         const SizedBox(height: QaSpace.gap),
@@ -221,35 +224,35 @@ class QaBuyPlanCard extends StatelessWidget {
           if (k > 0) const SizedBox(height: QaSpace.rowGap),
           _ItemRow(item: items[k], color: QaPalette.series(k)),
         ],
-        QaSection(title: 'Con estos rendimientos', child: _impact()),
+        QaSection(title: 'qa_bp_with_yields'.tr(), child: _impact()),
         QaSection(
           child: Text(
-            'Es un ejemplo para simular, no una recomendación de compra. '
-            'Los dividendos no están garantizados y los rendimientos cambian '
-            'con el precio. Tope de '
-            '${(BuyPlanBuilder.maxStockShare * 100).round()}% por acción '
-            'individual; la base son ETFs diversificados.',
+            'qa_bp_disclaimer'.tr(
+              namedArgs: {
+                'cap': '${(BuyPlanBuilder.maxStockShare * 100).round()}',
+              },
+            ),
             style: QaText.caption,
           ),
         ),
         if (data.draft != null) QaSaveGoalButton(draft: data.draft!),
         QaFollowUpBar(
           items: [
-            const QaFollowUp(
-              'Ver plan actualizado',
-              'Mostrame el plan con estos rendimientos',
+            QaFollowUp(
+              'qa_bp_fu_updated'.tr(),
+              'qa_bp_fu_updated_q'.tr(),
               icon: Icons.show_chart_rounded,
             ),
-            const QaFollowUp(
-              'Otros instrumentos',
-              'Armá la compra mensual con otros instrumentos',
+            QaFollowUp(
+              'qa_bp_fu_other'.tr(),
+              'qa_bp_fu_other_q'.tr(),
               icon: Icons.swap_horiz_rounded,
             ),
             // Con los tickers en la pregunta: "cada uno" solo, el modelo lo
             // leía como las tenencias de la cartera.
             QaFollowUp(
-              'Cuánto paga cada uno',
-              '¿Cuánto paga de dividendos ${_joinTickers(items)}?',
+              'qa_bp_fu_pays'.tr(),
+              'qa_bp_fu_pays_q'.tr(namedArgs: {'tickers': _joinTickers(items)}),
               icon: Icons.payments_outlined,
             ),
           ],
@@ -261,26 +264,32 @@ class QaBuyPlanCard extends StatelessWidget {
   Widget _impact() {
     final yieldLine =
         data.realYield && data.weightedYieldPct != null
-            ? 'Rinden en promedio ${_pct(data.weightedYieldPct!)} por año en '
-                'dividendos (el plan suponía ${_pct(data.assumedYieldPct)}).'
-            : 'No hay datos de dividendos suficientes de estos instrumentos: '
-                'el plan sigue con el supuesto de '
-                '${_pct(data.assumedYieldPct)}.';
+            ? 'qa_bp_yield_real'.tr(
+              namedArgs: {
+                'yield': _pct(data.weightedYieldPct!),
+                'assumed': _pct(data.assumedYieldPct),
+              },
+            )
+            : 'qa_bp_yield_assumed'.tr(
+              namedArgs: {'assumed': _pct(data.assumedYieldPct)},
+            );
     final desired = data.desiredMonthlyIncome;
     final changed = data.targetAfter != data.targetBefore;
     final stats = <QaStat>[
       QaStat(
         label:
             changed
-                ? 'Meta (antes ${QaFormat.money(data.targetBefore)})'
-                : 'Meta',
+                ? 'qa_bp_goal_before'.tr(
+                  namedArgs: {'amount': QaFormat.money(data.targetBefore)},
+                )
+                : 'qa_bp_goal'.tr(),
         value: QaFormat.money(data.targetAfter),
       ),
       QaStat(
         label:
             desired != null
-                ? 'Cobrarías por mes'
-                : 'Dividendos por mes al llegar',
+                ? 'qa_bp_you_would_collect'.tr()
+                : 'qa_bp_dividends_monthly'.tr(),
         value: QaFormat.money(desired ?? data.annualDividends / 12),
       ),
     ];
@@ -295,8 +304,7 @@ class QaBuyPlanCard extends StatelessWidget {
     );
   }
 
-  static String _pct(double v) =>
-      '${v.toStringAsFixed(1).replaceAll('.', ',')}%';
+  static String _pct(double v) => '${QaFormat.decimal(v)}%';
 }
 
 class _ItemRow extends StatelessWidget {
@@ -308,16 +316,18 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final kind = switch (item.kind) {
-      DividendFetcher.kindEtf => 'ETF',
-      DividendFetcher.kindStock => 'Acción',
+      DividendFetcher.kindEtf => 'qa_bp_kind_etf'.tr(),
+      DividendFetcher.kindStock => 'qa_bp_kind_stock'.tr(),
       _ => null,
     };
     final yieldText =
         item.dividendYieldPct == null
-            ? 'sin dato de dividendo'
+            ? 'qa_bp_no_yield'.tr()
             : item.dividendYieldPct! <= 0
-            ? 'no paga dividendos'
-            : 'rinde ${item.dividendYieldPct!.toStringAsFixed(1).replaceAll('.', ',')}%';
+            ? 'qa_bp_no_dividends'.tr()
+            : 'qa_bp_yields'.tr(
+              namedArgs: {'pct': QaFormat.decimal(item.dividendYieldPct!)},
+            );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -350,7 +360,9 @@ class _ItemRow extends StatelessWidget {
                   if (kind != null) ...[const SizedBox(width: 6), QaTag(kind)],
                   const Spacer(),
                   Text(
-                    '${QaFormat.money(item.monthlyAmount)}/mes',
+                    'qa_per_month'.tr(
+                      namedArgs: {'amount': QaFormat.money(item.monthlyAmount)},
+                    ),
                     style: QaText.value,
                   ),
                 ],

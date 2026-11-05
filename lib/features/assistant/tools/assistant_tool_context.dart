@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
@@ -141,8 +142,10 @@ class AssistantToolContext {
     this.savedGoals = const [],
     this.saveGoal,
     this.newsProvider = NewsProvider.legacy,
+    String? appLanguage,
     DateTime? now,
-  }) : now = now ?? DateTime.now(),
+  }) : appLanguage = appLanguage ?? AppLanguage.code,
+       now = now ?? DateTime.now(),
        heldTickers = {
          for (final v in summary?.valuations ?? const [])
            v.position.ticker.toUpperCase(),
@@ -150,6 +153,12 @@ class AssistantToolContext {
 
   final SubscriptionTier tier;
   final AssistantDataSources data;
+
+  /// El idioma de la app ('es' | 'en'): Porty responde en el idioma del
+  /// mensaje y, si no se nota, en este (ver `app_language` del brief).
+  final String appLanguage;
+
+  bool get english => appLanguage == 'en';
 
   /// Fuente de noticias/resultados/fundamentals de este turno (decide las
   /// descripciones de las tools, que viajan en la primera ronda).

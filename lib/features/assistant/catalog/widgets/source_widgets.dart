@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
@@ -34,7 +35,7 @@ class _QaSourceListState extends State<QaSourceList> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('FUENTES', style: QaText.eyebrow),
+          Text('qa_src_sources'.tr(), style: QaText.eyebrow),
           const SizedBox(height: 2),
           for (final s in visible) _SourceRow(link: s),
           if (hidden > 0)
@@ -48,7 +49,7 @@ class _QaSourceListState extends State<QaSourceList> {
                   foregroundColor: QaColors.accentBlue,
                 ),
                 child: Text(
-                  'Ver $hidden más',
+                  'qa_src_more'.tr(namedArgs: {'count': '$hidden'}),
                   style: QaText.label.copyWith(color: QaColors.accentBlue),
                 ),
               ),
@@ -70,7 +71,9 @@ class _SourceRow extends StatelessWidget {
     final title = link.title.isNotEmpty ? link.title : link.host;
     return Semantics(
       link: true,
-      label: '$source: $title',
+      label: 'qa_src_semantics'.tr(
+        namedArgs: {'source': source, 'title': title},
+      ),
       excludeSemantics: true,
       child: InkWell(
         onTap: () => _open(link.url),

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
@@ -67,7 +68,7 @@ abstract final class CompanyWidgets {
           // salvo la primera debajo del encabezado (solo aire).
           if (data.history.length >= 2)
             QaSection(
-              title: 'Historial de EPS',
+              title: 'qa_co_eps_history'.tr(),
               trailing: QaEpsLegend(baseline: data.baseline),
               first: !data.hasNext,
               child: QaEpsHistoryChart(
@@ -77,7 +78,7 @@ abstract final class CompanyWidgets {
             ),
           if (data.epsPoints.length >= 2)
             QaSection(
-              title: 'Ganancia por acción',
+              title: 'qa_co_eps'.tr(),
               first: !data.hasNext,
               child: _EpsPointsList(points: data.epsPoints),
             ),
@@ -85,8 +86,10 @@ abstract final class CompanyWidgets {
             QaSection(
               title:
                   latest.dateLabel.isEmpty
-                      ? 'Último reporte'
-                      : 'Último reporte · ${latest.dateLabel}',
+                      ? 'qa_co_latest_report'.tr()
+                      : 'qa_co_latest_report_date'.tr(
+                        namedArgs: {'date': latest.dateLabel},
+                      ),
               first:
                   !data.hasNext &&
                   data.history.length < 2 &&
@@ -96,7 +99,7 @@ abstract final class CompanyWidgets {
           if (!hasAnything) ...[
             const SizedBox(height: QaSpace.gap),
             Text(
-              'Sin fechas de reporte disponibles.',
+              'qa_co_no_report_dates'.tr(),
               style: QaText.body.copyWith(color: QaColors.textSecondary),
             ),
           ],
@@ -128,19 +131,19 @@ abstract final class CompanyWidgets {
         children: [
           if (multi)
             QaCardTitle(
-              title: 'Noticias',
+              title: 'qa_co_news'.tr(),
               icon: Icons.article_outlined,
               subtitle: tickers.join(' · '),
             )
           else
             QaTickerHeader(
               ticker: data.ticker,
-              trailing: const QaTag('Noticias', icon: Icons.article_outlined),
+              trailing: QaTag('qa_co_news'.tr(), icon: Icons.article_outlined),
             ),
           if (data.items.isEmpty) ...[
             const SizedBox(height: QaSpace.gap),
             Text(
-              'No hay noticias recientes.',
+              'qa_co_no_news'.tr(),
               style: QaText.body.copyWith(color: QaColors.textSecondary),
             ),
           ] else ...[
@@ -197,7 +200,7 @@ abstract final class CompanyWidgets {
           if (marketCap != null) ...[
             const SizedBox(height: QaSpace.gap),
             QaStat(
-              label: 'Capitalización de mercado',
+              label: 'qa_co_market_cap'.tr(),
               value: marketCap.value,
               large: true,
             ),
@@ -212,7 +215,7 @@ abstract final class CompanyWidgets {
             ),
           if (range != null)
             QaSection(
-              title: 'Rango 52 semanas',
+              title: 'qa_co_range_52'.tr(),
               trailing:
                   rangePrice == null
                       ? null
@@ -265,8 +268,8 @@ class _NextReportBlock extends StatelessWidget {
                   children: [
                     Text(
                       data.nextReportEstimated
-                          ? 'PRÓXIMO REPORTE · ESTIMADO'
-                          : 'PRÓXIMO REPORTE',
+                          ? 'qa_co_next_report_est'.tr()
+                          : 'qa_co_next_report'.tr(),
                       style: QaText.insetLabel,
                     ),
                     const SizedBox(height: 6),
@@ -282,7 +285,7 @@ class _NextReportBlock extends StatelessWidget {
               if (estimate != null) ...[
                 const SizedBox(width: QaSpace.gap),
                 QaStat(
-                  label: 'EPS estimado',
+                  label: 'qa_co_eps_estimate'.tr(),
                   value: QaFormat.price(estimate),
                   crossAxisAlignment: CrossAxisAlignment.end,
                 ),
@@ -309,7 +312,7 @@ class _NextReportBlock extends StatelessWidget {
                 // La SEC no publica un calendario: la fecha sale del
                 // calendario de reportes anteriores de la empresa.
                 if (data.nextReportEstimated)
-                  const QaTag('Fecha estimada', icon: Icons.info_outline_rounded),
+                  QaTag('qa_co_est_date'.tr(), icon: Icons.info_outline_rounded),
               ],
             ),
           ],
@@ -320,8 +323,13 @@ class _NextReportBlock extends StatelessWidget {
 
   static IconData _timingIcon(String label) {
     final l = label.toLowerCase();
-    if (l.contains('antes')) return Icons.wb_sunny_outlined;
-    if (l.contains('después') || l.contains('cierre')) {
+    if (l.contains('antes') || l.contains('before')) {
+      return Icons.wb_sunny_outlined;
+    }
+    if (l.contains('después') ||
+        l.contains('cierre') ||
+        l.contains('after') ||
+        l.contains('close')) {
       return Icons.nightlight_outlined;
     }
     return Icons.access_time_rounded;
@@ -347,11 +355,15 @@ class _LatestResultRow extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: 'EPS ${QaFormat.price(result.actual)}',
+                  text: 'qa_co_eps_value'.tr(
+                    namedArgs: {'value': QaFormat.price(result.actual)},
+                  ),
                   style: QaText.value,
                 ),
                 TextSpan(
-                  text: '  vs. ${QaFormat.price(estimate)} est.',
+                  text: 'qa_co_vs_est'.tr(
+                    namedArgs: {'value': QaFormat.price(estimate)},
+                  ),
                   style: QaText.label,
                 ),
               ],
@@ -366,7 +378,7 @@ class _LatestResultRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             QaTag(
-              beat ? 'Superó' : 'No alcanzó',
+              beat ? 'qa_co_beat'.tr() : 'qa_co_missed'.tr(),
               color: beat ? QaColors.profit : QaColors.loss,
               icon: beat ? Icons.check_rounded : Icons.close_rounded,
             ),
@@ -399,16 +411,23 @@ extension on _LatestResultRow {
             TextSpan(
               children: [
                 TextSpan(
-                  text: 'EPS ${QaFormat.price(result.actual)}',
+                  text: 'qa_co_eps_value'.tr(
+                    namedArgs: {'value': QaFormat.price(result.actual)},
+                  ),
                   style: QaText.value,
                 ),
                 if (yearAgo != null)
                   TextSpan(
-                    text: '  vs. ${QaFormat.price(yearAgo)} hace un año',
+                    text: 'qa_co_vs_year_ago'.tr(
+                      namedArgs: {'value': QaFormat.price(yearAgo)},
+                    ),
                     style: QaText.label,
                   )
                 else if (yoy != null)
-                  TextSpan(text: '  vs. un año antes', style: QaText.label),
+                  TextSpan(
+                    text: 'qa_co_vs_year_before'.tr(),
+                    style: QaText.label,
+                  ),
               ],
             ),
             maxLines: 1,
@@ -424,7 +443,7 @@ extension on _LatestResultRow {
             // anterior (la SEC no publica lo que esperaba el mercado).
             if (grew != null)
               QaTag(
-                grew ? 'Creció' : 'Cayó',
+                grew ? 'qa_co_grew'.tr() : 'qa_co_fell'.tr(),
                 color: grew ? QaColors.profit : QaColors.loss,
                 icon:
                     grew
@@ -729,15 +748,16 @@ class _MetaLine extends StatelessWidget {
 // =======================================================================
 
 enum _FundamentalsGroup {
-  valuation('valuation', 'Valuación'),
-  profitability('profitability', 'Rentabilidad'),
-  dividend('dividend', 'Dividendo'),
-  other('other', 'Otros');
+  valuation('valuation'),
+  profitability('profitability'),
+  dividend('dividend'),
+  other('other');
 
-  const _FundamentalsGroup(this.key, this.label);
+  const _FundamentalsGroup(this.key);
 
   final String key;
-  final String label;
+
+  String get label => 'qa_co_group_$key'.tr();
 
   static _FundamentalsGroup? fromKey(Object? key) {
     for (final g in values) {
@@ -908,13 +928,13 @@ class _Week52Block extends StatelessWidget {
             children: [
               Expanded(
                 child: QaStat(
-                  label: 'Mínimo',
+                  label: 'qa_co_min'.tr(),
                   value: QaFormat.price(range.low),
                 ),
               ),
               Expanded(
                 child: QaStat(
-                  label: 'Máximo',
+                  label: 'qa_co_max'.tr(),
                   value: QaFormat.price(range.high),
                   crossAxisAlignment: CrossAxisAlignment.end,
                 ),
@@ -924,7 +944,9 @@ class _Week52Block extends StatelessWidget {
         if (fromHigh != null && fromHigh < -0.05) ...[
           const SizedBox(height: 8),
           Text(
-            'A ${QaFormat.pct(fromHigh.abs())} del máximo',
+            'qa_co_from_high'.tr(
+              namedArgs: {'pct': QaFormat.pct(fromHigh.abs())},
+            ),
             style: QaText.caption,
           ),
         ],

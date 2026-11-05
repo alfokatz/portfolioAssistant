@@ -1,11 +1,11 @@
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
 
 /// Extrae bloques JSON válidos de respuestas verbosas de GPT-4o.
 abstract final class LlmJsonSanitizer {
-  static const defaultFallbackMessage =
-      'No pude procesar tu consulta. Intentá reformularla.';
+  static String get defaultFallbackMessage => 'qa_gu_fallback'.tr();
 
   /// Sanitiza [raw] extrayendo JSON parseable. Devuelve string vacío si no hay nada.
   static String sanitize(String raw) {
@@ -21,14 +21,14 @@ abstract final class LlmJsonSanitizer {
   static String sanitizeOrFallback(
     String raw, {
     required String surfaceId,
-    String fallbackMessage = defaultFallbackMessage,
+    String? fallbackMessage,
     String catalogId = A2uiResponseNormalizer.defaultCatalogId,
   }) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) {
       return A2uiResponseNormalizer.fallbackResponse(
         surfaceId,
-        fallbackMessage,
+        fallbackMessage ?? defaultFallbackMessage,
         catalogId: catalogId,
       );
     }
@@ -42,7 +42,7 @@ abstract final class LlmJsonSanitizer {
       final prose = plainText(trimmed);
       return A2uiResponseNormalizer.fallbackResponse(
         surfaceId,
-        prose ?? fallbackMessage,
+        prose ?? fallbackMessage ?? defaultFallbackMessage,
         catalogId: catalogId,
       );
     }

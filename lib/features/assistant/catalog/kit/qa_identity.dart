@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/company_brand.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
@@ -278,7 +279,9 @@ class QaTickerHeader extends StatelessWidget {
         );
         if (!tappable) return row;
         return QaTappable(
-          question: tapQuestion ?? '¿Cómo viene $ticker?',
+          question:
+              tapQuestion ??
+              'qa_followup_chart_q'.tr(namedArgs: {'ticker': ticker}),
           child: row,
         );
       },
@@ -530,7 +533,7 @@ class QaFollowUpBar extends StatelessWidget {
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              '1 análisis Gold gratis esta semana',
+                              'qa_followup_courtesy'.tr(),
                               style: QaText.caption,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -653,7 +656,12 @@ class _LockedChipState extends State<_LockedChip> {
     return Semantics(
       button: true,
       label:
-          'Desbloquear con ${feature == PlanFeature.heldNews ? 'Premium' : 'Gold'}: ${widget.item.label}',
+          'qa_unlock_with'.tr(
+            namedArgs: {
+              'plan': feature == PlanFeature.heldNews ? 'Premium' : 'Gold',
+              'label': widget.item.label,
+            },
+          ),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -750,8 +758,8 @@ abstract final class QaTickerFollowUps {
   /// El pedido de análisis completo de una empresa (ver `QaCompanyAnalysis`).
   /// Suelto para las cards que arman su propio menú (opciones de inversión).
   static QaFollowUp analysisFor(String ticker) => QaFollowUp(
-    'Análisis',
-    'Haceme un análisis de $ticker',
+    'qa_followup_analysis'.tr(),
+    'qa_followup_analysis_q'.tr(namedArgs: {'ticker': ticker}),
     icon: Icons.insights_rounded,
     feature: PlanFeature.companyAnalysis,
     ticker: ticker,
@@ -764,38 +772,38 @@ abstract final class QaTickerFollowUps {
         if (!exclude.contains(analysis)) analysisFor(ticker),
         if (!exclude.contains(chart))
           QaFollowUp(
-            'Gráfico',
-            '¿Cómo viene $ticker?',
+            'qa_followup_chart'.tr(),
+            'qa_followup_chart_q'.tr(namedArgs: {'ticker': ticker}),
             icon: Icons.show_chart_rounded,
           ),
         if (!exclude.contains(news))
           QaFollowUp(
-            'Noticias',
-            '¿Qué noticias hay de $ticker?',
+            'qa_followup_news'.tr(),
+            'qa_followup_news_q'.tr(namedArgs: {'ticker': ticker}),
             icon: Icons.article_outlined,
             feature: PlanFeature.news,
             ticker: ticker,
           ),
         if (!exclude.contains(earnings))
           QaFollowUp(
-            'Earnings',
-            '¿Cuándo reporta $ticker y cómo le fue el último trimestre?',
+            'qa_followup_earnings'.tr(),
+            'qa_followup_earnings_q'.tr(namedArgs: {'ticker': ticker}),
             icon: Icons.event_outlined,
             feature: PlanFeature.earnings,
             ticker: ticker,
           ),
         if (!exclude.contains(fundamentals))
           QaFollowUp(
-            'Fundamentals',
-            'Pasame los fundamentals de $ticker',
+            'qa_followup_fundamentals'.tr(),
+            'qa_followup_fundamentals_q'.tr(namedArgs: {'ticker': ticker}),
             icon: Icons.analytics_outlined,
             feature: PlanFeature.fundamentals,
             ticker: ticker,
           ),
         if (!exclude.contains(compare))
           QaFollowUp(
-            'vs. S&P 500',
-            'Compará $ticker con el S&P 500 (VOO)',
+            'qa_followup_vs_sp'.tr(),
+            'qa_followup_vs_sp_q'.tr(namedArgs: {'ticker': ticker}),
             icon: Icons.compare_arrows_rounded,
           ),
       ];

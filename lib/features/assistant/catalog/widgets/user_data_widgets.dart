@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:go_router/go_router.dart';
@@ -92,33 +93,33 @@ class _WatchlistBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaCardTitle(
-          title: 'Tu lista de seguimiento',
+          title: 'qa_ud_watchlist'.tr(),
           icon: Icons.visibility_outlined,
-          trailing: QaTag(QaFormat.plural(items.length, 'ticker', 'tickers')),
+          trailing: QaTag(QaFormat.units(items.length, 'qa_unit_tickers')),
         ),
         const SizedBox(height: QaSpace.sectionGap),
         for (final (i, item) in items.indexed) ...[
           if (i > 0) const SizedBox(height: QaSpace.rowGap),
           QaTappable(
-            question: '¿Qué está pasando con ${item.ticker}?',
+            question: 'qa_ud_watch_q'.tr(namedArgs: {'ticker': item.ticker}),
             child: _WatchRow(item: item),
           ),
         ],
-        const _OpenLink(
-          label: 'Ver mi lista',
+        _OpenLink(
+          label: 'qa_ud_view_list'.tr(),
           routeName: WatchlistRouter.routeName,
         ),
         QaFollowUpBar(
           surfaceId: ctx.surfaceId,
-          items: const [
+          items: [
             QaFollowUp(
-              'Seguir otra',
-              'Quiero seguir otra acción',
+              'qa_ud_follow_other'.tr(),
+              'qa_ud_follow_other_q'.tr(),
               icon: Icons.add_rounded,
             ),
             QaFollowUp(
-              'Alerta de precio',
-              'Quiero una alerta de precio para una de mi lista',
+              'qa_ud_alert'.tr(),
+              'qa_ud_alert_q'.tr(),
               icon: Icons.notifications_active_outlined,
             ),
           ],
@@ -165,8 +166,11 @@ class _WatchRow extends StatelessWidget {
                     Text(
                       since == null
                           ? (brand.name ?? '')
-                          : '${QaFormat.signedPct(since, digits: 1)} desde '
-                              'que la agregaste',
+                          : 'qa_ud_since_added'.tr(
+                            namedArgs: {
+                              'pct': QaFormat.signedPct(since, digits: 1),
+                            },
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: QaText.label.copyWith(
@@ -210,22 +214,10 @@ class _WeeklyReportBody extends StatelessWidget {
   /// "Semana del 19 de octubre".
   String get _week {
     final d = DateTime.tryParse(data.weekStart);
-    if (d == null) return 'Esta semana';
-    const months = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
-    ];
-    return 'Semana del ${d.day} de ${months[d.month - 1]}';
+    if (d == null) return 'qa_ud_this_week'.tr();
+    return 'qa_ud_week_of'.tr(
+      namedArgs: {'day': '${d.day}', 'month': 'qa_month_long_${d.month}'.tr()},
+    );
   }
 
   @override
@@ -237,7 +229,7 @@ class _WeeklyReportBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaCardTitle(
-          title: 'Tu informe semanal',
+          title: 'qa_ud_weekly_title'.tr(),
           icon: Icons.auto_awesome_outlined,
           subtitle: _week,
         ),
@@ -251,7 +243,9 @@ class _WeeklyReportBody extends StatelessWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'S&P 500: ${QaFormat.signedPct(sp, digits: 1)}',
+                  'qa_ud_sp500'.tr(
+                    namedArgs: {'pct': QaFormat.signedPct(sp, digits: 1)},
+                  ),
                   style: QaText.label,
                 ),
               ),
@@ -260,7 +254,7 @@ class _WeeklyReportBody extends StatelessWidget {
         ),
         if (movers.isNotEmpty)
           QaSection(
-            title: 'Lo que más se movió',
+            title: 'qa_ud_top_movers'.tr(),
             child: Column(
               children: [
                 for (final (i, m) in movers.indexed) ...[
@@ -295,11 +289,11 @@ class _WeeklyReportBody extends StatelessWidget {
           ),
         if (reading != null && reading.trim().isNotEmpty)
           QaSection(
-            title: 'Lo que dice Porty',
+            title: 'qa_ud_porty_says'.tr(),
             child: Text(reading, style: QaText.body),
           ),
-        const _OpenLink(
-          label: 'Ver el informe completo',
+        _OpenLink(
+          label: 'qa_ud_view_report'.tr(),
           routeName: WeeklyReportRouter.routeName,
         ),
       ],

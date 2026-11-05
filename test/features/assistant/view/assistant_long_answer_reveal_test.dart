@@ -430,7 +430,9 @@ void main() {
         reason: '$ticker must slide up into place while it fades in',
       );
     }
-    expect(find.text('assistant_advice_disclaimer'), findsOneWidget);
+    expect(find.text(
+        'Sugerencia informativa, no asesoramiento financiero personalizado.',
+      ), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -881,13 +883,13 @@ void main() {
       );
       // Gold: las preguntas de una posición, arriba del campo (en una fila
       // que se desliza: se ve la primera).
-      expect(find.text('porty_ask_position_why_moved'), findsOneWidget);
+      expect(find.textContaining('¿Por qué se movió'), findsOneWidget);
 
       await send(tester, '¿Por qué bajó?');
       await runTurn(tester, screen);
       expect(find.text('NVDA bajó 2 % hoy.'), findsOneWidget);
       // Ya preguntó: las preguntas de la pantalla se van.
-      expect(find.text('porty_ask_position_why_moved'), findsNothing);
+      expect(find.textContaining('¿Por qué se movió'), findsNothing);
       final pinned = (screen.api.requests.single['messages'] as List)[1] as Map;
       final text = (pinned['content'] as List).first['text'] as String;
       expect(text, contains('"screen":"position_detail"'));

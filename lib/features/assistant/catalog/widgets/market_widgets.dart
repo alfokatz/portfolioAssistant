@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
@@ -42,7 +43,7 @@ abstract final class MarketWidgets {
           style: QaText.display,
         ),
         const SizedBox(height: 4),
-        Text('Precio actual', style: QaText.label),
+        Text('qa_mk_current_price'.tr(), style: QaText.label),
         // Del número protagonista al detalle: salto de sección, sin línea.
         if (data.periods.isNotEmpty) ...[
           const SizedBox(height: QaSpace.sectionGap),
@@ -127,10 +128,16 @@ abstract final class MarketWidgets {
             child: QaStatGrid(
               columns: 3,
               stats: [
-                QaStat(label: 'Inicio', value: QaFormat.price(data.priceStart)),
-                QaStat(label: 'Cierre', value: QaFormat.price(data.priceEnd)),
                 QaStat(
-                  label: 'Diferencia',
+                  label: 'qa_mk_start'.tr(),
+                  value: QaFormat.price(data.priceStart),
+                ),
+                QaStat(
+                  label: 'qa_mk_end'.tr(),
+                  value: QaFormat.price(data.priceEnd),
+                ),
+                QaStat(
+                  label: 'qa_mk_diff'.tr(),
                   value: QaFormat.signedPrice(data.priceEnd - data.priceStart),
                   valueColor: QaPalette.trend(data.priceEnd - data.priceStart),
                 ),
@@ -203,7 +210,9 @@ abstract final class MarketWidgets {
 
   static Widget _compareFallback(_CompareChartData data) {
     final range = QaCompareChart.supportedRange(data.initialRange);
-    final subtitle = 'Variación · ${QaMarketParts.rangeSummaryLabel(range)}';
+    final subtitle = 'qa_mk_change_range'.tr(
+      namedArgs: {'range': QaMarketParts.rangeSummaryLabel(range)},
+    );
     if (data.items.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -212,7 +221,7 @@ abstract final class MarketWidgets {
           CompareHeader(tickers: data.tickers, subtitle: subtitle),
           const SizedBox(height: QaSpace.gap),
           Text(
-            'No hay histórico de precios para comparar en este momento.',
+            'qa_mk_no_history'.tr(),
             style: QaText.label,
           ),
         ],
@@ -239,7 +248,7 @@ abstract final class MarketWidgets {
     final periodLabel = QaMarketParts.capitalize(data.periodLabel);
     if (data.items.isEmpty) {
       return QaCardShell(
-        child: Text('Sin datos para comparar.', style: QaText.label),
+        child: Text('qa_mk_no_data'.tr(), style: QaText.label),
       );
     }
     return QaCardShell(
@@ -249,8 +258,10 @@ abstract final class MarketWidgets {
                 items: data.items,
                 subtitle:
                     periodLabel.isEmpty
-                        ? 'Variación de precio'
-                        : 'Variación · $periodLabel',
+                        ? 'qa_mk_price_change'.tr()
+                        : 'qa_mk_change_range'.tr(
+                          namedArgs: {'range': periodLabel},
+                        ),
               )
               : _MetricColumns(items: data.items),
     );
@@ -279,7 +290,7 @@ abstract final class MarketWidgets {
             signed: signed,
             share: share(number),
             isWinner: winner == index,
-            winnerLabel: signed ? 'Mejor' : 'Mayor',
+            winnerLabel: signed ? 'qa_mk_best'.tr() : 'qa_mk_higher'.tr(),
           ),
         );
 
@@ -294,7 +305,7 @@ abstract final class MarketWidgets {
         mainAxisSize: MainAxisSize.min,
         children: [
           QaCardTitle(
-            title: data.label.isEmpty ? 'Comparación' : data.label,
+            title: data.label.isEmpty ? 'qa_mk_comparison'.tr() : data.label,
             icon: Icons.compare_arrows_rounded,
             subtitle: data.metricLabel,
           ),
@@ -310,15 +321,16 @@ abstract final class MarketWidgets {
             QaFollowUpBar(
               items: [
                 QaFollowUp(
-                  'Gráfico comparado',
-                  'Compará el rendimiento de ${tickers[0]} y ${tickers[1]} '
-                      'en el último año',
+                  'qa_mk_compare_chart'.tr(),
+                  'qa_mk_compare_chart_q'.tr(
+                    namedArgs: {'a': tickers[0], 'b': tickers[1]},
+                  ),
                   icon: Icons.stacked_line_chart_rounded,
                 ),
                 for (final t in tickers)
                   QaFollowUp(
-                    'Noticias de $t',
-                    '¿Qué noticias hay de $t?',
+                    'qa_mk_news_of'.tr(namedArgs: {'ticker': t}),
+                    'qa_followup_news_q'.tr(namedArgs: {'ticker': t}),
                     icon: Icons.article_outlined,
                     feature: PlanFeature.news,
                     ticker: t,
@@ -410,7 +422,9 @@ class _TickerComparisonList extends StatelessWidget {
               height: QaSpace.rowGap - 2 * _TickerCompareRow.verticalPadding,
             ),
           QaTappable(
-            question: '¿Cómo viene ${items[k].label}?',
+            question: 'qa_followup_chart_q'.tr(
+              namedArgs: {'ticker': items[k].label},
+            ),
             child: _TickerCompareRow(
               item: items[k],
               share:
@@ -425,9 +439,12 @@ class _TickerComparisonList extends StatelessWidget {
           QaFollowUpBar(
             items: [
               QaFollowUp(
-                'Gráfico 1 año',
-                'Compará el rendimiento de ${tickers.take(3).join(' y ')} '
-                    'en el último año',
+                'qa_mk_chart_1y'.tr(),
+                'qa_mk_chart_1y_q'.tr(
+                  namedArgs: {
+                    'tickers': tickers.take(3).join(' ${'qa_and_word'.tr()} '),
+                  },
+                ),
                 icon: Icons.stacked_line_chart_rounded,
               ),
               ...compareFollowUps(tickers).take(2),
@@ -500,7 +517,7 @@ class _TickerCompareRow extends StatelessWidget {
                               ),
                               if (isLeader) ...[
                                 const SizedBox(width: 6),
-                                QaTag('Lidera', color: QaColors.accentBlue),
+                                QaTag('qa_mk_leads'.tr(), color: QaColors.accentBlue),
                               ],
                             ],
                           ),
@@ -601,7 +618,10 @@ class _ComparisonSide extends StatelessWidget {
     final n = number;
     final color = signed && n != null && n != 0 ? QaPalette.trend(n) : null;
     return QaTappable(
-      question: ticker.isEmpty ? null : '¿Cómo viene $ticker?',
+      question:
+          ticker.isEmpty
+              ? null
+              : 'qa_followup_chart_q'.tr(namedArgs: {'ticker': ticker}),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -706,9 +726,9 @@ final class _TickerSnapshotData {
         defaultValue: 0,
       ),
       periods: [
-        if (day != null) ('Día', day),
-        if (week != null) ('Semana', week),
-        if (month != null) ('Mes', month),
+        if (day != null) ('qa_mk_day'.tr(), day),
+        if (week != null) ('qa_mk_week'.tr(), week),
+        if (month != null) ('qa_mk_month'.tr(), month),
       ],
       weightPct: GenUiHelpers.safeDouble(map['weightPct'], defaultValue: 0),
     );

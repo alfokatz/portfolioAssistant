@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
@@ -115,10 +116,10 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
                 Expanded(
                   child: Text(
                     _justSaved == null
-                        ? 'Meta guardada en Metas'
+                        ? 'qa_goal_scope_saved'.tr()
                         : _updated
-                        ? 'Meta actualizada en Metas'
-                        : 'Meta creada en Metas',
+                        ? 'qa_goal_scope_updated'.tr()
+                        : 'qa_goal_scope_created'.tr(),
                     style: QaText.label.copyWith(
                       color: QaColors.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -126,7 +127,7 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
                   ),
                 ),
                 Text(
-                  'Ver',
+                  'qa_goal_scope_view'.tr(),
                   style: QaText.label.copyWith(
                     color: QaColors.accentBlue,
                     fontWeight: FontWeight.w600,
@@ -149,10 +150,10 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
         children: [
           Text(
             updates
-                ? '¿Te sirve? Confirmá y actualizo tu meta '
-                    '"${widget.draft.label}" en Metas.'
-                : '¿Te sirve este plan? Confirmalo y creo la meta en Metas: '
-                    'ahí vas a ver cuánto llevás y si vas al día.',
+                ? 'qa_goal_scope_confirm_update_hint'.tr(
+                  namedArgs: {'label': widget.draft.label},
+                )
+                : 'qa_goal_scope_confirm_create_hint'.tr(),
             style: QaText.caption,
           ),
           const SizedBox(height: 8),
@@ -169,7 +170,9 @@ class _QaSaveGoalButtonState extends State<QaSaveGoalButton> {
                     )
                     : const Icon(Icons.flag_rounded, size: 18),
             label: Text(
-              updates ? 'Confirmar y actualizar meta' : 'Confirmar y crear meta',
+              updates
+                  ? 'qa_goal_scope_confirm_update'.tr()
+                  : 'qa_goal_scope_confirm_create'.tr(),
               style: QaText.label.copyWith(
                 color: QaColors.onAccent,
                 fontWeight: FontWeight.w700,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
@@ -132,13 +133,17 @@ abstract final class AssistantAnswerReview {
 
   static final _promise = RegExp(
     r'\b(voy a|d[eé]jame|ahora)\s+(revisar|consultar|fijarme|mirar|buscar|'
-    r'chequear|ver)\b',
+    r'chequear|ver)\b'
+    r"|\b(let\s+me|i'll|i\s+will|i'm\s+going\s+to|i\s+am\s+going\s+to)\s+"
+    r'(check|look\s+(it\s+)?up|look\s+into|look\s+at|search|review|find\s+out|pull\s+up)\b',
     caseSensitive: false,
   );
 
   static final _actionClaim = RegExp(
     r'prepar[eé]\s+(la|una|tu)\s+(operaci[oó]n|compra|venta|alerta)|'
-    r'revisal[ao]\s+y\s+confirmal[ao]',
+    r'revisal[ao]\s+y\s+confirmal[ao]|'
+    r"\bi(?:'ve|\s+have)?\s+prepared\s+(the|a|an|your)\s+(operation|order|purchase|buy|sale|sell|alert|trade)|"
+    r'review\s+(it\s+)?and\s+confirm',
     caseSensitive: false,
   );
 
@@ -366,7 +371,7 @@ abstract final class AssistantAnswerReview {
       list.add({
         'id': id,
         'component': 'QaAnswerText',
-        'text': 'Este es el análisis de ${analysis.first['ticker']}.',
+        'text': _describe(analysis.first, _languageOf(analysis.first)),
       });
       root['children'] = [id, ...(root['children'] as List)];
       changed = true;
@@ -402,7 +407,10 @@ abstract final class AssistantAnswerReview {
         if (c['component'] != 'QaAnswerText' || c['text'] is! String) continue;
         final text = c['text'] as String;
         final cleaned = AnalysisProseCheck.clean(text, planBacking);
-        final next = cleaned.isNotEmpty ? cleaned : _fallbackIntro(components);
+        final next =
+            cleaned.isNotEmpty
+                ? cleaned
+                : _fallbackIntro(components, AppLanguage.detect(text));
         if (next != text) {
           c['text'] = next;
           changed = true;
@@ -419,7 +427,10 @@ abstract final class AssistantAnswerReview {
           text,
           (s) => AnalysisProseCheck.repeatedNumbers(s, widgetNumbers) == 0,
         );
-        final next = kept.isNotEmpty ? kept : _fallbackIntro(components);
+        final next =
+            kept.isNotEmpty
+                ? kept
+                : _fallbackIntro(components, AppLanguage.detect(text));
         if (next != text) {
           c['text'] = next;
           changed = true;
@@ -853,100 +864,190 @@ abstract final class AssistantAnswerReview {
   /// Si se sacaron todas las oraciones de la intro: una que explica qué
   /// muestra la card de abajo y cómo leerla, sin datos. Nunca un "esto es
   /// lo que encontré" vacío.
-  static String _fallbackIntro(List<Map<String, dynamic>> components) {
+  static String _fallbackIntro(
+    List<Map<String, dynamic>> components,
+    String language,
+  ) {
     for (final c in components) {
       if (_nonData.contains(c['component'])) continue;
-      final intro = _describe(c);
+      final intro = _describe(c, language);
       if (intro != null) return intro;
     }
-    return 'Te dejo el detalle abajo.';
+    return language == 'en'
+        ? 'Here are the details below.'
+        : 'Te dejo el detalle abajo.';
   }
 
-  static String? _describe(Map<String, dynamic> c) {
+  /// El idioma de una card por el texto que escribió el modelo en ella (o
+  /// el de la app si no escribió nada).
+  static String _languageOf(Map<String, dynamic> c) =>
+      AppLanguage.detect(_prose(c).join(' '));
+
+  static String? _describe(Map<String, dynamic> c, String language) {
+    final en = language == 'en';
+    String t(String es, String english) => en ? english : es;
     final rawTicker = c['ticker'];
     final ticker =
         rawTicker is String && rawTicker.trim().isNotEmpty
             ? rawTicker.trim().toUpperCase()
             : null;
-    final of = ticker ?? 'la acción';
+    final of = ticker ?? t('la acción', 'the stock');
     return switch (c['component']) {
-      'QaCompanyAnalysis' => 'Este es el análisis de $of.',
-      'QaTickerSnapshot' =>
+      'QaCompanyAnalysis' => t(
+        'Este es el análisis de $of.',
+        'Here is the analysis of $of.',
+      ),
+      'QaTickerSnapshot' => t(
         'Este es el precio actual de $of y cómo se movió en el día, la semana '
             'y el mes.',
-      'QaTickerMove' =>
+        "Here is $of's current price and how it moved over the day, the "
+            'week and the month.',
+      ),
+      'QaTickerMove' => t(
         'Así se movió el precio de $of en el período que pediste, del '
             'inicio al cierre.',
-      'QaPriceChart' =>
+        "This is how $of's price moved over the period you asked about, "
+            'from start to close.',
+      ),
+      'QaPriceChart' => t(
         'Este es el gráfico de precio de $of; podés cambiar el período '
             'desde el mismo gráfico.',
-      'QaCompareChart' =>
+        "Here is $of's price chart; you can change the period right on the "
+            'chart.',
+      ),
+      'QaCompareChart' => t(
         'Este gráfico compara cuánto subió o bajó cada una desde el inicio '
             'del período, en porcentaje.',
-      'QaMetricStrip' =>
+        'This chart compares how much each one rose or fell since the start '
+            'of the period, in percent.',
+      ),
+      'QaMetricStrip' => t(
         'Comparé lado a lado cómo se movió el precio de cada una en el '
             'período.',
-      'QaComparisonRow' =>
+        'I compared side by side how the price of each one moved over the '
+            'period.',
+      ),
+      'QaComparisonRow' => t(
         'Comparé ${c['leftTicker'] ?? 'las dos'} y '
             '${c['rightTicker'] ?? 'la otra'} lado a lado; se resalta la '
             'mayor.',
-      'QaPositionsSnapshot' =>
+        'I compared ${c['leftTicker'] ?? 'both'} and '
+            '${c['rightTicker'] ?? 'the other'} side by side; the larger one '
+            'is highlighted.',
+      ),
+      'QaPositionsSnapshot' => t(
         'Esta es la foto actual de tus posiciones: cuánto valen hoy y cuánto '
             'ganaste o perdiste desde la compra.',
-      'QaPeriodChange' =>
+        'Here is a snapshot of your holdings: what they are worth today and '
+            'how much you gained or lost since you bought them.',
+      ),
+      'QaPeriodChange' => t(
         'Así cambió el valor de tu portfolio en el período que pediste.',
-      'QaTopMovers' =>
+        'This is how the value of your portfolio changed over the period you '
+            'asked about.',
+      ),
+      'QaTopMovers' => t(
         'Comparé tus posiciones: a la izquierda la que mejor le fue y a la '
             'derecha la que peor.',
-      'QaConcentrationBar' =>
+        'I compared your holdings: the best performer on the left and the '
+            'worst on the right.',
+      ),
+      'QaConcentrationBar' => t(
         'Esto muestra qué parte de tu portfolio ocupa cada acción, de mayor '
             'a menor.',
-      'QaPnLBreakdown' =>
+        'This shows how much of your portfolio each stock takes up, from '
+            'largest to smallest.',
+      ),
+      'QaPnLBreakdown' => t(
         'Este desglose va de lo que invertiste a lo que vale hoy, y el '
             'resultado entre ambos.',
-      'QaPositionList' =>
+        'This breakdown goes from what you invested to what it is worth '
+            'today, and the result in between.',
+      ),
+      'QaPositionList' => t(
         'Estas son tus posiciones, ordenadas por cuánto pesan en tu '
             'portfolio.',
-      'QaClosedPositionList' =>
+        'These are your holdings, sorted by how much they weigh in your '
+            'portfolio.',
+      ),
+      'QaClosedPositionList' => t(
         'Estas son tus posiciones cerradas y lo que ganaste o perdiste en '
             'cada una.',
-      'QaFundamentals' =>
+        'These are your closed positions and what you gained or lost on '
+            'each one.',
+      ),
+      'QaFundamentals' => t(
         'Estos son los indicadores de $of que tienen que ver con tu pregunta.',
-      'QaEtfHoldings' =>
+        "These are $of's metrics that relate to your question.",
+      ),
+      'QaEtfHoldings' => t(
         'Estas son las principales posiciones de ${ticker ?? 'el fondo'}, con '
             'cuánto pesa cada una, y cómo se reparte entre sectores.',
-      'QaWatchlist' =>
+        'These are the top holdings of ${ticker ?? 'the fund'}, how much '
+            'each one weighs, and how it splits across sectors.',
+      ),
+      'QaWatchlist' => t(
         'Esta es tu lista de seguimiento: precio de hoy, el día y cuánto '
             'cambió cada una desde que la agregaste.',
-      'QaWeeklyReport' =>
+        "Here is your watchlist: today's price, the day's move and how much "
+            'each one changed since you added it.',
+      ),
+      'QaWeeklyReport' => t(
         'Este es tu informe de la semana: cuánto se movió tu cartera, lo que '
             'más la movió y lo que dice Porty.',
-      'QaAllocationPlan' =>
+        'Here is your weekly report: how much your portfolio moved, what '
+            'moved it the most and what Porty has to say.',
+      ),
+      'QaAllocationPlan' => t(
         'Este es tu plan de cartera contra cómo está hoy tu cartera; si '
             'pediste repartir un aporte, cuánto va a cada una.',
-      'QaEarningsCalendar' =>
+        'Here is your portfolio plan next to how your portfolio looks today; '
+            'if you asked to split a contribution, how much goes to each.',
+      ),
+      'QaEarningsCalendar' => t(
         'Esto resume los resultados de $of: su próximo reporte y cómo le fue '
             'frente a lo que esperaba el mercado.',
-      'QaNewsSummary' =>
+        "This sums up $of's earnings: its next report and how it did "
+            'against what the market expected.',
+      ),
+      'QaNewsSummary' => t(
         'Estos son los titulares más recientes de $of, cada uno resumido en '
             'una línea.',
-      'QaInvestOption' =>
+        "These are $of's latest headlines, each summed up in one line.",
+      ),
+      'QaInvestOption' => t(
         'Estas son algunas ideas para mirar, cada una con su a favor, su en '
             'contra y qué tan bien encaja con tu perfil.',
-      'QaBudgetSplit' =>
+        'Here are a few ideas to look at, each with its pros, its cons and '
+            'how well it fits your profile.',
+      ),
+      'QaBudgetSplit' => t(
         'Así se podría repartir el presupuesto entre estas acciones, a modo '
             'de ejemplo.',
-      'QaInvestConfirm' =>
+        'This is one way the budget could be split across these stocks, as '
+            'an example.',
+      ),
+      'QaInvestConfirm' => t(
         'Este es el resumen de la simulación; no se hace ninguna operación '
             'real.',
-      'QaBuyPlan' =>
+        'Here is the summary of the simulation; no real trade is placed.',
+      ),
+      'QaBuyPlan' => t(
         'Esta es una compra mensual de ejemplo: cuánto iría a cada '
             'instrumento y cuánto rinde cada uno.',
-      'QaSavingsPlan' =>
+        'Here is a sample monthly buy: how much would go to each instrument '
+            'and what each one yields.',
+      ),
+      'QaSavingsPlan' => t(
         'Este es tu plan: cuánto ahorrar por mes, cómo crecería con los '
             'intereses y en qué invertir según tu perfil.',
-      'QaActionProposal' =>
+        'Here is your plan: how much to save each month, how it would grow '
+            'with returns and what to invest in for your profile.',
+      ),
+      'QaActionProposal' => t(
         'Revisá los datos y confirmá para guardarlo en tu cartera.',
+        'Check the details and confirm to save it to your portfolio.',
+      ),
       _ => null,
     };
   }

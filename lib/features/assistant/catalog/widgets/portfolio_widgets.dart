@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
@@ -34,10 +35,10 @@ abstract final class PortfolioWidgets {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           QaSectionLabel(
-            'Tu portfolio',
+            'qa_pf_title'.tr(),
             trailing:
                 count > 0
-                    ? QaTag(QaFormat.plural(count, 'posición', 'posiciones'))
+                    ? QaTag(QaFormat.units(count, 'qa_unit_positions'))
                     : null,
           ),
           const SizedBox(height: 10),
@@ -54,7 +55,7 @@ abstract final class PortfolioWidgets {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'desde la compra',
+                  'qa_pf_since_purchase'.tr(),
                   style: QaText.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -77,21 +78,21 @@ abstract final class PortfolioWidgets {
               children: [for (final s in allocation) _AllocationLegend(s)],
             ),
           ],
-          const QaFollowUpBar(
+          QaFollowUpBar(
             items: [
               QaFollowUp(
-                'Este mes',
-                '¿Cuánto gané este mes?',
+                'qa_fu_this_month'.tr(),
+                'qa_fu_this_month_q'.tr(),
                 icon: Icons.calendar_month_outlined,
               ),
               QaFollowUp(
-                'Concentración',
-                '¿Estoy muy concentrado?',
+                'qa_fu_concentration'.tr(),
+                'qa_fu_concentration_q'.tr(),
                 icon: Icons.pie_chart_outline_rounded,
               ),
               QaFollowUp(
-                'Movers de hoy',
-                '¿Qué acciones se movieron más hoy?',
+                'qa_fu_movers_today'.tr(),
+                'qa_fu_movers_today_q'.tr(),
                 icon: Icons.swap_vert_rounded,
               ),
             ],
@@ -148,7 +149,9 @@ abstract final class PortfolioWidgets {
             ? QaColors.textPrimary
             : QaPalette.trend(data.changeAbs);
     final hasRange = data.valueStart > 0 && data.valueEnd > 0;
-    final label = data.periodLabel.isEmpty ? 'En el período' : data.periodLabel;
+    final label = data.periodLabel.isEmpty
+            ? 'qa_pf_in_period'.tr()
+            : data.periodLabel;
     // El cambio no cuenta como ganancia la plata que entró o salió en el
     // período, pero "Al inicio" y "Ahora" sí la incluyen: sin decirlo, la
     // card mostraba 5.605 → 6.568 con "-37 $".
@@ -186,7 +189,7 @@ abstract final class PortfolioWidgets {
               children: [
                 Expanded(
                   child: QaStat(
-                    label: 'Al inicio',
+                    label: 'qa_pf_at_start'.tr(),
                     value: QaFormat.money(data.valueStart),
                   ),
                 ),
@@ -197,7 +200,7 @@ abstract final class PortfolioWidgets {
                 ),
                 Expanded(
                   child: QaStat(
-                    label: 'Ahora',
+                    label: 'qa_pf_now'.tr(),
                     value: QaFormat.money(data.valueEnd),
                     crossAxisAlignment: CrossAxisAlignment.end,
                   ),
@@ -209,10 +212,12 @@ abstract final class PortfolioWidgets {
             const SizedBox(height: 8),
             Text(
               flows > 0
-                  ? 'Incluye ${QaFormat.money(flows)} que sumaste en el '
-                      'período: no cuentan como ganancia.'
-                  : 'Incluye ${QaFormat.money(-flows)} que retiraste en el '
-                      'período: no cuentan como pérdida.',
+                  ? 'qa_pf_flows_in'.tr(
+                    namedArgs: {'amount': QaFormat.money(flows)},
+                  )
+                  : 'qa_pf_flows_out'.tr(
+                    namedArgs: {'amount': QaFormat.money(-flows)},
+                  ),
               style: QaText.caption,
             ),
           ],
@@ -220,18 +225,22 @@ abstract final class PortfolioWidgets {
         QaFollowUpBar(
           items: [
             QaFollowUp(
-              'Por qué',
-              '¿Por qué se movió mi portfolio ${_inPeriod(data.periodLabel)}?',
+              'qa_fu_why_period'.tr(),
+              'qa_fu_why_period_q'.tr(
+                namedArgs: {'period': _inPeriod(data.periodLabel)},
+              ),
               icon: Icons.help_outline_rounded,
             ),
             QaFollowUp(
-              'Qué subió más',
-              '¿Cuál de mis acciones subió más ${_inPeriod(data.periodLabel)}?',
+              'qa_fu_rose_most'.tr(),
+              'qa_fu_rose_most_q'.tr(
+                namedArgs: {'period': _inPeriod(data.periodLabel)},
+              ),
               icon: Icons.swap_vert_rounded,
             ),
-            const QaFollowUp(
-              'Total',
-              '¿Cómo está mi portfolio?',
+            QaFollowUp(
+              'qa_fu_total'.tr(),
+              'qa_fu_total_q'.tr(),
               icon: Icons.account_balance_wallet_outlined,
             ),
           ],
@@ -254,17 +263,25 @@ abstract final class PortfolioWidgets {
   /// naturales con el label que copia el modelo de `label_es`.
   static String _inPeriod(String label) {
     final l = label.trim().toLowerCase();
-    if (l.isEmpty) return 'en este período';
+    if (l.isEmpty) return 'qa_in_period_default'.tr();
     if (l.startsWith('últimos ') || l.startsWith('ultimos ')) {
-      return 'en los $l';
+      return 'qa_in_period_the_plural'.tr(namedArgs: {'label': l});
     }
-    if (l.startsWith('último ') || l.startsWith('ultimo ')) {
-      return 'en el $l';
+    if (l.startsWith('último ') ||
+        l.startsWith('ultimo ') ||
+        l.startsWith('last ') ||
+        l.startsWith('past ')) {
+      return 'qa_in_period_the'.tr(namedArgs: {'label': l});
     }
-    if (l.startsWith('est') || l.startsWith('hoy') || l.startsWith('en ')) {
+    if (l.startsWith('est') ||
+        l.startsWith('hoy') ||
+        l.startsWith('en ') ||
+        l.startsWith('this') ||
+        l.startsWith('today') ||
+        l.startsWith('in ')) {
       return l;
     }
-    return 'en $l';
+    return 'qa_in_period_plain'.tr(namedArgs: {'label': l});
   }
 
   /// Ventana del período a partir del label (los `label_es` del tool son un
@@ -273,13 +290,21 @@ abstract final class PortfolioWidgets {
   static Duration? _lookbackFromLabel(String label) {
     final l = label.toLowerCase();
     final days = int.tryParse(
-      RegExp(r'(\d+)\s*d[ií]as').firstMatch(l)?[1] ?? '',
+      RegExp(r'(\d+)\s*(?:d[ií]as|days)').firstMatch(l)?[1] ?? '',
     );
     if (days != null && days >= 5) return Duration(days: days);
-    if (l.contains('semana')) return const Duration(days: 7);
-    if (l.contains('trimestre')) return const Duration(days: 90);
-    if (l.contains('mes')) return const Duration(days: 30);
-    if (l.contains('año')) return const Duration(days: 365);
+    if (l.contains('semana') || l.contains('week')) {
+      return const Duration(days: 7);
+    }
+    if (l.contains('trimestre') || l.contains('quarter')) {
+      return const Duration(days: 90);
+    }
+    if (l.contains('mes') || l.contains('month')) {
+      return const Duration(days: 30);
+    }
+    if (l.contains('año') || l.contains('year')) {
+      return const Duration(days: 365);
+    }
     return null;
   }
 
@@ -306,14 +331,14 @@ abstract final class PortfolioWidgets {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           QaCardTitle(
-            title: data.title.isEmpty ? 'Concentración' : data.title,
+            title: data.title.isEmpty ? 'qa_fu_concentration'.tr() : data.title,
             icon: Icons.pie_chart_outline_rounded,
             trailing: items.isEmpty ? null : severity,
           ),
           const SizedBox(height: QaSpace.sectionGap),
           if (top == null)
             Text(
-              'No hay posiciones para medir la concentración.',
+              'qa_pf_no_positions_concentration'.tr(),
               style: QaText.label,
             )
           else
@@ -358,16 +383,16 @@ abstract final class PortfolioWidgets {
                 ),
               ],
             ),
-          const QaFollowUpBar(
+          QaFollowUpBar(
             items: [
               QaFollowUp(
-                'Diversificar',
-                '¿Cómo puedo diversificar?',
+                'qa_fu_diversify'.tr(),
+                'qa_fu_diversify_q'.tr(),
                 icon: Icons.call_split_rounded,
               ),
               QaFollowUp(
-                'Mis posiciones',
-                '¿Qué posiciones tengo?',
+                'qa_fu_my_positions'.tr(),
+                'qa_fu_my_positions_q'.tr(),
                 icon: Icons.list_alt_rounded,
               ),
             ],
@@ -382,13 +407,13 @@ abstract final class PortfolioWidgets {
   static Widget _concentrationSeverity(double topWeight) {
     if (topWeight >= 40) {
       return QaTag(
-        'Alta concentración',
+        'qa_pf_conc_high'.tr(),
         color: QaColors.accentBlue,
         icon: Icons.error_outline_rounded,
       );
     }
-    if (topWeight >= 25) return const QaTag('Concentración moderada');
-    return QaTag('Bien repartido', color: QaColors.profit);
+    if (topWeight >= 25) return QaTag('qa_pf_conc_moderate'.tr());
+    return QaTag('qa_pf_conc_balanced'.tr(), color: QaColors.profit);
   }
 
   /// Invertido → valor actual → resultado, como una barra: el tramo neutro
@@ -406,7 +431,9 @@ abstract final class PortfolioWidgets {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          QaSectionLabel(data.title.isEmpty ? 'Resultado' : data.title),
+          QaSectionLabel(
+            data.title.isEmpty ? 'qa_pf_result'.tr() : data.title,
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -443,7 +470,7 @@ abstract final class PortfolioWidgets {
               Expanded(
                 child: _LegendStat(
                   color: neutral,
-                  label: 'Invertido',
+                  label: 'qa_pf_invested'.tr(),
                   value: QaFormat.money(data.costBasis),
                 ),
               ),
@@ -451,29 +478,29 @@ abstract final class PortfolioWidgets {
                 child: _LegendStat(
                   color:
                       gain >= 0 ? trend : QaColors.loss.withValues(alpha: 0.35),
-                  label: gain >= 0 ? 'Ganancia' : 'Pérdida',
+                  label: gain >= 0 ? 'qa_pf_gain'.tr() : 'qa_pf_loss'.tr(),
                   value: QaFormat.money(delta),
                 ),
               ),
               Expanded(
                 child: QaStat(
-                  label: 'Valor actual',
+                  label: 'qa_pf_current_value'.tr(),
                   value: QaFormat.money(data.currentValue),
                   crossAxisAlignment: CrossAxisAlignment.end,
                 ),
               ),
             ],
           ),
-          const QaFollowUpBar(
+          QaFollowUpBar(
             items: [
               QaFollowUp(
-                'Este mes',
-                '¿Cuánto gané este mes?',
+                'qa_fu_this_month'.tr(),
+                'qa_fu_this_month_q'.tr(),
                 icon: Icons.calendar_month_outlined,
               ),
               QaFollowUp(
-                'Mejor posición',
-                '¿Cuál es mi mejor posición?',
+                'qa_fu_best_position'.tr(),
+                'qa_fu_best_position_q'.tr(),
                 icon: Icons.emoji_events_outlined,
               ),
             ],
@@ -491,9 +518,11 @@ abstract final class PortfolioWidgets {
     final metricLabel =
         data.best.isPeriodChange || data.worst.isPeriodChange
             ? (data.periodLabel.isEmpty
-                ? 'Variación del período'
-                : 'Variación · ${data.periodLabel}')
-            : 'Rendimiento total';
+                ? 'qa_pf_period_change'.tr()
+                : 'qa_pf_period_change_label'.tr(
+                  namedArgs: {'period': data.periodLabel},
+                ))
+            : 'qa_pf_total_return'.tr();
     final range =
         data.best.isPeriodChange
             ? _rangeFromLabel(data.periodLabel)
@@ -507,14 +536,14 @@ abstract final class PortfolioWidgets {
     final tiles = [
       if (data.best.ticker.isNotEmpty)
         _MoverTile(
-          label: 'Mejor',
+          label: 'qa_pf_best'.tr(),
           mover: data.best,
           range: range,
           neutralSpark: neutralSpark,
         ),
       if (showWorst)
         _MoverTile(
-          label: 'Peor',
+          label: 'qa_pf_worst'.tr(),
           mover: data.worst,
           range: range,
           neutralSpark: neutralSpark,
@@ -528,7 +557,7 @@ abstract final class PortfolioWidgets {
           QaSectionLabel(metricLabel),
           const SizedBox(height: QaSpace.gap),
           if (tiles.isEmpty)
-            Text('No hay posiciones para comparar.', style: QaText.label)
+            Text('qa_pf_nothing_to_compare'.tr(), style: QaText.label)
           else
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -544,9 +573,9 @@ abstract final class PortfolioWidgets {
               if (data.best.ticker.isNotEmpty)
                 _whyFollowUp(data.best.ticker, data.best.value),
               if (showWorst) _whyFollowUp(data.worst.ticker, data.worst.value),
-              const QaFollowUp(
-                'Mis posiciones',
-                '¿Qué posiciones tengo?',
+              QaFollowUp(
+                'qa_fu_my_positions'.tr(),
+                'qa_fu_my_positions_q'.tr(),
                 icon: Icons.list_alt_rounded,
               ),
             ],
@@ -557,8 +586,10 @@ abstract final class PortfolioWidgets {
   }
 
   static QaFollowUp _whyFollowUp(String ticker, double value) => QaFollowUp(
-    'Por qué $ticker',
-    value >= 0 ? '¿Por qué subió $ticker?' : '¿Por qué bajó $ticker?',
+    'qa_fu_why_ticker'.tr(namedArgs: {'ticker': ticker}),
+    value >= 0
+        ? 'qa_fu_why_up_q'.tr(namedArgs: {'ticker': ticker})
+        : 'qa_fu_why_down_q'.tr(namedArgs: {'ticker': ticker}),
     icon: Icons.help_outline_rounded,
   );
 
@@ -566,7 +597,8 @@ abstract final class PortfolioWidgets {
     final lookback = _lookbackFromLabel(label);
     if (lookback == null) {
       return label.toLowerCase().contains('día') ||
-              label.toLowerCase().contains('hoy')
+              label.toLowerCase().contains('hoy') ||
+              label.toLowerCase().contains('today')
           ? PriceChartRange.day
           : PriceChartRange.week;
     }
@@ -585,21 +617,21 @@ abstract final class PortfolioWidgets {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           QaCardTitle(
-            title: data.title.isEmpty ? 'Tus posiciones' : data.title,
+            title: data.title.isEmpty ? 'qa_pf_your_positions'.tr() : data.title,
             icon: Icons.account_balance_wallet_outlined,
             trailing:
                 items.isEmpty
                     ? null
                     : QaTag(
-                      QaFormat.plural(items.length, 'posición', 'posiciones'),
+                      QaFormat.units(items.length, 'qa_unit_positions'),
                     ),
           ),
           if (items.isEmpty) ...[
             const SizedBox(height: QaSpace.sectionGap),
-            const _EmptyState(
+            _EmptyState(
               icon: Icons.inbox_outlined,
-              title: 'No tenés posiciones abiertas',
-              body: 'Cuando cargues una compra, la vas a ver acá.',
+              title: 'qa_pf_no_open_title'.tr(),
+              body: 'qa_pf_no_open_body'.tr(),
             ),
           ] else ...[
             const SizedBox(
@@ -612,20 +644,20 @@ abstract final class PortfolioWidgets {
           if (items.isNotEmpty)
             QaFollowUpBar(
               items: [
-                const QaFollowUp(
-                  'Concentración',
-                  '¿Estoy muy concentrado?',
+                QaFollowUp(
+                  'qa_fu_concentration'.tr(),
+                  'qa_fu_concentration_q'.tr(),
                   icon: Icons.pie_chart_outline_rounded,
                 ),
                 if (items.length > 1)
-                  const QaFollowUp(
-                    'Mejor posición',
-                    '¿Cuál es mi mejor posición?',
+                  QaFollowUp(
+                    'qa_fu_best_position'.tr(),
+                    'qa_fu_best_position_q'.tr(),
                     icon: Icons.emoji_events_outlined,
                   ),
-                const QaFollowUp(
-                  'Total',
-                  '¿Cómo está mi portfolio?',
+                QaFollowUp(
+                  'qa_fu_total'.tr(),
+                  'qa_fu_total_q'.tr(),
                   icon: Icons.account_balance_wallet_outlined,
                 ),
               ],
@@ -645,13 +677,13 @@ abstract final class PortfolioWidgets {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           QaCardTitle(
-            title: data.title.isEmpty ? 'Posiciones cerradas' : data.title,
+            title: data.title.isEmpty ? 'qa_pf_closed_positions'.tr() : data.title,
             icon: Icons.task_alt_rounded,
             trailing:
                 items.isEmpty
                     ? null
                     : QaTag(
-                      QaFormat.plural(items.length, 'operación', 'operaciones'),
+                      QaFormat.units(items.length, 'qa_unit_trades'),
                     ),
           ),
           if (total != null && items.isNotEmpty) ...[
@@ -661,7 +693,7 @@ abstract final class PortfolioWidgets {
                 children: [
                   Expanded(
                     child: QaStat(
-                      label: 'Resultado realizado',
+                      label: 'qa_pf_realized'.tr(),
                       value: QaFormat.signedMoney(total),
                       valueColor: total == 0 ? null : QaPalette.trend(total),
                       large: true,
@@ -675,12 +707,10 @@ abstract final class PortfolioWidgets {
           ],
           if (items.isEmpty) ...[
             const SizedBox(height: QaSpace.sectionGap),
-            const _EmptyState(
+            _EmptyState(
               icon: Icons.history_rounded,
-              title: 'Todavía no cerraste posiciones',
-              body:
-                  'Cuando vendas una posición, vas a ver acá cuánto ganaste '
-                  'o perdiste.',
+              title: 'qa_pf_no_closed_title'.tr(),
+              body: 'qa_pf_no_closed_body'.tr(),
             ),
           ] else ...[
             const SizedBox(
@@ -691,16 +721,16 @@ abstract final class PortfolioWidgets {
             ),
           ],
           if (items.isNotEmpty)
-            const QaFollowUpBar(
+            QaFollowUpBar(
               items: [
                 QaFollowUp(
-                  'Mejor operación',
-                  '¿Cuál fue mi mejor operación cerrada?',
+                  'qa_fu_best_trade'.tr(),
+                  'qa_fu_best_trade_q'.tr(),
                   icon: Icons.emoji_events_outlined,
                 ),
                 QaFollowUp(
-                  'Abiertas',
-                  '¿Qué posiciones tengo?',
+                  'qa_fu_open'.tr(),
+                  'qa_fu_my_positions_q'.tr(),
                   icon: Icons.list_alt_rounded,
                 ),
               ],
@@ -754,7 +784,7 @@ class _AllocationLegend extends StatelessWidget {
           QaTickerAvatar(ticker: ticker, size: 20),
           const SizedBox(width: 6),
         ],
-        Text(ticker ?? 'Otros', style: QaText.valueSm),
+        Text(ticker ?? 'qa_pf_others'.tr(), style: QaText.valueSm),
         const SizedBox(width: 4),
         Text(QaFormat.pct(slice.weightPct), style: QaText.caption),
       ],
@@ -816,7 +846,9 @@ class _ConcentrationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QaTappable(
-      question: '¿Cómo me va con ${item.ticker}?',
+      question: 'qa_ask_how_am_i_doing_q'.tr(
+        namedArgs: {'ticker': item.ticker},
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -897,7 +929,9 @@ class _MoverTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QaTappable(
-      question: '¿Cómo viene ${mover.ticker}?',
+      question: 'qa_followup_chart_q'.tr(
+        namedArgs: {'ticker': mover.ticker},
+      ),
       child: QaInset(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -946,7 +980,9 @@ class _PositionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final weight = QaFormat.pct(item.weightPct);
     return QaTappable(
-      question: '¿Cómo me va con ${item.ticker}?',
+      question: 'qa_ask_how_am_i_doing_q'.tr(
+        namedArgs: {'ticker': item.ticker},
+      ),
       child: QaBrandBuilder(
         ticker: item.ticker,
         builder: (context, brand) {
@@ -967,7 +1003,9 @@ class _PositionRow extends StatelessWidget {
                       Text(item.ticker, style: QaText.title),
                       Text(
                         name == null || name.isEmpty
-                            ? '$weight del portfolio'
+                            ? 'qa_pf_weight_of_portfolio'.tr(
+                              namedArgs: {'weight': weight},
+                            )
                             : '$name · $weight',
                         style: QaText.label,
                         maxLines: 1,
@@ -1007,7 +1045,9 @@ class _ClosedPositionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QaTappable(
-      question: '¿Cómo me fue con ${item.ticker}?',
+      question: 'qa_ask_how_did_i_do_q'.tr(
+        namedArgs: {'ticker': item.ticker},
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           vertical: _ExpandableRows.rowPadding,
@@ -1024,8 +1064,10 @@ class _ClosedPositionRow extends StatelessWidget {
                   Text(item.ticker, style: QaText.title),
                   Text(
                     item.closeDateLabel.isEmpty
-                        ? 'Cerrada'
-                        : 'Cerrada el ${item.closeDateLabel}',
+                        ? 'qa_pf_closed'.tr()
+                        : 'qa_pf_closed_on'.tr(
+                          namedArgs: {'date': item.closeDateLabel},
+                        ),
                     style: QaText.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1134,7 +1176,9 @@ class _ExpandableRowsState extends State<_ExpandableRows> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _expanded ? 'Ver menos' : 'Ver todas (${rows.length})',
+                    _expanded
+                        ? 'qa_see_less'.tr()
+                        : 'qa_see_all'.tr(namedArgs: {'count': '${rows.length}'}),
                     style: QaText.bodyStrong.copyWith(
                       fontSize: 13,
                       color: QaColors.accentBlue,

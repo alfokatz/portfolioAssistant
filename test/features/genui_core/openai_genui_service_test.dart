@@ -497,7 +497,7 @@ void main() {
         tools: [_EchoTool('get_quote')],
       );
       expect(api.requests, hasLength(2));
-      expect(_text(api.messages(1).last), contains('más corto'));
+      expect(_text(api.messages(1).last), contains('shorter'));
       expect(service.log.currentTurn!.finalText, contains('corta'));
     });
 

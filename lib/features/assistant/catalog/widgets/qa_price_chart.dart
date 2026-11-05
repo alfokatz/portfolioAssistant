@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
@@ -275,7 +276,7 @@ class _QaPriceChartState extends State<QaPriceChart>
         return const QaChartSkeleton();
       }
       return Center(
-        child: Text('Sin datos para este período', style: QaText.label),
+        child: Text('qa_cc_no_data_period'.tr(), style: QaText.label),
       );
     }
 
@@ -300,7 +301,12 @@ class _QaPriceChartState extends State<QaPriceChart>
     );
 
     return Semantics(
-      label: 'Gráfico de precio de ${widget.ticker}, ${_range.label}',
+      label: 'qa_pc_chart_semantics'.tr(
+        namedArgs: {
+          'ticker': widget.ticker,
+          'range': QaMarketParts.rangeChipLabel(_range),
+        },
+      ),
       child: AnimatedOpacity(
         opacity: loading ? 0.35 : 1,
         duration: const Duration(milliseconds: 150),
@@ -380,7 +386,7 @@ class _Hero extends StatelessWidget {
                       Flexible(
                         child: Text(
                           scrubIndex != null
-                              ? 'desde el inicio'
+                              ? 'qa_pc_since_start'.tr()
                               : QaMarketParts.rangeSummaryLabel(range),
                           style: QaText.label,
                           maxLines: 1,
@@ -417,11 +423,14 @@ class _RangeStats extends StatelessWidget {
         columns: 3,
         stats: [
           QaStat(
-            label: range == PriceChartRange.day ? 'Apertura' : 'Inicio',
+            label:
+                range == PriceChartRange.day
+                    ? 'qa_pc_open'.tr()
+                    : 'qa_pc_start'.tr(),
             value: QaFormat.price(candles.first.close),
           ),
-          QaStat(label: 'Máximo', value: QaFormat.price(high.close)),
-          QaStat(label: 'Mínimo', value: QaFormat.price(low.close)),
+          QaStat(label: 'qa_pc_high'.tr(), value: QaFormat.price(high.close)),
+          QaStat(label: 'qa_pc_low'.tr(), value: QaFormat.price(low.close)),
         ],
       ),
     );

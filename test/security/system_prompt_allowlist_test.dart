@@ -75,6 +75,7 @@ void main() {
   test('the weekly report prompt is in the report allowlist (and only '
       'there)', () {
     _expectAllowed(_reportAllowlist, weeklyReportSystemPrompt);
+    _expectAllowed(_reportAllowlist, weeklyReportSystemPromptEn);
     // El prompt del informe no tiene que servir en el chat normal.
     final chat =
         (jsonDecode(File(_allowlist).readAsStringSync()) as Map)['hashes']
@@ -82,5 +83,8 @@ void main() {
     final hash =
         sha256.convert(utf8.encode(weeklyReportSystemPrompt)).toString();
     expect(chat, isNot(contains(hash)));
+    final hashEn =
+        sha256.convert(utf8.encode(weeklyReportSystemPromptEn)).toString();
+    expect(chat, isNot(contains(hashEn)));
   });
 }

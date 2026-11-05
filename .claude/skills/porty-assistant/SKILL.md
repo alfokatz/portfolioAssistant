@@ -45,6 +45,13 @@ Referencia larga: `docs/architecture/porty-assistant-tool-calling.md` (si choca 
 - Agregar una **card** (widget del catálogo): [references/add-catalog-widget.md](references/add-catalog-widget.md)
 - Diseño visual de cards (kit `QaText`/`QaColors`/`QaSpace`): skill **porty-ui-design**, `references/genui-kit.md`
 
+## Idioma (es/en, igual de bien)
+
+- Porty responde en el idioma del ÚLTIMO mensaje del usuario; si no se nota, en `app_language` del PORTFOLIO_BRIEF (lo pone `PortfolioBrief.build` desde `AssistantToolContext.appLanguage`). Regla `LANGUAGE` en `assistant_prompt_rules.dart` + recordatorio por turno en `pinnedContextFor`.
+- Todo chequeo determinístico sobre el texto del modelo tiene que entender los dos idiomas: números `1.234,5` y `1,234.5` (`AnalysisProseCheck.numbersIn`, con lectura alternativa para "1,234"), consejo/valuación, tono (`PortyAnswerTone`), promesas (`AssistantAnswerReview`). Al agregar una regex en español, agregá su equivalente en inglés y un caso en `test/features/assistant/utils/bilingual_checks_test.dart`.
+- Textos que arma el código para el chat (intros de respaldo) eligen idioma con `AppLanguage.detect(textoDelModelo)`.
+- Informe semanal: un prompt por idioma (`weeklyReportSystemPromptFor`) y validador con `language:`; cada prompt tiene su hash en `allowed_report_prompts.json`.
+
 ## Paso obligatorio si tocaste prompt, reglas, catálogo o widgets del catálogo
 
 El hash del system prompt cambia y el proxy rechazará la app. Regenerar:

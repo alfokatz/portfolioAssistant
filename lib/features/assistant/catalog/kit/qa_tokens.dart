@@ -1,5 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
 /// Colores del kit resueltos para el tema activo (claro u oscuro).
@@ -274,7 +274,13 @@ abstract final class QaFormat {
   static String pct(num value, {int digits = 1}) =>
       '${value.toStringAsFixed(digits)}%';
 
-  /// "1 posición" / "3 posiciones".
-  static String plural(int count, String singular, String plural) =>
-      '$count ${count == 1 ? singular : plural}';
+  /// "1 posición" / "3 posiciones": [key] lleva `{count}` y `<key>_one`
+  /// es el singular.
+  static String units(int count, String key) =>
+      count == 1 ? '${key}_one'.tr() : key.tr(namedArgs: {'count': '$count'});
+
+  /// Número con [digits] decimales y el separador del idioma ("4,5" / "4.5").
+  static String decimal(num value, {int digits = 1}) => value
+      .toStringAsFixed(digits)
+      .replaceAll('.', 'qa_decimal_separator'.tr());
 }

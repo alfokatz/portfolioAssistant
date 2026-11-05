@@ -1,21 +1,10 @@
-/// Fechas relativas en español para las cards ("hace 2 h", "ayer", "en 21
+import 'package:easy_localization/easy_localization.dart';
+
+/// Fechas relativas para las cards (según el idioma de la app) ("hace 2 h", "ayer", "en 21
 /// días"). Reciben `now` inyectable para que los tests no dependan del
 /// reloj.
 abstract final class QaTime {
-  static const _months = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
+  static String _month(DateTime d) => 'qa_time_month_${d.month}'.tr();
 
   /// Antigüedad de algo ya publicado. Pasada la semana se muestra la fecha
   /// ("18 sep"), con año solo si no es el actual: "hace 23 días" se lee
@@ -24,29 +13,42 @@ abstract final class QaTime {
     final current = (now ?? DateTime.now()).toLocal();
     final local = date.toLocal();
     final diff = current.difference(local);
-    if (diff.isNegative || diff.inMinutes < 1) return 'recién';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+    if (diff.isNegative || diff.inMinutes < 1) return 'qa_time_just_now'.tr();
+    if (diff.inMinutes < 60) {
+      return 'qa_time_ago_min'.tr(namedArgs: {'n': '${diff.inMinutes}'});
+    }
     final days = _dayDiff(local, current);
-    if (days == 0) return 'hace ${diff.inHours} h';
-    if (days == 1) return 'ayer';
-    if (days < 7) return 'hace $days días';
-    final base = '${local.day} ${_months[local.month - 1]}';
-    return local.year == current.year ? base : '$base ${local.year}';
+    if (days == 0) {
+      return 'qa_time_ago_hours'.tr(namedArgs: {'n': '${diff.inHours}'});
+    }
+    if (days == 1) return 'qa_time_yesterday'.tr();
+    if (days < 7) return 'qa_time_ago_days'.tr(namedArgs: {'n': '$days'});
+    if (local.year == current.year) {
+      return 'qa_time_date_short'.tr(
+        namedArgs: {'day': '${local.day}', 'month': _month(local)},
+      );
+    }
+    return day(local);
   }
 
   /// Fecha de calendario completa ("5 oct 2026"): la de una operación, que
   /// se lee como fecha y no como antigüedad.
-  static String day(DateTime date) =>
-      '${date.day} ${_months[date.month - 1]} ${date.year}';
+  static String day(DateTime date) => 'qa_time_date_full'.tr(
+    namedArgs: {
+      'day': '${date.day}',
+      'month': _month(date),
+      'year': '${date.year}',
+    },
+  );
 
   /// Cuenta regresiva a una fecha futura ("hoy", "mañana", "en 21 días").
   /// `null` si la fecha ya pasó.
   static String? countdown(DateTime date, {DateTime? now}) {
     final days = _dayDiff((now ?? DateTime.now()).toLocal(), date);
     if (days < 0) return null;
-    if (days == 0) return 'hoy';
-    if (days == 1) return 'mañana';
-    return 'en $days días';
+    if (days == 0) return 'qa_time_today'.tr();
+    if (days == 1) return 'qa_time_tomorrow'.tr();
+    return 'qa_time_in_days'.tr(namedArgs: {'n': '$days'});
   }
 
   /// `true` si el texto ya viene como fecha relativa ("hoy", "hace 2
@@ -56,7 +58,11 @@ abstract final class QaTime {
     return l.startsWith('hace') ||
         l.startsWith('hoy') ||
         l.startsWith('ayer') ||
-        l.startsWith('recién');
+        l.startsWith('recién') ||
+        l.startsWith('today') ||
+        l.startsWith('yesterday') ||
+        l.startsWith('just now') ||
+        RegExp(r'^\d+\s*\w+ ago').hasMatch(l);
   }
 
   /// Días de calendario entre [from] y [to] (ignora la hora).

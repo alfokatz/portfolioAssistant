@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -69,7 +70,7 @@ class SupabaseAuthService {
   String requireUserId() {
     final user = _client.auth.currentUser;
     if (user == null) {
-      throw const AuthException('No hay sesión activa. Iniciá sesión para continuar.');
+      throw AuthException('error_no_session'.tr());
     }
     return user.id;
   }

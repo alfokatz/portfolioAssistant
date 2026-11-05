@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -184,8 +185,8 @@ class OpenAIGenUiService {
   static const _temperature = 0.35;
 
   static const _shorterAnswer =
-      'Tu respuesta anterior se cortó por largo. Respondé de nuevo lo mismo, '
-      'más corto: menos texto y una sola card.';
+      'Your previous answer was cut off for length. Answer the same again, '
+      'shorter: less text and a single card, in the same language.';
 
   OpenAIGenUiService({
     AiProxyConfig? proxy,
@@ -747,7 +748,7 @@ class OpenAIGenUiService {
       controller.registry.getSurface(surfaceId),
     )) {
       throw StateError(
-        'La IA no generó una interfaz válida. Intentá reformular la consulta.',
+        'qa_gu_no_valid_ui'.tr(),
       );
     }
   }

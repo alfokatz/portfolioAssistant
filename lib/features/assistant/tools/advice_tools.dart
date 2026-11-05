@@ -231,6 +231,23 @@ class GetGoalProjectionTool implements DataTool {
       'of this chat ("hacelo en 2 años", "ya tengo 500"): base_plan_id + only '
       'what changes. A SAVED goal (saved_goals): goal_id. Never recalculate.';
 
+  /// La fecha de la meta: `months_from_now` se calcula acá (el modelo
+  /// sumaba mal: "en 14 meses" en noviembre de 2026 daba enero de 2027);
+  /// `target_date` solo para una fecha absoluta.
+  static DateTime? targetDateOf(Map<String, Object?> args, DateTime now) {
+    final months = ToolArgs.number(args, 'months_from_now')?.round();
+    if (months != null && months > 0 && months <= 1200) {
+      final firstOfTarget = DateTime(now.year, now.month + months);
+      final lastDay = DateTime(firstOfTarget.year, firstOfTarget.month + 1, 0).day;
+      return DateTime(
+        firstOfTarget.year,
+        firstOfTarget.month,
+        now.day > lastDay ? lastDay : now.day,
+      );
+    }
+    return ToolArgs.date(args, 'target_date');
+  }
+
   @override
   Map<String, Object?> get parameters => const {
     'type': 'object',
@@ -239,11 +256,16 @@ class GetGoalProjectionTool implements DataTool {
         'type': 'number',
         'description': 'Target amount in USD, if the user stated it.',
       },
+      'months_from_now': {
+        'type': 'integer',
+        'description':
+            'Relative deadline in months ("en 14 meses" → 14, "in 2 years" '
+            '→ 24); the app computes the date.',
+      },
       'target_date': {
         'type': 'string',
         'description':
-            'Target date as YYYY-MM-DD, resolved from what the user said '
-            '("en 5 años" → today + 5 years), if they stated one.',
+            'Only a date the user named: YYYY-MM-DD.',
       },
       'goal_label': {
         'type': 'string',
@@ -394,7 +416,7 @@ class GetGoalProjectionTool implements DataTool {
       ...GoalProjectionBuilder.build(
         currentPortfolioValue: ctx.summary?.totalValue ?? 0,
         targetAmount: statedAmount,
-        targetDate: ToolArgs.date(args, 'target_date'),
+        targetDate: targetDateOf(args, ctx.now),
         label: ToolArgs.string(args, 'goal_label'),
         // 0 no es un aporte que haya dicho: el modelo a veces lo manda
         // cuando no lo sabe, y el plan quedaba en "0 $/mes".

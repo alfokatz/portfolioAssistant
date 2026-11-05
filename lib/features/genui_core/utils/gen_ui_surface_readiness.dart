@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:genui/genui.dart';
 
 /// Comprueba si una surface GenUI tiene componentes listos para renderizar.
@@ -19,7 +20,7 @@ abstract final class GenUiSurfaceReadiness {
       await Future<void>.delayed(pollInterval);
     }
     throw StateError(
-      'La IA no generó una interfaz válida. Intentá reformular la consulta.',
+      'qa_gu_no_valid_ui'.tr(),
     );
   }
 }

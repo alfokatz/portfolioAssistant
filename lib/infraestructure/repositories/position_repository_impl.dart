@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -31,7 +32,7 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_ticker',
-            message: 'Ticker inválido',
+            message: 'error_invalid_ticker'.tr(),
           ),
         );
       }
@@ -39,7 +40,7 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_position',
-            message: 'Cantidad y precio deben ser mayores a cero',
+            message: 'error_qty_price_positive'.tr(),
           ),
         );
       }
@@ -89,7 +90,7 @@ class PositionRepositoryImpl implements PositionRepository {
       final position = await remoteDataSource.getById(id);
       if (position == null) {
         return Left(
-          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+          HttpError(code: 'position_not_found', message: 'error_position_not_found'.tr()),
         );
       }
       return Right(position);
@@ -108,14 +109,14 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_position',
-            message: 'La cantidad debe ser mayor a cero',
+            message: 'error_qty_positive'.tr(),
           ),
         );
       }
       final existing = await remoteDataSource.getById(id);
       if (existing == null) {
         return Left(
-          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+          HttpError(code: 'position_not_found', message: 'error_position_not_found'.tr()),
         );
       }
       if (existing.isReadOnly) return Left(readOnlyPositionError());
@@ -142,7 +143,7 @@ class PositionRepositoryImpl implements PositionRepository {
 /// se actualiza sola desde el bróker. La base también lo impide.
 HttpError readOnlyPositionError() => HttpError(
   code: 'position_read_only',
-  message: 'Esta posición se actualiza desde eToro',
+  message: 'error_position_read_only'.tr(),
 );
 
 final positionRepositoryProvider = Provider<PositionRepository>(

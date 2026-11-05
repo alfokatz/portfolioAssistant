@@ -31,7 +31,7 @@ abstract final class GoalStatusWidgets {
         if (status == null) {
           return QaCardShell(
             child: Text(
-              'No encontré la meta "$label" en Metas.',
+              'qa_goal_status_not_found'.tr(namedArgs: {'label': label}),
               style: QaText.body,
             ),
           );
@@ -159,7 +159,7 @@ class QaGoalStatusCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Ver meta',
+                    'qa_goal_status_open'.tr(),
                     style: QaText.label.copyWith(
                       color: QaColors.accentBlue,
                       fontWeight: FontWeight.w600,

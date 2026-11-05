@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/base/base_use_case.dart';
@@ -26,7 +27,7 @@ class GetPositionLotsByTickerUseCase
     final ticker = PortfolioCalculator.normalizeTicker(params);
     if (ticker.isEmpty) {
       return Left(
-        HttpError(code: 'invalid_ticker', message: 'Ticker inválido'),
+        HttpError(code: 'invalid_ticker', message: 'error_invalid_ticker'.tr()),
       );
     }
 
@@ -44,7 +45,7 @@ class GetPositionLotsByTickerUseCase
         return Left(
           HttpError(
             code: 'position_not_found',
-            message: 'Posición no encontrada',
+            message: 'error_position_not_found'.tr(),
           ),
         );
       }

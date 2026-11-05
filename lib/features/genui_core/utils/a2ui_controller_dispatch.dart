@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:a2ui_core/a2ui_core.dart' show A2uiMessage;
 import 'package:genui/genui.dart';
 
@@ -21,7 +22,9 @@ abstract final class A2uiControllerDispatch {
       } on StateError {
         rethrow;
       } on Object catch (e) {
-        throw StateError('La IA no generó una interfaz válida: $e');
+        throw StateError(
+          'qa_gu_no_valid_ui_detail'.tr(namedArgs: {'error': '$e'}),
+        );
       }
     }
   }

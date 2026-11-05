@@ -113,60 +113,63 @@ class AssistantOpenAiService extends OpenAIGenUiService {
   /// Cómo usar `user_profile` sin volverse repetitivo: solo cuando cambia
   /// la respuesta, y la experiencia se nota en el tono, no se nombra.
   static const userProfileGuidance =
-      'Sobre user_profile (el perfil de inversor que completó el usuario):\n'
-      '- Usalo SOLO cuando cambia la respuesta: concentración o '
-      'diversificación, caídas o volatilidad, el riesgo de una acción, ideas '
-      'de inversión y metas. Para todo lo demás (precios, noticias, '
-      'resultados, datos de la cartera) ignoralo.\n'
-      '- No lo nombres salvo que sea la razón concreta de lo que decís; nunca '
-      'abras la respuesta con él ni lo repitas de un mensaje a otro.\n'
-      '- experience ajusta el nivel en silencio: principiante = sin jerga y '
-      'con una línea de contexto; avanzada = directo. Nunca digas "como sos '
-      'principiante".\n'
-      '- drawdown_reaction "vendería" y la cartera o una acción cae fuerte → '
-      'contexto calmo, sin alarmismo.\n'
-      '- stale true → el perfil tiene más de un año; usalo igual, sin '
-      'mencionarlo.\n'
-      '- Nunca cambia un número.\n';
+      'About user_profile (the investor profile the user filled in):\n'
+      '- Use it ONLY when it changes the answer: concentration or '
+      'diversification, drops or volatility, the risk of a stock, investment '
+      'ideas and goals. For everything else (prices, news, earnings, '
+      'portfolio data) ignore it.\n'
+      '- Don\'t name it unless it is the concrete reason for what you say; '
+      'never open the answer with it or repeat it from one message to the '
+      'next.\n'
+      '- experience silently sets the level: beginner = no jargon and one '
+      'line of context; advanced = straight to the point. Never say "since '
+      'you are a beginner".\n'
+      '- drawdown_reaction "would sell" and the portfolio or a stock drops '
+      'sharply → calm context, no alarmism.\n'
+      '- stale true → the profile is over a year old; use it anyway, '
+      'without mentioning it.\n'
+      '- It never changes a number.\n';
 
   /// Cómo usar `user_memory` (lo que Porty anotó del usuario en charlas
   /// anteriores): para conectar la respuesta con su vida, no para recitarlo.
   static const userMemoryGuidance =
-      'Sobre user_memory (lo que sabés del usuario por charlas anteriores):\n'
-      '- Usalo para que la respuesta sea SUYA: si pregunta cómo ahorrar o '
-      'invertir y tiene una meta anotada, conectalo con esa meta; si dijo '
-      'cuánto ahorra por mes, usalo como monthly_contribution; respetá sus '
-      'preferencias al elegir ideas.\n'
-      '- Si el dato resuelve lo que preguntarías, no lo preguntes de nuevo '
-      '(confirmalo en pocas palabras: "¿seguís con la idea de la MacBook?").\n'
-      '- No lo recites ni lo repitas de un mensaje a otro; nunca abras la '
-      'respuesta con él. Nunca cambia un número.\n'
-      '- since es la fecha en que lo anotaste: si es viejo y pesa en la '
-      'respuesta, confirmalo.\n';
+      'About user_memory (what you know about the user from earlier '
+      'conversations):\n'
+      '- Use it to make the answer THEIRS: if they ask how to save or invest '
+      'and have a goal noted, connect it to that goal; if they said how much '
+      'they save per month, use it as monthly_contribution; respect their '
+      'preferences when picking ideas.\n'
+      '- If the fact answers what you would ask, don\'t ask again (confirm '
+      'it in a few words: "still thinking about the MacBook?").\n'
+      '- Don\'t recite it or repeat it from one message to the next; never '
+      'open the answer with it. It never changes a number.\n'
+      '- since is when you noted it: if it is old and matters for the '
+      'answer, confirm it.\n';
 
   /// Cómo usar `screen_context` (la pantalla desde donde abrió el chat).
   static const screenContextGuidance =
-      'Sobre screen_context (lo que el usuario estaba mirando al abrir el '
-      'chat; turns_ago 0 = esta pregunta):\n'
-      '- Si la pregunta no nombra otra cosa, "esto", "esta acción", "esta '
-      'meta", "¿por qué bajó?" o "¿está bien?" son sobre esa pantalla: el '
-      'ticker o la meta de screen_context. Resolvelo sin preguntar.\n'
-      '- Si la pregunta nombra otro ticker u otro tema, manda la pregunta.\n'
-      '- Con turns_ago mayor a 0, usalo solo si la pregunta sigue siendo '
-      'sobre lo mismo.\n'
-      '- No lo menciones ("veo que estás en…"). Nunca cambia un número.\n';
+      'About screen_context (what the user was looking at when they opened '
+      'the chat; turns_ago 0 = this question):\n'
+      '- If the question names nothing else, "this", "this stock", "this '
+      'goal", "why did it drop?" or "is it ok?" are about that screen: the '
+      'ticker or goal in screen_context. Resolve it without asking.\n'
+      '- If the question names another ticker or topic, the question wins.\n'
+      '- With turns_ago above 0, use it only if the question is still about '
+      'the same thing.\n'
+      '- Don\'t mention it ("I see you are on…"). It never changes a '
+      'number.\n';
 
   /// Cómo usar `recent_topics` (tickers de charlas anteriores): para
   /// retomar un tema, no para recitarlo.
   static const recentTopicsGuidance =
-      'Sobre recent_topics (tickers de los que el usuario te habló en charlas '
-      'anteriores: cuándo y a qué precio estaban):\n'
-      '- Si la pregunta es sobre uno de ellos, podés retomarlo en una frase '
-      '("la última vez que me preguntaste por AMZN, el 14/10, estaba a '
-      '\$182"); el precio de hoy sale de get_quote. No calcules el cambio '
-      'desde entonces: decí los dos precios.\n'
-      '- Si no es sobre ellos, ignoralo. Nunca los recites ni abras la '
-      'respuesta con ellos. Nunca cambia un número.\n';
+      'About recent_topics (tickers the user talked to you about in earlier '
+      'conversations: when, and at what price they were):\n'
+      '- If the question is about one of them, you can bring it back in one '
+      'sentence ("last time you asked me about AMZN, on 10/14, it was at '
+      '\$182"); today\'s price comes from get_quote. Don\'t compute the '
+      'change since then: say both prices.\n'
+      '- If it is not about them, ignore it. Never recite them or open the '
+      'answer with them. It never changes a number.\n';
 
   /// El mensaje de contexto de cada turno: la cartera (y el perfil, si lo
   /// completó). Las instrucciones del perfil van ANTES del JSON y sin llaves:
@@ -174,14 +177,21 @@ class AssistantOpenAiService extends OpenAIGenUiService {
   /// Van acá y no en las reglas fijas para no cambiar el hash del prompt
   /// (que exigiría desplegar `ai-chat`).
   static String pinnedContextFor(Map<String, Object?> portfolioBrief) =>
-      '${PortfolioBrief.label} — la cartera ACTUAL del usuario (dato de '
-      'referencia, se actualiza en cada turno; no es parte de ninguna '
-      'pregunta):\n'
+      '${PortfolioBrief.label} — the user\'s CURRENT portfolio (reference '
+      'data, refreshed every turn; not part of any question):\n'
+      '${_languageLine(portfolioBrief[PortfolioBrief.appLanguageKey])}'
       '${portfolioBrief.containsKey(PortfolioBrief.userProfileKey) ? userProfileGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.userMemoryKey) ? userMemoryGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.screenContextKey) ? screenContextGuidance : ''}'
       '${portfolioBrief.containsKey(PortfolioBrief.recentTopicsKey) ? recentTopicsGuidance : ''}'
       '${jsonEncode(portfolioBrief)}';
+
+  /// El recordatorio de idioma de cada turno (ver LANGUAGE en las reglas).
+  static String _languageLine(Object? appLanguage) => appLanguage == 'en'
+      ? 'App language: ENGLISH. Reply in English (natural US English) '
+          'unless the user\'s latest message is clearly written in Spanish.\n'
+      : 'App language: SPANISH. Reply in Spanish (Rioplatense voseo) unless '
+          'the user\'s latest message is clearly written in English.\n';
 
   /// Un turno de Porty: [question] + resumen de cartera fresco + tools.
   Future<TurnOutcome> ask({

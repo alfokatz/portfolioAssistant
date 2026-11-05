@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -70,10 +71,13 @@ class WeeklyReportGenerator {
     }
   }
 
+  /// [language]: el de la app ('es' | 'en'); elige el prompt del informe.
   Future<WeeklyReportGeneration> generate({
     required ReportWeek week,
     required WeeklyReportInput input,
+    String? language,
   }) async {
+    final lang = language ?? AppLanguage.code;
     if (input.numbers.isEmpty) {
       return const WeeklyReportGeneration(
         draft: WeeklyReportDraft.empty,
@@ -83,7 +87,7 @@ class WeeklyReportGenerator {
     }
     final turnId = _turnId();
     final messages = <Map<String, Object?>>[
-      {'role': 'system', 'content': weeklyReportSystemPrompt},
+      {'role': 'system', 'content': weeklyReportSystemPromptFor(lang)},
       {'role': 'user', 'content': userMessage(input)},
     ];
 
@@ -98,7 +102,9 @@ class WeeklyReportGenerator {
     }
     final parsed = WeeklyReportDraft.tryParse(first.content!);
     final review =
-        parsed == null ? null : WeeklyReportValidator.review(parsed, input);
+        parsed == null
+            ? null
+            : WeeklyReportValidator.review(parsed, input, language: lang);
     if (review != null && review.isClean) {
       return WeeklyReportGeneration(
         draft: review.draft,
@@ -115,9 +121,12 @@ class WeeklyReportGenerator {
         'role': 'user',
         'content':
             review == null
-                ? 'Tu respuesta no fue un JSON válido. Devolvé solo el JSON '
-                    'completo con el esquema pedido.'
-                : rewriteRequest(review.issues),
+                ? (lang == 'en'
+                    ? 'Your answer was not valid JSON. Return only the full '
+                        'JSON with the requested schema.'
+                    : 'Tu respuesta no fue un JSON válido. Devolvé solo el JSON '
+                        'completo con el esquema pedido.')
+                : rewriteRequest(review.issues, language: lang),
       },
     ]);
     final retried =
@@ -125,7 +134,9 @@ class WeeklyReportGenerator {
             ? null
             : WeeklyReportDraft.tryParse(retry.content!);
     final second =
-        retried == null ? null : WeeklyReportValidator.review(retried, input);
+        retried == null
+            ? null
+            : WeeklyReportValidator.review(retried, input, language: lang);
     // Lo mejor que haya: la reescritura validada, o la primera ya limpia.
     final best = second ?? review;
     return WeeklyReportGeneration(
@@ -142,11 +153,16 @@ class WeeklyReportGenerator {
   static String userMessage(WeeklyReportInput input) =>
       '<weekly_data>\n${jsonEncode(input.toPromptJson())}\n</weekly_data>';
 
-  static String rewriteRequest(List<String> issues) =>
-      'Revisé tu respuesta y hay que corregir esto:\n'
-      '${issues.map((i) => '- $i').join('\n')}\n'
-      'Devolvé el JSON completo de nuevo, con el mismo esquema, corrigiendo '
-      'solo eso.';
+  static String rewriteRequest(List<String> issues, {String language = 'es'}) =>
+      language == 'en'
+          ? 'I reviewed your answer and this needs fixing:\n'
+              '${issues.map((i) => '- $i').join('\n')}\n'
+              'Return the full JSON again, with the same schema, fixing only '
+              'that.'
+          : 'Revisé tu respuesta y hay que corregir esto:\n'
+              '${issues.map((i) => '- $i').join('\n')}\n'
+              'Devolvé el JSON completo de nuevo, con el mismo esquema, '
+              'corrigiendo solo eso.';
 
   Future<({String? content, String? error})> _call(
     ReportWeek week,

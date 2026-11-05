@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
@@ -356,17 +357,23 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       mainAxisSize: MainAxisSize.min,
       children: [
         QaCardTitle(
-          title: data.label.isEmpty ? 'Tu plan' : data.label,
+          title: data.label.isEmpty ? 'qa_sp_your_plan'.tr() : data.label,
           subtitle:
-              '${QaFormat.money(_inputs.targetAmount)} en '
-              '${_horizon(_inputs.months)}',
+              'qa_sp_subtitle'.tr(
+                namedArgs: {
+                  'amount': QaFormat.money(_inputs.targetAmount),
+                  'horizon': _horizon(_inputs.months),
+                },
+              ),
           // El de lo que es (un viaje, un auto…), igual que en Metas.
           icon: GoalIcon.of(
             data.label,
             retirementLike ? GoalType.retirement : GoalType.other,
           ),
           trailing: QaTag(
-            _inputs.shortTerm ? 'Corto plazo' : _riskName(_inputs.risk),
+            _inputs.shortTerm
+                ? 'qa_sp_short_term'.tr()
+                : _riskName(_inputs.risk),
             color: QaColors.onChip,
           ),
         ),
@@ -402,7 +409,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                 color: QaColors.accentBlue,
               ),
               label: Text(
-                'Editar plan',
+                'qa_sp_edit'.tr(),
                 style: QaText.label.copyWith(
                   color: QaColors.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -435,7 +442,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       children: [
         Icon(Icons.edit_note_rounded, size: 18, color: QaColors.accentBlue),
         const SizedBox(width: 6),
-        Expanded(child: Text('Editaste este plan', style: QaText.caption)),
+        Expanded(child: Text('qa_sp_edited_note'.tr(), style: QaText.caption)),
         if (_canEdit)
           TextButton(
             onPressed: _undoEdit,
@@ -444,7 +451,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
             child: Text(
-              'Volver al de Porty',
+              'qa_sp_undo_edit'.tr(),
               style: QaText.caption.copyWith(
                 color: QaColors.accentBlue,
                 fontWeight: FontWeight.w600,
@@ -461,12 +468,15 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         null,
         _savings(full: _focus == SavingsPlanFocus.savings),
       ),
-      _Block.income => ('Cómo cobrarías', _incomeBlock(_income!)),
-      _Block.growth => ('Cómo crece', _growth(_plan)),
+      _Block.income => ('qa_sp_block_income'.tr(), _incomeBlock(_income!)),
+      _Block.growth => ('qa_sp_block_growth'.tr(), _growth(_plan)),
       _Block.progress => (null, _progress()),
-      _Block.instruments => ('Dónde invertir cada mes', _instruments(_plan)),
-      _Block.allocation => ('Cartera sugerida', _allocation(_plan)),
-      _Block.whatIf => ('¿Y si cambiás el plazo?', _whatIf(_plan)),
+      _Block.instruments => (
+        'qa_sp_block_instruments'.tr(),
+        _instruments(_plan),
+      ),
+      _Block.allocation => ('qa_sp_block_allocation'.tr(), _allocation(_plan)),
+      _Block.whatIf => ('qa_sp_block_what_if'.tr(), _whatIf(_plan)),
     };
     return QaSection(
       first: first,
@@ -474,7 +484,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       trailing:
           block == _Block.allocation
               ? Text(
-                '≈${_pct(_plan.returns[PlanScenario.base]!)} anual real',
+                'qa_sp_annual_real'.tr(
+                  namedArgs: {'pct': _pct(_plan.returns[PlanScenario.base]!)},
+                ),
                 style: QaText.caption,
               )
               : null,
@@ -494,9 +506,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           QaSectionLabel(
-            'Tu meta',
+            'qa_sp_your_goal'.tr(),
             trailing: QaTag(
-              'Ya alcanzada',
+              'qa_sp_reached'.tr(),
               color: QaColors.profit,
               icon: Icons.check_rounded,
             ),
@@ -505,7 +517,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           Text(QaFormat.money(_inputs.currentAmount), style: QaText.display),
           const SizedBox(height: 2),
           Text(
-            'Con lo que ya tenés invertido llegás sin aportar más.',
+            'qa_sp_reached_note'.tr(),
             style: QaText.label,
           ),
         ],
@@ -517,26 +529,34 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         stated == null
             ? null
             : plan.onTrack
-            ? QaTag('Llegás', color: QaColors.profit, icon: Icons.check_rounded)
+            ? QaTag(
+              'qa_sp_tag_on_track'.tr(),
+              color: QaColors.profit,
+              icon: Icons.check_rounded,
+            )
             : QaTag(
-              'Falta ritmo',
+              'qa_sp_tag_behind'.tr(),
               color: QaColors.loss,
               icon: Icons.trending_down_rounded,
             );
     final subtitle =
         [
-          if (stated != null) 'Hoy aportás ${QaFormat.money(stated)}/mes',
+          if (stated != null)
+            'qa_sp_you_contribute'.tr(
+              namedArgs: {'amount': QaFormat.money(stated)},
+            ),
           if (plan.requiredMonthlyNoReturn > required[PlanScenario.base]! + 1)
-            'sin invertir serían '
-                '${QaFormat.money(plan.requiredMonthlyNoReturn)}/mes',
+            'qa_sp_without_investing'.tr(
+              namedArgs: {'amount': QaFormat.money(plan.requiredMonthlyNoReturn)},
+            ),
         ].join(' · ').capitalized();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaSectionLabel(
           _focus == SavingsPlanFocus.income
-              ? 'Para juntarlo, ahorrá'
-              : 'Ahorro mensual sugerido',
+              ? 'qa_sp_to_save_it'.tr()
+              : 'qa_sp_suggested_monthly'.tr(),
           trailing: tag,
         ),
         const SizedBox(height: 8),
@@ -549,7 +569,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               style: full ? QaText.display : QaText.displaySm,
             ),
             const SizedBox(width: 4),
-            Text('/ mes', style: QaText.label),
+            Text('qa_sp_per_month'.tr(), style: QaText.label),
           ],
         ),
         if (subtitle.isNotEmpty) ...[
@@ -563,15 +583,15 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               columns: 3,
               stats: [
                 QaStat(
-                  label: 'Mercado flojo',
+                  label: 'qa_sp_weak_market'.tr(),
                   value: QaFormat.money(required[PlanScenario.pessimistic]!),
                 ),
                 QaStat(
-                  label: 'Esperado',
+                  label: 'qa_sp_expected'.tr(),
                   value: QaFormat.money(required[PlanScenario.base]!),
                 ),
                 QaStat(
-                  label: 'Mercado bueno',
+                  label: 'qa_sp_good_market'.tr(),
                   value: QaFormat.money(required[PlanScenario.optimistic]!),
                 ),
               ],
@@ -586,24 +606,30 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final desired = income.desiredMonthly;
     final years = income.withdrawalYears;
     final withdrawalNote =
-        years == null ? 'No se agota' : 'Se consume en ~$years años';
+        years == null
+            ? 'qa_sp_never_runs_out'.tr()
+            : 'qa_sp_runs_out_in'.tr(namedArgs: {'years': '$years'});
     // Con ingreso pedido, cada camino dice cuánto capital necesita; sin
     // él, cuánto ingreso da la meta.
     final dividends = _IncomeOption(
-      title: 'De dividendos',
+      title: 'qa_sp_from_dividends'.tr(),
       value:
           desired != null
               ? QaFormat.money(income.dividendsCapital)
-              : '${QaFormat.money(income.dividendsMonthly)}/mes',
-      note: 'No tocás el capital',
+              : 'qa_per_month'.tr(
+                namedArgs: {'amount': QaFormat.money(income.dividendsMonthly)},
+              ),
+      note: 'qa_sp_dont_touch_capital'.tr(),
       selected: desired != null && income.strategy == IncomeStrategy.dividends,
     );
     final withdrawal = _IncomeOption(
-      title: 'Retirando el 4%',
+      title: 'qa_sp_withdraw_4'.tr(),
       value:
           desired != null
               ? QaFormat.money(income.withdrawalCapital)
-              : '${QaFormat.money(income.withdrawalMonthly)}/mes',
+              : 'qa_per_month'.tr(
+                namedArgs: {'amount': QaFormat.money(income.withdrawalMonthly)},
+              ),
       note: withdrawalNote,
       selected: desired != null && income.strategy == IncomeStrategy.withdrawal,
     );
@@ -613,8 +639,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       children: [
         Text(
           desired != null
-              ? 'Para cobrar ${QaFormat.money(desired)}/mes necesitás juntar:'
-              : 'Con ${QaFormat.money(_inputs.targetAmount)} podrías cobrar:',
+              ? 'qa_sp_to_collect_need'.tr(
+                namedArgs: {'amount': QaFormat.money(desired)},
+              )
+              : 'qa_sp_could_collect'.tr(
+                namedArgs: {'amount': QaFormat.money(_inputs.targetAmount)},
+              ),
           style: QaText.body,
         ),
         const SizedBox(height: QaSpace.gap),
@@ -630,10 +660,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         ),
         const SizedBox(height: QaSpace.gap),
         Text(
-          'Dividendos: al jubilarte pasás el capital a acciones o ETFs que '
-          'pagan dividendos (~${_pct(_inputs.effectiveDividendYield)} anual) '
-          'y vivís de lo que pagan. Retiro del 4%: vendés de a poco una '
-          'cartera conservadora; necesitás menos, pero se va gastando.',
+          'qa_sp_income_explain'.tr(
+            namedArgs: {'pct': _pct(_inputs.effectiveDividendYield)},
+          ),
           style: QaText.caption,
         ),
       ],
@@ -653,13 +682,17 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const QaSectionLabel('Hoy tenés'),
+              QaSectionLabel('qa_sp_today_you_have'.tr()),
               const SizedBox(height: 6),
               Text(QaFormat.money(current), style: QaText.display),
               const SizedBox(height: 2),
               Text(
-                'Te faltan ${QaFormat.money(math.max(0, target - current))} '
-                '· ${_horizon(_inputs.months)}',
+                'qa_sp_you_are_missing'.tr(
+                  namedArgs: {
+                    'amount': QaFormat.money(math.max(0, target - current)),
+                    'horizon': _horizon(_inputs.months),
+                  },
+                ),
                 style: QaText.label,
               ),
             ],
@@ -667,7 +700,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         ),
         const SizedBox(width: QaSpace.gap),
         Semantics(
-          label: 'Progreso $pctLabel',
+          label: 'qa_sp_progress_semantics'.tr(namedArgs: {'pct': pctLabel}),
           child: QaRing(
             value: progress,
             size: 76,
@@ -676,7 +709,10 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(pctLabel, style: QaText.value),
-                Text('logrado', style: QaText.caption.copyWith(fontSize: 10)),
+                Text(
+                  'qa_sp_achieved'.tr(),
+                  style: QaText.caption.copyWith(fontSize: 10),
+                ),
               ],
             ),
           ),
@@ -712,30 +748,39 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'en ${_data.targetDate.year}',
+                'qa_sp_in_year'.tr(
+                  namedArgs: {'year': '${_data.targetDate.year}'},
+                ),
                 style: QaText.label,
               ),
             ),
             QaTag(
               reaches
-                  ? 'Llegás'
-                  : 'Faltan ${QaFormat.money(_inputs.targetAmount - base)}',
+                  ? 'qa_sp_tag_on_track'.tr()
+                  : 'qa_sp_missing_amount'.tr(
+                    namedArgs: {
+                      'amount': QaFormat.money(_inputs.targetAmount - base),
+                    },
+                  ),
               color: reaches ? QaColors.profit : QaColors.loss,
             ),
           ],
         ),
         const SizedBox(height: 2),
         Text(
-          'Entre ${QaFormat.money(end.values[PlanScenario.pessimistic]!)} y '
-          '${QaFormat.money(end.values[PlanScenario.optimistic]!)} según '
-          'cómo venga el mercado',
+          'qa_sp_between'.tr(
+            namedArgs: {
+              'low': QaFormat.money(end.values[PlanScenario.pessimistic]!),
+              'high': QaFormat.money(end.values[PlanScenario.optimistic]!),
+            },
+          ),
           style: QaText.caption,
         ),
         const SizedBox(height: QaSpace.gap),
         QaSavingsPlanChart(
           points: curve,
           targetAmount: _inputs.targetAmount,
-          startLabel: 'Hoy',
+          startLabel: 'qa_sp_chart_today'.tr(),
           endLabel: '${_data.targetDate.year}',
           active: widget.active,
           onFinished: _reportFinished,
@@ -746,14 +791,14 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             Expanded(
               child: _Legend(
                 color: QaColors.textSecondary.withValues(alpha: 0.5),
-                label: 'Lo que ponés',
+                label: 'qa_sp_you_put_in'.tr(),
                 value: legend(end.contributed),
               ),
             ),
             Expanded(
               child: _Legend(
                 color: QaColors.accentBlue,
-                label: 'Intereses',
+                label: 'qa_sp_interest'.tr(),
                 value: legend(growth),
               ),
             ),
@@ -768,9 +813,14 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               Row(
                 children: [
                   Expanded(
-                    child: Text('Probá otro aporte', style: QaText.label),
+                    child: Text('qa_sp_try_other'.tr(), style: QaText.label),
                   ),
-                  Text('${QaFormat.money(monthly)}/mes', style: QaText.value),
+                  Text(
+                    'qa_per_month'.tr(
+                      namedArgs: {'amount': QaFormat.money(monthly)},
+                    ),
+                    style: QaText.value,
+                  ),
                 ],
               ),
               SliderTheme(
@@ -788,7 +838,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                   max: max,
                   divisions: math.max(1, (max / step).round()),
                   semanticFormatterCallback:
-                      (v) => '${QaFormat.money(v)} por mes',
+                      (v) => 'qa_sp_slider_semantics'.tr(
+                        namedArgs: {'amount': QaFormat.money(v)},
+                      ),
                   onChanged: (v) => setState(() => _monthly = v),
                 ),
               ),
@@ -798,7 +850,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                   child: TextButton(
                     onPressed: () => setState(() => _monthly = null),
                     child: Text(
-                      'Volver al plan',
+                      'qa_sp_back_to_plan'.tr(),
                       style: QaText.label.copyWith(color: QaColors.accentBlue),
                     ),
                   ),
@@ -888,7 +940,11 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${QaFormat.money(monthly * items[i].weight)}/mes',
+                    'qa_per_month'.tr(
+                      namedArgs: {
+                        'amount': QaFormat.money(monthly * items[i].weight),
+                      },
+                    ),
                     style: QaText.value,
                   ),
                   Text(
@@ -903,8 +959,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         ],
         const SizedBox(height: QaSpace.gap),
         Text(
-          'Ejemplos de ETFs amplios y de bajo costo para cada parte de la '
-          'cartera. Podés pedirle a Porty otros.',
+          'qa_sp_etf_examples'.tr(),
           style: QaText.caption,
         ),
       ],
@@ -928,7 +983,11 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                 ),
               ),
               Text(
-                '${QaFormat.money(plan.sensitivities[i].requiredMonthly)}/mes',
+                'qa_per_month'.tr(
+                  namedArgs: {
+                    'amount': QaFormat.money(plan.sensitivities[i].requiredMonthly),
+                  },
+                ),
                 style: QaText.value,
               ),
             ],
@@ -947,31 +1006,30 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final sooner = s.monthsDelta < 0;
     if (retirement) {
       return sooner
-          ? 'Te jubilás $years años antes'
-          : 'Te jubilás $years años después';
+          ? 'qa_sp_retire_sooner'.tr(namedArgs: {'years': '$years'})
+          : 'qa_sp_retire_later'.tr(namedArgs: {'years': '$years'});
     }
-    return sooner ? 'Lo adelantás $years años' : 'Lo postergás $years años';
+    return sooner
+        ? 'qa_sp_goal_sooner'.tr(namedArgs: {'years': '$years'})
+        : 'qa_sp_goal_later'.tr(namedArgs: {'years': '$years'});
   }
 
   String _riskNote() {
     final name = _riskName(_inputs.risk).toLowerCase();
     if (_inputs.shortTerm) {
-      return 'Es plata que vas a usar en menos de 3 años: el plan la deja en '
-          'liquidez (cuentas remuneradas, money market, letras) y bonos '
-          'cortos, sin acciones, para que no dependa de cómo esté el mercado '
-          'cuando la necesites.';
+      return 'qa_sp_risk_short_term'.tr();
     }
     if (_data.shortHorizon) {
-      return 'Con menos de 3 años, las acciones pueden caer y no recuperarse '
-          'a tiempo: por eso el plan va conservador.';
+      return 'qa_sp_risk_short_horizon'.tr();
     }
     return switch (_data.riskSource) {
-      GoalProjectionBuilder.riskStated => 'Cartera $name, como pediste.',
-      GoalProjectionBuilder.riskProfile =>
-        'Cartera $name, según tu perfil de inversor.',
-      _ =>
-        'Cartera $name por defecto: completá tu perfil de inversor para '
-            'ajustarla a vos.',
+      GoalProjectionBuilder.riskStated => 'qa_sp_risk_stated'.tr(
+        namedArgs: {'name': name},
+      ),
+      GoalProjectionBuilder.riskProfile => 'qa_sp_risk_profile'.tr(
+        namedArgs: {'name': name},
+      ),
+      _ => 'qa_sp_risk_default'.tr(namedArgs: {'name': name}),
     };
   }
 
@@ -979,51 +1037,57 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final r = plan.returns;
     final capital =
         _data.capitalStated
-            ? 'Partís de ${QaFormat.money(_inputs.currentAmount)}.'
+            ? 'qa_sp_start_stated'.tr(
+              namedArgs: {'amount': QaFormat.money(_inputs.currentAmount)},
+            )
             : _inputs.currentAmount > 0
-            ? 'Partís del valor de tu portfolio '
-                '(${QaFormat.money(_inputs.currentAmount)}).'
-            : 'Partís de cero.';
-    return '$capital Montos en dólares de hoy. Rendimiento real (después de '
-        'inflación) de ${_pct(r[PlanScenario.pessimistic]!)}, '
-        '${_pct(r[PlanScenario.base]!)} y '
-        '${_pct(r[PlanScenario.optimistic]!)} anual según el escenario; '
-        'aportes que suben con la inflación. Con inflación del '
-        '${_pct(PlanAssumptions.inflation)}, la meta equivale a '
-        '${QaFormat.money(plan.nominalTarget)} de ${_data.targetDate.year}. '
-        'Es una simulación, no una garantía.';
+            ? 'qa_sp_start_portfolio'.tr(
+              namedArgs: {'amount': QaFormat.money(_inputs.currentAmount)},
+            )
+            : 'qa_sp_start_zero'.tr();
+    return 'qa_sp_assumptions'.tr(
+      namedArgs: {
+        'capital': capital,
+        'low': _pct(r[PlanScenario.pessimistic]!),
+        'base': _pct(r[PlanScenario.base]!),
+        'high': _pct(r[PlanScenario.optimistic]!),
+        'inflation': _pct(PlanAssumptions.inflation),
+        'nominal': QaFormat.money(plan.nominalTarget),
+        'year': '${_data.targetDate.year}',
+      },
+    );
   }
 
   List<QaFollowUp> _followUps() {
     final income = _income;
     final desired = income?.desiredMonthly != null;
     return [
-      const QaFollowUp(
-        'Armar mi compra mensual',
-        'Armá mi compra mensual para este plan',
+      QaFollowUp(
+        'qa_fu_build_buy'.tr(),
+        'qa_fu_build_buy_q'.tr(),
         icon: Icons.shopping_basket_outlined,
       ),
       if (desired)
         income!.strategy == IncomeStrategy.dividends
-            ? const QaFollowUp(
-              'Usar retiro del 4%',
-              'Rehacé el plan para cobrar retirando el 4% por año',
+            ? QaFollowUp(
+              'qa_fu_use_withdraw4'.tr(),
+              'qa_fu_use_withdraw4_q'.tr(),
               icon: Icons.swap_horiz_rounded,
             )
-            : const QaFollowUp(
-              'Usar dividendos',
-              'Rehacé el plan para vivir de dividendos',
+            : QaFollowUp(
+              'qa_fu_use_dividends'.tr(),
+              'qa_fu_use_dividends_q'.tr(),
               icon: Icons.swap_horiz_rounded,
             ),
       income != null
-          ? const QaFollowUp(
-            'ETFs de dividendos',
-            '¿Qué ETFs de dividendos podría usar?',
+          ? QaFollowUp(
+            'qa_fu_dividend_etfs'.tr(),
+            'qa_fu_dividend_etfs_q'.tr(),
             icon: Icons.pie_chart_outline_rounded,
           )
-          : const QaFollowUp(
-            'Qué ETFs usar',
-            '¿Qué ETFs podría usar para esta cartera?',
+          : QaFollowUp(
+            'qa_fu_which_etfs'.tr(),
+            'qa_fu_which_etfs_q'.tr(),
             icon: Icons.pie_chart_outline_rounded,
           ),
       for (final risk in RiskTolerance.values)
@@ -1032,7 +1096,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             !_inputs.shortTerm)
           QaFollowUp(
             _riskName(risk),
-            'Rehacé el plan con una cartera ${_riskName(risk).toLowerCase()}',
+            'qa_fu_redo_risk_q'.tr(
+              namedArgs: {'risk': _riskName(risk).toLowerCase()},
+            ),
             icon: Icons.tune_rounded,
           ),
     ];
@@ -1062,22 +1128,23 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
   }
 
   static String _riskName(RiskTolerance risk) => switch (risk) {
-    RiskTolerance.conservative => 'Conservadora',
-    RiskTolerance.moderate => 'Moderada',
-    RiskTolerance.aggressive => 'Agresiva',
+    RiskTolerance.conservative => 'qa_risk_conservative'.tr(),
+    RiskTolerance.moderate => 'qa_risk_moderate'.tr(),
+    RiskTolerance.aggressive => 'qa_risk_aggressive'.tr(),
   };
 
-  static String _pct(double v) =>
-      '${(v * 100).toStringAsFixed(1).replaceAll('.', ',')}%';
+  static String _pct(double v) => '${QaFormat.decimal(v * 100)}%';
 
   /// "20 años", "3 años y 4 meses", "7 meses".
   static String _horizon(int months) {
     final years = months ~/ 12;
     final rest = months % 12;
-    if (years == 0) return QaFormat.plural(rest, 'mes', 'meses');
-    final y = QaFormat.plural(years, 'año', 'años');
+    if (years == 0) return QaFormat.units(rest, 'qa_unit_months');
+    final y = QaFormat.units(years, 'qa_unit_years');
     if (rest == 0) return y;
-    return '$y y ${QaFormat.plural(rest, 'mes', 'meses')}';
+    return 'qa_horizon_years_months'.tr(
+      namedArgs: {'years': y, 'months': QaFormat.units(rest, 'qa_unit_months')},
+    );
   }
 }
 
@@ -1139,7 +1206,7 @@ class _IncomeOption extends StatelessWidget {
           if (selected) ...[
             const SizedBox(height: 4),
             Text(
-              'Tu plan',
+              'qa_sp_your_plan'.tr(),
               style: QaText.caption.copyWith(color: QaColors.accentBlue),
             ),
           ],
@@ -1169,7 +1236,7 @@ class _ExpandToggle extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                expanded ? 'Ver menos' : 'Ver plan completo',
+                expanded ? 'qa_see_less'.tr() : 'qa_sp_see_full'.tr(),
                 style: QaText.label.copyWith(color: QaColors.accentBlue),
               ),
               const SizedBox(width: 4),

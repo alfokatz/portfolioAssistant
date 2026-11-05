@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:go_router/go_router.dart';
@@ -70,22 +71,26 @@ class _AllocationPlanBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaCardTitle(
-          title: 'Tu plan de cartera',
+          title: 'qa_al_title'.tr(),
           icon: Icons.donut_large_rounded,
-          subtitle: 'Margen de ±${data.thresholdPts.round()} puntos',
+          subtitle: 'qa_al_margin'.tr(
+            namedArgs: {'pts': '${data.thresholdPts.round()}'},
+          ),
           trailing:
               !data.hasHoldings
                   ? null
                   : off.isEmpty
-                  ? QaTag('En plan', color: QaColors.profit)
+                  ? QaTag('qa_al_on_plan'.tr(), color: QaColors.profit)
                   : QaTag(
-                    off.length == 1 ? '1 fuera' : '${off.length} fuera',
+                    off.length == 1
+                        ? 'qa_al_one_off'.tr()
+                        : 'qa_al_n_off'.tr(namedArgs: {'count': '${off.length}'}),
                     color: QaColors.accentWarm,
                   ),
         ),
         const SizedBox(height: QaSpace.sectionGap),
         _BarRow(
-          label: 'Plan',
+          label: 'qa_al_plan'.tr(),
           segments: [
             for (final t in inPlan)
               QaSegment(
@@ -97,7 +102,7 @@ class _AllocationPlanBody extends StatelessWidget {
         if (data.hasHoldings) ...[
           const SizedBox(height: QaSpace.gap),
           _BarRow(
-            label: 'Hoy',
+            label: 'qa_al_today'.tr(),
             segments: [
               for (final r in data.rows)
                 if (r.currentPct > 0)
@@ -117,8 +122,10 @@ class _AllocationPlanBody extends StatelessWidget {
         ],
         if (split.isNotEmpty)
           QaSection(
-            title: 'Si sumás ${QaFormat.money(data.contributionUsd ?? 0)}',
-            trailing: QaTag('Solo compras'),
+            title: 'qa_al_if_you_add'.tr(
+              namedArgs: {'amount': QaFormat.money(data.contributionUsd ?? 0)},
+            ),
+            trailing: QaTag('qa_al_buys_only'.tr()),
             child: Column(
               children: [
                 for (final (i, e) in split.indexed) ...[
@@ -144,7 +151,7 @@ class _AllocationPlanBody extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => router.pushNamed(AllocationRouter.routeName),
               icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('Ver o editar mi plan'),
+              label: Text('qa_al_view_edit'.tr()),
               style: TextButton.styleFrom(
                 foregroundColor: QaColors.accentBlue,
                 padding: EdgeInsets.zero,
@@ -157,14 +164,14 @@ class _AllocationPlanBody extends StatelessWidget {
           surfaceId: ctx.surfaceId,
           items: [
             if (split.isEmpty)
-              const QaFollowUp(
-                'Repartir un aporte',
-                '¿Cómo reparto 500 dólares para acercarme a mi plan?',
+              QaFollowUp(
+                'qa_al_fu_contribution'.tr(),
+                'qa_al_fu_contribution_q'.tr(),
                 icon: Icons.calculate_outlined,
               ),
-            const QaFollowUp(
-              'Concentración',
-              '¿Estoy muy concentrado?',
+            QaFollowUp(
+              'qa_fu_concentration'.tr(),
+              'qa_fu_concentration_q'.tr(),
               icon: Icons.pie_chart_outline_rounded,
             ),
           ],
@@ -213,12 +220,12 @@ class _PlanRow extends StatelessWidget {
         !hasHoldings
             ? null
             : row.targetPct == 0
-            ? 'Fuera del plan'
+            ? 'qa_al_off_plan'.tr()
             : !off
-            ? 'En plan'
+            ? 'qa_al_on_plan'.tr()
             : row.driftPts > 0
-            ? '+$pts pts'
-            : '−$pts pts';
+            ? 'qa_al_pts_up'.tr(namedArgs: {'pts': '$pts'})
+            : 'qa_al_pts_down'.tr(namedArgs: {'pts': '$pts'});
     return Row(
       children: [
         Stack(
@@ -248,9 +255,15 @@ class _PlanRow extends StatelessWidget {
               Text(row.ticker, style: QaText.bodyStrong),
               Text(
                 hasHoldings
-                    ? 'Plan ${QaFormat.pct(row.targetPct, digits: 0)} · '
-                        'Hoy ${QaFormat.pct(row.currentPct, digits: 0)}'
-                    : 'Plan ${QaFormat.pct(row.targetPct, digits: 0)}',
+                    ? 'qa_al_plan_today'.tr(
+                      namedArgs: {
+                        'plan': QaFormat.pct(row.targetPct, digits: 0),
+                        'today': QaFormat.pct(row.currentPct, digits: 0),
+                      },
+                    )
+                    : 'qa_al_plan_only'.tr(
+                      namedArgs: {'plan': QaFormat.pct(row.targetPct, digits: 0)},
+                    ),
                 style: QaText.label,
               ),
             ],
@@ -304,8 +317,12 @@ class _SplitRow extends StatelessWidget {
               Text(ticker, style: QaText.bodyStrong),
               if (after != null && target != null)
                 Text(
-                  'Quedaría en ${QaFormat.pct(after, digits: 0)} '
-                  '(plan ${QaFormat.pct(target, digits: 0)})',
+                  'qa_al_would_be'.tr(
+                    namedArgs: {
+                      'after': QaFormat.pct(after, digits: 0),
+                      'target': QaFormat.pct(target, digits: 0),
+                    },
+                  ),
                   style: QaText.label,
                 ),
             ],

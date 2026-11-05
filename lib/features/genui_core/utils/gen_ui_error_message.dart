@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -8,7 +9,7 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_cl
 /// Convierte errores técnicos de OpenAI/GenUI en mensajes legibles para el usuario.
 String genUiErrorMessage(Object error) {
   if (error is A2uiValidationException) {
-    return 'La IA devolvió un formato de UI inválido. Intentá de nuevo.';
+    return 'qa_gu_invalid_format'.tr();
   }
   if (error is RequestFailedException) {
     return _fromRequestFailed(error);
@@ -23,13 +24,14 @@ String genUiErrorMessage(Object error) {
     return text.replaceFirst('Bad state: ', '');
   }
 
-  if (error is StateError && text.contains('interfaz válida')) {
+  if (error is StateError && (text.contains('interfaz válida') ||
+          text.contains('qa_gu_no_valid_ui'.tr()) ||
+          text.contains('qa_gu_no_valid_ui_detail'.tr(namedArgs: {'error': ''})))) {
     return text.replaceFirst('Bad state: ', '');
   }
 
   if (error is TimeoutException) {
-    return error.message ??
-        'La IA no generó una interfaz a tiempo. Revisá tu conexión o intentá de nuevo.';
+    return error.message ?? 'qa_gu_timeout'.tr();
   }
 
   if (_looksLikeRateLimit(text)) {
@@ -42,24 +44,22 @@ String genUiErrorMessage(Object error) {
 // La key y la facturación de OpenAI son del servidor: el usuario nunca ve
 // mensajes sobre ellas (antes decían "revisá tu .env" o "tu cuenta de
 // OpenAI").
-const _generic =
-    'No pudimos obtener una respuesta de la IA. Intentá de nuevo en unos segundos.';
-const _serviceDown =
-    'Porty tuvo un problema temporal. Intentá de nuevo en un momento.';
+String get _generic => 'qa_gu_generic'.tr();
+String get _serviceDown => 'qa_gu_service_down'.tr();
 
 /// Rechazos del proxy `ai-chat`. La cuota (paywall) y el tope diario
 /// (aviso discreto) los resuelve el provider antes de llegar acá.
 String _fromProxy(ProxyLimitException error) {
   switch (error.type) {
     case 'quota_exceeded':
-      return 'Usaste todas las consultas de tu plan este mes.';
+      return 'qa_gu_quota'.tr();
     case 'daily_limit':
-      return 'Volvés a tener consultas mañana.';
+      return 'qa_gu_daily'.tr();
     case 'rate_limited':
     case 'too_many_rounds':
-      return 'Estás enviando muchas consultas seguidas. Esperá unos segundos y reenviá tu consulta.';
+      return 'qa_gu_rate'.tr();
     case 'unauthorized':
-      return 'Tu sesión venció. Volvé a iniciar sesión para seguir usando Porty.';
+      return 'qa_gu_unauthorized'.tr();
     case 'unavailable':
       return _serviceDown;
     default:
@@ -110,9 +110,9 @@ bool _looksLikeQuota(String text) {
 
 String _rateLimitMessage({int? retrySeconds}) {
   final wait = retrySeconds != null && retrySeconds > 0
-      ? ' Esperá unos $retrySeconds segundos'
-      : ' Esperá unos 5–10 segundos';
-  return 'Porty está recibiendo muchas consultas (límite de uso por minuto).$wait y reenviá tu consulta.';
+      ? 'qa_gu_wait_seconds'.tr(namedArgs: {'seconds': '$retrySeconds'})
+      : 'qa_gu_wait_default'.tr();
+  return 'qa_gu_rate_limit'.tr(namedArgs: {'wait': wait});
 }
 
 /// Segundos sugeridos por OpenAI antes de reintentar (p. ej. rate limit 429).

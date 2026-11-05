@@ -22,6 +22,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -1547,6 +1548,64 @@ final _vagueCases = <_Case>[
 
 /// Un pedido de acción: llama a [tool] con lo esperado, muestra la card y
 /// no dice que ya lo hizo.
+/// Los mismos casos y chequeos que en español, con la pregunta en inglés
+/// y un chequeo más: que la respuesta esté en inglés.
+const _englishTurns = <String, List<String>>{
+  'scope-receta': ['Give me a recipe for spaghetti with tomato sauce'],
+  'purchase-compu-sin-datos': ['Hi, how much do I need to invest to buy a computer?'],
+  'goal-generico-pregunta': ['I want to build a plan for a new goal'],
+  'purchase-busca-precio': [
+    'I want to buy the pink MacBook Neo in 14 months, how much should I save per month?',
+  ],
+  'purchase-continuidad-mac': [
+    'Hi, how much do I need to invest to buy a computer?',
+    'A Mac',
+    'The pink MacBook Neo, it costs 800 dollars and I want it in 14 months',
+  ],
+  'chat-hola': ['Hi'],
+  'chat-gracias': ['Thanks!'],
+  'conceptual-etf-spy': ['What is an ETF, like SPY?'],
+  'portfolio-now': ['How is my portfolio doing?'],
+  'price-aapl': ["What's AAPL trading at?"],
+  'company-name-apple': ['What are Apple\'s metrics?'],
+  'market-today': ['How is the market today?'],
+  'why-nvda': ['Why did NVDA drop this week?'],
+  'invest-renewables': ['I have \$500 to invest in renewable energy'],
+  'invest-diversify': ['How can I diversify?'],
+  'retirement-income': ['I want to retire in 25 years earning 3000 dollars a month'],
+  'dividends-etfs-and-stocks': ['How much do SCHD, VYM and KO pay in dividends?'],
+  'action-buy-complete': ['I bought 10 shares of Apple on September 25'],
+  'action-buy-usd-yesterday': ['Yesterday I put 500 dollars into NVDA'],
+  'action-two-operations': ['Yesterday I bought 3 Microsoft shares and sold all my NVDA'],
+  'action-not-advice': ['Should I buy AAPL?'],
+  'watchlist-add': ['Follow Microsoft'],
+  'know-queries-left': ['How many queries do I have left this month?'],
+  'action-settings-dark': ['Put the app in dark mode and stop notifying me about earnings'],
+  'plan-drift': ['Have I drifted from my portfolio plan?'],
+  'screen-position-why': ['Why did it drop?'],
+};
+
+List<_Case> _englishCases() => [
+  for (final c in _cases)
+    if (_englishTurns[c.id] case final turns?)
+      _Case(
+        'en-${c.id}',
+        turns,
+        (t, all) => [
+          ...c.check(t, all),
+          ..._expect(
+            AppLanguage.detect(t.answerText, fallback: 'en') == 'en',
+            'no contestó en inglés: ${t.answerText}',
+          ),
+        ],
+        tier: c.tier,
+        weeklyFree: c.weeklyFree,
+        screen: c.screen,
+        plan: c.plan,
+        topics: c.topics,
+      ),
+];
+
 List<_Case> _actionCase(
   String id,
   String question,
@@ -1821,11 +1880,17 @@ void main() {
       // incompletos (aparte: la batería normal ya usa casi todo el cupo
       // diario del usuario de prueba).
       final followUps = Platform.environment['EVAL_SUITE'] == 'followups';
+      // EVAL_SUITE=english: los casos clave en inglés, con la app en inglés
+      // (Porty tiene que andar igual de bien en los dos idiomas).
+      final english = Platform.environment['EVAL_SUITE'] == 'english';
+      AppLanguage.set(english ? 'en' : 'es');
       final cases =
           newsV2
               ? _newsV2Cases
               : followUps
               ? [..._followUpCases(), ..._vagueCases]
+              : english
+              ? _englishCases()
               : _cases;
       final report = <Map<String, Object?>>[];
       var failures = 0;

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 
 /// Escenario de rendimiento de un plan de ahorro.
@@ -31,9 +32,18 @@ enum PlanAssetClass {
     PlanScenario.optimistic: 0.01,
   });
 
-  const PlanAssetClass(this.key, this.label, this.realReturn);
+  const PlanAssetClass(this.key, this._labelEs, this.realReturn);
   final String key;
-  final String label;
+  final String _labelEs;
+
+  /// En el idioma de la app (la card y el resultado de la tool lo muestran).
+  String get label => AppLanguage.isEnglish
+      ? switch (this) {
+          PlanAssetClass.equities => 'Global stocks',
+          PlanAssetClass.bonds => 'Bonds',
+          PlanAssetClass.cash => 'Cash',
+        }
+      : _labelEs;
   final Map<PlanScenario, double> realReturn;
 }
 

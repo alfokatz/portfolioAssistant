@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 
@@ -60,7 +61,7 @@ abstract final class GenUiRequestTracker {
       ], eagerError: true).timeout(
         timeout,
         onTimeout: () => throw TimeoutException(
-          'La IA no generó una interfaz a tiempo. Revisá tu conexión o intentá de nuevo.',
+          'qa_gu_timeout'.tr(),
         ),
       );
     } finally {

@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/assistant/utils/period_labels.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
@@ -5,13 +6,7 @@ import 'package:portfolio_assistant/domain/utils/ticker_period_utils.dart';
 /// Precio actual + variación por período + disponibilidad de gráfico de un
 /// ticker (Yahoo, vía [QuoteRepository]).
 abstract final class TickerQuoteBuilder {
-  static const periods = <String, ({String labelEs, Duration duration})>{
-    'day': (labelEs: 'último día', duration: Duration(days: 1)),
-    'week': (labelEs: 'últimos 7 días', duration: Duration(days: 7)),
-    'month': (labelEs: 'últimos 30 días', duration: Duration(days: 30)),
-    'quarter': (labelEs: 'últimos 90 días', duration: Duration(days: 90)),
-    'year': (labelEs: 'último año', duration: Duration(days: 365)),
-  };
+  static const periods = PeriodLabels.durations;
 
   static Future<Map<String, Object?>> build({
     required String ticker,
@@ -30,14 +25,14 @@ abstract final class TickerQuoteBuilder {
     for (final entry in periods.entries) {
       final move = TickerPeriodUtils.moveForDuration(
         history,
-        entry.value.duration,
+        entry.value,
       );
       periodsMap[entry.key] = {
         'change_pct': _round2(move.changePct),
         'price_start': _round2(move.priceStart),
         'price_end': _round2(move.priceEnd),
         'has_sufficient_history': move.hasSufficientHistory,
-        'label_es': entry.value.labelEs,
+        'label_es': PeriodLabels.of(entry.key),
       };
     }
 

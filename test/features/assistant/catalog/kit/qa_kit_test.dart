@@ -37,8 +37,8 @@ void main() {
       expect(QaFormat.signedPct(-1.96), '-1.96%');
       expect(QaFormat.signedMoney(428), '+\$428');
       expect(QaFormat.signedMoney(-7.4), '-\$7');
-      expect(QaFormat.plural(1, 'posición', 'posiciones'), '1 posición');
-      expect(QaFormat.plural(3, 'posición', 'posiciones'), '3 posiciones');
+      expect(QaFormat.units(1, 'qa_unit_positions'), '1 posición');
+      expect(QaFormat.units(3, 'qa_unit_positions'), '3 posiciones');
     });
   });
 

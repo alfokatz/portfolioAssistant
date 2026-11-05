@@ -41,16 +41,21 @@ abstract final class PortfolioBrief {
   /// Su plan y cuántas consultas le quedan este mes.
   static const accountKey = 'account';
 
+  /// El idioma de la app ('es' | 'en'): el de la respuesta cuando el
+  /// mensaje no deja claro en qué idioma escribe (ver LANGUAGE del prompt).
+  static const appLanguageKey = 'app_language';
+
   /// Cuántos datos de la memoria viajan por turno (los más recientes).
   static const maxMemoriesInBrief = 30;
 
   static Map<String, Object?> build(AssistantToolContext ctx) {
-    final map = PortfolioContextBuilder.buildMap(
+    final map = <String, Object?>{appLanguageKey: ctx.appLanguage};
+    map.addAll(PortfolioContextBuilder.buildMap(
       ctx.summary,
       history: ctx.history,
       closedPositions: ctx.closedPositions,
       asOf: ctx.now,
-    );
+    ));
     map
       ..remove('position_periods')
       ..remove('closed_positions')

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
 /// Operaciones de "gestión" que Porty propone y el usuario confirma en la
@@ -99,126 +100,107 @@ enum ManageOp {
 
   /// El rótulo de arriba de la card.
   String get eyebrow => switch (this) {
-    unwatch => 'Dejar de seguir',
-    watchNotifyOn || watchNotifyOff => 'Avisos de tu lista',
-    alertPause || alertResume || alertDelete => 'Alerta de precio',
-    goalDelete || goalAchieved || goalHoldings || goalOutsideSavings => 'Meta',
-    allocationSave => 'Plan de cartera',
-    settingsChange => 'Ajustes',
-    memoryClear => 'Lo que sé de vos',
-    brokerSync || brokerConnect || brokerDisconnect => 'Cuenta conectada',
+    unwatch => 'qa_ma_eyebrow_unwatch'.tr(),
+    watchNotifyOn || watchNotifyOff => 'qa_ma_eyebrow_watch'.tr(),
+    alertPause || alertResume || alertDelete => 'qa_ma_eyebrow_alert'.tr(),
+    goalDelete || goalAchieved || goalHoldings || goalOutsideSavings =>
+      'qa_ma_eyebrow_goal'.tr(),
+    allocationSave => 'qa_ma_eyebrow_allocation'.tr(),
+    settingsChange => 'qa_ma_eyebrow_settings'.tr(),
+    memoryClear => 'qa_ma_eyebrow_memory'.tr(),
+    brokerSync || brokerConnect || brokerDisconnect =>
+      'qa_ma_eyebrow_broker'.tr(),
   };
 
   /// Qué va a pasar, antes de confirmar.
   String describe(ManageTarget t) => switch (this) {
-    unwatch =>
-      'Saco ${t.ticker} de tu lista de seguimiento. Dejás de ver cómo se '
-          'mueve y no te aviso más.',
-    watchNotifyOn =>
-      'Te aviso si ${t.ticker} se mueve fuerte en el día. Sigue en tu lista '
-          'como está.',
-    watchNotifyOff =>
-      'Dejo de avisarte si ${t.ticker} se mueve fuerte. Sigue en tu lista.',
-    alertPause =>
-      'Pauso la alerta "${t.label}". No te aviso hasta que la vuelvas a '
-          'activar.',
-    alertResume =>
-      'Vuelvo a activar la alerta "${t.label}": te aviso cuando se cumpla.',
-    alertDelete => 'Borro la alerta "${t.label}". No te aviso más.',
-    goalDelete =>
-      'Borro la meta "${t.label}" y su plan. Tus inversiones quedan como '
-          'están.',
-    goalAchieved =>
-      'Marco "${t.label}" como cumplida. Las inversiones que contaba quedan '
-          'libres para tus otras metas.',
+    unwatch => 'qa_ma_d_unwatch'.tr(namedArgs: {'ticker': t.ticker}),
+    watchNotifyOn => 'qa_ma_d_notify_on'.tr(namedArgs: {'ticker': t.ticker}),
+    watchNotifyOff => 'qa_ma_d_notify_off'.tr(namedArgs: {'ticker': t.ticker}),
+    alertPause => 'qa_ma_d_alert_pause'.tr(namedArgs: {'label': '${t.label}'}),
+    alertResume => 'qa_ma_d_alert_resume'.tr(namedArgs: {'label': '${t.label}'}),
+    alertDelete => 'qa_ma_d_alert_delete'.tr(namedArgs: {'label': '${t.label}'}),
+    goalDelete => 'qa_ma_d_goal_delete'.tr(namedArgs: {'label': '${t.label}'}),
+    goalAchieved => 'qa_ma_d_goal_achieved'.tr(namedArgs: {'label': '${t.label}'}),
     goalHoldings =>
       t.tickers.isEmpty
-          ? 'Dejo de contar tus inversiones para "${t.label}".'
-          : 'Para "${t.label}" cuento ${_list(t.tickers)}. Si una cuenta '
-              'para otra meta, se reparte entre las dos.',
+          ? 'qa_ma_d_holdings_none'.tr(namedArgs: {'label': '${t.label}'})
+          : 'qa_ma_d_holdings'.tr(namedArgs: {'label': '${t.label}', 'list': _list(t.tickers)}),
     goalOutsideSavings =>
-      'Anoto que tenés ${AppNumberFormat.money(t.amount ?? 0)} fuera de la '
-          'app para "${t.label}" (reemplaza lo anterior) y rehago el plan.',
+      'qa_ma_d_outside'.tr(namedArgs: {'amount': AppNumberFormat.money(t.amount ?? 0), 'label': '${t.label}'}),
     allocationSave =>
       t.targets.isEmpty
           ? _onlyReminder(t)
               ? _reminder(t)
-              : 'Cambio los avisos de tu plan: ${_alerts(t)}${_reminderSuffix(t)}'
-          : 'Tu plan queda así: ${_split(t.targets)}. ${_alerts(t)}'
-              '${_reminderSuffix(t)}',
-    settingsChange => 'Cambio esto:\n${AppSettingKeys.describe(t.changes)}',
-    memoryClear =>
-      'Borro todo lo que anoté sobre vos. Tu cartera, tus metas y tu perfil '
-          'de inversor no se tocan.',
+              : 'qa_ma_d_alloc_alerts'.tr(namedArgs: {'alerts': _alerts(t), 'suffix': _reminderSuffix(t)})
+          : 'qa_ma_d_alloc_plan'.tr(namedArgs: {'split': _split(t.targets), 'alerts': _alerts(t), 'suffix': _reminderSuffix(t)}),
+    settingsChange =>
+      'qa_ma_d_settings'.tr(namedArgs: {'list': AppSettingKeys.describe(t.changes)}),
+    memoryClear => 'qa_ma_d_memory'.tr(),
     brokerSync =>
       _isSnaptrade(t)
-          ? 'Traigo ya lo último de tus otros brókers (sin esperar a la '
-              'próxima actualización).'
-          : 'Traigo ya lo último de tu cuenta de ${_broker(t)} (sin esperar '
-              'a la próxima actualización).',
-    brokerConnect =>
-      'Te llevo a una página segura de SnapTrade, nuestro socio de conexión, '
-          'para que entres a tu bróker. Solo leo tus posiciones: nunca opero '
-          'ni muevo nada.',
+          ? 'qa_ma_d_sync_snap'.tr()
+          : 'qa_ma_d_sync'.tr(namedArgs: {'broker': _broker(t)}),
+    brokerConnect => 'qa_ma_d_connect'.tr(),
     brokerDisconnect =>
       t.params['keep'] == false
-          ? 'Desconecto ${_broker(t)}, borro ${_credential(t)} y también las '
-              'posiciones que importé de ahí.'
-          : 'Desconecto ${_broker(t)} y borro ${_credential(t)}. Lo que '
-              'importé queda en tu cartera como posiciones manuales.',
+          ? 'qa_ma_d_disconnect_all'.tr(namedArgs: {'broker': _broker(t), 'credential': _credential(t)})
+          : 'qa_ma_d_disconnect'.tr(namedArgs: {'broker': _broker(t), 'credential': _credential(t)}),
   };
 
   /// El botón para confirmar.
   String confirmLabel(ManageTarget t) => switch (this) {
-    unwatch => 'Dejar de seguir ${t.ticker}',
-    watchNotifyOn => 'Prender avisos',
-    watchNotifyOff => 'Apagar avisos',
-    alertPause => 'Pausar alerta',
-    alertResume => 'Activar alerta',
-    alertDelete => 'Borrar alerta',
-    goalDelete => 'Borrar meta',
-    goalAchieved => 'Marcar como cumplida',
-    goalHoldings || goalOutsideSavings => 'Guardar',
-    allocationSave => 'Guardar plan',
-    settingsChange => 'Guardar cambios',
-    memoryClear => 'Borrar todo',
-    brokerSync => 'Actualizar ahora',
-    brokerConnect => 'Conectar un bróker',
+    unwatch => 'qa_ma_c_unwatch'.tr(namedArgs: {'ticker': t.ticker}),
+    watchNotifyOn => 'qa_ma_c_notify_on'.tr(),
+    watchNotifyOff => 'qa_ma_c_notify_off'.tr(),
+    alertPause => 'qa_ma_c_alert_pause'.tr(),
+    alertResume => 'qa_ma_c_alert_resume'.tr(),
+    alertDelete => 'qa_ma_c_alert_delete'.tr(),
+    goalDelete => 'qa_ma_c_goal_delete'.tr(),
+    goalAchieved => 'qa_ma_c_goal_achieved'.tr(),
+    goalHoldings || goalOutsideSavings => 'qa_ma_c_save'.tr(),
+    allocationSave => 'qa_ma_c_save_plan'.tr(),
+    settingsChange => 'qa_ma_c_save_changes'.tr(),
+    memoryClear => 'qa_ma_c_memory'.tr(),
+    brokerSync => 'qa_ma_c_sync'.tr(),
+    brokerConnect => 'qa_ma_c_connect'.tr(),
     brokerDisconnect =>
-      _isSnaptrade(t) ? 'Desconectar todo' : 'Desconectar ${_broker(t)}',
+      _isSnaptrade(t)
+          ? 'qa_ma_c_disconnect_all'.tr()
+          : 'qa_ma_c_disconnect'.tr(namedArgs: {'broker': _broker(t)}),
   };
 
   /// Cómo queda la card después de confirmar.
   String done(ManageTarget t) => switch (this) {
-    unwatch => 'Ya no seguís ${t.ticker}.',
-    watchNotifyOn => 'Te aviso si ${t.ticker} se mueve fuerte en el día.',
-    watchNotifyOff => 'No te aviso más por los movimientos de ${t.ticker}.',
-    alertPause => 'Pausé la alerta "${t.label}".',
-    alertResume => 'Activé la alerta "${t.label}".',
-    alertDelete => 'Borré la alerta "${t.label}".',
-    goalDelete => 'Borré la meta "${t.label}".',
-    goalAchieved => '¡"${t.label}" cumplida!',
+    unwatch => 'qa_ma_o_unwatch'.tr(namedArgs: {'ticker': t.ticker}),
+    watchNotifyOn => 'qa_ma_o_notify_on'.tr(namedArgs: {'ticker': t.ticker}),
+    watchNotifyOff => 'qa_ma_o_notify_off'.tr(namedArgs: {'ticker': t.ticker}),
+    alertPause => 'qa_ma_o_alert_pause'.tr(namedArgs: {'label': '${t.label}'}),
+    alertResume => 'qa_ma_o_alert_resume'.tr(namedArgs: {'label': '${t.label}'}),
+    alertDelete => 'qa_ma_o_alert_delete'.tr(namedArgs: {'label': '${t.label}'}),
+    goalDelete => 'qa_ma_o_goal_delete'.tr(namedArgs: {'label': '${t.label}'}),
+    goalAchieved => 'qa_ma_o_goal_achieved'.tr(namedArgs: {'label': '${t.label}'}),
     goalHoldings =>
       t.tickers.isEmpty
-          ? '"${t.label}" ya no cuenta inversiones.'
-          : 'Para "${t.label}" cuento ${_list(t.tickers)}.',
+          ? 'qa_ma_o_holdings_none'.tr(namedArgs: {'label': '${t.label}'})
+          : 'qa_ma_o_holdings'.tr(namedArgs: {'label': '${t.label}', 'list': _list(t.tickers)}),
     goalOutsideSavings =>
-      'Anoté ${AppNumberFormat.money(t.amount ?? 0)} fuera de la app para '
-          '"${t.label}".',
+      'qa_ma_o_outside'.tr(namedArgs: {'amount': AppNumberFormat.money(t.amount ?? 0), 'label': '${t.label}'}),
     allocationSave =>
       t.targets.isEmpty
           ? _onlyReminder(t)
-              ? 'Listo. ${_reminder(t)}'
-              : 'Listo: ${_alerts(t)}${_reminderSuffix(t)}'
-          : 'Guardé tu plan: ${_split(t.targets)}.${_reminderSuffix(t)}',
-    settingsChange => 'Listo:\n${AppSettingKeys.describe(t.changes)}',
-    memoryClear => 'Borré todo lo que sabía de vos.',
+              ? 'qa_ma_o_alloc_reminder'.tr(namedArgs: {'reminder': _reminder(t)})
+              : 'qa_ma_o_alloc_alerts'.tr(namedArgs: {'alerts': _alerts(t), 'suffix': _reminderSuffix(t)})
+          : 'qa_ma_o_alloc_plan'.tr(namedArgs: {'split': _split(t.targets), 'suffix': _reminderSuffix(t)}),
+    settingsChange =>
+      'qa_ma_o_settings'.tr(namedArgs: {'list': AppSettingKeys.describe(t.changes)}),
+    memoryClear => 'qa_ma_o_memory'.tr(),
     brokerSync =>
       _isSnaptrade(t)
-          ? 'Actualicé tus otros brókers.'
-          : 'Actualicé tu cuenta de ${_broker(t)}.',
-    brokerConnect => 'Conecté tu bróker.',
-    brokerDisconnect => 'Desconecté ${_broker(t)}.',
+          ? 'qa_ma_o_sync_snap'.tr()
+          : 'qa_ma_o_sync'.tr(namedArgs: {'broker': _broker(t)}),
+    brokerConnect => 'qa_ma_o_connect'.tr(),
+    brokerDisconnect => 'qa_ma_o_disconnect'.tr(namedArgs: {'broker': _broker(t)}),
   };
 
   /// La etiqueta de la card resuelta.
@@ -229,20 +211,20 @@ enum ManageOp {
     memoryClear ||
     brokerSync ||
     brokerConnect ||
-    brokerDisconnect => 'Hecho',
-    watchNotifyOn || alertResume => 'Activado',
-    watchNotifyOff || alertPause => 'Pausado',
-    goalAchieved => 'Cumplida',
+    brokerDisconnect => 'qa_ma_tag_done'.tr(),
+    watchNotifyOn || alertResume => 'qa_ma_tag_on'.tr(),
+    watchNotifyOff || alertPause => 'qa_ma_tag_paused'.tr(),
+    goalAchieved => 'qa_ma_tag_achieved'.tr(),
     goalHoldings ||
     goalOutsideSavings ||
     allocationSave ||
-    settingsChange => 'Guardado',
+    settingsChange => 'qa_ma_tag_saved'.tr(),
   };
 }
 
 String _broker(ManageTarget t) => switch (t.params['broker']) {
   'binance' => 'Binance',
-  'snaptrade' => 'tus otros brókers',
+  'snaptrade' => 'qa_ma_broker_others'.tr(),
   _ => 'eToro',
 };
 
@@ -250,7 +232,7 @@ bool _isSnaptrade(ManageTarget t) => t.params['broker'] == 'snaptrade';
 
 /// Lo que se borra al desconectar: la clave (eToro, Binance) o la conexión.
 String _credential(ManageTarget t) =>
-    _isSnaptrade(t) ? 'la conexión' : 'la clave';
+    _isSnaptrade(t) ? 'qa_ma_cred_connection'.tr() : 'qa_ma_cred_key'.tr();
 
 /// "VOO 60% · BND 40%", de mayor a menor.
 String _split(Map<String, double> targets) {
@@ -266,15 +248,15 @@ String _pct(double v) =>
 String _alerts(ManageTarget t) {
   final p = t.params;
   final threshold = (p['threshold'] as num?)?.round();
-  final margin = threshold == null ? '' : ' más de $threshold puntos';
+  final margin =
+      threshold == null ? '' : 'qa_ma_al_margin'.tr(namedArgs: {'n': '$threshold'});
   if (p['notify'] == false) {
-    return 'sin notificaciones (lo vas a ver en tu inicio).';
+    return 'qa_ma_al_no_notify'.tr();
   }
   return switch (p['frequency']) {
-    'monthly' =>
-      'te aviso el primer lunes de cada mes si algo se aleja$margin.',
-    'weekly' => 'te aviso los lunes si algo se aleja$margin.',
-    _ => threshold == null ? '' : 'te aviso si algo se aleja$margin.',
+    'monthly' => 'qa_ma_al_monthly'.tr(namedArgs: {'margin': margin}),
+    'weekly' => 'qa_ma_al_weekly'.tr(namedArgs: {'margin': margin}),
+    _ => threshold == null ? '' : 'qa_ma_al_default'.tr(namedArgs: {'margin': margin}),
   };
 }
 
@@ -290,13 +272,12 @@ String _reminder(ManageTarget t) {
   final p = t.params;
   final day = (p['contribution_day'] as num?)?.round();
   final amount = (p['contribution_amount'] as num?)?.toDouble();
-  if (day == 0) return 'Apago el recordatorio de aporte.';
+  if (day == 0) return 'qa_ma_rem_off'.tr();
   final money = amount == null ? '' : ' ${AppNumberFormat.money(amount)}';
   if (day == null) {
-    return 'Tu aporte de cada mes pasa a ser de$money.';
+    return 'qa_ma_rem_amount'.tr(namedArgs: {'money': money});
   }
-  return 'El día $day de cada mes te recuerdo aportar$money y cómo '
-      'repartirlo según tu plan.';
+  return 'qa_ma_rem_day'.tr(namedArgs: {'day': '$day', 'money': money});
 }
 
 String _reminderSuffix(ManageTarget t) =>
@@ -309,7 +290,12 @@ String _reminderSuffix(ManageTarget t) =>
 String _list(List<String> items) => switch (items.length) {
   0 => '',
   1 => items.first,
-  _ => '${items.sublist(0, items.length - 1).join(', ')} y ${items.last}',
+  _ => 'qa_list_and'.tr(
+    namedArgs: {
+      'list': items.sublist(0, items.length - 1).join(', '),
+      'last': items.last,
+    },
+  ),
 };
 
 /// Pantalla a la que lleva "Ver …" en una card de gestión resuelta.
@@ -418,43 +404,50 @@ abstract final class AppSettingKeys {
     haptics,
   };
 
-  static const _names = {
-    notifications: 'Notificaciones',
-    priceAlerts: 'Avisos de alertas de precio',
-    bigMoves: 'Avisos de movimientos fuertes de tus acciones',
-    portfolioMoves: 'Avisos de movimientos de tu cartera',
-    weeklyReport: 'Aviso del informe semanal',
-    earnings: 'Avisos de resultados de tus empresas',
-    showAmounts: 'Montos en la pantalla bloqueada',
-    sensitivity: 'Qué cuenta como movimiento fuerte',
-    quietHours: 'Horario de silencio',
-    currency: 'Moneda para ver tu cartera',
-    theme: 'Tema',
-    haptics: 'Vibraciones',
-    language: 'Idioma',
+  static String _name(String key) => switch (key) {
+    notifications => 'qa_ma_s_notifications'.tr(),
+    priceAlerts => 'qa_ma_s_notify_price_alerts'.tr(),
+    bigMoves => 'qa_ma_s_notify_big_moves'.tr(),
+    portfolioMoves => 'qa_ma_s_notify_portfolio_moves'.tr(),
+    weeklyReport => 'qa_ma_s_notify_weekly_report'.tr(),
+    earnings => 'qa_ma_s_notify_earnings'.tr(),
+    showAmounts => 'qa_ma_s_notify_show_amounts'.tr(),
+    sensitivity => 'qa_ma_s_big_move_sensitivity'.tr(),
+    quietHours => 'qa_ma_s_quiet_hours'.tr(),
+    currency => 'qa_ma_s_currency'.tr(),
+    theme => 'qa_ma_s_theme'.tr(),
+    haptics => 'qa_ma_s_haptics'.tr(),
+    language => 'qa_ma_s_language'.tr(),
+    _ => key,
   };
 
   /// Una línea "• Nombre: valor" por cambio.
   static String describe(Map<String, Object?> changes) => [
     for (final e in changes.entries)
-      '• ${_names[e.key] ?? e.key}: ${valueLabel(e.key, e.value)}',
+      '• ${_name(e.key)}: ${valueLabel(e.key, e.value)}',
   ].join('\n');
 
   static String valueLabel(String key, Object? value) => switch (key) {
     sensitivity => switch (value) {
-      'low' => 'solo movimientos muy grandes',
-      'high' => 'también movimientos más chicos',
-      _ => 'lo normal',
+      'low' => 'qa_ma_v_low'.tr(),
+      'high' => 'qa_ma_v_high'.tr(),
+      _ => 'qa_ma_v_normal'.tr(),
     },
     quietHours =>
-      value == 'off' ? 'sin silencio' : 'de ${'$value'.replaceAll('-', ' a ')}',
+      value == 'off'
+          ? 'qa_ma_v_quiet_off'.tr()
+          : 'qa_ma_v_quiet_range'.tr(
+            namedArgs: {
+              'range': '$value'.replaceAll('-', ' ${'qa_ma_v_to'.tr()} '),
+            },
+          ),
     theme => switch (value) {
-      'light' => 'claro',
-      'dark' => 'oscuro',
-      _ => 'el del teléfono',
+      'light' => 'qa_ma_v_light'.tr(),
+      'dark' => 'qa_ma_v_dark'.tr(),
+      _ => 'qa_ma_v_system'.tr(),
     },
-    language => value == 'en' ? 'inglés' : 'español',
+    language => value == 'en' ? 'qa_ma_v_en'.tr() : 'qa_ma_v_es'.tr(),
     currency => '$value',
-    _ => value == true ? 'prendido' : 'apagado',
+    _ => value == true ? 'qa_ma_v_on'.tr() : 'qa_ma_v_off'.tr(),
   };
 }

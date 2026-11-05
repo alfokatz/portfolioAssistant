@@ -1,4 +1,6 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/data/invest/sector_display_name.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
@@ -53,17 +55,19 @@ class _EtfHoldingsBody extends StatelessWidget {
     final stats = [
       if (data.expenseRatioPct != null)
         QaStat(
-          label: 'Costo anual',
+          label: 'qa_fund_cost'.tr(),
           value: QaFormat.pct(data.expenseRatioPct!, digits: 2),
         ),
       if (data.totalAssetsUsd != null)
         QaStat(
-          label: 'Patrimonio',
+          label: 'qa_fund_assets'.tr(),
           value: QaFormat.moneyCompact(data.totalAssetsUsd!),
         ),
       if (data.topHoldingsWeightPct != null)
         QaStat(
-          label: 'Peso del top ${holdings.length}',
+          label: 'qa_fund_top_weight'.tr(
+            namedArgs: {'count': '${holdings.length}'},
+          ),
           value: QaFormat.pct(data.topHoldingsWeightPct!),
         ),
     ];
@@ -79,7 +83,7 @@ class _EtfHoldingsBody extends StatelessWidget {
         ],
         if (holdings.isNotEmpty)
           QaSection(
-            title: 'Principales posiciones',
+            title: 'qa_fund_top_holdings'.tr(),
             first: stats.isEmpty,
             // Cada fila ya trae su aire (alto mínimo tocable): sin líneas.
             child: Column(
@@ -92,16 +96,17 @@ class _EtfHoldingsBody extends StatelessWidget {
           ),
         if (data.sectors.isNotEmpty)
           QaSection(
-            title: 'Sectores',
+            title: 'qa_fund_sectors'.tr(),
             first: stats.isEmpty && holdings.isEmpty,
             child: _SectorBlock(sectors: data.sectors),
           ),
         const SizedBox(height: QaSpace.sectionGap),
         Text(
           holdings.isEmpty
-              ? 'Según Yahoo Finance.'
-              : 'Las ${holdings.length} posiciones más grandes del fondo, '
-                  'no su cartera completa. Según Yahoo Finance.',
+              ? 'qa_fund_source'.tr()
+              : 'qa_fund_source_top'.tr(
+                namedArgs: {'count': '${holdings.length}'},
+              ),
           style: QaText.caption,
         ),
         QaFollowUpBar(
@@ -131,7 +136,9 @@ class _HoldingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final weight = holding.weightPct;
     return QaTappable(
-      question: '¿Cómo viene ${holding.symbol}?',
+      question: 'qa_followup_chart_q'.tr(
+        namedArgs: {'ticker': holding.symbol},
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -236,7 +243,7 @@ class _SectorBlock extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${shown[i].sector} ${QaFormat.pct(shown[i].weightPct)}',
+                    '${SectorDisplayName.localize(shown[i].sector)} ${QaFormat.pct(shown[i].weightPct)}',
                     style: QaText.label,
                   ),
                 ],

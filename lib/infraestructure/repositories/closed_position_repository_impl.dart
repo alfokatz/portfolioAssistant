@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -88,7 +89,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
     if (quantity <= 0 || closePrice <= 0) {
       return HttpError(
         code: 'invalid_close',
-        message: 'Cantidad y precio de cierre deben ser mayores a cero',
+        message: 'error_close_qty_price_positive'.tr(),
       );
     }
     return null;
@@ -108,7 +109,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
         (_) => Left(
           HttpError(
             code: 'position_not_found',
-            message: 'Posición no encontrada',
+            message: 'error_position_not_found'.tr(),
           ),
         ),
       );
@@ -120,7 +121,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       return Left(
         HttpError(
           code: 'invalid_close_quantity',
-          message: 'No podés vender más acciones de las que tenés',
+          message: 'close_position_quantity_exceeds'.tr(),
         ),
       );
     }
@@ -165,7 +166,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       return Left(
         HttpError(
           code: 'position_not_found',
-          message: 'Posición no encontrada',
+          message: 'error_position_not_found'.tr(),
         ),
       );
     }
@@ -178,7 +179,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       return Left(
         HttpError(
           code: 'invalid_close_quantity',
-          message: 'No podés vender más acciones de las que tenés',
+          message: 'close_position_quantity_exceeds'.tr(),
         ),
       );
     }
@@ -217,7 +218,7 @@ class ClosedPositionRepositoryImpl implements ClosedPositionRepository {
       return Left(
         HttpError(
           code: 'invalid_close_quantity',
-          message: 'No podés vender más acciones de las que tenés',
+          message: 'close_position_quantity_exceeds'.tr(),
         ),
       );
     }
