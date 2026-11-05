@@ -23,6 +23,9 @@ on conflict (user_id) do update set tier = excluded.tier, status = excluded.stat
 
 insert into public.app_config (key, value) values ('weekly_report', '{"enabled": true}')
 on conflict (key) do update set value = excluded.value;
+-- 20261105100100 prende la cortesía al 100 %: el test arranca desde apagado.
+update public.app_config set value = '{"percent":0,"users":[],"reports":3}'
+ where key = 'weekly_report_courtesy';
 
 create function pg_temp.as_user(u text) returns void language plpgsql as $$
 begin

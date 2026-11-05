@@ -38,6 +38,9 @@ begin
   end if;
 end $$;
 
+-- 20261105100100 lo prende al 100 %: el test arranca desde apagado.
+update public.app_config set value = '{"percent":0,"users":[]}' where key = 'market_taste';
+
 set local role authenticated;
 
 -- 1. Flag apagado.

@@ -64,23 +64,26 @@ Deno.test("Gold: claim → in_progress para otro dispositivo → complete → re
   assertEquals(ready.payload, { headline: "Semana tranquila" });
 });
 
-Deno.test("Free: la primera vez es degustación; después, solo números", async () => {
+Deno.test("Free: las primeras semanas son de regalo; agotadas, solo números", async () => {
   const user = await createUser("free");
   const first = await claim(user.jwt);
   assertEquals(first.state, "claimed");
   assertEquals(first.courtesy, true);
-  // Interruptor de regalos apagado (default): 1 de 1.
   assertEquals(first.courtesy_number, 1);
-  assertEquals(first.courtesy_total, 1);
+  // 20261105100100 prende weekly_report_courtesy al 100 % con 3 informes
+  // (apagado sería 1). El detalle de cada caso está en el test SQL.
+  const total = first.courtesy_total!;
+  assertEquals(total, 3);
 
-  // Otra semana: la degustación ya se usó.
+  // Otro usuario que ya usó todos sus regalos en semanas anteriores.
   const other = await createUser("premium");
-  await db.from("weekly_reports").insert({
-    user_id: other.id,
-    week_start: "2026-01-05",
-    status: "ready",
-    courtesy: true,
+  const used = Array.from({ length: total }, (_, i) => {
+    const d = new Date(`${week}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 7 * (i + 1));
+    return { user_id: other.id, week_start: d.toISOString().slice(0, 10), status: "ready", courtesy: true };
   });
+  await db.from("weekly_reports").insert(used);
+  // Free y Premium comparten el tope de regalos (Gold tiene el informe completo).
   assertEquals((await claim(other.jwt)).state, "numbers_only");
   // Y no se crea fila para la variante de solo números.
   const { count } = await db.from("weekly_reports").select("*", { count: "exact", head: true })
