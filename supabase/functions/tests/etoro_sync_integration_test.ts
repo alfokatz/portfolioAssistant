@@ -148,10 +148,13 @@ Deno.test("punta a punta: conectar, importar, convivir con lo manual, token venc
   assertEquals(conn3.data!.status, "disconnected");
 });
 
-Deno.test("plan Free no puede conectar (lo valida el servidor)", async () => {
+// Desde 20261026000100_etoro_free_import.sql, Free tiene UNA importación
+// gratis: el servidor lo deja arrancar la conexión. El bloqueo de la segunda
+// (free_import_at ya marcado) lo cubre etoro_sync_test.ts sin stack.
+Deno.test("plan Free: la primera conexión (importación gratis) la acepta el servidor", async () => {
   resetEtoroCaches();
   const user = await createUser("free");
   const r = await handle(post("/connect/start", user.jwt), deps(new FakeEtoro().fetch as typeof fetch, env));
-  assertEquals(r.status, 403);
-  assertEquals((await r.json()).error.type, "etoro_plan_required");
+  assertEquals(r.status, 200);
+  await r.body?.cancel();
 });
