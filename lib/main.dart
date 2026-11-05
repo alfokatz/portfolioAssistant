@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
     show FlutterSecureStorage;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -54,6 +55,8 @@ Future<Widget> _initialize() async {
   // Sin la configuración nativa de Firebase, la app funciona sin push.
   final pushMessaging = await FirebasePushMessaging.create();
   await EasyLocalization.ensureInitialized();
+  // Nombres de meses y días para DateFormat en español (ver MyApp.build).
+  await initializeDateFormatting();
   final sharedPreferences = await SharedPreferences.getInstance();
 
   return _setupRiverpod(
@@ -96,7 +99,9 @@ Widget _setupEasyLocalization({required Widget app}) {
   return EasyLocalization(
     supportedLocales: const [Locale('es', 'ES'), Locale('en', 'US')],
     path: _translationsPath,
-    fallbackLocale: const Locale('es', 'ES'),
+    // Teléfono en un idioma que no es español ni inglés (alemán, portugués…):
+    // inglés. Un es-UY o es-AR cae igual en es-ES por el código de idioma.
+    fallbackLocale: const Locale('en', 'US'),
     child: app,
   );
 }
@@ -113,6 +118,10 @@ class MyApp extends HookConsumerWidget {
     ref.read(pushControllerProvider.notifier).localeCode =
         context.locale.languageCode;
     AppLanguage.set(context.locale.languageCode);
+    // Fechas en el idioma de la app ("5 nov 2026" / "Nov 5, 2026"). es_419
+    // mantiene los montos como hoy ("\$2,058.00") en los dos idiomas: solo
+    // cambian los nombres de meses y días y el orden de la fecha.
+    Intl.defaultLocale = AppLanguage.isEnglish ? 'en_US' : 'es_419';
     final lightTheme = ref.watch(themeDataLightProvider);
     final darkTheme = ref.watch(themeDataDarkProvider);
     final themeMode = ref.watch(themeModeProvider);

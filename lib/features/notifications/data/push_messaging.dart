@@ -73,29 +73,34 @@ class NoopPushMessaging implements PushMessaging {
 
 /// Canales de Android: los mismos ids que `androidChannel` en
 /// supabase/functions/notify-dispatch/kinds.ts. El usuario puede silenciar
-/// cada uno desde los ajustes del sistema.
-const _androidChannels = [
-  AndroidNotificationChannel(
-    'price_alerts',
-    'Alertas de precio',
-    importance: Importance.high,
-  ),
-  AndroidNotificationChannel(
-    'portfolio',
-    'Tu cartera',
-    importance: Importance.defaultImportance,
-  ),
-  AndroidNotificationChannel(
-    'reports',
-    'Informes',
-    importance: Importance.defaultImportance,
-  ),
-  AndroidNotificationChannel(
-    'account',
-    'Cuenta',
-    importance: Importance.defaultImportance,
-  ),
-];
+/// cada uno desde los ajustes del sistema, así que el nombre va en el idioma
+/// del teléfono (español solo si el sistema está en español; si no, inglés).
+/// Crear un canal que ya existe solo le actualiza el nombre.
+List<AndroidNotificationChannel> get _androidChannels {
+  final es = PlatformDispatcher.instance.locale.languageCode == 'es';
+  return [
+    AndroidNotificationChannel(
+      'price_alerts',
+      es ? 'Alertas de precio' : 'Price alerts',
+      importance: Importance.high,
+    ),
+    AndroidNotificationChannel(
+      'portfolio',
+      es ? 'Tu cartera' : 'Your portfolio',
+      importance: Importance.defaultImportance,
+    ),
+    AndroidNotificationChannel(
+      'reports',
+      es ? 'Informes' : 'Reports',
+      importance: Importance.defaultImportance,
+    ),
+    AndroidNotificationChannel(
+      'account',
+      es ? 'Cuenta' : 'Account',
+      importance: Importance.defaultImportance,
+    ),
+  ];
+}
 
 class FirebasePushMessaging implements PushMessaging {
   FirebasePushMessaging._(this._messaging, this._local);
@@ -173,12 +178,12 @@ class FirebasePushMessaging implements PushMessaging {
     if (!Platform.isAndroid) return;
     final notification = message.notification;
     if (notification == null) return;
+    final channels = _androidChannels;
     final channel =
-        notification.android?.channelId ??
-        _androidChannels.last.id; // 'account'
-    final match = _androidChannels.firstWhere(
+        notification.android?.channelId ?? channels.last.id; // 'account'
+    final match = channels.firstWhere(
       (c) => c.id == channel,
-      orElse: () => _androidChannels.last,
+      orElse: () => channels.last,
     );
     await _local.show(
       id: message.hashCode & 0x7fffffff,

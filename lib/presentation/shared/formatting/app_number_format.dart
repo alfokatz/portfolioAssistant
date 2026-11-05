@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 /// `NumberFormat.currency` sin locale explícito, o sea `Intl.defaultLocale`)
 /// y porcentajes con el mismo separador decimal.
 ///
-/// Hoy nadie fija `Intl.defaultLocale` (easy_localization 3.0.8 no lo hace),
-/// así que sale "$2,058.00" también en español. Si algún día se fija, la Home
-/// y el informe cambian juntos: por eso no se pasa un locale acá.
+/// `MyApp.build` fija `Intl.defaultLocale` en `en_US` o `es_419`: los dos
+/// usan "$2,058.00", así que los montos salen igual en ambos idiomas (solo
+/// cambian las fechas). Si algún día se pasa a "2.058,00", la Home y el
+/// informe cambian juntos: por eso no se pasa un locale acá.
 abstract final class AppNumberFormat {
   /// El formato de dólares de la Home (hero, filas de posiciones).
   static NumberFormat currency() =>

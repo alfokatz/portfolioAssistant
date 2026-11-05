@@ -6,7 +6,8 @@
     <application
         android:label="Porty"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config">
         <!-- Canal para los mensajes de FCM que no traen uno (los canales los
              crea la app: ver push_messaging.dart). -->
         <meta-data

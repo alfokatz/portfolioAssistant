@@ -429,12 +429,14 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                   label: 'data_sources_title'.tr(),
                   onTap: () => SettingsDataSourcesSheet.show(context),
                 ),
-                const SettingsDivider(),
-                SettingsNavRow(
-                  icon: Icons.star_outline_rounded,
-                  label: 'settings_rate_app'.tr(),
-                  onTap: () => _openUrl('https://portfolioai.app/rate'),
-                ),
+                if (StoreLinks.rateUrl case final rateUrl?) ...[
+                  const SettingsDivider(),
+                  SettingsNavRow(
+                    icon: Icons.star_outline_rounded,
+                    label: 'settings_rate_app'.tr(),
+                    onTap: () => _openUrl(rateUrl),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppDimens.sectionGap),
