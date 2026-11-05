@@ -140,7 +140,8 @@ Deno.test("news-context Gold: web_search con medios permitidos, citas limpias, c
   // gpt-5-mini: 1 búsqueda (US$0,01) + 9.000 × 0,25/M + 300 × 2/M.
   assertEquals(Number(usage!.web_search_cost_usd), 0.01285);
 
-  const again = await handle(req(b.jwt, { tickers: [ticker] }), d);
+  // Mismos tickers y mismos nombres (b83dfba los suma a la clave) → la entrada es compartida.
+  const again = await handle(req(b.jwt, { tickers: [ticker], names: { [ticker]: "Nvidia" } }), d);
   assertEquals(again.headers.get("x-cache"), "hit");
   await again.body?.cancel();
   assertEquals(f.calls.length, 1);
@@ -225,8 +226,8 @@ Deno.test("news-context sin pregunta: una búsqueda por empresa, en paralelo, y 
   assert(body.summary.some((l: string) => l.startsWith(a)));
   assert(body.summary.some((l: string) => l.startsWith(b)));
 
-  // Otra consulta con una de esas empresas: sale de caché, sin buscar.
-  const again = await handle(req(u.jwt, { tickers: [b] }, await turnRow(u.id)), d);
+  // Otra consulta con una de esas empresas (mismo nombre): sale de caché, sin buscar.
+  const again = await handle(req(u.jwt, { tickers: [b], names: { [b]: "Beta" } }, await turnRow(u.id)), d);
   assertEquals(again.headers.get("x-cache"), "hit");
   await again.body?.cancel();
   assertEquals(f.calls.length, 2);
@@ -249,7 +250,7 @@ Deno.test("news-context: la unidad es una búsqueda sin caché (2 empresas = 2 u
 
   // Con una empresa ya en caché, otro pedido con una nueva gasta 1 unidad.
   const c = `C${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
-  const again = await handle(req(u.jwt, { tickers: [a, c], names: { [c]: "Gama" } }, await turnRow(u.id)), d);
+  const again = await handle(req(u.jwt, { tickers: [a, c], names: { [a]: "Alfa", [c]: "Gama" } }, await turnRow(u.id)), d);
   assertEquals(again.status, 200);
   await again.body?.cancel();
   const { data: after } = await db.from("news_context_usage").select("count, units").eq("user_id", u.id).eq("day", today()).single();
@@ -387,8 +388,11 @@ Deno.test("news-context Premium: names y question del cliente se ignoran y la en
   const sent = JSON.stringify(f.calls.find((c) => c.url.includes("openai"))!.body);
   assert(!sent.includes("Tesla"));
   // Se guardó en la clave sin pregunta (la que lee cualquiera), con el subject del servidor.
-  const { data } = await db.from("data_source_cache").select("body").eq("cache_key", cacheKey(parseBody({ tickers: [held] })!)).single();
+  const shared = cacheKey(parseBody({ tickers: [held] })!);
+  const { data } = await db.from("data_source_cache").select("body").eq("cache_key", shared).single();
   assert(!JSON.stringify(data!.body).includes("Tesla"));
-  const { data: asked } = await db.from("data_source_cache").select("cache_key").like("cache_key", `news:${held}|_%`);
-  assertEquals(asked, []);
+  // Ninguna otra entrada del ticker (ni con pregunta ni con nombre). Ojo: en
+  // LIKE "_" es comodín, por eso se comparan las claves enteras.
+  const { data: all } = await db.from("data_source_cache").select("cache_key").like("cache_key", `news:${held}|%`);
+  assertEquals(all!.map((r) => r.cache_key), [shared]);
 });
