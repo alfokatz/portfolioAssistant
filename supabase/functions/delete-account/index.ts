@@ -3,7 +3,7 @@
 // config.toml: valida el JWT ella misma).
 // Secrets (ya existen en el proyecto): REVENUECAT_SECRET_API_KEY (sk_… v1),
 // SNAPTRADE_CLIENT_ID, SNAPTRADE_CONSUMER_KEY, ETORO_CLIENT_ID,
-// ETORO_CLIENT_SECRET. Opcionales: SNAPTRADE_API_URL, ETORO_ENVIRONMENT.
+// ETORO_CLIENT_SECRET. Opcionales: SNAPTRADE_API_URL, ETORO_ENVIRONMENT y ETORO_DEMO_PROJECT_REF (solo staging).
 import { defaultDeps } from "../_shared/common.ts";
 import { handle } from "./handler.ts";
 

@@ -191,7 +191,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
         fetchFn,
         { clientId, clientSecret, redirectUri: deps.env("ETORO_REDIRECT_URI") ?? "" },
         deps.now,
-        etoroEnvironment(deps.env("ETORO_ENVIRONMENT")),
+        etoroEnvironment(deps.env),
       );
       if (typeof tokens.refreshToken === "string") revoked = await client.revoke(tokens.refreshToken, "refresh_token");
       if (typeof tokens.accessToken === "string") await client.revoke(tokens.accessToken, "access_token");

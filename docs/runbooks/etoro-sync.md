@@ -37,6 +37,7 @@ Secrets de `etoro-sync`:
 | `ETORO_REDIRECT_URI` | `https://<project-ref>.supabase.co/functions/v1/etoro-sync/callback`, idéntica a la registrada |
 | `ETORO_APP_REDIRECT` | opcional, por defecto `porty-etoro://callback` |
 | `ETORO_ENVIRONMENT` | **solo staging**: `demo` usa los endpoints demo y el scope `etoro-public:demo:read`. En producción no se define (o se pone `real`) |
+| `ETORO_DEMO_PROJECT_REF` | **solo staging**: el ref del proyecto de staging. `demo` solo se aplica si coincide con el ref de `SUPABASE_URL`; si no, se ignora (log `etoro_demo_ignored`) y se conectan las cuentas reales. Así un `ETORO_ENVIRONMENT=demo` copiado a producción no tiene efecto |
 
 Sin `ETORO_CLIENT_ID`, `ETORO_CLIENT_SECRET` o `ETORO_REDIRECT_URI`, la función responde `503 etoro_not_configured` y la app muestra "no disponible": eso sirve de interruptor de apagado.
 
@@ -134,7 +135,7 @@ supabase functions deploy etoro-sync --no-verify-jwt
 
 ## 6. Prueba de punta a punta (staging, cuenta demo)
 
-Requiere el cliente OAuth registrado (paso 2), la función en staging con `ETORO_ENVIRONMENT=demo` y un build de la app apuntando a staging.
+Requiere el cliente OAuth registrado (paso 2), la función en staging con `ETORO_ENVIRONMENT=demo` y `ETORO_DEMO_PROJECT_REF=<ref de staging>` y un build de la app apuntando a staging.
 
 1. Free → Ajustes → eToro → "Conectar eToro" abre el paywall y no hace ningún pedido.
 2. Premium → "Conectar eToro" → se abre el navegador del sistema en `www.etoro.com/sso` → login con la **cuenta demo** → la pantalla de consentimiento muestra solo lectura → vuelve a la app con "Importamos N posiciones" y lo que no se importó, explicado.
