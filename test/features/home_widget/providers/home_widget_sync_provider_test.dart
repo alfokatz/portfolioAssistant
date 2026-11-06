@@ -17,6 +17,8 @@ import 'package:portfolio_assistant/features/product_events/data/product_events.
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_insight_copy.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Session, User;
 
@@ -170,6 +172,40 @@ void main() {
       c.onHome(null, HomeState());
       await c.flush();
       expect(store.writes, hasLength(1));
+    });
+
+    test('a non-finite number in a Home insight still writes the portfolio', () async {
+      final withNaN = HomeWidgetSyncController(
+        store: store,
+        prefs: prefs,
+        events: events,
+        scheduler: scheduler,
+        loadTexts: loadRealTexts,
+        loadCandles: _candles,
+        currentUserId: () => 'uid-1',
+        amountsHidden: () => hidden,
+        initialLang: 'es',
+        now: () => _now,
+        feedExtras: () => const WidgetFeedExtras(
+          insights: [
+            WidgetInsightInput(
+              id: 'goal_overdue:Casa',
+              kind: WidgetInsightKind.goalOverdue,
+              score: 70,
+              goalLabel: 'Casa',
+              numbers: {'required': double.infinity, 'pct': double.nan},
+            ),
+          ],
+        ),
+      );
+      addTearDown(withNaN.dispose);
+      withNaN.onHome(null, _good(empty: true));
+      await withNaN.flush();
+      withNaN.onHome(null, _good());
+      await withNaN.flush();
+      expect(store.last['state'], 'ready');
+      // Y el refresco de fondo puede leer la caché de avisos.
+      expect(WidgetFeedCache(prefs).read(uid: 'uid-1'), isNotNull);
     });
 
     test('an empty cache never writes no_portfolio', () async {

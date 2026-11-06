@@ -486,6 +486,7 @@ class HomeWidgetSyncController {
     if (epoch != _epoch) return;
     final now = _now();
     final WidgetSnapshot snapshot;
+    Future<void> Function()? afterWrite;
     if (known is _KnownReady) {
       final entry = await _itemsEntry(known, now);
       if (epoch != _epoch) return;
@@ -524,29 +525,37 @@ class HomeWidgetSyncController {
                 : feedCache.readState(uid: uid),
       );
       snapshot = built.snapshot;
-      if (uid != null) {
+      afterWrite = () async {
+        if (uid == null) return;
         // Lo que el refresco de fondo y el toque de una pregunta necesitan.
-        await feedCache.write(
-          WidgetFeedCacheEntry(
+        // Va después de escribir el widget: si falla, el widget ya está.
+        try {
+          await feedCache.write(
+            WidgetFeedCacheEntry(
+              uid: uid,
+              writtenAt: now,
+              insights: extras.insights,
+              goalLabel: extras.goalLabel,
+              driftTicker: extras.driftTicker,
+              profileRisk: extras.profileRisk,
+              biggest: biggest,
+              questions: feedCache.read(uid: uid)?.questions ?? const {},
+            ),
+          );
+          await feedCache.rememberQuestions(
             uid: uid,
-            writtenAt: now,
-            insights: extras.insights,
-            goalLabel: extras.goalLabel,
-            driftTicker: extras.driftTicker,
-            profileRisk: extras.profileRisk,
-            biggest: biggest,
-            questions: feedCache.read(uid: uid)?.questions ?? const {},
-          ),
-        );
-        await feedCache.rememberQuestions(
-          uid: uid,
-          drafts: built.questionDrafts,
-          hidden: hidden,
-          now: now,
-        );
-        // Con posiciones ocultas no hay ids en el JSON: no se toca el estado.
-        if (!hidden) await feedCache.writeState(uid: uid, state: built.feedState);
-      }
+            drafts: built.questionDrafts,
+            hidden: hidden,
+            now: now,
+          );
+          // Con posiciones ocultas no hay ids en el JSON: no se toca el estado.
+          if (!hidden) {
+            await feedCache.writeState(uid: uid, state: built.feedState);
+          }
+        } catch (e, st) {
+          if (kDebugMode) debugPrint('[home_widget] feed cache: $e\n$st');
+        }
+      };
     } else {
       snapshot = WidgetSnapshotBuilder.noPortfolio(
         lang: lang,
@@ -556,6 +565,7 @@ class HomeWidgetSyncController {
     }
     await prefs.setString(WidgetPrefsKeys.lang, lang);
     await store.writeSnapshot(snapshot);
+    await afterWrite?.call();
     if (snapshot.state == WidgetSnapshotState.ready) {
       _wroteReady = true;
       await _syncBackgroundTask();

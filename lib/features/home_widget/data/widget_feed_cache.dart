@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/features/home_widget/domain/widget_insight_c
 import 'package:portfolio_assistant/features/home_widget/domain/widget_portfolio_facts.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_json.dart';
 
 /// Lo que se recuerda de una pregunta mostrada, para resolver el `ref` que
 /// toca el usuario aunque el widget dibuje un snapshot anterior.
@@ -172,7 +173,7 @@ class WidgetFeedCache {
   }
 
   Future<void> write(WidgetFeedCacheEntry entry) =>
-      _prefs.setString(cacheKey, jsonEncode(entry.toJson()));
+      _prefs.setString(cacheKey, jsonEncode(widgetJsonSafe(entry.toJson())));
 
   /// Suma [drafts] a las preguntas recordadas y poda las de más de 24 h.
   Future<void> rememberQuestions({
@@ -219,7 +220,7 @@ class WidgetFeedCache {
     required WidgetFeedState state,
   }) => _prefs.setString(
     stateKey,
-    jsonEncode({'uid': uid, ...state.toJson()}),
+    jsonEncode(widgetJsonSafe({'uid': uid, ...state.toJson()})),
   );
 
   Future<void> clear() async {

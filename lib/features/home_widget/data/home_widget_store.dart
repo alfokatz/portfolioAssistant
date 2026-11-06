@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_json.dart';
 
 /// App Group de iOS donde la app y la extensión comparten el snapshot.
 const homeWidgetAppGroupId = 'group.com.portyassistant.app';
@@ -92,7 +93,7 @@ class PluginHomeWidgetStore implements HomeWidgetStore {
   Future<void> writeSnapshot(WidgetSnapshot snapshot) async {
     await HomeWidget.saveWidgetData<String>(
       WidgetSnapshot.storageKey,
-      jsonEncode(snapshot.toJson()),
+      jsonEncode(widgetJsonSafe(snapshot.toJson())),
     );
     await _update();
   }

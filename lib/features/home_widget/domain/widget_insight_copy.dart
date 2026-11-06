@@ -62,7 +62,11 @@ class WidgetInsightInput {
     'score': score,
     if (ticker != null) 'ticker': ticker,
     if (goalLabel != null) 'goal_label': goalLabel,
-    'numbers': numbers,
+    // Solo números finitos: un infinito rompe el JSON de la caché.
+    'numbers': {
+      for (final e in numbers.entries)
+        if (e.value.isFinite) e.key: e.value,
+    },
   };
 
   static WidgetInsightInput? fromJson(Map<String, Object?> json) {

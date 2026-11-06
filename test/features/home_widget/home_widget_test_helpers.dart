@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.
 import 'package:portfolio_assistant/features/home_widget/data/widget_background_refresh.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_texts.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_json.dart';
 
 /// Los textos `home_widget_*` reales, leídos de los JSON de traducciones.
 WidgetTexts realTexts(String lang) {
@@ -42,7 +43,8 @@ class FakeHomeWidgetStore implements HomeWidgetStore {
   Future<void> writeSnapshot(WidgetSnapshot snapshot) async {
     if (failWrites) throw StateError('write failed');
     writes.add(
-      jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, Object?>,
+      jsonDecode(jsonEncode(widgetJsonSafe(snapshot.toJson())))
+          as Map<String, Object?>,
     );
   }
 
