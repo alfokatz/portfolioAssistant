@@ -50,6 +50,30 @@ class _Store implements WeeklyReportStore {
 
   @override
   Future<void> fail(ReportWeek week) async => failed++;
+
+  /// Respuesta de `claimTranslation` (por defecto, le toca a este
+  /// dispositivo).
+  TranslationClaim translationClaim = const TranslationGranted();
+  final translationClaims = <String>[];
+  final translations = <Map<String, Object?>>[];
+
+  @override
+  Future<TranslationClaim> claimTranslation(
+    ReportWeek week,
+    String language,
+  ) async {
+    translationClaims.add(language);
+    return translationClaim;
+  }
+
+  @override
+  Future<bool> completeTranslation(
+    ReportWeek week,
+    Map<String, Object?> alt,
+  ) async {
+    translations.add(alt);
+    return true;
+  }
 }
 
 class _NoQuotes implements QuoteRepository {
@@ -214,7 +238,7 @@ void main() {
       await s.c.ensureFor(_lots);
 
       expect(s.builder.calls, [false]);
-      expect(s.gen.calls, 2); // una por idioma
+      expect(s.gen.calls, 1);
       expect(s.c.state.status, WeeklyReportStatus.ready);
       expect(s.c.state.freshlyGenerated, isTrue);
       final r = s.c.state.report!;
@@ -227,43 +251,93 @@ void main() {
     },
   );
 
-  test('Porty writes the report in both languages: switching the app language '
-      'mid-week shows it in the new one (same numbers)', () async {
+  test(
+    'Porty writes only in the app language: one call to the model',
+    () async {
+      final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+      await s.c.ensureFor(_lots);
+
+      expect(s.gen.languages, ['es']);
+      expect(s.c.state.report!.language, 'es');
+      expect(s.store.completed.single['lang'], 'es');
+      expect(s.store.translationClaims, isEmpty);
+    },
+  );
+
+  test('switching the app language mid-week writes the other version ONCE; '
+      'switching back costs nothing', () async {
     final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
     await s.c.ensureFor(_lots);
 
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
     expect(s.gen.languages, ['es', 'en']);
-    final r = s.c.state.report!;
-    expect(r.language, 'es');
-    expect(r.forLanguage('es').reading, 'Apple empujó tu cartera');
-    final en = r.forLanguage('en');
-    expect(en.reading, 'Apple pushed your portfolio');
-    expect(en.language, 'en');
-    expect(en.changePct, r.changePct);
-    expect(en.movers.map((m) => m.ticker), r.movers.map((m) => m.ticker));
+    expect(s.store.translationClaims, ['en']);
+    final saved = s.store.translations.single;
+    expect(saved['lang'], 'en');
+    expect(saved['reading'], 'Apple pushed your portfolio');
 
-    // Lo guardado (servidor y dispositivo) trae las dos versiones.
-    final saved = s.store.completed.single;
-    expect(saved['lang'], 'es');
-    expect((saved['alt'] as Map)['reading'], 'Apple pushed your portfolio');
-    final parsed = WeeklyReport.tryParse(saved)!;
-    expect(parsed.forLanguage('en').reading, 'Apple pushed your portfolio');
-    expect(parsed.alternate!.alternate, isNull);
+    final r = s.c.state.report!;
+    expect(r.forLanguage('en').reading, 'Apple pushed your portfolio');
+    expect(r.forLanguage('es').reading, 'Apple empujó tu cartera');
+
+    // Volver y volver a ir: ya están las dos, ni claim ni LLM.
+    s.c.ensureLanguage('es');
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 2);
+    expect(s.store.translationClaims, ['en']);
   });
 
-  test('if only the other language fails, the report is saved without it '
-      'and shows the app language everywhere', () async {
+  test('if another device already wrote it, it is shown without calling '
+      'the model', () async {
+    final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+    await s.c.ensureFor(_lots);
+    final es = s.c.state.report!;
+    final en =
+        WeeklyReport.tryParse({
+          ...es.toJson(),
+          'lang': 'en',
+          'reading': 'Written elsewhere',
+        })!;
+    s.store.translationClaim = TranslationReady(es.withAlternate(en).toJson());
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 1);
+    expect(s.c.state.report!.forLanguage('en').reading, 'Written elsewhere');
+  });
+
+  test('a failed translation keeps the report as it was and is not retried '
+      'on every rebuild', () async {
     final s = await _setup([
       const ClaimGranted(courtesy: false, attempt: 1),
     ], failLanguage: 'en');
     await s.c.ensureFor(_lots);
 
-    final r = s.c.state.report!;
-    expect(r.variant, WeeklyReportVariant.full);
-    expect(r.alternate, isNull);
-    expect(r.forLanguage('en').reading, 'Apple empujó tu cartera');
-    expect(s.store.completed.single.containsKey('alt'), isFalse);
-    expect(s.store.failed, 0);
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.languages, ['es', 'en']);
+    expect(s.store.translations, isEmpty);
+    expect(s.c.state.report!.alternate, isNull);
+    expect(
+      s.c.state.report!.forLanguage('en').reading,
+      'Apple empujó tu cartera',
+    );
+  });
+
+  test('a numbers-only report has no prose: nothing to translate', () async {
+    final s = await _setup([
+      const ClaimNumbersOnly(),
+    ], tier: SubscriptionTier.free);
+    await s.c.ensureFor(_lots);
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 0);
+    expect(s.store.translationClaims, isEmpty);
   });
 
   test(
@@ -386,7 +460,7 @@ void main() {
     await s.c.ensureFor(_lots);
     await s.c.ensureFor(_lots);
     expect(s.store.claimCalls, 1);
-    expect(s.gen.calls, 2); // una por idioma
+    expect(s.gen.calls, 1);
   });
 
   test('seen is remembered per week', () async {
@@ -485,7 +559,7 @@ void main() {
       expect(c.state.report!.reading, 'Apple empujó tu cartera');
       await c.ensureFor(_lots);
       expect(next.claimCalls, 0);
-      expect(s.gen.calls, 2); // una por idioma
+      expect(s.gen.calls, 1);
     });
 
     test('numbers only: shown at once, revalidated quietly once', () async {

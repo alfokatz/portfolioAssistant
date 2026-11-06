@@ -143,15 +143,95 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     // Resuelto, o con un reintento ya agendado (otro dispositivo generando):
     // la Home llama esto en cada rebuild y no tiene que adelantar nada.
     if (sameWeek && (_settledWeek == week || _retry != null)) {
+      ensureLanguage(AppLanguage.code);
       return Future.value();
     }
     // Apagado desde el servidor: no volver a preguntar en cada rebuild de la
     // Home (sí al cambiar de semana o reabrir la app).
     if (_disabledWeek == week) return Future.value();
-    return _inFlight ??= _load(
-      week,
+    return _inFlight ??= _load(week, _epoch).whenComplete(() {
+      _inFlight = null;
+      ensureLanguage(AppLanguage.code);
+    });
+  }
+
+  /// El informe completo en [language]: si el guardado está en otro idioma
+  /// y no tiene la versión en este, Porty la escribe una vez y queda
+  /// guardada (volver al idioma anterior no llama al LLM). Lo llaman la
+  /// tarjeta de la Home al cambiar el idioma y [ensureFor].
+  void ensureLanguage(String language) {
+    final report = state.report;
+    if (report == null ||
+        report.variant != WeeklyReportVariant.full ||
+        report.language == null ||
+        report.forLanguage(language).language == language ||
+        _translating != null ||
+        _translationTried.contains('${report.week.key}:$language') ||
+        _lots.isEmpty ||
+        _userId() != _loadedFor) {
+      return;
+    }
+    _translationTried.add('${report.week.key}:$language');
+    _translating = _translate(
+      report,
+      language,
       _epoch,
-    ).whenComplete(() => _inFlight = null);
+    ).whenComplete(() => _translating = null);
+  }
+
+  Future<void>? _translating;
+
+  /// Semana:idioma ya intentados en esta sesión: si falla, no se reintenta en
+  /// cada rebuild (sí al reabrir la app).
+  final _translationTried = <String>{};
+
+  Future<void> _translate(
+    WeeklyReport report,
+    String language,
+    int epoch,
+  ) async {
+    final claim = await _store.claimTranslation(report.week, language);
+    if (_stale(epoch) || state.report?.week != report.week) return;
+    switch (claim) {
+      case TranslationReady(:final payload):
+        final saved = WeeklyReport.tryParse(payload);
+        if (saved != null && saved.week == report.week) _show(saved);
+      case TranslationGranted():
+        final input = await _builder.build(
+          week: report.week,
+          lots: _lots,
+          closed: _closed,
+        );
+        if (_stale(epoch)) return;
+        final generation = await _generator.generate(
+          week: report.week,
+          input: input,
+          language: language,
+        );
+        if (_stale(epoch) || generation.failed) return;
+        final alt = WeeklyReport.compose(
+          input: input,
+          draft: generation.draft,
+          variant: WeeklyReportVariant.full,
+          courtesy: report.courtesy,
+          courtesyNumber: report.courtesyNumber,
+          courtesyTotal: report.courtesyTotal,
+          language: language,
+        );
+        final saved = await _store.completeTranslation(
+          report.week,
+          alt.toJson(),
+        );
+        if (!saved) {
+          debugPrint(
+            '[WeeklyReport] translation rejected for ${report.week.key}',
+          );
+        }
+        if (_stale(epoch) || state.report?.week != report.week) return;
+        _show(state.report!.withAlternate(alt));
+      case TranslationInProgress() || TranslationUnavailable():
+        return;
+    }
   }
 
   /// El informe guardado de esta semana, antes del primer frame de la Home.
@@ -188,6 +268,8 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
     _inProgressRetries = 0;
     _disabledWeek = null;
     _settledWeek = null;
+    _translating = null;
+    _translationTried.clear();
     state = const WeeklyReportState();
   }
 
@@ -292,18 +374,14 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       closed: _closed,
     );
     if (_stale(epoch)) return;
-    // Porty escribe en los dos idiomas a la vez (en paralelo, sin sumar
-    // espera): si el usuario cambia el idioma de la app en la semana, el
-    // informe ya está en el nuevo. El del idioma actual es el principal; si
-    // el otro falla, se guarda igual sin alternativa.
+    // En el idioma de la app. Si después lo cambia en la semana, se escribe
+    // la versión en el otro una sola vez (ensureLanguage).
     final language = AppLanguage.code;
-    final other = language == 'en' ? 'es' : 'en';
-    final generations = await Future.wait([
-      _generator.generate(week: week, input: input, language: language),
-      _generator.generate(week: week, input: input, language: other),
-    ]);
-    final generation = generations[0];
-    final otherGeneration = generations[1];
+    final generation = await _generator.generate(
+      week: week,
+      input: input,
+      language: language,
+    );
     if (_stale(epoch)) return;
     if (generation.failed) {
       debugPrint(
@@ -323,18 +401,14 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       );
       return;
     }
-    WeeklyReport full(WeeklyReportDraft draft, String lang) =>
-        WeeklyReport.compose(
-          input: input,
-          draft: draft,
-          variant: WeeklyReportVariant.full,
-          courtesy: courtesy,
-          courtesyNumber: courtesyNumber,
-          courtesyTotal: courtesyTotal,
-          language: lang,
-        );
-    final report = full(generation.draft, language).withAlternate(
-      otherGeneration.failed ? null : full(otherGeneration.draft, other),
+    final report = WeeklyReport.compose(
+      input: input,
+      draft: generation.draft,
+      variant: WeeklyReportVariant.full,
+      courtesy: courtesy,
+      courtesyNumber: courtesyNumber,
+      courtesyTotal: courtesyTotal,
+      language: language,
     );
     final saved = await _store.complete(week, report.toJson());
     if (!saved) debugPrint('[WeeklyReport] complete rejected for ${week.key}');

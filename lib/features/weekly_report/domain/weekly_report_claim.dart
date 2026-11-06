@@ -80,3 +80,43 @@ class ClaimDisabled extends WeeklyReportClaim {
 class ClaimUnavailable extends WeeklyReportClaim {
   const ClaimUnavailable();
 }
+
+/// Qué hacer con el pedido de escribir el informe en otro idioma
+/// (`claim_weekly_report_translation`, migración
+/// 20261106100000_weekly_report_translation.sql).
+sealed class TranslationClaim {
+  const TranslationClaim();
+
+  static TranslationClaim parse(Object? raw) {
+    if (raw is! Map) return const TranslationUnavailable();
+    return switch (raw['state']) {
+      'ready' when raw['payload'] is Map => TranslationReady(
+        (raw['payload'] as Map).cast<String, Object?>(),
+      ),
+      'claimed' => const TranslationGranted(),
+      'in_progress' => const TranslationInProgress(),
+      _ => const TranslationUnavailable(),
+    };
+  }
+}
+
+/// Ya está en ese idioma (lo escribió otro dispositivo): el payload entero.
+class TranslationReady extends TranslationClaim {
+  const TranslationReady(this.payload);
+  final Map<String, Object?> payload;
+}
+
+/// Le toca a este dispositivo escribirlo.
+class TranslationGranted extends TranslationClaim {
+  const TranslationGranted();
+}
+
+/// Otro dispositivo lo está escribiendo.
+class TranslationInProgress extends TranslationClaim {
+  const TranslationInProgress();
+}
+
+/// No hay nada que traducir, el informe está apagado o no hubo respuesta.
+class TranslationUnavailable extends TranslationClaim {
+  const TranslationUnavailable();
+}

@@ -48,10 +48,9 @@ export const config = {
   pinnedContextPrefix: "PORTFOLIO_BRIEF",
   openAiUrl: "https://api.openai.com/v1/chat/completions",
   /// Informe: llamadas al LLM por usuario y semana, sumando reintentos (3
-  /// intentos × 2 idiomas × borrador + reescritura). La app escribe el
-  /// informe en español e inglés a la vez para que cambiar de idioma no lo
-  /// deje en el anterior.
-  maxReportRounds: 12,
+  /// intentos × borrador + reescritura) más una traducción al otro idioma
+  /// si el usuario lo cambia en la semana (borrador + reescritura).
+  maxReportRounds: 8,
   /// El informe es JSON de prosa corta: ~900 tokens esperados.
   maxReportOutputTokens: 2000,
   /// Modelos que OpenAI apaga → su reemplazo. Las versiones de la app ya
