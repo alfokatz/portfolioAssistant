@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -50,7 +52,12 @@ class PortfolioAreaLineChart extends StatelessWidget {
 
     final minY = values.reduce((a, b) => a < b ? a : b);
     final maxY = values.reduce((a, b) => a > b ? a : b);
-    final padding = (maxY - minY) * 0.08;
+    // Serie plana (todos los valores iguales): sin margen, minY == maxY y la
+    // línea no se dibuja. Se le da un margen chico para que se vea recta.
+    final spread = maxY - minY;
+    final padding = spread > 0
+        ? spread * 0.08
+        : math.max(maxY.abs() * 0.01, 1.0);
     final chartMinY = minY - padding;
     final chartMaxY = maxY + padding;
 
