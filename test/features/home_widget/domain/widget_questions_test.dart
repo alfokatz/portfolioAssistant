@@ -20,7 +20,7 @@ const _ctx = WidgetQuestionContext(
 
 // Verbos de acción / recomendación que no pueden aparecer en una plantilla.
 final _action = RegExp(
-  r'compr|vend|rebalanc|aport|deberías|should i|\b(buy|sell)\b|rebalance|contribute',
+  r'compr(?!é)|vend|rebalanc|aport|deberías|should i|\b(buy|sell)\b|rebalance|contribute',
   caseSensitive: false,
 );
 

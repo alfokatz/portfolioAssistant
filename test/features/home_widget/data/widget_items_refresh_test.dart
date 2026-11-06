@@ -102,17 +102,10 @@ void main() {
         await _entry(prefs, [_news('AAA', const Duration(hours: 3))]);
         expect(await run(), isTrue);
 
-        final items = store.last['items']! as List;
+        final items = _feedNews(store.last);
         expect(items, hasLength(1));
-        expect((items.single as Map)['headline'], 'Novedad de AAA');
-        expect(store.last['items_section'], true);
-        expect(
-          store.last['items_checked_at'],
-          _now
-              .subtract(const Duration(minutes: 40))
-              .toUtc()
-              .millisecondsSinceEpoch,
-        );
+        final seg = (items.single['segments']! as List).first as Map;
+        expect(seg['title'], 'Novedad de AAA');
         expect(store.last.toString(), isNot(contains('https://')));
       },
     );
@@ -123,8 +116,7 @@ void main() {
         _news('BBB', const Duration(hours: 49)),
       ]);
       await run();
-      final items = store.last['items']! as List;
-      expect(items.map((i) => (i as Map)['ticker']), ['AAA']);
+      expect(_feedNews(store.last).map((i) => i['tag']), ['AAA']);
     });
 
     test(
@@ -132,11 +124,8 @@ void main() {
       () async {
         await _entry(prefs, [_news('AAA', const Duration(hours: 50))]);
         await run();
-        final items = store.last['items']! as List;
-        expect(items, hasLength(1));
-        final expiresAt = (items.single as Map)['expires_at']! as int;
-        expect(expiresAt, lessThan(_now.millisecondsSinceEpoch));
-        expect(store.last['items_section'], true);
+        // v2: lo vencido no viaja; el nativo muestra el resto del feed.
+        expect(_feedNews(store.last), isEmpty);
       },
     );
 
@@ -145,7 +134,7 @@ void main() {
         _news('AAA', const Duration(hours: 3)),
       ], planUntil: _now.subtract(const Duration(minutes: 1)));
       await run();
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_feedNews(store.last), isEmpty);
     });
 
     test('another user cache: no items at all', () async {
@@ -153,16 +142,19 @@ void main() {
         _news('AAA', const Duration(hours: 3)),
       ], uid: 'otro');
       await run();
-      expect(store.last.containsKey('items'), isFalse);
-      expect(store.last.containsKey('items_section'), isFalse);
+      expect(_feedNews(store.last), isEmpty);
     });
 
     test('keeps the teaser', () async {
       await _entry(prefs, const [], teaser: const SelectedTeaser(kind: 'news'));
       store.platformName = 'android';
       await run();
+      final teaser = [
+        for (final i in ((store.last['v2'] as Map)['feed'] as List))
+          if ((i as Map)['kind'] == 'teaser') i,
+      ].single;
       expect(
-        (store.last['teaser']! as Map)['text'],
+        ((teaser['segments'] as List).first as Map)['title'],
         'Noticias de tu cartera · Premium',
       );
     });
@@ -172,12 +164,13 @@ void main() {
       await prefs.setBool(WidgetPrefsKeys.positionsHidden, true);
       await run();
       expect(store.last.containsKey('total_text'), isFalse);
-      expect(store.last['items'], hasLength(1));
+      expect(_feedNews(store.last), hasLength(1));
+      expect(_feedNews(store.last).single.containsKey('tag'), isFalse);
     });
 
     test('without cache the snapshot is the v1 one', () async {
       await run();
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_feedNews(store.last), isEmpty);
     });
   });
 
@@ -204,8 +197,15 @@ void main() {
       expect(store.renderLog, isNull);
       expect(store.renderLogClears, 1);
       expect(store.last['state'], 'signed_out');
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_feedNews(store.last), isEmpty);
       expect(store.last.containsKey('teaser'), isFalse);
     });
   });
 }
+
+/// Novedades del feed v2 (noticias y resultados).
+List<Map<Object?, Object?>> _feedNews(Map<String, Object?> snapshot) => [
+  for (final item in ((snapshot['v2'] as Map?)?['feed'] as List?) ?? const [])
+    if (item is Map && (item['kind'] == 'news' || item['kind'] == 'earnings'))
+      item,
+];

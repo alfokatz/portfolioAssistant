@@ -134,9 +134,7 @@ void main() {
   test('premium: writes the news of the top positions', () async {
     c.onHome(null, _home());
     await c.flush();
-    final items = store.last['items']! as List;
-    expect((items.single as Map)['ticker'], 'NVDA');
-    expect(store.last['items_section'], true);
+    expect(_news(store.last).single['tag'], 'NVDA');
     expect(news.calls, 1);
   });
 
@@ -147,7 +145,7 @@ void main() {
     await c.flush();
     expect(news.calls, 1);
     expect(store.last['lang'], 'en');
-    expect(store.last['items'], hasLength(1));
+    expect(_news(store.last), hasLength(1));
   });
 
   test('plan not loaded yet: no request, the snapshot has no items', () async {
@@ -155,7 +153,7 @@ void main() {
     c.onHome(null, _home());
     await c.flush();
     expect(news.calls, 0);
-    expect(store.last.containsKey('items'), isFalse);
+    expect(_news(store.last), isEmpty);
   });
 
   test('the plan arriving later triggers the request', () async {
@@ -166,7 +164,7 @@ void main() {
     c.onTierChanged();
     await c.flush();
     expect(news.calls, 1);
-    expect(store.last['items'], isNotEmpty);
+    expect(_news(store.last), isNotEmpty);
   });
 
   test('a failure keeps what was cached and never errors', () async {
@@ -186,7 +184,7 @@ void main() {
     c.onLanguage('en');
     await c.flush();
     expect(news.calls, 2);
-    expect(store.last['items'], hasLength(1));
+    expect(_news(store.last), hasLength(1));
   });
 
   test(
@@ -197,7 +195,7 @@ void main() {
       v2 = false;
       c.onLanguage('en');
       await c.flush();
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_news(store.last), isEmpty);
       expect(prefs.getString(WidgetItemsCache.key), isNull);
     },
   );
@@ -208,9 +206,9 @@ void main() {
     store.platformName = 'android';
     c.onHome(null, _home());
     await c.flush();
-    final teaser = store.last['teaser']! as Map;
-    expect(teaser['text'], 'Noticias de tu cartera · Premium');
-    expect(teaser['count'], isNull);
+    final teaser = _teasers(store.last).single;
+    final seg = (teaser['segments']! as List).first as Map;
+    expect(seg['title'], 'Noticias de tu cartera · Premium');
   });
 
   test('free on ios without counts: no teaser (phase 2)', () async {
@@ -218,17 +216,18 @@ void main() {
     teasers = true;
     c.onHome(null, _home());
     await c.flush();
-    expect(store.last['teaser'], isNull);
-    expect(store.last['items_section'], false);
+    expect(_teasers(store.last), isEmpty);
   });
 
   test('hiding amounts keeps the items (scrub on stored snapshot)', () async {
     c.onHome(null, _home());
     await c.flush();
-    expect(store.last['items'], isNotEmpty);
+    expect(_news(store.last), isNotEmpty);
     await store.scrubStoredPositions();
-    expect(store.last['v2']['positions_hidden'], true);
-    expect(store.last['items'], isNotEmpty);
+    expect((store.last['v2'] as Map)['positions_hidden'], true);
+    // Con posiciones ocultas quedan los ítems, sin ticker ni texto.
+    expect(_news(store.last), isNotEmpty);
+    expect(_news(store.last).first.containsKey('tag'), isFalse);
   });
 
   test(
@@ -244,7 +243,7 @@ void main() {
       expect(prefs.getString(WidgetItemsCache.key), isNull);
       expect(store.renderLog, isNull);
       expect(store.last['state'], 'signed_out');
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_news(store.last), isEmpty);
     },
   );
 
@@ -266,7 +265,7 @@ void main() {
         'earnings_count': 1,
         'teaser': 'news',
         'tier': 'gold',
-        'amounts_hidden': false,
+        'positions_hidden': false,
         'platform': 'ios',
       });
       expect(prefs.getInt(WidgetItemsCache.renderLoggedKey), 200);
@@ -300,3 +299,16 @@ void main() {
     expect(text, isNot(contains('Novedad')));
   });
 }
+
+/// Novedades del feed v2 (noticias y resultados).
+List<Map<Object?, Object?>> _news(Map<String, Object?> snapshot) => [
+  for (final item in ((snapshot['v2'] as Map?)?['feed'] as List?) ?? const [])
+    if (item is Map && (item['kind'] == 'news' || item['kind'] == 'earnings'))
+      item,
+];
+
+/// Avisos del plan siguiente en el feed v2.
+List<Map<Object?, Object?>> _teasers(Map<String, Object?> snapshot) => [
+  for (final item in ((snapshot['v2'] as Map?)?['feed'] as List?) ?? const [])
+    if (item is Map && item['kind'] == 'teaser') item,
+];

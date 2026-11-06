@@ -86,7 +86,7 @@ void main() {
     await _cache(prefs);
     await prefs.setBool(WidgetPrefsKeys.positionsHidden, true);
     await run((t) async => _ok(10, 12));
-    expect(store.last['v2']['positions_hidden'], true);
+    expect((store.last['v2'] as Map)['positions_hidden'], true);
     expect(store.last['phrase'], isNot(contains('AAA')));
   });
 

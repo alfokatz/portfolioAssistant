@@ -138,7 +138,7 @@ class _WidgetLaunchListenerState extends ConsumerState<WidgetLaunchListener> {
       case WidgetLaunchTarget.question:
         unawaited(_askQuestion(launch));
       case WidgetLaunchTarget.home:
-        context.goNamed(HomeRouter.routeName);
+        context.goNamed(HomeRouter.homeRouteName);
       case WidgetLaunchTarget.chat:
         context.goNamed(AssistantRouter.routeName);
       case WidgetLaunchTarget.addPortfolio:

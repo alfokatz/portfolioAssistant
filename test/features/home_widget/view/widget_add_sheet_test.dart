@@ -131,7 +131,8 @@ void main() {
   ) async {
     await open(tester, platform: 'ios');
     expect(find.text('home_widget_add_preview_sample'), findsOneWidget);
-    expect(find.text('home_widget_hidden_amount'), findsOneWidget);
+    expect(find.text('home_widget_your_portfolio'), findsOneWidget);
+    expect(find.textContaining(r'$'), findsNothing);
   });
 
   testWidgets('Android with pin support asks the launcher and closes', (

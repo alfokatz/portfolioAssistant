@@ -547,9 +547,19 @@ final widgetBackgroundSchedulerProvider = Provider<WidgetBackgroundScheduler>(
 
 /// Los insumos del feed que solo tiene la app abierta, con los mismos
 /// avisos que la bandeja de la Home.
+/// Lee un insumo del feed sin romper: si un provider falla (sin red, sin
+/// Supabase), el widget se escribe igual con lo demás.
+T? _safeRead<T>(T Function() read) {
+  try {
+    return read();
+  } catch (_) {
+    return null;
+  }
+}
+
 WidgetFeedExtras _feedExtras(Ref ref) {
   final insights = <WidgetInsightInput>[
-    for (final i in ref.read(portyInsightsProvider))
+    for (final i in _safeRead(() => ref.read(portyInsightsProvider)) ?? const [])
       if (WidgetInsightKind.fromName(i.kind.name) case final kind?)
         WidgetInsightInput(
           id: i.id,
@@ -569,16 +579,18 @@ WidgetFeedExtras _feedExtras(Ref ref) {
     }
   }
   if (goal == null) {
-    final active = [...ref.read(goalsProvider).active]
+    final active = [...?_safeRead(() => ref.read(goalsProvider).active)]
       ..sort((a, b) => a.targetDate.compareTo(b.targetDate));
     if (active.isNotEmpty) goal = active.first.label;
   }
-  final drift = ref.read(allocationDriftProvider);
+  final drift = _safeRead(() => ref.read(allocationDriftProvider));
   return WidgetFeedExtras(
     insights: insights,
     goalLabel: goal,
     driftTicker: drift?.ticker,
-    profileRisk: ref.read(investorProfileProvider).profile?.risk.storageValue,
+    profileRisk: _safeRead<String?>(
+      () => ref.read(investorProfileProvider).profile?.risk.storageValue,
+    ),
   );
 }
 
@@ -598,8 +610,8 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
     newsV2Enabled:
         () async => await NewsProviderConfig.instance.load() == NewsProvider.v2,
     currentTier: () {
-      final state = ref.read(subscriptionProvider);
-      return state.isLoading ? null : state.tier;
+      final state = _safeRead(() => ref.read(subscriptionProvider));
+      return state == null || state.isLoading ? null : state.tier;
     },
     feedExtras: () => _feedExtras(ref),
     teasersEnabled: () async {
