@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_add_steps.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -163,39 +164,36 @@ class _WidgetAddSheetState extends ConsumerState<WidgetAddSheet> {
                     ),
                   ),
                 ),
+              const SizedBox(height: AppDimens.sp12),
+              WidgetAddSteps(
+                steps: android ? widgetAddStepsAndroid : widgetAddStepsIos,
+                onDone: () => Navigator.of(context).pop(),
+              ),
               const SizedBox(height: AppDimens.sp8),
-              for (final (i, step)
-                  in (android ? _androidSteps : _iosSteps).indexed)
-                _StepRow(number: i + 1, icon: step.$1, text: step.$2.tr()),
             ],
-            const SizedBox(height: AppDimens.sp24),
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                onPressed:
-                    _steps
-                        ? () => Navigator.of(context).pop()
-                        : (_busy ? null : _onAdd),
-                style: FilledButton.styleFrom(
-                  backgroundColor: colors.textPrimary,
-                  foregroundColor: colors.surfaceCard,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+            if (!_steps) ...[
+              const SizedBox(height: AppDimens.sp24),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: _busy ? null : _onAdd,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.textPrimary,
+                    foregroundColor: colors.surfaceCard,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                    ),
                   ),
-                ),
-                child: Text(
-                  _steps
-                      ? 'home_widget_add_done'.tr()
-                      : 'home_widget_add_confirm'.tr(),
-                  style: tt.titleSmall?.copyWith(
-                    color: colors.surfaceCard,
-                    fontWeight: FontWeight.w600,
+                  child: Text(
+                    'home_widget_add_confirm'.tr(),
+                    style: tt.titleSmall?.copyWith(
+                      color: colors.surfaceCard,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-            if (!_steps) ...[
               const SizedBox(height: AppDimens.sp4),
               SizedBox(
                 height: AppDimens.touchTarget,
@@ -216,84 +214,9 @@ class _WidgetAddSheetState extends ConsumerState<WidgetAddSheet> {
                   ),
                 ),
               ),
-            ] else
-              const SizedBox(height: AppDimens.sp8),
+            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-const _iosSteps = <(IconData, String)>[
-  (Icons.touch_app_outlined, 'home_widget_add_steps_ios_1'),
-  (Icons.add_circle_outline_rounded, 'home_widget_add_steps_ios_2'),
-  (Icons.search_rounded, 'home_widget_add_steps_ios_3'),
-  (Icons.aspect_ratio_rounded, 'home_widget_add_steps_ios_4'),
-  (Icons.check_circle_outline_rounded, 'home_widget_add_steps_ios_5'),
-];
-
-const _androidSteps = <(IconData, String)>[
-  (Icons.touch_app_outlined, 'home_widget_add_steps_android_1'),
-  (Icons.widgets_outlined, 'home_widget_add_steps_android_2'),
-  (Icons.search_rounded, 'home_widget_add_steps_android_3'),
-  (Icons.open_with_rounded, 'home_widget_add_steps_android_4'),
-];
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({
-    required this.number,
-    required this.icon,
-    required this.text,
-  });
-
-  final int number;
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 20,
-            child: Text(
-              '$number',
-              style: tt.titleSmall?.copyWith(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w700,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colors.inset,
-              borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            ),
-            child: Icon(
-              icon,
-              size: AppDimens.iconMd,
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: AppDimens.sp12),
-          Expanded(
-            child: Text(
-              text,
-              style: tt.bodyMedium?.copyWith(
-                color: colors.textPrimary,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

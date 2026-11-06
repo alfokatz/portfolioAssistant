@@ -244,6 +244,16 @@ void main() {
             if (tapAdd) {
               await t.tap(find.text('Agregar'));
               await settle(t);
+              // Una captura por paso del carrusel.
+              final count = platform == 'ios' ? 5 : 4;
+              for (var n = 1; n <= count; n++) {
+                await _capture(t, key, '${id}_$n');
+                if (n < count) {
+                  await t.tap(find.text('Siguiente'));
+                  await settle(t);
+                }
+              }
+              return;
             }
             await _capture(t, key, id);
           }, skip: !_enabled);

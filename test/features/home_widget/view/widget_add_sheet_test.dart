@@ -111,8 +111,14 @@ void main() {
       await open(tester, platform: 'ios', dark: dark, snapshot: _ready());
       await tester.tap(find.text('home_widget_add_confirm'));
       await tester.pumpAndSettle();
+      // Un paso por vez: "Siguiente" avanza hasta "Entendido".
       for (var i = 1; i <= 5; i++) {
         expect(find.text('home_widget_add_steps_ios_$i'), findsOneWidget);
+        if (i < 5) {
+          expect(find.text('home_widget_add_done'), findsNothing);
+          await tester.tap(find.text('home_widget_add_next'));
+          await tester.pumpAndSettle();
+        }
       }
       expect(find.text('home_widget_add_manual_note'), findsNothing);
       expect(store.pinRequests, 0);
@@ -158,7 +164,12 @@ void main() {
     expect(find.text('home_widget_add_manual_note'), findsOneWidget);
     for (var i = 1; i <= 4; i++) {
       expect(find.text('home_widget_add_steps_android_$i'), findsOneWidget);
+      if (i < 4) {
+        await tester.tap(find.text('home_widget_add_next'));
+        await tester.pumpAndSettle();
+      }
     }
+    expect(find.text('home_widget_add_done'), findsOneWidget);
     expect(events.logged.last.$2, {'platform': 'android', 'method': 'steps'});
   });
 
