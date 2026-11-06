@@ -77,7 +77,7 @@ void main() {
       ];
       expect(texts, [
         '¿Cómo voy con Viaje a Japón?',
-        '¿Por qué ZETA está lejos de mi objetivo?',
+        '¿Cómo se compara ZETA con mi objetivo?',
         '¿Qué tanto depende mi cartera de ACME?',
         '¿Cómo se compara mi cartera con mi perfil moderado?',
       ]);
