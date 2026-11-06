@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show appFlavor;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
@@ -66,10 +67,11 @@ Future<Widget> _initialize() async {
 }
 
 Future<void> _setupEnviroment() async {
-  final flavor = const String.fromEnvironment(
-    'FLAVOR',
-    defaultValue: 'development',
-  );
+  // Android: `--flavor X` (appFlavor). iOS todavía no tiene esquemas por
+  // flavor, así que ahí sigue siendo `--dart-define=FLAVOR=X`.
+  final flavor =
+      appFlavor ??
+      const String.fromEnvironment('FLAVOR', defaultValue: 'development');
   final fileName = '$_dotenvBaseFolder.env.$flavor';
   await dotenv.load(fileName: fileName);
 }

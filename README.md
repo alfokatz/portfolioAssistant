@@ -32,6 +32,9 @@ flutter pub get
 3. Ejecuta:
 
 ```bash
+# Android: el flavor elige el applicationId y el .env (development | staging | production)
+flutter run --flavor development
+# iOS (todavía sin esquemas por flavor)
 flutter run --dart-define=FLAVOR=development
 ```
 

@@ -4,7 +4,7 @@
     <!-- Dictado en el chat de Porty (speech_to_text). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="Porty"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- Canal para los mensajes de FCM que no traen uno (los canales los

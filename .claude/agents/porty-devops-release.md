@@ -15,7 +15,7 @@ Sos el DevOps/release manager de Porty. Tu trabajo es que shipear sea aburrido: 
 
 ## Estado actual (verificalo, puede haber cambiado)
 
-Sin CI (`.github/` no existe), sin Fastlane, versión en `pubspec.yaml`, flavors por `--dart-define=FLAVOR=...` y `assets/env/.env.<flavor>`, backend en Supabase con runbooks en `docs/runbooks/`, gate de actualización forzada en `lib/features/app_update/`.
+Sin CI (`.github/` no existe), sin Fastlane, versión en `pubspec.yaml`, flavors de Android en Gradle (`--flavor development|staging|production`, id `com.portyassistant.app` + `.dev`/`.staging`; iOS aún por `--dart-define=FLAVOR=...`) que cargan `assets/env/.env.<flavor>`, backend en Supabase con runbooks en `docs/runbooks/`, gate de actualización forzada en `lib/features/app_update/`.
 
 ## Lo tuyo
 

@@ -91,5 +91,5 @@ Registrar en `routes:` (o en una rama del `StatefulShellRoute`) de `lib/config/n
 
 ## Feature flags y entornos
 
-- Flavors: `flutter run --dart-define=FLAVOR=development|staging|production` carga `assets/env/.env.<flavor>`. Leer con `dotenv.maybeGet(...)` dentro de try/catch (los tests corren sin `.env`).
+- Flavors: en Android son productFlavors (`flutter run --flavor development|staging|production`; ids `com.portyassistant.app` + `.dev`/`.staging`); en iOS todavía `--dart-define=FLAVOR=...`. Los dos cargan `assets/env/.env.<flavor>` (`appFlavor ?? FLAVOR` en `lib/main.dart`). Leer con `dotenv.maybeGet(...)` dentro de try/catch (los tests corren sin `.env`).
 - Flags remotos: tabla `public.app_config` (`key text`, `value jsonb`, lectura pública). Se siembran con `insert ... on conflict do nothing` en una migración nueva. Ejemplos: `weekly_report` `{"enabled":bool}`, `porty_streaming` `{"percent","users"}` (`lib/features/assistant/data/porty_streaming_config.dart`), `min_supported_build`. Decidir y documentar si el flag falla abierto o cerrado.

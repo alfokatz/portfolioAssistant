@@ -19,16 +19,14 @@
 
 ## F0: configuración fuera del repo (una sola vez)
 
-1. **Firebase:** crear el proyecto (solo se usa Cloud Messaging). Registrar:
-   - la app Android con `com.portfolioassistant.app` → bajar `google-services.json` a `android/app/`;
-   - la app iOS con el bundle id del target Runner → bajar `GoogleService-Info.plist` a `ios/Runner/` y agregarlo al target en Xcode.
+1. **Firebase:** **un solo proyecto** (los tres entornos comparten el mismo Supabase y `notify-dispatch` usa una sola service account, así que solo puede mandar a apps de un proyecto). Registrar:
+   - tres apps Android, una por flavor: `com.portyassistant.app` (production), `com.portyassistant.app.staging` y `com.portyassistant.app.dev` → bajar el `google-services.json` (después de registrar las tres trae los tres clientes) a `android/app/`. **Si falta un flavor en el archivo, ese flavor no compila** ("No matching client found");
+   - la app iOS con `com.portyassistant.app` → bajar `GoogleService-Info.plist` a `ios/Runner/` y agregarlo al target en Xcode.
 
-   > ⚠️ **Revisar el bundle id de iOS antes de registrar la app.** En `ios/Runner.xcodeproj/project.pbxproj` hoy figura `uy.gub.bps.movil.bpsfuncionarios`, que parece venir de otro proyecto. Firebase y la clave de APNs se configuran con ese id.
+   Sin esos archivos la app compila y funciona igual, sin push (`FirebasePushMessaging.create` devuelve `NoopPushMessaging` y el plugin de Gradle no se aplica).
 
-   Sin esos dos archivos la app compila y funciona igual, sin push (`FirebasePushMessaging.create` devuelve `NoopPushMessaging` y el plugin de Gradle no se aplica).
-
-   Decidir si se commitean (no son secretos, pero identifican el proyecto). Si no se commitean, el CI de builds tiene que copiarlos.
-2. **APNs:** en developer.apple.com, crear una clave `.p8` con "Apple Push Notifications service" y subirla a Firebase (Project settings → Cloud Messaging → Apple app configuration). En el App ID, habilitar la capability **Push Notifications**. El entitlement `aps-environment` ya está en `ios/Runner/Runner.entitlements`.
+   Se commitean: no son secretos (las keys de Firebase en la app son públicas; la protección está en las reglas y en la service account, que nunca va al repo) y el CI de builds los necesita.
+2. **APNs:** en developer.apple.com, crear una clave `.p8` con "Apple Push Notifications service" y subirla a Firebase (Project settings → Cloud Messaging → Apple app configuration). En el App ID, habilitar la capability **Push Notifications**. Después, restaurar en `ios/Runner/Runner.entitlements` la clave `aps-environment` y en `Info.plist` el background mode `remote-notification` (se sacaron el 2026-10-21, commit `a72ada8`, porque el Personal Team no soporta push).
 3. **Opcional, time-sensitive:** para que las alertas de precio atraviesen el modo Concentración, habilitar "Time Sensitive Notifications" en el App ID y agregar a `Runner.entitlements`:
    ```xml
    <key>com.apple.developer.usernotifications.time-sensitive</key>

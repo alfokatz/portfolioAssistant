@@ -11,7 +11,7 @@ Cambios a mano que acompañan el renombre de la app a **Porty** y el login nuevo
 
 ## Antes que nada: identificadores
 
-- [ ] **Bundle id de iOS.** Cambiado en el proyecto (2026-10-21) de `uy.gub.bps.movil.bpsfuncionarios` a `app.portfolioai.porty` (`com.portfolioassistant.app` ya estaba tomado en Apple). Android sigue con `com.portfolioassistant.app`. Falta registrarlo en Apple Developer (Identifiers) con Push Notifications y Sign in with Apple, y crear la app en App Store Connect con ese id.
+- [x] **Bundle id de iOS.** 2026-11-05: `com.portyassistant.app` (igual que Android), registrado en Apple Developer con Push Notifications y Sign in with Apple, y app creada en App Store Connect. Reemplaza a `app.portfolioai.porty` (nunca se registró) y a `uy.gub.bps.movil.bpsfuncionarios` (venía de otro proyecto).
 - [ ] **Push en iOS desactivado temporalmente.** El 2026-10-21 se sacó `aps-environment` de `ios/Runner/Runner.entitlements` para poder firmar con el Personal Team (gratis, no soporta push). Cuando esté la cuenta paga del Apple Developer Program: elegir ese team en Xcode y volver a agregar `<key>aps-environment</key><string>development</string>` (o la capability Push Notifications desde Signing & Capabilities).
 - [x] **Esquemas de deep link de auth.** Ya registrados en iOS y Android (`porty-oauth://callback`, `porty://login-callback`, `porty://reset-password`). Falta agregarlos en Supabase → Auth → URL Configuration → Redirect URLs: ver `docs/runbooks/auth-google.md`.
 

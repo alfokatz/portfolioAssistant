@@ -51,8 +51,15 @@ void main() {
       plist,
       contains('<key>CFBundleDisplayName</key>\n\t<string>Porty</string>'),
     );
+    // Android: el nombre sale de `app_name`, que define cada flavor; el de
+    // producción (el de Play Store) es "Porty".
     final manifest =
         File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
-    expect(manifest, contains('android:label="Porty"'));
+    expect(manifest, contains('android:label="@string/app_name"'));
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+    final production = RegExp(
+      r'create\("production"\)\s*\{[^}]*resValue\("string", "app_name", "Porty"\)',
+    );
+    expect(gradle, matches(production));
   });
 }

@@ -32,14 +32,42 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.portfolioassistant.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Id de Porty en Google Play. NO se puede cambiar después de la
+        // primera subida. `namespace` (paquete del código Kotlin) queda como
+        // estaba: es independiente del applicationId.
+        applicationId = "com.portyassistant.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // Un flavor por entorno: cada uno es una app distinta (se pueden instalar
+    // juntas) y tiene su propia app en Firebase. `--flavor X` también elige
+    // assets/env/.env.X (ver _setupEnviroment en lib/main.dart).
+    //   flutter run --flavor development
+    //   flutter build appbundle --flavor production   ← Play Store
+    //   flutter build apk --flavor staging            ← Firebase App Distribution
+    buildFeatures {
+        resValues = true // app_name por flavor (AGP 9 lo trae apagado)
+    }
+
+    flavorDimensions += "env"
+    productFlavors {
+        create("development") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "Porty Dev")
+        }
+        create("staging") {
+            dimension = "env"
+            applicationIdSuffix = ".staging"
+            resValue("string", "app_name", "Porty Staging")
+        }
+        create("production") {
+            dimension = "env"
+            resValue("string", "app_name", "Porty")
+        }
     }
 
     signingConfigs {
