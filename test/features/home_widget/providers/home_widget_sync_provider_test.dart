@@ -87,6 +87,7 @@ Future<List<PriceCandle>> _candles(String t) async => [
 ];
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeHomeWidgetStore store;
   late FakeScheduler scheduler;
   late _Events events;
@@ -180,6 +181,44 @@ void main() {
       await c.flush();
       expect(store.last['state'], 'no_portfolio');
       expect(prefs.getString(WidgetPrefsKeys.ownerUid), isNull);
+    });
+
+    test('adding the first positions turns no_portfolio into ready', () async {
+      final empty = _good(empty: true);
+      c.onHome(null, empty);
+      await c.flush();
+      expect(store.last['state'], 'no_portfolio');
+      c.onHome(empty, _good());
+      await c.flush();
+      expect(store.last['state'], 'ready');
+    });
+
+    test('going to background writes the pending change right away', () async {
+      final empty = _good(empty: true);
+      c.onHome(null, empty);
+      await c.flush();
+      c.onHome(empty, _good());
+      // Sin esperar el debounce: la app se fue a segundo plano.
+      c.onAppBackground();
+      await Future<void>.delayed(Duration.zero);
+      await c.flush();
+      expect(store.last['state'], 'ready');
+    });
+
+    test('coming back rewrites the last known snapshot', () async {
+      c.onHome(null, _good());
+      await c.flush();
+      final before = store.writes.length;
+      c.onAppResumed();
+      await c.flush();
+      expect(store.writes.length, before + 1);
+      expect(store.last['state'], 'ready');
+    });
+
+    test('coming back before any data writes nothing', () async {
+      c.onAppResumed();
+      await c.flush();
+      expect(store.writes, isEmpty);
     });
 
     test(

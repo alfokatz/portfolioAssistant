@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
@@ -346,6 +347,22 @@ class HomeWidgetSyncController {
       'taps': taps - logged,
     });
     await prefs.setInt(nextTapsLoggedKey, taps);
+  }
+
+  /// La app se va a segundo plano: lo que esperaba el debounce se escribe
+  /// ya. Si no, iOS suspende la app antes de los 500 ms y el widget queda
+  /// con lo anterior (p. ej. "cargá tu cartera" después de cargarla).
+  void onAppBackground() {
+    if (_pendingHome == null) return;
+    _timer?.cancel();
+    _fireHome();
+  }
+
+  /// La app vuelve: reescribe con lo último conocido, por si una escritura
+  /// quedó cortada en segundo plano (y para que "hace X" arranque de cero).
+  void onAppResumed() {
+    if (_known == null || _pendingHome != null) return;
+    _enqueue(_publish);
   }
 
   /// Escribe ya lo que esté pendiente (tests).
@@ -705,6 +722,12 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
     },
   );
   ref.onDispose(controller.dispose);
+  final lifecycle = AppLifecycleListener(
+    onInactive: controller.onAppBackground,
+    onHide: controller.onAppBackground,
+    onResume: controller.onAppResumed,
+  );
+  ref.onDispose(lifecycle.dispose);
   ref.listen<HomeState>(homeProvider, controller.onHome, fireImmediately: true);
   ref.listen<bool>(
     widgetPositionsHiddenProvider,
