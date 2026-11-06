@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_items_selector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -183,13 +184,12 @@ class WidgetItemsCacheEntry {
       if (i.isLive(now)) i,
   ];
 
-  /// La selección para armar el snapshot en [now], sin lo vencido. Si ya
-  /// venció todo, pasa los vencidos igual: el nativo los filtra y muestra
-  /// "todo venció" en vez de "no encontramos novedades".
+  /// La selección para armar el snapshot en [now], sin lo vencido (cada
+  /// novedad del feed vence sola; si no queda ninguna, el feed va vacío).
   WidgetItemsSelection selection(DateTime now) {
     final live = liveItems(now);
     return WidgetItemsSelection(
-      items: [for (final i in live.isEmpty ? items : live) i.toSelected()],
+      items: [for (final i in live) i.toSelected()],
       teaser: teaser,
       itemsSection: itemsSection,
     );
@@ -246,6 +246,8 @@ class WidgetItemsCache {
   Future<void> clear() async {
     await clearItems();
     await _prefs.remove(renderLoggedKey);
+    // Lo de v2 se borra en el mismo paso (cierre de sesión).
+    await WidgetFeedCache(_prefs).clear();
   }
 
   /// Solo los datos (v2 apagado): conserva cuándo se logueó lo dibujado,

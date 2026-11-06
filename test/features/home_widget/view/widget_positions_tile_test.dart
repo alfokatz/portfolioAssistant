@@ -1,11 +1,11 @@
-// WidgetAmountsTile: el switch guarda el ajuste, loguea el evento y muestra
+// WidgetPositionsTile: el switch guarda el ajuste, loguea el evento y muestra
 // el texto de privacidad; claro y oscuro, ancho 375.
-// Correr: flutter test test/features/home_widget/view/widget_amounts_tile_test.dart
+// Correr: flutter test test/features/home_widget/view/widget_positions_tile_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
-import 'package:portfolio_assistant/features/home_widget/view/widget_amounts_tile.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_positions_tile.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
@@ -49,7 +49,7 @@ void main() {
                 container = ProviderScope.containerOf(context);
                 return MaterialApp(
                   theme: theme,
-                  home: const Scaffold(body: WidgetAmountsTile()),
+                  home: const Scaffold(body: WidgetPositionsTile()),
                 );
               },
             ),
@@ -57,16 +57,16 @@ void main() {
         );
 
         // Sin traducciones cargadas, .tr() devuelve la clave.
-        expect(find.text('home_widget_hide_amounts'), findsOneWidget);
-        expect(find.text('home_widget_privacy_note'), findsOneWidget);
-        expect(container.read(widgetAmountsHiddenProvider), isFalse);
+        expect(find.text('home_widget_hide_positions'), findsOneWidget);
+        expect(find.text('home_widget_positions_privacy_note'), findsOneWidget);
+        expect(container.read(widgetPositionsHiddenProvider), isFalse);
 
         await tester.tap(find.byType(Switch));
         await tester.pump();
 
-        expect(container.read(widgetAmountsHiddenProvider), isTrue);
-        expect(prefs.getBool(WidgetPrefsKeys.amountsHidden), isTrue);
-        expect(events.logged.single.$1, ProductEvent.widgetAmountsToggled);
+        expect(container.read(widgetPositionsHiddenProvider), isTrue);
+        expect(prefs.getBool(WidgetPrefsKeys.positionsHidden), isTrue);
+        expect(events.logged.single.$1, ProductEvent.widgetPositionsToggled);
         expect(events.logged.single.$2, {'hidden': true});
         expect(tester.takeException(), isNull);
       },

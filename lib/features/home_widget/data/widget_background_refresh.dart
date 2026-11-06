@@ -5,12 +5,16 @@ import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_series_builder.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_items_selector.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_portfolio_facts.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_texts.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
@@ -54,6 +58,7 @@ Future<void> clearHomeWidgetForSignedOutLaunch({
     await prefs.remove(WidgetPrefsKeys.ownerUid);
     await WidgetItemsCache(prefs).clear();
     await store.clearRenderLog();
+    await store.clearCursor();
     await scheduler.cancel();
     final lang = prefs.getString(WidgetPrefsKeys.lang) ?? 'es';
     await store.writeSnapshot(
@@ -219,19 +224,10 @@ Future<bool> refreshOnce(WidgetRefreshDeps deps) async {
     candlesByTicker: candles,
     now: now,
   );
-  final total = _totalValue(positions, candles);
 
   final lang = deps.prefs.getString(WidgetPrefsKeys.lang) ?? 'es';
   final texts = await deps.loadTexts(lang);
-  var snapshot = WidgetSnapshotBuilder.ready(
-    totalValue: total,
-    move: move,
-    amountsHidden: deps.prefs.getBool(WidgetPrefsKeys.amountsHidden) ?? false,
-    lang: lang,
-    now: now,
-    dataAsOf: now,
-    texts: texts,
-  );
+  final positionsHidden = WidgetPrefsKeys.readPositionsHidden(deps.prefs);
 
   // Las novedades no se traen acá (no hay sesión): se rearman desde la caché
   // privada sin lo vencido. Una caché de otro uid no cuenta.
@@ -239,42 +235,76 @@ Future<bool> refreshOnce(WidgetRefreshDeps deps) async {
   // Pasado `plan_until` no se sabe si el plan sigue: lo pago no vuelve a
   // escribirse en el almacenamiento compartido hasta abrir la app.
   final planExpired = entry?.planUntil?.isBefore(now) ?? false;
-  if (entry != null && !planExpired) {
-    snapshot = WidgetSnapshotBuilder.withItems(
-      base: snapshot,
-      selection: entry.selection(now),
-      now: now,
-      checkedAt: entry.checkedAt,
-      planUntil: entry.planUntil,
-      texts: texts,
-      platform:
-          deps.store.platform == 'ios'
-              ? WidgetPlatform.ios
-              : WidgetPlatform.android,
-    );
-  }
+  final usable = planExpired ? null : entry;
+  final tier =
+      SubscriptionTier.values.where((t) => t.name == entry?.tier).firstOrNull ??
+      SubscriptionTier.free;
+
+  // Avisos, meta, desvío y perfil: lo último que supo la app abierta (hasta
+  // 24 h; más viejo no se usa). Mover y biggest sí salen de los precios nuevos.
+  final feedCache = WidgetFeedCache(deps.prefs);
+  final extras = feedCache.read(uid: uid);
+  final fresh = extras != null && extras.isFresh(now) ? extras : null;
+  final facts = <WidgetPositionFact>[
+    for (final v in valuations)
+      WidgetPositionFact(
+        ticker: v.position.ticker,
+        marketValue:
+            PortfolioCalculator.valuate(
+              position: v.position,
+              currentPrice: _lastClose(candles[v.position.ticker]!),
+            ).marketValue,
+        dayPct: WidgetPortfolioFacts.dayPct(candles[v.position.ticker]!),
+      ),
+  ];
+  final biggest = WidgetPortfolioFacts.biggest(facts);
+  final built = WidgetSnapshotBuilder.readyBuild(
+    move: move,
+    positionsHidden: positionsHidden,
+    lang: lang,
+    now: now,
+    dataAsOf: now,
+    texts: texts,
+    tier: tier,
+    platform:
+        deps.store.platform == 'ios'
+            ? WidgetPlatform.ios
+            : WidgetPlatform.android,
+    selection: usable?.selection(now),
+    planUntil: usable?.planUntil,
+    insights: fresh?.insights ?? const [],
+    mover: WidgetPortfolioFacts.mover(facts),
+    biggest: biggest,
+    questionContext: WidgetQuestionContext(
+      tier: tier,
+      goalLabel: fresh?.goalLabel,
+      hasDrift: fresh?.driftTicker != null,
+      driftTicker: fresh?.driftTicker,
+      biggestTicker: biggest?.ticker,
+      profileRisk: fresh?.profileRisk,
+    ),
+    feedState: feedCache.readState(uid: uid),
+  );
 
   // Si mientras tanto se cerró sesión (o entró otra cuenta), no se
   // resucita nada.
   await deps.prefs.reload();
   if (deps.prefs.getString(WidgetPrefsKeys.ownerUid) != uid) return false;
-  await deps.store.writeSnapshot(snapshot);
+  await deps.store.writeSnapshot(built.snapshot);
+  // La histéresis persiste entre refrescos (con posiciones ocultas no hay
+  // ids en el JSON: no se toca) y el toque de una pregunta del dibujo
+  // anterior sigue resolviendo.
+  if (!positionsHidden) {
+    await feedCache.writeState(uid: uid, state: built.feedState);
+  }
+  await feedCache.rememberQuestions(
+    uid: uid,
+    drafts: built.questionDrafts,
+    hidden: positionsHidden,
+    now: now,
+  );
   return true;
 }
 
-double _totalValue(
-  List<Position> positions,
-  Map<String, List<PriceCandle>> candles,
-) {
-  var total = 0.0;
-  for (final p in positions) {
-    final list = candles[p.ticker]!;
-    final last = list.reduce((a, b) => b.date.isAfter(a.date) ? b : a);
-    total +=
-        PortfolioCalculator.valuate(
-          position: p,
-          currentPrice: last.close,
-        ).marketValue;
-  }
-  return total;
-}
+double _lastClose(List<PriceCandle> candles) =>
+    candles.reduce((a, b) => b.date.isAfter(a.date) ? b : a).close;

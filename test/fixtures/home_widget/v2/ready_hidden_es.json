@@ -1,0 +1,182 @@
+{
+  "v": 1,
+  "state": "ready",
+  "lang": "es",
+  "written_at": 1793977200000,
+  "data_as_of": 1793977080000,
+  "stale_at": 1794020400000,
+  "period": "today",
+  "amounts_hidden": true,
+  "currency": "USD",
+  "change_pct_text": "+1.2%",
+  "direction": "up",
+  "phrase": "Tu cartera sube hoy.",
+  "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+  "a11y_value": "Tu cartera sube 1.2% hoy",
+  "labels": {
+    "period_today": "Hoy",
+    "period_last_close": "Último cierre",
+    "stale_date": "al 6 nov",
+    "updated_now": "Actualizado recién",
+    "updated_min": "Actualizado hace {n} min",
+    "updated_h": "Actualizado hace {n} h",
+    "updated_d": "Actualizado hace {n} d",
+    "hidden_amount": "••••",
+    "hidden_a11y": "Montos ocultos"
+  },
+  "v2": {
+    "positions_hidden": true,
+    "mood": "happy",
+    "plan_until": null,
+    "chart": {
+      "kind": "intraday",
+      "points": [
+        0.12,
+        0.1,
+        0.25,
+        0.41,
+        0.38,
+        0.52,
+        0.47,
+        0.66,
+        0.61,
+        0.77,
+        0.88,
+        1.0
+      ],
+      "baseline": 0.18
+    },
+    "feed": [
+      {
+        "kind": "earnings",
+        "icon": "calendar",
+        "paid": true,
+        "expires_at": 1794106799000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 1
+          },
+          {
+            "from": 1794020400000,
+            "prio": 1
+          }
+        ]
+      },
+      {
+        "kind": "news",
+        "icon": "news",
+        "paid": true,
+        "expires_at": 1794139200000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 1
+          },
+          {
+            "from": 1794020400000,
+            "prio": 3
+          }
+        ]
+      },
+      {
+        "kind": "insight",
+        "icon": "pie",
+        "expires_at": 1794063600000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 2
+          }
+        ]
+      },
+      {
+        "kind": "insight",
+        "icon": "pie",
+        "expires_at": 1794063600000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 2
+          }
+        ]
+      },
+      {
+        "kind": "news",
+        "icon": "news",
+        "paid": true,
+        "expires_at": 1794042000000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 3
+          }
+        ]
+      },
+      {
+        "kind": "mover",
+        "icon": "chart",
+        "expires_at": 1794020400000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 3
+          }
+        ]
+      },
+      {
+        "kind": "biggest",
+        "icon": "pie",
+        "expires_at": 1794020400000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 3
+          }
+        ]
+      }
+    ],
+    "questions": {
+      "fallback": {
+        "ref": "4b4466c3",
+        "t": "goal_progress",
+        "src": "goal",
+        "text": "¿Cómo voy con mis metas?"
+      },
+      "large": [
+        {
+          "ref": "4b4466c3",
+          "t": "goal_progress",
+          "src": "goal",
+          "text": "¿Cómo voy con mis metas?"
+        },
+        {
+          "ref": "ff03d3dd",
+          "t": "biggest",
+          "src": "biggest",
+          "text": "¿Qué tanto depende mi cartera de mi posición más grande?"
+        }
+      ]
+    },
+    "labels": {
+      "your_portfolio": "tu cartera",
+      "age_now": "recién",
+      "age_min": "hace {n} min",
+      "age_h": "hace {n} h",
+      "age_yesterday": "ayer",
+      "age_d": "hace {n} d",
+      "header_one": "Hoy te marco una cosa",
+      "header_other": "Hoy te marco {n} cosas",
+      "header_none": "Tu cartera",
+      "list_title": "Lo de hoy",
+      "next": "Siguiente",
+      "next_a11y": "Siguiente novedad",
+      "hidden_count_one": "1 novedad de tu cartera",
+      "hidden_count_other": "{n} novedades de tu cartera",
+      "no_news": "Sin novedades de tu cartera por ahora",
+      "redacted": "Desbloqueá tu iPhone para ver las novedades",
+      "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+      "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+    }
+  }
+}

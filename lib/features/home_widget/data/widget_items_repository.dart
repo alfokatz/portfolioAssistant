@@ -163,6 +163,7 @@ class WidgetItemsRepository {
       teaserCounts: teaserCounts,
       platform: r.platform,
       now: r.now,
+      cap: WidgetItemsSelector.maxItemsV2,
     );
     final entry = WidgetItemsCacheEntry(
       uid: r.uid,

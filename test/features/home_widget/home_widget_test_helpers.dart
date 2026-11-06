@@ -49,11 +49,24 @@ class FakeHomeWidgetStore implements HomeWidgetStore {
   int scrubs = 0;
 
   @override
-  Future<void> scrubStoredAmounts() async {
+  Future<void> scrubStoredPositions() async {
     scrubs++;
     if (writes.isEmpty) return;
-    final scrubbed = scrubAmountsFromSnapshotJson(writes.last);
+    final scrubbed = scrubPositionsFromSnapshotJson(writes.last);
     if (scrubbed != null) writes.add(scrubbed);
+  }
+
+  /// El cursor del mediano (lo escribe el nativo).
+  Map<String, Object?>? cursor;
+  int cursorClears = 0;
+
+  @override
+  Future<Map<String, Object?>?> readCursor() async => cursor;
+
+  @override
+  Future<void> clearCursor() async {
+    cursorClears++;
+    cursor = null;
   }
 
   /// Lo que "dibujó el nativo" (render log).

@@ -104,32 +104,35 @@ void main() {
   });
 
   group('WidgetPreviewData.fromSnapshotJson', () {
-    test('ready snapshot gives the real texts', () {
+    test('ready snapshot gives the real texts, with no total', () {
       final data = WidgetPreviewData.fromSnapshotJson({
         'state': 'ready',
-        'total_text': r'$1.234,00',
-        'change_text': r'+$12,00',
         'change_pct_text': '+1,0%',
         'direction': 'up',
         'phrase': 'Tu cartera sube hoy.',
         'period': 'today',
-        'labels': {'period_today': 'Hoy', 'hidden_amount': '••••'},
+        'labels': {'period_today': 'Hoy'},
+        'v2': {
+          'labels': {'your_portfolio': 'tu cartera'},
+        },
       });
-      expect(data!.total, r'$1.234,00');
+      expect(data!.title, 'tu cartera');
+      expect(data.changePct, '+1,0%');
       expect(data.period, 'Hoy');
       expect(data.direction, 'up');
       expect(data.phrase, 'Tu cartera sube hoy.');
     });
 
-    test('hidden amounts show the dots, never a total', () {
+    test('a snapshot from the previous version never leaks amounts', () {
       final data = WidgetPreviewData.fromSnapshotJson({
         'state': 'ready',
-        'amounts_hidden': true,
+        'total_text': r'$1.234,00',
+        'change_text': r'+$12,00',
         'change_pct_text': '+1,0%',
         'labels': {'hidden_amount': '••••'},
       });
-      expect(data!.total, '••••');
-      expect(data.change, isNull);
+      expect(data!.title, isNull);
+      expect(data.changePct, '+1,0%');
     });
 
     test('no data or not ready: null (illustrative view)', () {

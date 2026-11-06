@@ -315,10 +315,7 @@ class _WidgetPreview extends ConsumerWidget {
       'down' => colors.loss,
       _ => colors.textSecondary,
     };
-    final changeLine = [
-      if (data?.change != null) data!.change!,
-      if (data?.changePct != null) data!.changePct!,
-    ].join('  ');
+    final changeLine = data?.changePct ?? '';
 
     return Semantics(
       label: 'home_widget_add_preview_a11y'.tr(),
@@ -356,7 +353,7 @@ class _WidgetPreview extends ConsumerWidget {
               ),
               const SizedBox(height: AppDimens.sp8),
               Text(
-                data?.total ?? 'home_widget_hidden_amount'.tr(),
+                data?.title ?? 'home_widget_your_portfolio'.tr(),
                 style: tt.headlineSmall?.copyWith(
                   color: colors.textPrimary,
                   fontWeight: FontWeight.w700,

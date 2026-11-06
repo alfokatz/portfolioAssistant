@@ -98,4 +98,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Tests JVM del selector del widget (PortyFeedPickerTest). `org.json` de
+    // Android es un stub en JVM: hace falta la implementación real.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

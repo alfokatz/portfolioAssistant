@@ -13,13 +13,22 @@ import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_background_refresh.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_counts_client.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_repository.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_insight_copy.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_feed_order.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_items_selector.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_portfolio_facts.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot_builder.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_texts.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
+import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
+import 'package:portfolio_assistant/features/goals/providers/goals_provider.dart';
+import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
+import 'package:portfolio_assistant/features/porty_inbox/providers/porty_inbox_provider.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -52,6 +61,7 @@ class _KnownReady extends _Known {
     required this.move,
     required this.dataAsOf,
     this.holdings = const [],
+    this.facts = const [],
   });
 
   final double totalValue;
@@ -60,6 +70,28 @@ class _KnownReady extends _Known {
 
   /// Las posiciones por ticker (para elegir las novedades).
   final List<WidgetHolding> holdings;
+
+  /// Valor y variación del último día por ticker (mover y biggest).
+  final List<WidgetPositionFact> facts;
+}
+
+/// Lo que solo tiene la app abierta (avisos de la Home, meta, desvío del
+/// plan, perfil): alimenta el feed y se guarda en `widget_feed_cache_v1`
+/// para el refresco de fondo.
+class WidgetFeedExtras {
+  const WidgetFeedExtras({
+    this.insights = const [],
+    this.goalLabel,
+    this.driftTicker,
+    this.profileRisk,
+  });
+
+  final List<WidgetInsightInput> insights;
+  final String? goalLabel;
+
+  /// `null` = sin desvío; `''` = desvío sin ticker.
+  final String? driftTicker;
+  final String? profileRisk;
 }
 
 /// Mantiene al día el snapshot que lee el widget de la pantalla de inicio
@@ -80,6 +112,7 @@ class HomeWidgetSyncController {
     this.newsV2Enabled,
     this.currentTier,
     this.teasersEnabled,
+    this.feedExtras,
     DateTime Function()? now,
     this.debounce = const Duration(milliseconds: 500),
   }) : _lang = AppLanguage.normalize(initialLang),
@@ -105,6 +138,9 @@ class HomeWidgetSyncController {
 
   /// Interruptor remoto de los avisos de esta plataforma.
   final Future<bool> Function()? teasersEnabled;
+
+  /// Avisos, meta, desvío y perfil de la app abierta (opcional).
+  final WidgetFeedExtras Function()? feedExtras;
   final Duration debounce;
   final DateTime Function() _now;
 
@@ -149,16 +185,20 @@ class HomeWidgetSyncController {
     if (job != null) _enqueue(job);
   }
 
-  /// "Ocultar montos en el widget" cambió: reescribe en el acto, sin red.
+  /// "Ocultar posiciones en el widget" cambió: reescribe en el acto, sin red.
   /// Si todavía no hay datos buenos de esta sesión (arranque sin red o con
   /// la Home desde el caché), igual saca los montos del snapshot guardado.
   void onHiddenChanged() => _enqueue(() async {
     if (_known == null) {
-      if (amountsHidden()) await store.scrubStoredAmounts();
+      if (amountsHidden()) await store.scrubStoredPositions();
       return;
     }
     await _publish();
   });
+
+  /// Cambió un insumo del feed (avisos de la Home, metas, desvío del plan o
+  /// perfil): reescribe desde lo último conocido, sin red.
+  void onFeedInputsChanged() => _enqueue(_publish);
 
   /// El plan cargó o cambió: vuelve a elegir las novedades (el repositorio
   /// pide de nuevo porque cambió el plan).
@@ -186,6 +226,7 @@ class HomeWidgetSyncController {
       }
       await WidgetItemsCache(prefs).clear();
       await store.clearRenderLog();
+      await store.clearCursor();
       final texts = await loadTexts(_lang);
       await store.writeSnapshot(
         WidgetSnapshotBuilder.signedOut(lang: _lang, now: _now(), texts: texts),
@@ -232,7 +273,7 @@ class HomeWidgetSyncController {
           'earnings_count': entry['earnings'] is int ? entry['earnings'] : 0,
           'teaser': teaser == 'news' || teaser == 'earnings' ? teaser : 'none',
           'tier': (tier ?? currentTier?.call())?.name,
-          'amounts_hidden': amountsHidden(),
+          'positions_hidden': amountsHidden(),
           'platform': store.platform,
         });
       }
@@ -294,6 +335,16 @@ class HomeWidgetSyncController {
             isCrypto: v.position.source.isBinance,
           ),
       ],
+      facts: [
+        for (final v in summary.valuations)
+          WidgetPositionFact(
+            ticker: v.position.ticker,
+            marketValue: v.marketValue,
+            dayPct: WidgetPortfolioFacts.dayPct(
+              candles[v.position.ticker] ?? const [],
+            ),
+          ),
+      ],
       totalValue: summary.totalValue,
       move: PortfolioDayMove.compute(
         history: history,
@@ -330,36 +381,73 @@ class HomeWidgetSyncController {
     final texts = await loadTexts(lang);
     if (epoch != _epoch) return;
     final now = _now();
-    var snapshot = switch (known) {
-      _KnownEmpty() => WidgetSnapshotBuilder.noPortfolio(
-        lang: lang,
-        now: now,
-        texts: texts,
-      ),
-      _KnownReady() => WidgetSnapshotBuilder.ready(
-        totalValue: known.totalValue,
+    final WidgetSnapshot snapshot;
+    if (known is _KnownReady) {
+      final entry = await _itemsEntry(known, now);
+      if (epoch != _epoch) return;
+      final uid = currentUserId();
+      final tier = currentTier?.call() ?? SubscriptionTier.free;
+      final extras = feedExtras?.call() ?? const WidgetFeedExtras();
+      final hidden = amountsHidden();
+      final feedCache = WidgetFeedCache(prefs);
+      final biggest = WidgetPortfolioFacts.biggest(known.facts);
+      final built = WidgetSnapshotBuilder.readyBuild(
         move: known.move,
-        amountsHidden: amountsHidden(),
+        positionsHidden: hidden,
         lang: lang,
         now: now,
         dataAsOf: known.dataAsOf,
         texts: texts,
-      ),
-    };
-    if (known is _KnownReady) {
-      final entry = await _itemsEntry(known, now);
-      if (epoch != _epoch) return;
-      if (entry != null) {
-        snapshot = WidgetSnapshotBuilder.withItems(
-          base: snapshot,
-          selection: entry.selection(now),
-          now: now,
-          checkedAt: entry.checkedAt,
-          planUntil: entry.planUntil,
-          texts: texts,
-          platform: _platform,
+        tier: tier,
+        platform: _platform,
+        selection: entry?.selection(now),
+        planUntil: entry?.planUntil,
+        insights: extras.insights,
+        mover: WidgetPortfolioFacts.mover(known.facts),
+        biggest: biggest,
+        questionContext: WidgetQuestionContext(
+          tier: tier,
+          goalLabel: extras.goalLabel,
+          hasDrift: extras.driftTicker != null,
+          driftTicker: extras.driftTicker,
+          biggestTicker: biggest?.ticker,
+          profileRisk: extras.profileRisk,
+        ),
+        feedState:
+            uid == null
+                ? const WidgetFeedState()
+                : feedCache.readState(uid: uid),
+      );
+      snapshot = built.snapshot;
+      if (uid != null) {
+        // Lo que el refresco de fondo y el toque de una pregunta necesitan.
+        await feedCache.write(
+          WidgetFeedCacheEntry(
+            uid: uid,
+            writtenAt: now,
+            insights: extras.insights,
+            goalLabel: extras.goalLabel,
+            driftTicker: extras.driftTicker,
+            profileRisk: extras.profileRisk,
+            biggest: biggest,
+            questions: feedCache.read(uid: uid)?.questions ?? const {},
+          ),
         );
+        await feedCache.rememberQuestions(
+          uid: uid,
+          drafts: built.questionDrafts,
+          hidden: hidden,
+          now: now,
+        );
+        // Con posiciones ocultas no hay ids en el JSON: no se toca el estado.
+        if (!hidden) await feedCache.writeState(uid: uid, state: built.feedState);
       }
+    } else {
+      snapshot = WidgetSnapshotBuilder.noPortfolio(
+        lang: lang,
+        now: now,
+        texts: texts,
+      );
     }
     await prefs.setString(WidgetPrefsKeys.lang, lang);
     await store.writeSnapshot(snapshot);
@@ -457,6 +545,43 @@ final widgetBackgroundSchedulerProvider = Provider<WidgetBackgroundScheduler>(
   (ref) => const WorkmanagerWidgetScheduler(),
 );
 
+/// Los insumos del feed que solo tiene la app abierta, con los mismos
+/// avisos que la bandeja de la Home.
+WidgetFeedExtras _feedExtras(Ref ref) {
+  final insights = <WidgetInsightInput>[
+    for (final i in ref.read(portyInsightsProvider))
+      if (WidgetInsightKind.fromName(i.kind.name) case final kind?)
+        WidgetInsightInput(
+          id: i.id,
+          kind: kind,
+          score: i.score,
+          ticker: i.ticker,
+          goalLabel: i.goalLabel,
+          numbers: i.numbers,
+        ),
+  ];
+  // La meta del primer aviso de meta; si no, la activa con fecha más cercana.
+  String? goal;
+  for (final i in insights) {
+    if (i.kind.isGoal && (i.goalLabel?.isNotEmpty ?? false)) {
+      goal = i.goalLabel;
+      break;
+    }
+  }
+  if (goal == null) {
+    final active = [...ref.read(goalsProvider).active]
+      ..sort((a, b) => a.targetDate.compareTo(b.targetDate));
+    if (active.isNotEmpty) goal = active.first.label;
+  }
+  final drift = ref.read(allocationDriftProvider);
+  return WidgetFeedExtras(
+    insights: insights,
+    goalLabel: goal,
+    driftTicker: drift?.ticker,
+    profileRisk: ref.read(investorProfileProvider).profile?.risk.storageValue,
+  );
+}
+
 /// Vive mientras está montado el shell (lo lee `AppShell`).
 final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
   final controller = HomeWidgetSyncController(
@@ -467,7 +592,7 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
     loadTexts: ref.watch(widgetTextsLoaderProvider),
     loadCandles: ref.watch(widgetCandleLoaderProvider),
     currentUserId: ref.read(widgetCurrentUserIdProvider),
-    amountsHidden: () => ref.read(widgetAmountsHiddenProvider),
+    amountsHidden: () => ref.read(widgetPositionsHiddenProvider),
     initialLang: AppLanguage.code,
     items: ref.watch(widgetItemsRepositoryProvider),
     newsV2Enabled:
@@ -476,6 +601,7 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
       final state = ref.read(subscriptionProvider);
       return state.isLoading ? null : state.tier;
     },
+    feedExtras: () => _feedExtras(ref),
     teasersEnabled: () async {
       final android = defaultTargetPlatform != TargetPlatform.iOS;
       return android
@@ -486,7 +612,7 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
   ref.onDispose(controller.dispose);
   ref.listen<HomeState>(homeProvider, controller.onHome, fireImmediately: true);
   ref.listen<bool>(
-    widgetAmountsHiddenProvider,
+    widgetPositionsHiddenProvider,
     (_, __) => controller.onHiddenChanged(),
   );
   ref.listen<SubscriptionState>(subscriptionProvider, (previous, next) {
@@ -494,6 +620,17 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
       controller.onTierChanged();
     }
   });
+  // Cualquier insumo del feed que cambie reescribe (mismo debounce y cola).
+  ref.listen(portyInsightsProvider, (_, __) => controller.onFeedInputsChanged());
+  ref.listen(goalsProvider, (_, __) => controller.onFeedInputsChanged());
+  ref.listen(
+    allocationDriftProvider,
+    (_, __) => controller.onFeedInputsChanged(),
+  );
+  ref.listen(
+    investorProfileProvider,
+    (_, __) => controller.onFeedInputsChanged(),
+  );
   ref.listen<AsyncValue<Session?>>(authSessionProvider, (previous, next) {
     if (previous?.valueOrNull != null && next.valueOrNull == null) {
       controller.onSignedOut();
