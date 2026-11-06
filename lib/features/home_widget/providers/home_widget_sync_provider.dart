@@ -156,6 +156,9 @@ class HomeWidgetSyncController {
 
   String _lang;
   _Known? _known;
+
+  /// Ya se escribió un snapshot `ready` en esta sesión.
+  bool _wroteReady = false;
   Timer? _timer;
   Future<void> Function()? _pendingHome;
   Future<void> _queue = Future.value();
@@ -171,9 +174,15 @@ class HomeWidgetSyncController {
   /// fallida (se queda el último bueno) ni con el caché (no pisa datos de un
   /// refresco de fondo más nuevos).
   void onHome(HomeState? previous, HomeState next) {
-    if (next.loading || next.fromCache || next.quoteError != null) return;
+    if (next.loading) return;
     final summary = next.summary;
     if (summary == null) return;
+    // El caché o una carga con error no pisan un snapshot bueno de esta
+    // sesión (puede haber uno más nuevo del refresco de fondo). Pero si en
+    // esta sesión todavía no se escribió la cartera, lo guardado es mejor
+    // que dejar el widget en "cargá tu cartera" o sin datos.
+    final degraded = next.fromCache || next.quoteError != null;
+    if (degraded && (_wroteReady || summary.valuations.isEmpty)) return;
     if (previous != null &&
         identical(previous.summary, summary) &&
         identical(previous.history, next.history) &&
@@ -226,6 +235,7 @@ class HomeWidgetSyncController {
   /// uid, después el snapshot `signed_out`. El JSON entero se reemplaza.
   void onSignedOut() {
     _epoch++;
+    _wroteReady = false;
     _timer?.cancel();
     _pendingHome = null;
     _known = null;
@@ -385,8 +395,10 @@ class HomeWidgetSyncController {
     _queue = _queue.then((_) async {
       try {
         await job();
-      } catch (_) {
-        // Un widget desactualizado no le cuesta nada al usuario.
+      } catch (e, st) {
+        // Un widget desactualizado no le cuesta nada al usuario, pero en
+        // desarrollo se tiene que ver por qué no se escribió.
+        if (kDebugMode) debugPrint('[home_widget] sync failed: $e\n$st');
       }
     });
   }
@@ -545,6 +557,7 @@ class HomeWidgetSyncController {
     await prefs.setString(WidgetPrefsKeys.lang, lang);
     await store.writeSnapshot(snapshot);
     if (snapshot.state == WidgetSnapshotState.ready) {
+      _wroteReady = true;
       await _syncBackgroundTask();
     }
   }

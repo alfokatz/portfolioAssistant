@@ -142,16 +142,22 @@ void main() {
       expect(store.writes, hasLength(1));
     });
 
-    test('does not write from the cache nor with a failed load', () async {
-      c.onHome(
-        null,
-        HomeState(
-          loading: false,
-          fromCache: true,
-          summary: _summary(),
-          history: _history(),
-        ),
+    test('the cache fills the widget until this session wrote a portfolio', () async {
+      HomeState cached() => HomeState(
+        loading: false,
+        fromCache: true,
+        summary: _summary(),
+        history: _history(),
       );
+      // Arranque: todavía no se escribió la cartera en esta sesión, el
+      // caché es mejor que "cargá tu cartera".
+      c.onHome(null, cached());
+      await c.flush();
+      expect(store.writes, hasLength(1));
+      expect(store.last['state'], 'ready');
+
+      // Ya hay una buena: ni el caché ni una carga fallida la pisan.
+      c.onHome(null, cached());
       c.onHome(
         null,
         HomeState(
@@ -162,6 +168,19 @@ void main() {
         ),
       );
       c.onHome(null, HomeState());
+      await c.flush();
+      expect(store.writes, hasLength(1));
+    });
+
+    test('an empty cache never writes no_portfolio', () async {
+      c.onHome(
+        null,
+        HomeState(
+          loading: false,
+          fromCache: true,
+          summary: _summary(empty: true),
+        ),
+      );
       await c.flush();
       expect(store.writes, isEmpty);
     });

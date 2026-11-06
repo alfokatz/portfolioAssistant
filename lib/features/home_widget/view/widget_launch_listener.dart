@@ -8,6 +8,7 @@ import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
@@ -22,7 +23,6 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
-import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 
 /// `false` si la app arrancó sin sesión (el toque del widget se hizo en
 /// otro estado: ver [WidgetLaunchListener]). `main.dart` lo fija con la
@@ -142,7 +142,9 @@ class _WidgetLaunchListenerState extends ConsumerState<WidgetLaunchListener> {
       case WidgetLaunchTarget.chat:
         context.goNamed(AssistantRouter.routeName);
       case WidgetLaunchTarget.addPortfolio:
-        GotoAddPosition().navigate(context: context);
+        // La pantalla de las formas de cargar la cartera (bróker, extracto
+        // o a mano), no directo al formulario de una posición.
+        context.pushNamed(ConnectBrokerRouter.routeName);
       case WidgetLaunchTarget.news:
       case WidgetLaunchTarget.earnings:
         // Un id que no está en la caché (o venció) no abre nada: queda en la

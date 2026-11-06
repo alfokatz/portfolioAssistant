@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/use_cases/add_position_use_case.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -529,6 +530,22 @@ class _AddPositionScreenState extends BaseStatefulWidget<AddPositionScreen> {
               label: 'add_position_confirm'.tr(),
               loading: state.saving,
               onPressed: () => _save(notifier),
+            ),
+            const SizedBox(height: AppDimens.sp8),
+            // La otra forma de cargar la cartera: el bróker (o un extracto)
+            // la trae entera y se actualiza sola.
+            TextButton.icon(
+              onPressed:
+                  () => context.pushNamed(ConnectBrokerRouter.routeName),
+              icon: const Icon(Icons.link_rounded, size: 18),
+              label: Text('add_position_connect_broker_cta'.tr()),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.textPrimary,
+                minimumSize: const Size(
+                  AppDimens.touchTarget,
+                  AppDimens.touchTarget,
+                ),
+              ),
             ),
           ],
         ),

@@ -16,6 +16,7 @@ import 'package:portfolio_assistant/features/snaptrade/nav/snaptrade_router.dart
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_brand.dart';
 import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 
@@ -189,6 +190,21 @@ class _ConnectBrokerScreenState extends ConsumerState<ConnectBrokerScreen> {
               onPressed: () => _open(StatementImportRouter.routeName),
               icon: const Icon(Icons.upload_file_rounded, size: 18),
               label: Text('connect_broker_file_cta'.tr()),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                foregroundColor: colors.textPrimary,
+                minimumSize: const Size(
+                  AppDimens.touchTarget,
+                  AppDimens.touchTarget,
+                ),
+                textStyle: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            // O, sin bróker ni archivo, una por una.
+            TextButton.icon(
+              onPressed: () => _open(PositionRouter.addRouteName),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: Text('connect_broker_manual_cta'.tr()),
               style: TextButton.styleFrom(
                 alignment: Alignment.centerLeft,
                 foregroundColor: colors.textPrimary,

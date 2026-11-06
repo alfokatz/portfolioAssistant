@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/broker_connect/nav/connect_broker_router.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
@@ -16,7 +17,6 @@ import 'package:portfolio_assistant/features/home_widget/view/widget_launch_list
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/product_events/providers/app_open_source_provider.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
-import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../home_widget_test_helpers.dart';
@@ -75,11 +75,11 @@ void main() {
           },
         ),
         GoRoute(
-          name: PositionRouter.addRouteName,
-          path: '/add',
+          name: ConnectBrokerRouter.routeName,
+          path: '/connect',
           builder: (_, __) {
-            visited.add('add');
-            return const Text('add');
+            visited.add('connect');
+            return const Text('connect');
           },
         ),
       ],
@@ -232,7 +232,7 @@ void main() {
     expect(events.logged, isEmpty);
   });
 
-  testWidgets('add_portfolio opens the add screen without widget_opened', (
+  testWidgets('add_portfolio opens the ways to load the portfolio without widget_opened', (
     tester,
   ) async {
     await pump(tester);
@@ -242,7 +242,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('add'), findsOneWidget);
+    expect(find.text('connect'), findsOneWidget);
     expect(events.logged, isEmpty);
     expect(container.read(appOpenSourceProvider), AppOpenSource.widget);
   });
