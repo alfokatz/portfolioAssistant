@@ -45,10 +45,32 @@ class WeeklyReportCard extends ConsumerStatefulWidget {
 }
 
 class _WeeklyReportCardState extends ConsumerState<WeeklyReportCard> {
+  String? _language;
+
   @override
   void initState() {
     super.initState();
     _ensure();
+  }
+
+  /// Cambió el idioma de la app: si el informe no está en el nuevo, Porty
+  /// lo escribe (una vez; después queda guardado).
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final language = Localizations.localeOf(context).languageCode;
+    if (_language == null) {
+      _language = language;
+      return;
+    }
+    if (language == _language) return;
+    _language = language;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(weeklyReportControllerProvider.notifier)
+          .ensureLanguage(language);
+    });
   }
 
   @override
@@ -78,7 +100,11 @@ class _WeeklyReportCardState extends ConsumerState<WeeklyReportCard> {
       return const SizedBox.shrink();
     }
     final report =
-        state.status == WeeklyReportStatus.ready ? state.report : null;
+        state.status == WeeklyReportStatus.ready
+            ? state.report?.forLanguage(
+              Localizations.localeOf(context).languageCode,
+            )
+            : null;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Padding(

@@ -13,7 +13,12 @@ enum DisplayCurrency {
   cop('COP', 'COL\$ ', 0),
   pen('PEN', 'S/ ', 2),
   eur('EUR', '€', 2),
-  gbp('GBP', '£', 2);
+  gbp('GBP', '£', 2),
+  cad('CAD', 'CA\$', 2),
+  aud('AUD', 'A\$', 2),
+  chf('CHF', 'CHF ', 2),
+  jpy('JPY', '¥', 0),
+  inr('INR', '₹', 0);
 
   const DisplayCurrency(this.code, this.symbol, this.decimals);
 

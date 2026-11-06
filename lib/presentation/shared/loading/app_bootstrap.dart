@@ -103,26 +103,26 @@ class _BootLoader extends StatelessWidget {
   /// otros loaders.
   static const messageDelay = Duration(milliseconds: 800);
 
-  /// Sin traducciones cargadas todavía: el idioma del sistema, español por
-  /// defecto (como la app).
+  /// Sin traducciones cargadas todavía: el idioma del sistema, inglés por
+  /// defecto salvo que el teléfono esté en español (como la app).
   static ({String loading, List<String> messages}) _copy(Locale locale) =>
-      locale.languageCode == 'en'
+      locale.languageCode == 'es'
           ? (
-            loading: 'Loading',
-            messages: const [
-              'Getting your portfolio ready…',
-              'Connecting to your account…',
-              'Putting everything in order…',
-              'Almost there…',
-            ],
-          )
-          : (
             loading: 'Cargando',
             messages: const [
               'Preparando tu cartera…',
               'Conectando con tu cuenta…',
               'Poniendo todo en orden…',
               'Ya casi está…',
+            ],
+          )
+          : (
+            loading: 'Loading',
+            messages: const [
+              'Getting your portfolio ready…',
+              'Connecting to your account…',
+              'Putting everything in order…',
+              'Almost there…',
             ],
           );
 

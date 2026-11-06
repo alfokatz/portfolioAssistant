@@ -10,6 +10,13 @@ abstract class WeeklyReportStore {
   Future<WeeklyReportClaim> claim(ReportWeek week);
   Future<bool> complete(ReportWeek week, Map<String, Object?> payload);
   Future<void> fail(ReportWeek week);
+
+  /// Pide escribir el informe ya guardado en [language] (cambió el idioma
+  /// de la app en la semana).
+  Future<TranslationClaim> claimTranslation(ReportWeek week, String language);
+
+  /// Guarda la versión en el otro idioma (`payload.alt`).
+  Future<bool> completeTranslation(ReportWeek week, Map<String, Object?> alt);
 }
 
 /// RPCs del informe semanal: `claim_weekly_report`, `complete_weekly_report`
@@ -65,6 +72,40 @@ class WeeklyReportRepository implements WeeklyReportStore {
       );
     } catch (_) {
       // Si no llega, el claim vence solo a los 2 minutos.
+    }
+  }
+
+  @override
+  Future<TranslationClaim> claimTranslation(
+    ReportWeek week,
+    String language,
+  ) async {
+    try {
+      _authService.requireUserId();
+      final response = await _client.rpc(
+        'claim_weekly_report_translation',
+        params: {'p_week_start': week.key, 'p_language': language},
+      );
+      return TranslationClaim.parse(response);
+    } catch (_) {
+      return const TranslationUnavailable();
+    }
+  }
+
+  @override
+  Future<bool> completeTranslation(
+    ReportWeek week,
+    Map<String, Object?> alt,
+  ) async {
+    try {
+      _authService.requireUserId();
+      final response = await _client.rpc(
+        'complete_weekly_report_translation',
+        params: {'p_week_start': week.key, 'p_alt': alt},
+      );
+      return response is Map && response['ok'] == true;
+    } catch (_) {
+      return false;
     }
   }
 }

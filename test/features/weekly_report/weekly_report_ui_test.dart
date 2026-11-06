@@ -44,6 +44,14 @@ class _NoStore implements WeeklyReportStore {
       true;
   @override
   Future<void> fail(ReportWeek week) async {}
+  @override
+  Future<TranslationClaim> claimTranslation(ReportWeek w, String l) async =>
+      const TranslationUnavailable();
+  @override
+  Future<bool> completeTranslation(
+    ReportWeek w,
+    Map<String, Object?> alt,
+  ) async => false;
 }
 
 class _NoQuotes implements QuoteRepository {

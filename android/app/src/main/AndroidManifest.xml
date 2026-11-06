@@ -8,7 +8,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules">
+        android:fullBackupContent="@xml/backup_rules"
+        android:localeConfig="@xml/locales_config">
         <!-- Canal para los mensajes de FCM que no traen uno (los canales los
              crea la app: ver push_messaging.dart). -->
         <meta-data

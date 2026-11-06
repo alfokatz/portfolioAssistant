@@ -100,7 +100,9 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     // Los logos de las filas usan la paleta del kit de Porty.
     QaColors.resolve(Theme.of(context).brightness);
     final reportState = ref.watch(weeklyReportControllerProvider);
-    final report = reportState.report;
+    final report = reportState.report?.forLanguage(
+      Localizations.localeOf(context).languageCode,
+    );
     final benchmark = ref.watch(weeklyReportBenchmarkAllowedProvider);
     return Scaffold(
       appBar: AppBar(

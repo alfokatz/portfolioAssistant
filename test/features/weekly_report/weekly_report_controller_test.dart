@@ -50,6 +50,30 @@ class _Store implements WeeklyReportStore {
 
   @override
   Future<void> fail(ReportWeek week) async => failed++;
+
+  /// Respuesta de `claimTranslation` (por defecto, le toca a este
+  /// dispositivo).
+  TranslationClaim translationClaim = const TranslationGranted();
+  final translationClaims = <String>[];
+  final translations = <Map<String, Object?>>[];
+
+  @override
+  Future<TranslationClaim> claimTranslation(
+    ReportWeek week,
+    String language,
+  ) async {
+    translationClaims.add(language);
+    return translationClaim;
+  }
+
+  @override
+  Future<bool> completeTranslation(
+    ReportWeek week,
+    Map<String, Object?> alt,
+  ) async {
+    translations.add(alt);
+    return true;
+  }
 }
 
 class _NoQuotes implements QuoteRepository {
@@ -82,7 +106,7 @@ class _Builder extends WeeklyReportInputBuilder {
 }
 
 class _Generator extends WeeklyReportGenerator {
-  _Generator({this.error, this.gate})
+  _Generator({this.error, this.gate, this.failLanguage})
     : super(
         config: AiProxyConfig.fixed(Uri.parse('https://x/ai-chat'), 'jwt'),
         model: 'gpt-4.1-mini',
@@ -92,7 +116,11 @@ class _Generator extends WeeklyReportGenerator {
   /// Si está, la generación espera a que se complete (para simular que
   /// Porty sigue escribiendo mientras cambia el usuario).
   final Future<void>? gate;
+
+  /// Solo falla la generación en este idioma (la otra sale bien).
+  final String? failLanguage;
   var calls = 0;
+  final languages = <String?>[];
 
   @override
   Future<WeeklyReportGeneration> generate({
@@ -101,13 +129,32 @@ class _Generator extends WeeklyReportGenerator {
     String? language,
   }) async {
     calls++;
+    languages.add(language);
     await gate;
-    if (error != null) {
+    if (error != null || (failLanguage != null && language == failLanguage)) {
       return WeeklyReportGeneration(
         draft: WeeklyReportDraft.empty,
         rounds: 1,
         remainingIssues: const [],
-        error: error,
+        error: error ?? 'timeout',
+      );
+    }
+    if (language == 'en') {
+      return const WeeklyReportGeneration(
+        draft: WeeklyReportDraft(
+          reading: 'Apple pushed your portfolio',
+          movers: [
+            DraftMover(
+              ticker: 'AAPL',
+              why: 'It lined up with iPhone preorders.',
+              newsId: 'n1',
+            ),
+          ],
+          headlines: [],
+          investors: [],
+        ),
+        rounds: 1,
+        remainingIssues: [],
       );
     }
     return const WeeklyReportGeneration(
@@ -156,13 +203,18 @@ _setup(
   List<WeeklyReportClaim> claims, {
   SubscriptionTier tier = SubscriptionTier.gold,
   String? generationError,
+  String? failLanguage,
   Future<void>? gate,
   Duration retryDelay = const Duration(milliseconds: 10),
 }) async {
   SharedPreferences.setMockInitialValues({});
   final store = _Store(claims);
   final builder = _Builder();
-  final gen = _Generator(error: generationError, gate: gate);
+  final gen = _Generator(
+    error: generationError,
+    gate: gate,
+    failLanguage: failLanguage,
+  );
   final c = WeeklyReportController(
     store: store,
     builder: builder,
@@ -198,6 +250,95 @@ void main() {
       expect(s.store.completed.single['reading'], 'Apple empujó tu cartera');
     },
   );
+
+  test(
+    'Porty writes only in the app language: one call to the model',
+    () async {
+      final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+      await s.c.ensureFor(_lots);
+
+      expect(s.gen.languages, ['es']);
+      expect(s.c.state.report!.language, 'es');
+      expect(s.store.completed.single['lang'], 'es');
+      expect(s.store.translationClaims, isEmpty);
+    },
+  );
+
+  test('switching the app language mid-week writes the other version ONCE; '
+      'switching back costs nothing', () async {
+    final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+    await s.c.ensureFor(_lots);
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.languages, ['es', 'en']);
+    expect(s.store.translationClaims, ['en']);
+    final saved = s.store.translations.single;
+    expect(saved['lang'], 'en');
+    expect(saved['reading'], 'Apple pushed your portfolio');
+
+    final r = s.c.state.report!;
+    expect(r.forLanguage('en').reading, 'Apple pushed your portfolio');
+    expect(r.forLanguage('es').reading, 'Apple empujó tu cartera');
+
+    // Volver y volver a ir: ya están las dos, ni claim ni LLM.
+    s.c.ensureLanguage('es');
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 2);
+    expect(s.store.translationClaims, ['en']);
+  });
+
+  test('if another device already wrote it, it is shown without calling '
+      'the model', () async {
+    final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+    await s.c.ensureFor(_lots);
+    final es = s.c.state.report!;
+    final en =
+        WeeklyReport.tryParse({
+          ...es.toJson(),
+          'lang': 'en',
+          'reading': 'Written elsewhere',
+        })!;
+    s.store.translationClaim = TranslationReady(es.withAlternate(en).toJson());
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 1);
+    expect(s.c.state.report!.forLanguage('en').reading, 'Written elsewhere');
+  });
+
+  test('a failed translation keeps the report as it was and is not retried '
+      'on every rebuild', () async {
+    final s = await _setup([
+      const ClaimGranted(courtesy: false, attempt: 1),
+    ], failLanguage: 'en');
+    await s.c.ensureFor(_lots);
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.languages, ['es', 'en']);
+    expect(s.store.translations, isEmpty);
+    expect(s.c.state.report!.alternate, isNull);
+    expect(
+      s.c.state.report!.forLanguage('en').reading,
+      'Apple empujó tu cartera',
+    );
+  });
+
+  test('a numbers-only report has no prose: nothing to translate', () async {
+    final s = await _setup([
+      const ClaimNumbersOnly(),
+    ], tier: SubscriptionTier.free);
+    await s.c.ensureFor(_lots);
+
+    s.c.ensureLanguage('en');
+    await pumpEventQueue();
+    expect(s.gen.calls, 0);
+    expect(s.store.translationClaims, isEmpty);
+  });
 
   test(
     'ready: shows what was saved, without building or calling Porty',

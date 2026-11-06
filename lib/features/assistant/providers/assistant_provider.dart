@@ -1630,11 +1630,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// Para get_weekly_report: el informe de esta semana (sin la serie
   /// diaria, que es para el gráfico). `null` si todavía no está.
   Future<Map<String, Object?>?> _weeklyReportForTool() async {
-    final report = ref.read(weeklyReportControllerProvider).report;
+    final report = ref
+        .read(weeklyReportControllerProvider)
+        .report
+        ?.forLanguage(AppLanguage.code);
     if (report == null) return null;
     return {...report.toJson()}
       ..remove('v')
-      ..remove('daily');
+      ..remove('daily')
+      ..remove('alt');
   }
 
   /// Para propose_broker_action: cómo está cada cuenta conectada.
