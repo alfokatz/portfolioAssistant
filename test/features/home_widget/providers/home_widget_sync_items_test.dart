@@ -134,9 +134,7 @@ void main() {
   test('premium: writes the news of the top positions', () async {
     c.onHome(null, _home());
     await c.flush();
-    final items = store.last['items']! as List;
-    expect((items.single as Map)['ticker'], 'NVDA');
-    expect(store.last['items_section'], true);
+    expect(_news(store.last).single['tag'], 'NVDA');
     expect(news.calls, 1);
   });
 
@@ -147,7 +145,7 @@ void main() {
     await c.flush();
     expect(news.calls, 1);
     expect(store.last['lang'], 'en');
-    expect(store.last['items'], hasLength(1));
+    expect(_news(store.last), hasLength(1));
   });
 
   test('plan not loaded yet: no request, the snapshot has no items', () async {
@@ -155,7 +153,7 @@ void main() {
     c.onHome(null, _home());
     await c.flush();
     expect(news.calls, 0);
-    expect(store.last.containsKey('items'), isFalse);
+    expect(_news(store.last), isEmpty);
   });
 
   test('the plan arriving later triggers the request', () async {
@@ -166,7 +164,7 @@ void main() {
     c.onTierChanged();
     await c.flush();
     expect(news.calls, 1);
-    expect(store.last['items'], isNotEmpty);
+    expect(_news(store.last), isNotEmpty);
   });
 
   test('a failure keeps what was cached and never errors', () async {
@@ -186,7 +184,7 @@ void main() {
     c.onLanguage('en');
     await c.flush();
     expect(news.calls, 2);
-    expect(store.last['items'], hasLength(1));
+    expect(_news(store.last), hasLength(1));
   });
 
   test(
@@ -197,7 +195,7 @@ void main() {
       v2 = false;
       c.onLanguage('en');
       await c.flush();
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_news(store.last), isEmpty);
       expect(prefs.getString(WidgetItemsCache.key), isNull);
     },
   );
@@ -208,9 +206,9 @@ void main() {
     store.platformName = 'android';
     c.onHome(null, _home());
     await c.flush();
-    final teaser = store.last['teaser']! as Map;
-    expect(teaser['text'], 'Noticias de tu cartera · Premium');
-    expect(teaser['count'], isNull);
+    final teaser = _teasers(store.last).single;
+    final seg = (teaser['segments']! as List).first as Map;
+    expect(seg['title'], 'Noticias de tu cartera · Premium');
   });
 
   test('free on ios without counts: no teaser (phase 2)', () async {
@@ -218,17 +216,18 @@ void main() {
     teasers = true;
     c.onHome(null, _home());
     await c.flush();
-    expect(store.last['teaser'], isNull);
-    expect(store.last['items_section'], false);
+    expect(_teasers(store.last), isEmpty);
   });
 
   test('hiding amounts keeps the items (scrub on stored snapshot)', () async {
     c.onHome(null, _home());
     await c.flush();
-    expect(store.last['items'], isNotEmpty);
-    await store.scrubStoredAmounts();
-    expect(store.last['amounts_hidden'], true);
-    expect(store.last['items'], isNotEmpty);
+    expect(_news(store.last), isNotEmpty);
+    await store.scrubStoredPositions();
+    expect((store.last['v2'] as Map)['positions_hidden'], true);
+    // Con posiciones ocultas quedan los ítems, sin ticker ni texto.
+    expect(_news(store.last), isNotEmpty);
+    expect(_news(store.last).first.containsKey('tag'), isFalse);
   });
 
   test(
@@ -244,7 +243,7 @@ void main() {
       expect(prefs.getString(WidgetItemsCache.key), isNull);
       expect(store.renderLog, isNull);
       expect(store.last['state'], 'signed_out');
-      expect(store.last.containsKey('items'), isFalse);
+      expect(_news(store.last), isEmpty);
     },
   );
 
@@ -264,9 +263,13 @@ void main() {
         'size': 'large',
         'news_count': 2,
         'earnings_count': 1,
+        'insight_count': 0,
+        'mover_count': 0,
+        'biggest_count': 0,
+        'live_count': 0,
         'teaser': 'news',
         'tier': 'gold',
-        'amounts_hidden': false,
+        'positions_hidden': false,
         'platform': 'ios',
       });
       expect(prefs.getInt(WidgetItemsCache.renderLoggedKey), 200);
@@ -280,6 +283,70 @@ void main() {
       };
       await c.reportItemsRendered(tier: SubscriptionTier.gold);
       expect(events.logged.single.$2['teaser'], 'none');
+    });
+
+    test('v2 render log: counts by kind, line and shown item', () async {
+      store.renderLog = {
+        'small': {'at': 10, 'line': 'insight', 'live': 3},
+        'medium': {
+          'at': 11,
+          'shown_kind': 'earnings',
+          'shown_prio': 1,
+          'kinds': {'earnings': 1, 'insight': 1, 'mover': 1},
+          'live': 3,
+        },
+      };
+      await c.reportItemsRendered(tier: SubscriptionTier.gold);
+      final logged = [
+        for (final (e, p) in events.logged)
+          if (e == ProductEvent.widgetItemsRendered) p,
+      ];
+      expect(logged.first['line_kind'], 'insight');
+      expect(logged.first.containsKey('shown_kind'), isFalse);
+      expect(logged.last['shown_kind'], 'earnings');
+      expect(logged.last['shown_prio'], 1);
+      expect(logged.last['insight_count'], 1);
+      expect(logged.last['mover_count'], 1);
+      expect(logged.last['live_count'], 3);
+      expect(logged.last.containsKey('line_kind'), isFalse);
+    });
+
+    test('widget_feed_advanced logs the taps since the last time', () async {
+      store.renderLog = {
+        'medium': {'at': 1, 'next_taps': 4},
+      };
+      await c.reportItemsRendered();
+      List<Map<String, Object?>> advanced() => [
+        for (final (e, p) in events.logged)
+          if (e == ProductEvent.widgetFeedAdvanced) p,
+      ];
+      expect(advanced().single, {
+        'platform': 'ios',
+        'size': 'medium',
+        'taps': 4,
+      });
+
+      events.logged.clear();
+      await c.reportItemsRendered();
+      expect(advanced(), isEmpty);
+
+      store.renderLog = {
+        'medium': {'at': 2, 'next_taps': 6},
+      };
+      await c.reportItemsRendered();
+      expect(advanced().single['taps'], 2);
+
+      // El contador volvió a cero (render log borrado): se reancla sin log.
+      events.logged.clear();
+      store.renderLog = {
+        'medium': {'at': 3, 'next_taps': 1},
+      };
+      await c.reportItemsRendered();
+      expect(advanced(), isEmpty);
+      expect(
+        prefs.getInt(HomeWidgetSyncController.nextTapsLoggedKey),
+        1,
+      );
     });
 
     test('without a render log nothing is logged', () async {
@@ -300,3 +367,16 @@ void main() {
     expect(text, isNot(contains('Novedad')));
   });
 }
+
+/// Novedades del feed v2 (noticias y resultados).
+List<Map<Object?, Object?>> _news(Map<String, Object?> snapshot) => [
+  for (final item in ((snapshot['v2'] as Map?)?['feed'] as List?) ?? const [])
+    if (item is Map && (item['kind'] == 'news' || item['kind'] == 'earnings'))
+      item,
+];
+
+/// Avisos del plan siguiente en el feed v2.
+List<Map<Object?, Object?>> _teasers(Map<String, Object?> snapshot) => [
+  for (final item in ((snapshot['v2'] as Map?)?['feed'] as List?) ?? const [])
+    if (item is Map && item['kind'] == 'teaser') item,
+];

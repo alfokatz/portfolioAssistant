@@ -8,6 +8,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
@@ -28,7 +31,7 @@ class _Events extends ProductEvents {
 }
 
 const _q =
-    'porty-widget://open?homeWidget&target=question&q=today&size=medium&age=7';
+    'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=0c9d2e11&src=goal&size=medium&age=7';
 
 void main() {
   late FakeHomeWidgetStore store;
@@ -42,11 +45,14 @@ void main() {
     String? initial,
     bool withSession = true,
     bool hidden = false,
+    String? uid,
+    Future<void> Function(SharedPreferences prefs)? seed,
   }) async {
     SharedPreferences.setMockInitialValues({
-      if (hidden) WidgetPrefsKeys.amountsHidden: true,
+      if (hidden) WidgetPrefsKeys.positionsHidden: true,
     });
     final prefs = await SharedPreferences.getInstance();
+    await seed?.call(prefs);
     resetWidgetLaunchInitialHandled();
     store =
         FakeHomeWidgetStore()
@@ -85,6 +91,8 @@ void main() {
           homeWidgetStoreProvider.overrideWithValue(store),
           productEventsProvider.overrideWithValue(events),
           widgetLaunchedWithSessionProvider.overrideWithValue(withSession),
+          if (uid != null) widgetCurrentUserIdProvider.overrideWithValue(() => uid),
+          widgetTextsLoaderProvider.overrideWithValue(loadRealTexts),
         ],
         child: Builder(
           builder: (context) {
@@ -103,20 +111,89 @@ void main() {
     await pump(tester, initial: _q, hidden: true);
 
     expect(find.text('assistant'), findsOneWidget);
-    final request = assistantExtras.single as AssistantQuestionRequest;
-    expect(request.question, 'home_widget_question_today');
-    expect(request.origin, isA<WidgetQuestionOrigin>());
-    expect((request.origin! as WidgetQuestionOrigin).questionId, 'today');
+    // El ref no está en la caché privada (no hay sesión en este arnés):
+    // chat vacío, no se manda nada.
+    expect(assistantExtras.single, isNull);
     expect(container.read(appOpenSourceProvider), AppOpenSource.widgetQuestion);
     expect(events.logged.single.$1, ProductEvent.widgetOpened);
     expect(events.logged.single.$2, {
       'platform': 'ios',
       'size': 'medium',
       'target': 'question',
-      'question_id': 'today',
+      'question_id': 'goal_progress',
+      'question_source': 'goal',
+      'item_kind': null,
+      'item_prio': null,
       'data_age_min': 7,
-      'amounts_hidden': true,
+      'positions_hidden': true,
     });
+  });
+
+  testWidgets('a ref of this user opens the chat with the resolved question', (
+    tester,
+  ) async {
+    const draft = WidgetQuestionDraft(
+      template: WidgetQuestionTemplate.goalProgress,
+      source: WidgetQuestionSource.goal,
+      subject: 'goal:Casa',
+      args: {'goal': 'Casa'},
+    );
+    final ref = draft.ref(hidden: false);
+    await tester.runAsync(
+      () => pump(
+        tester,
+        uid: 'uid-1',
+        initial:
+            'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=$ref&src=goal&size=medium',
+        seed: (prefs) async {
+          final cache = WidgetFeedCache(prefs);
+          final now = DateTime.now();
+          await cache.write(WidgetFeedCacheEntry(uid: 'uid-1', writtenAt: now));
+          await cache.rememberQuestions(
+            uid: 'uid-1',
+            drafts: const [draft],
+            hidden: false,
+            now: now,
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('assistant'), findsOneWidget);
+    final extra = assistantExtras.last! as AssistantQuestionRequest;
+    expect(extra.question, '¿Cómo voy con Casa?');
+  });
+
+  testWidgets('a ref from another user opens an empty chat', (tester) async {
+    const draft = WidgetQuestionDraft(
+      template: WidgetQuestionTemplate.goalProgress,
+      source: WidgetQuestionSource.goal,
+      subject: 'goal:Casa',
+      args: {'goal': 'Casa'},
+    );
+    final ref = draft.ref(hidden: false);
+    await tester.runAsync(
+      () => pump(
+        tester,
+        uid: 'uid-2',
+        initial:
+            'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=$ref&src=goal&size=medium',
+        seed: (prefs) async {
+          final cache = WidgetFeedCache(prefs);
+          final now = DateTime.now();
+          await cache.write(WidgetFeedCacheEntry(uid: 'uid-1', writtenAt: now));
+          await cache.rememberQuestions(
+            uid: 'uid-1',
+            drafts: const [draft],
+            hidden: false,
+            now: now,
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('assistant'), findsOneWidget);
+    expect(assistantExtras.last, isNull);
   });
 
   testWidgets(

@@ -94,9 +94,11 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final benchmarkResult = await getBenchmarkComparisonUseCase();
     final closedResult = await getClosedPositionsUseCase();
 
+    // Mismo criterio que el total: si la cartera no cargó, el gráfico se
+    // queda con la serie anterior en vez de quedar en blanco.
     final history = historyResult.fold(
-      (_) => <PortfolioHistoryPoint>[],
-      (v) => v,
+      (_) => summaryOk ? <PortfolioHistoryPoint>[] : state.history,
+      (v) => summaryOk || v.isNotEmpty ? v : state.history,
     );
     final benchmark = benchmarkResult.fold((_) => <BenchmarkPoint>[], (v) => v);
     final closedCount = closedResult.fold((_) => 0, (list) => list.length);

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Las vistas previas (_preview) llevan datos ficticios, nunca la cartera real. -->
+<!-- Chico 2x2: cara + período, % grande (sin montos) y una línea con ícono.
+     Las vistas previas (_preview) llevan datos ficticios, nunca la cartera real. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -11,37 +12,48 @@
         android:id="@+id/widget_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
         <LinearLayout
-        android:id="@+id/widget_value_block"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:importantForAccessibility="yes">
-
-        <LinearLayout
+            android:id="@+id/widget_value_block"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:importantForAccessibility="yes"
+            android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:importantForAccessibility="no"
-                android:scaleType="fitCenter"
-                android:src="@drawable/porty_widget_avatar" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/widget_face"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/porty_widget_avatar" />
+
+                <TextView
+                    android:id="@+id/widget_period"
+                    style="@style/PortyWidget.Period"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:importantForAccessibility="no"
+                    android:maxLines="1" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/widget_period"
-                style="@style/PortyWidget.Period"
-                android:layout_width="wrap_content"
+                android:id="@+id/widget_pct"
+                style="@style/PortyWidget.Total"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginTop="6dp"
                 android:importantForAccessibility="no"
-                android:maxLines="1" />
+                android:maxLines="1"
+                android:textSize="30sp" />
         </LinearLayout>
 
         <View
@@ -49,51 +61,41 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
 
-        <TextView
-            android:id="@+id/widget_total"
-            style="@style/PortyWidget.Total"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:autoSizeMaxTextSize="22sp"
-            android:autoSizeMinTextSize="14sp"
-            android:autoSizeStepGranularity="1sp"
-            android:autoSizeTextType="uniform"
-            android:importantForAccessibility="no"
-            android:maxLines="1" />
-
         <LinearLayout
+            android:id="@+id/widget_line"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/widget_change"
-                style="@style/PortyWidget.Change"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <ImageView
+                android:id="@+id/widget_line_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:importantForAccessibility="no"
-                android:maxLines="1" />
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_news" />
 
             <TextView
-                android:id="@+id/widget_pct"
-                style="@style/PortyWidget.Change"
-                android:layout_width="wrap_content"
+                android:id="@+id/widget_line_text"
+                style="@style/PortyWidget.Item"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
                 android:importantForAccessibility="no"
-                android:maxLines="1" />
-        </LinearLayout>
+                android:maxLines="2" />
 
-        <TextView
-            android:id="@+id/widget_updated"
-            style="@style/PortyWidget.Meta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:importantForAccessibility="no"
-            android:maxLines="1" />
-    </LinearLayout>
+            <ImageView
+                android:id="@+id/widget_chart"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:scaleType="fitXY"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -117,7 +119,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:importantForAccessibility="no"
-            android:maxLines="4"
-             />
+            android:maxLines="4" />
     </LinearLayout>
 </FrameLayout>

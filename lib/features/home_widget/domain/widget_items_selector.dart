@@ -77,7 +77,9 @@ class WidgetItemsSelection {
 /// Ver docs/specs/home-widget-tech.md Am.4.2.
 abstract final class WidgetItemsSelector {
   static const topHoldings = 5;
+  /// Tope por defecto de ítems (con aviso, uno menos). La v2 pide 7.
   static const maxItems = 4;
+  static const maxItemsV2 = 7;
   static const maxEarnings = 2;
   static const newsWindow = Duration(hours: 48);
   static const futureSlack = Duration(minutes: 5);
@@ -127,6 +129,7 @@ abstract final class WidgetItemsSelector {
     required WidgetPlatform platform,
     required DateTime now,
     WidgetTeaserCounts? teaserCounts,
+    int cap = maxItems,
   }) {
     final top = universe(holdings);
     final weight = {for (final h in top) h.ticker.toUpperCase(): h.marketValue};
@@ -195,9 +198,9 @@ abstract final class WidgetItemsSelector {
       counts: teaserCounts,
       hasEligible: top.isNotEmpty,
     );
-    final cap = teaser != null ? maxItems - 1 : maxItems;
+    final limit = teaser != null ? cap - 1 : cap;
     final items =
-        <SelectedWidgetItem>[...earningsItems, ...newsItems].take(cap).toList();
+        <SelectedWidgetItem>[...earningsItems, ...newsItems].take(limit).toList();
 
     return WidgetItemsSelection(
       items: items,

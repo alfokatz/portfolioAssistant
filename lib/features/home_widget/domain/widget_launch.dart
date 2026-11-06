@@ -1,31 +1,11 @@
-/// Las preguntas rápidas del widget. Viajan por la URL solo como id: el
-/// texto sale de las traducciones de la app, nunca de la URL.
-enum WidgetQuestionId {
-  today('today', 'question_today'),
-  topMover('top_mover', 'question_top_mover');
-
-  const WidgetQuestionId(this.wire, this.textKey);
-
-  final String wire;
-
-  /// Clave del texto de la pregunta dentro de `home_widget_*`.
-  final String textKey;
-
-  /// Clave completa en es-ES.json / en-US.json (para `.tr()`).
-  String get translationKey => 'home_widget_$textKey';
-
-  static WidgetQuestionId? fromWire(String? wire) {
-    for (final id in values) {
-      if (id.wire == wire) return id;
-    }
-    return null;
-  }
-}
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot.dart';
 
 enum WidgetLaunchTarget {
   chat('chat'),
   question('question'),
   addPortfolio('add_portfolio'),
+  home('home'),
   news('news'),
   earnings('earnings'),
   teaserNews('teaser_news'),
@@ -52,11 +32,15 @@ enum WidgetLaunchTarget {
 class WidgetLaunch {
   const WidgetLaunch({
     required this.target,
-    this.questionId,
+    this.questionTemplate,
+    this.questionRef,
+    this.questionSource,
     this.size,
     this.dataAgeMin,
     this.itemId,
     this.rank,
+    this.itemKind,
+    this.itemPrio,
   });
 
   final WidgetLaunchTarget target;
@@ -67,8 +51,17 @@ class WidgetLaunch {
   /// Posición del ítem tocado (1 a 4).
   final int? rank;
 
-  /// Solo con `target == question`.
-  final WidgetQuestionId? questionId;
+  /// Solo con `target == question`: la plantilla (lista cerrada), el `ref`
+  /// de 8 hex que busca el detalle en la caché privada y de dónde salió.
+  /// Nunca viaja texto.
+  final WidgetQuestionTemplate? questionTemplate;
+  final String? questionRef;
+  final WidgetQuestionSource? questionSource;
+
+  /// De qué novedad viene el toque (solo props de eventos); `null` si no
+  /// vino o es inválido.
+  final WidgetFeedKind? itemKind;
+  final int? itemPrio;
 
   /// `small` | `medium` | `large` | `null` si no vino o no es uno de esos.
   final String? size;
@@ -79,10 +72,12 @@ class WidgetLaunch {
   static const scheme = 'porty-widget';
   static const host = 'open';
 
-  /// `porty-widget://open?homeWidget&target=question&q=today&size=medium`.
-  /// Devuelve `null` si no es del widget (otro esquema o host, sin
-  /// `homeWidget`, `target` desconocido). Una pregunta desconocida abre el
-  /// chat vacío: nunca se manda nada que no esté en [WidgetQuestionId].
+  /// `porty-widget://open?homeWidget&target=question&q=<plantilla>&ref=<8 hex>
+  /// &src=<fuente>&size=medium`. Devuelve `null` si no es del widget (otro
+  /// esquema o host, sin `homeWidget`, `target` desconocido). Una pregunta
+  /// con plantilla, `ref` o fuente inválidos (o los ids viejos `today` /
+  /// `top_mover`) abre el chat vacío: nunca se manda nada que no esté en
+  /// [WidgetQuestionTemplate].
   static WidgetLaunch? parse(Uri? uri) {
     if (uri == null || uri.scheme != scheme || uri.host != host) return null;
     final params = uri.queryParameters;
@@ -91,16 +86,28 @@ class WidgetLaunch {
     if (target == null) return null;
     final size = params['size'];
     final age = int.tryParse(params['age'] ?? '');
+    final prio = int.tryParse(params['prio'] ?? '');
     final common = (
       size:
           size == 'small' || size == 'medium' || size == 'large' ? size : null,
       age: age != null && age >= 0 ? age : null,
+      kind: WidgetFeedKind.fromWire(params['kind']),
+      prio: prio != null && prio >= 1 && prio <= 3 ? prio : null,
     );
     if (target == WidgetLaunchTarget.question) {
-      final id = WidgetQuestionId.fromWire(params['q']);
+      final template = WidgetQuestionTemplate.fromWire(params['q']);
+      final ref = params['ref'];
+      final source = WidgetQuestionSource.fromWire(params['src']);
+      final valid =
+          template != null &&
+          source != null &&
+          ref != null &&
+          _idPattern.hasMatch(ref);
       return WidgetLaunch(
-        target: id == null ? WidgetLaunchTarget.chat : target,
-        questionId: id,
+        target: valid ? target : WidgetLaunchTarget.chat,
+        questionTemplate: valid ? template : null,
+        questionRef: valid ? ref : null,
+        questionSource: valid ? source : null,
         size: common.size,
         dataAgeMin: common.age,
       );
@@ -114,12 +121,16 @@ class WidgetLaunch {
         target: valid ? target : WidgetLaunchTarget.app,
         itemId: valid ? id : null,
         rank: valid && rank != null && rank >= 1 && rank <= 4 ? rank : null,
+        itemKind: common.kind,
+        itemPrio: common.prio,
         size: common.size,
         dataAgeMin: common.age,
       );
     }
     return WidgetLaunch(
       target: target,
+      itemKind: target == WidgetLaunchTarget.home ? common.kind : null,
+      itemPrio: target == WidgetLaunchTarget.home ? common.prio : null,
       size: common.size,
       dataAgeMin: common.age,
     );

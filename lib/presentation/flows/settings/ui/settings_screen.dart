@@ -20,7 +20,7 @@ import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_route
 import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_add_tile.dart';
-import 'package:portfolio_assistant/features/home_widget/view/widget_amounts_tile.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_positions_tile.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
@@ -371,7 +371,7 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 const SettingsDivider(),
                 const WidgetAddTile(),
                 const SettingsDivider(),
-                const WidgetAmountsTile(),
+                const WidgetPositionsTile(),
                 const SettingsDivider(),
                 SettingsNavRow(
                   icon: Icons.play_lesson_outlined,

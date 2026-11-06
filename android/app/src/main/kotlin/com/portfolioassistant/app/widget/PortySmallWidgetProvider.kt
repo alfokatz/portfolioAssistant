@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import es.antonborri.home_widget.HomeWidgetProvider
 
-/** Widget 2x2: valor, variación, período y "hace X". El nombre calificado lo usa la app (home_widget). */
+/** Widget 2x2: cara + % del día + una línea de novedad. El nombre calificado lo usa la app (home_widget). */
 class PortySmallWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,

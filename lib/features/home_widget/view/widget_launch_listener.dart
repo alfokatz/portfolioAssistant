@@ -1,16 +1,19 @@
 import 'dart:async';
 
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_launch.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_news_sheet.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
@@ -18,6 +21,7 @@ import 'package:portfolio_assistant/features/product_events/providers/app_open_s
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_nav.dart';
 
 /// `false` si la app arrancó sin sesión (el toque del widget se hizo en
@@ -106,14 +110,22 @@ class _WidgetLaunchListenerState extends ConsumerState<WidgetLaunchListener> {
     final cached = _cachedItems();
     final tapped = _tappedItem(launch, cached);
     final isNovelty = launch.target.isItem || launch.target.isTeaser;
-    if (launch.target == WidgetLaunchTarget.chat || isQuestion || isNovelty) {
+    final isHome = launch.target == WidgetLaunchTarget.home;
+    if (launch.target == WidgetLaunchTarget.chat ||
+        isQuestion ||
+        isNovelty ||
+        isHome) {
+      // Ninguna prop lleva ticker, titular, texto de la pregunta ni id.
       ref.read(productEventsProvider).log(ProductEvent.widgetOpened, {
         'platform': ref.read(homeWidgetStoreProvider).platform,
         'size': launch.size,
         'target': launch.target.wire,
-        'question_id': launch.questionId?.wire,
+        'question_id': launch.questionTemplate?.wire,
+        'question_source': launch.questionSource?.wire,
+        'item_kind': launch.itemKind?.wire,
+        'item_prio': launch.itemPrio,
         'data_age_min': launch.dataAgeMin,
-        'amounts_hidden': ref.read(widgetAmountsHiddenProvider),
+        'positions_hidden': ref.read(widgetPositionsHiddenProvider),
         if (isNovelty) ...{
           'item_rank': launch.rank,
           'item_age_h': tapped == null ? null : _ageHours(tapped),
@@ -124,12 +136,9 @@ class _WidgetLaunchListenerState extends ConsumerState<WidgetLaunchListener> {
 
     switch (launch.target) {
       case WidgetLaunchTarget.question:
-        // El texto sale de las traducciones, en el idioma activo; la URL
-        // solo trae el id.
-        GotoAssistant(
-          initialQuestion: launch.questionId!.translationKey.tr(),
-          origin: AssistantQuestionOrigin.widget(launch.questionId!.wire),
-        ).navigate(context: context);
+        unawaited(_askQuestion(launch));
+      case WidgetLaunchTarget.home:
+        context.goNamed(HomeRouter.homeRouteName);
       case WidgetLaunchTarget.chat:
         context.goNamed(AssistantRouter.routeName);
       case WidgetLaunchTarget.addPortfolio:
@@ -151,6 +160,43 @@ class _WidgetLaunchListenerState extends ConsumerState<WidgetLaunchListener> {
       case WidgetLaunchTarget.app:
         break;
     }
+  }
+
+  /// Resuelve el `ref` tocado en la caché privada del usuario de ahora y abre
+  /// el chat con la pregunta en el idioma activo. Si el `ref` no está, es de
+  /// otro usuario o su plantilla no coincide con la de la URL, abre el chat
+  /// vacío: no se manda nada.
+  Future<void> _askQuestion(WidgetLaunch launch) async {
+    String? text;
+    try {
+      final uid = ref.read(widgetCurrentUserIdProvider)();
+      final cached =
+          uid == null
+              ? null
+              : WidgetFeedCache(
+                ref.read(sharedPreferencesProvider),
+              ).question(uid: uid, ref: launch.questionRef!);
+      if (cached != null && cached.template == launch.questionTemplate) {
+        final texts = await ref.read(widgetTextsLoaderProvider)(
+          AppLanguage.code,
+        );
+        text = WidgetQuestionText.resolve(
+          cached.template,
+          cached.args,
+          cached.hidden,
+          texts,
+        );
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    if (text == null) {
+      context.goNamed(AssistantRouter.routeName);
+      return;
+    }
+    GotoAssistant(
+      initialQuestion: text,
+      origin: AssistantQuestionOrigin.widget(launch.questionTemplate!.wire),
+    ).navigate(context: context);
   }
 
   /// Los ítems vigentes de la caché privada del usuario de ahora.

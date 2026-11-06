@@ -45,4 +45,14 @@
         <item name="android:textColor">@color/porty_widget_primary</item>
         <item name="android:includeFontPadding">false</item>
     </style>
+    <style name="PortyWidget.Tag" parent="">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:paddingStart">5dp</item>
+        <item name="android:paddingEnd">5dp</item>
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>

@@ -8,4 +8,6 @@
     <color name="porty_widget_profit">#86C493</color>
     <color name="porty_widget_loss">#E5897F</color>
     <color name="porty_widget_hairline">#33A7A29C</color>
+    <!-- Terracota #D98E5D al 20 %: texto primary sobre el chip ~9:1 (>= 4.5:1) -->
+    <color name="porty_widget_question_bg">#33D98E5D</color>
 </resources>

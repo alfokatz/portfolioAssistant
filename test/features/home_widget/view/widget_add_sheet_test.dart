@@ -25,13 +25,14 @@ class _Events extends ProductEvents {
 
 Map<String, Object?> _ready() => {
   'state': 'ready',
-  'total_text': r'$1.234,00',
-  'change_text': r'+$12,00',
   'change_pct_text': '+1,0%',
   'direction': 'up',
   'phrase': 'Tu cartera sube hoy.',
   'period': 'today',
-  'labels': {'period_today': 'Hoy', 'hidden_amount': '••••'},
+  'labels': {'period_today': 'Hoy'},
+  'v2': {
+    'labels': {'your_portfolio': 'tu cartera'},
+  },
 };
 
 void main() {
@@ -95,7 +96,7 @@ void main() {
     testWidgets('preview uses the real snapshot ($mode)', (tester) async {
       await open(tester, platform: 'ios', dark: dark, snapshot: _ready());
       expect(find.text('home_widget_add_title'), findsOneWidget);
-      expect(find.text(r'$1.234,00'), findsOneWidget);
+      expect(find.text('tu cartera'), findsOneWidget);
       expect(find.text('Tu cartera sube hoy.'), findsOneWidget);
       expect(find.text('home_widget_add_confirm'), findsOneWidget);
       expect(find.text('home_widget_add_later'), findsOneWidget);
@@ -130,7 +131,8 @@ void main() {
   ) async {
     await open(tester, platform: 'ios');
     expect(find.text('home_widget_add_preview_sample'), findsOneWidget);
-    expect(find.text('home_widget_hidden_amount'), findsOneWidget);
+    expect(find.text('home_widget_your_portfolio'), findsOneWidget);
+    expect(find.textContaining(r'$'), findsNothing);
   });
 
   testWidgets('Android with pin support asks the launcher and closes', (

@@ -25,6 +25,11 @@ const homeWidgetAndroidLarge =
 /// tickers). Es lo único que escribe el nativo.
 const homeWidgetRenderLogKey = 'porty_widget_render_log';
 
+/// Clave compartida donde el nativo guarda qué novedad muestra el mediano
+/// (`{"rev","index","at"}`). Solo la escribe el nativo; Dart la borra al
+/// cerrar sesión.
+const homeWidgetCursorKey = 'porty_widget_cursor';
+
 /// Los tamaños de widget que hay instalados: `small`, `medium` y/o `large`.
 typedef InstalledWidgetSizes = List<String>;
 
@@ -37,9 +42,10 @@ abstract class HomeWidgetStore {
   /// Guarda el JSON del snapshot y le pide al sistema que redibuje.
   Future<void> writeSnapshot(WidgetSnapshot snapshot);
 
-  /// Saca montos, ticker y frase del snapshot `ready` ya guardado. Sirve
-  /// para ocultar montos cuando no hay datos frescos para reescribirlo.
-  Future<void> scrubStoredAmounts();
+  /// Pasa a la forma oculta el snapshot `ready` ya guardado (sin tickers,
+  /// titulares ni preguntas). Sirve para "Ocultar posiciones" cuando no hay
+  /// datos frescos para reescribirlo.
+  Future<void> scrubStoredPositions();
 
   /// Lo que el nativo dibujó la última vez (`porty_widget_render_log`), o
   /// `null` si no hay o no se puede leer.
@@ -47,6 +53,12 @@ abstract class HomeWidgetStore {
 
   /// Borra el render log (cierre de sesión).
   Future<void> clearRenderLog();
+
+  /// El cursor del mediano (`porty_widget_cursor`), o `null`.
+  Future<Map<String, Object?>?> readCursor();
+
+  /// Borra el cursor del mediano (cierre de sesión).
+  Future<void> clearCursor();
 
   /// Los tamaños instalados, ordenados y sin repetir.
   Future<InstalledWidgetSizes> installedSizes();
@@ -86,12 +98,12 @@ class PluginHomeWidgetStore implements HomeWidgetStore {
   }
 
   @override
-  Future<void> scrubStoredAmounts() async {
+  Future<void> scrubStoredPositions() async {
     final raw = await HomeWidget.getWidgetData<String>(
       WidgetSnapshot.storageKey,
     );
     if (raw == null) return;
-    final json = scrubAmountsFromSnapshotJson(
+    final json = scrubPositionsFromSnapshotJson(
       jsonDecode(raw) as Map<String, Object?>,
     );
     if (json == null) return;
@@ -120,6 +132,25 @@ class PluginHomeWidgetStore implements HomeWidgetStore {
   Future<void> clearRenderLog() async {
     try {
       await HomeWidget.saveWidgetData<String>(homeWidgetRenderLogKey, null);
+    } catch (_) {}
+  }
+
+  @override
+  Future<Map<String, Object?>?> readCursor() async {
+    try {
+      final raw = await HomeWidget.getWidgetData<String>(homeWidgetCursorKey);
+      if (raw == null) return null;
+      final json = jsonDecode(raw);
+      return json is Map ? Map<String, Object?>.from(json) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> clearCursor() async {
+    try {
+      await HomeWidget.saveWidgetData<String>(homeWidgetCursorKey, null);
     } catch (_) {}
   }
 
@@ -192,22 +223,39 @@ final homeWidgetStoreProvider = Provider<HomeWidgetStore>(
   (ref) => const PluginHomeWidgetStore(),
 );
 
-/// Versión con montos ocultos de un snapshot ya serializado, o `null` si no
-/// es un `ready` (no hay montos que sacar). La frase puede nombrar un
-/// ticker, así que también sale. Las novedades (`items`, `teaser`, `items_*`)
-/// se conservan: "Ocultar montos" oculta solo montos.
-Map<String, Object?>? scrubAmountsFromSnapshotJson(Map<String, Object?> json) {
+/// Versión con posiciones ocultas de un snapshot ya serializado, o `null`
+/// si no hay nada que sacar: no es un `ready` o es de la versión anterior
+/// (sin bloque `v2`; el nativo nuevo ya no muestra tickers del legado).
+///
+/// Los ítems del feed pasan a la forma oculta (solo `kind`, `icon`, `paid`,
+/// `expires_at` y `segments` con `from`/`prio`), sin `feed_rev`, `tag` ni
+/// preguntas.
+Map<String, Object?>? scrubPositionsFromSnapshotJson(
+  Map<String, Object?> json,
+) {
   if (json['state'] != WidgetSnapshotState.ready.wire) return null;
-  final labels = json['labels'];
-  final hiddenA11y = labels is Map ? labels['hidden_a11y'] : null;
-  final scrubbed =
-      {...json, 'amounts_hidden': true}
-        ..remove('total_text')
-        ..remove('change_text')
-        ..remove('phrase')
-        ..remove('phrase_stale')
-        // El texto para el lector de pantalla puede traer montos.
-        ..remove('a11y_value');
-  if (hiddenA11y is String) scrubbed['a11y_value'] = hiddenA11y;
-  return scrubbed;
+  final v2 = json['v2'];
+  if (v2 is! Map) return null;
+  final feed = v2['feed'];
+  final hidden = <String, Object?>{
+    ...v2.cast<String, Object?>(),
+    'positions_hidden': true,
+    'feed': [
+      if (feed is List)
+        for (final item in feed)
+          if (item is Map)
+            {
+              'kind': item['kind'],
+              'icon': item['icon'],
+              if (item['paid'] == true) 'paid': true,
+              'expires_at': item['expires_at'],
+              'segments': [
+                for (final seg in (item['segments'] as List? ?? const []))
+                  if (seg is Map) {'from': seg['from'], 'prio': seg['prio']},
+              ],
+            },
+    ],
+    'questions': {'fallback': null, 'large': <Object?>[]},
+  }..remove('feed_rev');
+  return {...json, 'v2': hidden};
 }

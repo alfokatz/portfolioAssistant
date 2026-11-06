@@ -31,3 +31,8 @@
 - iOS extensiones/widgets: sin nombre de plan ni paywall (Apple 4.4); el aviso abre la app y el paywall va adentro. Android sí puede.
 - Conteos de contenido pago para avisos a quien no paga: siempre en servidor (modo count_only por tenencia), nunca bajar el contenido al cliente.
 - Snapshot de widget: crecer con campos opcionales en el mismo `v`; extensión y app van en el mismo binario.
+- Snapshot del widget: rediseños que cambian layout van en bloque opcional (`v2`) con `v` fijo; el bloque v1 se degrada a algo seguro para un nativo viejo y el nativo nuevo trata "sin bloque" como legado sin tickers.
+- Widget: orden/prioridad/histéresis en Dart; cambios por hora como `segments[{from, prio,...}]`; el nativo solo filtra, reordena estable y avanza un cursor propio (`porty_widget_cursor`, reset por `feed_rev`).
+- Interacción del widget sin abrir la app: AppIntent iOS 17+ / broadcast explícito al provider en Android; nunca los callbacks de `home_widget` que levantan Dart.
+- Preguntas/acciones desde el widget viajan como plantilla cerrada + `ref` a caché privada (nunca texto, ticker ni nombre de meta en la URL).
+- Selectores nativos con lógica: implementación de referencia en Dart que genera `feed_cases.json`; Kotlin con test JVM (junit + org.json) y Swift puro Foundation chequeado con `swiftc` fuera del target.

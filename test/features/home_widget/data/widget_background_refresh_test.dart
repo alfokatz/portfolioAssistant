@@ -75,21 +75,18 @@ void main() {
     expect(wrote, isTrue);
     expect(store.last['state'], 'ready');
     expect(store.last['lang'], 'en');
-    // 10*12 + 1*90
-    expect(store.last['total_text'], r'$210.00');
-    // +20 -10 = +10
-    expect(store.last['change_text'], r'+$10.00');
-    expect(
-      store.last['phrase'],
-      'Your portfolio is up today; AAA added the most.',
-    );
+    // Desde v2 ningún monto ni ticker en el bloque v1.
+    expect(store.last.containsKey('total_text'), isFalse);
+    expect(store.last.containsKey('change_text'), isFalse);
+    expect(store.last['amounts_hidden'], true);
+    expect(store.last['phrase'], 'Your portfolio is up today.');
   });
 
   test('respects the hidden amounts setting', () async {
     await _cache(prefs);
-    await prefs.setBool(WidgetPrefsKeys.amountsHidden, true);
+    await prefs.setBool(WidgetPrefsKeys.positionsHidden, true);
     await run((t) async => _ok(10, 12));
-    expect(store.last.containsKey('total_text'), isFalse);
+    expect((store.last['v2'] as Map)['positions_hidden'], true);
     expect(store.last['phrase'], isNot(contains('AAA')));
   });
 
@@ -114,9 +111,8 @@ void main() {
       return _ok(10, 12);
     });
     expect(wrote, isTrue);
-    // 10*12 + 1*50 (precio del caché)
-    expect(store.last['total_text'], r'$170.00');
-    expect(store.last['change_text'], r'+$20.00');
+    expect(store.last.containsKey('total_text'), isFalse);
+    expect(store.last['state'], 'ready');
   });
 
   test('all tickers failing writes nothing', () async {

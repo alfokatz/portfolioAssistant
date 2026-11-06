@@ -1,220 +1,168 @@
-// WidgetSnapshotBuilder: cada estado, stale_at, montos ocultos y a11y.
+// Snapshot v2: bloque v1 sin montos ni tickers, mood, y posiciones ocultas
+// sin ningún dato de la cartera en el JSON.
 // Correr: flutter test test/features/home_widget/domain/widget_snapshot_builder_test.dart
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
+import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_insight_copy.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_items_selector.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_portfolio_facts.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot_builder.dart';
 
 import '../home_widget_test_helpers.dart';
 
-PortfolioDayMove _move({
-  double absolute = 123.45,
-  double percent = 1.0,
-  DayMovePeriod period = DayMovePeriod.today,
-  String? top = 'NVDA',
-}) => PortfolioDayMove(
-  absolute: absolute,
-  percent: percent,
-  period: period,
-  asOfDay: DateTime(2026, 11, 5),
-  topContributor: top == null ? null : TopContributor(ticker: top, amount: 50),
+final _now = DateTime.utc(2026, 11, 6, 15);
+
+PortfolioDayMove _move(double pct) => PortfolioDayMove(
+  absolute: 123.45,
+  percent: pct,
+  period: DayMovePeriod.today,
+  asOfDay: DateTime(2026, 11, 6),
+  topContributor: const TopContributor(ticker: 'ACME', amount: 80),
 );
 
-Map<String, Object?> _ready({
-  String lang = 'es',
+const _holdings = [
+  WidgetHolding(ticker: 'ACME', marketValue: 5000),
+  WidgetHolding(ticker: 'GLOBX', marketValue: 4000),
+];
+
+Map<String, Object?> _build({
   bool hidden = false,
-  PortfolioDayMove? move,
-  DateTime? asOf,
+  double pct = 1.2,
+  SubscriptionTier tier = SubscriptionTier.gold,
 }) {
-  final now = DateTime(2026, 11, 5, 10, 5);
-  final s = WidgetSnapshotBuilder.ready(
-    totalValue: 12345.67,
-    move: move ?? _move(),
-    amountsHidden: hidden,
-    lang: lang,
-    now: now,
-    dataAsOf: asOf ?? DateTime(2026, 11, 5, 10),
-    texts: realTexts(lang),
+  final selection = WidgetItemsSelector.select(
+    holdings: _holdings,
+    news: [
+      CompanyNewsItem(
+        ticker: 'ACME',
+        headline: 'Titular secreto de ACME',
+        summary: '',
+        url: 'https://example.com/acme',
+        source: 'Fuente Ejemplo',
+        publishedAt: _now.subtract(const Duration(hours: 2)),
+      ),
+    ],
+    earnings: [(ticker: 'GLOBX', date: DateTime(2026, 11, 7))],
+    tier: tier,
+    teasersEnabled: false,
+    platform: WidgetPlatform.android,
+    now: _now,
+    cap: WidgetItemsSelector.maxItemsV2,
   );
-  return jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>;
+  final snapshot = WidgetSnapshotBuilder.ready(
+    move: _move(pct),
+    positionsHidden: hidden,
+    lang: 'es',
+    now: _now,
+    dataAsOf: _now,
+    texts: realTexts('es'),
+    tier: tier,
+    selection: selection,
+    insights: const [
+      WidgetInsightInput(
+        id: 'goalBehind:g1',
+        kind: WidgetInsightKind.goalBehind,
+        score: 80,
+        goalLabel: 'Meta secreta',
+      ),
+    ],
+    mover: const WidgetMoverFact(ticker: 'GLOBX', pct: 4.1),
+    biggest: const WidgetBiggestFact(ticker: 'ACME', weightPct: 55),
+  );
+  return jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, Object?>;
 }
 
 void main() {
-  final now = DateTime(2026, 11, 5, 10, 5);
-
-  group('signed out / no portfolio', () {
-    test('only version, state, lang, written_at and the message', () {
-      for (final lang in ['es', 'en']) {
-        final signedOut =
-            jsonDecode(
-                  jsonEncode(
-                    WidgetSnapshotBuilder.signedOut(
-                      lang: lang,
-                      now: now,
-                      texts: realTexts(lang),
-                    ).toJson(),
-                  ),
-                )
-                as Map<String, Object?>;
-        expect(signedOut.keys.toSet(), {
-          'v',
-          'state',
-          'lang',
-          'written_at',
-          'labels',
-        });
-        expect(signedOut['state'], 'signed_out');
-        expect((signedOut['labels']! as Map).keys, ['message']);
+  group('WidgetSnapshotBuilder.ready', () {
+    test('v1 block has no amounts, no total, no questions, no ticker', () {
+      final json = _build();
+      expect(json['v'], 1);
+      expect(json['amounts_hidden'], true);
+      for (final key in [
+        'total_text',
+        'change_text',
+        'questions',
+        'items',
+        'items_section',
+        'teaser',
+        'plan_until',
+      ]) {
+        expect(json.containsKey(key), isFalse, reason: key);
       }
-      final es = WidgetSnapshotBuilder.signedOut(
-        lang: 'es',
-        now: now,
-        texts: realTexts('es'),
-      );
-      expect(es.labels['message'], 'Entrá a Porty para ver tu cartera acá.');
-      final en = WidgetSnapshotBuilder.noPortfolio(
-        lang: 'en',
-        now: now,
-        texts: realTexts('en'),
-      );
-      expect(en.labels['message'], 'Add your portfolio to see it here.');
-      expect(
-        WidgetSnapshotBuilder.noPortfolio(
-          lang: 'es',
-          now: now,
-          texts: realTexts('es'),
-        ).labels['message'],
-        'Cargá tu cartera y la vas a ver acá.',
-      );
-    });
-  });
-
-  group('ready', () {
-    test('es: numbers formatted like the Home, phrase and questions', () {
-      final j = _ready();
-      expect(j['v'], 1);
-      expect(j['state'], 'ready');
-      expect(j['period'], 'today');
-      expect(j['currency'], 'USD');
-      expect(j['amounts_hidden'], false);
-      expect(j['total_text'], r'$12,345.67');
-      expect(j['change_text'], r'+$123.45');
-      expect(j['change_pct_text'], '+1.0%');
-      expect(j['direction'], 'up');
-      expect(j['phrase'], 'Tu cartera sube hoy; NVDA sumó más.');
-      expect(
-        j['phrase_stale'],
-        'Datos desactualizados. Abrí Porty para actualizarlos.',
-      );
-      expect(j['a11y_value'], r'Valor de la cartera $12,345.67, sube 1.0% hoy');
-      expect(j['questions'], [
-        {'id': 'today', 'text': '¿Cómo viene mi cartera hoy?'},
-        {'id': 'top_mover', 'text': '¿Qué fue lo que más se movió?'},
-      ]);
-      expect((j['labels']! as Map)['stale_date'], 'al 5 nov');
+      expect(json['phrase'], 'Tu cartera sube hoy.');
+      expect(json['v2'], isA<Map>());
     });
 
-    test('en', () {
-      final j = _ready(
-        lang: 'en',
-        move: _move(absolute: -50, percent: -0.8, top: 'AAPL'),
-      );
-      expect(j['lang'], 'en');
-      expect(j['direction'], 'down');
-      expect(
-        j['phrase'],
-        'Your portfolio is down today; AAPL took away the most.',
-      );
-      expect(j['change_text'], r'-$50.00');
-      expect(j['a11y_value'], r'Portfolio value $12,345.67, down 0.8% today');
-      expect((j['questions']! as List)[0], {
-        'id': 'today',
-        'text': "How's my portfolio doing today?",
-      });
-      expect((j['labels']! as Map)['stale_date'], 'as of Nov 5');
+    test('no currency amount in any string of the JSON', () {
+      final text = jsonEncode(_build());
+      expect(RegExp(r'[$€]|US\$|USD\s?\d').hasMatch(text), isFalse);
     });
 
-    test('last close: no direction phrase, no ticker', () {
-      final j = _ready(move: _move(period: DayMovePeriod.lastClose));
-      expect(j['period'], 'last_close');
-      expect(j['phrase'], 'Valores al último cierre.');
-      expect(j['a11y_value'], contains('al último cierre'));
+    test('mood follows the direction', () {
+      expect((_build(pct: 1.2)['v2']! as Map)['mood'], 'happy');
+      expect((_build(pct: -1.2)['v2']! as Map)['mood'], 'concerned');
+      expect((_build(pct: 0.1)['v2']! as Map)['mood'], 'neutral');
     });
 
-    test('flat move', () {
-      final j = _ready(move: _move(absolute: 1, percent: 0.1));
-      expect(j['direction'], 'flat');
-      expect(j['phrase'], 'Tu cartera casi no se movió hoy.');
-    });
-
-    test('no top contributor: the phrase without ticker', () {
-      expect(_ready(move: _move(top: null))['phrase'], 'Tu cartera sube hoy.');
-    });
-  });
-
-  group('hidden amounts', () {
-    test('no totals, no amounts, no ticker anywhere in the JSON', () {
-      for (final lang in ['es', 'en']) {
-        final j = _ready(lang: lang, hidden: true);
-        final raw = jsonEncode(j);
-        expect(j.containsKey('total_text'), isFalse);
-        expect(j.containsKey('change_text'), isFalse);
-        expect(raw.contains('NVDA'), isFalse);
-        expect(raw.contains('12,345'), isFalse);
-        expect(raw.contains('123.45'), isFalse);
-        expect(j['change_pct_text'], '+1.0%');
-        expect(
-          j['phrase'],
-          lang == 'es' ? 'Tu cartera sube hoy.' : 'Your portfolio is up today.',
-        );
-        expect(
-          j['a11y_value'],
-          lang == 'es' ? 'Montos ocultos' : 'Amounts hidden',
-        );
+    test('positions hidden: no ticker, headline, source or goal anywhere', () {
+      final text = jsonEncode(_build(hidden: true));
+      for (final secret in [
+        'ACME',
+        'GLOBX',
+        'Titular secreto',
+        'Fuente Ejemplo',
+        'Meta secreta',
+      ]) {
+        expect(text, isNot(contains(secret)), reason: secret);
+      }
+      final v2 = _build(hidden: true)['v2']! as Map;
+      expect(v2['positions_hidden'], true);
+      expect(v2.containsKey('feed_rev'), isFalse);
+      for (final item in v2['feed'] as List) {
+        expect((item as Map).keys.toSet().difference({
+          'kind',
+          'icon',
+          'paid',
+          'expires_at',
+          'segments',
+        }), isEmpty);
       }
     });
 
-    test('no secrets or identifiers in any string', () {
-      final raw = jsonEncode(_ready()).toLowerCase();
-      for (final w in ['access_token', 'refresh_token', 'user_id', '@']) {
-        expect(raw.contains(w), isFalse, reason: w);
-      }
+    test('visible positions: feed has ids, a feed_rev and a head question', () {
+      final v2 = _build()['v2']! as Map;
+      expect(v2['feed_rev'], matches(RegExp(r'^[0-9a-f]{8}$')));
+      final feed = v2['feed'] as List;
+      expect((feed.first as Map)['kind'], 'earnings');
+      expect(((v2['questions']! as Map)['large']! as List), isNotEmpty);
+    });
+
+    test('Free never gets news or earnings', () {
+      final feed = (_build(tier: SubscriptionTier.free)['v2']! as Map)['feed'] as List;
+      final kinds = {for (final i in feed) (i as Map)['kind']};
+      expect(kinds, isNot(contains('news')));
+      expect(kinds, isNot(contains('earnings')));
     });
   });
 
-  group('staleAt', () {
-    test('today: the earlier of 24 h and the next local midnight', () {
-      final early = WidgetSnapshotBuilder.staleAt(
-        DateTime(2026, 11, 5, 10),
-        DayMovePeriod.today,
-      );
-      expect(early, DateTime(2026, 11, 6)); // medianoche (14 h) < 24 h
-      final late = WidgetSnapshotBuilder.staleAt(
-        DateTime(2026, 11, 5, 23, 59),
-        DayMovePeriod.today,
-      );
-      expect(late, DateTime(2026, 11, 6)); // 1 min
+  group('scrubPositionsFromSnapshotJson', () {
+    test('turns a visible v2 snapshot into the hidden form', () {
+      final scrubbed = scrubPositionsFromSnapshotJson(_build())!;
+      final text = jsonEncode(scrubbed);
+      for (final secret in ['ACME', 'GLOBX', 'Titular secreto', 'Meta secreta']) {
+        expect(text, isNot(contains(secret)));
+      }
+      expect((scrubbed['v2']! as Map)['positions_hidden'], true);
     });
 
-    test('last close: 24 h after the data', () {
-      final at = WidgetSnapshotBuilder.staleAt(
-        DateTime(2026, 11, 7, 10),
-        DayMovePeriod.lastClose,
-      );
-      expect(at, DateTime(2026, 11, 8, 10));
-    });
-
-    test('is written as epoch ms UTC', () {
-      final j = _ready();
-      expect(
-        j['stale_at'],
-        DateTime(2026, 11, 6).toUtc().millisecondsSinceEpoch,
-      );
-      expect(
-        j['data_as_of'],
-        DateTime(2026, 11, 5, 10).toUtc().millisecondsSinceEpoch,
-      );
+    test('legacy or non-ready JSON: nothing to scrub', () {
+      expect(scrubPositionsFromSnapshotJson({'state': 'ready'}), isNull);
+      expect(scrubPositionsFromSnapshotJson({'state': 'signed_out'}), isNull);
     });
   });
 }

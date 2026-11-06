@@ -7,18 +7,28 @@ import 'package:flutter/services.dart' show rootBundle;
 /// fondo corre en otro isolate donde no está inicializado, y el snapshot
 /// tiene que salir en el idioma que se le pide, no en el del contexto.
 class WidgetTexts {
-  const WidgetTexts(this._values);
+  const WidgetTexts(this._values, [this._inbox = const {}]);
 
-  /// Solo se quedan las claves `home_widget_*`.
-  factory WidgetTexts.fromJson(Map<String, Object?> json) => WidgetTexts({
-    for (final e in json.entries)
-      if (e.key.startsWith(_prefix) && e.value is String)
-        e.key.substring(_prefix.length): e.value! as String,
-  });
+  /// Solo se quedan las claves `home_widget_*` y `porty_inbox_*` (los
+  /// títulos de los avisos de la Home, que el widget reusa tal cual).
+  factory WidgetTexts.fromJson(Map<String, Object?> json) => WidgetTexts(
+    {
+      for (final e in json.entries)
+        if (e.key.startsWith(_prefix) && e.value is String)
+          e.key.substring(_prefix.length): e.value! as String,
+    },
+    {
+      for (final e in json.entries)
+        if (e.key.startsWith(_inboxPrefix) && e.value is String)
+          e.key.substring(_inboxPrefix.length): e.value! as String,
+    },
+  );
 
   static const _prefix = 'home_widget_';
+  static const _inboxPrefix = 'porty_inbox_';
 
   final Map<String, String> _values;
+  final Map<String, String> _inbox;
 
   static const _files = {
     'es': 'assets/translations/es-ES.json',
@@ -35,6 +45,14 @@ class WidgetTexts {
   /// Una clave que falta es un bug de traducciones: lo dice el test.
   String get(String key, [Map<String, String> args = const {}]) {
     var text = _values[key] ?? key;
+    args.forEach((name, value) => text = text.replaceAll('{$name}', value));
+    return text;
+  }
+
+  /// El texto de `porty_inbox_<key>` (los avisos de la Home) con `{nombre}`
+  /// reemplazados por [args]. Mismas claves que usa la Home, sin `.tr()`.
+  String getInbox(String key, [Map<String, String> args = const {}]) {
+    var text = _inbox[key] ?? key;
     args.forEach((name, value) => text = text.replaceAll('{$name}', value));
     return text;
   }

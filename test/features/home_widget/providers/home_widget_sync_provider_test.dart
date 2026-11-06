@@ -126,8 +126,8 @@ void main() {
 
         expect(store.writes, hasLength(1));
         expect(store.last['state'], 'ready');
-        expect(store.last['total_text'], r'$1,200.00');
-        expect(store.last['phrase'], 'Tu cartera sube hoy; NVDA sumó más.');
+        expect(store.last.containsKey('total_text'), isFalse);
+        expect(store.last['phrase'], 'Tu cartera sube hoy.');
         expect(prefs.getString(WidgetPrefsKeys.ownerUid), 'uid-1');
         expect(prefs.getString(WidgetPrefsKeys.lang), 'es');
         expect(scheduler.registered, 1);
@@ -210,7 +210,7 @@ void main() {
       await c.flush();
 
       expect(store.writes, hasLength(2));
-      expect(store.last['amounts_hidden'], true);
+      expect((store.last['v2'] as Map)['positions_hidden'], true);
       expect(store.last.containsKey('total_text'), isFalse);
       expect(store.last['phrase'], 'Tu cartera sube hoy.');
     });
@@ -227,7 +227,8 @@ void main() {
         expect(store.last['lang'], 'en');
         expect(
           store.last['phrase'],
-          'Your portfolio is up today; NVDA added the most.',
+          // v2: la frase nunca lleva ticker (spec §6.1).
+          'Your portfolio is up today.',
         );
       },
     );
@@ -264,13 +265,9 @@ void main() {
 
         expect(store.scrubs, 1);
         expect(store.last['state'], 'ready');
-        expect(store.last['amounts_hidden'], true);
-        for (final k in [
-          'total_text',
-          'change_text',
-          'phrase',
-          'phrase_stale',
-        ]) {
+        expect((store.last['v2'] as Map)['positions_hidden'], true);
+        // La frase de v2 nunca lleva ticker: puede quedar.
+        for (final k in ['total_text', 'change_text']) {
           expect(store.last.containsKey(k), isFalse, reason: k);
         }
         expect(store.last['a11y_value'], isNot(contains(r'$')));
@@ -368,6 +365,7 @@ void main() {
           widgetBackgroundSchedulerProvider.overrideWithValue(scheduler),
           widgetTextsLoaderProvider.overrideWithValue(loadRealTexts),
           widgetCandleLoaderProvider.overrideWithValue(_candles),
+          widgetIntradayLoaderProvider.overrideWithValue(null),
           productEventsProvider.overrideWithValue(events),
           authSessionProvider.overrideWith((ref) => auth.stream),
         ],

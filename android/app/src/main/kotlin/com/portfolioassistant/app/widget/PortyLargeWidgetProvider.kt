@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import es.antonborri.home_widget.HomeWidgetProvider
 
-/** Widget 4x4: encabezado + frase + novedades de la cartera + 2 preguntas. El nombre calificado lo usa la app (home_widget). */
+/** Widget 4x4: encabezado + % + gráfico + 3 novedades + 2 preguntas. El nombre calificado lo usa la app (home_widget). */
 class PortyLargeWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,

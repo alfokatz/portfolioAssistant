@@ -30,7 +30,7 @@ import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_add_sheet.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_add_tile.dart';
-import 'package:portfolio_assistant/features/home_widget/view/widget_amounts_tile.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_positions_tile.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_news_sheet.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
@@ -269,7 +269,7 @@ void main() {
                         SettingsDivider(),
                         WidgetAddTile(),
                         SettingsDivider(),
-                        WidgetAmountsTile(),
+                        WidgetPositionsTile(),
                         SettingsDivider(),
                       ],
                     ),

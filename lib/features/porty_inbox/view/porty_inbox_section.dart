@@ -284,6 +284,7 @@ abstract final class PortyInsightCopy {
       'distance': _pct(n['distance'], decimals: 1),
       'pnl': AppNumberFormat.percent(n['pnl'] ?? 0, decimals: 0),
       'change': AppNumberFormat.percent(n['change'] ?? 0),
+      'move': AppNumberFormat.percent((n['change'] ?? 0).abs(), signed: false),
       'days': '${(n['days'] ?? 0).round()}',
       'price_then': _money(n['price_then']),
     };
@@ -300,8 +301,15 @@ abstract final class PortyInsightCopy {
     PortyInsightKind.topicMoved => 'topic_moved',
   };
 
-  static String title(PortyInsight i) =>
-      'porty_inbox_${_key(i)}_title'.tr(namedArgs: _args(i));
+  /// Un tema de charla dice que lo consultó (no que lo tiene) y si subió o
+  /// bajó con palabras: al lado de las posiciones, "TSLA -13%" se leía como
+  /// una acción de la cartera.
+  static String title(PortyInsight i) => i.kind == PortyInsightKind.topicMoved
+      ? ((i.numbers['change'] ?? 0) < 0
+                ? 'porty_inbox_topic_moved_down_title'
+                : 'porty_inbox_topic_moved_up_title')
+            .tr(namedArgs: _args(i))
+      : 'porty_inbox_${_key(i)}_title'.tr(namedArgs: _args(i));
 
   static String detail(PortyInsight i) =>
       'porty_inbox_${_key(i)}_detail'.tr(namedArgs: _args(i));

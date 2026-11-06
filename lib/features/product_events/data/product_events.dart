@@ -67,16 +67,28 @@ enum ProductEvent {
   appOpened('app_opened'),
 
   /// Tocó el widget de la pantalla de inicio. Props: `platform`, `size`,
-  /// `target` (`chat` | `question`), `question_id`, `data_age_min`,
-  /// `amounts_hidden`.
+  /// `target` (`chat` | `question` | `home` | `news` | `earnings` | ...),
+  /// `question_id` (el `wire` de la plantilla), `question_source`
+  /// (`novelty` | `goal` | `plan` | `biggest` | `profile`), `item_kind`,
+  /// `item_prio`, `data_age_min`, `positions_hidden`. Nunca ticker, texto
+  /// de la pregunta ni id de ítem.
   widgetOpened('widget_opened'),
 
   /// Cambió qué widgets hay instalados. Props: `platform`, `sizes` (lista;
   /// vacía = lo sacó).
   widgetPresence('widget_presence'),
 
-  /// Activó o desactivó "Ocultar montos en el widget". Props: `hidden`.
+  /// Ya no se usa (el ajuste ahora es "Ocultar posiciones"): queda en el
+  /// enum por compatibilidad.
   widgetAmountsToggled('widget_amounts_toggled'),
+
+  /// Activó o desactivó "Ocultar posiciones en el widget". Props: `hidden`.
+  widgetPositionsToggled('widget_positions_toggled'),
+
+  /// El usuario avanzó la novedad del widget mediano (sin abrir la app; se
+  /// registra al abrir). Props: `platform`, `size` (`medium`), `taps` (la
+  /// diferencia desde lo último registrado).
+  widgetFeedAdvanced('widget_feed_advanced'),
 
   /// Terminó el turno de una pregunta que vino del widget. Props:
   /// `question_id`, `result` (`answered` | `quota` | `paywall` | `failed`).
@@ -85,7 +97,9 @@ enum ProductEvent {
   /// Aproximación de impresiones de las novedades del widget (lo que dibujó
   /// el nativo, leído al abrir). Props: `size`, `news_count`,
   /// `earnings_count`, `teaser` (`none` | `news` | `earnings`), `tier`,
-  /// `amounts_hidden`, `platform`. Nunca ticker, titular ni id de ítem.
+  /// `positions_hidden`, `platform`, y de la v2: `line_kind` (chico),
+  /// `shown_kind`, `shown_prio` (mediano), `insight_count`, `mover_count`,
+  /// `biggest_count`, `live_count`. Nunca ticker, titular ni id de ítem.
   widgetItemsRendered('widget_items_rendered'),
 
   /// Acción en la hoja de novedades del widget. Props: `action`

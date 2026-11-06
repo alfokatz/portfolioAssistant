@@ -137,39 +137,39 @@ final widgetInstalledSizesProvider =
 /// = no hay datos: se muestra una vista ilustrativa (sin números inventados).
 class WidgetPreviewData {
   const WidgetPreviewData({
-    required this.total,
     required this.period,
-    this.change,
+    this.title,
     this.changePct,
     this.direction,
     this.phrase,
   });
 
-  final String total;
+  /// "tu cartera" (del bloque v2); `null` con un snapshot de la versión
+  /// anterior: la vista usa su propio texto.
+  final String? title;
   final String? period;
-  final String? change;
   final String? changePct;
 
   /// 'up' | 'down' | 'flat'.
   final String? direction;
   final String? phrase;
 
-  /// `null` si el snapshot no es un `ready` con datos.
+  /// `null` si el snapshot no es un `ready` con datos. Nunca lee montos ni
+  /// tickers: el widget no los guarda (los de una versión anterior, si
+  /// quedaron, se ignoran).
   static WidgetPreviewData? fromSnapshotJson(Map<String, Object?>? json) {
     if (json == null || json['state'] != 'ready') return null;
     final labels = json['labels'];
     final l = labels is Map ? labels : const {};
-    final hidden = json['amounts_hidden'] == true;
-    final total =
-        hidden ? l['hidden_amount'] : json['total_text'] ?? l['hidden_amount'];
     final pct = json['change_pct_text'];
-    if (total is! String || pct is! String) return null;
+    if (pct is! String) return null;
+    final v2 = json['v2'];
+    final v2Labels = v2 is Map ? v2['labels'] : null;
+    final title = v2Labels is Map ? v2Labels['your_portfolio'] : null;
     final period = l['period_${json['period']}'];
     return WidgetPreviewData(
-      total: total,
+      title: title is String ? title : null,
       period: period is String ? period : null,
-      change:
-          json['change_text'] is String ? json['change_text'] as String : null,
       changePct: pct,
       direction:
           json['direction'] is String ? json['direction'] as String : null,
