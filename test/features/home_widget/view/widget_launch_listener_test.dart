@@ -8,6 +8,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
@@ -42,11 +45,14 @@ void main() {
     String? initial,
     bool withSession = true,
     bool hidden = false,
+    String? uid,
+    Future<void> Function(SharedPreferences prefs)? seed,
   }) async {
     SharedPreferences.setMockInitialValues({
       if (hidden) WidgetPrefsKeys.positionsHidden: true,
     });
     final prefs = await SharedPreferences.getInstance();
+    await seed?.call(prefs);
     resetWidgetLaunchInitialHandled();
     store =
         FakeHomeWidgetStore()
@@ -85,6 +91,8 @@ void main() {
           homeWidgetStoreProvider.overrideWithValue(store),
           productEventsProvider.overrideWithValue(events),
           widgetLaunchedWithSessionProvider.overrideWithValue(withSession),
+          if (uid != null) widgetCurrentUserIdProvider.overrideWithValue(() => uid),
+          widgetTextsLoaderProvider.overrideWithValue(loadRealTexts),
         ],
         child: Builder(
           builder: (context) {
@@ -119,6 +127,73 @@ void main() {
       'data_age_min': 7,
       'positions_hidden': true,
     });
+  });
+
+  testWidgets('a ref of this user opens the chat with the resolved question', (
+    tester,
+  ) async {
+    const draft = WidgetQuestionDraft(
+      template: WidgetQuestionTemplate.goalProgress,
+      source: WidgetQuestionSource.goal,
+      subject: 'goal:Casa',
+      args: {'goal': 'Casa'},
+    );
+    final ref = draft.ref(hidden: false);
+    await tester.runAsync(
+      () => pump(
+        tester,
+        uid: 'uid-1',
+        initial:
+            'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=$ref&src=goal&size=medium',
+        seed: (prefs) async {
+          final cache = WidgetFeedCache(prefs);
+          final now = DateTime.now();
+          await cache.write(WidgetFeedCacheEntry(uid: 'uid-1', writtenAt: now));
+          await cache.rememberQuestions(
+            uid: 'uid-1',
+            drafts: const [draft],
+            hidden: false,
+            now: now,
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('assistant'), findsOneWidget);
+    final extra = assistantExtras.last! as AssistantQuestionRequest;
+    expect(extra.question, '¿Cómo voy con Casa?');
+  });
+
+  testWidgets('a ref from another user opens an empty chat', (tester) async {
+    const draft = WidgetQuestionDraft(
+      template: WidgetQuestionTemplate.goalProgress,
+      source: WidgetQuestionSource.goal,
+      subject: 'goal:Casa',
+      args: {'goal': 'Casa'},
+    );
+    final ref = draft.ref(hidden: false);
+    await tester.runAsync(
+      () => pump(
+        tester,
+        uid: 'uid-2',
+        initial:
+            'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=$ref&src=goal&size=medium',
+        seed: (prefs) async {
+          final cache = WidgetFeedCache(prefs);
+          final now = DateTime.now();
+          await cache.write(WidgetFeedCacheEntry(uid: 'uid-1', writtenAt: now));
+          await cache.rememberQuestions(
+            uid: 'uid-1',
+            drafts: const [draft],
+            hidden: false,
+            now: now,
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('assistant'), findsOneWidget);
+    expect(assistantExtras.last, isNull);
   });
 
   testWidgets(

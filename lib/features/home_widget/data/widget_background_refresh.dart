@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_series_builder.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_chart_loader.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_items_selector.dart';
@@ -116,9 +116,11 @@ void widgetBackgroundDispatcher() {
     try {
       WidgetsFlutterBinding.ensureInitialized();
       await HomeWidget.setAppGroupId(homeWidgetAppGroupId);
+      final yahoo = _yahooSource();
       final deps = WidgetRefreshDeps(
         prefs: await SharedPreferences.getInstance(),
-        loadCandles: _yahooCandles(),
+        loadCandles: yahoo.getHistoricalDaily,
+        loadIntraday: yahoo.getIntradayCandles,
         loadTexts: WidgetTexts.load,
         store: const PluginHomeWidgetStore(),
         now: DateTime.now,
@@ -135,18 +137,17 @@ void widgetBackgroundDispatcher() {
 /// spec: un segundo cliente de Supabase podría rotar el refresh token y
 /// cerrar la sesión del usuario). Con `cacheTtl` explícito: `dotenv` no
 /// está cargado en este isolate.
-Future<List<PriceCandle>> Function(String ticker) _yahooCandles() {
-  final source = YahooQuoteRemoteDataSource(
-    cacheTtl: const Duration(minutes: 10),
-    dio: Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 6),
-        receiveTimeout: const Duration(seconds: 6),
-      ),
+YahooQuoteRemoteDataSource _yahooSource() => YahooQuoteRemoteDataSource(
+  cacheTtl: const Duration(minutes: 10),
+  dio: Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 6),
+      receiveTimeout: const Duration(seconds: 6),
+      // Sin User-Agent de navegador Yahoo responde 429 al intradía.
+      headers: {'User-Agent': 'Mozilla/5.0'},
     ),
-  );
-  return source.getHistoricalDaily;
-}
+  ),
+);
 
 /// Todo lo que necesita [refreshOnce], inyectable para tests.
 class WidgetRefreshDeps {
@@ -156,10 +157,14 @@ class WidgetRefreshDeps {
     required this.loadTexts,
     required this.store,
     required this.now,
+    this.loadIntraday,
   });
 
   final SharedPreferences prefs;
   final Future<List<PriceCandle>> Function(String ticker) loadCandles;
+
+  /// Velas intradía (5 min) para el gráfico del día; `null` = sin intradía.
+  final Future<List<PriceCandle>> Function(String ticker)? loadIntraday;
   final Future<WidgetTexts> Function(String lang) loadTexts;
   final HomeWidgetStore store;
   final DateTime Function() now;
@@ -258,8 +263,16 @@ Future<bool> refreshOnce(WidgetRefreshDeps deps) async {
       ),
   ];
   final biggest = WidgetPortfolioFacts.biggest(facts);
+  final chart = await loadWidgetChart(
+    positions: positions,
+    dailyCandles: candles,
+    movePercent: move.percent,
+    dailyValues: [for (final p in history) p.totalValue],
+    loadIntraday: deps.loadIntraday,
+  );
   final built = WidgetSnapshotBuilder.readyBuild(
     move: move,
+    chart: chart,
     positionsHidden: positionsHidden,
     lang: lang,
     now: now,

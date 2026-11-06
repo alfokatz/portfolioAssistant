@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_background_refresh.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_chart_loader.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_counts_client.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_feed_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
@@ -62,6 +63,7 @@ class _KnownReady extends _Known {
     required this.dataAsOf,
     this.holdings = const [],
     this.facts = const [],
+    this.chart,
   });
 
   final double totalValue;
@@ -73,6 +75,9 @@ class _KnownReady extends _Known {
 
   /// Valor y variación del último día por ticker (mover y biggest).
   final List<WidgetPositionFact> facts;
+
+  /// La forma del día (o de los últimos días); `null` si no hay datos.
+  final WidgetChart? chart;
 }
 
 /// Lo que solo tiene la app abierta (avisos de la Home, meta, desvío del
@@ -105,6 +110,7 @@ class HomeWidgetSyncController {
     required this.scheduler,
     required this.loadTexts,
     required this.loadCandles,
+    this.loadIntraday,
     required this.currentUserId,
     required this.amountsHidden,
     required String initialLang,
@@ -124,6 +130,9 @@ class HomeWidgetSyncController {
   final WidgetBackgroundScheduler scheduler;
   final Future<WidgetTexts> Function(String lang) loadTexts;
   final Future<List<PriceCandle>> Function(String ticker) loadCandles;
+
+  /// Velas intradía (5 min) para el gráfico del día; `null` = sin intradía.
+  final Future<List<PriceCandle>> Function(String ticker)? loadIntraday;
   final String? Function() currentUserId;
   final bool Function() amountsHidden;
 
@@ -267,11 +276,33 @@ class HomeWidgetSyncController {
         if (at is! int || at <= lastLogged) continue;
         if (at > newest) newest = at;
         final teaser = entry['teaser'];
+        final kinds = entry['kinds'] is Map ? entry['kinds'] as Map : const {};
+        int count(String kind) {
+          final v = kinds[kind] ?? entry[kind];
+          return v is int ? v : 0;
+        }
+
+        final line = entry['line'];
+        final shownKind = entry['shown_kind'];
+        final shownPrio = entry['shown_prio'];
+        final live = entry['live'];
         events.log(ProductEvent.widgetItemsRendered, {
           'size': size,
-          'news_count': entry['news'] is int ? entry['news'] : 0,
-          'earnings_count': entry['earnings'] is int ? entry['earnings'] : 0,
+          'news_count': count('news'),
+          'earnings_count': count('earnings'),
+          'insight_count': count('insight'),
+          'mover_count': count('mover'),
+          'biggest_count': count('biggest'),
+          'live_count': live is int ? live : 0,
           'teaser': teaser == 'news' || teaser == 'earnings' ? teaser : 'none',
+          if (size == 'small')
+            'line_kind': _renderLines.contains(line) ? line : 'none',
+          if (size == 'medium') ...{
+            'shown_kind':
+                WidgetFeedKind.fromWire(shownKind is String ? shownKind : null)
+                    ?.wire,
+            'shown_prio': shownPrio is int ? shownPrio : null,
+          },
           'tier': (tier ?? currentTier?.call())?.name,
           'positions_hidden': amountsHidden(),
           'platform': store.platform,
@@ -280,7 +311,41 @@ class HomeWidgetSyncController {
       if (newest > lastLogged) {
         await prefs.setInt(WidgetItemsCache.renderLoggedKey, newest);
       }
+      await _reportFeedAdvanced(log);
     } catch (_) {}
+  }
+
+  static const _renderLines = {
+    'dated',
+    'insight',
+    'chart',
+    'hidden_count',
+    'none',
+  };
+
+  /// Clave privada: hasta qué `next_taps` del mediano ya se registró.
+  @visibleForTesting
+  static const nextTapsLoggedKey = 'widget_next_taps_logged';
+
+  /// Los toques de "siguiente" no abren la app: el nativo los cuenta en el
+  /// render log y acá se registra la diferencia desde la última vez.
+  Future<void> _reportFeedAdvanced(Map<String, Object?> log) async {
+    final medium = log['medium'];
+    final taps = medium is Map ? medium['next_taps'] : null;
+    if (taps is! int) return;
+    final logged = prefs.getInt(nextTapsLoggedKey) ?? 0;
+    // El contador volvió a cero (reinstalación, otro widget): se reancla.
+    if (taps < logged) {
+      await prefs.setInt(nextTapsLoggedKey, taps);
+      return;
+    }
+    if (taps == logged) return;
+    events.log(ProductEvent.widgetFeedAdvanced, {
+      'platform': store.platform,
+      'size': 'medium',
+      'taps': taps - logged,
+    });
+    await prefs.setInt(nextTapsLoggedKey, taps);
   }
 
   /// Escribe ya lo que esté pendiente (tests).
@@ -326,7 +391,22 @@ class HomeWidgetSyncController {
     final positions = [for (final v in lots) v.position];
     final candles = await _candlesFor(positions);
     if (epoch != _epoch) return;
+    final move = PortfolioDayMove.compute(
+      history: history,
+      positions: positions,
+      candlesByTicker: candles,
+      now: _now(),
+    );
+    final chart = await loadWidgetChart(
+      positions: positions,
+      dailyCandles: candles,
+      movePercent: move.percent,
+      dailyValues: [for (final p in history) p.totalValue],
+      loadIntraday: loadIntraday,
+    );
+    if (epoch != _epoch) return;
     _known = _KnownReady(
+      chart: chart,
       holdings: [
         for (final v in summary.valuations)
           WidgetHolding(
@@ -346,12 +426,7 @@ class HomeWidgetSyncController {
           ),
       ],
       totalValue: summary.totalValue,
-      move: PortfolioDayMove.compute(
-        history: history,
-        positions: positions,
-        candlesByTicker: candles,
-        now: _now(),
-      ),
+      move: move,
       dataAsOf: dataAsOf,
     );
     final uid = currentUserId();
@@ -393,6 +468,7 @@ class HomeWidgetSyncController {
       final biggest = WidgetPortfolioFacts.biggest(known.facts);
       final built = WidgetSnapshotBuilder.readyBuild(
         move: known.move,
+        chart: known.chart,
         positionsHidden: hidden,
         lang: lang,
         now: now,
@@ -518,6 +594,12 @@ final widgetTextsLoaderProvider =
       (ref) => WidgetTexts.load,
     );
 
+final widgetIntradayLoaderProvider =
+    Provider<Future<List<PriceCandle>> Function(String ticker)?>((ref) {
+      final QuoteRepository quotes = ref.watch(quoteRepositoryProvider);
+      return quotes.getIntradayCandles;
+    });
+
 final widgetCandleLoaderProvider =
     Provider<Future<List<PriceCandle>> Function(String ticker)>((ref) {
       final QuoteRepository quotes = ref.watch(quoteRepositoryProvider);
@@ -603,6 +685,7 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
     scheduler: ref.watch(widgetBackgroundSchedulerProvider),
     loadTexts: ref.watch(widgetTextsLoaderProvider),
     loadCandles: ref.watch(widgetCandleLoaderProvider),
+    loadIntraday: ref.watch(widgetIntradayLoaderProvider),
     currentUserId: ref.read(widgetCurrentUserIdProvider),
     amountsHidden: () => ref.read(widgetPositionsHiddenProvider),
     initialLang: AppLanguage.code,

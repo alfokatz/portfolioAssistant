@@ -263,6 +263,10 @@ void main() {
         'size': 'large',
         'news_count': 2,
         'earnings_count': 1,
+        'insight_count': 0,
+        'mover_count': 0,
+        'biggest_count': 0,
+        'live_count': 0,
         'teaser': 'news',
         'tier': 'gold',
         'positions_hidden': false,
@@ -279,6 +283,70 @@ void main() {
       };
       await c.reportItemsRendered(tier: SubscriptionTier.gold);
       expect(events.logged.single.$2['teaser'], 'none');
+    });
+
+    test('v2 render log: counts by kind, line and shown item', () async {
+      store.renderLog = {
+        'small': {'at': 10, 'line': 'insight', 'live': 3},
+        'medium': {
+          'at': 11,
+          'shown_kind': 'earnings',
+          'shown_prio': 1,
+          'kinds': {'earnings': 1, 'insight': 1, 'mover': 1},
+          'live': 3,
+        },
+      };
+      await c.reportItemsRendered(tier: SubscriptionTier.gold);
+      final logged = [
+        for (final (e, p) in events.logged)
+          if (e == ProductEvent.widgetItemsRendered) p,
+      ];
+      expect(logged.first['line_kind'], 'insight');
+      expect(logged.first.containsKey('shown_kind'), isFalse);
+      expect(logged.last['shown_kind'], 'earnings');
+      expect(logged.last['shown_prio'], 1);
+      expect(logged.last['insight_count'], 1);
+      expect(logged.last['mover_count'], 1);
+      expect(logged.last['live_count'], 3);
+      expect(logged.last.containsKey('line_kind'), isFalse);
+    });
+
+    test('widget_feed_advanced logs the taps since the last time', () async {
+      store.renderLog = {
+        'medium': {'at': 1, 'next_taps': 4},
+      };
+      await c.reportItemsRendered();
+      List<Map<String, Object?>> advanced() => [
+        for (final (e, p) in events.logged)
+          if (e == ProductEvent.widgetFeedAdvanced) p,
+      ];
+      expect(advanced().single, {
+        'platform': 'ios',
+        'size': 'medium',
+        'taps': 4,
+      });
+
+      events.logged.clear();
+      await c.reportItemsRendered();
+      expect(advanced(), isEmpty);
+
+      store.renderLog = {
+        'medium': {'at': 2, 'next_taps': 6},
+      };
+      await c.reportItemsRendered();
+      expect(advanced().single['taps'], 2);
+
+      // El contador volvió a cero (render log borrado): se reancla sin log.
+      events.logged.clear();
+      store.renderLog = {
+        'medium': {'at': 3, 'next_taps': 1},
+      };
+      await c.reportItemsRendered();
+      expect(advanced(), isEmpty);
+      expect(
+        prefs.getInt(HomeWidgetSyncController.nextTapsLoggedKey),
+        1,
+      );
     });
 
     test('without a render log nothing is logged', () async {

@@ -365,6 +365,7 @@ void main() {
           widgetBackgroundSchedulerProvider.overrideWithValue(scheduler),
           widgetTextsLoaderProvider.overrideWithValue(loadRealTexts),
           widgetCandleLoaderProvider.overrideWithValue(_candles),
+          widgetIntradayLoaderProvider.overrideWithValue(null),
           productEventsProvider.overrideWithValue(events),
           authSessionProvider.overrideWith((ref) => auth.stream),
         ],
