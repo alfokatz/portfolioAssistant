@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
@@ -291,7 +292,18 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       closed: _closed,
     );
     if (_stale(epoch)) return;
-    final generation = await _generator.generate(week: week, input: input);
+    // Porty escribe en los dos idiomas a la vez (en paralelo, sin sumar
+    // espera): si el usuario cambia el idioma de la app en la semana, el
+    // informe ya está en el nuevo. El del idioma actual es el principal; si
+    // el otro falla, se guarda igual sin alternativa.
+    final language = AppLanguage.code;
+    final other = language == 'en' ? 'es' : 'en';
+    final generations = await Future.wait([
+      _generator.generate(week: week, input: input, language: language),
+      _generator.generate(week: week, input: input, language: other),
+    ]);
+    final generation = generations[0];
+    final otherGeneration = generations[1];
     if (_stale(epoch)) return;
     if (generation.failed) {
       debugPrint(
@@ -311,13 +323,18 @@ class WeeklyReportController extends StateNotifier<WeeklyReportState> {
       );
       return;
     }
-    final report = WeeklyReport.compose(
-      input: input,
-      draft: generation.draft,
-      variant: WeeklyReportVariant.full,
-      courtesy: courtesy,
-      courtesyNumber: courtesyNumber,
-      courtesyTotal: courtesyTotal,
+    WeeklyReport full(WeeklyReportDraft draft, String lang) =>
+        WeeklyReport.compose(
+          input: input,
+          draft: draft,
+          variant: WeeklyReportVariant.full,
+          courtesy: courtesy,
+          courtesyNumber: courtesyNumber,
+          courtesyTotal: courtesyTotal,
+          language: lang,
+        );
+    final report = full(generation.draft, language).withAlternate(
+      otherGeneration.failed ? null : full(otherGeneration.draft, other),
     );
     final saved = await _store.complete(week, report.toJson());
     if (!saved) debugPrint('[WeeklyReport] complete rejected for ${week.key}');

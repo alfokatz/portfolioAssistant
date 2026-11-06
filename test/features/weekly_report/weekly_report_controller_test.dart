@@ -82,7 +82,7 @@ class _Builder extends WeeklyReportInputBuilder {
 }
 
 class _Generator extends WeeklyReportGenerator {
-  _Generator({this.error, this.gate})
+  _Generator({this.error, this.gate, this.failLanguage})
     : super(
         config: AiProxyConfig.fixed(Uri.parse('https://x/ai-chat'), 'jwt'),
         model: 'gpt-4.1-mini',
@@ -92,7 +92,11 @@ class _Generator extends WeeklyReportGenerator {
   /// Si está, la generación espera a que se complete (para simular que
   /// Porty sigue escribiendo mientras cambia el usuario).
   final Future<void>? gate;
+
+  /// Solo falla la generación en este idioma (la otra sale bien).
+  final String? failLanguage;
   var calls = 0;
+  final languages = <String?>[];
 
   @override
   Future<WeeklyReportGeneration> generate({
@@ -101,13 +105,32 @@ class _Generator extends WeeklyReportGenerator {
     String? language,
   }) async {
     calls++;
+    languages.add(language);
     await gate;
-    if (error != null) {
+    if (error != null || (failLanguage != null && language == failLanguage)) {
       return WeeklyReportGeneration(
         draft: WeeklyReportDraft.empty,
         rounds: 1,
         remainingIssues: const [],
-        error: error,
+        error: error ?? 'timeout',
+      );
+    }
+    if (language == 'en') {
+      return const WeeklyReportGeneration(
+        draft: WeeklyReportDraft(
+          reading: 'Apple pushed your portfolio',
+          movers: [
+            DraftMover(
+              ticker: 'AAPL',
+              why: 'It lined up with iPhone preorders.',
+              newsId: 'n1',
+            ),
+          ],
+          headlines: [],
+          investors: [],
+        ),
+        rounds: 1,
+        remainingIssues: [],
       );
     }
     return const WeeklyReportGeneration(
@@ -156,13 +179,18 @@ _setup(
   List<WeeklyReportClaim> claims, {
   SubscriptionTier tier = SubscriptionTier.gold,
   String? generationError,
+  String? failLanguage,
   Future<void>? gate,
   Duration retryDelay = const Duration(milliseconds: 10),
 }) async {
   SharedPreferences.setMockInitialValues({});
   final store = _Store(claims);
   final builder = _Builder();
-  final gen = _Generator(error: generationError, gate: gate);
+  final gen = _Generator(
+    error: generationError,
+    gate: gate,
+    failLanguage: failLanguage,
+  );
   final c = WeeklyReportController(
     store: store,
     builder: builder,
@@ -186,7 +214,7 @@ void main() {
       await s.c.ensureFor(_lots);
 
       expect(s.builder.calls, [false]);
-      expect(s.gen.calls, 1);
+      expect(s.gen.calls, 2); // una por idioma
       expect(s.c.state.status, WeeklyReportStatus.ready);
       expect(s.c.state.freshlyGenerated, isTrue);
       final r = s.c.state.report!;
@@ -198,6 +226,45 @@ void main() {
       expect(s.store.completed.single['reading'], 'Apple empujó tu cartera');
     },
   );
+
+  test('Porty writes the report in both languages: switching the app language '
+      'mid-week shows it in the new one (same numbers)', () async {
+    final s = await _setup([const ClaimGranted(courtesy: false, attempt: 1)]);
+    await s.c.ensureFor(_lots);
+
+    expect(s.gen.languages, ['es', 'en']);
+    final r = s.c.state.report!;
+    expect(r.language, 'es');
+    expect(r.forLanguage('es').reading, 'Apple empujó tu cartera');
+    final en = r.forLanguage('en');
+    expect(en.reading, 'Apple pushed your portfolio');
+    expect(en.language, 'en');
+    expect(en.changePct, r.changePct);
+    expect(en.movers.map((m) => m.ticker), r.movers.map((m) => m.ticker));
+
+    // Lo guardado (servidor y dispositivo) trae las dos versiones.
+    final saved = s.store.completed.single;
+    expect(saved['lang'], 'es');
+    expect((saved['alt'] as Map)['reading'], 'Apple pushed your portfolio');
+    final parsed = WeeklyReport.tryParse(saved)!;
+    expect(parsed.forLanguage('en').reading, 'Apple pushed your portfolio');
+    expect(parsed.alternate!.alternate, isNull);
+  });
+
+  test('if only the other language fails, the report is saved without it '
+      'and shows the app language everywhere', () async {
+    final s = await _setup([
+      const ClaimGranted(courtesy: false, attempt: 1),
+    ], failLanguage: 'en');
+    await s.c.ensureFor(_lots);
+
+    final r = s.c.state.report!;
+    expect(r.variant, WeeklyReportVariant.full);
+    expect(r.alternate, isNull);
+    expect(r.forLanguage('en').reading, 'Apple empujó tu cartera');
+    expect(s.store.completed.single.containsKey('alt'), isFalse);
+    expect(s.store.failed, 0);
+  });
 
   test(
     'ready: shows what was saved, without building or calling Porty',
@@ -319,7 +386,7 @@ void main() {
     await s.c.ensureFor(_lots);
     await s.c.ensureFor(_lots);
     expect(s.store.claimCalls, 1);
-    expect(s.gen.calls, 1);
+    expect(s.gen.calls, 2); // una por idioma
   });
 
   test('seen is remembered per week', () async {
@@ -418,7 +485,7 @@ void main() {
       expect(c.state.report!.reading, 'Apple empujó tu cartera');
       await c.ensureFor(_lots);
       expect(next.claimCalls, 0);
-      expect(s.gen.calls, 1);
+      expect(s.gen.calls, 2); // una por idioma
     });
 
     test('numbers only: shown at once, revalidated quietly once', () async {

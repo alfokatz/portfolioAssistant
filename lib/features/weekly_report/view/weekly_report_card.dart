@@ -78,7 +78,11 @@ class _WeeklyReportCardState extends ConsumerState<WeeklyReportCard> {
       return const SizedBox.shrink();
     }
     final report =
-        state.status == WeeklyReportStatus.ready ? state.report : null;
+        state.status == WeeklyReportStatus.ready
+            ? state.report?.forLanguage(
+              Localizations.localeOf(context).languageCode,
+            )
+            : null;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Padding(

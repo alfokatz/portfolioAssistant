@@ -46,6 +46,8 @@ class WeeklyReport {
     this.comparison,
     this.reading,
     this.learn,
+    this.language,
+    this.alternate,
   });
 
   /// v2 (2026-10-03): estructura de 3 preguntas (cómo, por qué, qué viene).
@@ -88,7 +90,54 @@ class WeeklyReport {
   final String? reading;
   final ReportLearn? learn;
 
+  /// Idioma de la prosa de Porty ('es' | 'en'). null en payloads anteriores
+  /// al informe bilingüe.
+  final String? language;
+
+  /// El mismo informe con la prosa en el otro idioma: se genera junto con
+  /// este, así cambiar el idioma de la app a mitad de semana no deja a Porty
+  /// hablando en el anterior hasta el sábado. null si no se generó o falló.
+  final WeeklyReport? alternate;
+
   bool get hasProse => variant == WeeklyReportVariant.full;
+
+  /// La versión para mostrar en [languageCode]: la alternativa si está en
+  /// ese idioma; si no, esta (el informe de solo números no tiene prosa y
+  /// sirve igual en los dos).
+  WeeklyReport forLanguage(String languageCode) {
+    final alt = alternate;
+    if (language == null || language == languageCode || alt == null) {
+      return this;
+    }
+    return alt.language == languageCode ? alt : this;
+  }
+
+  /// Este informe con [alt] como versión en el otro idioma.
+  WeeklyReport withAlternate(WeeklyReport? alt) => WeeklyReport(
+    week: week,
+    variant: variant,
+    courtesy: courtesy,
+    courtesyNumber: courtesyNumber,
+    courtesyTotal: courtesyTotal,
+    changePct: changePct,
+    changeAbs: changeAbs,
+    valueEnd: valueEnd,
+    newMoney: newMoney,
+    tradingDays: tradingDays,
+    daily: daily,
+    movers: movers,
+    othersCount: othersCount,
+    othersAllSmall: othersAllSmall,
+    news: news,
+    investors: investors,
+    upcomingEarnings: upcomingEarnings,
+    sp500Pct: sp500Pct,
+    comparison: comparison,
+    reading: reading,
+    learn: learn,
+    language: language,
+    alternate: alt?.withAlternate(null),
+  );
 
   /// Junta los datos con la prosa validada.
   factory WeeklyReport.compose({
@@ -98,6 +147,7 @@ class WeeklyReport {
     bool courtesy = false,
     int? courtesyNumber,
     int? courtesyTotal,
+    String? language,
   }) {
     final n = input.numbers;
     final whyByTicker = {for (final m in draft.movers) m.ticker: m};
@@ -200,6 +250,7 @@ class WeeklyReport {
                 concept: draft.learn!.concept,
                 text: draft.learn!.text,
               ),
+      language: language,
     );
   }
 
@@ -229,6 +280,8 @@ class WeeklyReport {
     'upcoming_earnings': [for (final e in upcomingEarnings) e.toJson()],
     'reading': reading,
     'learn': learn?.toJson(),
+    if (language != null) 'lang': language,
+    if (alternate != null) 'alt': alternate!.toJson(),
   };
 
   /// `null` si el payload es de otra versión o está roto: la app recalcula
@@ -243,6 +296,8 @@ class WeeklyReport {
           if (e is Map) e.cast<String, Object?>(),
       ];
       final learn = j['learn'];
+      final lang = j['lang'];
+      final alt = j['alt'];
       return WeeklyReport(
         week: ReportWeek.ofMonday(week),
         variant: WeeklyReportVariant.values.firstWhere(
@@ -284,6 +339,12 @@ class WeeklyReport {
                   concept: learn['concept'] as String,
                   text: learn['text'] as String,
                 )
+                : null,
+        language: lang is String ? lang : null,
+        // Una sola alternativa: la de la alternativa no se lee.
+        alternate:
+            alt is Map
+                ? tryParse(alt.cast<String, Object?>())?.withAlternate(null)
                 : null,
       );
     } catch (_) {
