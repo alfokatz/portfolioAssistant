@@ -2,22 +2,62 @@
 // Correr: flutter test test/features/home_widget/domain/widget_launch_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/features/home_widget/domain/widget_launch.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_questions.dart';
+import 'package:portfolio_assistant/features/home_widget/domain/widget_snapshot.dart';
 
 void main() {
   group('WidgetLaunch.parse', () {
-    test('valid question ids', () {
-      for (final id in ['today', 'top_mover']) {
+    test('valid question: template, ref and source', () {
+      final l =
+          WidgetLaunch.parse(
+            Uri.parse(
+              'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=0c9d2e11&src=goal&size=medium&age=42',
+            ),
+          )!;
+      expect(l.target, WidgetLaunchTarget.question);
+      expect(l.questionTemplate, WidgetQuestionTemplate.goalProgress);
+      expect(l.questionRef, '0c9d2e11');
+      expect(l.questionSource, WidgetQuestionSource.goal);
+      expect(l.size, 'medium');
+      expect(l.dataAgeMin, 42);
+    });
+
+    test('old ids today/top_mover and bad refs open an empty chat', () {
+      for (final q in [
+        'q=today&ref=0c9d2e11&src=goal',
+        'q=top_mover&ref=0c9d2e11&src=goal',
+        'q=biggest&ref=ZZZZ&src=biggest',
+        'q=biggest&ref=0c9d2e11&src=nope',
+        'q=biggest&src=biggest',
+      ]) {
         final l =
             WidgetLaunch.parse(
-              Uri.parse(
-                'porty-widget://open?homeWidget&target=question&q=$id&size=medium&age=42',
-              ),
+              Uri.parse('porty-widget://open?homeWidget&target=question&$q'),
             )!;
-        expect(l.target, WidgetLaunchTarget.question);
-        expect(l.questionId!.wire, id);
-        expect(l.size, 'medium');
-        expect(l.dataAgeMin, 42);
+        expect(l.target, WidgetLaunchTarget.chat, reason: q);
+        expect(l.questionTemplate, isNull);
+        expect(l.questionRef, isNull);
       }
+    });
+
+    test('home target with kind and prio; invalid ones are null', () {
+      final ok =
+          WidgetLaunch.parse(
+            Uri.parse(
+              'porty-widget://open?homeWidget&target=home&kind=mover&prio=3',
+            ),
+          )!;
+      expect(ok.target, WidgetLaunchTarget.home);
+      expect(ok.itemKind, WidgetFeedKind.mover);
+      expect(ok.itemPrio, 3);
+      final bad =
+          WidgetLaunch.parse(
+            Uri.parse(
+              'porty-widget://open?homeWidget&target=home&kind=x&prio=9',
+            ),
+          )!;
+      expect(bad.itemKind, isNull);
+      expect(bad.itemPrio, isNull);
     });
 
     test('unknown q opens an empty chat and sends nothing', () {
@@ -28,7 +68,7 @@ void main() {
             ),
           )!;
       expect(l.target, WidgetLaunchTarget.chat);
-      expect(l.questionId, isNull);
+      expect(l.questionTemplate, isNull);
     });
 
     test('question without q opens the chat', () {

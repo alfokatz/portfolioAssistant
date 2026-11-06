@@ -226,8 +226,8 @@ void main() {
     c.onHome(null, _home());
     await c.flush();
     expect(store.last['items'], isNotEmpty);
-    await store.scrubStoredAmounts();
-    expect(store.last['amounts_hidden'], true);
+    await store.scrubStoredPositions();
+    expect(store.last['v2']['positions_hidden'], true);
     expect(store.last['items'], isNotEmpty);
   });
 

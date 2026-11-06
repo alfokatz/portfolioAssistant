@@ -169,7 +169,7 @@ void main() {
 
     test('hidden amounts: no amounts, items stay', () async {
       await _entry(prefs, [_news('AAA', const Duration(hours: 3))]);
-      await prefs.setBool(WidgetPrefsKeys.amountsHidden, true);
+      await prefs.setBool(WidgetPrefsKeys.positionsHidden, true);
       await run();
       expect(store.last.containsKey('total_text'), isFalse);
       expect(store.last['items'], hasLength(1));

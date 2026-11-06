@@ -126,8 +126,8 @@ void main() {
 
         expect(store.writes, hasLength(1));
         expect(store.last['state'], 'ready');
-        expect(store.last['total_text'], r'$1,200.00');
-        expect(store.last['phrase'], 'Tu cartera sube hoy; NVDA sumó más.');
+        expect(store.last.containsKey('total_text'), isFalse);
+        expect(store.last['phrase'], 'Tu cartera sube hoy.');
         expect(prefs.getString(WidgetPrefsKeys.ownerUid), 'uid-1');
         expect(prefs.getString(WidgetPrefsKeys.lang), 'es');
         expect(scheduler.registered, 1);
@@ -210,7 +210,7 @@ void main() {
       await c.flush();
 
       expect(store.writes, hasLength(2));
-      expect(store.last['amounts_hidden'], true);
+      expect(store.last['v2']['positions_hidden'], true);
       expect(store.last.containsKey('total_text'), isFalse);
       expect(store.last['phrase'], 'Tu cartera sube hoy.');
     });
@@ -264,7 +264,7 @@ void main() {
 
         expect(store.scrubs, 1);
         expect(store.last['state'], 'ready');
-        expect(store.last['amounts_hidden'], true);
+        expect(store.last['v2']['positions_hidden'], true);
         for (final k in [
           'total_text',
           'change_text',

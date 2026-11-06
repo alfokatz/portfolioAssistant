@@ -28,7 +28,7 @@ class _Events extends ProductEvents {
 }
 
 const _q =
-    'porty-widget://open?homeWidget&target=question&q=today&size=medium&age=7';
+    'porty-widget://open?homeWidget&target=question&q=goal_progress&ref=0c9d2e11&src=goal&size=medium&age=7';
 
 void main() {
   late FakeHomeWidgetStore store;
@@ -44,7 +44,7 @@ void main() {
     bool hidden = false,
   }) async {
     SharedPreferences.setMockInitialValues({
-      if (hidden) WidgetPrefsKeys.amountsHidden: true,
+      if (hidden) WidgetPrefsKeys.positionsHidden: true,
     });
     final prefs = await SharedPreferences.getInstance();
     resetWidgetLaunchInitialHandled();
@@ -103,19 +103,21 @@ void main() {
     await pump(tester, initial: _q, hidden: true);
 
     expect(find.text('assistant'), findsOneWidget);
-    final request = assistantExtras.single as AssistantQuestionRequest;
-    expect(request.question, 'home_widget_question_today');
-    expect(request.origin, isA<WidgetQuestionOrigin>());
-    expect((request.origin! as WidgetQuestionOrigin).questionId, 'today');
+    // El ref no está en la caché privada (no hay sesión en este arnés):
+    // chat vacío, no se manda nada.
+    expect(assistantExtras.single, isNull);
     expect(container.read(appOpenSourceProvider), AppOpenSource.widgetQuestion);
     expect(events.logged.single.$1, ProductEvent.widgetOpened);
     expect(events.logged.single.$2, {
       'platform': 'ios',
       'size': 'medium',
       'target': 'question',
-      'question_id': 'today',
+      'question_id': 'goal_progress',
+      'question_source': 'goal',
+      'item_kind': null,
+      'item_prio': null,
       'data_age_min': 7,
-      'amounts_hidden': true,
+      'positions_hidden': true,
     });
   });
 
