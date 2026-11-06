@@ -93,7 +93,8 @@ void main() {
       final r = _pick(_snap([_item('news', 1), _item('news', 3)], hidden: true));
       expect(r['small'], {'line': 'hidden_count', 'n': 1});
       expect((r['medium']! as Map)['mode'], 'hidden_count');
-      expect((r['medium']! as Map)['n'], 2);
+      expect((r['medium']! as Map)['n'], 1);
+      expect((r['large']! as Map)['n'], 1);
       expect((r['medium']! as Map)['next_button'], false);
       expect(r['next_index'], isNull);
     });

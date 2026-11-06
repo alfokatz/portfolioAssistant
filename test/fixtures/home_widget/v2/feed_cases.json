@@ -3302,13 +3302,13 @@
         },
         "medium": {
           "mode": "hidden_count",
-          "n": 7,
+          "n": 4,
           "question": "4b4466c3",
           "next_button": false
         },
         "large": {
           "mode": "hidden_count",
-          "n": 7,
+          "n": 4,
           "questions": [
             "4b4466c3",
             "ff03d3dd"

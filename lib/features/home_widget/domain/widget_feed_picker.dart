@@ -141,12 +141,12 @@ abstract final class WidgetFeedPicker {
 
     final current = currentIndex(v2, alive, cursor);
     final Map<String, Object?> medium;
-    if (alive.isEmpty) {
+    if (alive.isEmpty || (hidden && top.isEmpty)) {
       medium = {'mode': 'no_news', 'question': fallback, 'next_button': false};
     } else if (hidden) {
       medium = {
         'mode': 'hidden_count',
-        'n': alive.length,
+        'n': top.length,
         'question': fallback,
         'next_button': false,
       };
@@ -161,12 +161,12 @@ abstract final class WidgetFeedPicker {
     }
 
     final Map<String, Object?> largeSize;
-    if (alive.isEmpty) {
+    if (alive.isEmpty || (hidden && top.isEmpty)) {
       largeSize = {'mode': 'no_news', 'questions': large};
     } else if (hidden) {
       largeSize = {
         'mode': 'hidden_count',
-        'n': alive.length,
+        'n': top.length,
         'questions': large,
       };
     } else {

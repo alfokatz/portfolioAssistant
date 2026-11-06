@@ -36,15 +36,16 @@ ZETA, ORBT). Ninguno lleva montos. Reloj de referencia: `2026-11-06T15:00:00Z`
              | {"line": "hidden_count", "n": N}     // N = vivos con prio <= 2 (solo con positions_hidden)
              | {"line": "chart"} | {"line": "no_news"},
      "medium": {"mode": "item", "feed_index": i, "question": "<ref>"|null, "next_button": bool}
-             | {"mode": "hidden_count", "n": live.count, "question": "<ref>"|null, "next_button": false}
+             | {"mode": "hidden_count", "n": N, "question": "<ref>"|null, "next_button": false}
              | {"mode": "no_news", "question": "<ref>"|null, "next_button": false},
      "large":  {"mode": "rows", "rows": [feed_index...], "questions": ["<ref>"...]}
-             | {"mode": "hidden_count", "n": live.count, "questions": [...]}
+             | {"mode": "hidden_count", "n": N, "questions": [...]}
              | {"mode": "no_news", "questions": [...]}
    }}
 ]}
 ```
 
+- Con `positions_hidden`, `hidden_count` (chico, mediano y grande) usa siempre N = vivos con prio <= 2 (igual que `header_n`); si N = 0 el mediano y el grande dan `no_news` y el chico gráfico o `no_news`.
 - `feed_index` = posición del ítem en `snapshot.v2.feed` (así sirve también con
   posiciones ocultas, donde los ítems no traen `id`).
 - `live` y el resto de reglas: §3.5 de la spec. Orden estable por `prio` del
