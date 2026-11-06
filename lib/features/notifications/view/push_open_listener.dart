@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/features/notifications/data/notifications_re
 import 'package:portfolio_assistant/features/notifications/domain/push_route.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
+import 'package:portfolio_assistant/features/product_events/providers/app_open_source_provider.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -56,6 +57,7 @@ class _PushOpenListenerState extends ConsumerState<PushOpenListener> {
   }
 
   void _open(PushMessage message) {
+    ref.read(appOpenSourceProvider.notifier).state = AppOpenSource.push;
     final logId = message.logId;
     if (logId != null) {
       unawaited(

@@ -16,7 +16,7 @@
 // el comunicado están en inglés; el modelo responde en el idioma del usuario.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { goldAllowed } from "../_shared/data_cache.ts";
+import { allHeld, goldAllowed } from "../_shared/data_cache.ts";
 import { companyPageUrl, earningsReleases, isNotable, itemLabels, normalizeTicker, SecUnavailable } from "../_shared/sec.ts";
 import {
   companyFilings,
@@ -33,6 +33,7 @@ export const config = {
 };
 
 const endpoints = new Set(["filings", "earnings", "fundamentals"]);
+const maxCountTickers = 10;
 
 export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -43,7 +44,8 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (!userId) return typedError(401, "unauthorized", "Missing or invalid JWT");
 
   const url = new URL(req.url);
-  const endpoint = url.pathname.replace(/^.*\/sec\/?/, "").replace(/\/$/, "");
+  const endpoint = url.pathname.replace(/^.*\/sec\/?/, "").replace(/\/$/, "") || (url.searchParams.get("endpoint") ?? "");
+  if (endpoint === "earnings_count") return await earningsCount(req, deps, userId, url);
   if (!endpoints.has(endpoint)) return typedError(404, "endpoint_not_allowed", `${endpoint} not allowed`);
   const raw = url.searchParams.get("ticker") ?? "";
   if (!/^[A-Za-z0-9.\-]{1,10}$/.test(raw)) return typedError(400, "invalid_ticker", "ticker expected");
@@ -181,4 +183,51 @@ async function fundamentalsBody(deps: Deps, ticker: string, cik: string): Promis
 /// Una línea por pedido (sin usuario) para medir caché y latencia.
 function log(endpoint: string, cache: string, started: number) {
   console.log(JSON.stringify({ fn: "sec", endpoint, cache, ms: Date.now() - started }));
+}
+
+/// `earnings_count` (widget): cuántos de los tickers tienen resultados
+/// ESTIMADOS entre hoy y hoy+6 (UTC). Cualquier plan, solo tickers en
+/// cartera: devuelve un número, sin tickers ni fechas.
+async function earningsCount(_req: Request, deps: Deps, userId: string, url: URL): Promise<Response> {
+  const list = (url.searchParams.get("tickers") ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  const tickers = [...new Set(list)];
+  if (
+    tickers.length === 0 || tickers.length > maxCountTickers ||
+    !tickers.every((t) => /^[A-Za-z0-9.\-]{1,10}$/.test(t))
+  ) {
+    return typedError(400, "invalid_ticker", `1-${maxCountTickers} tickers expected`);
+  }
+  if (!(await allHeld(deps, userId, tickers))) {
+    return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
+  }
+  const rate = await deps.db.rpc("rate_limit_hit", {
+    p_user_id: userId,
+    p_bucket: "sec",
+    p_per_minute: config.ratePerMinute,
+  });
+  if (rate.data === false) return typedError(429, "rate_limited", "Too many requests");
+
+  const started = Date.now();
+  const nowMs = deps.now();
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  const last = new Date(nowMs + 6 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  try {
+    let count = 0;
+    for (const raw of tickers) {
+      const row = await resolveCik(deps, normalizeTicker(raw));
+      if (!row) continue;
+      const filings = await companyFilings(deps, row.cik);
+      const { company } = filings.value;
+      const foreignDates = company.filer === "domestic" ? [] : (await foreignResults(deps, row.cik)).value.release_dates;
+      const next = nextReportFrom(company, filings.value.filings, foreignDates, today);
+      if (next && next.date >= today && next.date <= last) count++;
+    }
+    log("earnings_count", "ok", started);
+    return json(200, { tickers_7d: count, as_of: new Date(nowMs).toISOString() });
+  } catch (e) {
+    console.error("[sec] earnings_count", e);
+    log("earnings_count", "error", started);
+    if (e instanceof SecUnavailable) return typedError(502, "upstream_unavailable", "SEC unavailable");
+    return typedError(500, "internal", "Unexpected error");
+  }
 }

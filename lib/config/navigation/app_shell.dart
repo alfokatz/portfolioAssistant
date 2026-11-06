@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_auto_sync.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_auto_sync.dart';
@@ -5,8 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_prompt_watcher.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_open_listener.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/first_portfolio_watcher.dart';
+import 'package:portfolio_assistant/features/product_events/view/app_open_tracker.dart';
 import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
@@ -56,6 +62,9 @@ class AppShell extends ConsumerWidget with BaseScreen {
   Widget build(BuildContext context, WidgetRef ref) {
     subscribeAlert(ref: ref, context: context);
     subscribeNavigation(ref: ref, context: context);
+    // El widget de la pantalla de inicio: mantiene su snapshot al día
+    // mientras el shell está montado, en el idioma de la app.
+    ref.watch(homeWidgetSyncProvider).onLanguage(context.locale.languageCode);
     final colors = context.customColors;
     final current = AppNavDestination.values[navigationShell.currentIndex];
     final isHome = current == AppNavDestination.home;
@@ -96,13 +105,22 @@ class AppShell extends ConsumerWidget with BaseScreen {
       // notificación abre su pantalla
       // (también desde cerrada).
       // La primera vez que la cartera tiene posiciones, Porty muestra lo
-      // que vio en ella (el diagnóstico).
-      body: PushOpenListener(
-        child: FirstPortfolioWatcher(
-          isHome: isHome,
-          child: EtoroAutoSync(
-            child: BinanceAutoSync(
-              child: SnaptradeAutoSync(child: navigationShell),
+      // que vio en ella (el diagnóstico). Tocar el widget abre el chat (con
+      // la pregunta enviada) y `AppOpenTracker` anota cómo se abrió la app.
+      body: AppOpenTracker(
+        onOpen: () => ref.read(widgetPromptProvider.notifier).registerOpen(),
+        child: WidgetLaunchListener(
+          child: PushOpenListener(
+            child: FirstPortfolioWatcher(
+              isHome: isHome,
+              child: WidgetPromptWatcher(
+                isHome: isHome,
+                child: EtoroAutoSync(
+                  child: BinanceAutoSync(
+                    child: SnaptradeAutoSync(child: navigationShell),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

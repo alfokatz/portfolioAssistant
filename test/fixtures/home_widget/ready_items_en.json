@@ -1,0 +1,99 @@
+{
+  "v": 1,
+  "state": "ready",
+  "lang": "en",
+  "written_at": 1793891100000,
+  "data_as_of": 1793890800000,
+  "stale_at": 1793934000000,
+  "period": "today",
+  "amounts_hidden": false,
+  "currency": "USD",
+  "total_text": "$12,345.67",
+  "change_text": "+$123.45",
+  "change_pct_text": "+1.0%",
+  "direction": "up",
+  "phrase": "Your portfolio is up today; NVDA added the most.",
+  "phrase_stale": "Data is out of date. Open Porty to refresh it.",
+  "a11y_value": "Portfolio value $12,345.67, up 1.0% today",
+  "labels": {
+    "period_today": "Today",
+    "period_last_close": "Last close",
+    "stale_date": "as of Nov 5",
+    "updated_now": "Updated just now",
+    "updated_min": "Updated {n} min ago",
+    "updated_h": "Updated {n} h ago",
+    "updated_d": "Updated {n} d ago",
+    "hidden_amount": "••••",
+    "hidden_a11y": "Amounts hidden"
+  },
+  "questions": [
+    {
+      "id": "today",
+      "text": "How's my portfolio doing today?"
+    },
+    {
+      "id": "top_mover",
+      "text": "What moved the most?"
+    }
+  ],
+  "items_section": true,
+  "items_checked_at": 1793891100000,
+  "plan_until": null,
+  "items": [
+    {
+      "id": "57ef8174",
+      "kind": "earnings",
+      "ticker": "ZETA",
+      "segments": [
+        {
+          "from": 1793891100000,
+          "text": "ZETA · estimated earnings date: tomorrow"
+        },
+        {
+          "from": 1793934000000,
+          "text": "ZETA · estimated earnings date: today"
+        }
+      ],
+      "a11y": "ZETA · estimated earnings date: Fri, Nov 6",
+      "expires_at": 1794020399000
+    },
+    {
+      "id": "7ba64e6b",
+      "kind": "news",
+      "ticker": "ACME",
+      "source": "Fuente Ejemplo",
+      "headline": "ACME presenta una nueva línea de productos",
+      "published_at": 1793880300000,
+      "expires_at": 1794053100000
+    },
+    {
+      "id": "76972ea1",
+      "kind": "news",
+      "ticker": "GLOBX",
+      "source": "Fuente Ejemplo",
+      "headline": "GLOBX abre una planta en otro país",
+      "published_at": 1793869500000,
+      "expires_at": 1794042300000
+    },
+    {
+      "id": "cbb6d903",
+      "kind": "news",
+      "ticker": "NOVA",
+      "source": "Fuente Ejemplo",
+      "headline": "NOVA cierra un acuerdo de distribución",
+      "published_at": 1793858700000,
+      "expires_at": 1794031500000
+    }
+  ],
+  "teaser": null,
+  "items_labels": {
+    "section": "Your holdings news",
+    "empty": "We didn't find news on your holdings in the last 48h",
+    "all_expired": "Open Porty to see your holdings news",
+    "redacted": "Unlock your iPhone to see the news",
+    "age_min": "{n}m ago",
+    "age_h": "{n}h ago",
+    "age_yesterday": "yesterday",
+    "a11y_news": "News on {ticker}, {source}, {age}: {headline}"
+  }
+}

@@ -266,7 +266,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
     if (widget.question case final q?) {
       ref
           .read(assistantProvider(_args).notifier)
-          .askFromOutside(q.question, screen: q.screen);
+          .askFromOutside(
+            q.question,
+            screen: q.screen,
+            origin: q.origin,
+          );
     }
     if (_playEntrance) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -333,7 +337,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       if (!mounted) return;
       ref
           .read(assistantProvider(_args).notifier)
-          .askFromOutside(request.question, screen: request.screen);
+          .askFromOutside(
+            request.question,
+            screen: request.screen,
+            origin: request.origin,
+          );
     });
   }
 

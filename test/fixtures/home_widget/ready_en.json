@@ -1,0 +1,39 @@
+{
+  "v": 1,
+  "state": "ready",
+  "lang": "en",
+  "written_at": 1793891100000,
+  "data_as_of": 1793890800000,
+  "stale_at": 1793934000000,
+  "period": "today",
+  "amounts_hidden": false,
+  "currency": "USD",
+  "total_text": "$12,345.67",
+  "change_text": "-$50.20",
+  "change_pct_text": "-0.4%",
+  "direction": "down",
+  "phrase": "Your portfolio is down today; NVDA took away the most.",
+  "phrase_stale": "Data is out of date. Open Porty to refresh it.",
+  "a11y_value": "Portfolio value $12,345.67, down 0.4% today",
+  "labels": {
+    "period_today": "Today",
+    "period_last_close": "Last close",
+    "stale_date": "as of Nov 5",
+    "updated_now": "Updated just now",
+    "updated_min": "Updated {n} min ago",
+    "updated_h": "Updated {n} h ago",
+    "updated_d": "Updated {n} d ago",
+    "hidden_amount": "••••",
+    "hidden_a11y": "Amounts hidden"
+  },
+  "questions": [
+    {
+      "id": "today",
+      "text": "How's my portfolio doing today?"
+    },
+    {
+      "id": "top_mover",
+      "text": "What moved the most?"
+    }
+  ]
+}

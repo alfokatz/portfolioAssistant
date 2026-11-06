@@ -14,8 +14,9 @@
 // para lo reciente, 24 h para una semana ya cerrada.
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { allHeld, clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { assignByName, gdeltFetch, gdeltUrl, type Headline, newsAllowlist, parseArticles, pressName } from "../_shared/gdelt.ts";
+import { isRecommendation } from "../_shared/recommendation.ts";
 import { normalizeTicker } from "../_shared/sec.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
 
@@ -68,15 +69,22 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
   const symbols = tickers.map(normalizeTicker).sort();
   const givenNames = (url.searchParams.get("names") ?? url.searchParams.get("name") ?? "").split("|");
-  const from = url.searchParams.get("from");
-  const to = url.searchParams.get("to");
+  let from = url.searchParams.get("from");
+  let to = url.searchParams.get("to");
   if ((from || to) && !(from && to && isoDay.test(from) && isoDay.test(to) && from < to)) {
     return typedError(400, "invalid_window", "from/to must be YYYY-MM-DD with from < to");
   }
 
-  // Gold, cortesía, o Premium con el ticker en cartera (camino v2). Se
-  // chequea con el ticker como vino en el pedido, antes de normalizarlo.
-  if (!(await newsAllowed(deps, userId, tickers, normalizeTicker))) {
+  // Conteo (widget): cualquier plan, pero solo de tickers en cartera, y no
+  // devuelve titulares. Sin ventana propia usa las últimas 48 h.
+  const countOnly = url.searchParams.get("count_only") === "1";
+  if (countOnly) {
+    if (!(await allHeld(deps, userId, tickers))) {
+      return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
+    }
+  } else if (!(await newsAllowed(deps, userId, tickers, normalizeTicker))) {
+    // Gold, cortesía, o Premium con el ticker en cartera (camino v2). Se
+    // chequea con el ticker como vino en el pedido, antes de normalizarlo.
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
   }
   const rate = await deps.db.rpc("rate_limit_hit", {
@@ -87,6 +95,11 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (rate.data === false) return typedError(429, "rate_limited", "Too many requests");
 
   const started = Date.now();
+  if (countOnly && !(from && to)) {
+    const now = deps.now();
+    from = new Date(now - 2 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    to = new Date(now + 24 * 3600 * 1000).toISOString().slice(0, 10);
+  }
   // Los nombres del cliente se usan solo con permiso Gold y entran en la
   // clave: un nombre armado no puede pisar la entrada compartida.
   const trusted = await clientTextTrusted(deps, userId, tickers);
@@ -96,11 +109,13 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     .filter(Boolean).sort().join(";");
   const key = `gdelt:${symbols.join(",")}|${from ?? ""}|${to ?? ""}${nameTag ? `|n:${nameTag}` : ""}`;
   const today = new Date(deps.now()).toISOString().slice(0, 10);
+  const reply = (body: HeadlinesBody, cache: string) =>
+    countOnly ? json(200, countBody(body, deps.now()), { "x-cache": cache }) : json(200, body, { "x-cache": cache });
   const ttl = to && to <= today ? config.closedWindowTtlSeconds : config.recentTtlSeconds;
   const hit = await readCache<HeadlinesBody>(deps, key);
   if (hit && hit.ageSeconds < ttl) {
     log("hit", started);
-    return json(200, hit.body, { "x-cache": "hit" });
+    return reply(hit.body, "hit");
   }
 
   const names: Record<string, string> = {};
@@ -119,7 +134,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     console.error("[headlines]", symbols.join(","), e);
     if (hit) {
       log("stale", started);
-      return json(200, hit.body, { "x-cache": "stale" });
+      return reply(hit.body, "stale");
     }
     log("error", started);
     return typedError(502, "upstream_unavailable", "GDELT unavailable");
@@ -136,7 +151,20 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   };
   await writeCache(deps, key, body);
   log("miss", started);
-  return json(200, body, { "x-cache": "miss" });
+  return reply(body, "miss");
+}
+
+/// Solo números: tickers con al menos un titular en las últimas 48 h / 24 h
+/// (sin los de recomendación). Nunca titulares, URLs ni tickers.
+export function countBody(body: HeadlinesBody, nowMs: number) {
+  const within = (hours: number) =>
+    Object.values(body.by_ticker).filter((list) =>
+      list.some((h) => {
+        const t = Date.parse(h.published_at);
+        return !isRecommendation(h.title) && t <= nowMs + 5 * 60 * 1000 && t >= nowMs - hours * 3600 * 1000;
+      })
+    ).length;
+  return { tickers_48h: within(48), tickers_24h: within(24), as_of: new Date(nowMs).toISOString() };
 }
 
 function log(cache: string, started: number) {

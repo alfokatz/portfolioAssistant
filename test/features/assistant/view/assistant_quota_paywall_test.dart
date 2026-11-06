@@ -68,6 +68,7 @@ void main() {
     required int used,
     List<Map<String, Object?> Function(Map<String, dynamic>)> script = const [],
     MarketTasteRepository? taste,
+    AssistantQuestionRequest? question,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final world = _World(
@@ -86,7 +87,7 @@ void main() {
         container: world.container,
         child: MaterialApp(
           theme: world.container.read(themeDataLightProvider),
-          home: const AssistantScreen(),
+          home: AssistantScreen(question: question),
         ),
       ),
     );
@@ -115,6 +116,52 @@ void main() {
         'queries_limit': 20,
       },
     ]);
+  });
+
+  // Pregunta del widget de inicio: el request con `origin` se envía una sola
+  // vez (reconstruir la pantalla con el mismo objeto no reenvía) y el
+  // turno cerrado registra `widget_question_result`.
+  testWidgets('a widget question is sent once per request and reports its '
+      'result', (tester) async {
+    final request = AssistantQuestionRequest(
+      '¿Cómo viene mi cartera hoy?',
+      origin: const AssistantQuestionOrigin.widget('today'),
+    );
+    final world = await pumpScreen(
+      tester,
+      used: 3,
+      question: request,
+      script: [(body) => _answer(body, 'Tu cartera vale 600 dólares.')],
+    );
+    List<Map<String, Object?>> results() =>
+        world.events.of(ProductEvent.widgetQuestionResult);
+    for (var i = 0; i < 3000 && results().isEmpty; i++) {
+      await tester.runAsync(() async {});
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(results(), [
+      {'question_id': 'today', 'result': 'answered'},
+    ]);
+
+    // Misma instancia (rebuild del shell): no se reenvía.
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: world.container,
+        child: MaterialApp(
+          theme: world.container.read(themeDataLightProvider),
+          home: AssistantScreen(question: request),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+    expect(world.api.requests, hasLength(1));
+    expect(results(), hasLength(1));
+    // Que terminen las entradas con timer (fade del saludo).
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('with 5 left the counter is not a button: no paywall', (

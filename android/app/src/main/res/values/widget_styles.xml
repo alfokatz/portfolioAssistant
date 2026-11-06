@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estilos del widget. Cifras tabulares (tnum). La familia Plus Jakarta Sans
+     entra desde API 26 (values-v26); antes cae a la sans del sistema. -->
+<resources>
+    <style name="PortyWidget.Total" parent="">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="PortyWidget.Change" parent="">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/porty_widget_secondary</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Meta" parent="">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/porty_widget_secondary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Period" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/porty_widget_secondary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Phrase" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Question" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Message" parent="">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="PortyWidget.Item" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/porty_widget_primary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+</resources>

@@ -794,6 +794,132 @@ void main() {
     );
   });
 
+  // Pregunta del widget de inicio: un envío por request y un
+  // `widget_question_result` por cómo cierra el turno.
+  group('questions from the home widget (origin)', () {
+    const origin = AssistantQuestionOrigin.widget('today');
+
+    Future<void> untilTurnsDone(_Harness h, int turns) async {
+      for (var i = 0; i < 2000; i++) {
+        if (h.state.turnCounter >= turns && !h.state.isWaiting) return;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    List<Map<String, Object?>> results(_Harness h) =>
+        h.events.of(ProductEvent.widgetQuestionResult);
+
+    test('answered: one send and one event with the question id', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.api.requests, hasLength(1));
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'answered'},
+      ]);
+      // Un turno común después no vuelve a emitir.
+      await h.notifier.submitMessage('Gracias');
+      expect(results(h), hasLength(1));
+    });
+
+    test('before the chat is ready, bootstrap sends it once and reports '
+        'it', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+
+      h.notifier.askFromOutside(
+        '¿Qué se movió más?',
+        origin: const AssistantQuestionOrigin.widget('top_mover'),
+      );
+      await h.notifier.bootstrap();
+
+      expect(h.api.requests, hasLength(1));
+      expect(results(h), [
+        {'question_id': 'top_mover', 'result': 'answered'},
+      ]);
+    });
+
+    test('queued during a running turn: the origin goes with the queued '
+        'question, not with the running one', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await running;
+      expect(results(h), isEmpty);
+      await untilTurnsDone(h, 2);
+
+      expect(h.api.requests, hasLength(2));
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'answered'},
+      ]);
+    });
+
+    test('quota: the server rejects it and the event says quota', () async {
+      final h = harness(SubscriptionTier.free, [
+        (_) => proxyRejection(402, 'quota_exceeded'),
+      ], used: 20);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.state.paywallReason, PaywallReason.quotaExceeded);
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'quota'},
+      ]);
+    });
+
+    test('paywall: a locked turn is aborted and the event says paywall', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AMZN'],
+        }),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿A cuánto está AMZN?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'paywall'},
+      ]);
+    });
+
+    test('failed: connection error, other rejections and the text '
+        'fallback', () async {
+      final h = harness(SubscriptionTier.premium, [
+        (_) => proxyRejection(429, 'rate_limited'),
+        (_) => proxyRejection(429, 'daily_limit'),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 2);
+
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'failed'},
+        {'question_id': 'today', 'result': 'failed'},
+      ]);
+    });
+
+    test('without origin nothing is logged', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await untilTurnsDone(h, 1);
+
+      expect(results(h), isEmpty);
+    });
+  });
+
   // Fase 4: de qué tickers habló el usuario, para retomarlo en otra charla.
   group('conversation topics (porty_topics)', () {
     test('a turn records the ticker it asked about, and the next turn '

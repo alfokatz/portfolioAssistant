@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -33,6 +34,11 @@ class PortfolioHeroSection extends StatefulWidget {
   /// (ver `DisplayCurrencyLine`). Se oculta mientras se recorre el gráfico.
   final Widget? secondaryLine;
 
+  /// La variación del último día ("Hoy +$X (+Y%)"): la misma cuenta y el
+  /// mismo número que muestra el widget de la pantalla de inicio. `null`
+  /// (sin historial de dos días) no dibuja la línea.
+  final PortfolioDayMove? dayMove;
+
   const PortfolioHeroSection({
     super.key,
     required this.summary,
@@ -42,6 +48,7 @@ class PortfolioHeroSection extends StatefulWidget {
     required this.selectedRange,
     required this.onRangeSelected,
     this.secondaryLine,
+    this.dayMove,
   });
 
   const PortfolioHeroSection.skeleton({
@@ -52,7 +59,8 @@ class PortfolioHeroSection extends StatefulWidget {
        periodPnlAbsolute = 0,
        periodPnlPercent = 0,
        onRangeSelected = _ignoreRange,
-       secondaryLine = null;
+       secondaryLine = null,
+       dayMove = null;
 
   static void _ignoreRange(ChartTimeRange _) {}
 
@@ -195,6 +203,18 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
                     ],
                   ],
                 ),
+                if (widget.dayMove != null && !skeleton)
+                  // Mismo alto recorriendo o no: el gráfico no salta.
+                  Visibility(
+                    visible: scrub == null,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: DayMoveLine(move: widget.dayMove!),
+                    ),
+                  ),
                 if (widget.secondaryLine != null && !skeleton)
                   // Mismo alto recorriendo o no: el gráfico no salta.
                   Visibility(
@@ -241,6 +261,46 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "Hoy +$123.45 (+1.0%)" (o "Último cierre …" si el dato no es de hoy): la
+/// variación del último día. Los mismos textos que el snapshot del widget.
+class DayMoveLine extends StatelessWidget {
+  const DayMoveLine({super.key, required this.move});
+
+  final PortfolioDayMove move;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final textTheme = Theme.of(context).textTheme;
+    final label =
+        move.period == DayMovePeriod.today
+            ? 'home_widget_period_today'.tr()
+            : 'home_widget_period_last_close'.tr();
+    final amount =
+        '${AppNumberFormat.signedMoney(move.absolute)} '
+        '(${AppNumberFormat.percent(move.percent)})';
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label ',
+            style: TextStyle(color: colors.textSecondary),
+          ),
+          TextSpan(
+            text: amount,
+            style: TextStyle(
+              color: colors.pnlColor(move.absolute),
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+      style: textTheme.bodyMedium,
     );
   }
 }

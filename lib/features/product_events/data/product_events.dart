@@ -60,7 +60,50 @@ enum ProductEvent {
   marketTasteUsed('market_taste_used'),
 
   /// Se mostró el aviso de Premium tras agotar las consultas de mercado.
-  marketTeaserShown('market_teaser_shown');
+  marketTeaserShown('market_teaser_shown'),
+
+  /// Se abrió la app. Props: `source` (`icon` | `widget` | `widget_question`
+  /// | `push` | `other`).
+  appOpened('app_opened'),
+
+  /// Tocó el widget de la pantalla de inicio. Props: `platform`, `size`,
+  /// `target` (`chat` | `question`), `question_id`, `data_age_min`,
+  /// `amounts_hidden`.
+  widgetOpened('widget_opened'),
+
+  /// Cambió qué widgets hay instalados. Props: `platform`, `sizes` (lista;
+  /// vacía = lo sacó).
+  widgetPresence('widget_presence'),
+
+  /// Activó o desactivó "Ocultar montos en el widget". Props: `hidden`.
+  widgetAmountsToggled('widget_amounts_toggled'),
+
+  /// Terminó el turno de una pregunta que vino del widget. Props:
+  /// `question_id`, `result` (`answered` | `quota` | `paywall` | `failed`).
+  widgetQuestionResult('widget_question_result'),
+
+  /// Aproximación de impresiones de las novedades del widget (lo que dibujó
+  /// el nativo, leído al abrir). Props: `size`, `news_count`,
+  /// `earnings_count`, `teaser` (`none` | `news` | `earnings`), `tier`,
+  /// `amounts_hidden`, `platform`. Nunca ticker, titular ni id de ítem.
+  widgetItemsRendered('widget_items_rendered'),
+
+  /// Acción en la hoja de novedades del widget. Props: `action`
+  /// (`read_source` | `ask_porty` | `open_paywall`), `type` (`news` |
+  /// `earnings`), `from_widget`. Nunca ticker ni titular.
+  widgetItemAction('widget_item_action'),
+
+  /// Se mostró la hoja "Tené a Porty en tu pantalla de inicio". Props:
+  /// `source` (`auto` | `settings`).
+  widgetPromptShown('widget_prompt_shown'),
+
+  /// Tocó "Agregar" en esa hoja. Props: `platform`, `method` (`pin`: pide
+  /// al sistema que lo agregue | `steps`: se le mostraron los pasos).
+  widgetPromptAddTapped('widget_prompt_add_tapped'),
+
+  /// Cerró la hoja con "Ahora no" o deslizándola, sin tocar "Agregar".
+  /// Props: `source`.
+  widgetPromptDismissed('widget_prompt_dismissed');
 
   const ProductEvent(this.wire, {this.once = false});
 

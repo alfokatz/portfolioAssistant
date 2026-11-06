@@ -24,13 +24,35 @@ class AssistantArgs {
 /// en el shell, así que la pantalla se entera por `didUpdateWidget` y tiene
 /// que distinguir un toque nuevo aunque repita la misma pregunta.
 class AssistantQuestionRequest {
-  AssistantQuestionRequest(this.question, {this.screen});
+  AssistantQuestionRequest(this.question, {this.screen, this.origin});
 
   final String question;
+
+  /// Quién la tocó, si hace falta medirlo (hoy, solo el widget de la
+  /// pantalla de inicio). `null` en el resto de las preguntas de afuera.
+  final AssistantQuestionOrigin? origin;
 
   /// La pantalla desde donde se preguntó; `null` si no es de una en
   /// particular (Home, una notificación).
   final PortyScreenContext? screen;
+}
+
+/// De dónde vino una pregunta de afuera, para medir qué pasa con ella
+/// (`widget_question_result` al cerrar el turno). No cambia lo que Porty
+/// responde ni lo que cuesta: la cuota se descuenta como en cualquier turno.
+sealed class AssistantQuestionOrigin {
+  const AssistantQuestionOrigin();
+
+  /// Una pregunta tocada en el widget; [questionId] es el id estable del
+  /// widget (`today`, `top_mover`), nunca el texto.
+  const factory AssistantQuestionOrigin.widget(String questionId) =
+      WidgetQuestionOrigin;
+}
+
+class WidgetQuestionOrigin extends AssistantQuestionOrigin {
+  const WidgetQuestionOrigin(this.questionId);
+
+  final String questionId;
 }
 
 /// Estado del asistente: un único hilo de conversación con Porty.

@@ -1,0 +1,302 @@
+// Sync del widget con novedades: pide con el plan cargado, usa la caché si
+// falla, apaga todo con news_provider != v2, no escribe ticker en los
+// eventos y borra todo al cerrar sesión.
+// Correr: flutter test test/features/home_widget/providers
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/company_news_item.dart';
+import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/repositories/company_news_repository.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/earnings_fetcher.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_items_repository.dart';
+import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../home_widget_test_helpers.dart';
+
+class _Events extends ProductEvents {
+  _Events() : super(client: () => null, prefs: () => null);
+  final logged = <(ProductEvent, Map<String, Object?>)>[];
+
+  @override
+  void log(ProductEvent event, [Map<String, Object?> props = const {}]) =>
+      logged.add((event, props));
+}
+
+class _News implements CompanyNewsRepository {
+  int calls = 0;
+  bool fail = false;
+
+  @override
+  Future<Either<HttpError, List<CompanyNewsItem>>> getRecentNews(
+    String ticker, {
+    int limit = 3,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    calls++;
+    if (fail) return Left(HttpError(code: 'headlines_500'));
+    return Right([
+      CompanyNewsItem(
+        ticker: ticker,
+        headline: 'Novedad de $ticker',
+        summary: '',
+        url: 'https://example.com/$ticker',
+        source: 'Fuente Ejemplo',
+        publishedAt: _now.subtract(const Duration(hours: 2)),
+      ),
+    ]);
+  }
+}
+
+class _NoEarnings implements EarningsSource {
+  @override
+  Future<Map<String, Object?>> fetch(List<String> tickers) async => {
+    'status': 'empty',
+    'earnings': <String, Object?>{},
+  };
+}
+
+final _now = DateTime(2026, 11, 5, 12);
+
+HomeState _home() {
+  final p = Position(
+    id: '1',
+    ticker: 'NVDA',
+    quantity: 10,
+    purchasePrice: 100,
+    purchaseDate: DateTime(2026, 10, 1),
+  );
+  return HomeState(
+    loading: false,
+    summary: PortfolioCalculator.summarize([
+      PortfolioCalculator.valuate(position: p, currentPrice: 120),
+    ]),
+    history: const [],
+  );
+}
+
+Future<List<PriceCandle>> _candles(String t) async => [
+  PriceCandle(date: DateTime(2026, 11, 4), close: 110),
+  PriceCandle(date: DateTime(2026, 11, 5), close: 120),
+];
+
+void main() {
+  late FakeHomeWidgetStore store;
+  late _Events events;
+  late SharedPreferences prefs;
+  late _News news;
+  late HomeWidgetSyncController c;
+  SubscriptionTier? tier;
+  var v2 = true;
+  var teasers = false;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+    store = FakeHomeWidgetStore();
+    events = _Events();
+    news = _News();
+    tier = SubscriptionTier.premium;
+    v2 = true;
+    teasers = false;
+    c = HomeWidgetSyncController(
+      store: store,
+      prefs: prefs,
+      events: events,
+      scheduler: FakeScheduler(),
+      loadTexts: loadRealTexts,
+      loadCandles: _candles,
+      currentUserId: () => 'uid-1',
+      amountsHidden: () => false,
+      initialLang: 'es',
+      now: () => _now,
+      items: WidgetItemsRepository(
+        news: news,
+        earnings: _NoEarnings(),
+        prefs: prefs,
+      ),
+      newsV2Enabled: () async => v2,
+      currentTier: () => tier,
+      teasersEnabled: () async => teasers,
+    );
+  });
+
+  tearDown(() => c.dispose());
+
+  test('premium: writes the news of the top positions', () async {
+    c.onHome(null, _home());
+    await c.flush();
+    final items = store.last['items']! as List;
+    expect((items.single as Map)['ticker'], 'NVDA');
+    expect(store.last['items_section'], true);
+    expect(news.calls, 1);
+  });
+
+  test('a second write inside 30 minutes does not ask again', () async {
+    c.onHome(null, _home());
+    await c.flush();
+    c.onLanguage('en');
+    await c.flush();
+    expect(news.calls, 1);
+    expect(store.last['lang'], 'en');
+    expect(store.last['items'], hasLength(1));
+  });
+
+  test('plan not loaded yet: no request, the snapshot has no items', () async {
+    tier = null;
+    c.onHome(null, _home());
+    await c.flush();
+    expect(news.calls, 0);
+    expect(store.last.containsKey('items'), isFalse);
+  });
+
+  test('the plan arriving later triggers the request', () async {
+    tier = null;
+    c.onHome(null, _home());
+    await c.flush();
+    tier = SubscriptionTier.gold;
+    c.onTierChanged();
+    await c.flush();
+    expect(news.calls, 1);
+    expect(store.last['items'], isNotEmpty);
+  });
+
+  test('a failure keeps what was cached and never errors', () async {
+    c.onHome(null, _home());
+    await c.flush();
+    // Vence el freno y falla el servidor.
+    await prefs.setString(
+      WidgetItemsCache.key,
+      prefs
+          .getString(WidgetItemsCache.key)!
+          .replaceAll(
+            '"checked_at":${_now.toUtc().millisecondsSinceEpoch}',
+            '"checked_at":${_now.subtract(const Duration(hours: 2)).toUtc().millisecondsSinceEpoch}',
+          ),
+    );
+    news.fail = true;
+    c.onLanguage('en');
+    await c.flush();
+    expect(news.calls, 2);
+    expect(store.last['items'], hasLength(1));
+  });
+
+  test(
+    'news_provider other than v2: no items, no requests, cache cleared',
+    () async {
+      c.onHome(null, _home());
+      await c.flush();
+      v2 = false;
+      c.onLanguage('en');
+      await c.flush();
+      expect(store.last.containsKey('items'), isFalse);
+      expect(prefs.getString(WidgetItemsCache.key), isNull);
+    },
+  );
+
+  test('free with the flag on: android teaser without number', () async {
+    tier = SubscriptionTier.free;
+    teasers = true;
+    store.platformName = 'android';
+    c.onHome(null, _home());
+    await c.flush();
+    final teaser = store.last['teaser']! as Map;
+    expect(teaser['text'], 'Noticias de tu cartera · Premium');
+    expect(teaser['count'], isNull);
+  });
+
+  test('free on ios without counts: no teaser (phase 2)', () async {
+    tier = SubscriptionTier.free;
+    teasers = true;
+    c.onHome(null, _home());
+    await c.flush();
+    expect(store.last['teaser'], isNull);
+    expect(store.last['items_section'], false);
+  });
+
+  test('hiding amounts keeps the items (scrub on stored snapshot)', () async {
+    c.onHome(null, _home());
+    await c.flush();
+    expect(store.last['items'], isNotEmpty);
+    await store.scrubStoredAmounts();
+    expect(store.last['amounts_hidden'], true);
+    expect(store.last['items'], isNotEmpty);
+  });
+
+  test(
+    'sign out clears items cache, render log and writes signed_out',
+    () async {
+      c.onHome(null, _home());
+      await c.flush();
+      store.renderLog = {
+        'large': {'at': 5},
+      };
+      c.onSignedOut();
+      await c.flush();
+      expect(prefs.getString(WidgetItemsCache.key), isNull);
+      expect(store.renderLog, isNull);
+      expect(store.last['state'], 'signed_out');
+      expect(store.last.containsKey('items'), isFalse);
+    },
+  );
+
+  group('widget_items_rendered', () {
+    test('one per size, only newer than the last logged, no ticker', () async {
+      store.renderLog = {
+        'medium': {'at': 100, 'news': 1, 'earnings': 0, 'teaser': 'none'},
+        'large': {'at': 200, 'news': 2, 'earnings': 1, 'teaser': 'news'},
+      };
+      await c.reportItemsRendered(tier: SubscriptionTier.gold);
+      final logged = [
+        for (final (e, p) in events.logged)
+          if (e == ProductEvent.widgetItemsRendered) p,
+      ];
+      expect(logged, hasLength(2));
+      expect(logged.last, {
+        'size': 'large',
+        'news_count': 2,
+        'earnings_count': 1,
+        'teaser': 'news',
+        'tier': 'gold',
+        'amounts_hidden': false,
+        'platform': 'ios',
+      });
+      expect(prefs.getInt(WidgetItemsCache.renderLoggedKey), 200);
+
+      events.logged.clear();
+      await c.reportItemsRendered(tier: SubscriptionTier.gold);
+      expect(events.logged, isEmpty);
+
+      store.renderLog = {
+        'large': {'at': 300, 'news': 1, 'earnings': 0, 'teaser': 'weird'},
+      };
+      await c.reportItemsRendered(tier: SubscriptionTier.gold);
+      expect(events.logged.single.$2['teaser'], 'none');
+    });
+
+    test('without a render log nothing is logged', () async {
+      await c.reportItemsRendered();
+      expect(events.logged, isEmpty);
+    });
+  });
+
+  test('no event carries a ticker or a headline', () async {
+    c.onHome(null, _home());
+    store.renderLog = {
+      'medium': {'at': 9, 'news': 1},
+    };
+    await c.flush();
+    await c.reportItemsRendered(tier: SubscriptionTier.premium);
+    final text = events.logged.map((e) => e.$2.toString()).join();
+    expect(text, isNot(contains('NVDA')));
+    expect(text, isNot(contains('Novedad')));
+  });
+}

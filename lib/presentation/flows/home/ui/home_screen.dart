@@ -27,6 +27,7 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_empt
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_section_tabs.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_skeleton.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_qa_entry_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/positions_section.dart';
@@ -189,6 +190,12 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                       periodPnlPercent: periodPnl.percent,
                       selectedRange: state.selectedRange,
                       onRangeSelected: notifier.selectTimeRange,
+                      dayMove:
+                          state.history.length < 2
+                              ? null
+                              : PortfolioDayMove.compute(
+                                history: state.history,
+                              ),
                       secondaryLine: DisplayCurrencyLine(
                         totalUsd: summary.totalValue,
                       ),

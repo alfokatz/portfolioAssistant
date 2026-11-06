@@ -23,3 +23,11 @@
 - Topes de costo nuevos sobre RPC booleanas ya desplegadas: redefinir la booleana llamando a la nueva jsonb, así el db push protege antes del deploy de functions.
 - Cohortes de flags: `app_config_history` (trigger, sin `users`) en vez de prop `flags` en eventos.
 - Noticias para Premium solo con news_provider v2 (Google News RSS sin uso comercial); servidor valida con `news_data_allowed` (Gold o Premium + ticker en positions).
+- Trabajo en segundo plano nunca usa la sesión de Supabase (rotación de refresh token entre isolates puede cerrar sesión): caché privado + Yahoo directo (sin JWT).
+- La Home no muestra variación del día (solo la del rango): toda feature que diga "igual que la Home" para el día necesita `PortfolioDayMove` y decisión de PO.
+- Links externos a la app (widget, futuros): esquema propio distinto de `porty://` (auth de supabase_flutter), deep linking de Flutter apagado, navegar por nombre desde un listener tipo `PushOpenListener`.
+- Código nativo (ios/, android/) sin dueño propio: segunda instancia de porty-flutter-dev con archivos disjuntos; targets/capabilities de Xcode y App Groups los crea el usuario a mano.
+- Noticias/resultados fuera del chat (widget, etc.): solo camino v2 (`headlines` GDELT + `sec`); Finnhub prohibido por licencia; fechas de resultados siempre "estimadas".
+- iOS extensiones/widgets: sin nombre de plan ni paywall (Apple 4.4); el aviso abre la app y el paywall va adentro. Android sí puede.
+- Conteos de contenido pago para avisos a quien no paga: siempre en servidor (modo count_only por tenencia), nunca bajar el contenido al cliente.
+- Snapshot de widget: crecer con campos opcionales en el mismo `v`; extensión y app van en el mismo binario.

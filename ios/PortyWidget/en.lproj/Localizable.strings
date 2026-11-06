@@ -1,0 +1,20 @@
+/* Widget gallery and own texts (no snapshot). Fictitious sample data. */
+"widget_name" = "Porty";
+"widget_description" = "See how your portfolio is doing and news on your holdings, without opening the app.";
+"no_snapshot_message" = "Sign in to Porty to see your portfolio here.";
+"sample_phrase" = "Your portfolio is up today.";
+"sample_q_today" = "How's my portfolio doing today?";
+"sample_q_top_mover" = "What moved the most?";
+"sample_period" = "Today";
+"sample_updated" = "Updated 5 min ago";
+"sample_a11y" = "Sample portfolio value, up 0.5% today";
+"sample_items_section" = "Your holdings news";
+"sample_items_redacted" = "Unlock your iPhone to see the news";
+"sample_age_min" = "{n} min ago";
+"sample_age_h" = "{n} h ago";
+"sample_age_yesterday" = "yesterday";
+"sample_a11y_news" = "News on {ticker}, {source}, {age}: {headline}";
+"sample_item_source" = "Example Source";
+"sample_item_earnings" = "ACME · estimated earnings date: tomorrow";
+"sample_item_news_1" = "ACME presents a new product line";
+"sample_item_news_2" = "ZYNT announces a deal with a supplier";

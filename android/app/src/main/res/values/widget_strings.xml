@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos propios del widget (galería, fallback sin snapshot y vista previa
+     con datos ficticios). Inglés por defecto; español en values-es. -->
+<resources>
+    <string name="widget_name">Porty</string>
+    <string name="widget_description">See how your portfolio is doing without opening the app.</string>
+    <string name="widget_no_snapshot">Sign in to Porty to see your portfolio here.</string>
+    <string name="widget_sample_phrase">Your portfolio is up today.</string>
+    <string name="widget_sample_q_today">How\'s my portfolio doing today?</string>
+    <string name="widget_sample_q_top_mover">What moved the most?</string>
+    <string name="widget_sample_period">Today</string>
+    <string name="widget_sample_updated">Updated 5 min ago</string>
+    <string name="widget_sample_a11y">Sample portfolio value, up 0.5% today</string>
+    <string name="widget_large_description">See how your portfolio is doing and news on your holdings, without opening the app.</string>
+    <string name="widget_sample_items_section">Your holdings news</string>
+    <string name="widget_sample_item_earnings">ACME · estimated earnings date: tomorrow</string>
+    <string name="widget_sample_item_meta_1">ACME · Example Source · 3 h ago</string>
+    <string name="widget_sample_item_news_1">ACME presents a new product line</string>
+    <string name="widget_sample_item_meta_2">ZYNT · Example Source · 5 h ago</string>
+    <string name="widget_sample_item_news_2">ZYNT announces a deal with a supplier</string>
+</resources>

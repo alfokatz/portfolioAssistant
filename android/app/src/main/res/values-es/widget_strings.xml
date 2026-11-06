@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_name">Porty</string>
+    <string name="widget_description">Mirá cómo viene tu cartera sin abrir la app.</string>
+    <string name="widget_no_snapshot">Entrá a Porty para ver tu cartera acá.</string>
+    <string name="widget_sample_phrase">Tu cartera sube hoy.</string>
+    <string name="widget_sample_q_today">¿Cómo viene mi cartera hoy?</string>
+    <string name="widget_sample_q_top_mover">¿Qué fue lo que más se movió?</string>
+    <string name="widget_sample_period">Hoy</string>
+    <string name="widget_sample_updated">Actualizado hace 5 min</string>
+    <string name="widget_sample_a11y">Valor de ejemplo de la cartera, sube 0,5 % hoy</string>
+    <string name="widget_large_description">Mirá cómo viene tu cartera y las novedades de tus acciones, sin abrir la app.</string>
+    <string name="widget_sample_items_section">Novedades de tu cartera</string>
+    <string name="widget_sample_item_earnings">ACME · fecha estimada de resultados: mañana</string>
+    <string name="widget_sample_item_meta_1">ACME · Fuente Ejemplo · hace 3 h</string>
+    <string name="widget_sample_item_news_1">ACME presenta una nueva línea de productos</string>
+    <string name="widget_sample_item_meta_2">ZYNT · Fuente Ejemplo · hace 5 h</string>
+    <string name="widget_sample_item_news_2">ZYNT anuncia un acuerdo con un proveedor</string>
+</resources>

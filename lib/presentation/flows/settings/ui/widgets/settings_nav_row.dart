@@ -54,9 +54,9 @@ class SettingsNavRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     if (subtitle != null)
                       Text(
@@ -64,9 +64,9 @@ class SettingsNavRow extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                              height: 1.35,
-                            ),
+                          color: colors.textSecondary,
+                          height: 1.35,
+                        ),
                       ),
                   ],
                 ),
@@ -77,9 +77,9 @@ class SettingsNavRow extends StatelessWidget {
                   value!,
                   maxLines: 1,
                   textAlign: TextAlign.right,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.textSecondary,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
                 ),
                 const SizedBox(width: AppDimens.sp4),
               ],
@@ -105,6 +105,7 @@ class SettingsToggleRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.subtitleMaxLines = 2,
   });
 
   final IconData icon;
@@ -114,6 +115,10 @@ class SettingsToggleRow extends StatelessWidget {
 
   /// Una explicación corta debajo de la etiqueta (hasta 2 líneas).
   final String? subtitle;
+
+  /// `null` = sin tope, para textos que no se pueden cortar (por ejemplo,
+  /// los aprobados por compliance).
+  final int? subtitleMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -137,19 +142,20 @@ class SettingsToggleRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (subtitle != null)
                   Text(
                     subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: subtitleMaxLines,
+                    overflow:
+                        subtitleMaxLines == null ? null : TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                          height: 1.35,
-                        ),
+                      color: colors.textSecondary,
+                      height: 1.35,
+                    ),
                   ),
               ],
             ),
@@ -179,15 +185,8 @@ class _SettingsIconBox extends StatelessWidget {
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
-        color: colors.chip,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon,
-        size: 18,
-        color: colors.onChip,
-      ),
+      decoration: BoxDecoration(color: colors.chip, shape: BoxShape.circle),
+      child: Icon(icon, size: 18, color: colors.onChip),
     );
   }
 }

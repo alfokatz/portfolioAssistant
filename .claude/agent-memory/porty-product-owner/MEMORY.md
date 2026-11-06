@@ -7,4 +7,6 @@
 - 2026-11-02: la prueba de Gold se propone al usuario para diciembre, aislada; no prenderla junto con otros cambios.
 - 2026-11-02: IOL MCP (27/08) volvió commodity el "chat sobre tu cartera"; diferenciar por multi-bróker, exactitud con fuente y contenido recurrente.
 - 2026-11-02: antes de priorizar algo que se publica, chequear los bloqueos de tienda (borrado de cuenta 5.1.1(v), Términos/Privacidad 3.1.2). El borrado faltaba y me lo marcó compliance después del roadmap.
+- 2026-11-05: widget de inicio decidido por el usuario (gratis, montos ocultables); brief en `docs/specs/home-widget-product.md`. No hay evento de apertura de app: hoy no se puede medir frecuencia/hábito (propuse `app_opened{source}`).
+- 2026-11-05: widget v1 ampliado con noticias/earnings gateados (sección "Ampliación" del mismo brief). Primer aviso de pago fuera de la app; si Free saca el widget, apagar `widget_teasers`.
 - Costo de IA no es el freno (~US$0,006/turno, supuesto); vigilar p99 de Gold pago por búsquedas.

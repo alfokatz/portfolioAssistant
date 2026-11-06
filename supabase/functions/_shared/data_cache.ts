@@ -117,3 +117,19 @@ export async function clientTextTrusted(
   );
   return checks.every(({ data }) => data === true);
 }
+
+/// true si TODOS los [tickers] (como vinieron en el pedido) están en
+/// `positions` del usuario con cantidad > 0. Es el permiso de los conteos
+/// (`headlines?count_only=1`, `sec?endpoint=earnings_count`): valen para
+/// cualquier plan porque no devuelven contenido, solo un número.
+export async function allHeld(
+  deps: Pick<Deps, "db">,
+  userId: string,
+  tickers: string[],
+): Promise<boolean> {
+  if (tickers.length === 0) return false;
+  const { data, error } = await deps.db.from("positions").select("ticker").eq("user_id", userId).gt("quantity", 0);
+  if (error || !data) return false;
+  const held = new Set((data as { ticker: string }[]).map((r) => r.ticker.toUpperCase()));
+  return tickers.every((t) => held.has(t.toUpperCase()));
+}

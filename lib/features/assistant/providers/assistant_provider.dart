@@ -101,7 +101,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         ),
       ) {
     if (args.initialQuestion case final q?) {
-      _initialQuestion = (text: q, screen: args.initialScreen);
+      _initialQuestion = (text: q, screen: args.initialScreen, origin: null);
     }
   }
 
@@ -398,10 +398,16 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   ///
   /// [screen] es lo que el usuario estaba mirando (ver
   /// [PortyScreenContext]); `null` si la pregunta no es de una pantalla.
-  void askFromOutside(String question, {PortyScreenContext? screen}) {
+  /// [origin] (el widget) hace que, al cerrar el turno, se registre cómo
+  /// terminó (`widget_question_result`).
+  void askFromOutside(
+    String question, {
+    PortyScreenContext? screen,
+    AssistantQuestionOrigin? origin,
+  }) {
     final trimmed = question.trim();
     if (trimmed.isEmpty) return;
-    final outside = (text: trimmed, screen: screen);
+    final outside = (text: trimmed, screen: screen, origin: origin);
     if (!state.isServiceReady) {
       _initialQuestion = outside;
     } else if (state.isWaiting) {
@@ -414,7 +420,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   Future<void> _submitFromOutside(_OutsideQuestion question) {
     _screenPending = true;
     _pendingScreen = question.screen;
-    return submitMessage(question.text);
+    return submitMessage(question.text, origin: question.origin);
   }
 
   /// La próxima pregunta que se escriba es de [screen] (el chat abierto como
@@ -516,7 +522,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
-  Future<void> submitMessage(String text) async {
+  /// [origin]: de dónde vino la pregunta (ver [AssistantQuestionOrigin]); si
+  /// lo hay, el turno registra cómo terminó.
+  Future<void> submitMessage(
+    String text, {
+    AssistantQuestionOrigin? origin,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     // El lock se toma de forma sincrónica, antes de cualquier `await`, para
@@ -528,6 +539,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     final screenContext = _screenForTurn();
     state = state.copyWith(clearError: true, isWaiting: true);
     _setActivity(TurnActivity.thinking);
+    // Cómo terminó el turno para `widget_question_result`: cualquier salida
+    // que no sea una de las tres de abajo es una falla.
+    var result = _WidgetQuestionResult.failed;
 
     try {
       _ensureService();
@@ -705,6 +719,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         unawaited(
           subscription.refresh().then((_) => _maybeNudgeLowQuota(surfaceId)),
         );
+        result = _WidgetQuestionResult.answered;
         ref.read(productEventsProvider).log(ProductEvent.firstChatAnswer, {
           if (screenContext?['screen'] case final String screen)
             'screen': screen,
@@ -714,13 +729,17 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // regenerar la allowlist y desplegar `ai-chat` (ver runbook).
         if (kDebugMode) debugPrint('[Assistant/turn] rejected by proxy: $e');
         state = _applyServerLimit(state, e, surfaceId);
-        if (e.isQuota) unawaited(subscription.refresh());
+        if (e.isQuota) {
+          result = _WidgetQuestionResult.quota;
+          unawaited(subscription.refresh());
+        }
       } on TurnAbortedException catch (e) {
         // Todo lo que pidió el modelo está fuera del plan: igual que antes
         // de las tools, el turno no deja mensajes ni consume cuota — se
         // ofrece el upgrade.
         // El único que corta turnos es `AssistantTurnPolicy.paywallFor`.
         final paywall = e.reason as ChatPaywall;
+        result = _WidgetQuestionResult.paywall;
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
           paywallReason: paywall.reason,
@@ -764,6 +783,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _sendGuard.release();
       _setActivity(TurnActivity.idle);
       state = state.copyWith(isWaiting: false);
+      if (origin is WidgetQuestionOrigin && mounted) {
+        ref.read(productEventsProvider).log(ProductEvent.widgetQuestionResult, {
+          'question_id': origin.questionId,
+          'result': result.name,
+        });
+      }
       final queued = _queuedQuestion;
       _queuedQuestion = null;
       if (queued != null && mounted) {
@@ -1907,5 +1932,14 @@ class AnswerPreview {
   final String text;
 }
 
-/// Una pregunta tocada fuera del chat y la pantalla desde donde llegó.
-typedef _OutsideQuestion = ({String text, PortyScreenContext? screen});
+/// Una pregunta tocada fuera del chat, la pantalla desde donde llegó y, si
+/// hace falta medirla, su origen.
+typedef _OutsideQuestion =
+    ({
+      String text,
+      PortyScreenContext? screen,
+      AssistantQuestionOrigin? origin,
+    });
+
+/// Cómo cerró el turno de una pregunta del widget (`result` del evento).
+enum _WidgetQuestionResult { answered, quota, paywall, failed }

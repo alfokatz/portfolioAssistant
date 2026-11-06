@@ -21,6 +21,12 @@ abstract final class PaywallSource {
   /// Importar resumen sin consultas para leer el archivo.
   static const importQuota = 'statement_import_quota';
 
+  /// Widget: el aviso de noticias de tu cartera (Premium) abierto en la app.
+  static const widgetHeldNews = 'widget_held_news';
+
+  /// Widget: el aviso de resultados (Gold) abierto en la app.
+  static const widgetEarnings = 'widget_earnings';
+
   static const allocation = 'allocation';
   static const allocationWizard = 'allocation_wizard';
   static const watchlist = 'watchlist';

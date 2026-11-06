@@ -1,0 +1,20 @@
+/* Galería de widgets y textos propios (sin snapshot). Datos de ejemplo ficticios. */
+"widget_name" = "Porty";
+"widget_description" = "Mirá cómo viene tu cartera y las novedades de tus acciones, sin abrir la app.";
+"no_snapshot_message" = "Entrá a Porty para ver tu cartera acá.";
+"sample_phrase" = "Tu cartera sube hoy.";
+"sample_q_today" = "¿Cómo viene mi cartera hoy?";
+"sample_q_top_mover" = "¿Qué fue lo que más se movió?";
+"sample_period" = "Hoy";
+"sample_updated" = "Actualizado hace 5 min";
+"sample_a11y" = "Valor de ejemplo de la cartera, sube 0,5 % hoy";
+"sample_items_section" = "Novedades de tu cartera";
+"sample_items_redacted" = "Desbloqueá tu iPhone para ver las novedades";
+"sample_age_min" = "hace {n} min";
+"sample_age_h" = "hace {n} h";
+"sample_age_yesterday" = "ayer";
+"sample_a11y_news" = "Noticia de {ticker}, {source}, {age}: {headline}";
+"sample_item_source" = "Fuente Ejemplo";
+"sample_item_earnings" = "ACME · fecha estimada de resultados: mañana";
+"sample_item_news_1" = "ACME presenta una nueva línea de productos";
+"sample_item_news_2" = "ZYNT anuncia un acuerdo con un proveedor";

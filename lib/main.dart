@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
@@ -16,6 +18,8 @@ import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_gate.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_required_screen.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
+import 'package:portfolio_assistant/features/home_widget/data/widget_background_refresh.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
@@ -27,6 +31,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
 import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/app_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 const _translationsPath = 'assets/translations';
 const _dotenvBaseFolder = 'assets/env/';
@@ -51,11 +56,19 @@ Future<void> main() async {
 Future<Widget> _initialize() async {
   await _setupEnviroment();
   await SupabaseInitializer.initialize();
+  // Con sesión restaurada: un toque del widget con una pregunta se atiende
+  // al abrir; sin sesión, la pregunta se descarta tras el login.
+  final launchedWithSession = Supabase.instance.client.auth.currentSession != null;
+  // App Group del widget y refresco de fondo (workmanager).
+  await initializeHomeWidgetPlugins();
   final revenueCatService = await RevenueCatInitializer.initialize();
   // Sin la configuración nativa de Firebase, la app funciona sin push.
   final pushMessaging = await FirebasePushMessaging.create();
   await EasyLocalization.ensureInitialized();
   final sharedPreferences = await SharedPreferences.getInstance();
+  if (!launchedWithSession) {
+    unawaited(clearHomeWidgetForSignedOutLaunch(prefs: sharedPreferences));
+  }
 
   return _setupRiverpod(
     revenueCatService: revenueCatService,
@@ -63,6 +76,7 @@ Future<Widget> _initialize() async {
     easyLocalization: _setupEasyLocalization(app: const MyApp()),
     sharedPreferences: sharedPreferences,
     secureStorage: appSecureStorage,
+    launchedWithSession: launchedWithSession,
   );
 }
 
@@ -82,6 +96,7 @@ Widget _setupRiverpod({
   required Widget easyLocalization,
   required SharedPreferences sharedPreferences,
   required FlutterSecureStorage secureStorage,
+  required bool launchedWithSession,
 }) {
   return ProviderScope(
     overrides: [
@@ -89,6 +104,7 @@ Widget _setupRiverpod({
       pushMessagingProvider.overrideWithValue(pushMessaging),
       sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       secureStorageProvider.overrideWithValue(secureStorage),
+      widgetLaunchedWithSessionProvider.overrideWithValue(launchedWithSession),
     ],
     child: easyLocalization,
   );

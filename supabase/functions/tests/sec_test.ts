@@ -15,7 +15,7 @@ import {
 } from "../_shared/sec.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createUser, db, deps, fakeFetch } from "./helpers.ts";
+import { addPosition, createUser, db, deps, fakeFetch } from "./helpers.ts";
 
 const dir = new URL("./fixtures/sec/", import.meta.url);
 const text = (name: string) => Deno.readTextFile(new URL(name, dir));
@@ -268,4 +268,39 @@ Deno.test("sec: si la SEC falla, sirve el último dato aunque esté vencido", as
   assertEquals(r.status, 200);
   assertEquals(r.headers.get("x-cache"), "stale");
   assertEquals((await r.json()).revenue_ttm, 466_823_000_000);
+});
+
+Deno.test("sec earnings_count: cualquier plan con el ticker en cartera; solo un número; ajeno 403", async () => {
+  await resetSecCache();
+  const free = await createUser("free");
+  const premium = await createUser("premium");
+  await addPosition(free.id, "AAPL");
+  await addPosition(premium.id, "AAPL");
+  const countReq = (jwt: string | null, qs: string) =>
+    new Request(`http://local/functions/v1/sec?endpoint=earnings_count&${qs}`, {
+      headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+    });
+  const f = secFetch();
+  // AAPL: próximo reporte estimado 2026-10-29.
+  const inWeek = Date.parse("2026-10-25T12:00:00Z");
+  const r = await handle(countReq(premium.jwt, "tickers=AAPL"), deps(f.fetch, env, () => inWeek));
+  assertEquals(r.status, 200);
+  assertEquals(await r.json(), { tickers_7d: 1, as_of: "2026-10-25T12:00:00.000Z" });
+  const f2 = await handle(countReq(free.jwt, "tickers=AAPL"), deps(f.fetch, env, () => inWeek));
+  assertEquals((await f2.json()).tickers_7d, 1);
+  // Fuera de la ventana de 7 días: 0.
+  const out = await handle(countReq(premium.jwt, "tickers=AAPL"), deps(f.fetch, env, () => now));
+  assertEquals((await out.json()).tickers_7d, 0);
+  // Sin sesión, ticker ajeno, sin tickers.
+  assertEquals((await handle(countReq(null, "tickers=AAPL"), deps(f.fetch, env, () => now))).status, 401);
+  const foreign = await handle(countReq(premium.jwt, "tickers=AAPL,MELI"), deps(f.fetch, env, () => now));
+  assertEquals(foreign.status, 403);
+  await foreign.body?.cancel();
+  const none = await handle(countReq(premium.jwt, ""), deps(f.fetch, env, () => now));
+  assertEquals(none.status, 400);
+  await none.body?.cancel();
+  // Las rutas viejas siguen exigiendo Gold.
+  const old = await handle(req(premium.jwt, "earnings", "AAPL"), deps(f.fetch, env, () => now));
+  assertEquals(old.status, 403);
+  await old.body?.cancel();
 });

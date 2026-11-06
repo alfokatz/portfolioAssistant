@@ -3,7 +3,8 @@
 // documentada (articles: url, title, seendate, domain, language).
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { handle } from "../headlines/handler.ts";
+import { countBody, handle } from "../headlines/handler.ts";
+import { isRecommendation } from "../_shared/recommendation.ts";
 import { assignByName, gdeltUrl, parseArticles } from "../_shared/gdelt.ts";
 import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider } from "./helpers.ts";
 
@@ -154,4 +155,82 @@ Deno.test("headlines Premium: el name del cliente no entra en la búsqueda ni en
   });
   const gdelt = f.calls.find((c) => c.url.includes("gdeltproject"))!;
   assert(!decodeURIComponent(gdelt.url).includes("Tesla"));
+});
+
+// Casos idénticos a test/features/home_widget/domain/widget_items_selector_test.dart.
+Deno.test("isRecommendation: misma lista y casos que el selector de Dart", () => {
+  for (const h of [
+    "3 stocks to buy before the year ends",
+    "Should you sell NVDA?",
+    "Should you buy AAA now",
+    "Time to buy AAA",
+    "Best dividend stocks to buy this year",
+    "This is a must-buy",
+    "Buy now, ask later",
+    "Comprá AAA antes de que suba",
+    "Aprovechá la baja",
+    "Vendé todo",
+  ]) assert(isRecommendation(h), h);
+  for (const h of [
+    "Analyst upgrades NVDA to Buy",
+    "AAA presenta resultados del trimestre",
+    "Microsoft compra una empresa de videojuegos",
+  ]) assert(!isRecommendation(h), h);
+});
+
+Deno.test("countBody: tickers con titular en 48 h / 24 h, sin los de recomendación", () => {
+  const now = Date.parse("2026-11-05T13:00:00Z");
+  const h = (title: string, published_at: string) => ({ title, url: "u", source: "s", domain: "d", published_at, language: "en" as const });
+  const body = {
+    status: "ok" as const,
+    names: {},
+    by_ticker: {
+      A: [h("A abre una planta", "2026-11-05T10:00:00Z")],
+      B: [h("B presenta resultados", "2026-11-04T01:00:00Z")],
+      C: [h("Should you buy C?", "2026-11-05T12:00:00Z")],
+      D: [h("D vieja", "2026-11-01T12:00:00Z")],
+    },
+    as_of: "x",
+    source: { name: "n", url: "u" },
+  };
+  assertEquals(countBody(body, now), { tickers_48h: 2, tickers_24h: 1, as_of: "2026-11-05T13:00:00.000Z" });
+});
+
+Deno.test("headlines count_only: cualquier plan con todo en cartera; solo números; 403 con uno ajeno", async () => {
+  await db.from("upstream_rate_gate").delete().eq("source", "gdelt");
+  const tag = crypto.randomUUID().slice(0, 3).toUpperCase();
+  const held = `H${tag}`;
+  const foreign = `X${tag}`;
+  const recent = new Date(Date.now() - 3600 * 1000);
+  const stamp = recent.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const list = {
+    articles: [
+      { url: "https://www.reuters.com/z1", title: `Nvidia sube ${tag}`, seendate: stamp, domain: "reuters.com", language: "English" },
+      { url: "https://www.reuters.com/z2", title: "Should you buy Nvidia?", seendate: stamp, domain: "reuters.com", language: "English" },
+    ],
+  };
+  for (const tier of ["free", "premium"] as const) {
+    const u = await createUser(tier);
+    await addPosition(u.id, held);
+    const f = fakeFetch(() => Response.json(list));
+    const d = deps(f.fetch);
+    await withNewsProvider("v2", async () => {
+      const r = await handle(req(u.jwt, `tickers=${held}&count_only=1`), d);
+      assertEquals(r.status, 200);
+      const text = await r.text();
+      const body = JSON.parse(text);
+      assert(!text.includes("reuters"));
+      assertEquals(Object.keys(body).sort(), ["as_of", "tickers_24h", "tickers_48h"]);
+      assert(body.tickers_48h <= 1 && body.tickers_48h === body.tickers_24h);
+      const mixed = await handle(req(u.jwt, `tickers=${held},${foreign}&count_only=1`), d);
+      assertEquals(mixed.status, 403);
+      await mixed.body?.cancel();
+      // Sin count_only, Free sigue en 403.
+      if (tier === "free") {
+        const full = await handle(req(u.jwt, `tickers=${held}`), d);
+        assertEquals(full.status, 403);
+        await full.body?.cancel();
+      }
+    });
+  }
 });

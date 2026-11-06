@@ -21,6 +21,13 @@ abstract final class ConversionFlags {
 
   /// La línea de cuota baja del chat (la lee el asistente).
   static final quotaNudge = PortyRolloutFlag('quota_nudge');
+
+  /// Avisos del plan siguiente en el widget de Android / iOS (salen
+  /// apagados: la fila de `app_config` va en 0 %).
+  static final widgetTeasersAndroid = PortyRolloutFlag(
+    'widget_teasers_android',
+  );
+  static final widgetTeasersIos = PortyRolloutFlag('widget_teasers_ios');
 }
 
 /// false sin sesión, sin red o sin la fila (falla cerrado).
@@ -55,4 +62,14 @@ final diagnosisBridgeEnabledProvider = FutureProvider<bool>(
 /// Lo lee el asistente para decidir la línea de cuota.
 final quotaNudgeEnabledProvider = FutureProvider<bool>(
   (ref) => _flagEnabled(ref, ConversionFlags.quotaNudge),
+);
+
+/// Avisos del widget de Android. false sin sesión, sin red o sin la fila.
+final widgetTeasersAndroidEnabledProvider = FutureProvider<bool>(
+  (ref) => _flagEnabled(ref, ConversionFlags.widgetTeasersAndroid),
+);
+
+/// Avisos del widget de iOS. false sin sesión, sin red o sin la fila.
+final widgetTeasersIosEnabledProvider = FutureProvider<bool>(
+  (ref) => _flagEnabled(ref, ConversionFlags.widgetTeasersIos),
 );
