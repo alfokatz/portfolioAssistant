@@ -2,7 +2,7 @@
 //  PortyWidgetBundle.swift
 //  PortyWidget
 //
-//  v1: un solo widget (chico y mediano). Sin Live Activity ni Control.
+//  Un solo widget (chico, mediano y grande). Sin Live Activity ni Control.
 //
 
 import WidgetKit
