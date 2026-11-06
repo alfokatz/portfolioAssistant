@@ -58,7 +58,7 @@ object PortyFeedPicker {
         val large: List<Question>,
         val labels: JSONObject,
     ) {
-        fun label(key: String): String? = str(labels, key)?.takeIf { it.isNotEmpty() }
+        fun label(key: String): String? = PortyFeedPicker.str(labels, key)?.takeIf { it.isNotEmpty() }
     }
 
     /** Lo que escribe el nativo al tocar "siguiente" (`porty_widget_cursor`). */

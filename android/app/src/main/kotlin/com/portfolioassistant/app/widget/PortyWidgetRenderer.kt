@@ -220,7 +220,7 @@ object PortyWidgetRenderer {
     private fun ageLine(context: Context, block: Block?, snap: JSONObject, dataAsOf: Long, now: Long): String? {
         if (dataAsOf <= 0) return null
         if (block != null) {
-            val age = PortyFeedPicker.ageText(dataAsOf, now, { block.label(it) }, ::wasYesterday)
+            val age = PortyFeedPicker.ageText(dataAsOf, now, { block.label(it) }, { s, n -> wasYesterday(s, n) })
             return listOfNotNull(block.label("your_portfolio"), age).filter { it.isNotEmpty() }
                 .joinToString(" · ").ifEmpty { null }
         }
@@ -434,7 +434,7 @@ object PortyWidgetRenderer {
         if (!text.contains("{age}")) return text
         val published = item.publishedAt
         val age = if (published == null) "" else
-            PortyFeedPicker.ageText(published, now, { block.label(it) }, ::wasYesterday) ?: ""
+            PortyFeedPicker.ageText(published, now, { block.label(it) }, { s, n -> wasYesterday(s, n) }) ?: ""
         return text.replace("{age}", age)
     }
 
