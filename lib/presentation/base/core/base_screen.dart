@@ -3,9 +3,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/navigator.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_data.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
-import 'package:portfolio_assistant/presentation/base/alert/alert_type.dart';
 import 'package:portfolio_assistant/presentation/base/navigation/navigation_event.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_toast.dart';
 
 mixin class BaseScreen {
   void subscribeAlert({
@@ -16,33 +15,8 @@ mixin class BaseScreen {
       alertProvider,
       (previous, next) {
         if (next == null) return;
-
-        final messenger = ScaffoldMessenger.maybeOf(context);
-        if (messenger == null) return;
-
-        final backgroundColor = switch (next.alertType) {
-          AlertType.success => PortfolioColors.profit,
-          AlertType.warning => const Color(0xFFF59E0B),
-          AlertType.error => PortfolioColors.loss,
-        };
-
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              backgroundColor: backgroundColor,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              content: Text(
-                [
-                  if (next.title != null && next.title!.isNotEmpty) next.title,
-                  if (next.message != null && next.message!.isNotEmpty)
-                    next.message,
-                ].join('\n'),
-                style: const TextStyle(color: PortfolioColors.textPrimary),
-              ),
-            ),
-          );
+        // El toast de Porty (ver PortyToast), no un SnackBar.
+        PortyToast.show(context, next);
       },
     );
   }

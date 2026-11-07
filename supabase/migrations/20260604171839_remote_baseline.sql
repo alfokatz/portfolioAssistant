@@ -1,0 +1,2 @@
+-- Baseline: schema ya aplicado en el proyecto remoto antes de linkear la CLI.
+-- No ejecutar cambios; solo alinea el historial local con supabase_migrations.

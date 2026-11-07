@@ -1,0 +1,39 @@
+import 'package:intl/intl.dart';
+
+/// Formato de números de la app: dólares como en la Home (el
+/// `NumberFormat.currency` sin locale explícito, o sea `Intl.defaultLocale`)
+/// y porcentajes con el mismo separador decimal.
+///
+/// `MyApp.build` fija `Intl.defaultLocale` en `en_US` o `es_419`: los dos
+/// usan "$2,058.00", así que los montos salen igual en ambos idiomas (solo
+/// cambian las fechas). Si algún día se pasa a "2.058,00", la Home y el
+/// informe cambian juntos: por eso no se pasa un locale acá.
+abstract final class AppNumberFormat {
+  /// El formato de dólares de la Home (hero, filas de posiciones).
+  static NumberFormat currency() =>
+      NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+
+  static String money(double value) => currency().format(value);
+
+  /// Dólares redondos ("$2,163"): para montos que se leen como orden de
+  /// magnitud en una frase, donde los centavos sobran.
+  static String wholeMoney(double value) =>
+      NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(value);
+
+  /// "+$8.25" / "-$8.25".
+  static String signedMoney(double value) =>
+      '${value < 0 ? '-' : '+'}${currency().format(value.abs())}';
+
+  /// "+0.4%"; con [signed] en `false`, "0.4%".
+  static String percent(double value, {int decimals = 1, bool signed = true}) {
+    final f = NumberFormat.decimalPatternDigits(decimalDigits: decimals);
+    final sign = !signed ? '' : (value < 0 ? '-' : '+');
+    return '$sign${f.format(signed ? value.abs() : value)}%';
+  }
+
+  /// Cantidad de acciones: hasta [maxDecimals] decimales, sin ceros de más
+  /// ("2.0434", "1", nunca "1.0000" ni "2.0434492300000002"). Donde la
+  /// cantidad exacta importa (detalle, cierre) van 4; en listas, 2.
+  static String shares(double quantity, {int maxDecimals = 4}) =>
+      NumberFormat('#,##0.${'#' * maxDecimals}').format(quantity);
+}

@@ -4,7 +4,6 @@ import 'package:portfolio_assistant/domain/entities/position.dart';
 
 abstract class PositionRepository {
   Future<Either<HttpError, List<Position>>> getPositions();
-
   Future<Either<HttpError, Position>> addPosition({
     required String ticker,
     required double quantity,

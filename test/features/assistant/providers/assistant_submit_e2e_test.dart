@@ -1,0 +1,1496 @@
+import 'dart:convert';
+
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_status.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/domain/repositories/closed_position_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/investor_profile_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/subscription_repository.dart';
+import 'package:portfolio_assistant/domain/subscription/ai_usage_tracker.dart';
+import 'package:portfolio_assistant/domain/use_cases/delete_positions_by_ticker_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_benchmark_comparison_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_portfolio_history_use_case.dart';
+import 'package:portfolio_assistant/domain/use_cases/get_portfolio_summary_use_case.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
+import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
+import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
+import '../../subscription/paywall_test_harness.dart' show FakeProductEvents;
+import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
+import 'package:portfolio_assistant/features/assistant/providers/assistant_provider.dart';
+import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
+import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
+import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
+import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
+import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
+import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/subscription/services/revenue_cat_service.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:portfolio_assistant/features/assistant/services/quota_nudge_memory.dart';
+import 'package:portfolio_assistant/features/subscription/config/conversion_flags.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+
+import '../fakes/assistant_fakes.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
+import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
+import 'package:portfolio_assistant/features/porty_memory/data/porty_topics_repository.dart';
+import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
+
+/// Punta a punta de `submitMessage`: cuota → placeholder → turno con tools
+/// (servicio y loop reales) → gating al ejecutar cada tool → A2UI al
+/// controller → mensajes, avisos y cuota. Lo único falso es OpenAI (a nivel
+/// HTTP, con respuestas guionadas) y las fuentes externas.
+class _FakeSubscriptionRepository implements SubscriptionRepository {
+  _FakeSubscriptionRepository(this.tier, {this.used = 0});
+
+  final SubscriptionTier tier;
+  int used;
+  final consumed = <int>[];
+
+  @override
+  Future<SubscriptionStatus> fetchStatus() async => SubscriptionStatus(
+    tier: tier,
+    queriesUsed: used,
+    queriesLimit: 20,
+    month: '2026-09',
+  );
+
+  @override
+  Future<bool> consumeQuota(int weight) async {
+    consumed.add(weight);
+    return true;
+  }
+}
+
+class _Session implements SupabaseAuthService {
+  _Session({this.signedIn = true});
+
+  final bool signedIn;
+
+  static const _user = User(
+    id: 'user',
+    appMetadata: {},
+    userMetadata: {},
+    aud: 'authenticated',
+    createdAt: '2026-01-01T00:00:00Z',
+  );
+
+  @override
+  User? get currentUser => signedIn ? _user : null;
+
+  @override
+  Session? get currentSession =>
+      signedIn
+          ? Session(accessToken: 'token', tokenType: 'bearer', user: _user)
+          : null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Unused {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('unexpected call: ${invocation.memberName}');
+}
+
+class _UnusedRevenueCat extends _Unused implements RevenueCatService {}
+
+class _UnusedSummaryUseCase extends _Unused
+    implements GetPortfolioSummaryUseCase {}
+
+class _UnusedHistoryUseCase extends _Unused
+    implements GetPortfolioHistoryUseCase {}
+
+class _UnusedBenchmarkUseCase extends _Unused
+    implements GetBenchmarkComparisonUseCase {}
+
+class _UnusedDeleteUseCase extends _Unused
+    implements DeletePositionsByTickerUseCase {}
+
+class _UnusedClosedRepository extends _Unused
+    implements ClosedPositionRepository {}
+
+class _UnusedProfileRepository extends _Unused
+    implements InvestorProfileRepository {}
+
+class _NoClosedPositions extends GetClosedPositionsUseCase {
+  _NoClosedPositions() : super(repository: _UnusedClosedRepository());
+
+  @override
+  Future<Either<HttpError, List<ClosedPosition>>> call({void params}) async =>
+      const Right([]);
+}
+
+/// Home ya cargada con la cartera de prueba (AAPL + NVDA).
+class _LoadedHome extends HomeProvider {
+  _LoadedHome(Ref ref)
+    : super(
+        ref: ref,
+        getPortfolioSummaryUseCase: _UnusedSummaryUseCase(),
+        getPortfolioHistoryUseCase: _UnusedHistoryUseCase(),
+        getBenchmarkComparisonUseCase: _UnusedBenchmarkUseCase(),
+        deletePositionsByTickerUseCase: _UnusedDeleteUseCase(),
+        getClosedPositionsUseCase: _NoClosedPositions(),
+      ) {
+    state = HomeState(summary: heldSummary);
+  }
+}
+
+/// `porty_topics` en memoria: lo que registra cada turno vuelve en la
+/// próxima lectura, como la tabla.
+class _FakeTopics implements PortyTopicsRepository {
+  final touched = <List<PortyTopicDraft>>[];
+  final rows = <PortyTopic>[];
+
+  @override
+  Future<List<PortyTopic>> list() async => List.of(rows);
+
+  @override
+  Future<void> touch(List<PortyTopicDraft> drafts) async {
+    touched.add(drafts);
+    for (final d in drafts) {
+      rows
+        ..removeWhere((t) => t.ticker == d.ticker)
+        ..insert(
+          0,
+          PortyTopic(
+            ticker: d.ticker,
+            question: d.question,
+            lastAskedAt: DateTime.now(),
+            priceAt: d.priceAt,
+            held: d.held,
+          ),
+        );
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Lo que la línea de cuota baja lee fuera del plan: el teléfono, el
+/// interruptor del servidor y el reloj (mutable: pasa el mes).
+class _Nudge {
+  _Nudge(this.prefs, {this.flagOn = true, DateTime? now})
+    : now = now ?? DateTime.utc(2026, 11, 10);
+
+  final SharedPreferences prefs;
+  final bool flagOn;
+  DateTime now;
+}
+
+class _Harness {
+  _Harness(
+    SubscriptionTier tier,
+    List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
+    int used = 0,
+    bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
+    this.nudge,
+    this.taste,
+  }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
+       api = ScriptedOpenAi(script) {
+    final tracker = AiUsageTracker(repository: subscriptionRepo);
+    container = ProviderContainer(
+      overrides: [
+        if (nudge case final n?) ...[
+          sharedPreferencesProvider.overrideWithValue(n.prefs),
+          supabaseAuthServiceProvider.overrideWithValue(_Session()),
+          quotaNudgeEnabledProvider.overrideWith((_) async => n.flagOn),
+          quotaNudgeClockProvider.overrideWithValue(() => n.now),
+        ],
+        productEventsProvider.overrideWithValue(events),
+        if (taste case final t?) marketTasteRepositoryProvider.overrideWithValue(t),
+        homeProvider.overrideWith((ref) => _LoadedHome(ref)),
+        portyTopicsRepositoryProvider.overrideWithValue(topics),
+        getClosedPositionsUseCaseProvider.overrideWithValue(
+          _NoClosedPositions(),
+        ),
+        aiUsageTrackerProvider.overrideWithValue(tracker),
+        revenueCatServiceProvider.overrideWithValue(_UnusedRevenueCat()),
+        subscriptionProvider.overrideWith(
+          (ref) => SubscriptionNotifier(
+            tracker: tracker,
+            authService: _Session(),
+            revenueCat: _UnusedRevenueCat(),
+          ),
+        ),
+        investorProfileProvider.overrideWith(
+          (ref) => InvestorProfileNotifier(
+            repository: _UnusedProfileRepository(),
+            authService: _Session(signedIn: false),
+          ),
+        ),
+        assistantDepsProvider.overrideWithValue(
+          AssistantDeps(
+            createService:
+                () => AssistantOpenAiService(
+                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
+                  model: 'gpt-4.1-mini',
+                  httpClient: api.client,
+                  variant: variant,
+                ),
+            createData: () => fakeDataSources(quotes: quotes),
+            streamingEnabled: streaming ? () async => true : null,
+          ),
+        ),
+      ],
+    );
+    // autoDispose: mantener vivo el provider durante todo el test.
+    container.listen(assistantProvider(args), (_, _) {});
+  }
+
+  static const args = AssistantArgs();
+  final _Nudge? nudge;
+  final FakeMarketTasteRepository? taste;
+  final events = FakeProductEvents();
+  final _FakeSubscriptionRepository subscriptionRepo;
+  final ScriptedOpenAi api;
+  final quotes = CountingQuoteRepository();
+  final topics = _FakeTopics();
+  late final ProviderContainer container;
+
+  AssistantProvider get notifier =>
+      container.read(assistantProvider(args).notifier);
+  AssistantState get state => container.read(assistantProvider(args));
+
+  PortfolioQaMessage get lastAnswer => state.messages.last;
+
+  void dispose() => container.dispose();
+}
+
+Map<String, Object?> Function(Map<String, dynamic>) _answer([
+  String text = 'ok',
+]) {
+  return (body) {
+    final messages = (body['messages'] as List).cast<Map>();
+    final lastUser = messages.lastWhere((m) => m['role'] == 'user');
+    final content = (lastUser['content'] as List).first['text'] as String;
+    final surfaceId = RegExp(r'SURFACE_ID[^:]*: (\S+)').firstMatch(content)!;
+    return textReply(a2uiAnswer(surfaceId.group(1)!, text));
+  };
+}
+
+Map<String, Object?> Function(Map<String, dynamic>) _call(
+  String name,
+  Map<String, Object?> args, {
+  String id = 'call_1',
+}) => (_) => toolCallsReply([(id, name, args)]);
+
+String _textOf(Map message) {
+  final content = message['content'];
+  if (content is String) return content;
+  if (content is! List) return '';
+  return content.map((c) => (c as Map)['text'] ?? '').join();
+}
+
+void main() {
+  _Harness harness(
+    SubscriptionTier tier,
+    List<Map<String, Object?> Function(Map<String, dynamic>)> script, {
+    int used = 0,
+    bool streaming = false,
+    PromptVariant variant = PromptVariant.classic,
+    _Nudge? nudge,
+    FakeMarketTasteRepository? taste,
+  }) {
+    final h = _Harness(
+      tier,
+      script,
+      used: used,
+      streaming: streaming,
+      variant: variant,
+      nudge: nudge,
+      taste: taste,
+    );
+    addTearDown(h.dispose);
+    return h;
+  }
+
+  test('a portfolio question is answered in one request with the portfolio '
+      'brief and every tool offered', () async {
+    final h = harness(SubscriptionTier.free, [_answer('Tu cartera vale 600.')]);
+
+    await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+    expect(h.api.requests, hasLength(1));
+    final request = h.api.requests.single;
+    final messages = (request['messages'] as List).cast<Map>();
+    // La cartera va como contexto fijo antes de la conversación, no pegada
+    // a la pregunta (pegada, el modelo la tomaba como sujeto de los
+    // seguimientos — ver ConversationLog.pinnedContext).
+    expect(messages.map((m) => m['role']), ['system', 'system', 'user']);
+    expect(_textOf(messages[1]), contains('PORTFOLIO_BRIEF'));
+    expect(_textOf(messages[1]), contains('"ticker":"AAPL"'));
+    expect(_textOf(messages[2]), endsWith('¿Cómo está mi cartera?'));
+    expect(
+      (request['tools'] as List).map((t) => (t as Map)['function']['name']),
+      containsAll(['get_quote', 'get_news', 'get_invest_candidates']),
+    );
+    expect(h.lastAnswer.isStreaming, isFalse);
+    expect(h.lastAnswer.isFallback, isFalse);
+    // La consulta la descuenta el proxy al responder, no la app.
+    expect(h.subscriptionRepo.consumed, isEmpty);
+    expect(h.quotes.priceCalls, isEmpty);
+  });
+
+  group('streaming (app_config.porty_streaming)', () {
+    test('off by default: requests are not streamed', () async {
+      final h = harness(SubscriptionTier.free, [_answer('Tu cartera vale 600.')]);
+      await h.notifier.submitMessage('¿Cómo está mi cartera?');
+      expect(h.api.requests.single.containsKey('stream'), isFalse);
+    });
+
+    test('on: same turn and same answer; the text shows while it is written '
+        'and is not typed again at the end', () async {
+      const text = 'AAPL subió 2 % en la semana, en línea con el mercado.';
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer(text),
+      ], streaming: true);
+      final previews = <String>[];
+      void listener() {
+        final p = h.notifier.preview.value;
+        if (p != null) previews.add(p.text);
+      }
+
+      h.notifier.preview.addListener(listener);
+      await h.notifier.submitMessage('¿Cómo le fue a AAPL esta semana?');
+      h.notifier.preview.removeListener(listener);
+
+      // Mismo turno: ronda de tools + respuesta, ambas con streaming.
+      expect(h.api.requests, hasLength(2));
+      expect(h.api.requests.every((r) => r['stream'] == true), isTrue);
+      expect(h.quotes.priceCalls, ['AAPL']);
+      expect(h.api.rolesOf(1), ['system', 'system', 'user', 'assistant', 'tool']);
+      // Misma respuesta final, por el camino de siempre.
+      expect(h.lastAnswer.isStreaming, isFalse);
+      expect(h.lastAnswer.isFallback, isFalse);
+      // Lo que se vio era siempre el principio del texto final.
+      expect(previews, isNotEmpty);
+      expect(previews.every(text.startsWith), isTrue);
+      // Terminado: la vista previa se apaga y el texto queda anotado para
+      // no tipearlo de nuevo.
+      expect(h.notifier.preview.value, isNull);
+      expect(h.notifier.streamedTextFor(h.lastAnswer.surfaceId!), text);
+    });
+  });
+
+  test('free user asking for a ticker they do not hold: the model asks for '
+      'it, the tool is locked, and the paywall replaces the turn', () async {
+    final h = harness(SubscriptionTier.free, [
+      _call('get_quote', {
+        'tickers': ['AMZN'],
+      }),
+    ]);
+
+    await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+    expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+    expect(h.state.paywallSource, 'chat_turn_locked_market_data');
+    expect(h.state.messages, hasLength(1)); // solo la bienvenida
+    expect(h.subscriptionRepo.consumed, isEmpty);
+    expect(h.quotes.priceCalls, isEmpty); // nunca se pidió el dato
+    expect(h.api.requests, hasLength(1));
+  });
+
+  test(
+    'free user, held ticker: the quote is fetched and the turn completes',
+    () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿A cuánto está AAPL?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.quotes.priceCalls, ['AAPL']);
+      expect(h.api.rolesOf(1), [
+        'system',
+        'system',
+        'user',
+        'assistant',
+        'tool',
+      ]);
+      final toolResult =
+          jsonDecode(_textOf((h.api.requests[1]['messages'] as List)[4] as Map))
+              as Map;
+      expect(toolResult['tickers']['AAPL']['held'], isTrue);
+      expect(h.lastAnswer.isStreaming, isFalse);
+    },
+  );
+
+  test(
+    'G1: a follow-up without a ticker sees the previous turn tool result',
+    () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer(),
+        _answer('Subió 1,2% hoy.'),
+      ]);
+
+      await h.notifier.submitMessage('¿A cuánto está AAPL?');
+      await h.notifier.submitMessage('¿cuánto subió?');
+
+      final roles = h.api.rolesOf(2);
+      expect(roles, [
+        'system',
+        'system', // PORTFOLIO_BRIEF actual (uno solo, reemplazado)
+        'user',
+        'assistant',
+        'tool',
+        'assistant',
+        'user',
+      ]);
+      final followUp = (h.api.requests[2]['messages'] as List).cast<Map>();
+      expect(_textOf(followUp[4]), contains('"AAPL"'));
+      expect(_textOf(followUp[2]), '¿A cuánto está AAPL?');
+      expect(
+        followUp.where((m) => _textOf(m).startsWith('PORTFOLIO_BRIEF')),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'a news search is answered for gold; a premium user asking for news '
+    'gets an answer (with the Gold block), not an interrupting paywall; the '
+    'app never charges (the proxy does)',
+    () async {
+      final gold = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+      ]);
+      await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      // Cobra el proxy (una consulta por turno), no la app.
+      expect(gold.subscriptionRepo.consumed, isEmpty);
+
+      final premium = harness(SubscriptionTier.premium, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer('Las noticias están incluidas en Gold.'),
+      ]);
+      await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      expect(premium.state.paywallReason, isNull);
+      expect(premium.subscriptionRepo.consumed, isEmpty);
+    },
+  );
+
+  test(
+    'premium fundamentals are locked but not a paywall: the model words it',
+    () async {
+      final h = harness(SubscriptionTier.premium, [
+        _call('get_fundamentals', {
+          'tickers': ['AAPL'],
+        }),
+        _answer('Los fundamentals no están en tu plan.'),
+      ]);
+
+      await h.notifier.submitMessage('¿Cuál es el P/E de AAPL?');
+
+      expect(h.state.paywallReason, isNull);
+      final toolResult =
+          jsonDecode(
+                _textOf((h.api.requests[1]['messages'] as List).last as Map),
+              )
+              as Map;
+      expect(toolResult['status'], 'locked');
+      // Solo se pudo decir qué incluye Gold: no se cobra la consulta.
+      expect(h.subscriptionRepo.consumed, isEmpty);
+    },
+  );
+
+  test('gold investment simulation shows the disclaimer and, once, the '
+      'profile nudge', () async {
+    final h = harness(SubscriptionTier.gold, [
+      _call('get_invest_candidates', {
+        'tickers': ['NEE', 'KO'],
+        'budget_usd': 500,
+      }),
+      _answer(),
+      _call('get_invest_candidates', {
+        'tickers': ['NEE', 'KO'],
+        'budget_usd': 500,
+      }),
+      _answer(),
+    ]);
+
+    await h.notifier.submitMessage('Tengo \$500 para invertir');
+    expect(h.lastAnswer.showsAdviceDisclaimer, isTrue);
+    expect(h.lastAnswer.profileNudge, InvestorProfileNudge.missing);
+
+    await h.notifier.submitMessage('¿y otra idea?');
+    expect(h.lastAnswer.showsAdviceDisclaimer, isTrue);
+    expect(h.lastAnswer.profileNudge, isNull);
+  });
+
+  // Desde la matriz de planes (2026-09-30) las simulaciones son de Premium:
+  // el paywall lo ve Free.
+  test('a free user asking to invest gets the plan paywall', () async {
+    final h = harness(SubscriptionTier.free, [
+      _call('get_invest_candidates', {
+        'tickers': ['NEE', 'KO'],
+        'budget_usd': 500,
+      }),
+    ]);
+
+    await h.notifier.submitMessage('Tengo \$500 para invertir');
+
+    expect(h.state.paywallReason, PaywallReason.simulations);
+    expect(h.state.paywallSource, 'chat_turn_locked_invest_simulation');
+    expect(h.state.paywallFeature, PlanFeature.investSimulation);
+    expect(h.state.messages, hasLength(1));
+  });
+
+  test('no monthly quota: the server rejects the turn and the paywall '
+      'replaces it', () async {
+    final h = harness(SubscriptionTier.free, [
+      (_) => proxyRejection(402, 'quota_exceeded'),
+    ], used: 20);
+
+    await h.notifier.submitMessage('Hola');
+
+    expect(h.state.paywallReason, PaywallReason.quotaExceeded);
+    expect(h.state.paywallSource, PaywallSource.quotaZero);
+    expect(h.api.requests, hasLength(1));
+    expect(h.state.messages, hasLength(1));
+    expect(h.state.error, isNull);
+    expect(h.state.isWaiting, isFalse);
+  });
+
+  test('daily cap: a quiet notice takes the answer slot — no paywall, no '
+      'error banner — and the model never sees the turn', () async {
+    final h = harness(SubscriptionTier.gold, [
+      (_) => proxyRejection(429, 'daily_limit'),
+      _answer('mañana'),
+    ]);
+
+    await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+    expect(h.state.paywallReason, isNull);
+    expect(h.state.error, isNull);
+    expect(h.api.requests, hasLength(1), reason: 'sin reintentos');
+    expect(h.state.messages, hasLength(3));
+    expect(h.lastAnswer.notice, AssistantNotice.dailyLimit);
+    expect(h.lastAnswer.isStreaming, isFalse);
+    expect(h.lastAnswer.isGenUiSurface, isFalse);
+
+    // El turno rechazado no queda en la memoria del modelo.
+    await h.notifier.submitMessage('Hola de nuevo');
+    final users = [
+      for (final m in (h.api.requests.last['messages'] as List).cast<Map>())
+        if (m['role'] == 'user') _textOf(m),
+    ];
+    expect(users, hasLength(1));
+    expect(users.single, endsWith('Hola de nuevo'));
+  });
+
+  test('other server rejections show the error banner with a user-facing '
+      'message', () async {
+    final h = harness(SubscriptionTier.premium, [
+      (_) => proxyRejection(429, 'rate_limited'),
+    ]);
+
+    await h.notifier.submitMessage('Hola');
+
+    expect(h.state.paywallReason, isNull);
+    expect(h.state.error, contains('muchas consultas seguidas'));
+    expect(h.state.error, isNot(contains('OpenAI')));
+  });
+
+  test('a broken generation falls back to text instead of leaving the user '
+      'without an answer', () async {
+    final h = harness(SubscriptionTier.free, [
+      (_) => textReply('no json here'),
+      (_) => textReply('still no json'),
+      (_) => textReply('nope'),
+    ]);
+
+    await h.notifier.submitMessage('Hola');
+
+    // El sanitizer convierte el texto sin JSON en un fallback A2UI válido,
+    // así que el turno termina con una surface (no con error).
+    expect(h.lastAnswer.isStreaming, isFalse);
+    expect(h.state.error, isNull);
+  });
+
+  // Regresión: la pestaña de Porty queda montada en el shell, así que un
+  // chip tocado fuera del chat (Home, una posición, el informe) con la
+  // conversación ya abierta llega por `askFromOutside`, no por `bootstrap`.
+  group('questions from outside the chat', () {
+    List<String> userMessages(_Harness h) => [
+      for (final m in h.state.messages)
+        if (m.role == PortfolioQaRole.user) m.content,
+    ];
+
+    // El envío de afuera no se espera (sale en un microtask): se espera a
+    // que el turno arranque y cierre.
+    Future<void> untilTurnsDone(_Harness h, int turns) async {
+      for (var i = 0; i < 2000; i++) {
+        if (h.state.turnCounter >= turns && !h.state.isWaiting) return;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    test('with the chat already open, the question is sent', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+      await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await untilTurnsDone(h, 2);
+
+      expect(userMessages(h), ['¿Cómo está mi cartera?', '¿Cómo viene AAPL?']);
+      expect(h.api.requests, hasLength(2));
+      expect(h.state.isWaiting, isFalse);
+    });
+
+    test('during a running turn, it goes out right after it ends', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside('¿Cómo viene NVDA?');
+      await running;
+      await untilTurnsDone(h, 2);
+
+      expect(userMessages(h), ['¿Cómo está mi cartera?', '¿Cómo viene NVDA?']);
+      expect(h.api.requests, hasLength(2));
+    });
+
+    test('before the chat is ready, bootstrap sends it once', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await h.notifier.bootstrap();
+
+      expect(userMessages(h), ['¿Cómo viene AAPL?']);
+      expect(h.api.requests, hasLength(1));
+    });
+    // El brief de cada pedido es el JSON del contexto fijo (mensaje 1),
+    // desde la primera llave.
+    Map<String, Object?>? screenOf(Map<String, dynamic> request) {
+      final pinned = _textOf((request['messages'] as List)[1] as Map);
+      final brief = jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      return (brief['screen_context'] as Map?)?.cast<String, Object?>();
+    }
+
+    test('the screen it was asked from travels in the brief and ages out '
+        'after a few turns', () async {
+      final h = harness(SubscriptionTier.free, [
+        for (var i = 0; i < 4; i++) _answer(),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Por qué bajó?',
+        screen: const PortyScreenContext.position('nvda'),
+      );
+      await untilTurnsDone(h, 1);
+      for (final q in ['¿Y sus dividendos?', '¿Y la semana?', 'Gracias']) {
+        await h.notifier.submitMessage(q);
+      }
+
+      expect(h.api.requests, hasLength(4));
+      expect(screenOf(h.api.requests[0]), {
+        'screen': 'position_detail',
+        'ticker': 'NVDA',
+        'turns_ago': 0,
+      });
+      expect(
+        _textOf((h.api.requests[0]['messages'] as List)[1] as Map),
+        contains('About screen_context'),
+      );
+      expect(screenOf(h.api.requests[1])?['turns_ago'], 1);
+      expect(screenOf(h.api.requests[2])?['turns_ago'], 2);
+      expect(screenOf(h.api.requests[3]), isNull);
+      expect(
+        _textOf((h.api.requests[3]['messages'] as List)[1] as Map),
+        isNot(contains('screen_context')),
+      );
+    });
+
+    test('a question from outside without a screen (Home, a push) clears '
+        'the previous one', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside(
+        '¿Llego a tiempo?',
+        screen: const PortyScreenContext(
+          PortyScreen.goalDetail,
+          goalLabel: 'Viaje a Japón',
+        ),
+      );
+      await untilTurnsDone(h, 1);
+      h.notifier.askFromOutside('¿Cómo está mi cartera hoy?');
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0])?['goal'], 'Viaje a Japón');
+      expect(screenOf(h.api.requests[1]), isNull);
+    });
+
+    test('a question queued during a running turn keeps its own screen; '
+        'the running turn does not take it', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside(
+        '¿Qué tan lejos estoy?',
+        screen: const PortyScreenContext(PortyScreen.allocation),
+      );
+      await running;
+      await untilTurnsDone(h, 2);
+
+      expect(screenOf(h.api.requests[0]), isNull);
+      expect(screenOf(h.api.requests[1])?['screen'], 'allocation_plan');
+    });
+
+    test(
+      'before the chat is ready, bootstrap sends it with its screen',
+      () async {
+        final h = harness(SubscriptionTier.free, [_answer()]);
+
+        h.notifier.askFromOutside(
+          '¿Qué hizo desde que la vendí?',
+          screen: const PortyScreenContext(
+            PortyScreen.closedPosition,
+            ticker: 'TSLA',
+          ),
+        );
+        await h.notifier.bootstrap();
+
+        expect(screenOf(h.api.requests.single), {
+          'screen': 'closed_position',
+          'ticker': 'TSLA',
+          'turns_ago': 0,
+        });
+      },
+    );
+  });
+
+  // Pregunta del widget de inicio: un envío por request y un
+  // `widget_question_result` por cómo cierra el turno.
+  group('questions from the home widget (origin)', () {
+    const origin = AssistantQuestionOrigin.widget('today');
+
+    Future<void> untilTurnsDone(_Harness h, int turns) async {
+      for (var i = 0; i < 2000; i++) {
+        if (h.state.turnCounter >= turns && !h.state.isWaiting) return;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    List<Map<String, Object?>> results(_Harness h) =>
+        h.events.of(ProductEvent.widgetQuestionResult);
+
+    test('answered: one send and one event with the question id', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.api.requests, hasLength(1));
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'answered'},
+      ]);
+      // Un turno común después no vuelve a emitir.
+      await h.notifier.submitMessage('Gracias');
+      expect(results(h), hasLength(1));
+    });
+
+    test('before the chat is ready, bootstrap sends it once and reports '
+        'it', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+
+      h.notifier.askFromOutside(
+        '¿Qué se movió más?',
+        origin: const AssistantQuestionOrigin.widget('top_mover'),
+      );
+      await h.notifier.bootstrap();
+
+      expect(h.api.requests, hasLength(1));
+      expect(results(h), [
+        {'question_id': 'top_mover', 'result': 'answered'},
+      ]);
+    });
+
+    test('queued during a running turn: the origin goes with the queued '
+        'question, not with the running one', () async {
+      final h = harness(SubscriptionTier.free, [_answer(), _answer()]);
+      await h.notifier.bootstrap();
+
+      final running = h.notifier.submitMessage('¿Cómo está mi cartera?');
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await running;
+      expect(results(h), isEmpty);
+      await untilTurnsDone(h, 2);
+
+      expect(h.api.requests, hasLength(2));
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'answered'},
+      ]);
+    });
+
+    test('quota: the server rejects it and the event says quota', () async {
+      final h = harness(SubscriptionTier.free, [
+        (_) => proxyRejection(402, 'quota_exceeded'),
+      ], used: 20);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.state.paywallReason, PaywallReason.quotaExceeded);
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'quota'},
+      ]);
+    });
+
+    test('paywall: a locked turn is aborted and the event says paywall', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AMZN'],
+        }),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿A cuánto está AMZN?', origin: origin);
+      await untilTurnsDone(h, 1);
+
+      expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'paywall'},
+      ]);
+    });
+
+    test('failed: connection error, other rejections and the text '
+        'fallback', () async {
+      final h = harness(SubscriptionTier.premium, [
+        (_) => proxyRejection(429, 'rate_limited'),
+        (_) => proxyRejection(429, 'daily_limit'),
+      ]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 1);
+      h.notifier.askFromOutside('¿Cómo viene mi cartera hoy?', origin: origin);
+      await untilTurnsDone(h, 2);
+
+      expect(results(h), [
+        {'question_id': 'today', 'result': 'failed'},
+        {'question_id': 'today', 'result': 'failed'},
+      ]);
+    });
+
+    test('without origin nothing is logged', () async {
+      final h = harness(SubscriptionTier.free, [_answer()]);
+      await h.notifier.bootstrap();
+
+      h.notifier.askFromOutside('¿Cómo viene AAPL?');
+      await untilTurnsDone(h, 1);
+
+      expect(results(h), isEmpty);
+    });
+  });
+
+  // Fase 4: de qué tickers habló el usuario, para retomarlo en otra charla.
+  group('conversation topics (porty_topics)', () {
+    test('a turn records the ticker it asked about, and the next turn '
+        'carries it in recent_topics with its guidance', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_quote', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Cómo viene NVDA?');
+      // El registro sale sin esperar a la respuesta.
+      for (var i = 0;
+          i < 100 && h.container.read(portyTopicsProvider).topics.isEmpty;
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(h.topics.touched.single.single.ticker, 'NVDA');
+      expect(h.topics.touched.single.single.held, isTrue);
+
+      await h.notifier.submitMessage('Gracias');
+      final pinned = _textOf((h.api.requests[2]['messages'] as List)[1] as Map);
+      expect(pinned, contains('About recent_topics'));
+      final brief =
+          jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      final topics = (brief['recent_topics'] as List).cast<Map>();
+      expect(topics.single['ticker'], 'NVDA');
+      expect(topics.single['days_ago'], 0);
+      // El primer turno no tenía temas: sin bloque ni guía.
+      final first = _textOf((h.api.requests[0]['messages'] as List)[1] as Map);
+      expect(first, isNot(contains('recent_topics')));
+    });
+  });
+
+  group('resume the last conversation (empty chat)', () {
+    PortyTopic topic(String t, {int daysAgo = 2}) => PortyTopic(
+      ticker: t,
+      question: 'q',
+      lastAskedAt: DateTime.now().subtract(Duration(days: daysAgo)),
+    );
+
+    test('the most recent topic of the last 14 days; Free only if held',
+        () async {
+      final free = harness(SubscriptionTier.free, const []);
+      await free.container.read(subscriptionProvider.notifier).refresh();
+      expect(free.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+          'NVDA');
+      expect(free.notifier.resumeTopic([topic('AMZN')]), isNull);
+      expect(free.notifier.resumeTopic([topic('NVDA', daysAgo: 20)]), isNull);
+
+      final premium = harness(SubscriptionTier.premium, const []);
+      await premium.container.read(subscriptionProvider.notifier).refresh();
+      expect(
+        premium.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+        'AMZN',
+      );
+    });
+  });
+
+  // Fase 3 (docs/superpowers/research/2026-10-24-porty-escalable.md): con
+  // el prompt lean, las reglas y esquemas de un área viajan con el
+  // resultado de su tool.
+  group('lean prompt (area_spec)', () {
+    List<Map> toolMessages(Map<String, dynamic> request) => [
+      for (final m in (request['messages'] as List).cast<Map>())
+        if (m['role'] == 'tool') m,
+    ];
+
+    test('the news rules and card schema come with get_news, once while '
+        'visible; the system prompt does not carry them', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+        _call('get_news', {
+          'tickers': ['AAPL'],
+        }, id: 'call_2'),
+        _answer(),
+      ], variant: PromptVariant.lean);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+      await h.notifier.submitMessage('¿Y de AAPL?');
+
+      expect(h.api.requests, hasLength(4));
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains(AreaSpecs.leanRule.trim().split('\n').first));
+      expect(system, isNot(contains('NEWS ([W:NEWS]) — get_news')));
+
+      final first = toolMessages(h.api.requests[1]).single;
+      final firstResult = jsonDecode(_textOf(first)) as Map;
+      final spec = firstResult['area_spec'] as Map;
+      expect(spec['rules'], startsWith('NEWS ([W:NEWS]) — get_news'));
+      expect((spec['widgets'] as Map).keys, ['QaNewsSummary']);
+
+      // Segundo turno: el resultado anterior (con su spec) sigue a la vista.
+      final second = toolMessages(h.api.requests[3]);
+      expect(second, hasLength(2));
+      expect(
+        (jsonDecode(_textOf(second.last)) as Map).containsKey('area_spec'),
+        isFalse,
+      );
+      expect(h.lastAnswer.isFallback, isFalse);
+    });
+
+    test('the classic prompt keeps everything in the prefix and adds no '
+        'area_spec', () async {
+      final h = harness(SubscriptionTier.gold, [
+        _call('get_news', {
+          'tickers': ['NVDA'],
+        }),
+        _answer(),
+      ]);
+
+      await h.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+
+      final system = _textOf((h.api.requests[0]['messages'] as List)[0] as Map);
+      expect(system, contains('NEWS ([W:NEWS]) — get_news'));
+      final result =
+          jsonDecode(_textOf(toolMessages(h.api.requests[1]).single)) as Map;
+      expect(result.containsKey('area_spec'), isFalse);
+    });
+  });
+
+  group('turn activity (Porty header status)', () {
+    List<String> record(_Harness h) {
+      final seen = <String>[];
+      void listener() {
+        final a = h.notifier.activity.value;
+        seen.add(
+          a.phase == TurnPhase.runningTools
+              ? 'tools:${a.calls.map((c) => '${c.name}${c.args['tickers']}').join(',')}'
+              : a.phase.name,
+        );
+      }
+
+      h.notifier.activity.addListener(listener);
+      addTearDown(() => h.notifier.activity.removeListener(listener));
+      return seen;
+    }
+
+    test('follows the real loop: thinking, the requested tools with their '
+        'arguments, composing, and idle when the turn ends', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('get_quote', {
+          'tickers': ['AAPL'],
+        }),
+        _answer('AAPL está a 200.'),
+      ]);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('¿A cuánto está AAPL?');
+
+      expect(seen, ['thinking', 'tools:get_quote[AAPL]', 'composing', 'idle']);
+      expect(h.notifier.activity.value.isIdle, isTrue);
+    });
+
+    test('goes back to idle when the turn fails', () async {
+      // Sin guion: el primer request responde 500.
+      final h = harness(SubscriptionTier.free, []);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('Hola');
+
+      expect(seen.first, 'thinking');
+      expect(seen.last, 'idle');
+      expect(h.notifier.activity.value.isIdle, isTrue);
+    });
+
+    test('goes back to idle when the quota paywall stops the turn', () async {
+      final h = harness(SubscriptionTier.free, [_answer()], used: 20);
+      final seen = record(h);
+
+      await h.notifier.submitMessage('Hola');
+
+      expect(seen, ['thinking', 'idle']);
+    });
+  });
+
+  group('portfolio actions', () {
+    /// La respuesta con una card por cada propuesta ok que devolvió la tool.
+    Map<String, Object?> answerWithProposals(Map<String, dynamic> body) {
+      final messages = (body['messages'] as List).cast<Map>();
+      final ids = [
+        for (final m in messages.where((m) => m['role'] == 'tool'))
+          (jsonDecode(_textOf(m)) as Map)['proposal_id'],
+      ].whereType<String>().toList();
+      final lastUser = messages.lastWhere((m) => m['role'] == 'user');
+      final surfaceId =
+          RegExp(
+            r'SURFACE_ID[^:]*: (\S+)',
+          ).firstMatch(_textOf(lastUser))!.group(1)!;
+      final update = jsonEncode({
+        'version': 'v0.9',
+        'updateComponents': {
+          'surfaceId': surfaceId,
+          'components': [
+            {
+              'id': 'root',
+              'component': 'Column',
+              'children': ['a', for (var i = 0; i < ids.length; i++) 'p$i'],
+            },
+            {
+              'id': 'a',
+              'component': 'QaAnswerText',
+              'text': 'Revisá los datos y confirmá.',
+            },
+            for (var i = 0; i < ids.length; i++)
+              {'id': 'p$i', 'component': 'QaActionProposal', 'proposalId': ids[i]},
+          ],
+        },
+      });
+      return textReply(
+        '{"version":"v0.9","createSurface":{"surfaceId":"$surfaceId",'
+        '"catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}\n'
+        '$update',
+      );
+    }
+
+    test('premium: the proposal reaches the card evidence without saving, '
+        'and the next turn knows it was cancelled', () async {
+      final h = harness(SubscriptionTier.premium, [
+        _call('propose_buy', {
+          'ticker': 'AAPL',
+          'shares': 10,
+          'date': '2026-09-25',
+        }),
+        answerWithProposals,
+        _answer('Listo.'),
+      ]);
+
+      await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
+
+      // Sin ronda de corrección: la card tiene su propuesta detrás.
+      expect(h.api.requests, hasLength(2));
+      expect(h.lastAnswer.isFallback, isFalse);
+      final surfaceId = h.lastAnswer.surfaceId!;
+      final calls =
+          h.notifier.service!.evidenceListenable(surfaceId).value.calls;
+      final proposal = ActionProposal.fromToolResult(
+        calls.singleWhere((c) => c.name == 'propose_buy').result,
+      )!;
+      expect(proposal.ticker, 'AAPL');
+      expect(proposal.shares, 10);
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(h.state.actionProgress(proposal.id).status,
+          ActionProposalStatus.pending);
+
+      h.notifier.cancelAction(
+        ActionDraft(
+          proposalId: proposal.id,
+          kind: ActionKind.buy,
+          ticker: 'AAPL',
+          shares: 10,
+          price: proposal.price,
+          date: proposal.date,
+        ),
+      );
+      await h.notifier.submitMessage('Gracias');
+
+      final brief = _textOf(
+        (h.api.requests.last['messages'] as List).cast<Map>()[1],
+      );
+      expect(brief, contains('"actions_this_conversation"'));
+      expect(brief, contains('"status":"cancelled"'));
+      expect(brief, contains(proposal.id));
+    });
+
+    test('free: proposing is in every plan, so the card is prepared and '
+        'there is no paywall', () async {
+      final h = harness(SubscriptionTier.free, [
+        _call('propose_buy', {
+          'ticker': 'AAPL',
+          'shares': 10,
+          'date': '2026-09-25',
+        }),
+        answerWithProposals,
+      ]);
+
+      await h.notifier.submitMessage('Compré 10 de Apple el 25 de septiembre');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.lastAnswer.isFallback, isFalse);
+      final calls =
+          h.notifier.service!
+              .evidenceListenable(h.lastAnswer.surfaceId!)
+              .value
+              .calls;
+      final result = calls.singleWhere((c) => c.name == 'propose_buy').result;
+      expect(result['status'], 'ok');
+      expect(ActionProposal.fromToolResult(result)!.ticker, 'AAPL');
+      // Nada se guardó: la propuesta sigue pendiente.
+      expect(
+        h.state.actionProgress(result['proposal_id'] as String).status,
+        ActionProposalStatus.pending,
+      );
+    });
+  });
+
+  group('free market lookups (market_taste)', () {
+    Map<String, Object?> Function(Map<String, dynamic>) quote(
+      String ticker,
+    ) => _call('get_quote', {
+      'tickers': [ticker],
+    });
+
+    test('a foreign ticker with lookups left: it is answered with data, '
+        'the line says how many are left and the event is logged', () async {
+      final taste = FakeMarketTasteRepository(used: 1);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.quotes.priceCalls, ['AMZN']);
+      expect(taste.consumed, hasLength(1));
+      expect(taste.consumed.single.$2, ['AMZN']);
+      // El mismo id que viaja al proxy como x-porty-turn-id.
+      expect(
+        taste.consumed.single.$1,
+        h.notifier.service!.log.currentTurn!.id,
+      );
+      expect(h.lastAnswer.marketTasteRemaining, 1);
+      expect(h.lastAnswer.marketTeaser, isFalse);
+      expect(h.events.of(ProductEvent.marketTasteUsed), [
+        {'remaining': 1},
+      ]);
+      expect(h.events.of(ProductEvent.marketTeaserShown), isEmpty);
+    });
+
+    test('the last one says 0 left', () async {
+      final taste = FakeMarketTasteRepository(used: 2);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AMZN?');
+      expect(h.lastAnswer.marketTasteRemaining, 0);
+    });
+
+    test('after the limit the turn is answered (not cut), the tool carries '
+        'the guide, and the message gets the Premium teaser', () async {
+      final taste = FakeMarketTasteRepository(used: 3);
+      final h = harness(SubscriptionTier.free, [
+        quote('AMZN'),
+        _answer('Es una empresa de comercio electrónico.'),
+      ], taste: taste);
+
+      await h.notifier.submitMessage('¿Qué opinás de AMZN?');
+
+      expect(h.state.paywallReason, isNull);
+      expect(h.state.messages, hasLength(3));
+      expect(h.quotes.priceCalls, isEmpty); // ningún dato del ticker ajeno
+      final toolResult =
+          jsonDecode(_textOf((h.api.requests[1]['messages'] as List)[4] as Map))
+              as Map;
+      expect(toolResult['status'], 'locked');
+      expect(toolResult['answer_guide'], contains('Do not state any price'));
+      expect(h.lastAnswer.marketTeaser, isTrue);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+      expect(h.events.of(ProductEvent.marketTasteUsed), isEmpty);
+      // El servidor cobra el turno respondido: la app no descuenta nada.
+      expect(h.subscriptionRepo.consumed, isEmpty);
+
+      // Se registra como mostrado cuando entra con el reveal, una sola vez.
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      h.notifier.markRevealed(h.lastAnswer.surfaceId!);
+      expect(h.events.of(ProductEvent.marketTeaserShown), hasLength(1));
+    });
+
+    test('disabled by the server: the turn is cut as always', () async {
+      final taste = FakeMarketTasteRepository(enabled: false);
+      final h = harness(SubscriptionTier.free, [quote('AMZN')], taste: taste);
+
+      await h.notifier.submitMessage('¿A cuánto está AMZN?');
+
+      expect(h.state.paywallSource, 'chat_turn_locked_market_data');
+      expect(h.state.messages, hasLength(1));
+      expect(taste.consumed, isEmpty); // available=false: ni se intenta
+    });
+
+    test('premium and gold never touch the server', () async {
+      for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+        final taste = FakeMarketTasteRepository();
+        final h = harness(tier, [quote('AMZN'), _answer()], taste: taste);
+        await h.notifier.submitMessage('¿AMZN?');
+        expect(taste.statusCalls, 0, reason: tier.name);
+        expect(taste.consumed, isEmpty, reason: tier.name);
+        expect(h.lastAnswer.marketTasteRemaining, isNull);
+        expect(h.lastAnswer.marketTeaser, isFalse);
+      }
+    });
+
+    test('a held ticker spends nothing', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('¿AAPL?');
+      expect(taste.consumed, isEmpty);
+      expect(h.lastAnswer.marketTasteRemaining, isNull);
+    });
+
+    test('the status is read once per chat', () async {
+      final taste = FakeMarketTasteRepository();
+      final h = harness(SubscriptionTier.free, [
+        quote('AAPL'),
+        _answer(),
+        quote('AAPL'),
+        _answer(),
+      ], taste: taste);
+      await h.notifier.submitMessage('uno');
+      await h.notifier.submitMessage('dos');
+      expect(taste.statusCalls, 1);
+    });
+  });
+
+  group('low quota line (quota_nudge)', () {
+    Future<_Nudge> nudgeWorld({bool flagOn = true, DateTime? now}) async {
+      SharedPreferences.setMockInitialValues({});
+      return _Nudge(
+        await SharedPreferences.getInstance(),
+        flagOn: flagOn,
+        now: now,
+      );
+    }
+
+    // El servidor cobra al responder: la consulta sube a [usedAfter] recién
+    // cuando el modelo contesta, y el refresh posterior la trae.
+    _Harness charging(
+      SubscriptionTier tier,
+      _Nudge nudge, {
+      required int used,
+      int turns = 1,
+      Map<String, Object?> Function(Map<String, dynamic>)? first,
+    }) {
+      late final _Harness h;
+      Map<String, Object?> Function(Map<String, dynamic>) turn() => (body) {
+        h.subscriptionRepo.used += 1;
+        return _answer('ok')(body);
+      };
+      h = harness(tier, [
+        for (var i = 0; i < turns; i++) first ?? turn(),
+      ], used: used, nudge: nudge);
+      return h;
+    }
+
+    test('free, 6 -> 5 left: that answer carries the line, once per month; '
+        'a new UTC month shows it again', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        turns: 3,
+      );
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 5);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-11'],
+      );
+
+      await h.notifier.submitMessage('Dos');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(
+        h.state.messages.where((m) => m.quotaNudgeRemaining != null),
+        hasLength(1),
+        reason: 'la primera respuesta la conserva',
+      );
+
+      nudge.now = DateTime.utc(2026, 12, 1);
+      await h.notifier.submitMessage('Tres');
+      await pumpEventQueue();
+      expect(h.lastAnswer.quotaNudgeRemaining, 3);
+      expect(
+        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
+        ['user:2026-12'],
+        reason: 'los meses anteriores se descartan',
+      );
+    });
+
+    test('flag off: no line, and the month is not spent', () async {
+      final nudge = await nudgeWorld(flagOn: false);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('still above the threshold (7 -> 6 left): no line', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 13);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    test('the last query (1 -> 0 left): no line, the zero paywall owns '
+        'that moment', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(SubscriptionTier.free, nudge, used: 19);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+
+    for (final tier in [SubscriptionTier.premium, SubscriptionTier.gold]) {
+      test('${tier.name}: no line even when few are left', () async {
+        final nudge = await nudgeWorld();
+        final h = charging(tier, nudge, used: 14);
+
+        await h.notifier.submitMessage('Uno');
+        await pumpEventQueue();
+
+        expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+        expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+      });
+    }
+
+    test('a turn cut by the plan paywall leaves no message, no line and '
+        'does not spend the month', () async {
+      final nudge = await nudgeWorld();
+      final h = charging(
+        SubscriptionTier.free,
+        nudge,
+        used: 14,
+        first:
+            _call('get_invest_candidates', {
+              'tickers': ['NEE', 'KO'],
+              'budget_usd': 500,
+            }),
+      );
+
+      await h.notifier.submitMessage('Tengo \$500 para invertir');
+      await pumpEventQueue();
+
+      expect(h.state.paywallReason, PaywallReason.simulations);
+      expect(h.state.messages.any((m) => m.quotaNudgeRemaining != null),
+          isFalse);
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
+    });
+
+    test('already shown this month on this phone (another session): no '
+        'line', () async {
+      final nudge = await nudgeWorld();
+      await nudge.prefs.setStringList(QuotaNudgeMemory.prefsKey, [
+        'user:2026-11',
+      ]);
+      final h = charging(SubscriptionTier.free, nudge, used: 14);
+
+      await h.notifier.submitMessage('Uno');
+      await pumpEventQueue();
+
+      expect(h.lastAnswer.quotaNudgeRemaining, isNull);
+    });
+  });
+}

@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/domain/repositories/portfolio_analytics_repo
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_series_builder.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/position_repository_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 
@@ -34,12 +35,24 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
         if (positions.isEmpty) {
           return const Right([]);
         }
+        // Sin cotización, todo el ticker se valúa con el precio de eToro si
+        // alguno de sus lotes lo trae (también los manuales del mismo
+        // ticker); si no, cada lote a su precio de compra.
+        final brokerPrices = <String, double>{
+          for (final p in positions)
+            if (p.brokerPrice != null)
+              PortfolioCalculator.normalizeTicker(p.ticker): p.brokerPrice!,
+        };
         final valuations = <PositionValuation>[];
         for (final position in positions) {
           final priceResult =
               await quoteRepository.getCurrentPrice(position.ticker);
           final price = priceResult.fold(
-            (_) => position.purchasePrice,
+            (_) =>
+                brokerPrices[PortfolioCalculator.normalizeTicker(
+                  position.ticker,
+                )] ??
+                position.purchasePrice,
             (p) => p,
           );
           valuations.add(
@@ -97,9 +110,7 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
         (positions) async {
           if (positions.isEmpty) return const Right([]);
 
-          final startDate = positions
-              .map((p) => p.purchaseDate)
-              .reduce((a, b) => a.isBefore(b) ? a : b);
+          final startDate = PortfolioSeriesBuilder.seriesStart(positions);
 
           final portfolioHistory = await _buildPortfolioSeries(positions);
           final spResult = await quoteRepository.getHistoricalDaily(_sp500Ticker);
@@ -192,54 +203,7 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
       );
     }
 
-    final startDate = positions
-        .map((p) => p.purchaseDate)
-        .reduce((a, b) => a.isBefore(b) ? a : b);
-
-    final allDates = <DateTime>{};
-    for (final candles in histories.values) {
-      for (final c in candles) {
-        if (!c.date.isBefore(startDate)) {
-          allDates.add(DateTime(c.date.year, c.date.month, c.date.day));
-        }
-      }
-    }
-
-    final sortedDates = allDates.toList()..sort();
-
-    final points = <PortfolioHistoryPoint>[];
-    for (final date in sortedDates) {
-      double total = 0;
-      double costBasis = 0;
-      for (final position in positions) {
-        if (position.purchaseDate.isAfter(date)) continue;
-        final candles = histories[position.ticker] ?? [];
-        final price = _closeOnOrBefore(candles, date) ?? position.purchasePrice;
-        total += position.quantity * price;
-        costBasis += position.costBasis;
-      }
-      if (total > 0) {
-        points.add(
-          PortfolioHistoryPoint(
-            date: date,
-            totalValue: total,
-            totalCostBasis: costBasis,
-          ),
-        );
-      }
-    }
-    return points;
-  }
-
-  double? _closeOnOrBefore(List<PriceCandle> candles, DateTime date) {
-    PriceCandle? best;
-    for (final c in candles) {
-      if (c.date.isAfter(date)) continue;
-      if (best == null || c.date.isAfter(best.date)) {
-        best = c;
-      }
-    }
-    return best?.close;
+    return PortfolioSeriesBuilder.build(positions, histories);
   }
 
   String _dayKey(DateTime date) =>

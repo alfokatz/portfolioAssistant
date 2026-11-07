@@ -12,6 +12,15 @@ class HomeState {
   final bool showAllPositions;
   final int closedPositionsCount;
 
+  /// Hay una carga en curso y todavía no hay nada que mostrar: la Home
+  /// muestra su skeleton (ver `HomeScreen`). Arranca en `true`: el primer
+  /// frame no es "sin posiciones".
+  final bool loading;
+
+  /// [summary] viene del caché (lo último que se mostró) y todavía no llegó
+  /// lo nuevo.
+  final bool fromCache;
+
   HomeState({
     this.summary,
     this.history = const [],
@@ -20,6 +29,8 @@ class HomeState {
     this.selectedRange = ChartTimeRange.m1,
     this.showAllPositions = false,
     this.closedPositionsCount = 0,
+    this.loading = true,
+    this.fromCache = false,
   });
 
   HomeState copyWith({
@@ -30,6 +41,8 @@ class HomeState {
     ChartTimeRange? selectedRange,
     bool? showAllPositions,
     int? closedPositionsCount,
+    bool? loading,
+    bool? fromCache,
     bool clearQuoteError = false,
   }) {
     return HomeState(
@@ -41,6 +54,8 @@ class HomeState {
       showAllPositions: showAllPositions ?? this.showAllPositions,
       closedPositionsCount:
           closedPositionsCount ?? this.closedPositionsCount,
+      loading: loading ?? this.loading,
+      fromCache: fromCache ?? this.fromCache,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -20,7 +21,7 @@ class QuoteRepositoryImpl implements QuoteRepository {
       return Left(
         HttpError(
           code: 'quote_error',
-          message: 'No se pudo obtener cotización para $ticker',
+          message: 'error_quote_unavailable'.tr(namedArgs: {'ticker': ticker}),
         ),
       );
     }
@@ -37,9 +38,18 @@ class QuoteRepositoryImpl implements QuoteRepository {
       return Left(
         HttpError(
           code: 'history_error',
-          message: 'No se pudo obtener histórico para $ticker',
+          message: 'error_history_unavailable'.tr(namedArgs: {'ticker': ticker}),
         ),
       );
+    }
+  }
+
+  @override
+  Future<List<PriceCandle>> getIntradayCandles(String ticker) async {
+    try {
+      return await remoteDataSource.getIntradayCandles(ticker);
+    } catch (_) {
+      return const [];
     }
   }
 }

@@ -1,5 +1,5 @@
-import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/settings_screen.dart';
 
 class SettingsRouter {
@@ -8,11 +8,13 @@ class SettingsRouter {
   static GoRoute getRoute() {
     return GoRoute(
       name: settingsRouteName,
-      path: 'Settings',
-      pageBuilder: (context, state) => MaterialPage<void>(
-        key: state.pageKey,
-        child: SettingsScreen(),
-      ),
+      path: '/settings',
+      pageBuilder:
+          (context, state) => MaterialPage<void>(
+            key: state.pageKey,
+            name: settingsRouteName,
+            child: const SettingsScreen(),
+          ),
     );
   }
 }

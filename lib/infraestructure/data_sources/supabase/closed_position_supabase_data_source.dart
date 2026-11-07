@@ -36,7 +36,7 @@ class ClosedPositionSupabaseDataSource
   }
 
   @override
-  Future<void> save(ClosedPosition position, {String? sourcePositionId}) async {
+  Future<void> save(ClosedPosition position) async {
     final userId = _authService.requireUserId();
     await _client
         .from(_table)
@@ -44,9 +44,14 @@ class ClosedPositionSupabaseDataSource
           SupabasePortfolioMapper.closedPositionToRow(
             position: position,
             userId: userId,
-            sourcePositionId: sourcePositionId,
           ),
         );
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    _authService.requireUserId();
+    await _client.from(_table).delete().eq('id', id);
   }
 }
 

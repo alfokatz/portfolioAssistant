@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Las caras contenta/preocupada se buscan por nombre (getIdentifier) en
+     PortyWidgetRenderer.faceRes: sin esto el shrinker de recursos las saca. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/porty_widget_avatar*" />

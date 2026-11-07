@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos propios del widget (galería, fallback sin snapshot, modo legado y
+     vista previa con datos ficticios, sin montos). Inglés por defecto; español
+     en values-es. Los textos del snapshot v2 vienen ya traducidos en el JSON. -->
+<resources>
+    <string name="widget_name">Porty</string>
+    <string name="widget_description">See how your portfolio is doing today and what Porty noticed, without opening the app.</string>
+    <string name="widget_large_description">See how your portfolio is doing today and what Porty noticed, without opening the app.</string>
+    <string name="widget_no_snapshot">Sign in to Porty to see your portfolio here.</string>
+
+    <!-- Modo legado: JSON de la versión anterior (sin bloque v2) -->
+    <string name="widget_legacy_open_porty">Open Porty to see updates on your portfolio</string>
+    <string name="widget_legacy_your_portfolio">your portfolio</string>
+    <string name="widget_legacy_age_now">just now</string>
+    <string name="widget_legacy_age_min">{n} min ago</string>
+    <string name="widget_legacy_age_h">{n} h ago</string>
+    <string name="widget_legacy_age_d">{n} d ago</string>
+
+    <!-- Vista previa (datos ficticios) -->
+    <string name="widget_sample_pct">+0.5%</string>
+    <string name="widget_sample_period">Today</string>
+    <string name="widget_sample_age">your portfolio · 5 min ago</string>
+    <string name="widget_sample_a11y">Sample portfolio is up 0.5% today</string>
+    <string name="widget_sample_line">ACME · earnings tomorrow (estimated)</string>
+    <string name="widget_sample_header">Today I\'m flagging 3 things</string>
+    <string name="widget_sample_list_title">Today</string>
+    <string name="widget_sample_item_earnings">ACME · estimated earnings date: tomorrow</string>
+    <string name="widget_sample_meta_earnings">Earnings · estimated date</string>
+    <string name="widget_sample_item_news_2">ZYNT announces a deal with a supplier</string>
+    <string name="widget_sample_meta_news">News · 3 h ago</string>
+    <string name="widget_sample_item_insight">Trip to Japan is behind</string>
+    <string name="widget_sample_meta_insight">Porty noticed</string>
+    <string name="widget_sample_q_earnings">What did ACME report last time?</string>
+    <string name="widget_sample_q_goal">How am I doing with Trip to Japan?</string>
+</resources>

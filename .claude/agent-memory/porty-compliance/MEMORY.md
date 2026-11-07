@@ -1,0 +1,1 @@
+- [Widget: licencia de noticias y Apple 4.4](project_widget_news_licensing.md) — 2026-11-05 Finnhub free no sirve, fechas v2 estimadas, aviso de pago en iOS riesgoso

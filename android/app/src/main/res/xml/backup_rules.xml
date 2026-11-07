@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android <= 11: el resumen de cartera del widget no viaja en el backup. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="HomeWidgetPreferences.xml" />
+</full-backup-content>

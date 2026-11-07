@@ -1,0 +1,133 @@
+// De lo que devuelve SnapTrade a lo que guarda Porty: qué brókers se
+// importan según el plan, y qué posiciones entran.
+
+import type { Authorization, RawPosition, RawTaxLot } from "./snaptrade.ts";
+
+/// Qué incluye cada plan pago. Free no conecta (el handler lo corta antes).
+/// - Premium: un bróker, datos del día.
+/// - Gold: todos los brókers y "Actualizar ahora" (si está habilitado:
+///   SnapTrade cobra cada actualización manual).
+export const planConfig: Record<string, { maxBrokerages: number | null; manualRefresh: boolean }> = {
+  premium: { maxBrokerages: 1, manualRefresh: false },
+  gold: { maxBrokerages: null, manualRefresh: true },
+};
+
+/// Brókers que Porty también conecta directo (sin costo por usuario).
+export type DirectBroker = "etoro" | "binance";
+
+/// Cuál de los directos es [a], o null.
+export function directBrokerOf(a: { slug: string; name: string }): DirectBroker | null {
+  const id = `${a.slug} ${a.name}`;
+  if (/etoro/i.test(id)) return "etoro";
+  if (/binance/i.test(id)) return "binance";
+  return null;
+}
+
+export type BrokerageSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  disabled: boolean;
+  /// La web del bróker (solo https), para "Abrir en tu bróker".
+  url: string | null;
+  /// false: conectado en SnapTrade pero Porty no lo importa.
+  imported: boolean;
+  /// Por qué no se importa: `plan_limit`, `direct_connection` (ya lo tiene
+  /// conectado directo en Porty) o `trade_permissions`.
+  reason?: string;
+};
+
+/// Qué conexiones se importan. Las de solo lectura y, si el plan tiene
+/// tope, las más viejas. eToro y Binance entran por acá solo si el usuario
+/// NO los tiene conectados directo ([direct]): así no se duplican.
+export function selectBrokerages(
+  auths: Authorization[],
+  maxBrokerages: number | null,
+  direct: ReadonlySet<DirectBroker> = new Set(),
+): BrokerageSummary[] {
+  const sorted = [...auths].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  let used = 0;
+  return sorted.map((a) => {
+    const base = { id: a.id, name: a.name, slug: a.slug, disabled: a.disabled, url: a.url };
+    // Porty solo pide `read`; si apareciera una con permiso de operar, no
+    // se usa.
+    if (a.type !== "read") return { ...base, imported: false, reason: "trade_permissions" };
+    const directBroker = directBrokerOf(a);
+    if (directBroker && direct.has(directBroker)) {
+      return { ...base, imported: false, reason: "direct_connection" };
+    }
+    if (maxBrokerages !== null && used >= maxBrokerages) return { ...base, imported: false, reason: "plan_limit" };
+    used++;
+    return { ...base, imported: true };
+  });
+}
+
+/// Cuántas conexiones cuentan para el tope del plan (las que se importan o
+/// se importarían).
+export function countedBrokerages(auths: Authorization[], direct: ReadonlySet<DirectBroker>): number {
+  return selectBrokerages(auths, null, direct).filter((b) => b.imported).length;
+}
+
+const importableKinds = new Set(["stock", "adr", "etf", "cef", "mutualfund", "crypto"]);
+
+export type Holding = {
+  ticker: string;
+  quantity: number;
+  /// Precio de compra por unidad; null si el bróker no lo informó.
+  cost: number | null;
+  price: number;
+  /// Las compras abiertas con fecha que dio el bróker (tax lots), si las dio.
+  taxLots: RawTaxLot[];
+};
+
+export type Skipped = { ticker: string; reason: string };
+
+/// El ticker como lo usa Porty (formato de Yahoo, igual que SnapTrade). Las
+/// criptos van contra el dólar: `BTC` → `BTC-USD`.
+export function portyTicker(p: RawPosition): string {
+  const symbol = (p.symbol || p.rawSymbol).trim().toUpperCase();
+  if (p.kind === "crypto" && !symbol.includes("-")) return `${symbol}-USD`;
+  return symbol;
+}
+
+/// El ticker de Porty para una operación de `/activities` (mismo criterio
+/// que [portyTicker]); null si no tiene símbolo (opciones, efectivo).
+export function activityTicker(symbol: string, securityType: string): string | null {
+  const s = symbol.trim().toUpperCase();
+  if (!s || /\s/.test(s)) return null;
+  return securityType === "crypto" && !s.includes("-") ? `${s}-USD` : s;
+}
+
+/// Posiciones de una cuenta → lo que se importa y lo que no (con el motivo).
+/// - `cash`: efectivo o fondos que cuentan como efectivo.
+/// - `unsupported`: opciones, futuros, CFD, bonos y otros.
+/// - `short`: posiciones vendidas en corto.
+/// - `no_price`: sin precio ni costo para valuarla.
+export function mapPositions(positions: RawPosition[]): { holdings: Holding[]; skipped: Skipped[] } {
+  const holdings: Holding[] = [];
+  const skipped: Skipped[] = [];
+  for (const p of positions) {
+    if (p.units === 0) continue;
+    const ticker = portyTicker(p);
+    if (p.kind === "cash" || p.cashEquivalent) {
+      skipped.push({ ticker: ticker || (p.currency ?? "CASH"), reason: "cash" });
+      continue;
+    }
+    if (!importableKinds.has(p.kind) || !ticker) {
+      skipped.push({ ticker: ticker || p.kind, reason: "unsupported" });
+      continue;
+    }
+    if (p.units < 0) {
+      skipped.push({ ticker, reason: "short" });
+      continue;
+    }
+    const cost = p.costBasis !== null && p.costBasis > 0 ? p.costBasis : null;
+    const price = p.price !== null && p.price > 0 ? p.price : cost;
+    if (price === null) {
+      skipped.push({ ticker, reason: "no_price" });
+      continue;
+    }
+    holdings.push({ ticker, quantity: p.units, cost, price, taxLots: p.taxLots });
+  }
+  return { holdings, skipped };
+}

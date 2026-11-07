@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mediano 4x2: izquierda cara + % + gráfico; derecha una novedad con "siguiente" y una pregunta.
+     Las vistas previas (_preview) llevan datos ficticios, nunca la cartera real. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/porty_widget_bg"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:importantForAccessibility="yes"
+            android:orientation="vertical"
+        android:contentDescription="@string/widget_sample_a11y">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/porty_widget_avatar" />
+
+                <TextView
+                    style="@style/PortyWidget.Period"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:importantForAccessibility="no"
+                    android:maxLines="1"
+        android:text="@string/widget_sample_period"/>
+            </LinearLayout>
+
+            <TextView
+                style="@style/PortyWidget.Total"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:importantForAccessibility="no"
+                android:maxLines="1"
+                android:textSize="30sp"
+        android:text="@string/widget_sample_pct"
+        android:textColor="@color/porty_widget_profit"/>
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="6dp"
+                android:layout_weight="1"
+                android:scaleType="fitXY"
+        android:src="@drawable/porty_widget_chart_preview"/>
+
+            <TextView
+                style="@style/PortyWidget.Meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:importantForAccessibility="no"
+                android:maxLines="1"
+        android:text="@string/widget_sample_age"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1.1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:importantForAccessibility="no"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_widget_calendar" />
+
+                        <TextView
+                            style="@style/PortyWidget.Tag"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/porty_widget_tag"
+                            android:importantForAccessibility="no"
+                            android:maxLines="1"
+        android:text="ACME"/>
+
+                        <TextView
+                            style="@style/PortyWidget.Meta"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:importantForAccessibility="no"
+                            android:maxLines="1"
+        android:text="@string/widget_sample_meta_earnings"/>
+                    </LinearLayout>
+
+                    <TextView
+                        style="@style/PortyWidget.Item"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:ellipsize="end"
+                        android:importantForAccessibility="no"
+                        android:maxLines="2"
+        android:text="@string/widget_sample_item_earnings"/>
+                </LinearLayout>
+
+                <TextView
+                    style="@style/PortyWidget.Item"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="3"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/porty_widget_chip"
+                    android:padding="8dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_widget_next"
+                    android:visibility="visible" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                style="@style/PortyWidget.Question"
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:background="@drawable/porty_widget_question_chip"
+                android:ellipsize="end"
+                android:gravity="center_vertical"
+                android:maxLines="1"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+        android:text="@string/widget_sample_q_earnings"/>
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>

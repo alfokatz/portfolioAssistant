@@ -1,0 +1,227 @@
+{
+  "generatedAt": "2026-10-08T20:50:40.315879+00:00",
+  "me": {
+    "status": 200,
+    "scopes": [
+      "etoro-public:demo:read"
+    ],
+    "hasDemoCid": true
+  },
+  "accountCurrency": "EUR",
+  "counts": {
+    "positions": 11,
+    "mirrors": 1,
+    "instrumentsResolved": "8/8",
+    "import": 3,
+    "separate": 5,
+    "skip": 3
+  },
+  "positions": {
+    "import": [
+      {
+        "reason": "stock_or_etf_real_unleveraged",
+        "instrument": "AAPL",
+        "type": "Stocks",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 10,
+        "openRate": 180.0,
+        "usdPerUnitAtOpen": 180.0,
+        "porty": {
+          "ticker": "AAPL",
+          "quantity": 10,
+          "purchasePrice": 180.0,
+          "purchaseDate": "2025-03-10T14:31:00Z",
+          "source": "etoro",
+          "externalId": "pos_0db710"
+        }
+      },
+      {
+        "reason": "stock_or_etf_real_unleveraged",
+        "instrument": "AAPL",
+        "type": "Stocks",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 5,
+        "openRate": 210.0,
+        "usdPerUnitAtOpen": 210.0,
+        "porty": {
+          "ticker": "AAPL",
+          "quantity": 5,
+          "purchasePrice": 210.0,
+          "purchaseDate": "2026-01-05T15:00:00Z",
+          "source": "etoro",
+          "externalId": "pos_b97956"
+        }
+      },
+      {
+        "reason": "stock_or_etf_real_unleveraged",
+        "instrument": "SPY",
+        "type": "ETF",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 0.137,
+        "openRate": 510.25,
+        "usdPerUnitAtOpen": 510.218978,
+        "porty": {
+          "ticker": "SPY",
+          "quantity": 0.137,
+          "purchasePrice": 510.25,
+          "purchaseDate": "2026-04-01T13:30:00Z",
+          "source": "etoro",
+          "externalId": "pos_430d56"
+        }
+      }
+    ],
+    "separate": [
+      {
+        "reason": "not_owned_cfd",
+        "instrument": "TSLA",
+        "type": "Stocks",
+        "settlement": "CFD",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 3,
+        "openRate": 250.0,
+        "usdPerUnitAtOpen": 250.0
+      },
+      {
+        "reason": "crypto_pending_decision",
+        "instrument": "BTC",
+        "type": "Crypto",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 0.01,
+        "openRate": 95000.0,
+        "usdPerUnitAtOpen": 95000.0
+      },
+      {
+        "reason": "non_us_listing",
+        "instrument": "BP.L",
+        "type": "Stocks",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 100,
+        "openRate": 480.5,
+        "usdPerUnitAtOpen": 6.08
+      },
+      {
+        "reason": "copy_trading",
+        "instrument": "MSFT",
+        "type": "Stocks",
+        "settlement": "REAL_ASSET",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 2,
+        "openRate": 400,
+        "usdPerUnitAtOpen": 400.0
+      },
+      {
+        "reason": "not_owned_cfd",
+        "instrument": "GOLD",
+        "type": "Commodities",
+        "settlement": "CFD",
+        "leverage": 1,
+        "isBuy": true,
+        "units": 1,
+        "openRate": 2300.0,
+        "usdPerUnitAtOpen": 2300.0
+      }
+    ],
+    "skip": [
+      {
+        "reason": "leveraged",
+        "instrument": "TSLA",
+        "type": "Stocks",
+        "settlement": "CFD",
+        "leverage": 5,
+        "isBuy": true,
+        "units": 10,
+        "openRate": 240.0,
+        "usdPerUnitAtOpen": 48.0
+      },
+      {
+        "reason": "short",
+        "instrument": "AAPL",
+        "type": "Stocks",
+        "settlement": "CFD",
+        "leverage": 1,
+        "isBuy": false,
+        "units": 2,
+        "openRate": 220.0,
+        "usdPerUnitAtOpen": 220.0
+      },
+      {
+        "reason": "leveraged",
+        "instrument": "EURUSD",
+        "type": "Currencies",
+        "settlement": "CFD",
+        "leverage": 20,
+        "isBuy": true,
+        "units": 1000,
+        "openRate": 1.08,
+        "usdPerUnitAtOpen": 0.054
+      }
+    ]
+  },
+  "aggregateSample": [
+    {
+      "assetCurrency": "USD",
+      "netUnits": 15,
+      "avgOpenRate": 190.0,
+      "avgLeverage": 1,
+      "instrument": "AAPL"
+    }
+  ],
+  "closedHistory": {
+    "status": 403,
+    "count": 0,
+    "sample": [],
+    "error": {
+      "_error_body": "{\"errorCode\":\"InsufficientPermissions\"}"
+    }
+  },
+  "calls": [
+    {
+      "path": "/api/v1/me",
+      "status": 200,
+      "ms": 0,
+      "rateLimitRemaining": null
+    },
+    {
+      "path": "/api/v1/trading/info/demo/pnl",
+      "status": 200,
+      "ms": 0,
+      "rateLimitRemaining": null
+    },
+    {
+      "path": "/api/v1/trading/info/demo/aggregate-portfolio",
+      "status": 200,
+      "ms": 0,
+      "rateLimitRemaining": null
+    },
+    {
+      "path": "/api/v1/market-data/instruments",
+      "status": 200,
+      "ms": 0,
+      "rateLimitRemaining": null
+    },
+    {
+      "path": "/api/v1/market-data/instrument-types",
+      "status": 200,
+      "ms": 0,
+      "rateLimitRemaining": null
+    },
+    {
+      "path": "/api/v1/trading/info/trade/demo/history",
+      "status": 403,
+      "ms": 0,
+      "rateLimitRemaining": null
+    }
+  ]
+}

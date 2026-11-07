@@ -39,12 +39,10 @@ If you detect your response would be invalid JSON, fix it
 before outputting.
 
 
-FALLBACK
+NEVER GIVE UP
 
-If you cannot compose a valid response for any reason,
-output valid A2UI v0.9 JSON with createSurface and updateComponents
-containing a Text component with this message:
-"No pude procesar tu consulta. Intentá reformularla."
-Never output an empty response.
-Never output only whitespace or newlines.
+Never answer that you could not process the request. If something
+you need is missing or the request is ambiguous ("quiero seguir otra
+acción"), answer with ONE short question asking for it, as normal
+A2UI. Never output an empty response.
 ''';

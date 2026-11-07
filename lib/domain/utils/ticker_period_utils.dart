@@ -27,7 +27,7 @@ class TickerPeriodMove {
 
 /// Cálculo de retornos por ticker a partir de velas diarias.
 abstract final class TickerPeriodUtils {
-  static List<PriceCandle> filterByDuration(
+  static List<PriceCandle> _strictFilterByDuration(
     List<PriceCandle> candles,
     Duration duration,
   ) {
@@ -35,8 +35,14 @@ abstract final class TickerPeriodUtils {
 
     final end = candles.last.date;
     final start = end.subtract(duration);
-    final filtered =
-        candles.where((c) => !c.date.isBefore(start)).toList();
+    return candles.where((c) => !c.date.isBefore(start)).toList();
+  }
+
+  static List<PriceCandle> filterByDuration(
+    List<PriceCandle> candles,
+    Duration duration,
+  ) {
+    final filtered = _strictFilterByDuration(candles, duration);
     return filtered.length >= 2 ? filtered : candles;
   }
 
@@ -46,7 +52,13 @@ abstract final class TickerPeriodUtils {
   ) {
     if (candles.isEmpty) return TickerPeriodMove.empty;
 
-    final filtered = filterByDuration(candles, duration);
+    // Filtro estricto (sin el fallback permisivo de [filterByDuration]):
+    // si no hay al menos 2 velas *dentro* de la ventana pedida, no hay
+    // suficiente granularidad para nombrar el resultado como ese período
+    // ("último día", etc.) — el fallback permisivo siempre encuentra >=2
+    // puntos en el historial completo, lo que enmascaraba este caso y
+    // terminaba reportando el cambio histórico total como si fuera diario.
+    final filtered = _strictFilterByDuration(candles, duration);
     if (filtered.length < 2) {
       final price = candles.last.close;
       return TickerPeriodMove(
@@ -61,8 +73,7 @@ abstract final class TickerPeriodUtils {
     final priceStart = filtered.first.close;
     final priceEnd = filtered.last.close;
     final changeAbs = priceEnd - priceStart;
-    final changePct =
-        priceStart > 0 ? (changeAbs / priceStart) * 100 : 0.0;
+    final changePct = priceStart > 0 ? (changeAbs / priceStart) * 100 : 0.0;
 
     return TickerPeriodMove(
       priceStart: priceStart,

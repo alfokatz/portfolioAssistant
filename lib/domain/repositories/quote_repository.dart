@@ -8,4 +8,8 @@ abstract class QuoteRepository {
   Future<Either<HttpError, List<PriceCandle>>> getHistoricalDaily(
     String ticker,
   );
+
+  /// Velas de 5 minutos de la última sesión; lista vacía si no hay datos
+  /// o la llamada falló (el caller no distingue entre ambos casos).
+  Future<List<PriceCandle>> getIntradayCandles(String ticker);
 }

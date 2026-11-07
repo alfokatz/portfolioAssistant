@@ -1,9 +1,83 @@
+/// De dónde viene una posición.
+enum PositionSource {
+  /// Cargada a mano en Porty: se edita y se cierra desde la app.
+  manual,
+
+  /// Importada de eToro: de solo lectura en Porty, se actualiza sola.
+  etoro,
+
+  /// Importada de Binance (saldo de cripto): de solo lectura, se actualiza
+  /// sola.
+  binance,
+
+  /// Importada de un bróker conectado por SnapTrade (IBKR, Schwab…): de
+  /// solo lectura, se actualiza sola.
+  snaptrade,
+
+  /// Solo en una posición agregada por ticker (ver
+  /// `PortfolioCalculator.aggregateByTicker`) cuando hay compras manuales e
+  /// importadas de eToro.
+  mixed,
+
+  /// Como [mixed], con lo importado de Binance.
+  mixedBinance,
+
+  /// Como [mixed], con lo importado por SnapTrade.
+  mixedSnaptrade;
+
+  static PositionSource fromWire(String? value) => switch (value) {
+    'etoro' => PositionSource.etoro,
+    'binance' => PositionSource.binance,
+    'snaptrade' => PositionSource.snaptrade,
+    _ => PositionSource.manual,
+  };
+
+  /// Tiene algo importado (no se puede editar, cerrar ni borrar entero).
+  bool get hasImported => this != PositionSource.manual;
+
+  /// Lo importado viene de Binance (para la marca y los textos).
+  bool get isBinance =>
+      this == PositionSource.binance || this == PositionSource.mixedBinance;
+
+  /// Lo importado viene de un bróker conectado por SnapTrade.
+  bool get isSnaptrade =>
+      this == PositionSource.snaptrade || this == PositionSource.mixedSnaptrade;
+
+  /// La agregada de varias compras: si todas tienen el mismo origen, ese;
+  /// si no, la mezcla con el bróker que aparezca.
+  static PositionSource combine(Set<PositionSource> sources) {
+    if (sources.length == 1) return sources.first;
+    if (sources.contains(PositionSource.etoro)) return PositionSource.mixed;
+    if (sources.contains(PositionSource.binance)) {
+      return PositionSource.mixedBinance;
+    }
+    if (sources.contains(PositionSource.snaptrade)) {
+      return PositionSource.mixedSnaptrade;
+    }
+    return PositionSource.mixed;
+  }
+}
+
 class Position {
   final String id;
   final String ticker;
   final double quantity;
   final double purchasePrice;
   final DateTime purchaseDate;
+  final PositionSource source;
+
+  /// Última vez que eToro confirmó esta posición. `null` en las manuales.
+  final DateTime? syncedAt;
+
+  /// Precio que informó eToro en [syncedAt]. Solo es respaldo: se usa si
+  /// Porty no consigue cotización propia (antes se valuaba al precio de
+  /// compra y el P&L daba 0). `null` en las manuales.
+  final double? brokerPrice;
+
+  /// false: el bróker no informó cuándo se compró ([purchaseDate] es la
+  /// fecha de la importación). Se muestra "Fecha de compra desconocida" y,
+  /// en el gráfico, cuenta como que ya estaba al empezar el período.
+  final bool purchaseDateKnown;
 
   const Position({
     required this.id,
@@ -11,9 +85,16 @@ class Position {
     required this.quantity,
     required this.purchasePrice,
     required this.purchaseDate,
+    this.source = PositionSource.manual,
+    this.syncedAt,
+    this.brokerPrice,
+    this.purchaseDateKnown = true,
   });
 
   double get costBasis => quantity * purchasePrice;
+
+  /// Importada de un bróker: Porty no la edita ni la cierra.
+  bool get isReadOnly => source.hasImported;
 
   Position copyWith({
     String? id,
@@ -21,6 +102,10 @@ class Position {
     double? quantity,
     double? purchasePrice,
     DateTime? purchaseDate,
+    PositionSource? source,
+    DateTime? syncedAt,
+    double? brokerPrice,
+    bool? purchaseDateKnown,
   }) {
     return Position(
       id: id ?? this.id,
@@ -28,6 +113,10 @@ class Position {
       quantity: quantity ?? this.quantity,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       purchaseDate: purchaseDate ?? this.purchaseDate,
+      source: source ?? this.source,
+      syncedAt: syncedAt ?? this.syncedAt,
+      brokerPrice: brokerPrice ?? this.brokerPrice,
+      purchaseDateKnown: purchaseDateKnown ?? this.purchaseDateKnown,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_axis_helper.dart';
 import 'package:portfolio_assistant/presentation/shared/charts/chart_with_y_axis.dart';
 
@@ -9,15 +9,21 @@ class BenchmarkDualLineChart extends StatelessWidget {
   final List<double> sp500Values;
   final double height;
 
+  /// Sin eje ni grilla: solo las dos líneas (p. ej. en un mockup chico).
+  final bool showYAxisLabels;
+
   const BenchmarkDualLineChart({
     super.key,
     required this.portfolioValues,
     required this.sp500Values,
     this.height = 120,
+    this.showYAxisLabels = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     if (portfolioValues.length < 2 || sp500Values.length < 2) {
       return SizedBox(height: height);
     }
@@ -45,6 +51,43 @@ class BenchmarkDualLineChart extends StatelessWidget {
       (i) => FlSpot(i.toDouble(), sp500Values[i]),
     );
 
+    final chart = LineChart(
+      LineChartData(
+        gridData: showYAxisLabels
+            ? ChartAxisHelper.horizontalGrid(
+                minY: chartMinY,
+                maxY: chartMaxY,
+                gridColor: colors.chartGrid,
+              )
+            : const FlGridData(show: false),
+        titlesData: ChartTitlesWithoutLeftAxis.none,
+        borderData: FlBorderData(show: false),
+        minY: chartMinY,
+        maxY: chartMaxY,
+        baselineY: chartMinY,
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: portfolioSpots,
+            isCurved: true,
+            color: colors.chartLine,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+          ),
+          LineChartBarData(
+            spots: spSpots,
+            isCurved: true,
+            color: colors.benchmarkSp500,
+            barWidth: 2,
+            dashArray: [6, 4],
+            dotData: const FlDotData(show: false),
+          ),
+        ],
+      ),
+    );
+
+    if (!showYAxisLabels) return SizedBox(height: height, child: chart);
+
     return ChartWithYAxis(
       height: height,
       minY: chartMinY,
@@ -53,37 +96,7 @@ class BenchmarkDualLineChart extends StatelessWidget {
         v,
         range: chartMaxY - chartMinY,
       ),
-      chart: LineChart(
-        LineChartData(
-          gridData: ChartAxisHelper.horizontalGrid(
-            minY: chartMinY,
-            maxY: chartMaxY,
-          ),
-          titlesData: ChartTitlesWithoutLeftAxis.none,
-          borderData: FlBorderData(show: false),
-          minY: chartMinY,
-          maxY: chartMaxY,
-          baselineY: chartMinY,
-          lineTouchData: const LineTouchData(enabled: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: portfolioSpots,
-              isCurved: true,
-              color: PortfolioColors.chartLine,
-              barWidth: 2,
-              dotData: const FlDotData(show: false),
-            ),
-            LineChartBarData(
-              spots: spSpots,
-              isCurved: true,
-              color: PortfolioColors.benchmarkSp500,
-              barWidth: 2,
-              dashArray: [6, 4],
-              dotData: const FlDotData(show: false),
-            ),
-          ],
-        ),
-      ),
+      chart: chart,
     );
   }
 }
@@ -93,17 +106,19 @@ class BenchmarkLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _LegendItem(
-          color: PortfolioColors.chartLine,
-          label: 'PORTFOLIO',
+          color: colors.chartLine,
+          label: 'Portfolio',
           dashed: false,
         ),
         const SizedBox(width: 16),
         _LegendItem(
-          color: PortfolioColors.benchmarkSp500,
+          color: colors.benchmarkSp500,
           label: 'S&P 500',
           dashed: true,
         ),
@@ -125,6 +140,8 @@ class _LegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.customColors;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -144,10 +161,9 @@ class _LegendItem extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: PortfolioColors.textSecondary,
+                color: colors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
               ),
         ),
       ],

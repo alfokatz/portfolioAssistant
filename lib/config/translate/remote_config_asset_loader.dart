@@ -12,7 +12,7 @@ class RemoteConfigAssetLoader extends AssetLoader {
     // Valores por defecto desde assets/locales/*.json
     _remoteConfig.setDefaults(<String, dynamic>{
       'translations_en': rootBundle.loadString(
-        'assets/translations/en-EN.json',
+        'assets/translations/en-US.json',
       ),
       'translations_es': rootBundle.loadString(
         'assets/translations/es-ES.json',

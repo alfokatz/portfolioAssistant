@@ -1,62 +1,457 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
+import 'package:portfolio_assistant/features/account_deletion/view/widgets/delete_account_flow.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
+import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/connect_broker_card.dart';
+import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
+import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
+import 'package:portfolio_assistant/features/porty_memory/nav/porty_memory_router.dart';
+import 'package:portfolio_assistant/features/statement_import/nav/statement_import_router.dart';
+import 'package:portfolio_assistant/features/porty_outfit/nav/porty_outfit_router.dart';
+import 'package:portfolio_assistant/features/investor_profile/nav/investor_profile_router.dart';
+import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_add_tile.dart';
+import 'package:portfolio_assistant/features/home_widget/view/widget_positions_tile.dart';
+import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
+import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
-import 'package:portfolio_assistant/presentation/base/core/base_stateless_screen.dart';
+import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/auth/nav/auth_router.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/providers/auth_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
+import 'package:portfolio_assistant/presentation/flows/onboarding/providers/onboarding_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_appearance_picker.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_danger_zone.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_data_sources_sheet.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_nav_row.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_picker_sheet.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_profile_card.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_subscription_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class SettingsScreen extends BaseStatelessScreen {
-  SettingsScreen({super.key});
+const _appVersion = '1.0.0';
+
+class SettingsScreen extends StatefulHookConsumerWidget {
+  const SettingsScreen({super.key});
 
   @override
-  Widget buildView(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
+  // See HomeScreen: this tab stays mounted alongside Home and Assistant in
+  // the shell's IndexedStack, so AppShell owns the single subscription.
+  @override
+  bool get subscribesToGlobalEvents => false;
+
+  @override
+  void initState() {
+    runAfterPostFrameCallback(() {
+      ref.read(investorProfileProvider.notifier).refresh();
+      ref.read(etoroConnectionProvider.notifier).load();
+      ref.read(binanceProvider.notifier).load();
+      ref.read(snaptradeProvider.notifier).load();
+      ref.read(pushControllerProvider.notifier).refreshPermission();
+      ref.read(priceAlertsProvider.notifier).load();
+    });
+    super.initState();
+  }
+
+  String _languageLabel(Locale locale) {
+    return locale.languageCode == 'es'
+        ? 'settings_language_spanish'.tr()
+        : 'settings_language_english'.tr();
+  }
+
+  Future<void> _showLanguagePicker() async {
+    final current = context.locale;
+    final selected = await showModalBottomSheet<Locale>(
+      context: context,
+      builder:
+          (ctx) => SettingsPickerSheet(
+            title: 'settings_language'.tr(),
+            children: [
+              SettingsPickerOption(
+                label: 'settings_language_spanish'.tr(),
+                isSelected: current.languageCode == 'es',
+                onTap: () => Navigator.of(ctx).pop(const Locale('es', 'ES')),
+              ),
+              SettingsPickerOption(
+                label: 'settings_language_english'.tr(),
+                isSelected: current.languageCode == 'en',
+                onTap: () => Navigator.of(ctx).pop(const Locale('en', 'US')),
+              ),
+            ],
+          ),
+    );
+
+    if (selected != null && mounted) {
+      await context.setLocale(selected);
+    }
+  }
+
+  Future<void> _showCurrencyPicker() async {
+    final current = ref.read(displayCurrencyProvider);
+    final selected = await showModalBottomSheet<DisplayCurrency>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (ctx) => ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.8,
+            ),
+            child: SettingsPickerSheet(
+              title: 'settings_currency'.tr(),
+              children: [
+                for (final c in DisplayCurrency.values)
+                  SettingsPickerOption(
+                    label: '${c.labelKey.tr()} (${c.code})',
+                    isSelected: c == current,
+                    onTap: () => Navigator.of(ctx).pop(c),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (selected != null && mounted) {
+      await ref.read(displayCurrencyProvider.notifier).set(selected);
+    }
+  }
+
+  /// Guarda el nombre en la metadata del usuario (`full_name`). `false` si
+  /// falló (la hoja queda abierta y se avisa).
+  Future<bool> _saveName(String name) async {
+    try {
+      await ref.read(supabaseAuthServiceProvider).updateFullName(name);
+      if (!mounted) return false;
+      setState(() {}); // currentUser ya trae el nombre nuevo.
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(alertProvider.notifier)
+            .showError(message: 'settings_profile_name_error'.tr());
+      }
+      return false;
+    }
+  }
+
+  String? _investorProfileLabel(InvestorProfileState state) {
+    final profile = state.profile;
+    if (profile == null) {
+      return state.hasLoaded ? 'settings_investor_profile_empty'.tr() : null;
+    }
+    if (state.statusAt(DateTime.now()) == InvestorProfileStatus.stale) {
+      return 'settings_investor_profile_review'.tr();
+    }
+    return '${'investor_profile_risk_${profile.risk.storageValue}'.tr()} · '
+        '${'investor_profile_horizon_${profile.horizon.storageValue}'.tr()}';
+  }
+
+  /// Una línea con el estado del permiso, solo si hay algo que hacer.
+  String? _notificationsLabel(PushState push) {
+    if (!push.loaded) return null;
+    return switch (push.permission) {
+      PushPermission.denied => 'notifications_settings_denied'.tr(),
+      PushPermission.notDetermined => 'notifications_settings_off'.tr(),
+      _ => null,
+    };
+  }
+
+  Future<void> _onReplayOnboarding() async {
+    await ref.read(onboardingProvider).reset();
+    if (!mounted) return;
+    context.goNamed(OnboardingRouter.routeName);
+  }
+
+  Future<void> _onChangePassword(String email) async {
+    if (email.isEmpty || email == 'auth_no_email'.tr()) {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'auth_email_required'.tr());
+      return;
+    }
+
+    final confirmed = await ConfirmSheet.show(
+      context,
+      title: 'settings_change_password'.tr(),
+      body: 'settings_change_password_message'.tr(),
+      confirmLabel: 'settings_send_link'.tr(),
+      destructive: false,
+    );
+    if (!confirmed || !mounted) return;
+
+    await ref
+        .read(authControllerProvider.notifier)
+        .requestPasswordReset(email: email);
+  }
+
+  Future<void> _onSignOut() async {
+    final error = await ref.read(authControllerProvider.notifier).signOut();
+    if (error != null) {
+      ref.read(alertProvider.notifier).showError(message: error.message);
+      return;
+    }
+    if (mounted) {
+      context.go(AuthRouter.loginPath);
+    }
+  }
+
+  Future<void> _onDeleteAccount() => DeleteAccountFlow.run(context);
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'settings_link_error'.tr());
+    }
+  }
+
+  @override
+  Widget buildView(BuildContext context) {
     final user = ref.watch(supabaseAuthServiceProvider).currentUser;
+    final themeMode = ref.watch(themeModeProvider);
+    final hapticsEnabled = ref.watch(hapticsEnabledProvider);
+    final investorProfile = ref.watch(investorProfileProvider);
+    final push = ref.watch(pushControllerProvider);
+    final alerts = ref.watch(priceAlertsProvider);
+    final displayCurrency = ref.watch(displayCurrencyProvider);
+
     final email = user?.email ?? 'auth_no_email'.tr();
+    final metadata = user?.userMetadata;
+    final fullName = (metadata?['full_name'] as String?)?.trim();
 
     return Scaffold(
-      backgroundColor: PortfolioColors.background,
-      appBar: AppBar(
-        title: Text('settings_title'.tr()),
-        backgroundColor: PortfolioColors.background,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppDimens.mediumMargin),
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              'auth_signed_in_as'.tr(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PortfolioColors.textSecondary,
-                  ),
-            ),
-            subtitle: Text(
-              email,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: PortfolioColors.textPrimary,
-                  ),
-            ),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            AppDimens.pageHorizontal,
+            AppDimens.sp8,
+            AppDimens.pageHorizontal,
+            // La barra de pestañas flota encima del final de la lista (el
+            // shell usa `extendBody`, así que su alto viene en el padding de
+            // abajo): sin esto, "Eliminar cuenta" quedaba tapado.
+            AppDimens.sp32 + MediaQuery.paddingOf(context).bottom,
           ),
-          const SizedBox(height: AppDimens.largeMargin),
-          FilledButton(
-            onPressed: () async {
-              final error =
-                  await ref.read(authControllerProvider.notifier).signOut();
-              if (error != null) {
-                ref.read(alertProvider.notifier).showError(
-                      message: error.message,
-                    );
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: PortfolioColors.loss,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, AppDimens.sp20),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  'settings_title'.tr(),
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.8,
+                    color: context.customColors.textPrimary,
+                  ),
+                ),
+              ),
             ),
-            child: Text('auth_sign_out'.tr()),
-          ),
-        ],
+            SettingsProfileCard(
+              name: fullName,
+              email: email,
+              onSaveName: _saveName,
+            ),
+            const SizedBox(height: AppDimens.sp16),
+            // Conectar el bróker, destacado: es lo que hace que la cartera
+            // se actualice sola.
+            const ConnectBrokerCard(),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_profile'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.tune_rounded,
+                  label: 'settings_investor_profile'.tr(),
+                  subtitle: _investorProfileLabel(investorProfile),
+                  onTap:
+                      () => context.pushNamed(InvestorProfileRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.donut_large_rounded,
+                  label: 'allocation_title'.tr(),
+                  subtitle: 'allocation_settings_subtitle'.tr(),
+                  onTap: () => context.pushNamed(AllocationRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.bookmark_border_rounded,
+                  label: 'settings_porty_memory'.tr(),
+                  subtitle: 'settings_porty_memory_subtitle'.tr(),
+                  onTap: () => context.pushNamed(PortyMemoryRouter.routeName),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.checkroom_rounded,
+                  label: 'settings_porty_outfit'.tr(),
+                  subtitle: 'settings_porty_outfit_subtitle'.tr(),
+                  onTap: () => context.pushNamed(PortyOutfitRouter.routeName),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_preferences'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.language_rounded,
+                  label: 'settings_language'.tr(),
+                  value: _languageLabel(context.locale),
+                  onTap: _showLanguagePicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.currency_exchange_rounded,
+                  label: 'settings_currency'.tr(),
+                  value: displayCurrency.code,
+                  subtitle:
+                      displayCurrency.isUsd
+                          ? null
+                          : 'settings_currency_subtitle'.tr(),
+                  onTap: _showCurrencyPicker,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.dark_mode_outlined,
+                  label: 'settings_appearance'.tr(),
+                  value: settingsAppearanceLabel(themeMode),
+                  onTap: () => showSettingsAppearancePicker(context, ref),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.notifications_none_rounded,
+                  label: 'notifications_title'.tr(),
+                  subtitle: _notificationsLabel(push),
+                  onTap:
+                      () => context.pushNamed(
+                        NotificationsRouter.settingsRouteName,
+                      ),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.notifications_active_outlined,
+                  label: 'price_alerts_title'.tr(),
+                  value:
+                      alerts.loaded && alerts.activeCount > 0
+                          ? '${alerts.activeCount}'
+                          : null,
+                  onTap:
+                      () => context.pushNamed(
+                        NotificationsRouter.alertsRouteName,
+                      ),
+                ),
+                const SettingsDivider(),
+                SettingsToggleRow(
+                  icon: Icons.vibration_rounded,
+                  label: 'settings_haptics'.tr(),
+                  value: hapticsEnabled,
+                  onChanged:
+                      ref.read(hapticsEnabledProvider.notifier).setEnabled,
+                ),
+                const SettingsDivider(),
+                const WidgetAddTile(),
+                const SettingsDivider(),
+                const WidgetPositionsTile(),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.play_lesson_outlined,
+                  label: 'settings_replay_onboarding'.tr(),
+                  onTap: _onReplayOnboarding,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_security'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.lock_reset_rounded,
+                  label: 'settings_change_password'.tr(),
+                  onTap: () => _onChangePassword(email),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_bring_portfolio'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.upload_file_rounded,
+                  label: 'import_entry_cta'.tr(),
+                  subtitle: 'import_settings_subtitle'.tr(),
+                  onTap:
+                      () => context.pushNamed(StatementImportRouter.routeName),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            const SettingsSubscriptionCard(),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsSectionCard(
+              title: 'settings_section_about'.tr(),
+              children: [
+                SettingsNavRow(
+                  icon: Icons.info_outline_rounded,
+                  label: 'settings_version'.tr(),
+                  value: _appVersion,
+                  showChevron: false,
+                  onTap: null,
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.description_outlined,
+                  label: 'settings_terms'.tr(),
+                  onTap: () => _openUrl(LegalLinks.terms),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.shield_outlined,
+                  label: 'settings_privacy'.tr(),
+                  onTap: () => _openUrl(LegalLinks.privacy),
+                ),
+                const SettingsDivider(),
+                SettingsNavRow(
+                  icon: Icons.source_outlined,
+                  label: 'data_sources_title'.tr(),
+                  onTap: () => SettingsDataSourcesSheet.show(context),
+                ),
+                if (StoreLinks.rateUrl case final rateUrl?) ...[
+                  const SettingsDivider(),
+                  SettingsNavRow(
+                    icon: Icons.star_outline_rounded,
+                    label: 'settings_rate_app'.tr(),
+                    onTap: () => _openUrl(rateUrl),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: AppDimens.sectionGap),
+            SettingsDangerZone(
+              onSignOut: _onSignOut,
+              onDeleteAccount: _onDeleteAccount,
+            ),
+          ],
+        ),
       ),
     );
   }

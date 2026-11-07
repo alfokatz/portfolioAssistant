@@ -1,15 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/presentation/base/theme/portfolio_colors.dart';
+import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Texto legal con links a términos y política de privacidad.
 class AuthTermsDisclaimer extends StatelessWidget {
   const AuthTermsDisclaimer({super.key});
 
-  static const _termsUrl = 'https://portfolioai.app/terms';
-  static const _privacyUrl = 'https://portfolioai.app/privacy';
+  static const _termsUrl = LegalLinks.terms;
+  static const _privacyUrl = LegalLinks.privacy;
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -20,13 +21,13 @@ class AuthTermsDisclaimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: PortfolioColors.textSecondary,
-          height: 1.4,
-        );
+    final colors = context.customColors;
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: colors.textSecondary, height: 1.45);
     final linkStyle = baseStyle?.copyWith(
-      color: PortfolioColors.accentBlue,
-      fontWeight: FontWeight.w500,
+      color: colors.accentBlue,
+      fontWeight: FontWeight.w600,
     );
 
     return Text.rich(
@@ -37,15 +38,15 @@ class AuthTermsDisclaimer extends StatelessWidget {
           TextSpan(
             text: 'auth_terms_link'.tr(),
             style: linkStyle,
-            recognizer: TapGestureRecognizer()
-              ..onTap = () => _openUrl(_termsUrl),
+            recognizer:
+                TapGestureRecognizer()..onTap = () => _openUrl(_termsUrl),
           ),
           TextSpan(text: 'auth_terms_and'.tr()),
           TextSpan(
             text: 'auth_privacy_link'.tr(),
             style: linkStyle,
-            recognizer: TapGestureRecognizer()
-              ..onTap = () => _openUrl(_privacyUrl),
+            recognizer:
+                TapGestureRecognizer()..onTap = () => _openUrl(_privacyUrl),
           ),
         ],
       ),

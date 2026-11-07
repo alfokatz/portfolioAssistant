@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_name">Porty</string>
+    <string name="widget_description">Mirá cómo viene tu cartera hoy y lo que Porty te marca, sin abrir la app.</string>
+    <string name="widget_large_description">Mirá cómo viene tu cartera hoy y lo que Porty te marca, sin abrir la app.</string>
+    <string name="widget_no_snapshot">Entrá a Porty para ver tu cartera acá.</string>
+
+    <string name="widget_legacy_open_porty">Abrí Porty para ver las novedades de tu cartera</string>
+    <string name="widget_legacy_your_portfolio">tu cartera</string>
+    <string name="widget_legacy_age_now">recién</string>
+    <string name="widget_legacy_age_min">hace {n} min</string>
+    <string name="widget_legacy_age_h">hace {n} h</string>
+    <string name="widget_legacy_age_d">hace {n} d</string>
+
+    <string name="widget_sample_pct">+0,5 %</string>
+    <string name="widget_sample_period">Hoy</string>
+    <string name="widget_sample_age">tu cartera · hace 5 min</string>
+    <string name="widget_sample_a11y">Tu cartera de ejemplo sube 0,5 % hoy</string>
+    <string name="widget_sample_line">ACME · resultados mañana (estimado)</string>
+    <string name="widget_sample_header">Hoy te marco 3 cosas</string>
+    <string name="widget_sample_list_title">Lo de hoy</string>
+    <string name="widget_sample_item_earnings">ACME · fecha estimada de resultados: mañana</string>
+    <string name="widget_sample_meta_earnings">Resultados · fecha estimada</string>
+    <string name="widget_sample_item_news_2">ZYNT anuncia un acuerdo con un proveedor</string>
+    <string name="widget_sample_meta_news">Noticia · hace 3 h</string>
+    <string name="widget_sample_item_insight">Viaje a Japón viene atrasada</string>
+    <string name="widget_sample_meta_insight">Porty te marca</string>
+    <string name="widget_sample_q_earnings">¿Qué presentó ACME la última vez?</string>
+    <string name="widget_sample_q_goal">¿Cómo voy con Viaje a Japón?</string>
+</resources>

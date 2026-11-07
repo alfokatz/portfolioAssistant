@@ -1,0 +1,3 @@
+/* Textos de permisos de iOS en español. */
+"NSMicrophoneUsageDescription" = "Porty usa el micrófono para que le dictes tus preguntas en el chat.";
+"NSSpeechRecognitionUsageDescription" = "Porty transcribe lo que dictás para escribir tu pregunta en el chat.";

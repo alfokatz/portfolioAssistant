@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -31,7 +32,7 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_ticker',
-            message: 'Ticker inválido',
+            message: 'error_invalid_ticker'.tr(),
           ),
         );
       }
@@ -39,7 +40,7 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_position',
-            message: 'Cantidad y precio deben ser mayores a cero',
+            message: 'error_qty_price_positive'.tr(),
           ),
         );
       }
@@ -61,6 +62,10 @@ class PositionRepositoryImpl implements PositionRepository {
   @override
   Future<Either<HttpError, void>> deletePosition(String id) async {
     try {
+      final existing = await remoteDataSource.getById(id);
+      if (existing != null && existing.isReadOnly) {
+        return Left(readOnlyPositionError());
+      }
       await remoteDataSource.delete(id);
       return const Right(null);
     } catch (e) {
@@ -85,7 +90,7 @@ class PositionRepositoryImpl implements PositionRepository {
       final position = await remoteDataSource.getById(id);
       if (position == null) {
         return Left(
-          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+          HttpError(code: 'position_not_found', message: 'error_position_not_found'.tr()),
         );
       }
       return Right(position);
@@ -104,16 +109,17 @@ class PositionRepositoryImpl implements PositionRepository {
         return Left(
           HttpError(
             code: 'invalid_position',
-            message: 'La cantidad debe ser mayor a cero',
+            message: 'error_qty_positive'.tr(),
           ),
         );
       }
       final existing = await remoteDataSource.getById(id);
       if (existing == null) {
         return Left(
-          HttpError(code: 'position_not_found', message: 'Posición no encontrada'),
+          HttpError(code: 'position_not_found', message: 'error_position_not_found'.tr()),
         );
       }
+      if (existing.isReadOnly) return Left(readOnlyPositionError());
       final updated = existing.copyWith(quantity: quantity);
       await remoteDataSource.save(updated);
       return Right(updated);
@@ -132,6 +138,13 @@ class PositionRepositoryImpl implements PositionRepository {
     }
   }
 }
+
+/// Una posición importada (eToro) no se edita, cierra ni borra desde Porty:
+/// se actualiza sola desde el bróker. La base también lo impide.
+HttpError readOnlyPositionError() => HttpError(
+  code: 'position_read_only',
+  message: 'error_position_read_only'.tr(),
+);
 
 final positionRepositoryProvider = Provider<PositionRepository>(
   (ref) => PositionRepositoryImpl(

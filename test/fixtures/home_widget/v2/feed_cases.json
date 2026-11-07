@@ -1,0 +1,5280 @@
+{
+  "version": 1,
+  "note": "Generado por test/features/home_widget/domain/widget_feed_picker_test.dart (UPDATE_WIDGET_FIXTURES=1). Ver README.md.",
+  "cases": [
+    {
+      "name": "gold_default",
+      "note": "Sin cursor: el mediano arranca en el primero.",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "gold_cursor_same_rev",
+      "note": "Cursor del mismo feed_rev: el mediano muestra live[2].",
+      "now": 1793977200000,
+      "cursor": {
+        "rev": "95447633",
+        "index": 2,
+        "at": 1793977200000
+      },
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 2,
+          "question": "9cdb2a58",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 3
+      }
+    },
+    {
+      "name": "gold_cursor_wraps",
+      "note": "index se toma modulo live.count.",
+      "now": 1793977200000,
+      "cursor": {
+        "rev": "95447633",
+        "index": 9,
+        "at": 1793977200000
+      },
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 2,
+          "question": "9cdb2a58",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 3
+      }
+    },
+    {
+      "name": "gold_cursor_other_rev",
+      "note": "Otro feed_rev: se ignora y vuelve a 0.",
+      "now": 1793977200000,
+      "cursor": {
+        "rev": "deadbeef",
+        "index": 2,
+        "at": 1793977200000
+      },
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "gold_after_midnight",
+      "note": "La noticia de hoy pasa a prio 3 (segmento nuevo) y el orden cambia de forma estable; stale = true.",
+      "now": 1794024000000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": true,
+        "header_n": 3,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            2,
+            3
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "gold_plan_active",
+      "note": "Antes de plan_until los pagos siguen.",
+      "now": 1793979000000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": 1793980800000,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "gold_plan_expired",
+      "note": "Pasado plan_until se sacan los ítems con paid=true.",
+      "now": 1793984400000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": 1793980800000,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 2,
+        "small": {
+          "line": "item",
+          "feed_index": 2
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 2,
+          "question": "9cdb2a58",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            2,
+            3,
+            5
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "free_android",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "eb5ea5ee",
+          "feed": [
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              }
+            },
+            {
+              "id": "8650caab",
+              "kind": "teaser",
+              "icon": "news",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "Hay 3 noticias de tu cartera · Premium",
+                  "title": "Hay 3 noticias de tu cartera · Premium",
+                  "meta": "Novedades"
+                }
+              ],
+              "a11y": "Hay 3 noticias de tu cartera · Premium",
+              "open": {
+                "target": "teaser_news"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "b88a64f5",
+              "t": "biggest",
+              "src": "biggest",
+              "text": "¿Qué tanto depende mi cartera de ACME?"
+            },
+            "large": [
+              {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              },
+              {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "biggest",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 2,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "cbcd56dd",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "cbcd56dd",
+            "b88a64f5"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "free_ios",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "f3ca387f",
+          "feed": [
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "8650caab",
+              "kind": "teaser",
+              "icon": "news",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "Hay 3 noticias de tu cartera en Porty",
+                  "title": "Hay 3 noticias de tu cartera en Porty",
+                  "meta": "Novedades"
+                }
+              ],
+              "a11y": "Hay 3 noticias de tu cartera en Porty",
+              "open": {
+                "target": "teaser_news"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "b88a64f5",
+              "t": "biggest",
+              "src": "biggest",
+              "text": "¿Qué tanto depende mi cartera de ACME?"
+            },
+            "large": [
+              {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              },
+              {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "biggest",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 1,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "cbcd56dd",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "cbcd56dd",
+            "b88a64f5"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "english_down",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "en",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "-0.8%",
+        "direction": "down",
+        "phrase": "Your portfolio is down today.",
+        "phrase_stale": "Data is out of date. Open Porty to refresh it.",
+        "a11y_value": "Your portfolio is down 0.8% today",
+        "labels": {
+          "period_today": "Today",
+          "period_last_close": "Last close",
+          "stale_date": "as of Nov 6",
+          "updated_now": "Updated just now",
+          "updated_min": "Updated {n} min ago",
+          "updated_h": "Updated {n} h ago",
+          "updated_d": "Updated {n} d ago",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Amounts hidden"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "concerned",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "1d3b93f9",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · earnings tomorrow (estimated)",
+                  "title": "ZETA · estimated earnings date: tomorrow",
+                  "meta": "Earnings · estimated date"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1,
+                  "short": "ZETA · earnings today (estimated)",
+                  "title": "ZETA · estimated earnings date: today",
+                  "meta": "Earnings · estimated date"
+                }
+              ],
+              "a11y": "ZETA · estimated earnings date: Sat, Nov 7",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "What did ZETA report last time?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · news today",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "News · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · news yesterday",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "News · {age}"
+                }
+              ],
+              "a11y": "News on ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "What happened with ACME?"
+              }
+            },
+            {
+              "id": "3af4d35a",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "NOVA",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "NOVA is 31% of your portfolio",
+                  "title": "NOVA is 31% of your portfolio",
+                  "meta": "Porty noticed"
+                }
+              ],
+              "a11y": "Porty noticed: NOVA is 31% of your portfolio",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "db65fb0d",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "How much does my portfolio depend on NOVA?"
+              }
+            },
+            {
+              "id": "5365ceb7",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "GLOBX",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "GLOBX is close to your alert",
+                  "title": "GLOBX is close to your alert",
+                  "meta": "Porty noticed"
+                }
+              ],
+              "a11y": "Porty noticed: GLOBX is close to your alert",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "78d5a4df",
+                "t": "alert_week",
+                "src": "novelty",
+                "text": "How is GLOBX doing this week?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · news yesterday",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "News · {age}"
+                }
+              ],
+              "a11y": "News on GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "What happened with GLOBX?"
+              }
+            },
+            {
+              "id": "bffb9ac1",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "ORBT",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ORBT -3.2% today",
+                  "title": "ORBT -3.2% today",
+                  "meta": "Today's biggest move"
+                }
+              ],
+              "a11y": "Biggest move today: ORBT, down 3.2%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "21222482",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "How did ORBT do in my portfolio today?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "db65fb0d",
+              "t": "biggest",
+              "src": "biggest",
+              "text": "How much does my portfolio depend on NOVA?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "What did ZETA report last time?"
+              },
+              {
+                "ref": "db65fb0d",
+                "t": "biggest",
+                "src": "biggest",
+                "text": "How much does my portfolio depend on NOVA?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "your portfolio",
+            "age_now": "just now",
+            "age_min": "{n}m ago",
+            "age_h": "{n}h ago",
+            "age_yesterday": "yesterday",
+            "age_d": "{n} d ago",
+            "header_one": "One thing caught my eye today",
+            "header_other": "{n} things caught my eye today",
+            "header_none": "Your portfolio",
+            "list_title": "Today",
+            "next": "Next",
+            "next_a11y": "Next update",
+            "hidden_count_one": "1 update on your portfolio",
+            "hidden_count_other": "{n} updates on your portfolio",
+            "no_news": "No updates on your portfolio for now",
+            "redacted": "Unlock your iPhone to see the news",
+            "chart_a11y_intraday": "Chart of your portfolio today",
+            "chart_a11y_days": "Chart of your portfolio over the last days"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "db65fb0d"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "hidden_positions",
+      "note": "Posiciones ocultas: sin ids; las filas se identifican por indice del feed.",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": true,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed": [
+            {
+              "kind": "earnings",
+              "icon": "calendar",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1
+                }
+              ]
+            },
+            {
+              "kind": "news",
+              "icon": "news",
+              "paid": true,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2
+                }
+              ]
+            },
+            {
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2
+                }
+              ]
+            },
+            {
+              "kind": "news",
+              "icon": "news",
+              "paid": true,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "mover",
+              "icon": "chart",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "biggest",
+              "icon": "pie",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "4b4466c3",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con mis metas?"
+            },
+            "large": [
+              {
+                "ref": "4b4466c3",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con mis metas?"
+              },
+              {
+                "ref": "ff03d3dd",
+                "t": "biggest",
+                "src": "biggest",
+                "text": "¿Qué tanto depende mi cartera de mi posición más grande?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 4,
+        "small": {
+          "line": "hidden_count",
+          "n": 4
+        },
+        "medium": {
+          "mode": "hidden_count",
+          "n": 4,
+          "question": "4b4466c3",
+          "next_button": false
+        },
+        "large": {
+          "mode": "hidden_count",
+          "n": 4,
+          "questions": [
+            "4b4466c3",
+            "ff03d3dd"
+          ]
+        },
+        "next_index": null
+      }
+    },
+    {
+      "name": "hidden_positions_no_news",
+      "note": "Todo vencido: no_news.",
+      "now": 1794182400000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": true,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed": [
+            {
+              "kind": "earnings",
+              "icon": "calendar",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 1
+                }
+              ]
+            },
+            {
+              "kind": "news",
+              "icon": "news",
+              "paid": true,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2
+                }
+              ]
+            },
+            {
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2
+                }
+              ]
+            },
+            {
+              "kind": "news",
+              "icon": "news",
+              "paid": true,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "mover",
+              "icon": "chart",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            },
+            {
+              "kind": "biggest",
+              "icon": "pie",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3
+                }
+              ]
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "4b4466c3",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con mis metas?"
+            },
+            "large": [
+              {
+                "ref": "4b4466c3",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con mis metas?"
+              },
+              {
+                "ref": "ff03d3dd",
+                "t": "biggest",
+                "src": "biggest",
+                "text": "¿Qué tanto depende mi cartera de mi posición más grande?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": true,
+        "header_n": 0,
+        "small": {
+          "line": "chart"
+        },
+        "medium": {
+          "mode": "no_news",
+          "question": "4b4466c3",
+          "next_button": false
+        },
+        "large": {
+          "mode": "no_news",
+          "questions": [
+            "4b4466c3",
+            "ff03d3dd"
+          ]
+        },
+        "next_index": null
+      }
+    },
+    {
+      "name": "chart_only",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "811c9dc5",
+          "feed": [],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              },
+              {
+                "ref": "ad12ca8d",
+                "t": "profile",
+                "src": "profile",
+                "text": "¿Cómo se compara mi cartera con mi perfil moderado?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 0,
+        "small": {
+          "line": "chart"
+        },
+        "medium": {
+          "mode": "no_news",
+          "question": "9cdb2a58",
+          "next_button": false
+        },
+        "large": {
+          "mode": "no_news",
+          "questions": [
+            "9cdb2a58",
+            "ad12ca8d"
+          ]
+        },
+        "next_index": null
+      }
+    },
+    {
+      "name": "days_chart",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+0.1%",
+        "direction": "flat",
+        "phrase": "Tu cartera casi no se movió hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera casi sin cambios 0.1% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "neutral",
+          "plan_until": null,
+          "chart": {
+            "kind": "days",
+            "points": [
+              0.0,
+              0.22,
+              0.15,
+              0.41,
+              0.58,
+              0.49,
+              0.81,
+              1.0
+            ],
+            "baseline": null
+          },
+          "feed_rev": "d9ed3bbc",
+          "feed": [
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "ad12ca8d",
+              "t": "profile",
+              "src": "profile",
+              "text": "¿Cómo se compara mi cartera con mi perfil moderado?"
+            },
+            "large": [
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              },
+              {
+                "ref": "ad12ca8d",
+                "t": "profile",
+                "src": "profile",
+                "text": "¿Cómo se compara mi cartera con mi perfil moderado?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 1,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "9cdb2a58",
+          "next_button": false
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0
+          ],
+          "questions": [
+            "9cdb2a58",
+            "ad12ca8d"
+          ]
+        },
+        "next_index": 0
+      }
+    },
+    {
+      "name": "expiring_now",
+      "note": "",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "1d8c9420",
+          "feed": [
+            {
+              "id": "57ef8174",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1793984400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: vie 6 nov",
+              "open": {
+                "target": "earnings",
+                "id": "57ef8174"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 3,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "expiring_earnings_gone",
+      "note": "El resultado de hoy venció a las 2 h.",
+      "now": 1793988000000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "1d8c9420",
+          "feed": [
+            {
+              "id": "57ef8174",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1793984400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: vie 6 nov",
+              "open": {
+                "target": "earnings",
+                "id": "57ef8174"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 2,
+        "small": {
+          "line": "item",
+          "feed_index": 1
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 1,
+          "question": "d6c58bee",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "expiring_all_gone",
+      "note": "Todo vencido.",
+      "now": 1794193200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "1d8c9420",
+          "feed": [
+            {
+              "id": "57ef8174",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1793984400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: vie 6 nov",
+              "open": {
+                "target": "earnings",
+                "id": "57ef8174"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": true,
+        "header_n": 0,
+        "small": {
+          "line": "chart"
+        },
+        "medium": {
+          "mode": "no_news",
+          "question": "9cdb2a58",
+          "next_button": false
+        },
+        "large": {
+          "mode": "no_news",
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": null
+      }
+    },
+    {
+      "name": "large_max_two_per_kind",
+      "note": "5 noticias prio 1 + 1 aviso: el grande toma 2 noticias, saltea las otras y mete el aviso (prio 2) como tercera.",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "e34ff614",
+          "feed": [
+            {
+              "id": "aa000000",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000001",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000002",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000003",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000004",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 2,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 6,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "9cdb2a58",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            5
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "large_fill_with_skipped",
+      "note": "Solo noticias: 2 + relleno con las salteadas hasta 3 filas.",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "dc4409e3",
+          "feed": [
+            {
+              "id": "aa000000",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000001",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000002",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000003",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            },
+            {
+              "id": "aa000004",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794150000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 1,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 5,
+        "small": {
+          "line": "item",
+          "feed_index": 0
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "9cdb2a58",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    },
+    {
+      "name": "all_prio3",
+      "note": "Nada con prio <= 2: el chico muestra el grafico; header_n = 0.",
+      "now": 1793977200000,
+      "cursor": null,
+      "snapshot": {
+        "v": 1,
+        "state": "ready",
+        "lang": "es",
+        "written_at": 1793977200000,
+        "data_as_of": 1793977080000,
+        "stale_at": 1794020400000,
+        "period": "today",
+        "amounts_hidden": true,
+        "currency": "USD",
+        "change_pct_text": "+1.2%",
+        "direction": "up",
+        "phrase": "Tu cartera sube hoy.",
+        "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+        "a11y_value": "Tu cartera sube 1.2% hoy",
+        "labels": {
+          "period_today": "Hoy",
+          "period_last_close": "Último cierre",
+          "stale_date": "al 6 nov",
+          "updated_now": "Actualizado recién",
+          "updated_min": "Actualizado hace {n} min",
+          "updated_h": "Actualizado hace {n} h",
+          "updated_d": "Actualizado hace {n} d",
+          "hidden_amount": "••••",
+          "hidden_a11y": "Montos ocultos"
+        },
+        "v2": {
+          "positions_hidden": false,
+          "mood": "happy",
+          "plan_until": null,
+          "chart": {
+            "kind": "intraday",
+            "points": [
+              0.12,
+              0.1,
+              0.25,
+              0.41,
+              0.38,
+              0.52,
+              0.47,
+              0.66,
+              0.61,
+              0.77,
+              0.88,
+              1.0
+            ],
+            "baseline": 0.18
+          },
+          "feed_rev": "95447633",
+          "feed": [
+            {
+              "id": "58ef8307",
+              "kind": "earnings",
+              "icon": "calendar",
+              "tag": "ZETA",
+              "paid": true,
+              "expires_at": 1794106799000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ZETA · resultados mañana (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: mañana",
+                  "meta": "Resultados · fecha estimada"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ZETA · resultados hoy (estimado)",
+                  "title": "ZETA · fecha estimada de resultados: hoy",
+                  "meta": "Resultados · fecha estimada"
+                }
+              ],
+              "a11y": "ZETA · fecha estimada de resultados: sáb 7 nov",
+              "open": {
+                "target": "earnings",
+                "id": "58ef8307"
+              },
+              "q": {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              }
+            },
+            {
+              "id": "7ba64e6b",
+              "kind": "news",
+              "icon": "news",
+              "tag": "ACME",
+              "paid": true,
+              "published_at": 1793966400000,
+              "expires_at": 1794139200000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME · noticia de hoy",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                },
+                {
+                  "from": 1794020400000,
+                  "prio": 3,
+                  "short": "ACME · noticia de ayer",
+                  "title": "ACME presenta una nueva línea de productos",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+              "open": {
+                "target": "news",
+                "id": "7ba64e6b"
+              },
+              "q": {
+                "ref": "d6c58bee",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con ACME?"
+              }
+            },
+            {
+              "id": "97d7287c",
+              "kind": "insight",
+              "icon": "pie",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "Viaje a Japón viene atrasada",
+                  "title": "Viaje a Japón viene atrasada",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: Viaje a Japón viene atrasada",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "novelty",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            },
+            {
+              "id": "591e0075",
+              "kind": "insight",
+              "icon": "pie",
+              "tag": "ORBT",
+              "expires_at": 1794063600000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ORBT acumula -25% desde que la compraste",
+                  "title": "ORBT acumula -25% desde que la compraste",
+                  "meta": "Porty te marca"
+                }
+              ],
+              "a11y": "Porty te marca: ORBT acumula -25% desde que la compraste",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "cbcd56dd",
+                "t": "since_bought",
+                "src": "novelty",
+                "text": "¿Qué pasó con ORBT desde que la compré?"
+              }
+            },
+            {
+              "id": "76972ea1",
+              "kind": "news",
+              "icon": "news",
+              "tag": "GLOBX",
+              "paid": true,
+              "published_at": 1793869200000,
+              "expires_at": 1794042000000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "GLOBX · noticia de ayer",
+                  "title": "GLOBX abre una planta en otro país",
+                  "meta": "Noticia · {age}"
+                }
+              ],
+              "a11y": "Noticia de GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+              "open": {
+                "target": "news",
+                "id": "76972ea1"
+              },
+              "q": {
+                "ref": "1f5ac1ac",
+                "t": "news_what",
+                "src": "novelty",
+                "text": "¿Qué pasó con GLOBX?"
+              }
+            },
+            {
+              "id": "ea142c94",
+              "kind": "mover",
+              "icon": "chart",
+              "tag": "NOVA",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "NOVA +4.1% hoy",
+                  "title": "NOVA +4.1% hoy",
+                  "meta": "Lo que más se movió hoy"
+                }
+              ],
+              "a11y": "Lo que más se movió hoy: NOVA, sube 4.1%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "4680f08f",
+                "t": "mover_today",
+                "src": "novelty",
+                "text": "¿Cómo le fue hoy a NOVA en mi cartera?"
+              }
+            },
+            {
+              "id": "b5e35214",
+              "kind": "biggest",
+              "icon": "pie",
+              "tag": "ACME",
+              "expires_at": 1794020400000,
+              "segments": [
+                {
+                  "from": 1793977200000,
+                  "prio": 3,
+                  "short": "ACME es tu posición más grande: 38%",
+                  "title": "ACME es tu posición más grande: 38%",
+                  "meta": "Tu posición más grande"
+                }
+              ],
+              "a11y": "ACME es tu posición más grande: 38%",
+              "open": {
+                "target": "home"
+              },
+              "q": {
+                "ref": "b88a64f5",
+                "t": "biggest",
+                "src": "novelty",
+                "text": "¿Qué tanto depende mi cartera de ACME?"
+              }
+            }
+          ],
+          "questions": {
+            "fallback": {
+              "ref": "9cdb2a58",
+              "t": "goal_progress",
+              "src": "goal",
+              "text": "¿Cómo voy con Viaje a Japón?"
+            },
+            "large": [
+              {
+                "ref": "120084dc",
+                "t": "earnings_last",
+                "src": "novelty",
+                "text": "¿Qué presentó ZETA la última vez?"
+              },
+              {
+                "ref": "9cdb2a58",
+                "t": "goal_progress",
+                "src": "goal",
+                "text": "¿Cómo voy con Viaje a Japón?"
+              }
+            ]
+          },
+          "labels": {
+            "your_portfolio": "tu cartera",
+            "age_now": "recién",
+            "age_min": "hace {n} min",
+            "age_h": "hace {n} h",
+            "age_yesterday": "ayer",
+            "age_d": "hace {n} d",
+            "header_one": "Hoy te marco una cosa",
+            "header_other": "Hoy te marco {n} cosas",
+            "header_none": "Tu cartera",
+            "list_title": "Lo de hoy",
+            "next": "Siguiente",
+            "next_a11y": "Siguiente novedad",
+            "hidden_count_one": "1 novedad de tu cartera",
+            "hidden_count_other": "{n} novedades de tu cartera",
+            "no_news": "Sin novedades de tu cartera por ahora",
+            "redacted": "Desbloqueá tu iPhone para ver las novedades",
+            "chart_a11y_intraday": "Gráfico de tu cartera de hoy",
+            "chart_a11y_days": "Gráfico de tu cartera de los últimos días"
+          }
+        }
+      },
+      "expected": {
+        "stale": false,
+        "header_n": 0,
+        "small": {
+          "line": "chart"
+        },
+        "medium": {
+          "mode": "item",
+          "feed_index": 0,
+          "question": "120084dc",
+          "next_button": true
+        },
+        "large": {
+          "mode": "rows",
+          "rows": [
+            0,
+            1,
+            2
+          ],
+          "questions": [
+            "120084dc",
+            "9cdb2a58"
+          ]
+        },
+        "next_index": 1
+      }
+    }
+  ]
+}
