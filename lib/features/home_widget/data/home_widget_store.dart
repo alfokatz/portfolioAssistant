@@ -91,10 +91,22 @@ class PluginHomeWidgetStore implements HomeWidgetStore {
 
   @override
   Future<void> writeSnapshot(WidgetSnapshot snapshot) async {
-    await HomeWidget.saveWidgetData<String>(
+    final saved = await HomeWidget.saveWidgetData<String>(
       WidgetSnapshot.storageKey,
       jsonEncode(widgetJsonSafe(snapshot.toJson())),
     );
+    if (kDebugMode) {
+      // Diagnóstico: lo que quedó en el App Group, leído de vuelta.
+      try {
+        final back = await HomeWidget.getWidgetData<String>(
+          WidgetSnapshot.storageKey,
+        );
+        final state = back == null ? null : (jsonDecode(back) as Map)['state'];
+        debugPrint('[home_widget] store: saved=$saved readBack=$state');
+      } catch (e) {
+        debugPrint('[home_widget] store: saved=$saved readBack failed: $e');
+      }
+    }
     await _update();
   }
 

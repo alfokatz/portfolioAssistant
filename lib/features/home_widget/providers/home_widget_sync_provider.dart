@@ -174,6 +174,11 @@ class HomeWidgetSyncController {
   /// fallida (se queda el último bueno) ni con el caché (no pisa datos de un
   /// refresco de fondo más nuevos).
   void onHome(HomeState? previous, HomeState next) {
+    _log(
+      'home: loading=${next.loading} cache=${next.fromCache} '
+      'error=${next.quoteError != null} '
+      'positions=${next.summary?.valuations.length} wroteReady=$_wroteReady',
+    );
     if (next.loading) return;
     final summary = next.summary;
     if (summary == null) return;
@@ -182,7 +187,10 @@ class HomeWidgetSyncController {
     // esta sesión todavía no se escribió la cartera, lo guardado es mejor
     // que dejar el widget en "cargá tu cartera" o sin datos.
     final degraded = next.fromCache || next.quoteError != null;
-    if (degraded && (_wroteReady || summary.valuations.isEmpty)) return;
+    if (degraded && (_wroteReady || summary.valuations.isEmpty)) {
+      _log('home: skipped (cache or error)');
+      return;
+    }
     if (previous != null &&
         identical(previous.summary, summary) &&
         identical(previous.history, next.history) &&
@@ -390,6 +398,11 @@ class HomeWidgetSyncController {
 
   // Escritura ----------------------------------------------------------------
 
+  /// Diagnóstico, solo en desarrollo: qué recibe y qué escribe el widget.
+  static void _log(String message) {
+    if (kDebugMode) debugPrint('[home_widget] $message');
+  }
+
   void _enqueue(Future<void> Function() job) {
     if (_disposed) return;
     _queue = _queue.then((_) async {
@@ -410,6 +423,7 @@ class HomeWidgetSyncController {
     DateTime dataAsOf,
   ) async {
     if (epoch != _epoch) return;
+    _log('capture: ${summary.valuations.length} positions');
     if (summary.valuations.isEmpty) {
       _known = const _KnownEmpty();
       await prefs.remove(WidgetPrefsKeys.ownerUid);
@@ -565,6 +579,7 @@ class HomeWidgetSyncController {
     }
     await prefs.setString(WidgetPrefsKeys.lang, lang);
     await store.writeSnapshot(snapshot);
+    _log('wrote ${snapshot.state.wire}');
     await afterWrite?.call();
     if (snapshot.state == WidgetSnapshotState.ready) {
       _wroteReady = true;
