@@ -11,11 +11,11 @@ class ClosePositionProvider extends StateNotifier<ClosePositionState> {
     required this.args,
     required this.getPriceOnDateUseCase,
   }) : super(
-          ClosePositionState(
-            closeDate: DateTime.now(),
-            sellAmountText: args.quantity.toString(),
-          ),
-        );
+         ClosePositionState(
+           closeDate: DateTime.now(),
+           sellAmountText: args.quantity.toString(),
+         ),
+       );
 
   final ClosePositionArgs args;
   final GetPriceOnDateUseCase getPriceOnDateUseCase;
@@ -27,25 +27,25 @@ class ClosePositionProvider extends StateNotifier<ClosePositionState> {
     await fetchPriceForDate();
   }
 
+  // Solo la última consulta escribe: cambiar la fecha dos veces seguidas no
+  // deja el precio de la primera ni apaga el spinner antes de tiempo.
+  int _priceRequest = 0;
+
   Future<void> fetchPriceForDate() async {
+    final request = ++_priceRequest;
     state = state.copyWith(loadingPrice: true);
 
     final result = await getPriceOnDateUseCase.call(
-      params: GetPriceOnDateParams(
-        ticker: args.ticker,
-        date: state.closeDate,
-      ),
+      params: GetPriceOnDateParams(ticker: args.ticker, date: state.closeDate),
     );
+    if (request != _priceRequest) return;
 
-    result.fold(
-      (_) => state = state.copyWith(loadingPrice: false),
-      (price) {
-        state = state.copyWith(
-          loadingPrice: false,
-          priceText: price > 0 ? price.toStringAsFixed(2) : state.priceText,
-        );
-      },
-    );
+    result.fold((_) => state = state.copyWith(loadingPrice: false), (price) {
+      state = state.copyWith(
+        loadingPrice: false,
+        priceText: price > 0 ? price.toStringAsFixed(2) : state.priceText,
+      );
+    });
   }
 
   void setScope(CloseScope scope) {
@@ -141,8 +141,8 @@ final class ClosePositionFailureResult extends ClosePositionSaveResult {
 
 final closePositionProvider = StateNotifierProvider.autoDispose
     .family<ClosePositionProvider, ClosePositionState, ClosePositionArgs>(
-  (ref, args) => ClosePositionProvider(
-    args: args,
-    getPriceOnDateUseCase: ref.watch(getPriceOnDateUseCaseProvider),
-  ),
-);
+      (ref, args) => ClosePositionProvider(
+        args: args,
+        getPriceOnDateUseCase: ref.watch(getPriceOnDateUseCaseProvider),
+      ),
+    );

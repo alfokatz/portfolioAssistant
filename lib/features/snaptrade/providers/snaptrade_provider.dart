@@ -3,19 +3,33 @@ import 'package:portfolio_assistant/features/snaptrade/data/snaptrade_repository
 import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
+/// Qué está haciendo la conexión ahora. Una sola acción a la vez.
+enum SnaptradeActivity {
+  idle,
+  connecting,
+  syncing,
+  refreshing,
+  removing,
+  disconnecting,
+}
+
 class SnaptradeState {
   const SnaptradeState({
     this.loaded = false,
     this.connection = const SnaptradeConnection(),
-    this.busy = false,
+    this.activity = SnaptradeActivity.idle,
     this.errorType,
   });
 
   final bool loaded;
   final SnaptradeConnection connection;
+  final SnaptradeActivity activity;
 
-  /// Abriendo el portal, sincronizando, quitando o desconectando.
-  final bool busy;
+  /// Abriendo el portal, sincronizando, quitando o desconectando: los
+  /// botones se deshabilitan.
+  bool get busy => activity != SnaptradeActivity.idle;
+
+  bool get isSyncing => activity == SnaptradeActivity.syncing;
 
   /// El último error para mostrar (`SnaptradeException.type`).
   final String? errorType;
@@ -23,13 +37,13 @@ class SnaptradeState {
   SnaptradeState copyWith({
     bool? loaded,
     SnaptradeConnection? connection,
-    bool? busy,
+    SnaptradeActivity? activity,
     String? errorType,
     bool clearError = false,
   }) => SnaptradeState(
     loaded: loaded ?? this.loaded,
     connection: connection ?? this.connection,
-    busy: busy ?? this.busy,
+    activity: activity ?? this.activity,
     errorType: clearError ? null : (errorType ?? this.errorType),
   );
 }
@@ -66,7 +80,10 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
   /// al volver, importa. `true` si quedó al menos un bróker conectado.
   Future<bool> connect({required bool darkMode, String? reconnect}) async {
     if (state.busy) return false;
-    state = state.copyWith(busy: true, clearError: true);
+    state = state.copyWith(
+      activity: SnaptradeActivity.connecting,
+      clearError: true,
+    );
     try {
       final url = await _repo.portalUrl(
         darkMode: darkMode,
@@ -77,11 +94,15 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       await _repo.sync(force: true);
       await load();
       await _onImported?.call();
-      if (mounted) state = state.copyWith(busy: false);
+      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return state.connection.isConnected;
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted) state = state.copyWith(busy: false, errorType: e.type);
+      if (mounted)
+        state = state.copyWith(
+          activity: SnaptradeActivity.idle,
+          errorType: e.type,
+        );
       return false;
     }
   }
@@ -90,15 +111,22 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
   /// conectó eToro directo y hay que sacarlo de acá).
   Future<void> sync({bool force = false}) async {
     if (state.busy || !state.connection.isConnected) return;
-    state = state.copyWith(busy: true, clearError: true);
+    state = state.copyWith(
+      activity: SnaptradeActivity.syncing,
+      clearError: true,
+    );
     try {
       final outcome = await _repo.sync(force: force);
       await load();
       if (!outcome.throttled) await _onImported?.call();
-      if (mounted) state = state.copyWith(busy: false);
+      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted) state = state.copyWith(busy: false, errorType: e.type);
+      if (mounted)
+        state = state.copyWith(
+          activity: SnaptradeActivity.idle,
+          errorType: e.type,
+        );
     }
   }
 
@@ -118,13 +146,20 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
   /// en unos minutos, en la próxima sincronización.
   Future<bool> refresh() async {
     if (state.busy) return false;
-    state = state.copyWith(busy: true, clearError: true);
+    state = state.copyWith(
+      activity: SnaptradeActivity.refreshing,
+      clearError: true,
+    );
     try {
       await _repo.refresh();
-      if (mounted) state = state.copyWith(busy: false);
+      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return true;
     } on SnaptradeException catch (e) {
-      if (mounted) state = state.copyWith(busy: false, errorType: e.type);
+      if (mounted)
+        state = state.copyWith(
+          activity: SnaptradeActivity.idle,
+          errorType: e.type,
+        );
       return false;
     }
   }
@@ -132,31 +167,45 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
   /// Quita un bróker (lo importado de él se borra en la sincronización).
   Future<bool> remove(String brokerageId) async {
     if (state.busy) return false;
-    state = state.copyWith(busy: true, clearError: true);
+    state = state.copyWith(
+      activity: SnaptradeActivity.removing,
+      clearError: true,
+    );
     try {
       await _repo.remove(brokerageId);
       await load();
       await _onImported?.call();
-      if (mounted) state = state.copyWith(busy: false);
+      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return true;
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted) state = state.copyWith(busy: false, errorType: e.type);
+      if (mounted)
+        state = state.copyWith(
+          activity: SnaptradeActivity.idle,
+          errorType: e.type,
+        );
       return false;
     }
   }
 
   Future<bool> disconnect({required bool keepAsManual}) async {
     if (state.busy) return false;
-    state = state.copyWith(busy: true, clearError: true);
+    state = state.copyWith(
+      activity: SnaptradeActivity.disconnecting,
+      clearError: true,
+    );
     try {
       await _repo.disconnect(keepAsManual: keepAsManual);
       await load();
       await _onImported?.call();
-      if (mounted) state = state.copyWith(busy: false);
+      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return true;
     } on SnaptradeException catch (e) {
-      if (mounted) state = state.copyWith(busy: false, errorType: e.type);
+      if (mounted)
+        state = state.copyWith(
+          activity: SnaptradeActivity.idle,
+          errorType: e.type,
+        );
       return false;
     }
   }

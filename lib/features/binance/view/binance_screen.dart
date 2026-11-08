@@ -167,7 +167,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
         ]);
       } else {
         children.addAll([
-          _StatusCard(connection: connection, syncing: state.busy),
+          _StatusCard(connection: connection, syncing: state.isSyncing),
           const ManualPositionsRow(broker: 'Binance'),
           if (error != null && !reconnect) ...[
             const SizedBox(height: AppDimens.sp12),
@@ -181,7 +181,9 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
             _SecondaryButton(
               icon: Icons.sync_rounded,
               label:
-                  state.busy ? 'binance_syncing'.tr() : 'binance_sync_now'.tr(),
+                  state.isSyncing
+                      ? 'binance_syncing'.tr()
+                      : 'binance_sync_now'.tr(),
               onPressed:
                   state.busy ? null : ref.read(binanceProvider.notifier).sync,
             ),
@@ -289,7 +291,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
       PositionPrimaryButton(
         label:
             (reconnect ? 'binance_reconnect_cta' : 'binance_connect_cta').tr(),
-        loading: state.busy,
+        loading: state.activity == BinanceActivity.connecting,
         onPressed: _connect,
       ),
       if (error != null) ...[

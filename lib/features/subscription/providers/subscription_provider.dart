@@ -68,12 +68,28 @@ enum PaywallReason {
     PaywallReason.benchmark ||
     PaywallReason.watchlistLimit ||
     PaywallReason.heldNews => SubscriptionTier.premium,
-    PaywallReason.quotaExceeded ||
-    PaywallReason.quotaLow =>
+    PaywallReason.quotaExceeded || PaywallReason.quotaLow =>
       currentTier == SubscriptionTier.free ? SubscriptionTier.premium : null,
     PaywallReason.goldRequired => SubscriptionTier.gold,
     PaywallReason.plans => null,
   };
+}
+
+/// Qué está haciendo la tienda ahora: nada, comprando un plan o
+/// restaurando. Una sola operación a la vez (antes eran dos campos que
+/// podían quedar prendidos juntos).
+sealed class StoreOperation {
+  const StoreOperation();
+}
+
+final class StorePurchasing extends StoreOperation {
+  const StorePurchasing(this.tier);
+
+  final SubscriptionTier tier;
+}
+
+final class StoreRestoring extends StoreOperation {
+  const StoreRestoring();
 }
 
 class SubscriptionState {
@@ -81,40 +97,51 @@ class SubscriptionState {
   final int queriesUsed;
   final int queriesLimit;
   final bool isLoading;
-  final SubscriptionTier? purchasingTier;
-  final bool isRestoring;
+
+  /// `null`: la tienda está quieta.
+  final StoreOperation? storeOperation;
 
   const SubscriptionState({
     required this.tier,
     required this.queriesUsed,
     required this.queriesLimit,
     this.isLoading = false,
-    this.purchasingTier,
-    this.isRestoring = false,
+    this.storeOperation,
   });
 
-  bool get isPurchasing => purchasingTier != null || isRestoring;
+  /// El plan que se está comprando, si hay una compra en curso.
+  SubscriptionTier? get purchasingTier => switch (storeOperation) {
+    StorePurchasing(:final tier) => tier,
+    _ => null,
+  };
+
+  bool get isRestoring => storeOperation is StoreRestoring;
+
+  /// Comprando o restaurando: el paywall no se cierra y los botones se
+  /// deshabilitan.
+  bool get isPurchasing => storeOperation != null;
 
   int get queriesRemaining =>
       (queriesLimit - queriesUsed).clamp(0, queriesLimit);
+
+  static const _keep = Object();
 
   SubscriptionState copyWith({
     SubscriptionTier? tier,
     int? queriesUsed,
     int? queriesLimit,
     bool? isLoading,
-    SubscriptionTier? purchasingTier,
-    bool? isRestoring,
-    bool clearPurchasingTier = false,
+    Object? storeOperation = _keep,
   }) {
     return SubscriptionState(
       tier: tier ?? this.tier,
       queriesUsed: queriesUsed ?? this.queriesUsed,
       queriesLimit: queriesLimit ?? this.queriesLimit,
       isLoading: isLoading ?? this.isLoading,
-      purchasingTier:
-          clearPurchasingTier ? null : (purchasingTier ?? this.purchasingTier),
-      isRestoring: isRestoring ?? this.isRestoring,
+      storeOperation:
+          identical(storeOperation, _keep)
+              ? this.storeOperation
+              : storeOperation as StoreOperation?,
     );
   }
 
@@ -164,8 +191,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
         queriesUsed: status.queriesUsed,
         queriesLimit: status.queriesLimit,
         isLoading: false,
-        purchasingTier: state.purchasingTier,
-        isRestoring: state.isRestoring,
+        storeOperation: state.storeOperation,
       );
     } catch (_) {
       state = state.copyWith(isLoading: false);
@@ -189,7 +215,10 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     BillingPeriod period = BillingPeriod.monthly,
     required String source,
   }) async {
-    state = state.copyWith(purchasingTier: tier);
+    // Los botones ya se deshabilitan; esto evita que dos operaciones se
+    // pisen el estado si igual llegan dos toques.
+    if (state.isPurchasing) return const RevenueCatPurchaseCancelled();
+    state = state.copyWith(storeOperation: StorePurchasing(tier));
     try {
       final result = await _revenueCat.purchase(tier, period, source: source);
       if (result is RevenueCatPurchaseSuccess) {
@@ -197,12 +226,13 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       }
       return result;
     } finally {
-      state = state.copyWith(clearPurchasingTier: true, isRestoring: false);
+      state = state.copyWith(storeOperation: null);
     }
   }
 
   Future<RevenueCatPurchaseResult> restorePurchases() async {
-    state = state.copyWith(isRestoring: true);
+    if (state.isPurchasing) return const RevenueCatPurchaseCancelled();
+    state = state.copyWith(storeOperation: const StoreRestoring());
     try {
       final result = await _revenueCat.restorePurchases();
       if (result is RevenueCatPurchaseSuccess) {
@@ -210,7 +240,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       }
       return result;
     } finally {
-      state = state.copyWith(isRestoring: false);
+      state = state.copyWith(storeOperation: null);
     }
   }
 

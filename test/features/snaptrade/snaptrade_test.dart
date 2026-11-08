@@ -230,6 +230,26 @@ void main() {
       },
     );
 
+    test(
+      'activity names the running action; removing is not syncing',
+      () async {
+        final repo = _Repo(_connected());
+        final n = SnaptradeNotifier(repo, _Portal());
+        await n.load();
+        final seen = <SnaptradeActivity>[];
+        n.addListener((s) => seen.add(s.activity), fireImmediately: false);
+        await n.sync();
+        expect(seen.first, SnaptradeActivity.syncing);
+        expect(n.state.isSyncing, isFalse);
+
+        seen.clear();
+        await n.remove(n.state.connection.imported.single.id);
+        expect(seen.first, SnaptradeActivity.removing);
+        expect(seen.where((a) => a == SnaptradeActivity.syncing), isEmpty);
+        expect(n.state.activity, SnaptradeActivity.idle);
+      },
+    );
+
     test('closing the portal without connecting is not a success', () async {
       final repo = _Repo(
         const SnaptradeConnection(status: SnaptradeStatus.pending),

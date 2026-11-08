@@ -12,20 +12,26 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
     required this.getPriceOnDateUseCase,
     required this.getCurrentPriceUseCase,
   }) : super(
-          AddPositionState(
-            purchaseDate: DateTime.now(),
-            datePicked: args.prefilledPrice != null,
-            tickerText: args.prefilledTicker ?? '',
-            quantityText: args.prefilledQuantity?.toString() ?? '',
-            priceText: args.prefilledPrice?.toString() ?? '',
-          ),
-        );
+         AddPositionState(
+           purchaseDate: DateTime.now(),
+           datePicked: args.prefilledPrice != null,
+           tickerText: args.prefilledTicker ?? '',
+           quantityText: args.prefilledQuantity?.toString() ?? '',
+           priceText: args.prefilledPrice?.toString() ?? '',
+         ),
+       );
 
   final GetPriceOnDateUseCase getPriceOnDateUseCase;
   final GetCurrentPriceUseCase getCurrentPriceUseCase;
 
   /// El usuario escribió el precio a mano: ya no se completa solo.
   bool _priceEditedByUser = false;
+
+  // Cada consulta toma un número; solo la última escribe el estado. Si el
+  // usuario cambia la fecha o el ticker dos veces seguidas, la respuesta
+  // vieja (que puede llegar después) no pisa el precio ni apaga el spinner.
+  int _priceRequest = 0;
+  int _currentRequest = 0;
 
   Future<void> setPurchaseDate(DateTime date) async {
     state = state.copyWith(purchaseDate: date, datePicked: true);
@@ -36,21 +42,20 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
     final ticker = state.tickerText.trim();
     if (ticker.isEmpty || !state.datePicked) return;
 
+    final request = ++_priceRequest;
     state = state.copyWith(loadingPrice: true);
 
     final result = await getPriceOnDateUseCase.call(
       params: GetPriceOnDateParams(ticker: ticker, date: state.purchaseDate),
     );
+    if (request != _priceRequest) return;
 
-    result.fold(
-      (_) => state = state.copyWith(loadingPrice: false),
-      (price) {
-        state = state.copyWith(
-          loadingPrice: false,
-          priceText: price > 0 ? price.toStringAsFixed(2) : state.priceText,
-        );
-      },
-    );
+    result.fold((_) => state = state.copyWith(loadingPrice: false), (price) {
+      state = state.copyWith(
+        loadingPrice: false,
+        priceText: price > 0 ? price.toStringAsFixed(2) : state.priceText,
+      );
+    });
 
     await fetchCurrentPrice();
   }
@@ -59,26 +64,33 @@ class AddPositionProvider extends StateNotifier<AddPositionState> {
     final ticker = state.tickerText.trim();
     if (ticker.isEmpty) return;
 
+    final request = ++_currentRequest;
     state = state.copyWith(loadingCurrent: true);
 
     final result = await getCurrentPriceUseCase.call(params: ticker);
+    if (request != _currentRequest) return;
 
     result.fold(
-      (_) => state = state.copyWith(loadingCurrent: false, clearCurrentPrice: true),
-      (price) => state = state.copyWith(
-        loadingCurrent: false,
-        currentPrice: price,
-        // Con la fecha de hoy (sin elegir otra), el precio de compra es el
-        // actual, salvo que el usuario lo haya escrito él.
-        priceText:
-            !state.datePicked &&
-                    PositionDraftMath.acceptsFetchedPrice(
-                      fetched: price,
-                      editedByUser: _priceEditedByUser,
-                    )
-                ? price.toStringAsFixed(2)
-                : null,
-      ),
+      (_) =>
+          state = state.copyWith(
+            loadingCurrent: false,
+            clearCurrentPrice: true,
+          ),
+      (price) =>
+          state = state.copyWith(
+            loadingCurrent: false,
+            currentPrice: price,
+            // Con la fecha de hoy (sin elegir otra), el precio de compra es el
+            // actual, salvo que el usuario lo haya escrito él.
+            priceText:
+                !state.datePicked &&
+                        PositionDraftMath.acceptsFetchedPrice(
+                          fetched: price,
+                          editedByUser: _priceEditedByUser,
+                        )
+                    ? price.toStringAsFixed(2)
+                    : null,
+          ),
     );
   }
 
@@ -163,9 +175,9 @@ final class AddPositionFailureResult extends AddPositionSaveResult {
 
 final addPositionProvider = StateNotifierProvider.autoDispose
     .family<AddPositionProvider, AddPositionState, AddPositionArgs>(
-  (ref, args) => AddPositionProvider(
-    args: args,
-    getPriceOnDateUseCase: ref.watch(getPriceOnDateUseCaseProvider),
-    getCurrentPriceUseCase: ref.watch(getCurrentPriceUseCaseProvider),
-  ),
-);
+      (ref, args) => AddPositionProvider(
+        args: args,
+        getPriceOnDateUseCase: ref.watch(getPriceOnDateUseCaseProvider),
+        getCurrentPriceUseCase: ref.watch(getCurrentPriceUseCaseProvider),
+      ),
+    );

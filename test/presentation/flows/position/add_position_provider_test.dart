@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
@@ -20,6 +22,15 @@ class _Quotes implements QuoteRepository {
   ) async => Right([PriceCandle(date: DateTime(2024, 3, 22), close: 479.18)]);
   @override
   Future<List<PriceCandle>> getIntradayCandles(String t) async => [];
+}
+
+/// La cotización actual de cada ticker contesta cuando el test la suelta.
+class _HeldQuotes extends _Quotes {
+  final gates = <String, Completer<double>>{};
+
+  @override
+  Future<Either<HttpError, double>> getCurrentPrice(String t) async =>
+      Right(await (gates[t] = Completer<double>()).future);
 }
 
 AddPositionProvider _provider(
@@ -69,4 +80,25 @@ void main() {
     await p.fetchCurrentPrice();
     expect(p.state.priceText, '600.0');
   });
+
+  test(
+    'a late answer for the old ticker does not overwrite the new one',
+    () async {
+      final quotes = _HeldQuotes();
+      final p = _provider(quotes)..setTickerText('VOO');
+      final first = p.fetchCurrentPrice();
+      p.setTickerText('AAPL');
+      final second = p.fetchCurrentPrice();
+
+      quotes.gates['AAPL']!.complete(250.5);
+      await second;
+      expect(p.state.priceText, '250.50');
+      expect(p.state.loadingCurrent, isFalse);
+
+      quotes.gates['VOO']!.complete(717.23);
+      await first;
+      expect(p.state.priceText, '250.50');
+      expect(p.state.currentPrice, 250.5);
+    },
+  );
 }

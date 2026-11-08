@@ -149,6 +149,29 @@ void main() {
       expect(m.state.busy, isFalse);
     });
 
+    test(
+      'la actividad dice qué acción corre (y solo sync es "sincronizando")',
+      () async {
+        final repo = _Repo(const BinanceConnection());
+        final n = BinanceNotifier(repo);
+        final seen = <BinanceActivity>[];
+        n.addListener((s) => seen.add(s.activity), fireImmediately: false);
+        await n.connect(apiKey: 'k' * 60 + 'ab12', apiSecret: 's' * 64);
+        expect(seen.first, BinanceActivity.connecting);
+        expect(n.state.activity, BinanceActivity.idle);
+
+        seen.clear();
+        await n.sync();
+        expect(seen.first, BinanceActivity.syncing);
+
+        seen.clear();
+        await n.disconnect(keepAsManual: true);
+        expect(seen.first, BinanceActivity.disconnecting);
+        expect(seen.where((a) => a == BinanceActivity.syncing), isEmpty);
+        expect(n.state.busy, isFalse);
+      },
+    );
+
     test('al abrir: sincroniza solo si está conectada y es viejo', () async {
       final now = DateTime(2026, 10, 16, 12);
       final repo = _Repo(
