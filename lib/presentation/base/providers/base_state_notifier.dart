@@ -1,6 +1,5 @@
 import 'package:dartz/dartz.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/presentation/base/content_state/content_state_provider.dart';
 import 'package:portfolio_assistant/shared/extensions/DynamicExtensions.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart'
     show HttpError;
@@ -27,14 +26,6 @@ abstract class BaseStateNotifier<S, A> extends StateNotifier<S> {
       },
       (successResponse) => {onSuccess.call(successResponse)},
     );
-  }
-
-  void showLoading() {
-    ref.read(contentStateNotifierProvider.notifier).setLoading();
-  }
-
-  void showContent() {
-    ref.read(contentStateNotifierProvider.notifier).setShowContent();
   }
 
   void reducer({required A action});

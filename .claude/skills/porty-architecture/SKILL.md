@@ -51,7 +51,7 @@ Ejemplos reales para copiar: `lib/features/goals/`, `lib/features/binance/`, `li
 9. **Textos de UI traducibles** en `assets/translations/es-ES.json` **y** `en-US.json` (las dos). Ver [references/i18n.md](references/i18n.md).
    **La app es bilingüe (es/en) en todo, incluido el chat**: nada de texto visible escrito en el código (también cards del chat, errores de repositorios y fechas/rótulos que arman las tools). Fuera de un `BuildContext`, el idioma elegido es `AppLanguage.code` (`lib/config/translate/app_language.dart`); nunca `Intl.getCurrentLocale()` (devuelve el del sistema). Datos canónicos en español que se muestran (sectores) se traducen al mostrarlos (`SectorDisplayName.localize`).
 10. **Nada de listas fijas de tickers** (ticker→sector, candidatos por perfil). Porty habla de cualquier ticker; los números salen de datos reales. Si falta un dato: `null` / "Sin clasificar", nunca adivinar.
-11. **Errores**: los repositorios de features lanzan fallas tipadas (sealed `XxxFailure` o `XxxException(type)`) y el notifier las convierte en flags del estado (`loaded`, `loadFailed`). Mensajes al usuario con `ref.read(alertProvider.notifier).showError(...)` (se ve como `PortyToast`). No construir sobre `presentation/base/content_state/` (legacy, sin uso).
+11. **Errores**: los repositorios de features lanzan fallas tipadas (sealed `XxxFailure` o `XxxException(type)`) y el notifier las convierte en flags del estado (`loaded`, `loadFailed`). Mensajes al usuario con `ref.read(alertProvider.notifier).showError(...)` (se ve como `PortyToast`).
 
 ## Nombres
 

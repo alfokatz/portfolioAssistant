@@ -65,7 +65,21 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
   /// Home pone su skeleton ([HomeState.loading]); con datos (caché o carga
   /// anterior) quedan en pantalla y se reemplazan en el lugar. [silent] se
   /// conserva por compatibilidad: ya no hay loader de pantalla completa.
-  Future<void> refresh({bool silent = false}) async {
+  ///
+  /// Puede haber varios a la vez (al abrir, cada bróker que sincroniza
+  /// recarga la Home): gana el último pedido. Uno que arrancó antes no pisa
+  /// la cartera con datos de antes de una importación; espera al último y
+  /// vuelve, así quien hace `await refresh()` lee lo nuevo.
+  Future<void> refresh({bool silent = false}) {
+    final run = _load(++_refreshGeneration);
+    _latestRefresh = run;
+    return run;
+  }
+
+  int _refreshGeneration = 0;
+  Future<void>? _latestRefresh;
+
+  Future<void> _load(int generation) async {
     if (state.summary == null && !state.loading) {
       state = state.copyWith(loading: true);
     }
@@ -104,6 +118,10 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final closedCount = closedResult.fold((_) => 0, (list) => list.length);
 
     if (!mounted) return;
+    if (generation != _refreshGeneration) {
+      await _latestRefresh;
+      return;
+    }
     reducer(
       action: LoadPortfolioAction(
         summary: summary,
