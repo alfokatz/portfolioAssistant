@@ -60,6 +60,10 @@ class AssistantState {
   final List<PortfolioQaMessage> messages;
   final String? error;
   final String lastMessage;
+
+  /// Hay un turno en curso. Lo escribe solo `submitMessage`, en el mismo
+  /// instante en que toma y suelta su guard: con `true` no se puede enviar
+  /// otro mensaje (y la pantalla deshabilita el campo).
   final bool isWaiting;
   final bool bootstrapped;
   final int turnCounter;

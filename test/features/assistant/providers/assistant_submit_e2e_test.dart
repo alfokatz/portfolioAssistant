@@ -214,7 +214,8 @@ class _Harness {
           quotaNudgeClockProvider.overrideWithValue(() => n.now),
         ],
         productEventsProvider.overrideWithValue(events),
-        if (taste case final t?) marketTasteRepositoryProvider.overrideWithValue(t),
+        if (taste case final t?)
+          marketTasteRepositoryProvider.overrideWithValue(t),
         homeProvider.overrideWith((ref) => _LoadedHome(ref)),
         portyTopicsRepositoryProvider.overrideWithValue(topics),
         getClosedPositionsUseCaseProvider.overrideWithValue(
@@ -239,7 +240,10 @@ class _Harness {
           AssistantDeps(
             createService:
                 () => AssistantOpenAiService(
-                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
+                  proxy: AiProxyConfig.fixed(
+                    Uri.parse('https://proxy.test'),
+                    'jwt-test',
+                  ),
                   model: 'gpt-4.1-mini',
                   httpClient: api.client,
                   variant: variant,
@@ -348,9 +352,32 @@ void main() {
     expect(h.quotes.priceCalls, isEmpty);
   });
 
+  test('the turn stays "waiting" until it closes, even once the answer '
+      'surface is ready (so a send in that window is never dropped)', () async {
+    final h = harness(SubscriptionTier.free, [_answer('Tu cartera vale 600.')]);
+    final readyWhileWaiting = <bool>[];
+    h.container.listen(assistantProvider(_Harness.args), (prev, next) {
+      final last = next.messages.lastOrNull;
+      final prevLast = prev?.messages.lastOrNull;
+      final becameReady =
+          last != null &&
+          last.isGenUiSurface &&
+          !last.isStreaming &&
+          (prevLast?.isStreaming ?? false);
+      if (becameReady) readyWhileWaiting.add(next.isWaiting);
+    });
+
+    await h.notifier.submitMessage('¿Cómo está mi cartera?');
+
+    expect(readyWhileWaiting, [true]);
+    expect(h.state.isWaiting, isFalse);
+  });
+
   group('streaming (app_config.porty_streaming)', () {
     test('off by default: requests are not streamed', () async {
-      final h = harness(SubscriptionTier.free, [_answer('Tu cartera vale 600.')]);
+      final h = harness(SubscriptionTier.free, [
+        _answer('Tu cartera vale 600.'),
+      ]);
       await h.notifier.submitMessage('¿Cómo está mi cartera?');
       expect(h.api.requests.single.containsKey('stream'), isFalse);
     });
@@ -378,7 +405,13 @@ void main() {
       expect(h.api.requests, hasLength(2));
       expect(h.api.requests.every((r) => r['stream'] == true), isTrue);
       expect(h.quotes.priceCalls, ['AAPL']);
-      expect(h.api.rolesOf(1), ['system', 'system', 'user', 'assistant', 'tool']);
+      expect(h.api.rolesOf(1), [
+        'system',
+        'system',
+        'user',
+        'assistant',
+        'tool',
+      ]);
       // Misma respuesta final, por el camino de siempre.
       expect(h.lastAnswer.isStreaming, isFalse);
       expect(h.lastAnswer.isFallback, isFalse);
@@ -473,32 +506,29 @@ void main() {
     },
   );
 
-  test(
-    'a news search is answered for gold; a premium user asking for news '
-    'gets an answer (with the Gold block), not an interrupting paywall; the '
-    'app never charges (the proxy does)',
-    () async {
-      final gold = harness(SubscriptionTier.gold, [
-        _call('get_news', {
-          'tickers': ['NVDA'],
-        }),
-        _answer(),
-      ]);
-      await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-      // Cobra el proxy (una consulta por turno), no la app.
-      expect(gold.subscriptionRepo.consumed, isEmpty);
+  test('a news search is answered for gold; a premium user asking for news '
+      'gets an answer (with the Gold block), not an interrupting paywall; the '
+      'app never charges (the proxy does)', () async {
+    final gold = harness(SubscriptionTier.gold, [
+      _call('get_news', {
+        'tickers': ['NVDA'],
+      }),
+      _answer(),
+    ]);
+    await gold.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+    // Cobra el proxy (una consulta por turno), no la app.
+    expect(gold.subscriptionRepo.consumed, isEmpty);
 
-      final premium = harness(SubscriptionTier.premium, [
-        _call('get_news', {
-          'tickers': ['NVDA'],
-        }),
-        _answer('Las noticias están incluidas en Gold.'),
-      ]);
-      await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
-      expect(premium.state.paywallReason, isNull);
-      expect(premium.subscriptionRepo.consumed, isEmpty);
-    },
-  );
+    final premium = harness(SubscriptionTier.premium, [
+      _call('get_news', {
+        'tickers': ['NVDA'],
+      }),
+      _answer('Las noticias están incluidas en Gold.'),
+    ]);
+    await premium.notifier.submitMessage('¿Qué noticias hay de NVDA?');
+    expect(premium.state.paywallReason, isNull);
+    expect(premium.subscriptionRepo.consumed, isEmpty);
+  });
 
   test(
     'premium fundamentals are locked but not a paywall: the model words it',
@@ -873,22 +903,25 @@ void main() {
       ]);
     });
 
-    test('paywall: a locked turn is aborted and the event says paywall', () async {
-      final h = harness(SubscriptionTier.free, [
-        _call('get_quote', {
-          'tickers': ['AMZN'],
-        }),
-      ]);
-      await h.notifier.bootstrap();
+    test(
+      'paywall: a locked turn is aborted and the event says paywall',
+      () async {
+        final h = harness(SubscriptionTier.free, [
+          _call('get_quote', {
+            'tickers': ['AMZN'],
+          }),
+        ]);
+        await h.notifier.bootstrap();
 
-      h.notifier.askFromOutside('¿A cuánto está AMZN?', origin: origin);
-      await untilTurnsDone(h, 1);
+        h.notifier.askFromOutside('¿A cuánto está AMZN?', origin: origin);
+        await untilTurnsDone(h, 1);
 
-      expect(h.state.paywallReason, PaywallReason.marketDataLocked);
-      expect(results(h), [
-        {'question_id': 'today', 'result': 'paywall'},
-      ]);
-    });
+        expect(h.state.paywallReason, PaywallReason.marketDataLocked);
+        expect(results(h), [
+          {'question_id': 'today', 'result': 'paywall'},
+        ]);
+      },
+    );
 
     test('failed: connection error, other rejections and the text '
         'fallback', () async {
@@ -934,9 +967,11 @@ void main() {
 
       await h.notifier.submitMessage('¿Cómo viene NVDA?');
       // El registro sale sin esperar a la respuesta.
-      for (var i = 0;
-          i < 100 && h.container.read(portyTopicsProvider).topics.isEmpty;
-          i++) {
+      for (
+        var i = 0;
+        i < 100 && h.container.read(portyTopicsProvider).topics.isEmpty;
+        i++
+      ) {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
       expect(h.topics.touched.single.single.ticker, 'NVDA');
@@ -945,8 +980,7 @@ void main() {
       await h.notifier.submitMessage('Gracias');
       final pinned = _textOf((h.api.requests[2]['messages'] as List)[1] as Map);
       expect(pinned, contains('About recent_topics'));
-      final brief =
-          jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
+      final brief = jsonDecode(pinned.substring(pinned.indexOf('{'))) as Map;
       final topics = (brief['recent_topics'] as List).cast<Map>();
       expect(topics.single['ticker'], 'NVDA');
       expect(topics.single['days_ago'], 0);
@@ -963,22 +997,26 @@ void main() {
       lastAskedAt: DateTime.now().subtract(Duration(days: daysAgo)),
     );
 
-    test('the most recent topic of the last 14 days; Free only if held',
-        () async {
-      final free = harness(SubscriptionTier.free, const []);
-      await free.container.read(subscriptionProvider.notifier).refresh();
-      expect(free.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
-          'NVDA');
-      expect(free.notifier.resumeTopic([topic('AMZN')]), isNull);
-      expect(free.notifier.resumeTopic([topic('NVDA', daysAgo: 20)]), isNull);
+    test(
+      'the most recent topic of the last 14 days; Free only if held',
+      () async {
+        final free = harness(SubscriptionTier.free, const []);
+        await free.container.read(subscriptionProvider.notifier).refresh();
+        expect(
+          free.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+          'NVDA',
+        );
+        expect(free.notifier.resumeTopic([topic('AMZN')]), isNull);
+        expect(free.notifier.resumeTopic([topic('NVDA', daysAgo: 20)]), isNull);
 
-      final premium = harness(SubscriptionTier.premium, const []);
-      await premium.container.read(subscriptionProvider.notifier).refresh();
-      expect(
-        premium.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
-        'AMZN',
-      );
-    });
+        final premium = harness(SubscriptionTier.premium, const []);
+        await premium.container.read(subscriptionProvider.notifier).refresh();
+        expect(
+          premium.notifier.resumeTopic([topic('AMZN'), topic('NVDA')])?.ticker,
+          'AMZN',
+        );
+      },
+    );
   });
 
   // Fase 3 (docs/superpowers/research/2026-10-24-porty-escalable.md): con
@@ -1105,10 +1143,11 @@ void main() {
     /// La respuesta con una card por cada propuesta ok que devolvió la tool.
     Map<String, Object?> answerWithProposals(Map<String, dynamic> body) {
       final messages = (body['messages'] as List).cast<Map>();
-      final ids = [
-        for (final m in messages.where((m) => m['role'] == 'tool'))
-          (jsonDecode(_textOf(m)) as Map)['proposal_id'],
-      ].whereType<String>().toList();
+      final ids =
+          [
+            for (final m in messages.where((m) => m['role'] == 'tool'))
+              (jsonDecode(_textOf(m)) as Map)['proposal_id'],
+          ].whereType<String>().toList();
       final lastUser = messages.lastWhere((m) => m['role'] == 'user');
       final surfaceId =
           RegExp(
@@ -1130,7 +1169,11 @@ void main() {
               'text': 'Revisá los datos y confirmá.',
             },
             for (var i = 0; i < ids.length; i++)
-              {'id': 'p$i', 'component': 'QaActionProposal', 'proposalId': ids[i]},
+              {
+                'id': 'p$i',
+                'component': 'QaActionProposal',
+                'proposalId': ids[i],
+              },
           ],
         },
       });
@@ -1161,14 +1204,17 @@ void main() {
       final surfaceId = h.lastAnswer.surfaceId!;
       final calls =
           h.notifier.service!.evidenceListenable(surfaceId).value.calls;
-      final proposal = ActionProposal.fromToolResult(
-        calls.singleWhere((c) => c.name == 'propose_buy').result,
-      )!;
+      final proposal =
+          ActionProposal.fromToolResult(
+            calls.singleWhere((c) => c.name == 'propose_buy').result,
+          )!;
       expect(proposal.ticker, 'AAPL');
       expect(proposal.shares, 10);
       // Nada se guardó: la propuesta sigue pendiente.
-      expect(h.state.actionProgress(proposal.id).status,
-          ActionProposalStatus.pending);
+      expect(
+        h.state.actionProgress(proposal.id).status,
+        ActionProposalStatus.pending,
+      );
 
       h.notifier.cancelAction(
         ActionDraft(
@@ -1222,11 +1268,10 @@ void main() {
   });
 
   group('free market lookups (market_taste)', () {
-    Map<String, Object?> Function(Map<String, dynamic>) quote(
-      String ticker,
-    ) => _call('get_quote', {
-      'tickers': [ticker],
-    });
+    Map<String, Object?> Function(Map<String, dynamic>) quote(String ticker) =>
+        _call('get_quote', {
+          'tickers': [ticker],
+        });
 
     test('a foreign ticker with lookups left: it is answered with data, '
         'the line says how many are left and the event is logged', () async {
@@ -1243,10 +1288,7 @@ void main() {
       expect(taste.consumed, hasLength(1));
       expect(taste.consumed.single.$2, ['AMZN']);
       // El mismo id que viaja al proxy como x-porty-turn-id.
-      expect(
-        taste.consumed.single.$1,
-        h.notifier.service!.log.currentTurn!.id,
-      );
+      expect(taste.consumed.single.$1, h.notifier.service!.log.currentTurn!.id);
       expect(h.lastAnswer.marketTasteRemaining, 1);
       expect(h.lastAnswer.marketTeaser, isFalse);
       expect(h.events.of(ProductEvent.marketTasteUsed), [
@@ -1367,29 +1409,26 @@ void main() {
         h.subscriptionRepo.used += 1;
         return _answer('ok')(body);
       };
-      h = harness(tier, [
-        for (var i = 0; i < turns; i++) first ?? turn(),
-      ], used: used, nudge: nudge);
+      h = harness(
+        tier,
+        [for (var i = 0; i < turns; i++) first ?? turn()],
+        used: used,
+        nudge: nudge,
+      );
       return h;
     }
 
     test('free, 6 -> 5 left: that answer carries the line, once per month; '
         'a new UTC month shows it again', () async {
       final nudge = await nudgeWorld();
-      final h = charging(
-        SubscriptionTier.free,
-        nudge,
-        used: 14,
-        turns: 3,
-      );
+      final h = charging(SubscriptionTier.free, nudge, used: 14, turns: 3);
 
       await h.notifier.submitMessage('Uno');
       await pumpEventQueue();
       expect(h.lastAnswer.quotaNudgeRemaining, 5);
-      expect(
-        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
-        ['user:2026-11'],
-      );
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), [
+        'user:2026-11',
+      ]);
 
       await h.notifier.submitMessage('Dos');
       await pumpEventQueue();
@@ -1404,11 +1443,9 @@ void main() {
       await h.notifier.submitMessage('Tres');
       await pumpEventQueue();
       expect(h.lastAnswer.quotaNudgeRemaining, 3);
-      expect(
-        nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey),
-        ['user:2026-12'],
-        reason: 'los meses anteriores se descartan',
-      );
+      expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), [
+        'user:2026-12',
+      ], reason: 'los meses anteriores se descartan');
     });
 
     test('flag off: no line, and the month is not spent', () async {
@@ -1463,19 +1500,20 @@ void main() {
         SubscriptionTier.free,
         nudge,
         used: 14,
-        first:
-            _call('get_invest_candidates', {
-              'tickers': ['NEE', 'KO'],
-              'budget_usd': 500,
-            }),
+        first: _call('get_invest_candidates', {
+          'tickers': ['NEE', 'KO'],
+          'budget_usd': 500,
+        }),
       );
 
       await h.notifier.submitMessage('Tengo \$500 para invertir');
       await pumpEventQueue();
 
       expect(h.state.paywallReason, PaywallReason.simulations);
-      expect(h.state.messages.any((m) => m.quotaNudgeRemaining != null),
-          isFalse);
+      expect(
+        h.state.messages.any((m) => m.quotaNudgeRemaining != null),
+        isFalse,
+      );
       expect(nudge.prefs.getStringList(QuotaNudgeMemory.prefsKey), isNull);
     });
 

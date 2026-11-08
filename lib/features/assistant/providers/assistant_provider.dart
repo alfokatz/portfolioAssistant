@@ -1745,7 +1745,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   void _onConversationEvent(ConversationEvent event) {
     var messages = <PortfolioQaMessage>[...state.messages];
     String? error = state.error;
-    var isWaiting = state.isWaiting;
 
     if (event case ConversationComponentsUpdated(
       :final surfaceId,
@@ -1762,7 +1761,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       event: event,
       surfaceIds: _surfaceIds,
       setError: (value) => error = value,
-      setWaiting: (value) => isWaiting = value,
+      // `isWaiting` es solo de `submitMessage`: refleja que `_sendGuard`
+      // está tomado. Si un evento de genui lo apagara a mitad del turno, la
+      // pantalla habilitaría el envío mientras el guard sigue ocupado y el
+      // mensaje nuevo se descartaría sin aviso.
+      setWaiting: (_) {},
       onStateChanged: () {},
     );
 
@@ -1770,7 +1773,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       messages: messages,
       error: error,
       clearError: error == null,
-      isWaiting: isWaiting,
     );
   }
 
