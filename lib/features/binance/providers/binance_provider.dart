@@ -80,11 +80,12 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
       if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
       return true;
     } on BinanceException catch (e) {
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: BinanceActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }
@@ -99,11 +100,12 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
       if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
     } on BinanceException catch (e) {
       await load();
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: BinanceActivity.idle,
           errorType: e.type,
         );
+      }
     }
   }
 
@@ -132,11 +134,12 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
       if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
       return true;
     } on BinanceException catch (e) {
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: BinanceActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }

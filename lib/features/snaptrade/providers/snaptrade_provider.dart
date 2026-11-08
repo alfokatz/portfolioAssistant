@@ -98,11 +98,12 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       return state.connection.isConnected;
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: SnaptradeActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }
@@ -122,11 +123,12 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: SnaptradeActivity.idle,
           errorType: e.type,
         );
+      }
     }
   }
 
@@ -155,11 +157,12 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return true;
     } on SnaptradeException catch (e) {
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: SnaptradeActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }
@@ -179,11 +182,12 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       return true;
     } on SnaptradeException catch (e) {
       await load();
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: SnaptradeActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }
@@ -201,11 +205,12 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
       if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
       return true;
     } on SnaptradeException catch (e) {
-      if (mounted)
+      if (mounted) {
         state = state.copyWith(
           activity: SnaptradeActivity.idle,
           errorType: e.type,
         );
+      }
       return false;
     }
   }
