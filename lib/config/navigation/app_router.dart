@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_shell.dart';
 import 'package:portfolio_assistant/config/navigation/shell_branch_pager.dart';
 import 'package:portfolio_assistant/config/navigation/go_router_refresh.dart';
+import 'package:portfolio_assistant/config/navigation/session_redirect.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/fade_through_page.dart';
@@ -34,6 +35,21 @@ class AppRouter {
 
   AppRouter({required this.ref});
 
+  /// Ver [SessionPhase]: quién puede entrar a qué.
+  String? _redirect(GoRouterState state) {
+    final phase = SessionPhase.of(
+      authenticated: ref.read(isAuthenticatedProvider),
+      recoveringPassword: ref.read(passwordRecoveryProvider),
+      onboardingDone:
+          ref.read(preferenceManagerProvider).hasCompletedOnboarding(),
+    );
+    return SessionRedirect.target(
+      phase,
+      location: state.matchedLocation,
+      homePath: state.namedLocation(HomeRouter.homeRouteName),
+    );
+  }
+
   GoRouter getRouter() {
     final refresh = GoRouterRefresh(
       ref.read(supabaseClientProvider).auth.onAuthStateChange,
@@ -47,58 +63,9 @@ class AppRouter {
     return GoRouter(
       debugLogDiagnostics: true,
       refreshListenable: refresh,
-      redirect: (context, state) {
-        final isAuthenticated = ref.read(isAuthenticatedProvider);
-        final location = state.matchedLocation;
-        final isLoginRoute = location == AuthRouter.loginPath;
-        final isResetPasswordRoute = location == AuthRouter.resetPasswordPath;
-        final isOnboardingRoute = location == OnboardingRouter.path;
-        final onboardingDone =
-            ref.read(preferenceManagerProvider).hasCompletedOnboarding();
-
-        if (!isAuthenticated) {
-          if (!isLoginRoute) return AuthRouter.loginPath;
-          return null;
-        }
-
-        // Entró con el link de "restablecer contraseña": primero elige una
-        // nueva. La sesión de recovery no habilita el resto de la app.
-        if (ref.read(passwordRecoveryProvider)) {
-          return isResetPasswordRoute ? null : AuthRouter.resetPasswordPath;
-        }
-
-        if (isResetPasswordRoute) {
-          if (!onboardingDone) return OnboardingRouter.path;
-          return state.namedLocation(HomeRouter.homeRouteName);
-        }
-
-        if (isLoginRoute) {
-          if (!onboardingDone) return OnboardingRouter.path;
-          return state.namedLocation(HomeRouter.homeRouteName);
-        }
-
-        if (!onboardingDone && !isOnboardingRoute) {
-          return OnboardingRouter.path;
-        }
-
-        if (onboardingDone && isOnboardingRoute) {
-          return state.namedLocation(HomeRouter.homeRouteName);
-        }
-
-        return null;
-      },
+      redirect: (context, state) => _redirect(state),
       routes: [
-        GoRoute(
-          path: '/',
-          redirect: (context, state) {
-            final isAuthenticated = ref.read(isAuthenticatedProvider);
-            if (!isAuthenticated) return AuthRouter.loginPath;
-            final onboardingDone =
-                ref.read(preferenceManagerProvider).hasCompletedOnboarding();
-            if (!onboardingDone) return OnboardingRouter.path;
-            return state.namedLocation(HomeRouter.homeRouteName);
-          },
-        ),
+        GoRoute(path: '/', redirect: (context, state) => _redirect(state)),
         ...AuthRouter.getRoutes(),
         OnboardingRouter.getRoute(),
         StatefulShellRoute(

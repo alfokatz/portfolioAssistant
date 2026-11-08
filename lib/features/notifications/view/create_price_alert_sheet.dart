@@ -160,8 +160,7 @@ class _CreatePriceAlertSheetState extends ConsumerState<CreatePriceAlertSheet> {
           () =>
               _error = 'price_alert_error_limit'.tr(
                 namedArgs: {
-                  'count':
-                      '${e.limit ?? PlanMatrix.of(tier).priceAlertLimit}',
+                  'count': '${e.limit ?? PlanMatrix.of(tier).priceAlertLimit}',
                 },
               ),
         );
@@ -183,6 +182,14 @@ class _CreatePriceAlertSheetState extends ConsumerState<CreatePriceAlertSheet> {
                     ? 'price_alert_error_invalid'
                     : 'price_alert_error_network')
                 .tr();
+      });
+    } catch (_) {
+      // Sin red llega un error del cliente HTTP, no un PriceAlertFailure:
+      // el botón no puede quedar girando para siempre.
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'price_alert_error_network'.tr();
       });
     }
   }
