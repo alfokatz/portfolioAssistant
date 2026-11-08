@@ -365,16 +365,20 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
   /// Lo que escribió el usuario ("10 VOO, 2000 dólares en QQQ…"): lo lee la
   /// IA y sale la misma vista previa para revisar.
   Future<void> readNote(String text) {
-    if (state.phase == ImportPhase.reading || text.trim().isEmpty) {
-      return Future.value();
-    }
+    if (text.trim().isEmpty) return Future.value();
     return _read(() => _client.readNote(text.trim()), ImportOrigin.note);
   }
 
+  /// Solo desde la intro o la vista previa: mientras lee o importa, otro
+  /// archivo o nota no arranca una segunda lectura que pise la primera.
   Future<void> _read(
     Future<StatementReadResult> Function() fetch,
     ImportOrigin origin,
   ) async {
+    if (state.phase == ImportPhase.reading ||
+        state.phase == ImportPhase.importing) {
+      return;
+    }
     state = state.copyWith(
       phase: ImportPhase.reading,
       clearError: true,
@@ -407,6 +411,15 @@ class StatementImportNotifier extends StateNotifier<StatementImportState> {
     } on StatementImportException catch (e) {
       if (!mounted) return;
       state = state.copyWith(phase: ImportPhase.intro, errorType: e.type);
+    } catch (_) {
+      // Una respuesta que no se pudo leer (cuerpo vacío o con otra forma):
+      // vuelve a la intro con un error en vez de quedar "leyendo" para
+      // siempre.
+      if (!mounted) return;
+      state = state.copyWith(
+        phase: ImportPhase.intro,
+        errorType: 'unavailable',
+      );
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
@@ -359,6 +360,45 @@ void main() {
       await n.pickAndRead();
       expect(n.state.phase, ImportPhase.intro);
       expect(n.state.errorType, 'nothing_found');
+    });
+
+    test(
+      'una respuesta ilegible vuelve al inicio, no queda "leyendo"',
+      () async {
+        final n = build(result: () => throw TypeError());
+        await n.pickAndRead();
+        expect(n.state.phase, ImportPhase.intro);
+        expect(n.state.errorType, 'unavailable');
+      },
+    );
+
+    test('mientras lee, otro archivo o nota no arranca otra lectura', () async {
+      final gate = Completer<StatementReadResult>();
+      var calls = 0;
+      final n = StatementImportNotifier(
+        client: _FakeClient(() {
+          calls++;
+          return gate.future;
+        }),
+        pick: () async => file,
+        getCurrentPrice: GetCurrentPriceUseCase(
+          quoteRepository: _FakeQuotes(const {'AAPL': 200}),
+        ),
+        addPosition: AddPositionUseCase(repository: _FakePositions()),
+        closePosition: ClosePositionUseCase(repository: _FakeClosed()),
+        held: () => const {},
+        positionLimit: () => null,
+        newImportId: () => 'import-id-1',
+        now: () => today,
+      );
+      final first = n.read(file);
+      expect(n.state.phase, ImportPhase.reading);
+      await n.read(file);
+      await n.readNote('10 VOO');
+      expect(calls, 1);
+      gate.complete(_result([]));
+      await first;
+      expect(n.state.phase, ImportPhase.preview);
     });
 
     test('completa fechas con hoy y precios con el de hoy', () async {
