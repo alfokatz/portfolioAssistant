@@ -213,7 +213,7 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
           ] else ...[
             PositionPrimaryButton(
               label: 'snaptrade_connect_cta'.tr(),
-              loading: state.busy,
+              loading: state.activity == SnaptradeActivity.connecting,
               onPressed: _connect,
             ),
             if (error != null) ...[
@@ -230,7 +230,10 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
         children.addAll([
           _StatusCard(
             connection: connection,
-            syncing: state.busy,
+            // Conectar también importa al volver del portal.
+            syncing:
+                state.isSyncing ||
+                state.activity == SnaptradeActivity.connecting,
             onReconnect: state.busy ? null : (b) => _connect(reconnect: b.id),
             onRemove: state.busy ? null : _remove,
             onGoDirect:
@@ -254,7 +257,7 @@ class _SnaptradeScreenState extends ConsumerState<SnaptradeScreen> {
           _SecondaryButton(
             icon: Icons.sync_rounded,
             label:
-                state.busy
+                state.isSyncing
                     ? 'snaptrade_syncing'.tr()
                     : 'snaptrade_sync_now'.tr(),
             onPressed:
