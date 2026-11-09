@@ -1,11 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/features/binance/view/widgets/binance_auto_sync.dart';
-import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_auto_sync.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
-import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
@@ -20,6 +17,7 @@ import 'package:portfolio_assistant/presentation/base/core/base_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/brokers_auto_sync.dart';
 
 /// Shell around the three tabbed sections (Home, Assistant, Settings).
 ///
@@ -115,11 +113,7 @@ class AppShell extends ConsumerWidget with BaseScreen {
               isHome: isHome,
               child: WidgetPromptWatcher(
                 isHome: isHome,
-                child: EtoroAutoSync(
-                  child: BinanceAutoSync(
-                    child: SnaptradeAutoSync(child: navigationShell),
-                  ),
-                ),
+                child: BrokersAutoSync(child: navigationShell),
               ),
             ),
           ),

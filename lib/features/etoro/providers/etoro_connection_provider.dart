@@ -3,6 +3,7 @@ import 'package:portfolio_assistant/features/etoro/data/etoro_connection_reposit
 import 'package:portfolio_assistant/features/etoro/data/etoro_sync_client.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/broker_connect/domain/sync_due.dart';
 
 /// Qué está haciendo la conexión ahora.
 enum EtoroActivity { idle, loading, connecting, syncing, disconnecting }
@@ -239,9 +240,12 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
     await load();
     final connection = state.connection;
     if (!connection.isConnected) return false;
-    final last = connection.lastSyncAt;
-    if (last != null && _clock().difference(last) < staleAfter) return false;
-    return sync();
+    final due = isSyncDue(
+      connection.lastSyncAt,
+      staleAfter: staleAfter,
+      now: _clock(),
+    );
+    return due ? sync() : false;
   }
 
   /// Revoca en eToro y borra los tokens. [keepAsManual]: las importadas

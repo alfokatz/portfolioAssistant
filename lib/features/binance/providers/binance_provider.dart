@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/binance/data/binance_repository.dart';
 import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/broker_connect/domain/sync_due.dart';
 
 /// Qué está haciendo la conexión ahora. Una sola acción a la vez.
 enum BinanceActivity { idle, connecting, syncing, disconnecting }
@@ -87,8 +88,11 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
     if (!state.loaded) await load();
     final c = state.connection;
     if (c.status != BinanceStatus.connected) return;
-    final last = c.lastSyncAt;
-    if (last != null && (now ?? DateTime.now()).difference(last) < staleAfter) {
+    if (!isSyncDue(
+      c.lastSyncAt,
+      staleAfter: staleAfter,
+      now: now ?? DateTime.now(),
+    )) {
       return;
     }
     await sync();

@@ -5,22 +5,25 @@ import 'package:portfolio_assistant/features/binance/providers/binance_provider.
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 
-/// Sincroniza los brókers conectados por SnapTrade al abrir la app y al
-/// volver a ella, si lo último tiene más de [SnaptradeNotifier.staleAfter].
-/// Sin nada conectado solo lee la conexión (ningún pedido a SnapTrade).
+/// Sincroniza los brókers conectados (eToro, Binance, SnapTrade) al abrir
+/// la app y al volver a ella, cada uno si lo último ya es viejo para él
+/// (ver `isSyncDue` y el `staleAfter` de cada notifier). Sin nada conectado
+/// solo lee las conexiones (ningún pedido a los brókers). La Home se
+/// recarga sola con el `onImported` de cada provider.
 ///
-/// Además, apenas el usuario conecta eToro o Binance directo, sincroniza ya:
-/// el servidor saca ese bróker de SnapTrade (no se duplica ni se paga).
-class SnaptradeAutoSync extends ConsumerStatefulWidget {
-  const SnaptradeAutoSync({super.key, required this.child});
+/// Además, apenas el usuario conecta eToro o Binance directo, sincroniza
+/// SnapTrade ya: el servidor saca ese bróker de SnapTrade (no se duplica ni
+/// se paga).
+class BrokersAutoSync extends ConsumerStatefulWidget {
+  const BrokersAutoSync({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<SnaptradeAutoSync> createState() => _SnaptradeAutoSyncState();
+  ConsumerState<BrokersAutoSync> createState() => _BrokersAutoSyncState();
 }
 
-class _SnaptradeAutoSyncState extends ConsumerState<SnaptradeAutoSync>
+class _BrokersAutoSyncState extends ConsumerState<BrokersAutoSync>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -42,6 +45,8 @@ class _SnaptradeAutoSyncState extends ConsumerState<SnaptradeAutoSync>
 
   void _syncIfStale() {
     if (!mounted) return;
+    ref.read(etoroConnectionProvider.notifier).syncIfStale();
+    ref.read(binanceProvider.notifier).syncIfStale();
     ref.read(snaptradeProvider.notifier).syncIfStale();
   }
 

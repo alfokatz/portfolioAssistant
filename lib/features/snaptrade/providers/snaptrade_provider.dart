@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/snaptrade/data/snaptrade_repository.dart';
 import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/features/broker_connect/domain/sync_due.dart';
 
 /// Qué está haciendo la conexión ahora. Una sola acción a la vez.
 enum SnaptradeActivity {
@@ -115,8 +116,11 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
     if (!state.loaded) await load();
     final c = state.connection;
     if (c.status != SnaptradeStatus.connected) return;
-    final last = c.lastSyncAt;
-    if (last != null && (now ?? DateTime.now()).difference(last) < staleAfter) {
+    if (!isSyncDue(
+      c.lastSyncAt,
+      staleAfter: staleAfter,
+      now: now ?? DateTime.now(),
+    )) {
       return;
     }
     await sync();
