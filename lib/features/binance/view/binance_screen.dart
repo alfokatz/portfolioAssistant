@@ -21,6 +21,7 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/broker_screen_kit.dart';
 
 /// Mensaje simple para un error de Binance (nunca el código).
 String binanceErrorMessage(String type) => switch (type) {
@@ -119,7 +120,13 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
     final keep = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => const _DisconnectSheet(),
+      builder:
+          (ctx) => BrokerDisconnectSheet(
+            title: 'binance_disconnect_title'.tr(),
+            body: 'binance_disconnect_body'.tr(),
+            keepLabel: 'binance_disconnect_keep'.tr(),
+            deleteLabel: 'binance_disconnect_delete'.tr(),
+          ),
     );
     if (keep == null || !mounted) return;
     await ref.read(binanceProvider.notifier).disconnect(keepAsManual: keep);
@@ -153,11 +160,11 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
               onPressed: _paywall,
             ),
             const SizedBox(height: AppDimens.sp12),
-            _Footnote('binance_locked_note'.tr()),
+            BrokerFootnote('binance_locked_note'.tr()),
             if (ref.watch(brokerScreenshotExitEnabledProvider).value ??
                 false) ...[
               const SizedBox(height: AppDimens.sp8),
-              _ScreenshotExit(
+              BrokerScreenshotExit(
                 label: 'binance_screenshot_exit'.tr(),
                 onPressed: () => _screenshotExit('broker_locked_binance'),
               ),
@@ -171,14 +178,14 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
           const ManualPositionsRow(broker: 'Binance'),
           if (error != null && !reconnect) ...[
             const SizedBox(height: AppDimens.sp12),
-            _InlineError(error),
+            BrokerInlineError(error),
           ],
           if (reconnect) ...[
             const SizedBox(height: AppDimens.sectionGap),
             ..._keyForm(state: state, error: error, reconnect: true),
           ] else ...[
             const SizedBox(height: AppDimens.sp20),
-            _SecondaryButton(
+            BrokerSecondaryButton(
               icon: Icons.sync_rounded,
               label:
                   state.isSyncing
@@ -236,7 +243,7 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
     return [
       const _Steps(),
       const SizedBox(height: AppDimens.sp16),
-      _Card(
+      BrokerCard(
         child: Padding(
           padding: const EdgeInsets.all(AppDimens.sp16),
           child: Column(
@@ -296,10 +303,10 @@ class _BinanceScreenState extends ConsumerState<BinanceScreen> {
       ),
       if (error != null) ...[
         const SizedBox(height: AppDimens.sp12),
-        _InlineError(error),
+        BrokerInlineError(error),
       ],
       const SizedBox(height: AppDimens.sp12),
-      _Footnote('binance_privacy'.tr()),
+      BrokerFootnote('binance_privacy'.tr()),
     ];
   }
 }
@@ -387,19 +394,21 @@ class _Promises extends StatelessWidget {
         'binance_point_disconnect_body'.tr(),
       ),
     ];
-    return _Card(
+    return BrokerCard(
       child: Column(
         children: [
           for (final (i, (icon, title, body)) in points.indexed) ...[
-            if (i > 0) _CardDivider(indent: 64, color: colors.border),
+            if (i > 0) BrokerCardDivider(indent: 64, color: colors.border),
             Padding(
               padding: const EdgeInsets.all(AppDimens.sp16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Bubble(child: Icon(icon, size: 18, color: colors.onChip)),
+                  BrokerBubble(
+                    child: Icon(icon, size: 18, color: colors.onChip),
+                  ),
                   const SizedBox(width: AppDimens.sp12),
-                  Expanded(child: _TitleBody(title: title, body: body)),
+                  Expanded(child: BrokerTitleBody(title: title, body: body)),
                 ],
               ),
             ),
@@ -425,7 +434,7 @@ class _Steps extends StatelessWidget {
       'binance_step_3',
       'binance_step_4',
     ];
-    return _Card(
+    return BrokerCard(
       child: Padding(
         padding: const EdgeInsets.all(AppDimens.sp16),
         child: Column(
@@ -444,7 +453,7 @@ class _Steps extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Bubble(
+                  BrokerBubble(
                     size: 26,
                     child: Text(
                       '${i + 1}',
@@ -514,7 +523,7 @@ class _StatusCard extends StatelessWidget {
     final skipped = result == null ? null : _skippedLine(result);
     final hint = connection.apiKeyHint;
 
-    return _Card(
+    return BrokerCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -528,8 +537,8 @@ class _StatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusPill(
-                  reconnect: reconnect,
+                BrokerStatusPill(
+                  warn: reconnect,
                   label:
                       reconnect
                           ? 'binance_status_reconnect'.tr()
@@ -562,8 +571,8 @@ class _StatusCard extends StatelessWidget {
               ],
             ),
           ),
-          _CardDivider(indent: AppDimens.sp16, color: colors.border),
-          _StatusRow(
+          BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
+          BrokerStatusRow(
             label: 'binance_status_last_sync'.tr(),
             value:
                 syncing
@@ -573,17 +582,17 @@ class _StatusCard extends StatelessWidget {
                     : EtoroSyncTime.relative(connection.lastSyncAt!),
           ),
           if (skipped != null) ...[
-            _CardDivider(indent: AppDimens.sp16, color: colors.border),
+            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
             Padding(
               padding: const EdgeInsets.all(AppDimens.sp16),
-              child: _TitleBody(
+              child: BrokerTitleBody(
                 title: 'binance_status_not_imported'.tr(),
                 body: skipped,
               ),
             ),
           ],
           if (result != null && result.estimatedCost.isNotEmpty) ...[
-            _CardDivider(indent: AppDimens.sp16, color: colors.border),
+            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
             Padding(
               padding: const EdgeInsets.all(AppDimens.sp16),
               child: Row(
@@ -611,361 +620,6 @@ class _StatusCard extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.reconnect, required this.label});
-
-  final bool reconnect;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final (fg, bg) =
-        reconnect
-            ? (colors.loss, colors.lossContainer)
-            : (colors.profit, colors.profitContainer);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.sp8,
-        vertical: AppDimens.sp4,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: AppDimens.sp6),
-          Flexible(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: fg,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.sp16,
-        vertical: 14,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              label,
-              style: tt.bodyMedium?.copyWith(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppDimens.sp12),
-          Expanded(
-            flex: 2,
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: tt.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TitleBody extends StatelessWidget {
-  const _TitleBody({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: tt.titleSmall?.copyWith(
-            color: colors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          body,
-          style: tt.bodySmall?.copyWith(
-            color: colors.textSecondary,
-            height: 1.45,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Un círculo teñido con un ícono o un número, como en Ajustes.
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.child, this.size = 36});
-
-  final Widget child;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: context.customColors.chip,
-      shape: BoxShape.circle,
-    ),
-    child: child,
-  );
-}
-
-/// Una línea chica con un candado, centrada (privacidad, plan).
-class _Footnote extends StatelessWidget {
-  const _Footnote(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Text.rich(
-      TextSpan(
-        children: [
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: const EdgeInsets.only(right: AppDimens.sp4),
-              child: Icon(
-                Icons.lock_outline_rounded,
-                size: 13,
-                color: colors.textSecondary,
-              ),
-            ),
-          ),
-          TextSpan(text: text),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: colors.textSecondary,
-        height: 1.45,
-      ),
-    );
-  }
-}
-
-class _InlineError extends StatelessWidget {
-  const _InlineError(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Text(
-      message,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: context.customColors.loss,
-        height: 1.45,
-      ),
-    ),
-  );
-}
-
-/// La card de la app: blanca, borde fino, radio grande.
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-class _CardDivider extends StatelessWidget {
-  const _CardDivider({required this.indent, required this.color});
-
-  final double indent;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Divider(
-    height: 1,
-    thickness: 1,
-    indent: indent,
-    endIndent: AppDimens.sp16,
-    color: color,
-  );
-}
-
-/// Salida secundaria de la pantalla bloqueada: traer la cartera con una
-/// captura. Texto, no relleno: "Ver planes" sigue siendo lo primero.
-class _ScreenshotExit extends StatelessWidget {
-  const _ScreenshotExit({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Center(
-      child: TextButton.icon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.photo_camera_outlined, size: AppDimens.iconMd),
-        label: Text(label, textAlign: TextAlign.center),
-        style: TextButton.styleFrom(
-          foregroundColor: colors.accentBlue,
-          minimumSize: const Size(48, 48),
-        ),
-      ),
-    );
-  }
-}
-
-/// Secundario: borde, sin relleno (como en eToro).
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: AppDimens.iconMd),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: colors.textPrimary,
-          backgroundColor: colors.surfaceCard,
-          side: BorderSide(color: colors.border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          ),
-          textStyle: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _DisconnectSheet extends StatelessWidget {
-  const _DisconnectSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppDimens.pageHorizontal,
-          0,
-          AppDimens.pageHorizontal,
-          AppDimens.sp16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'binance_disconnect_title'.tr(),
-              style: tt.titleLarge?.copyWith(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: AppDimens.sp8),
-            Text(
-              'binance_disconnect_body'.tr(),
-              style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-            ),
-            const SizedBox(height: AppDimens.sp20),
-            PositionPrimaryButton(
-              label: 'binance_disconnect_keep'.tr(),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-            const SizedBox(height: AppDimens.sp8),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colors.loss,
-                  side: BorderSide(color: colors.border),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                  ),
-                ),
-                child: Text('binance_disconnect_delete'.tr()),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

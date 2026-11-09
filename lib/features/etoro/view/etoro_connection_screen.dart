@@ -25,6 +25,7 @@ import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/fade_slide_in.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/motion_aware_size.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
+import 'package:portfolio_assistant/features/broker_connect/view/widgets/broker_screen_kit.dart';
 
 /// Ajustes → eToro (también desde la Home vacía y el onboarding). Una sola
 /// pantalla para los cuatro estados:
@@ -226,7 +227,7 @@ class _EtoroConnectionScreenState
                   ? const SizedBox(width: double.infinity)
                   : Padding(
                     padding: const EdgeInsets.only(top: AppDimens.sp12),
-                    child: _InlineError(
+                    child: BrokerInlineError(
                       EtoroMessages.syncError(state.lastActionError!),
                     ),
                   ),
@@ -235,7 +236,7 @@ class _EtoroConnectionScreenState
           const SizedBox(height: AppDimens.sp20),
           enter(
             3,
-            _SecondaryButton(
+            BrokerSecondaryButton(
               icon: Icons.sync_rounded,
               label:
                   state.isSyncing
@@ -387,11 +388,11 @@ class _ReadOnlyPoints extends StatelessWidget {
         'etoro_point_disconnect_body'.tr(),
       ),
     ];
-    return _Card(
+    return BrokerCard(
       child: Column(
         children: [
           for (final (i, (icon, title, body)) in points.indexed) ...[
-            if (i > 0) _CardDivider(indent: 64, color: colors.border),
+            if (i > 0) BrokerCardDivider(indent: 64, color: colors.border),
             _Point(icon: icon, title: title, body: body),
           ],
         ],
@@ -513,7 +514,7 @@ class _ConnectBlock extends StatelessWidget {
                   ? const SizedBox(width: double.infinity)
                   : Padding(
                     padding: const EdgeInsets.only(top: AppDimens.sp12),
-                    child: _InlineError(error!),
+                    child: BrokerInlineError(error!),
                   ),
         ),
         const SizedBox(height: AppDimens.sp12),
@@ -538,26 +539,6 @@ class _ConnectBlock extends StatelessWidget {
           style: style,
         ),
       ],
-    );
-  }
-}
-
-class _InlineError extends StatelessWidget {
-  const _InlineError(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: context.customColors.loss,
-          height: 1.45,
-        ),
-      ),
     );
   }
 }
@@ -612,7 +593,7 @@ class _StatusCard extends StatelessWidget {
       ),
     ];
 
-    final card = _Card(
+    final card = BrokerCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -626,7 +607,15 @@ class _StatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (c != null) _StatusPill(reconnect: c.needsReconnect),
+                if (c != null)
+                  BrokerStatusPill(
+                    warn: c.needsReconnect,
+                    label:
+                        (c.needsReconnect
+                                ? 'etoro_status_no_access'
+                                : 'etoro_settings_connected')
+                            .tr(),
+                  ),
                 if (c != null) const SizedBox(height: AppDimens.sp16),
                 Semantics(
                   container: true,
@@ -659,7 +648,7 @@ class _StatusCard extends StatelessWidget {
             ),
           ),
           for (final row in rows) ...[
-            _CardDivider(indent: AppDimens.sp16, color: colors.border),
+            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
             row,
           ],
         ],
@@ -673,57 +662,6 @@ class _StatusCard extends StatelessWidget {
       );
     }
     return card;
-  }
-}
-
-/// "● Conectada" en verde, o "● Sin acceso" en rojo si eToro cerró el
-/// acceso.
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.reconnect});
-
-  final bool reconnect;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final (fg, bg, label) =
-        reconnect
-            ? (colors.loss, colors.lossContainer, 'etoro_status_no_access'.tr())
-            : (
-              colors.profit,
-              colors.profitContainer,
-              'etoro_settings_connected'.tr(),
-            );
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimens.sp8,
-        vertical: AppDimens.sp4,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: AppDimens.sp6),
-          Flexible(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: fg,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -810,80 +748,6 @@ class _StatusRow extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
           child: row,
-        ),
-      ),
-    );
-  }
-}
-
-/// La card de la app: blanca, borde fino, radio grande.
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-        border: Border.all(color: colors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-class _CardDivider extends StatelessWidget {
-  const _CardDivider({required this.indent, required this.color});
-
-  final double indent;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Divider(
-    height: 1,
-    thickness: 1,
-    indent: indent,
-    endIndent: AppDimens.sp16,
-    color: color,
-  );
-}
-
-/// Secundario: borde, sin relleno (como "Cerrar posición").
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: AppDimens.iconMd),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: colors.textPrimary,
-          backgroundColor: colors.surfaceCard,
-          side: BorderSide(color: colors.border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-          ),
-          textStyle: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
     );
