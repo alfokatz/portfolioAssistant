@@ -93,8 +93,22 @@ class _FakeLauncher implements EtoroAuthLauncher {
   }
 }
 
-EtoroConnectionNotifier _notifier(_FakeRepository repo, _FakeLauncher launcher) =>
-    EtoroConnectionNotifier(repository: repo, launcher: launcher, clock: () => _now);
+/// Cuántas veces cada notifier le pidió a la Home que recargue.
+final _homeReloads = Expando<List<int>>();
+
+EtoroConnectionNotifier _notifier(_FakeRepository repo, _FakeLauncher launcher) {
+  final reloads = [0];
+  final n = EtoroConnectionNotifier(
+    repository: repo,
+    launcher: launcher,
+    clock: () => _now,
+    onImported: () async => reloads[0]++,
+  );
+  _homeReloads[n] = reloads;
+  return n;
+}
+
+int _reloadsOf(EtoroConnectionNotifier n) => _homeReloads[n]![0];
 
 void main() {
   group('conectar (vuelta pending + /connect/complete)', () {
@@ -165,7 +179,7 @@ void main() {
       expect((outcome as EtoroConnected).result!.imported, 25);
       expect(outcome.syncFailed, isFalse);
       expect(n.state.connection.isConnected, isTrue);
-      expect(n.state.importRevision, 1);
+      expect(_reloadsOf(n), 1);
       expect(n.state.activity, EtoroActivity.idle);
     });
 
@@ -191,7 +205,7 @@ void main() {
       final n = _notifier(repo, _FakeLauncher(null));
       expect(await n.connect(), isA<EtoroConnectCancelled>());
       expect(n.state.connection.status, EtoroConnectionStatus.notConnected);
-      expect(n.state.importRevision, 0);
+      expect(_reloadsOf(n), 0);
       expect(n.state.activity, EtoroActivity.idle);
     });
 
@@ -232,7 +246,7 @@ void main() {
       expect((outcome as EtoroConnected).freeImport, isTrue);
       expect(outcome.result!.imported, _result().imported);
       expect(n.state.connection.freeImportUsed, isTrue);
-      expect(n.state.importRevision, 1);
+      expect(_reloadsOf(n), 1);
     });
 
     test('importación gratis que falla → error que invita a reintentar', () async {
@@ -247,7 +261,7 @@ void main() {
       final outcome = await n.connect();
       expect(outcome, isA<EtoroConnectFailed>());
       expect((outcome as EtoroConnectFailed).reason, 'free_import_failed');
-      expect(n.state.importRevision, 0);
+      expect(_reloadsOf(n), 0);
     });
   });
 
@@ -269,7 +283,7 @@ void main() {
       final n2 = _notifier(stale, _FakeLauncher(null));
       expect(await n2.syncIfStale(), isTrue);
       expect(stale.syncCalls, 1);
-      expect(n2.state.importRevision, 1);
+      expect(_reloadsOf(n2), 1);
     });
 
     test('sin cuenta conectada no se le pide nada a eToro', () async {
@@ -285,7 +299,7 @@ void main() {
       final n = _notifier(repo, _FakeLauncher(null));
       await n.load();
       expect(await n.sync(), isFalse);
-      expect(n.state.importRevision, 0);
+      expect(_reloadsOf(n), 0);
     });
 
     test('token vencido/revocado desde eToro → "Reconectá tu cuenta", sin error suelto', () async {
@@ -334,7 +348,7 @@ void main() {
         expect(await n.disconnect(keepAsManual: keep), isTrue);
         expect(repo.disconnects, [keep]);
         expect(n.state.connection.status, EtoroConnectionStatus.notConnected);
-        expect(n.state.importRevision, 1);
+        expect(_reloadsOf(n), 1);
       });
     }
   });

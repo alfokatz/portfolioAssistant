@@ -61,10 +61,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     child: child,
   );
 
-  /// Pull-to-refresh en curso: la recarga de la Home la hace él (y no el
-  /// listener de eToro), así el indicador espera a los datos nuevos.
-  bool _pullRefreshing = false;
-
   @override
   void initState() {
     runAfterPostFrameCallback(() {
@@ -74,17 +70,14 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
   }
 
   /// Pull-to-refresh: primero eToro (si está conectada; el servidor limita
-  /// a una sincronización cada 5 min), después la Home con lo que haya.
+  /// a una sincronización cada 5 min). Si trajo datos nuevos ya recargó la
+  /// Home (su `onImported`); si no, se recarga con lo que haya. El
+  /// indicador espera a los datos nuevos en los dos casos.
   Future<void> _onPullToRefresh() async {
-    _pullRefreshing = true;
-    try {
-      await ref
-          .read(etoroConnectionProvider.notifier)
-          .sync(userInitiated: true);
-      await ref.read(homeProvider.notifier).refresh();
-    } finally {
-      _pullRefreshing = false;
-    }
+    final imported = await ref
+        .read(etoroConnectionProvider.notifier)
+        .sync(userInitiated: true);
+    if (!imported) await ref.read(homeProvider.notifier).refresh();
   }
 
   @override
@@ -95,16 +88,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     final subscription = ref.watch(subscriptionProvider);
     final summary = state.summary;
     final etoro = ref.watch(etoroConnectionProvider);
-    // Lo importado cambió (sincronización, conexión, desconexión): recargar
-    // en el lugar, sin skeleton.
-    ref.listen<int>(etoroConnectionProvider.select((s) => s.importRevision), (
-      previous,
-      next,
-    ) {
-      if (previous != null && previous != next && !_pullRefreshing) {
-        notifier.refresh(silent: true);
-      }
-    });
     final isBenchmarkAllowed = SubscriptionPolicy.isBenchmarkAllowed(
       subscription.tier,
     );
@@ -163,9 +146,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     ),
                     child: Material(
                       color: colors.surfaceCard,
-                      borderRadius: BorderRadius.circular(
-                        AppDimens.radiusLg,
-                      ),
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
                       child: ListTile(
                         dense: true,
                         title: Text(
@@ -239,18 +220,21 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                         showConnectEtoro:
                                             etoro.loaded &&
                                             etoro.connection.status ==
-                                                EtoroConnectionStatus.notConnected,
+                                                EtoroConnectionStatus
+                                                    .notConnected,
                                         valuations: displayValuations,
                                         totalCount: valuations.length,
                                         expanded: state.showAllPositions,
                                         onToggleExpanded:
                                             hasMorePositions
-                                                ? notifier.togglePositionsExpanded
+                                                ? notifier
+                                                    .togglePositionsExpanded
                                                 : null,
-                                        onPositionTap: notifier.openPositionDetail,
+                                        onPositionTap:
+                                            notifier.openPositionDetail,
                                         onDeletePosition:
-                                            (valuation) =>
-                                                notifier.deletePositionsForTicker(
+                                            (valuation) => notifier
+                                                .deletePositionsForTicker(
                                                   valuation.position.ticker,
                                                 ),
                                       ),

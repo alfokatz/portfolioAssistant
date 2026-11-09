@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/etoro/data/etoro_connection_repository.dart';
 import 'package:portfolio_assistant/features/etoro/data/etoro_sync_client.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
 /// Qué está haciendo la conexión ahora.
 enum EtoroActivity { idle, loading, connecting, syncing, disconnecting }
@@ -12,7 +13,6 @@ class EtoroState {
     this.loaded = false,
     this.activity = EtoroActivity.idle,
     this.lastActionError,
-    this.importRevision = 0,
   });
 
   final EtoroConnection connection;
@@ -26,10 +26,6 @@ class EtoroState {
   /// [EtoroConnection.needsReconnect].
   final String? lastActionError;
 
-  /// Sube cada vez que las posiciones importadas pudieron cambiar (sync,
-  /// conexión, desconexión): la Home lo escucha para recargar.
-  final int importRevision;
-
   bool get isSyncing => activity == EtoroActivity.syncing;
   bool get isBusy => activity != EtoroActivity.idle;
 
@@ -39,7 +35,6 @@ class EtoroState {
     EtoroActivity? activity,
     String? lastActionError,
     bool clearError = false,
-    int? importRevision,
   }) {
     return EtoroState(
       connection: connection ?? this.connection,
@@ -47,7 +42,6 @@ class EtoroState {
       activity: activity ?? this.activity,
       lastActionError:
           clearError ? null : (lastActionError ?? this.lastActionError),
-      importRevision: importRevision ?? this.importRevision,
     );
   }
 }
@@ -93,14 +87,20 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
     required EtoroConnectionRepository repository,
     required EtoroAuthLauncher launcher,
     DateTime Function()? clock,
+    Future<void> Function()? onImported,
   }) : _repository = repository,
        _launcher = launcher,
        _clock = clock ?? DateTime.now,
+       _onImported = onImported,
        super(const EtoroState());
 
   final EtoroConnectionRepository _repository;
   final EtoroAuthLauncher _launcher;
   final DateTime Function() _clock;
+
+  /// Las posiciones importadas pudieron cambiar (conexión, sync con datos
+  /// nuevos, desconexión): recarga la Home. Igual que Binance y SnapTrade.
+  final Future<void> Function()? _onImported;
 
   /// Al abrir la app (o volver a ella) se sincroniza si lo último tiene más
   /// que esto. El servidor igual limita a una cada 5 minutos.
@@ -139,7 +139,10 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
     if (state.isBusy && state.activity != EtoroActivity.loading) {
       return const EtoroConnectFailed('busy');
     }
-    state = state.copyWith(activity: EtoroActivity.connecting, clearError: true);
+    state = state.copyWith(
+      activity: EtoroActivity.connecting,
+      clearError: true,
+    );
     try {
       final url = await _repository.startConnect();
       final callback = await _launcher.authenticate(url);
@@ -170,11 +173,8 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
               freeImport: freeImport,
             );
           }
-          state = state.copyWith(
-            connection: connection,
-            loaded: true,
-            importRevision: state.importRevision + 1,
-          );
+          state = state.copyWith(connection: connection, loaded: true);
+          await _onImported?.call();
           return EtoroConnected(
             connection.lastResult,
             syncFailed: status == 'sync_error',
@@ -183,7 +183,8 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
         case 'cancelled':
           return const EtoroConnectCancelled();
         default:
-          if (reason == 'plan_required') return const EtoroConnectPlanRequired();
+          if (reason == 'plan_required')
+            return const EtoroConnectPlanRequired();
           return EtoroConnectFailed(reason ?? 'failed');
       }
     } on EtoroSyncException catch (e) {
@@ -206,11 +207,8 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
       final outcome = await _repository.sync();
       final connection = await _repository.load();
       if (!mounted) return !outcome.throttled;
-      state = state.copyWith(
-        connection: connection,
-        importRevision:
-            outcome.throttled ? state.importRevision : state.importRevision + 1,
-      );
+      state = state.copyWith(connection: connection);
+      if (!outcome.throttled) await _onImported?.call();
       return !outcome.throttled;
     } on EtoroSyncException catch (e) {
       if (!mounted) return false;
@@ -258,10 +256,8 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
       await _repository.disconnect(keepAsManual: keepAsManual);
       final connection = await _repository.load();
       if (!mounted) return true;
-      state = state.copyWith(
-        connection: connection,
-        importRevision: state.importRevision + 1,
-      );
+      state = state.copyWith(connection: connection);
+      await _onImported?.call();
       return true;
     } on EtoroSyncException catch (e) {
       if (mounted) state = state.copyWith(lastActionError: e.type);
@@ -287,5 +283,6 @@ final etoroConnectionProvider =
       (ref) => EtoroConnectionNotifier(
         repository: ref.watch(etoroConnectionRepositoryProvider),
         launcher: ref.watch(etoroAuthLauncherProvider),
+        onImported: () => ref.read(homeProvider.notifier).refresh(silent: true),
       ),
     );
