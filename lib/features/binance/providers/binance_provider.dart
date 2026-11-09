@@ -58,55 +58,28 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
     try {
       final connection = await _repo.load();
       if (mounted) state = state.copyWith(loaded: true, connection: connection);
-    } on BinanceException {
+    } catch (_) {
+      // Sin red el cliente tira su propio error, no un BinanceException:
+      // igual se da por leída para no dejar la pantalla esperando.
       if (mounted) state = state.copyWith(loaded: true);
     }
   }
 
   /// `true` si quedó conectada.
-  Future<bool> connect({
-    required String apiKey,
-    required String apiSecret,
-  }) async {
-    if (state.busy) return false;
-    state = state.copyWith(
-      activity: BinanceActivity.connecting,
-      clearError: true,
-    );
-    try {
-      await _repo.connect(apiKey: apiKey, apiSecret: apiSecret);
-      await load();
-      await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
-      return true;
-    } on BinanceException catch (e) {
-      if (mounted) {
-        state = state.copyWith(
-          activity: BinanceActivity.idle,
-          errorType: e.type,
-        );
-      }
-      return false;
-    }
-  }
+  Future<bool> connect({required String apiKey, required String apiSecret}) =>
+      _run(BinanceActivity.connecting, () async {
+        await _repo.connect(apiKey: apiKey, apiSecret: apiSecret);
+        await load();
+        await _onImported?.call();
+      });
 
   Future<void> sync() async {
-    if (state.busy || !state.connection.isConnected) return;
-    state = state.copyWith(activity: BinanceActivity.syncing, clearError: true);
-    try {
+    if (!state.connection.isConnected) return;
+    await _run(BinanceActivity.syncing, reloadOnError: true, () async {
       final outcome = await _repo.sync();
       await load();
       if (!outcome.throttled) await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
-    } on BinanceException catch (e) {
-      await load();
-      if (mounted) {
-        state = state.copyWith(
-          activity: BinanceActivity.idle,
-          errorType: e.type,
-        );
-      }
-    }
+    });
   }
 
   /// Al abrir la app: solo si está conectada y lo último es viejo.
@@ -121,27 +94,40 @@ class BinanceNotifier extends StateNotifier<BinanceState> {
     await sync();
   }
 
-  Future<bool> disconnect({required bool keepAsManual}) async {
+  Future<bool> disconnect({required bool keepAsManual}) =>
+      _run(BinanceActivity.disconnecting, () async {
+        await _repo.disconnect(keepAsManual: keepAsManual);
+        await load();
+        await _onImported?.call();
+      });
+
+  /// Una acción del usuario: una a la vez, con su [activity] mientras corre
+  /// y siempre de vuelta a `idle` al terminar, salga como salga. `true` si
+  /// salió bien; si no, el error queda en [BinanceState.errorType].
+  /// [reloadOnError]: releer la conexión tras un error (el servidor pudo
+  /// cambiarla, p. ej. a "reconectá").
+  Future<bool> _run(
+    BinanceActivity activity,
+    Future<void> Function() action, {
+    bool reloadOnError = false,
+  }) async {
     if (state.busy) return false;
-    state = state.copyWith(
-      activity: BinanceActivity.disconnecting,
-      clearError: true,
-    );
+    state = state.copyWith(activity: activity, clearError: true);
+    String? error;
     try {
-      await _repo.disconnect(keepAsManual: keepAsManual);
-      await load();
-      await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: BinanceActivity.idle);
-      return true;
+      await action();
     } on BinanceException catch (e) {
-      if (mounted) {
-        state = state.copyWith(
-          activity: BinanceActivity.idle,
-          errorType: e.type,
-        );
-      }
-      return false;
+      error = e.type;
+    } catch (_) {
+      // Un error que el repositorio no tradujo (sin red, respuesta rara):
+      // la pantalla no puede quedar trabada en "conectando".
+      error = 'unavailable';
     }
+    if (error != null && reloadOnError) await load();
+    if (mounted) {
+      state = state.copyWith(activity: BinanceActivity.idle, errorType: error);
+    }
+    return error == null;
   }
 }
 

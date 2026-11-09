@@ -71,7 +71,9 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
     try {
       final connection = await _repo.load();
       if (mounted) state = state.copyWith(loaded: true, connection: connection);
-    } on SnaptradeException {
+    } catch (_) {
+      // Sin red el cliente tira su propio error, no un SnaptradeException:
+      // igual se da por leída para no dejar la pantalla esperando.
       if (mounted) state = state.copyWith(loaded: true);
     }
   }
@@ -79,57 +81,33 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
   /// Abre el portal para conectar un bróker (o reconectar [reconnect]) y,
   /// al volver, importa. `true` si quedó al menos un bróker conectado.
   Future<bool> connect({required bool darkMode, String? reconnect}) async {
-    if (state.busy) return false;
-    state = state.copyWith(
-      activity: SnaptradeActivity.connecting,
-      clearError: true,
-    );
-    try {
-      final url = await _repo.portalUrl(
-        darkMode: darkMode,
-        reconnect: reconnect,
-      );
-      await _launcher.open(url);
-      // Volvió (o cerró el portal): lo que haya conectado se importa igual.
-      await _repo.sync(force: true);
-      await load();
-      await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
-      return state.connection.isConnected;
-    } on SnaptradeException catch (e) {
-      await load();
-      if (mounted) {
-        state = state.copyWith(
-          activity: SnaptradeActivity.idle,
-          errorType: e.type,
+    final ok = await _run(
+      SnaptradeActivity.connecting,
+      reloadOnError: true,
+      () async {
+        final url = await _repo.portalUrl(
+          darkMode: darkMode,
+          reconnect: reconnect,
         );
-      }
-      return false;
-    }
+        await _launcher.open(url);
+        // Volvió (o cerró el portal): lo que haya conectado se importa igual.
+        await _repo.sync(force: true);
+        await load();
+        await _onImported?.call();
+      },
+    );
+    return ok && state.connection.isConnected;
   }
 
   /// [force]: sin el mínimo de 5 minutos del servidor (por ejemplo, recién
   /// conectó eToro directo y hay que sacarlo de acá).
   Future<void> sync({bool force = false}) async {
-    if (state.busy || !state.connection.isConnected) return;
-    state = state.copyWith(
-      activity: SnaptradeActivity.syncing,
-      clearError: true,
-    );
-    try {
+    if (!state.connection.isConnected) return;
+    await _run(SnaptradeActivity.syncing, reloadOnError: true, () async {
       final outcome = await _repo.sync(force: force);
       await load();
       if (!outcome.throttled) await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
-    } on SnaptradeException catch (e) {
-      await load();
-      if (mounted) {
-        state = state.copyWith(
-          activity: SnaptradeActivity.idle,
-          errorType: e.type,
-        );
-      }
-    }
+    });
   }
 
   /// Al abrir la app: solo si hay algo conectado y lo último es viejo.
@@ -146,73 +124,53 @@ class SnaptradeNotifier extends StateNotifier<SnaptradeState> {
 
   /// "Actualizar ahora" (Gold). `true` si SnapTrade lo tomó: lo nuevo se ve
   /// en unos minutos, en la próxima sincronización.
-  Future<bool> refresh() async {
-    if (state.busy) return false;
-    state = state.copyWith(
-      activity: SnaptradeActivity.refreshing,
-      clearError: true,
-    );
-    try {
-      await _repo.refresh();
-      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
-      return true;
-    } on SnaptradeException catch (e) {
-      if (mounted) {
-        state = state.copyWith(
-          activity: SnaptradeActivity.idle,
-          errorType: e.type,
-        );
-      }
-      return false;
-    }
-  }
+  Future<bool> refresh() => _run(SnaptradeActivity.refreshing, _repo.refresh);
 
   /// Quita un bróker (lo importado de él se borra en la sincronización).
-  Future<bool> remove(String brokerageId) async {
-    if (state.busy) return false;
-    state = state.copyWith(
-      activity: SnaptradeActivity.removing,
-      clearError: true,
-    );
-    try {
-      await _repo.remove(brokerageId);
-      await load();
-      await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
-      return true;
-    } on SnaptradeException catch (e) {
-      await load();
-      if (mounted) {
-        state = state.copyWith(
-          activity: SnaptradeActivity.idle,
-          errorType: e.type,
-        );
-      }
-      return false;
-    }
-  }
+  Future<bool> remove(String brokerageId) =>
+      _run(SnaptradeActivity.removing, reloadOnError: true, () async {
+        await _repo.remove(brokerageId);
+        await load();
+        await _onImported?.call();
+      });
 
-  Future<bool> disconnect({required bool keepAsManual}) async {
+  Future<bool> disconnect({required bool keepAsManual}) =>
+      _run(SnaptradeActivity.disconnecting, () async {
+        await _repo.disconnect(keepAsManual: keepAsManual);
+        await load();
+        await _onImported?.call();
+      });
+
+  /// Una acción del usuario: una a la vez, con su [activity] mientras corre
+  /// y siempre de vuelta a `idle` al terminar, salga como salga. `true` si
+  /// salió bien; si no, el error queda en [SnaptradeState.errorType].
+  /// [reloadOnError]: releer la conexión tras un error (el servidor pudo
+  /// cambiarla, p. ej. a "reconectá").
+  Future<bool> _run(
+    SnaptradeActivity activity,
+    Future<void> Function() action, {
+    bool reloadOnError = false,
+  }) async {
     if (state.busy) return false;
-    state = state.copyWith(
-      activity: SnaptradeActivity.disconnecting,
-      clearError: true,
-    );
+    state = state.copyWith(activity: activity, clearError: true);
+    String? error;
     try {
-      await _repo.disconnect(keepAsManual: keepAsManual);
-      await load();
-      await _onImported?.call();
-      if (mounted) state = state.copyWith(activity: SnaptradeActivity.idle);
-      return true;
+      await action();
     } on SnaptradeException catch (e) {
-      if (mounted) {
-        state = state.copyWith(
-          activity: SnaptradeActivity.idle,
-          errorType: e.type,
-        );
-      }
-      return false;
+      error = e.type;
+    } catch (_) {
+      // Un error que el repositorio no tradujo (sin red, el portal no
+      // abrió): la pantalla no puede quedar trabada.
+      error = 'unavailable';
     }
+    if (error != null && reloadOnError) await load();
+    if (mounted) {
+      state = state.copyWith(
+        activity: SnaptradeActivity.idle,
+        errorType: error,
+      );
+    }
+    return error == null;
   }
 }
 

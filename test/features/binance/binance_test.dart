@@ -24,6 +24,9 @@ class _Repo implements BinanceRepository {
   BinanceConnection connection;
   BinanceException? failConnect;
   BinanceException? failSync;
+
+  /// Un error que el repositorio no traduce (p. ej. sin red).
+  Object? crashSync;
   int syncs = 0;
   bool? disconnectedKeeping;
 
@@ -49,6 +52,7 @@ class _Repo implements BinanceRepository {
   Future<({BinanceSyncResult? result, bool throttled})> sync() async {
     syncs++;
     if (failSync != null) throw failSync!;
+    if (crashSync != null) throw crashSync!;
     return (result: const BinanceSyncResult(imported: 1), throttled: false);
   }
 
@@ -169,6 +173,25 @@ void main() {
         expect(seen.first, BinanceActivity.disconnecting);
         expect(seen.where((a) => a == BinanceActivity.syncing), isEmpty);
         expect(n.state.busy, isFalse);
+      },
+    );
+
+    test(
+      'un error sin traducir (sin red) no deja la pantalla trabada',
+      () async {
+        final repo = _Repo(
+          const BinanceConnection(status: BinanceStatus.connected),
+        )..crashSync = StateError('socket closed');
+        final n = BinanceNotifier(repo);
+        await n.load();
+        await n.sync();
+        expect(n.state.activity, BinanceActivity.idle);
+        expect(n.state.errorType, 'unavailable');
+        // Y se puede volver a intentar.
+        repo.crashSync = null;
+        await n.sync();
+        expect(repo.syncs, 2);
+        expect(n.state.errorType, isNull);
       },
     );
 

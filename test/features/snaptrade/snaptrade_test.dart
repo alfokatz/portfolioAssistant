@@ -29,6 +29,9 @@ class _Repo implements SnaptradeRepository {
   /// Lo que queda conectado después de volver del portal.
   SnaptradeConnection? afterPortal;
   SnaptradeException? failPortal;
+
+  /// Un error que el repositorio no traduce (el portal no abrió, sin red).
+  Object? crashPortal;
   SnaptradeException? failSync;
   SnaptradeException? failRefresh;
   final syncs = <bool>[];
@@ -42,6 +45,7 @@ class _Repo implements SnaptradeRepository {
   @override
   Future<Uri> portalUrl({required bool darkMode, String? reconnect}) async {
     if (failPortal != null) throw failPortal!;
+    if (crashPortal != null) throw crashPortal!;
     reconnected = reconnect;
     return Uri.parse('https://app.snaptrade.com/portal');
   }
@@ -247,6 +251,18 @@ void main() {
         expect(seen.first, SnaptradeActivity.removing);
         expect(seen.where((a) => a == SnaptradeActivity.syncing), isEmpty);
         expect(n.state.activity, SnaptradeActivity.idle);
+      },
+    );
+
+    test(
+      'an untranslated error (no network) does not lock the screen',
+      () async {
+        final repo = _Repo(const SnaptradeConnection())
+          ..crashPortal = StateError('no browser');
+        final n = SnaptradeNotifier(repo, _Portal());
+        expect(await n.connect(darkMode: false), isFalse);
+        expect(n.state.activity, SnaptradeActivity.idle);
+        expect(n.state.errorType, 'unavailable');
       },
     );
 
