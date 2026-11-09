@@ -96,6 +96,17 @@ Deno.test("prompts: con varias empresas pide ticker y fecha en cada viñeta y cu
   assert(!one.includes("Cover EACH company"));
 });
 
+Deno.test("prompts: prioriza lo de hoy y ayer, y cuenta a los ejecutivos como noticia de la empresa", () => {
+  const { instructions, input } = prompts(parseBody({ tickers: ["NVDA"], names: { NVDA: "NVIDIA" } })!, "2026-11-09");
+  assert(instructions.includes("Freshness first"));
+  assert(instructions.includes("2026-11-09 and the day before"));
+  assert(instructions.includes("executives and founders"));
+  assert(input.includes("hoy, ayer"));
+  assert(input.includes("hoy es 2026-11-09"));
+  const q = prompts(parseBody({ tickers: ["NVDA"], question: "¿Qué pasó con el CEO?" })!, "2026-11-09").input;
+  assert(q.includes("Today is 2026-11-09"));
+});
+
 Deno.test("news-context: sin JWT 401; Free y Premium 403 sin llamar a OpenAI", async () => {
   const f = fakeFetch(() => responsesAnswer(answer));
   assertEquals((await handle(req(null, { tickers: ["NVDA"] }), deps(f.fetch, env))).status, 401);
