@@ -105,7 +105,7 @@ void main() {
 
     expect(find.text('Jubilación'), findsOneWidget);
     expect(find.text('Moderada'), findsOneWidget);
-    expect(find.text('AHORRO MENSUAL SUGERIDO'), findsOneWidget);
+    expect(find.text('AHORRO MENSUAL ESTIMADO'), findsOneWidget);
     expect(
       find.text(
         '\$${_thousands(plan.requiredMonthly[PlanScenario.base]!.round())}',
@@ -147,7 +147,7 @@ void main() {
     expect(find.text('No tocás el capital'), findsOneWidget);
     expect(find.textContaining('Se consume en ~'), findsOneWidget);
     expect(find.text('Tu plan'), findsOneWidget);
-    expect(find.text('PARA JUNTARLO, AHORRÁ'), findsOneWidget);
+    expect(find.text('LO JUNTARÍAS AHORRANDO'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Usar retiro del 4%'));
     await tester.pumpAndSettle();
