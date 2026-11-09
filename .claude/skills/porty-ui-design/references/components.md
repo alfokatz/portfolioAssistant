@@ -51,7 +51,7 @@ Convención: `static Future<T?> show(BuildContext context, ...)` en la clase de 
 
 ## Pantallas de brókers (`lib/features/broker_connect/view/widgets/broker_screen_kit.dart`)
 
-Las pantallas de conexión (eToro, Binance, SnapTrade) comparten `BrokerCard`, `BrokerCardDivider`, `BrokerStatusPill(warn:, label:)`, `BrokerStatusRow`, `BrokerTitleBody`, `BrokerBubble`, `BrokerFootnote` (línea con candado), `BrokerInlineError`, `BrokerScreenshotExit`, `BrokerSecondaryButton` y `BrokerDisconnectSheet(title:, body:, keepLabel:, deleteLabel:)`. Un bróker nuevo usa estas piezas; no copia privadas.
+Las pantallas de conexión (eToro, Binance, SnapTrade) comparten `BrokerHeader(partner:, link:, title:, body:)`, `BrokerPromises(points:)`, `BrokerStatusCard` (pastilla, cifra, última actualización, `extraRows`, lo no importado y precio estimado), `BrokerCard`, `BrokerCardDivider`, `BrokerStatusPill(warn:, label:)`, `BrokerStatusRow`, `BrokerTitleBody`, `BrokerBubble`, `BrokerFootnote` (línea con candado), `BrokerInlineError`, `BrokerScreenshotExit`, `BrokerSecondaryButton` y `BrokerDisconnectSheet(title:, body:, keepLabel:, deleteLabel:)`. Un bróker nuevo usa estas piezas; no copia privadas.
 
 ## Patrones de pantalla (detalle en DESIGN.md)
 

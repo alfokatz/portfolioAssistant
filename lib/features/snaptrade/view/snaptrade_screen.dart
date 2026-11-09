@@ -330,8 +330,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     final broken = connection.brokerages.any((b) => b.imported && b.disabled);
     final (title, body, link) = switch (connection.status) {
       SnaptradeStatus.notConnected || SnaptradeStatus.pending => (
@@ -355,33 +353,11 @@ class _Header extends StatelessWidget {
         EtoroLinkState.broken,
       ),
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PortyPartnerLockup(state: link, partner: const SnaptradeLogoTile()),
-        const SizedBox(height: AppDimens.sp24),
-        Semantics(
-          header: true,
-          child: Text(
-            title,
-            style: tt.displaySmall?.copyWith(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-              height: 1.2,
-              color: colors.textPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppDimens.sp8),
-        Text(
-          body,
-          style: tt.bodyMedium?.copyWith(
-            color: colors.textSecondary,
-            height: 1.5,
-          ),
-        ),
-      ],
+    return BrokerHeader(
+      partner: const SnaptradeLogoTile(),
+      link: link,
+      title: title,
+      body: body,
     );
   }
 }
@@ -393,7 +369,6 @@ class _Promises extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
     final points = [
       (
         Icons.lock_outline_rounded,
@@ -411,28 +386,7 @@ class _Promises extends StatelessWidget {
         'snaptrade_point_disconnect_body'.tr(),
       ),
     ];
-    return BrokerCard(
-      child: Column(
-        children: [
-          for (final (i, (icon, title, body)) in points.indexed) ...[
-            if (i > 0) BrokerCardDivider(indent: 64, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  BrokerBubble(
-                    child: Icon(icon, size: 18, color: colors.onChip),
-                  ),
-                  const SizedBox(width: AppDimens.sp12),
-                  Expanded(child: BrokerTitleBody(title: title, body: body)),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+    return BrokerPromises(points: points);
   }
 }
 
@@ -473,118 +427,47 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     // Todo caído, o algún bróker importado que se cortó.
     final reconnectAll =
         connection.status == SnaptradeStatus.reconnectRequired ||
         connection.imported.any((b) => b.disabled);
     final result = connection.lastResult;
-    final skipped = result == null ? null : _skippedLine(result);
-
-    return BrokerCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppDimens.sp16,
-              AppDimens.sp16,
-              AppDimens.sp16,
-              AppDimens.sp12,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                BrokerStatusPill(
-                  warn: reconnectAll,
-                  label:
-                      reconnectAll
-                          ? 'snaptrade_status_reconnect'.tr()
-                          : 'snaptrade_status_connected'.tr(),
-                ),
-                const SizedBox(height: AppDimens.sp16),
-                Text(
-                  '${result?.imported ?? 0}',
-                  style: tt.displaySmall?.copyWith(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -1,
-                    height: 1.1,
-                    color: colors.textPrimary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: AppDimens.sp2),
-                Text(
-                  (result?.imported == 1
-                          ? 'snaptrade_status_imported_one'
-                          : 'snaptrade_status_imported')
-                      .tr(),
-                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-                ),
-              ],
-            ),
+    return BrokerStatusCard(
+      warn: reconnectAll,
+      pillLabel:
+          reconnectAll
+              ? 'snaptrade_status_reconnect'.tr()
+              : 'snaptrade_status_connected'.tr(),
+      importedCount: result?.imported ?? 0,
+      importedLabel:
+          (result?.imported == 1
+                  ? 'snaptrade_status_imported_one'
+                  : 'snaptrade_status_imported')
+              .tr(),
+      lastSyncLabel: 'snaptrade_status_last_sync'.tr(),
+      lastSyncValue:
+          syncing
+              ? 'snaptrade_syncing'.tr()
+              : connection.lastSyncAt == null
+              ? '—'
+              : EtoroSyncTime.relative(connection.lastSyncAt!),
+      extraRows: [
+        for (final b in connection.brokerages)
+          _BrokerageRow(
+            brokerage: b,
+            onReconnect: onReconnect,
+            onRemove: onRemove,
+            onGoDirect: onGoDirect,
           ),
-          BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-          BrokerStatusRow(
-            label: 'snaptrade_status_last_sync'.tr(),
-            value:
-                syncing
-                    ? 'snaptrade_syncing'.tr()
-                    : connection.lastSyncAt == null
-                    ? '—'
-                    : EtoroSyncTime.relative(connection.lastSyncAt!),
-          ),
-          for (final b in connection.brokerages) ...[
-            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-            _BrokerageRow(
-              brokerage: b,
-              onReconnect: onReconnect,
-              onRemove: onRemove,
-              onGoDirect: onGoDirect,
-            ),
-          ],
-          if (skipped != null) ...[
-            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: BrokerTitleBody(
-                title: 'snaptrade_status_not_imported'.tr(),
-                body: skipped,
+      ],
+      notImportedTitle: 'snaptrade_status_not_imported'.tr(),
+      notImportedBody: result == null ? null : _skippedLine(result),
+      estimatedCostNote:
+          result == null || result.estimatedCost.isEmpty
+              ? null
+              : 'snaptrade_estimated_cost'.tr(
+                namedArgs: {'tickers': result.estimatedCost.join(', ')},
               ),
-            ),
-          ],
-          if (result != null && result.estimatedCost.isNotEmpty) ...[
-            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: AppDimens.iconMd,
-                    color: colors.textSecondary,
-                  ),
-                  const SizedBox(width: AppDimens.sp8),
-                  Expanded(
-                    child: Text(
-                      'snaptrade_estimated_cost'.tr(
-                        namedArgs: {'tickers': result.estimatedCost.join(', ')},
-                      ),
-                      style: tt.bodySmall?.copyWith(
-                        color: colors.textSecondary,
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

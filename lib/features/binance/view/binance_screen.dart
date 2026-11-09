@@ -319,8 +319,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     final (title, body, link) = switch (connection.status) {
       BinanceStatus.notConnected => (
         'binance_intro_title'.tr(),
@@ -338,33 +336,11 @@ class _Header extends StatelessWidget {
         EtoroLinkState.broken,
       ),
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PortyPartnerLockup(state: link, partner: const BinanceLogoTile()),
-        const SizedBox(height: AppDimens.sp24),
-        Semantics(
-          header: true,
-          child: Text(
-            title,
-            style: tt.displaySmall?.copyWith(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-              height: 1.2,
-              color: colors.textPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppDimens.sp8),
-        Text(
-          body,
-          style: tt.bodyMedium?.copyWith(
-            color: colors.textSecondary,
-            height: 1.5,
-          ),
-        ),
-      ],
+    return BrokerHeader(
+      partner: const BinanceLogoTile(),
+      link: link,
+      title: title,
+      body: body,
     );
   }
 }
@@ -376,7 +352,6 @@ class _Promises extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
     final points = [
       (
         Icons.lock_outline_rounded,
@@ -394,28 +369,7 @@ class _Promises extends StatelessWidget {
         'binance_point_disconnect_body'.tr(),
       ),
     ];
-    return BrokerCard(
-      child: Column(
-        children: [
-          for (final (i, (icon, title, body)) in points.indexed) ...[
-            if (i > 0) BrokerCardDivider(indent: 64, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  BrokerBubble(
-                    child: Icon(icon, size: 18, color: colors.onChip),
-                  ),
-                  const SizedBox(width: AppDimens.sp12),
-                  Expanded(child: BrokerTitleBody(title: title, body: body)),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+    return BrokerPromises(points: points);
   }
 }
 
@@ -516,111 +470,38 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     final reconnect = connection.status == BinanceStatus.reconnectRequired;
     final result = connection.lastResult;
-    final skipped = result == null ? null : _skippedLine(result);
     final hint = connection.apiKeyHint;
-
-    return BrokerCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppDimens.sp16,
-              AppDimens.sp16,
-              AppDimens.sp16,
-              AppDimens.sp12,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                BrokerStatusPill(
-                  warn: reconnect,
-                  label:
-                      reconnect
-                          ? 'binance_status_reconnect'.tr()
-                          : hint == null
-                          ? 'binance_status_connected'.tr()
-                          : 'binance_status_connected_hint'.tr(
-                            namedArgs: {'hint': hint},
-                          ),
-                ),
-                const SizedBox(height: AppDimens.sp16),
-                Text(
-                  '${result?.imported ?? 0}',
-                  style: tt.displaySmall?.copyWith(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -1,
-                    height: 1.1,
-                    color: colors.textPrimary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: AppDimens.sp2),
-                Text(
-                  (result?.imported == 1
-                          ? 'binance_status_imported_one'
-                          : 'binance_status_imported')
-                      .tr(),
-                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-          BrokerStatusRow(
-            label: 'binance_status_last_sync'.tr(),
-            value:
-                syncing
-                    ? 'binance_syncing'.tr()
-                    : connection.lastSyncAt == null
-                    ? '—'
-                    : EtoroSyncTime.relative(connection.lastSyncAt!),
-          ),
-          if (skipped != null) ...[
-            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: BrokerTitleBody(
-                title: 'binance_status_not_imported'.tr(),
-                body: skipped,
+    return BrokerStatusCard(
+      warn: reconnect,
+      pillLabel:
+          reconnect
+              ? 'binance_status_reconnect'.tr()
+              : hint == null
+              ? 'binance_status_connected'.tr()
+              : 'binance_status_connected_hint'.tr(namedArgs: {'hint': hint}),
+      importedCount: result?.imported ?? 0,
+      importedLabel:
+          (result?.imported == 1
+                  ? 'binance_status_imported_one'
+                  : 'binance_status_imported')
+              .tr(),
+      lastSyncLabel: 'binance_status_last_sync'.tr(),
+      lastSyncValue:
+          syncing
+              ? 'binance_syncing'.tr()
+              : connection.lastSyncAt == null
+              ? '—'
+              : EtoroSyncTime.relative(connection.lastSyncAt!),
+      notImportedTitle: 'binance_status_not_imported'.tr(),
+      notImportedBody: result == null ? null : _skippedLine(result),
+      estimatedCostNote:
+          result == null || result.estimatedCost.isEmpty
+              ? null
+              : 'binance_estimated_cost'.tr(
+                namedArgs: {'tickers': result.estimatedCost.join(', ')},
               ),
-            ),
-          ],
-          if (result != null && result.estimatedCost.isNotEmpty) ...[
-            BrokerCardDivider(indent: AppDimens.sp16, color: colors.border),
-            Padding(
-              padding: const EdgeInsets.all(AppDimens.sp16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: AppDimens.iconMd,
-                    color: colors.textSecondary,
-                  ),
-                  const SizedBox(width: AppDimens.sp8),
-                  Expanded(
-                    child: Text(
-                      'binance_estimated_cost'.tr(
-                        namedArgs: {'tickers': result.estimatedCost.join(', ')},
-                      ),
-                      style: tt.bodySmall?.copyWith(
-                        color: colors.textSecondary,
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

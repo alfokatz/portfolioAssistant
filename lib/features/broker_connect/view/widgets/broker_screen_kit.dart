@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
@@ -385,6 +386,215 @@ class BrokerDisconnectSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Arriba de la pantalla: Porty ↔ el bróker (el enlace cuenta el estado),
+/// el título y una línea. Cada bróker decide los textos y el [link] según
+/// su conexión.
+class BrokerHeader extends StatelessWidget {
+  const BrokerHeader({
+    super.key,
+    required this.partner,
+    required this.link,
+    required this.title,
+    required this.body,
+  });
+
+  /// El logo del bróker (p. ej. `BinanceLogoTile`).
+  final Widget partner;
+  final EtoroLinkState link;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PortyPartnerLockup(state: link, partner: partner),
+        const SizedBox(height: AppDimens.sp24),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: tt.displaySmall?.copyWith(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+              height: 1.2,
+              color: colors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppDimens.sp8),
+        Text(
+          body,
+          style: tt.bodyMedium?.copyWith(
+            color: colors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lo que Porty promete antes de conectar (solo lectura, al día,
+/// desconectar cuando quieras): ícono, título y cuerpo por punto.
+class BrokerPromises extends StatelessWidget {
+  const BrokerPromises({super.key, required this.points});
+
+  final List<(IconData, String, String)> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    return BrokerCard(
+      child: Column(
+        children: [
+          for (final (i, (icon, title, body)) in points.indexed) ...[
+            if (i > 0) BrokerCardDivider(indent: 64, color: colors.border),
+            Padding(
+              padding: const EdgeInsets.all(AppDimens.sp16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BrokerBubble(
+                    child: Icon(icon, size: 18, color: colors.onChip),
+                  ),
+                  const SizedBox(width: AppDimens.sp12),
+                  Expanded(child: BrokerTitleBody(title: title, body: body)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Lo importado de una cuenta conectada: la pastilla de estado, la cifra en
+/// grande, la última actualización, filas propias del bróker ([extraRows]),
+/// lo que no se importó y el aviso del precio de compra estimado. Los
+/// textos los arma cada bróker.
+class BrokerStatusCard extends StatelessWidget {
+  const BrokerStatusCard({
+    super.key,
+    required this.warn,
+    required this.pillLabel,
+    required this.importedCount,
+    required this.importedLabel,
+    required this.lastSyncLabel,
+    required this.lastSyncValue,
+    this.extraRows = const [],
+    required this.notImportedTitle,
+    this.notImportedBody,
+    this.estimatedCostNote,
+  });
+
+  final bool warn;
+  final String pillLabel;
+  final int importedCount;
+  final String importedLabel;
+  final String lastSyncLabel;
+  final String lastSyncValue;
+
+  /// Van después de la última actualización, cada una con su divisor.
+  final List<Widget> extraRows;
+  final String notImportedTitle;
+
+  /// `null`: no hay fila de "lo que no importé".
+  final String? notImportedBody;
+
+  /// `null`: no hay aviso de precio estimado.
+  final String? estimatedCostNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    final divider = BrokerCardDivider(
+      indent: AppDimens.sp16,
+      color: colors.border,
+    );
+    return BrokerCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.sp16,
+              AppDimens.sp16,
+              AppDimens.sp16,
+              AppDimens.sp12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BrokerStatusPill(warn: warn, label: pillLabel),
+                const SizedBox(height: AppDimens.sp16),
+                Text(
+                  '$importedCount',
+                  style: tt.displaySmall?.copyWith(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -1,
+                    height: 1.1,
+                    color: colors.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: AppDimens.sp2),
+                Text(
+                  importedLabel,
+                  style: tt.bodyMedium?.copyWith(color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          divider,
+          BrokerStatusRow(label: lastSyncLabel, value: lastSyncValue),
+          for (final row in extraRows) ...[divider, row],
+          if (notImportedBody case final body?) ...[
+            divider,
+            Padding(
+              padding: const EdgeInsets.all(AppDimens.sp16),
+              child: BrokerTitleBody(title: notImportedTitle, body: body),
+            ),
+          ],
+          if (estimatedCostNote case final note?) ...[
+            divider,
+            Padding(
+              padding: const EdgeInsets.all(AppDimens.sp16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: AppDimens.iconMd,
+                    color: colors.textSecondary,
+                  ),
+                  const SizedBox(width: AppDimens.sp8),
+                  Expanded(
+                    child: Text(
+                      note,
+                      style: tt.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
