@@ -534,9 +534,11 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         QaSectionLabel(
+          // Condicional y "estimado": es una simulación, no una pauta para
+          // el usuario (revisión de compliance de las capturas, 09/11).
           _focus == SavingsPlanFocus.income
-              ? 'Para juntarlo, ahorrá'
-              : 'Ahorro mensual sugerido',
+              ? 'Lo juntarías ahorrando'
+              : 'Ahorro mensual estimado',
           trailing: tag,
         ),
         const SizedBox(height: 8),

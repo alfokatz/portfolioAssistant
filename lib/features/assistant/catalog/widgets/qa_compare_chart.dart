@@ -280,6 +280,15 @@ class _QaCompareChartState extends State<QaCompareChart>
     );
   }
 
+  /// "Rendimiento · Último mes · al 5 nov 2026": el período y la fecha del
+  /// último dato, para que el número no se lea sin contexto.
+  String _subtitle(CompareSeries? shown) {
+    final base = 'Rendimiento · ${QaMarketParts.rangeSummaryLabel(_range)}';
+    final last = shown == null || shown.dates.isEmpty ? null : shown.dates.last;
+    if (last == null || _range == PriceChartRange.day) return base;
+    return '$base · al ${QaMarketParts.formatDate(last, _range)}';
+  }
+
   Widget _buildChart() {
     final series = _cache[_range];
     final loading = _inFlight.contains(_range);
@@ -292,7 +301,7 @@ class _QaCompareChartState extends State<QaCompareChart>
       children: [
         CompareHeader(
           tickers: widget.tickers,
-          subtitle: 'Rendimiento · ${QaMarketParts.rangeSummaryLabel(_range)}',
+          subtitle: _subtitle(shown),
         ),
         const SizedBox(height: QaSpace.sectionGap),
         _Legend(tickers: widget.tickers, series: shown, scrubIndex: scrub),
