@@ -184,8 +184,9 @@ class EtoroConnectionNotifier extends StateNotifier<EtoroState> {
         case 'cancelled':
           return const EtoroConnectCancelled();
         default:
-          if (reason == 'plan_required')
+          if (reason == 'plan_required') {
             return const EtoroConnectPlanRequired();
+          }
           return EtoroConnectFailed(reason ?? 'failed');
       }
     } on EtoroSyncException catch (e) {
