@@ -5,6 +5,7 @@
 - Botones
 - Hojas (bottom sheets)
 - Filas de ajustes
+- Pantallas de brókers
 - Patrones de pantalla
 
 ## Widgets compartidos (`lib/presentation/shared/widgets/`)
@@ -47,6 +48,10 @@ Convención: `static Future<T?> show(BuildContext context, ...)` en la clase de 
 ## Filas de ajustes (`lib/presentation/flows/settings/ui/widgets/`)
 
 `SettingsSectionCard(title:, children:)` (título titleMedium w700 `textPrimary`, sin mayúsculas grises), `SettingsNavRow(icon:, label:, value:, subtitle:, onTap:)` (label en una línea; un valor largo va en `subtitle`), `SettingsToggleRow`, `SettingsPickerSheet`. Usar este mismo lenguaje para cualquier lista de opciones (las sugerencias del chat y Metas lo copian).
+
+## Pantallas de brókers (`lib/features/broker_connect/view/widgets/broker_screen_kit.dart`)
+
+Las pantallas de conexión (eToro, Binance, SnapTrade) comparten `BrokerCard`, `BrokerCardDivider`, `BrokerStatusPill(warn:, label:)`, `BrokerStatusRow`, `BrokerTitleBody`, `BrokerBubble`, `BrokerFootnote` (línea con candado), `BrokerInlineError`, `BrokerScreenshotExit`, `BrokerSecondaryButton` y `BrokerDisconnectSheet(title:, body:, keepLabel:, deleteLabel:)`. Un bróker nuevo usa estas piezas; no copia privadas.
 
 ## Patrones de pantalla (detalle en DESIGN.md)
 
