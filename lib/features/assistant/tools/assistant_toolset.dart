@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/assistant/models/chat_paywall.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
@@ -19,32 +20,7 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.d
 import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 
-/// Paywall que corta un turno del chat: la hoja ([reason]) y desde dónde se
-/// abrió ([source], ver `PaywallSource`). Viaja como el `reason` de
-/// `TurnAbortedException`.
-class ChatPaywall {
-  const ChatPaywall(this.reason, this.source, [this.feature]);
-
-  final PaywallReason reason;
-  final String source;
-
-  /// La capacidad que el plan no incluyó: va como `locked_feature` en
-  /// `paywall_viewed` (ver `SubscriptionPaywallSheet.show`).
-  final PlanFeature? feature;
-
-  @override
-  bool operator ==(Object other) =>
-      other is ChatPaywall &&
-      other.reason == reason &&
-      other.source == source &&
-      other.feature == feature;
-
-  @override
-  int get hashCode => Object.hash(reason, source, feature);
-
-  @override
-  String toString() => 'ChatPaywall(${reason.name}, $source, ${feature?.name})';
-}
+export 'package:portfolio_assistant/features/assistant/models/chat_paywall.dart';
 
 /// Las tools de datos del asistente, en un orden fijo: la lista completa
 /// viaja en cada request (el plan se aplica al ejecutar, no ocultando

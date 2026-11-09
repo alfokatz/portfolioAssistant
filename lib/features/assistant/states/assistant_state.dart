@@ -1,5 +1,6 @@
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
+import 'package:portfolio_assistant/features/assistant/models/chat_paywall.dart';
 import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_message.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -68,15 +69,13 @@ class AssistantState {
   final bool bootstrapped;
   final int turnCounter;
   final bool isServiceReady;
-  final PaywallReason? paywallReason;
 
-  /// Desde dónde se pidió [paywallReason] (`PaywallSource`). Se setean y
-  /// se limpian juntos.
-  final String? paywallSource;
+  /// El paywall que la pantalla tiene que abrir; `null` si no hay ninguno.
+  final ChatPaywall? paywall;
 
-  /// La capacidad que el plan no incluyó, para `locked_feature` en
-  /// `paywall_viewed`. Se limpia junto con [paywallReason].
-  final PlanFeature? paywallFeature;
+  PaywallReason? get paywallReason => paywall?.reason;
+  String? get paywallSource => paywall?.source;
+  PlanFeature? get paywallFeature => paywall?.feature;
 
   /// `true` una vez que la cascada de entrada del saludo inicial + chips de
   /// sugerencia (ver `FadeSlideIn` en `AssistantScreen`) ya se mostró al
@@ -99,15 +98,10 @@ class AssistantState {
     this.bootstrapped = false,
     this.turnCounter = 0,
     this.isServiceReady = false,
-    this.paywallReason,
-    this.paywallSource,
-    this.paywallFeature,
+    this.paywall,
     this.introRevealed = false,
     this.actionProposals = const {},
-  }) : assert(
-         paywallReason == null || paywallSource != null,
-         'paywallReason sin paywallSource: pasá un PaywallSource',
-       );
+  });
 
   ActionProposalProgress actionProgress(String proposalId) =>
       actionProposals[proposalId] ?? ActionProposalProgress.pending;
@@ -120,13 +114,11 @@ class AssistantState {
     bool? bootstrapped,
     int? turnCounter,
     bool? isServiceReady,
-    PaywallReason? paywallReason,
-    String? paywallSource,
-    PlanFeature? paywallFeature,
+    ChatPaywall? paywall,
     bool? introRevealed,
     Map<String, ActionProposalProgress>? actionProposals,
     bool clearError = false,
-    bool clearPaywallReason = false,
+    bool clearPaywall = false,
   }) {
     return AssistantState(
       messages: messages ?? this.messages,
@@ -136,20 +128,7 @@ class AssistantState {
       bootstrapped: bootstrapped ?? this.bootstrapped,
       turnCounter: turnCounter ?? this.turnCounter,
       isServiceReady: isServiceReady ?? this.isServiceReady,
-      paywallReason:
-          clearPaywallReason ? null : (paywallReason ?? this.paywallReason),
-      paywallSource:
-          clearPaywallReason
-              ? null
-              : paywallReason != null
-              ? paywallSource
-              : this.paywallSource,
-      paywallFeature:
-          clearPaywallReason
-              ? null
-              : paywallReason != null
-              ? paywallFeature
-              : this.paywallFeature,
+      paywall: clearPaywall ? null : (paywall ?? this.paywall),
       introRevealed: introRevealed ?? this.introRevealed,
       actionProposals: actionProposals ?? this.actionProposals,
     );

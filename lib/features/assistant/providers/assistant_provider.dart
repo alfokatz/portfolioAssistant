@@ -245,9 +245,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   PortyTopic? resumeTopic(List<PortyTopic> topics, {DateTime? now}) {
     final today = now ?? DateTime.now();
     final tier = ref.read(subscriptionProvider).tier;
-    final held = ref.read(homeProvider).summary?.valuations.map(
-          (v) => v.position.ticker.toUpperCase(),
-        ) ??
+    final held =
+        ref
+            .read(homeProvider)
+            .summary
+            ?.valuations
+            .map((v) => v.position.ticker.toUpperCase()) ??
         const <String>[];
     for (final t in topics) {
       if (today.difference(t.lastAskedAt) > const Duration(days: 14)) break;
@@ -742,10 +745,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         result = _WidgetQuestionResult.paywall;
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
-          paywallReason: paywall.reason,
-          paywallSource: paywall.source,
-          paywallFeature: paywall.feature,
-          clearPaywallReason: false,
+          paywall: paywall,
         );
       } on TimeoutException catch (e) {
         if (kDebugMode) debugPrint('[Assistant/turn] timed out: $e');
@@ -835,9 +835,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (e.isQuota) {
       return current.copyWith(
         messages: _removeTurn(current.messages, surfaceId),
-        paywallReason: PaywallReason.quotaExceeded,
-        paywallSource: PaywallSource.quotaZero,
-        clearPaywallReason: false,
+        paywall: const ChatPaywall(
+          PaywallReason.quotaExceeded,
+          PaywallSource.quotaZero,
+        ),
       );
     }
     if (e.isDailyLimit) {
@@ -906,24 +907,26 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // operaciones de la lista (dejar de seguir, avisos) no suman.
     if (draft.kind == ActionKind.watch && await _watchlistFull(draft.ticker)) {
       if (!mounted) return;
-      _setAction(id, ActionProposalProgress.pending);
-      state = state.copyWith(
-        paywallReason: PaywallReason.watchlistLimit,
-        paywallSource: PaywallSource.chatActionWatchlist,
-        paywallFeature: PlanFeature.marketData,
-        clearPaywallReason: false,
+      _offerUpgrade(
+        id,
+        const ChatPaywall(
+          PaywallReason.watchlistLimit,
+          PaywallSource.chatActionWatchlist,
+          PlanFeature.marketData,
+        ),
       );
       return;
     }
     // Las cuentas conectadas son de Premium.
     if (draft.manageOp?.link == ManageLink.broker &&
         !PlanMatrix.allows(tier, PlanFeature.brokerSync)) {
-      _setAction(id, ActionProposalProgress.pending);
-      state = state.copyWith(
-        paywallReason: PaywallReason.brokerSync,
-        paywallSource: PaywallSource.chatActionBroker,
-        paywallFeature: PlanFeature.brokerSync,
-        clearPaywallReason: false,
+      _offerUpgrade(
+        id,
+        const ChatPaywall(
+          PaywallReason.brokerSync,
+          PaywallSource.chatActionBroker,
+          PlanFeature.brokerSync,
+        ),
       );
       return;
     }
@@ -933,12 +936,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final snaptrade = ref.read(snaptradeProvider.notifier);
       if (!ref.read(snaptradeProvider).loaded) await snaptrade.load();
       if (ref.read(snaptradeProvider).connection.isConnected) {
-        _setAction(id, ActionProposalProgress.pending);
-        state = state.copyWith(
-          paywallReason: PaywallReason.goldRequired,
-          paywallSource: PaywallSource.chatActionMultiBroker,
-          paywallFeature: PlanFeature.multiBrokerSync,
-          clearPaywallReason: false,
+        _offerUpgrade(
+          id,
+          const ChatPaywall(
+            PaywallReason.goldRequired,
+            PaywallSource.chatActionMultiBroker,
+            PlanFeature.multiBrokerSync,
+          ),
         );
         return;
       }
@@ -946,12 +950,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // El plan de cartera es de Premium.
     if (draft.manageOp?.link == ManageLink.allocation &&
         !PlanMatrix.allows(tier, PlanFeature.allocationPlan)) {
-      _setAction(id, ActionProposalProgress.pending);
-      state = state.copyWith(
-        paywallReason: PaywallReason.allocationPlan,
-        paywallSource: PaywallSource.chatActionAllocation,
-        paywallFeature: PlanFeature.allocationPlan,
-        clearPaywallReason: false,
+      _offerUpgrade(
+        id,
+        const ChatPaywall(
+          PaywallReason.allocationPlan,
+          PaywallSource.chatActionAllocation,
+          PlanFeature.allocationPlan,
+        ),
       );
       return;
     }
@@ -959,12 +964,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // pasar el tope de posiciones con un ticker nuevo (se vuelve a mirar
     // acá: pudo cambiar desde que Porty lo propuso).
     if (draft.kind == ActionKind.buy && _exceedsPositionLimit(draft, tier)) {
-      _setAction(id, ActionProposalProgress.pending);
-      state = state.copyWith(
-        paywallReason: PaywallReason.positionLimit,
-        paywallSource: PaywallSource.chatActionPositionLimit,
-        paywallFeature: PlanFeature.unlimitedPositions,
-        clearPaywallReason: false,
+      _offerUpgrade(
+        id,
+        const ChatPaywall(
+          PaywallReason.positionLimit,
+          PaywallSource.chatActionPositionLimit,
+          PlanFeature.unlimitedPositions,
+        ),
       );
       return;
     }
@@ -1074,6 +1080,13 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   static String get _actionFailedMessage => 'qa_act_save_failed'.tr();
+
+  /// La operación [id] necesita un plan más alto: vuelve a pendiente (para
+  /// confirmarla después del upgrade) y la pantalla abre [paywall].
+  void _offerUpgrade(String id, ChatPaywall paywall) {
+    _setAction(id, ActionProposalProgress.pending);
+    state = state.copyWith(paywall: paywall);
+  }
 
   void _setAction(String id, ActionProposalProgress progress) {
     state = state.copyWith(
@@ -1190,7 +1203,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   .where((i) => i.symbol == draft.ticker)
                   .firstOrNull;
           if (item == null) {
-            return 'qa_pv_not_following'.tr(namedArgs: {'ticker': draft.ticker});
+            return 'qa_pv_not_following'.tr(
+              namedArgs: {'ticker': draft.ticker},
+            );
           }
           if (op == ManageOp.unwatch) {
             await notifier.remove(item);
@@ -1295,7 +1310,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     try {
       if (!ref.read(watchlistProvider).loaded) await watchlist.load();
       if (ref.read(watchlistProvider).contains(draft.ticker)) {
-        return 'qa_pv_already_following'.tr(namedArgs: {'ticker': draft.ticker});
+        return 'qa_pv_already_following'.tr(
+          namedArgs: {'ticker': draft.ticker},
+        );
       }
       final item = await watchlist.add(draft.ticker);
       if (!draft.watchNotify) await watchlist.setNotify(item, false);
@@ -1464,10 +1481,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     if (await notifier.save(plan)) return null;
     if (ref.read(allocationProvider).error == AllocationError.locked) {
       state = state.copyWith(
-        paywallReason: PaywallReason.allocationPlan,
-        paywallSource: PaywallSource.chatPlanSave,
-        paywallFeature: PlanFeature.allocationPlan,
-        clearPaywallReason: false,
+        paywall: const ChatPaywall(
+          PaywallReason.allocationPlan,
+          PaywallSource.chatPlanSave,
+          PlanFeature.allocationPlan,
+        ),
       );
       return 'qa_pv_plan_premium'.tr();
     }
@@ -1495,9 +1513,10 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       final tier = ref.read(subscriptionProvider).tier;
       if (tier != SubscriptionTier.gold) {
         state = state.copyWith(
-          paywallReason: PaywallReason.priceAlerts,
-          paywallSource: PaywallSource.chatAlertLimit,
-          clearPaywallReason: false,
+          paywall: const ChatPaywall(
+            PaywallReason.priceAlerts,
+            PaywallSource.chatAlertLimit,
+          ),
         );
       }
       final limit = e.limit ?? PlanMatrix.of(tier).priceAlertLimit;
@@ -1731,7 +1750,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   }
 
   void clearPaywall() {
-    state = state.copyWith(clearPaywallReason: true);
+    state = state.copyWith(clearPaywall: true);
   }
 
   void clearErrorAndRetry() {
