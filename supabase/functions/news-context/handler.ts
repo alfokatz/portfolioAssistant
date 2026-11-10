@@ -122,8 +122,12 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
       : `Start every bullet with the date of the event, like "- (${today}): ...".`,
     b.question
       ? "Answer the user's question in 1-5 bullets. If it asks for a date or a figure, give it exactly as the sources state it and say if it is not confirmed."
-      : `Write ${Math.min(8, 3 + 2 * b.tickers.length)} bullets at most about what happened in the LAST 7 DAYS and why it matters for an investor (including what moved the stock price, if reported), most important first.`,
-    "Only facts specifically about the company or topic asked (never about unrelated things with a similar name). Never use articles older than 7 days unless the question asks about an older fact.",
+      : `Write ${Math.min(8, 3 + 2 * b.tickers.length)} bullets at most about what happened in the LAST 7 DAYS and why it matters for an investor (including what moved the stock price, if reported).`,
+    // Una noticia de ayer (p. ej. un escándalo del CEO) quedaba afuera: con
+    // "lo más importante de la semana primero" y una sola búsqueda, ganaban
+    // los temas que ya llevaban días en los medios (NVDA, 2026-11-09).
+    `Freshness first: search at least twice — once for news from today and yesterday (${today} and the day before, e.g. "<company> news ${today}"), once for what moved the stock this week. Put anything from the last 48 hours that moved or could move the stock FIRST, even if fewer outlets covered it yet; then the rest of the week, newest first.`,
+    "Count as news about the company: its results, products, deals, lawsuits, investigations, regulation and export rules, analyst moves, AND its executives and founders (e.g. a CEO scandal, investigation, health issue or departure), which often move the stock. Never mix in unrelated things with a similar name. Never use articles older than 7 days unless the question asks about an older fact.",
     "For an ETF, report what moved its market or sector this week (e.g. the S&P 500 for an S&P 500 ETF), from articles about it.",
     "Every bullet must be backed by a cited news ARTICLE (never a quote, price-history or market-data page). Prefer original reporting from major outlets. Paraphrase; never copy article text.",
     "Never give buy/sell/hold recommendations or price targets of your own; you may report what analysts said, attributed.",
@@ -131,10 +135,10 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
   ].join("\n");
   const subject = subjectOf(b);
   const input = b.question
-    ? `${b.question}\n(About: ${subject})`
+    ? `${b.question}\n(About: ${subject}. Today is ${today}: prefer the latest reports.)`
     : b.lang === "en"
-    ? `What happened with ${subject} in the last 7 days, and why does it matter?`
-    : `¿Qué pasó con ${subject} en los últimos 7 días y por qué importa?`;
+    ? `What happened with ${subject} today, yesterday and in the last 7 days (today is ${today}), and why does it matter?`
+    : `¿Qué pasó con ${subject} hoy, ayer y en los últimos 7 días (hoy es ${today}) y por qué importa?`;
   return { instructions, input };
 }
 
@@ -285,7 +289,9 @@ async function search(
         input,
         tools: [{
           type: "web_search",
-          search_context_size: "low",
+          // "low" traía pocas notas y casi todas viejas o de Bloomberg; "medium"
+          // suma resultados (más tokens de entrada, mismo costo por búsqueda).
+          search_context_size: "medium",
           ...(ctx.allow.size > 0 ? { filters: { allowed_domains: [...ctx.allow.keys()].slice(0, 100) } } : {}),
           ...(b.lang === "es" ? { user_location: { type: "approximate", country: "AR" } } : {}),
         }],
