@@ -153,7 +153,11 @@ PortfolioDiagnosis _diagnosis(String scenario) {
   );
 }
 
-Widget _app(Brightness brightness, PortfolioDiagnosis diagnosis) {
+Widget _app(
+  Brightness brightness,
+  PortfolioDiagnosis diagnosis, {
+  Duration delay = Duration.zero,
+}) {
   final container = ProviderContainer();
   final theme = container.read(
     brightness == Brightness.light
@@ -163,7 +167,10 @@ Widget _app(Brightness brightness, PortfolioDiagnosis diagnosis) {
   container.dispose();
   return ProviderScope(
     overrides: [
-      portfolioDiagnosisProvider.overrideWith((ref) async => diagnosis),
+      portfolioDiagnosisProvider.overrideWith((ref) async {
+        if (delay > Duration.zero) await Future<void>.delayed(delay);
+        return diagnosis;
+      }),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -244,4 +251,88 @@ void main() {
       }
     }
   }
+
+  // Clip para la landing (RUN_CLIP=1): la animación real de la pantalla,
+  // cuadro por cuadro a 30 fps. Primero "Estoy mirando tu cartera…", después
+  // entran los hallazgos (FadeSlideIn) y al final baja suave hasta el botón.
+  // Los cuadros quedan en $_out/clip_diagnosis/; los arma en video
+  // porty-web/scripts/clips/from_frames.sh.
+  testWidgets('clip_diagnosis', (tester) async {
+    const size = Size(402, 874);
+    const dpr = 2.0;
+    tester.view.physicalSize = size * dpr;
+    tester.view.devicePixelRatio = dpr;
+    tester.view.padding = const FakeViewPadding(
+      top: 47 * dpr,
+      bottom: 34 * dpr,
+    );
+    tester.view.viewPadding = const FakeViewPadding(
+      top: 47 * dpr,
+      bottom: 34 * dpr,
+    );
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    final dir = Directory('$_out/clip_diagnosis')..createSync(recursive: true);
+    for (final f in dir.listSync()) {
+      f.deleteSync();
+    }
+    final boundary = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: boundary,
+        child: _app(
+          Brightness.light,
+          _diagnosis('good'),
+          delay: const Duration(milliseconds: 1100),
+        ),
+      ),
+    );
+    // Las fuentes y las imágenes cargan fuera del reloj falso.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+
+    const frame = Duration(microseconds: 33333);
+    var n = 0;
+    Future<void> capture() async {
+      final render =
+          boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image =
+          (await tester.runAsync(() => render.toImage(pixelRatio: dpr)))!;
+      final bytes =
+          (await tester.runAsync(
+            () => image.toByteData(format: ui.ImageByteFormat.png),
+          ))!;
+      File(
+        '${dir.path}/frame_${(n++).toString().padLeft(4, '0')}.png',
+      ).writeAsBytesSync(bytes.buffer.asUint8List());
+    }
+
+    // 1) Cargando (1,1 s) y entrada de los hallazgos; 2) un momento quieto.
+    for (var i = 0; i < 30 * 3.0; i++) {
+      await tester.pump(frame);
+      await capture();
+    }
+    // 3) Si la pantalla no entra entera, baja hasta el botón (ease-in-out).
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+    final max = scroll.position.maxScrollExtent;
+    if (max > 0) {
+      const steps = 36;
+      for (var i = 1; i <= steps; i++) {
+        final t = i / steps;
+        final eased =
+            t < 0.5
+                ? 4 * t * t * t
+                : 1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
+        scroll.position.jumpTo(max * eased);
+        await tester.pump(frame);
+        await capture();
+      }
+    }
+    for (var i = 0; i < 30 * 0.6; i++) {
+      await tester.pump(frame);
+      await capture();
+    }
+  }, skip: Platform.environment['RUN_CLIP'] != '1');
 }
