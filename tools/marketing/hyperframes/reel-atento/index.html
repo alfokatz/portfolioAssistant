@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es" data-resolution="portrait">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<!--
+  Reel "Porty está atento" (9:16, 22 s, 60 fps) en formato de red social.
+  Hecho siguiendo las skills oficiales de HyperFrames (hyperframes,
+  hyperframes-cli, media-use). Raíz: monta 3 escenas, la letra chica de
+  compliance y los efectos de sonido. Todo el texto vive en la banda
+  168–1330 px (zona segura de 9:16).
+-->
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+@font-face{font-family:PJS;font-weight:500;src:url(assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+@font-face{font-family:PJS;font-weight:700;src:url(assets/fonts/PlusJakartaSans-Bold.ttf)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#FBFBFA}
+#root{position:relative;width:1080px;height:1920px;font-family:PJS;color:#2F3437;font-feature-settings:"tnum"}
+#bg{position:absolute;inset:0;background:#FBFBFA}
+.disc{position:absolute;left:60px;width:840px;top:1210px;font-size:28px;line-height:1.36;color:#5F5E5B;font-weight:500;z-index:30}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="22.2" data-width="1080" data-height="1920" data-fps="60">
+  <div id="bg"></div>
+
+  <div id="hook" data-composition-id="hook" data-composition-src="compositions/hook.html"
+       data-start="0" data-duration="5.6" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:4"></div>
+  <div id="phone" data-composition-id="phone" data-composition-src="compositions/phone.html"
+       data-start="5.6" data-duration="12.2" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920"></div>
+  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html"
+       data-start="17.6" data-duration="4.6" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920"></div>
+
+  <!-- Letra chica (compliance): en la imagen, ≥28 px, dentro de la banda segura. -->
+  <div id="d0" class="clip disc" data-start="0" data-duration="5.6" data-track-index="5"><span id="d0t">Imagen ilustrativa con datos de ejemplo. No es asesoramiento financiero.</span></div>
+  <div id="d1" class="clip disc" data-start="5.6" data-duration="11.9" data-track-index="6"><span id="d1t">Datos de ejemplo. Saber por qué se movió es de Premium. Porty usa IA y puede equivocarse. No es asesoramiento financiero.</span></div>
+  <div id="d2" class="clip disc" data-start="17.7" data-duration="4.5" data-track-index="7"><span id="d2t">No es asesoramiento financiero. Porty usa IA y puede equivocarse. Verificá la información importante.</span></div>
+
+  <!-- Efectos (Pixabay Content License, ver assets/sfx/CREDITS.md). Pico un cuadro después de su imagen. -->
+  <audio id="sfx-refresh" class="clip" src="assets/sfx/typing.mp3"       data-start="0"      data-track-index="10" data-volume="0.40"></audio>
+  <audio id="sfx-porty"   class="clip" src="assets/sfx/pop.mp3"          data-start="3.177"  data-track-index="11" data-volume="0.55"></audio>
+  <audio id="sfx-off"     class="clip" src="assets/sfx/click-soft.mp3"   data-start="4.744"  data-track-index="12" data-volume="0.90"></audio>
+  <audio id="sfx-notif"   class="clip" src="assets/sfx/notification.mp3" data-start="6.19"   data-track-index="13" data-volume="0.60"></audio>
+  <audio id="sfx-tap"     class="clip" src="assets/sfx/click-soft.mp3"   data-start="9.054"  data-track-index="14" data-volume="1.0"></audio>
+  <audio id="sfx-morph"   class="clip" src="assets/sfx/whoosh.mp3"       data-start="9.40"   data-track-index="15" data-volume="0.70"></audio>
+  <audio id="sfx-typing"  class="clip" src="assets/sfx/typing.mp3"       data-start="10.746" data-track-index="16" data-volume="0.45"></audio>
+  <audio id="sfx-card"    class="clip" src="assets/sfx/pop.mp3"          data-start="12.847" data-track-index="17" data-volume="0.45"></audio>
+  <audio id="sfx-exit"    class="clip" src="assets/sfx/whoosh.mp3"       data-start="17.455" data-track-index="18" data-volume="0.45"></audio>
+  <audio id="sfx-glass"   class="clip" src="assets/sfx/pop.mp3"          data-start="19.337" data-track-index="19" data-volume="0.70"></audio>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+tl.to("#d0t", {opacity:0, duration:.2, ease:"power2.in"}, 5.35)
+  .fromTo("#d1t", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, 5.6)
+  .to("#d1t", {opacity:0, duration:.2, ease:"power2.in"}, 17.25)
+  .fromTo("#d2t", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, 17.75);
+window.__timelines["main"] = tl;
+tl.seek(0);
+</script>
+</body>
+</html>
