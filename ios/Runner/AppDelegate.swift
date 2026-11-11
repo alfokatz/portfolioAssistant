@@ -26,5 +26,17 @@ import workmanager_apple
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // Push: firebase_messaging (15.x) hace toda su preparación de iOS al
+    // recibir UIApplicationDidFinishLaunchingNotification (pedir el token de
+    // APNs, ser delegado de UNUserNotificationCenter, recibir el token). Con
+    // UIScene el motor y los plugins se crean DESPUÉS de esa notificación, así
+    // que el plugin se la pierde: sin token de APNs no hay token de FCM y el
+    // dispositivo nunca se registra (outbox → skipped/no_devices). Se le
+    // reenvía acá, ya registrado. Es el único plugin que la escucha (ver
+    // ios/.symlinks/plugins). Sacar cuando el plugin soporte UIScene.
+    NotificationCenter.default.post(
+      name: UIApplication.didFinishLaunchingNotification,
+      object: UIApplication.shared
+    )
   }
 }
