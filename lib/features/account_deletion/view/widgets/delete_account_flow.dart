@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/legal/legal_links.dart';
+import 'package:portfolio_assistant/config/supabase/session_scope.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/account_deletion/domain/account_deletion.dart';
 import 'package:portfolio_assistant/features/account_deletion/providers/account_deletion_provider.dart';
@@ -68,18 +69,29 @@ abstract final class DeleteAccountFlow {
     final deleted = await notifier.delete();
     navigator.pop();
 
-    void backToLogin(void Function() toast) {
+    /// Cierra la sesión local y muestra [toast] en el login. Al cerrar
+    /// sesión SessionScope monta la app con un contenedor nuevo (el login
+    /// ya montado): el toast va a las alertas de ese contenedor. Si la
+    /// sesión no se cerró, el camino de antes con el contenedor actual.
+    Future<void> signOutToLogin(
+      void Function(AlertProvider alerts) toast,
+    ) async {
+      final cancel = SessionScope.runAfterRestart(
+        (fresh) => toast(fresh.read(alertProvider.notifier)),
+      );
+      await _signOutLocal(auth);
+      if (auth.currentUser == null) return;
+      cancel();
       router.go(AuthRouter.loginPath);
       // El toast lo dibuja la pantalla de login: esperar a que se monte.
-      WidgetsBinding.instance.addPostFrameCallback((_) => toast());
+      WidgetsBinding.instance.addPostFrameCallback((_) => toast(alerts));
       WidgetsBinding.instance.scheduleFrame();
     }
 
     if (deleted) {
       _clearLocalData(container, uid);
-      await _signOutLocal(auth);
-      backToLogin(
-        () => alerts.showSuccess(
+      await signOutToLogin(
+        (alerts) => alerts.showSuccess(
           message:
               usedApple
                   ? 'settings_delete_account_done_apple'.tr()
@@ -91,9 +103,8 @@ abstract final class DeleteAccountFlow {
 
     switch (container.read(accountDeletionProvider).failure) {
       case DeletionSessionExpired():
-        await _signOutLocal(auth);
-        backToLogin(
-          () => alerts.showError(
+        await signOutToLogin(
+          (alerts) => alerts.showError(
             message: 'settings_delete_account_session_expired'.tr(),
           ),
         );

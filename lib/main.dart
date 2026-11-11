@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/features/porty_outfit/domain/porty_outfit.da
 import 'package:portfolio_assistant/features/porty_outfit/providers/porty_outfit_provider.dart';
 import 'package:portfolio_assistant/config/navigation/app_router.dart';
 import 'package:portfolio_assistant/config/supabase/secure_auth_storage.dart';
+import 'package:portfolio_assistant/config/supabase/session_scope.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_initializer.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_gate.dart';
 import 'package:portfolio_assistant/features/app_update/app_update_required_screen.dart';
@@ -76,7 +77,6 @@ Future<Widget> _initialize() async {
   return _setupRiverpod(
     revenueCatService: revenueCatService,
     pushMessaging: pushMessaging,
-    easyLocalization: _setupEasyLocalization(app: const MyApp()),
     sharedPreferences: sharedPreferences,
     secureStorage: appSecureStorage,
     launchedWithSession: launchedWithSession,
@@ -96,20 +96,30 @@ Future<void> _setupEnviroment() async {
 Widget _setupRiverpod({
   required RevenueCatService revenueCatService,
   required PushMessaging pushMessaging,
-  required Widget easyLocalization,
   required SharedPreferences sharedPreferences,
   required FlutterSecureStorage secureStorage,
   required bool launchedWithSession,
 }) {
-  return ProviderScope(
-    overrides: [
-      revenueCatServiceProvider.overrideWithValue(revenueCatService),
-      pushMessagingProvider.overrideWithValue(pushMessaging),
-      sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-      secureStorageProvider.overrideWithValue(secureStorage),
-      widgetLaunchedWithSessionProvider.overrideWithValue(launchedWithSession),
-    ],
-    child: easyLocalization,
+  final auth = Supabase.instance.client.auth;
+  // Seguridad: cada cambio de usuario descarta todo el estado de Riverpod
+  // (y las cachés en disco del que se fue): otra cuenta nunca ve nada de la
+  // anterior, ni por un instante. Ver SessionScope.
+  return _setupEasyLocalization(
+    app: SessionScope(
+      initialUserId: auth.currentUser?.id,
+      userIds: auth.onAuthStateChange.map((event) => event.session?.user.id),
+      prefs: sharedPreferences,
+      overrides: [
+        revenueCatServiceProvider.overrideWithValue(revenueCatService),
+        pushMessagingProvider.overrideWithValue(pushMessaging),
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+        secureStorageProvider.overrideWithValue(secureStorage),
+        widgetLaunchedWithSessionProvider.overrideWithValue(
+          launchedWithSession,
+        ),
+      ],
+      child: const MyApp(),
+    ),
   );
 }
 
