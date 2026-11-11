@@ -77,3 +77,8 @@ app.*.map.json
 # Secrets de edge functions (nunca al repo)
 supabase/functions/.env*
 !supabase/functions/.env.example
+
+# Piezas publicitarias generadas con Sunra (scripts/ads)
+out/
+scripts/ads/node_modules/
+ads-out/
