@@ -1,0 +1,11 @@
+{
+  "name": "porty-piloto-atento",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.9.33 preview",
+    "check": "npx --yes hyperframes@0.9.33 check",
+    "render": "npx --yes hyperframes@0.9.33 render -o ../../../../docs/marketing/ads/piezas/2026-11-11/piloto_porty_atento.mp4",
+    "publish": "npx --yes hyperframes@0.9.33 publish"
+  }
+}

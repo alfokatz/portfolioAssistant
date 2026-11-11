@@ -146,6 +146,7 @@ Requisitos de las APIs (por eso el nivel 3 no es para ya):
 | La notificación de Porty en pantalla ("Tu cartera bajó 3,2 % hoy. Te cuento por qué") | Plantilla HTML renderizada con los mismos scripts | US$0 |
 | Placas y carruseles | Canva (conectado) o `render_social.mjs` | US$0 |
 | Edición, subtítulos, música comercial | CapCut (gratis) | US$0 |
+| **Ads completos de motion design** (notificación + pantallas + Porty + disclaimers) | **HyperFrames** (HeyGen, open source): HTML → MP4. Piloto en `tools/marketing/hyperframes/piloto-atento/`, render de 19 s en ~20 s dentro de este entorno. Reemplaza de a poco a los scripts `render_*.mjs` | US$0 |
 | **Planos "de vida real"**: alguien en el colectivo, en la cocina o en el sillón que recibe el aviso y sigue con su día | **Video con IA** (ya se hicieron L1–L5 así con Sunra) | Lo único que cuesta |
 
 Para el mensaje "Porty está atento", la fórmula de ad que proponemos es: **plano de vida real con IA (3–4 s) → la notificación de Porty (render propio) → pantalla real con la explicación → Porty con un accesorio + "Vos seguí con tu día."** Solo el primer plano necesita IA: con 4–6 planos por mes alcanza para variar las piezas.
