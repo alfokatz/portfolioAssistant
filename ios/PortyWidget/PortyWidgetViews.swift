@@ -10,6 +10,7 @@
 //  período y %, más un texto propio que invita a abrir Porty.
 //
 
+import AppIntents
 import WidgetKit
 import SwiftUI
 import UIKit
