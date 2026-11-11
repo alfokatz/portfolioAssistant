@@ -4,238 +4,55 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=1080, height=1920" />
 <!--
-  Ad piloto "Porty está atento" (9:16, 19 s, 60 fps). Todo es motion design:
-  no hay IA generativa. Pantallas dibujadas con el diseño de la app
-  (DESIGN.md), sin tickers y con números moderados (regla de compliance). El
-  título de la notificación es el que manda notify-dispatch (portfolio_move).
-
-  Fluidez: hay UN solo teléfono que entra, flota todo el tiempo y sale; las
-  pantallas se deslizan adentro. Una cámara con zoom lento y continuo hace
-  que ningún cuadro quede idéntico al anterior. Entradas y salidas usan
-  curvas inOut (sin frenadas en seco) y se superponen entre sí.
+  Ad piloto "Porty está atento" v3 (9:16, 19 s, 60 fps), hecho siguiendo las
+  skills oficiales de HyperFrames (hyperframes, hyperframes-cli, media-use).
+  Raíz: monta 3 escenas, los textos fijos de compliance y los efectos de
+  sonido. Todo el texto vive en la banda 168–1330 px (zona segura de 9:16).
 -->
-<script src="vendor/gsap.min.js"></script>
+<script src="assets/vendor/gsap.min.js"></script>
 <style>
-@font-face{font-family:PJS;font-weight:500;src:url(fonts/PlusJakartaSans-Medium.ttf)}
-@font-face{font-family:PJS;font-weight:600;src:url(fonts/PlusJakartaSans-SemiBold.ttf)}
-@font-face{font-family:PJS;font-weight:700;src:url(fonts/PlusJakartaSans-Bold.ttf)}
-:root{
-  --canvas:#FBFBFA; --card:#FFFFFF; --ink:#2F3437; --muted:#787774; --line:#ECEBE8;
-  --terra:#D98E5D; --terra-soft:#F8EDE5; --night:#171614;
-}
+@font-face{font-family:PJS;font-weight:500;src:url(assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+@font-face{font-family:PJS;font-weight:700;src:url(assets/fonts/PlusJakartaSans-Bold.ttf)}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:1080px;height:1920px;overflow:hidden;background:var(--canvas)}
-#root{position:relative;width:1080px;height:1920px;font-family:PJS;color:var(--ink);background:var(--canvas);
-  font-feature-settings:"tnum";overflow:hidden}
-.abs{position:absolute}
-#cam{position:absolute;inset:0;transform-origin:50% 42%;will-change:transform}
-
-#demo{left:60px;top:150px;font-size:30px;font-weight:600;color:var(--muted);background:#F1F0EE;border-radius:999px;padding:12px 26px;z-index:20}
-
-.headline{left:80px;width:880px;font-weight:700;font-size:64px;line-height:1.1;letter-spacing:-1.6px;opacity:0;will-change:transform,opacity}
-.headline em{font-style:normal;color:var(--terra)}
-#h1{top:430px;font-size:78px;letter-spacing:-2px}
-.top{top:270px}
-
-.porty svg{width:100%;height:100%;overflow:visible}
-
-/* Teléfono único */
-#phoneWrap{left:150px;top:500px;width:780px;height:900px;will-change:transform}
-#phone{width:100%;height:100%;border-radius:72px 72px 0 0;background:var(--night);padding:22px 22px 0;
-  box-shadow:0 40px 90px rgba(30,20,12,.18);will-change:transform}
-.screen{position:relative;width:100%;height:100%;border-radius:52px 52px 0 0;overflow:hidden;background:var(--canvas)}
-.pane{position:absolute;inset:0;will-change:transform}
-#lock{background:linear-gradient(180deg,#2B2622 0%,#3A302A 100%)}
-.clock{position:absolute;left:0;right:0;top:110px;text-align:center;color:#F4EFE9;font-weight:600;font-size:150px;letter-spacing:-4px}
-.date{position:absolute;left:0;right:0;top:90px;text-align:center;color:rgba(244,239,233,.75);font-weight:500;font-size:32px}
-.notif{position:absolute;left:28px;right:28px;top:380px;background:rgba(251,251,250,.94);border-radius:40px;padding:30px 32px;
-  display:flex;gap:24px;align-items:flex-start;will-change:transform,opacity}
-.notif .ic{width:76px;height:76px;flex:none;border-radius:20px;background:var(--terra-soft);display:flex;align-items:center;justify-content:center}
-.notif .ic svg{width:60px;height:60px}
-.notif .meta{display:flex;justify-content:space-between;font-size:26px;color:var(--muted);font-weight:500;margin-bottom:6px}
-.notif .t{font-size:36px;font-weight:700;letter-spacing:-.5px}
-.notif .b{font-size:30px;font-weight:500;color:#55595C;margin-top:4px}
-
-.bubble{position:absolute;font-size:34px;line-height:1.32;border-radius:36px;padding:26px 32px;font-weight:500;will-change:transform,opacity}
-#q3{right:30px;top:90px;background:var(--ink);color:#fff;font-weight:600}
-#a3{left:30px;top:230px;width:640px;background:var(--card);border:2px solid var(--line)}
-#a3 b{font-weight:700}
-#a3 .w{display:inline-block;will-change:opacity,transform}
-#a3 .more{margin-top:14px;font-size:27px;color:var(--muted)}
-#dots{left:30px;top:230px;background:var(--card);border:2px solid var(--line);display:flex;gap:12px;padding:30px 34px}
-#dots span{width:18px;height:18px;border-radius:50%;background:#B9B6B1;display:block}
-
-.card{position:absolute;left:30px;right:30px;top:70px;background:var(--card);border:2px solid var(--line);border-radius:36px;padding:34px}
-.card h3{font-size:34px;font-weight:700;letter-spacing:-.5px}
-.card .k{font-size:27px;color:var(--muted);font-weight:500;margin-top:4px}
-.bar{display:flex;gap:6px;height:30px;margin:30px 0 26px}
-.bar span{display:block;height:100%;border-radius:8px;transform-origin:left center}
-.legend{display:grid;grid-template-columns:1fr 1fr;row-gap:16px;font-size:29px;font-weight:500}
-.legend i{display:inline-block;width:18px;height:18px;border-radius:50%;margin-right:12px;vertical-align:1px}
-.legend .p{color:var(--muted)}
-.flag{margin-top:28px;display:inline-block;background:var(--terra-soft);color:#9A5A32;font-weight:600;font-size:28px;border-radius:999px;padding:12px 24px}
-
-#closeA,#closeB{left:80px;width:920px;text-align:center;font-size:78px;letter-spacing:-2px}
-#closeA{top:520px}
-#closeB{top:640px;color:var(--terra)}
-.word{left:0;right:0;text-align:center;top:1210px;font-weight:700;font-size:64px;letter-spacing:-1.5px;opacity:0}
-.cta{left:0;right:0;text-align:center;top:1300px;font-weight:600;font-size:38px;opacity:0}
-.cta small{display:block;font-size:30px;color:var(--muted);font-weight:500;margin-top:10px}
-
-.disc{left:60px;width:860px;font-size:28px;line-height:1.35;color:#5F5E5B;font-weight:500;z-index:20;opacity:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#FBFBFA}
+#root{position:relative;width:1080px;height:1920px;font-family:PJS;color:#2F3437;font-feature-settings:"tnum"}
+#bg{position:absolute;inset:0;background:#FBFBFA}
+#demo{position:absolute;left:60px;top:190px;font-size:30px;font-weight:600;color:#6B6A67;background:#F1F0EE;border-radius:999px;padding:10px 24px;z-index:30}
+.disc{position:absolute;left:60px;width:840px;top:1196px;font-size:28px;line-height:1.36;color:#5F5E5B;font-weight:500;z-index:30}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="19" data-width="1080" data-height="1920" data-fps="60">
- <div id="cam">
+<div id="root" data-composition-id="main" data-start="0" data-duration="19.5" data-width="1080" data-height="1920" data-fps="60">
+  <div id="bg"></div>
 
-  <div id="h1" class="abs headline">No hace falta mirar el mercado <em>todo el día.</em></div>
-  <div id="h2" class="abs headline top">Si tu cartera se mueve fuerte, <em>Porty te avisa.</em></div>
-  <div id="h3" class="abs headline top">Y te explica qué pasó, <em>en simple.</em></div>
-  <div id="h4" class="abs headline top">Y te muestra cómo está <em>repartida tu plata.</em></div>
+  <div id="intro" data-composition-id="intro" data-composition-src="compositions/intro.html"
+       data-start="0" data-duration="3.45" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:4"></div>
+  <div id="phone" data-composition-id="phone" data-composition-src="compositions/phone.html"
+       data-start="2.7" data-duration="12.2" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920"></div>
+  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html"
+       data-start="14.7" data-duration="4.8" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920"></div>
 
-  <div id="p1" class="abs porty" style="left:780px;top:1150px;width:200px;height:200px;opacity:0">
-    <svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
-      <g class="eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
-      <path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg>
-  </div>
+  <!-- Compliance: "Cuenta demo" desde el cuadro 0 y disclaimers en la imagen (≥28 px, dentro de la banda segura) -->
+  <div id="demo" class="clip" data-start="0" data-duration="19.5" data-track-index="5">Cuenta demo</div>
+  <div id="d1" class="clip disc" data-start="3.2" data-duration="11.05" data-track-index="6"><span id="d1t">La explicación de por qué se movió es de Premium. Porty usa IA y puede equivocarse. No es asesoramiento financiero.</span></div>
+  <div id="d2" class="clip disc" data-start="14.8" data-duration="4.7" data-track-index="7"><span id="d2t">Cuenta demo. No es asesoramiento financiero. Porty usa IA y puede equivocarse. Verificá la información importante.</span></div>
 
-  <!-- Un solo teléfono para las escenas 2 a 4 -->
-  <div id="phoneWrap" class="abs"><div id="phone"><div class="screen">
-
-    <div id="lock" class="pane">
-      <div class="date">martes 10 de diciembre</div>
-      <div class="clock">10:42</div>
-      <div id="n1" class="notif" style="opacity:0">
-        <div class="ic"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg></div>
-        <div style="flex:1;min-width:0">
-          <div class="meta"><span>PORTY</span><span>ahora</span></div>
-          <div class="t">Tu cartera baja 1.8% hoy</div>
-          <div class="b">Lo que más pesa: …</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="chat" class="pane">
-      <div id="q3" class="bubble" style="opacity:0">¿Por qué bajó hoy?</div>
-      <div id="dots" class="bubble" style="opacity:0"><span></span><span></span><span></span></div>
-      <div id="a3" class="bubble" style="opacity:0"><span class="w">Bajó</span> <span class="w">sobre</span> <span class="w">todo</span> <b class="w">la parte</b> <b class="w">de tecnología,</b> <span class="w">que</span> <span class="w">es</span> <span class="w">casi</span> <span class="w">la</span> <span class="w">mitad</span> <span class="w">de</span> <span class="w">tu</span> <span class="w">cartera.</span> <span class="w">El</span> <span class="w">resto</span> <span class="w">se</span> <span class="w">movió</span> <span class="w">poco.</span>
-        <div class="more w">¿Querés que te cuente qué pasó con cada una?</div></div>
-    </div>
-
-    <div id="comp" class="pane">
-      <div id="c4" class="card">
-        <h3>Cómo está repartida</h3>
-        <div class="k">Por tipo y sector</div>
-        <div class="bar">
-          <span style="width:46%;background:var(--terra)"></span><span style="width:30%;background:var(--ink)"></span>
-          <span style="width:15%;background:#7C9F7E"></span><span style="width:9%;background:#C9B79C"></span>
-        </div>
-        <div class="legend">
-          <div class="lg"><i style="background:var(--terra)"></i>Tecnología <span class="p" data-to="46">0%</span></div>
-          <div class="lg"><i style="background:var(--ink)"></i>ETFs amplios <span class="p" data-to="30">0%</span></div>
-          <div class="lg"><i style="background:#7C9F7E"></i>Bonos <span class="p" data-to="15">0%</span></div>
-          <div class="lg"><i style="background:#C9B79C"></i>Otros <span class="p" data-to="9">0%</span></div>
-        </div>
-        <div id="f4" class="flag" style="opacity:0">Una sola posición pesa más del 30%</div>
-      </div>
-    </div>
-
-  </div></div></div>
-
-  <!-- Cierre -->
-  <div id="closeA" class="abs headline">Vos seguí con tu día.</div>
-  <div id="closeB" class="abs headline">Porty está atento.</div>
-  <div id="p5" class="abs porty" style="left:430px;top:860px;width:220px;height:220px;opacity:0">
-    <svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
-      <g id="glasses" style="opacity:0"><rect x="21" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/><rect x="35" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/>
-        <path d="M33.5 29H35" stroke="#2F3437" stroke-width="2.2"/><path d="M21.5 28L15 26.5M47 28L53 26.5" stroke="#2F3437" stroke-width="2" stroke-linecap="round"/></g>
-      <path d="M29.6 41Q33.6 44.5 38.6 40" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg>
-  </div>
-  <div id="w5" class="abs word">Porty</div>
-  <div id="cta5" class="abs cta">Descargala gratis.<small>Algunas funciones son de planes pagos.</small></div>
- </div>
-
- <!-- Fuera de la cámara: fijos, sin zoom -->
- <div id="demo" class="abs">Cuenta demo</div>
- <div id="d1" class="abs disc" style="top:1430px">La explicación de por qué se movió es de Premium. Porty usa IA y puede equivocarse. Cuenta demo. No es asesoramiento financiero.</div>
- <div id="d2" class="abs disc" style="top:1500px">Cuenta demo. No es asesoramiento financiero. Porty usa IA y puede equivocarse. Verificá la información importante.</div>
+  <!-- Efectos (Pixabay Content License, ver assets/sfx/CREDITS.md). Pico del sonido un cuadro después de su imagen. -->
+  <audio id="sfx-notif"  class="clip" src="assets/sfx/notification.mp3" data-start="3.29"  data-track-index="10" data-volume="0.60"></audio>
+  <audio id="sfx-tap"    class="clip" src="assets/sfx/click-soft.mp3"   data-start="6.154"  data-track-index="11" data-volume="1.0"></audio>
+  <audio id="sfx-morph"  class="clip" src="assets/sfx/whoosh.mp3"       data-start="6.50"  data-track-index="12" data-volume="0.70"></audio>
+  <audio id="sfx-typing" class="clip" src="assets/sfx/typing.mp3"       data-start="7.846"  data-track-index="13" data-volume="0.45"></audio>
+  <audio id="sfx-card"   class="clip" src="assets/sfx/pop.mp3"          data-start="9.947" data-track-index="14" data-volume="0.45"></audio>
+  <audio id="sfx-exit"   class="clip" src="assets/sfx/whoosh.mp3"       data-start="14.555" data-track-index="15" data-volume="0.45"></audio>
+  <audio id="sfx-glass"  class="clip" src="assets/sfx/pop.mp3"          data-start="16.437" data-track-index="16" data-volume="0.70"></audio>
 </div>
-
 <script>
 const tl = gsap.timeline({ paused: true });
-const IO = "power2.inOut", OUT = "power2.out", S = "sine.inOut";
-const headIn = (sel, t) => tl.fromTo(sel, {y:46, opacity:0}, {y:0, opacity:1, duration:.7, ease:OUT}, t);
-const headOut = (sel, t) => tl.to(sel, {y:-36, opacity:0, duration:.4, ease:"power2.in"}, t);
-
-// Cámara: zoom lento y continuo durante todo el video (ningún cuadro queda igual).
-tl.fromTo("#cam", {scale:1}, {scale:1.045, duration:19, ease:"none"}, 0);
-
-// 1 · Gancho
-headIn("#h1", .1);
-tl.fromTo("#p1", {y:160, scale:.4, opacity:0}, {y:0, scale:1, opacity:1, duration:.9, ease:"back.out(1.6)"}, .8)
-  .to("#p1", {y:-14, duration:.7, ease:S, yoyo:true, repeat:3}, 1.7)
-  .to("#p1 .eyes", {scaleY:.1, duration:.08, yoyo:true, repeat:1, ease:S}, 2.2);
-headOut("#h1", 2.85);
-tl.to("#p1", {y:-60, opacity:0, duration:.5, ease:"power2.in"}, 2.85);
-
-// Teléfono: entra, flota todo el tiempo, sale.
-gsap.set("#phoneWrap", {y:1500});
-tl.to("#phoneWrap", {y:0, duration:1.0, ease:"power3.out"}, 3.0)
-  .fromTo("#phone", {y:0, rotation:-.6}, {y:-16, rotation:.6, duration:1.55, ease:S, yoyo:true, repeat:7}, 3.0)
-  .to("#phoneWrap", {y:1500, duration:.8, ease:"power3.in"}, 15.0);
-
-// 2 · Notificación
-headIn("#h2", 3.3);
-tl.fromTo("#n1", {y:-170, opacity:0, scale:.94}, {y:0, opacity:1, scale:1, duration:.7, ease:"back.out(1.3)"}, 4.3)
-  .to("#n1", {scale:1.025, duration:.35, yoyo:true, repeat:1, ease:S}, 5.2)
-  .to("#n1", {y:-8, duration:.9, ease:S, yoyo:true, repeat:1}, 6.0);
-headOut("#h2", 7.55);
-
-// Pantallas: deslizan (push) en vez de cortar.
-gsap.set("#chat", {xPercent:100}); gsap.set("#comp", {xPercent:100});
-tl.to("#lock", {xPercent:-100, duration:.7, ease:IO}, 7.6)
-  .to("#chat", {xPercent:0, duration:.7, ease:IO}, 7.6);
-
-// 3 · Explicación (escribiendo… y la respuesta palabra por palabra)
-headIn("#h3", 8.0);
-tl.fromTo("#q3", {y:30, opacity:0}, {y:0, opacity:1, duration:.5, ease:OUT}, 8.25)
-  .fromTo("#dots", {y:20, opacity:0}, {y:0, opacity:1, duration:.35, ease:OUT}, 8.75)
-  .to("#dots span", {y:-10, duration:.22, ease:S, yoyo:true, repeat:3, stagger:.12}, 8.85)
-  .to("#dots", {opacity:0, duration:.25, ease:S}, 9.7)
-  .set("#a3", {opacity:1}, 9.8)
-  .fromTo("#a3", {y:30}, {y:0, duration:.6, ease:OUT}, 9.8)
-  .fromTo("#a3 .w", {opacity:0, y:10}, {opacity:1, y:0, duration:.35, ease:OUT, stagger:.075}, 9.8);
-headOut("#h3", 12.05);
-
-tl.to("#chat", {xPercent:-100, duration:.7, ease:IO}, 12.1)
-  .to("#comp", {xPercent:0, duration:.7, ease:IO}, 12.1);
-
-// 4 · Composición (barras que crecen y porcentajes que cuentan)
-headIn("#h4", 12.5);
-tl.fromTo("#c4 .bar span", {scaleX:0}, {scaleX:1, duration:.8, stagger:.14, ease:IO}, 12.75);
-document.querySelectorAll("#c4 .p").forEach((el, i) => {
-  const o = {v:0}, to = +el.dataset.to;
-  tl.to(o, {v:to, duration:.8, ease:IO, onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 12.75 + i * .14);
-});
-tl.fromTo("#f4", {opacity:0, y:16}, {opacity:1, y:0, duration:.5, ease:OUT}, 13.9)
-  .to("#f4", {scale:1.03, duration:.4, ease:S, yoyo:true, repeat:1}, 14.4);
-headOut("#h4", 14.95);
-
-// 5 · Cierre
-headIn("#closeA", 15.45);
-headIn("#closeB", 15.85);
-tl.fromTo("#p5", {y:160, scale:.4, opacity:0}, {y:0, scale:1, opacity:1, duration:.9, ease:"back.out(1.6)"}, 15.95)
-  .to("#p5", {y:-14, duration:.75, ease:S, yoyo:true, repeat:3}, 16.85)
-  .fromTo("#glasses", {y:-30, opacity:0}, {y:0, opacity:1, duration:.5, ease:"back.out(2)"}, 16.7)
-  .fromTo("#w5", {opacity:0, y:24}, {opacity:1, y:0, duration:.6, ease:OUT}, 16.9)
-  .fromTo("#cta5", {opacity:0, y:24}, {opacity:1, y:0, duration:.6, ease:OUT}, 17.1);
-
-// Disclaimers (texto fijo en la imagen)
-tl.to("#d1", {opacity:1, duration:.4, ease:S}, 3.3).to("#d1", {opacity:0, duration:.4, ease:S}, 15.0)
-  .to("#d2", {opacity:1, duration:.4, ease:S}, 15.5);
-
-tl.to({}, {duration:.01}, 18.99);
+// Los textos fijos solo aparecen y se van con un fundido corto (animamos el hijo, no el .clip).
+tl.fromTo("#d1t", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, 3.2)
+  .to("#d1t", {opacity:0, duration:.2, ease:"power2.in"}, 14.05)
+  .fromTo("#d2t", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, 14.85);
 window.__timelines["main"] = tl;
 tl.seek(0);
 </script>
