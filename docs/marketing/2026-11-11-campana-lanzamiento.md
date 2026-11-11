@@ -10,10 +10,10 @@ Herramientas de ads, gestión y automatización: `docs/marketing/ads/2026-11-11-
 
 ## 1. Resumen en 6 líneas
 
-1. **El concepto:** *"Abrí. Entendé. Seguí con tu día."* Porty es la app para el que invierte sin vivir pegado al mercado: junta su cartera en un solo lugar y se la explica en palabras simples.
-2. **No vendemos "IA".** El chat sobre la cartera ya lo regala IOL (MCP con ChatGPT/Claude). Vendemos lo que un chat genérico no da: **varias cuentas en un solo lugar, el diagnóstico de tu cartera, el informe del sábado y metas**, con un tono calmo.
+1. **El concepto:** *"Vos seguí con tu día. Porty está atento."* Porty es la app para el que invierte sin vivir pegado al mercado: junta su cartera en un solo lugar, la mira por él, **le avisa cuando algo se mueve** y se lo explica en palabras simples. El remate de cada pieza: *"Abrí. Entendé. Seguí con tu día."*
+2. **No vendemos "IA".** El chat sobre la cartera ya lo regala IOL (MCP con ChatGPT/Claude). Vendemos lo que un chat genérico no da: **un asistente que está atento y te avisa**, varias cuentas en un solo lugar, cómo está compuesta tu cartera, el informe del sábado y un Porty que podés hacer tuyo (accesorios y memoria), con un tono calmo.
 3. **Lanzamiento en dos tiempos:** *soft launch* con iOS + beta cerrada de Android (que de paso cumple la prueba de 14 días que exige Google), y **lanzamiento grande cuando Android esté público**, porque la mayoría del público objetivo en Argentina y Uruguay usa Android.
-4. **Orgánico primero, pago después.** 2–4 semanas de orgánico, comunidad y PR para aprender qué mensaje funciona; recién ahí un test pago chico (US$300–600) con objetivo de CAC claro.
+4. **Orgánico primero, pago después.** 2–4 semanas de orgánico, comunidad y PR para aprender qué mensaje funciona; la pauta es de **US$100 por mes**: se usa para empujar los videos que ya funcionaron gratis y para Apple Ads, no para comprar crecimiento (§8).
 5. **La métrica que manda no son las descargas:** es **% de altas que llegan al diagnóstico en 48 h** (activación) y **% que paga en 14 días**. Una descarga que no carga su cartera no vale nada.
 6. **Ventana de calendario a favor:** el aguinaldo (segunda quincena de diciembre) y "los propósitos de enero" son los dos momentos del año en que más gente piensa en su plata.
 
@@ -45,7 +45,7 @@ Llegar a la **primera base de usuarios que pagan** y a un mensaje validado que s
 | 0 · Pre-lanzamiento | Construir demanda | Inscriptos en la waitlist | 1.000 |
 | 0 · Pre-lanzamiento | Validar producto con gente real | Testers activos de la beta (cargaron cartera) | 30 |
 | 1 · Lanzamiento (L a L+7) | Convertir la lista | % de la waitlist que instala en la semana L | 25 % |
-| 2 · Tracción (L+1 a L+6 sem.) | Instalaciones de calidad | Instalaciones totales | 2.000 |
+| 2 · Tracción (L+1 a L+6 sem.) | Instalaciones de calidad | Instalaciones totales (orgánico + US$100/mes de pauta) | 800–1.000 |
 | 2 · Tracción | **Activación (métrica que manda)** | % de altas con `diagnosis_seen` en 48 h | ≥ 40 % |
 | 2 · Tracción | Hábito | % de activados que abre el informe del sábado en W2 | ≥ 25 % |
 | 2 · Tracción | Monetización | % de altas que pagan en 14 días | 2–3 % |
@@ -85,8 +85,46 @@ Para el inversor casual que tiene su plata repartida y no quiere vivir mirando e
 **"Tu cartera, en un solo lugar y en palabras simples."**
 
 ### Concepto creativo de la campaña
-**"Abrí. Entendé. Seguí con tu día."** [a revisar]
-Es la antítesis del casino financiero: Porty no te quiere 3 horas en la app, te quiere tranquilo en 30 segundos. Funciona como remate de cada video, como línea de la landing y como marco para el humor calmo ("abrir la app 14 veces por día" vs "una vez por semana").
+**"Vos seguí con tu día. Porty está atento."** [a revisar], con el remate **"Abrí. Entendé. Seguí con tu día."** [a revisar]
+Es la antítesis del casino financiero: Porty no te quiere 3 horas en la app. Mira tu cartera por vos, te avisa si pasa algo y te lo explica en 30 segundos. Funciona como línea de los ads, de la landing y como marco para el humor calmo ("abrir la app 14 veces por día" vs "que Porty te avise").
+
+### Mensaje principal de los ads: "Porty está atento y te avisa"
+
+Lo que Porty hace de verdad (verificado en el código, `lib/features/notifications/`, `daily-jobs`, `plan_matrix.dart`):
+
+| Qué hace | Plan | Cómo decirlo en un ad [a revisar] |
+|---|---|---|
+| Avisa cuando tu cartera o algo que tenés se mueve fuerte (sensibilidad baja/normal/alta, horario silencioso) | Todos | "Si tu cartera se mueve fuerte, Porty te avisa." |
+| Alertas de precio | 1 en Free, 20 Premium, 50 Gold | "Elegí un precio y Porty te avisa cuando llega." |
+| Resumen de la mañana con lo tuyo | Todos (con 2+ acciones) | "A la mañana, lo que pasó con lo tuyo, en dos líneas." |
+| Por qué se movió lo tuyo, con links a las notas | Premium | "Y te cuenta por qué se movió." + línea D |
+| Resultados trimestrales de tus empresas | Gold | "Te avisa cuando tus empresas presentan resultados." + línea D |
+| Informe del sábado | Completo en Gold | "Los sábados, el resumen de tu semana." + línea D |
+| Cómo está compuesta tu cartera (diagnóstico: concentración, solapamientos, sectores) | Free | "Mirá de un vistazo cómo está repartida tu plata." / "Te marca si una posición pesa demasiado." |
+| Si le preguntás, ideas para diversificar con simulación educativa | Premium | Ver cuidado legal abajo |
+
+Fórmulas para ads (todas pasan por compliance):
+- "No hace falta mirar el mercado todo el día. Porty está atento."
+- "Tu cartera se movió. Porty ya te avisó, y te explica qué pasó."
+- "¿Cómo viene tu cartera? Preguntale a Porty."
+- "Preguntale cómo diversificar y te muestra opciones para que investigues vos." [a revisar, ver abajo]
+
+**Palabras prohibidas en ads:** "recomendaciones", "te recomienda", "te dice qué comprar", "oportunidades", "invertí en", "te dice si estás bien" (en su lugar: "te cuenta cómo viene tu cartera"), "sugerencias de inversión" (en su lugar: "ideas para explorar" o "opciones para que investigues").
+
+**Cuidado legal con la diversificación.** Es la función con más riesgo: cuando le preguntás, Porty muestra tickers concretos con un porcentaje de reparto. Una tarjeta con "comprá X e Y" en un anuncio se lee como asesoramiento, y en `plan_matrix.dart` el equipo ya había decidido no destacarla en el marketing. Propuesta: el ad muestra solo **la pregunta** ("¿Cómo podría diversificar?") y la parte de **composición** (cómo está repartida tu plata), **nunca la tarjeta con los candidatos**. Incluir la frase de diversificación queda sujeto a lo que diga el abogado (bloqueante B15 del release).
+
+**Dependencia técnica:** los avisos necesitan el push funcionando (Firebase y APNs, bloqueante B4 del release). Si el día L el push no anda, **los ads no pueden decir "te avisa"**: se usa el mensaje de composición y explicación hasta que funcione.
+
+### Segundo mensaje: "Hacelo tuyo" (personalizar a Porty)
+
+| Qué | Detalle | Plan |
+|---|---|---|
+| Vestí a Porty | 12 accesorios, uno por lugar (cabeza, cara, cuello): gorro, galera, sombrero de cowboy, gorra, corona, moño, flor, gorrito de fiesta, anteojos, anteojos de sol, moño de cuello | Todos |
+| Porty te recuerda | Anota lo que le contás (tus metas, cuánto ahorrás) y responde con eso; lo ves y lo borrás en Ajustes | Todos |
+| Avisos a tu medida | Qué te avisa, con qué sensibilidad y en qué horario | Todos |
+
+Por qué sirve: casi no tiene riesgo legal, es divertido, es compartible y separa a Porty de la fintech fría. Ideas: TikTok "¿Qué le ponemos a Porty?" (encuesta en stories y que gane un accesorio), Porty con gorrito de fiesta para Año Nuevo, "tu Porty y el mío" como formato de creadores. Límite de marca (`PRODUCT.md`: sin gamificación): es un guiño de personalidad, no el centro de la campaña. Proporción sugerida en ads: 60 % "está atento", 25 % "todo junto y explicado", 15 % "hacelo tuyo".
+Ojo en la memoria: decirlo siempre como "lo que vos le contás, y lo podés borrar cuando quieras" (privacidad, Ley 25.326).
 
 Variantes de tagline para testear en orgánico antes de pagar por ellas:
 - "Tu cartera, explicada." [a revisar]
@@ -105,7 +143,7 @@ Variantes de tagline para testear en orgánico antes de pagar por ellas:
 | Confianza | "Solo lectura: Porty nunca opera, ni custodia, ni mueve tu plata." | Pantalla de conexión | Todos |
 
 ### Lo que nunca se dice
-"Gratis" a secas o "probala gratis" (siempre "Descargala gratis. Algunas funciones son de planes pagos."), "ganá más", "invertí mejor", "sin inventar", "cada número con su fuente", "siempre", "nunca se equivoca", "tus brókers" sin "compatibles", testimonios inventados, tickers destacados, rendimientos altos aunque sean demo, "conectá tu Binance". Disclaimers A–E de `docs/legal/reviews/2026-11-03-plan-redes.md` §2, en la imagen y en el caption.
+"Recomendaciones" o "te recomienda", "gratis" a secas o "probala gratis" (siempre "Descargala gratis. Algunas funciones son de planes pagos."), "ganá más", "invertí mejor", "sin inventar", "cada número con su fuente", "siempre", "nunca se equivoca", "tus brókers" sin "compatibles", testimonios inventados, tickers destacados, rendimientos altos aunque sean demo, "conectá tu Binance". Disclaimers A–E de `docs/legal/reviews/2026-11-03-plan-redes.md` §2, en la imagen y en el caption.
 
 ---
 
@@ -141,12 +179,12 @@ Sugerencia de timing: si L cae entre el 1 y el 20 de diciembre, **anclar el lanz
 - Orgánico: semanas 4–5 del plan de redes + nuevas piezas según lo que haya funcionado (rehacer las 3 piezas con más guardados/retención a 3 s).
 - Contenido de búsqueda en la landing (SEO, 1 nota por semana): "cómo ver todas mis inversiones juntas", "cómo calcular cuánto gané con mis CEDEARs", "qué es el PnL", "cómo leer el resumen de mi bróker". Son preguntas que el S2 googlea y que Porty resuelve.
 - Email de activación (a quien se registró y no cargó cartera): día 1 "Subí una captura y listo", día 3 "Lo que Porty encontró en carteras como la tuya" (diagnóstico demo), día 7 "Tu primer informe del sábado".
-- **Test pago chico desde L+2** (ver §8), solo si la activación ≥ 30 %. Si la activación es baja, pagar por instalaciones es pagar por usuarios que se van: primero se arregla el onboarding.
+- **Pauta de US$100/mes desde L** (ver §8): Apple Ads desde el día L y promoción de los videos orgánicos que mejor retuvieron. Si la activación queda por debajo de 30 %, se pausa la promoción: pagar por instalaciones es pagar por usuarios que se van, primero se arregla el onboarding.
 - Lectura semanal de embudo con `porty-data-analyst` (viernes).
 
 ### Fase 3 · Escala (L+6 semanas en adelante) — "Poner plata donde ya funciona"
 
-Solo si en fase 2 hay: un mensaje ganador (CTR y activación mejores que el promedio), CAC dentro del objetivo en al menos un canal y retención W4 razonable. Ahí: subir presupuesto 20–30 % por semana en el canal ganador, sumar creadores pagos con contenido de marca, referidos dentro de la app (diseñado por growth, revisado por compliance) y "Tu año en Porty" como pieza compartible de fin de año [idea a evaluar con product-owner].
+Solo si en fase 2 hay: un mensaje ganador (CTR y activación mejores que el promedio), CAC dentro del objetivo en al menos un canal y retención W4 razonable. Ahí: reinvertir lo que entra por suscripciones en el canal ganador, sumar creadores pagos con contenido de marca, referidos dentro de la app (diseñado por growth, revisado por compliance) y "Tu año en Porty" como pieza compartible de fin de año [idea a evaluar con product-owner].
 
 ---
 
@@ -162,40 +200,51 @@ Solo si en fase 2 hay: un mensaje ganador (CTR y activación mejores que el prom
 | Creadores (microinfluencers) | Credibilidad prestada con S2 | 0 en fase 0, pago en fase 3 | Media | Instalaciones por código |
 | PR | Credibilidad y pico de lanzamiento | ~0 | Media | Notas publicadas |
 | SEO (landing) | Demanda constante a largo plazo | Tiempo | Media (rinde en meses) | Visitas orgánicas |
-| Pauta paga | Escalar lo que ya funciona | Variable | Baja hasta L+2 | CAC por activado y por pagador |
+| Pauta paga | Amplificar lo que ya funcionó gratis | US$100/mes | Media desde L | Costo por instalación y por activado |
 | Product Hunt | Pico en inglés (S4) | ~0 | Baja | Upvotes, instalaciones en |
 
 **Comunidades — regla de oro:** aportar antes de mostrar. Responder dudas de "cómo sé cuánto gané" con una explicación útil y mencionar Porty solo si viene al caso y lo permiten las reglas del grupo. Candidatas: subreddits de inversión de Argentina/LatAm, grupos de Telegram/Discord de inversores en CEDEARs, comunidades de eToro (CopyTrader no, el público es otro). Nunca spam, nunca cuentas falsas.
 
 ---
 
-## 8. Pauta paga (resumen; el detalle está en el doc de herramientas)
+## 8. Pauta paga con US$100 por mes
 
-### 8.1 Orden de entrada
-1. **Apple Ads** (desde L): búsqueda con intención, CPI bajo en Argentina, y protege la marca "Porty" de competidores. Empezar con keywords de marca + categoría ("cartera de inversiones", "portfolio tracker", "seguimiento de acciones").
-2. **Google App Campaigns** (desde L+2): Android es la mayoría del público objetivo en Argentina y Uruguay; la campaña optimiza sola hacia un evento (`portfolio_loaded`, no la instalación).
-3. **Meta Advantage+ app campaigns** (desde L+3): los videos que mejor funcionaron en orgánico, como creatividades. Requiere verificar la regla vigente de servicios financieros (§10).
-4. **TikTok** (fase 3): solo si en orgánico TikTok es el canal que mejor activa.
+### 8.1 ¿Alcanza US$100? Sí, para aprender; no para crecer
+Con US$100 por mes no se "compra" el crecimiento, pero sí se puede:
+- **Saber qué mensaje funciona** antes de gastar más ("está atento" vs "todo junto" vs "hacelo tuyo").
+- **Amplificar lo que ya funcionó gratis**: un video orgánico que retiene bien, empujado con US$20–30, llega a decenas de miles de personas en Argentina y Uruguay, donde la publicidad es barata comparada con EE. UU.
+- **Cubrir la búsqueda en el App Store** para que nadie más aparezca cuando buscan "Porty" o "cartera de inversiones".
 
-### 8.2 Presupuesto de test (4 semanas)
+Expectativa honesta: entre 100 y 300 instalaciones por mes por pauta (supuesto; depende mucho de la pieza). El motor sigue siendo el orgánico, la waitlist y la comunidad.
 
-| Escenario | Apple Ads | Google App | Meta | Total |
-|---|---|---|---|---|
-| Mínimo | US$150 | US$150 | — | **US$300** |
-| Recomendado | US$200 | US$250 | US$150 | **US$600** |
-| Agresivo (solo con activación ≥ 40 %) | US$400 | US$600 | US$500 | **US$1.500** |
+**Lo que no conviene con este presupuesto:**
+- Repartir en 4 plataformas: ninguna junta datos suficientes para aprender.
+- Google App Campaigns: con US$2–3 por día el algoritmo no sale del aprendizaje. Entra cuando haya US$150+ por mes solo para Google.
+- Pagar herramientas de automatización o gestión: todo lo necesario tiene plan gratis (ver el doc de herramientas). Vos subís los videos y la plata va entera a ads y a generar piezas.
 
-Regla: no se reparte por igual "para ver qué pasa"; cada canal necesita ~50 conversiones del evento optimizado para salir de aprendizaje. Con US$300 conviene **un solo canal** bien medido antes que tres a medias.
+### 8.2 Cómo repartir los US$100
 
-### 8.3 ¿Cuánto podemos pagar por usuario? (supuestos explícitos)
-- Precio de referencia Premium US$10/mes (en Argentina la tienda probablemente lo localice más bajo: usar el real).
-- Neto de comisión de tienda (15 % Small Business Program): ~US$8,5.
-- Vida promedio de un pagador (supuesto, sin datos): 4–6 meses → **LTV por pagador ≈ US$34–51**.
-- Conversión de instalación a pago a 14 días (supuesto): 2–3 %.
-- **LTV por instalación ≈ US$0,7–1,5** → para recuperar en 12 meses con margen (CAC ≤ 1/3 LTV), el **CPI objetivo es ≤ US$0,25–0,50** y el **costo por pagador ≤ US$12–17**.
-- Lectura honesta: con estos números la pauta **solo cierra si la activación y la conversión son buenas**. Por eso la secuencia es: arreglar activación → test chico → escalar. `porty-data-analyst` recalcula todo con datos reales en L+4.
+| Partida | Mes 1 (semana L) | Meses siguientes | Para qué |
+|---|---|---|---|
+| **Promocionar en Instagram/Facebook** los 2–3 Reels orgánicos con mejor retención | US$40 | US$40–50 | Alcance barato con un video que ya probó que engancha. Objetivo: clics a la tienda o la landing. Argentina + Uruguay, 22–45 años |
+| **TikTok Promote / Spark Ads** del mejor TikTok | US$20 | US$20–30 | Mismo criterio; solo si en orgánico TikTok rinde más que Instagram, si no esa plata va a Meta |
+| **Apple Ads** (keywords de marca y categoría) | US$25 | US$20 | Captar a quien ya está buscando una app así en el iPhone |
+| **Generar piezas con IA** (planos de video) | US$15 | US$0–15 | Solo el mes que haga falta un lote de planos nuevos (ver doc de herramientas) |
+| **Total** | **US$100** | **US$100** | |
 
----
+Reglas:
+- **Nada de pauta antes de L.** Sin app en la tienda, cada clic se pierde.
+- **No se promociona una pieza que no funcionó gratis.** Primero 7 días orgánica: si retiene (35 % a 3 s, guardados arriba del promedio), recién ahí se le pone plata.
+- **Corte rápido:** si un anuncio gastó US$10 y no trajo ninguna instalación, se apaga.
+- Cada promoción usa el mismo copy aprobado por compliance que la pieza orgánica, con los disclaimers en la imagen.
+- Antes del primer peso en Meta: verificar si piden verificación de anunciante de servicios financieros para Argentina y Uruguay.
+
+### 8.3 ¿Cuándo subir el presupuesto?
+Cuando un canal cumpla dos semanas seguidas con:
+- costo por instalación ≤ US$0,50, y
+- ≥ 30 % de esas instalaciones llegan al diagnóstico.
+
+Ahí se mueve la plata a ese canal y se suma lo que vaya entrando por suscripciones (reinvertir los primeros ingresos es la forma de crecer sin poner plata propia). Cuenta de referencia (supuestos, sin datos todavía): Premium US$10/mes, neto ~US$8,5 después de la tienda, 4–6 meses de vida por pagador → **LTV ≈ US$34–51 por pagador**; con 2–3 % de instalaciones que pagan, **cada instalación vale ≈ US$0,7–1,5**. Por eso el tope de US$0,50 por instalación. `porty-data-analyst` lo recalcula con datos reales en L+4.
 
 ## 9. Medición y atribución
 
@@ -245,7 +294,7 @@ Rutina: tablero los viernes, decisión de la semana siguiente los lunes (qué pi
 
 ## 12. Próximos 10 pasos (en orden)
 
-1. Aprobar o ajustar el concepto "Abrí. Entendé. Seguí con tu día." y el mensaje madre → pasa a compliance.
+1. Aprobar o ajustar el concepto "Vos seguí con tu día. Porty está atento." y el mensaje madre → pasa a compliance, junto con la frase de diversificación (que además necesita al abogado).
 2. Verificar que la waitlist guarda `utm_source` y armar los links con UTM por canal.
 3. Abrir la cuenta de TikTok/IG y publicar PR1–PR3 (ya renderizados en `docs/marketing/social/piezas/2026-11-03/`).
 4. Mail a la waitlist invitando a la beta "Primeros 50" (marketing-lead redacta, compliance revisa).
@@ -253,5 +302,5 @@ Rutina: tablero los viernes, decisión de la semana siguiente los lunes (qué pi
 6. Armar la lista de 30 microcreadores y 15 periodistas.
 7. Kit de prensa en la landing (`/prensa`).
 8. Cerrar los bloqueantes del release 1 (sin app publicada no hay lanzamiento).
-9. Configurar las integraciones de RevenueCat con Apple Ads y Firebase/Google antes de L.
+9. Configurar las integraciones de RevenueCat con Apple Ads y Firebase/Google antes de L, y confirmar que el push funciona (sin push, los ads no dicen "te avisa").
 10. Decidir la fecha de L con la regla del §6 (aguinaldo o primera semana de enero).

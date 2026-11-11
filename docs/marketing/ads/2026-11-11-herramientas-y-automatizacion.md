@@ -8,8 +8,9 @@ Fecha: 2026-11-11 · Estado: recomendación · Acompaña a `docs/marketing/2026-
 
 ## 1. Respuesta corta
 
-- **Plataformas de ads que convienen, en orden:** Apple Ads → Google App Campaigns → Meta (Instagram/Facebook) → TikTok. Las demás (X, LinkedIn, Reddit) no valen la pena para Porty en esta etapa.
-- **Para gestionarlas, al principio alcanza con los paneles nativos + sus reglas automáticas** (gratis). Una herramienta multiplataforma paga recién tiene sentido con más de ~US$1.500/mes de inversión.
+- **Presupuesto real: US$100 por mes.** Con eso: Meta (promocionar los Reels que ya funcionaron) + Apple Ads + algo de TikTok, y un lote de planos con IA solo el mes que haga falta. Google App Campaigns queda para cuando haya US$150+ por mes solo para Google. X, LinkedIn y Reddit no valen la pena para Porty en esta etapa.
+- **US$0 en herramientas de gestión y automatización.** Todo lo necesario tiene plan gratis: paneles nativos con reglas, Metricool, Brevo, RevenueCat, Firebase. Vos subís los videos; la plata va entera a ads y a generar piezas.
+- **Video con IA: Sunra o Higgsfield, un mes cuando haga falta, no una suscripción fija** (§6). Las piezas que más venden de una app como Porty son pantallas reales + Porty animado, y eso ya lo hacen gratis los scripts de `tools/marketing/`.
 - **Para medir:** RevenueCat (ya lo usan) mandando las compras a cada plataforma, más un MMP (AppsFlyer, Adjust, Branch, Tenjin) **recién cuando se pauta en Meta o TikTok**.
 - **Para redes orgánicas:** Metricool (en español, tiene plan gratis) o los programadores nativos de Meta y TikTok.
 - **¿Se puede automatizar todo el flujo?** Técnicamente casi todo, sí. **Recomiendo automatizar ~80 %** (producción de borradores, revisión previa, programación, reportes, alertas y reglas de presupuesto) y **dejar 3 puertas humanas**: aprobar lo que se publica, aprobar la plata y aprobar cambios de mensaje. En una fintech, un anuncio mal dicho que sale solo puede costar la cuenta publicitaria o un problema regulatorio.
@@ -20,10 +21,10 @@ Fecha: 2026-11-11 · Estado: recomendación · Acompaña a `docs/marketing/2026-
 
 | Plataforma | Por qué sí | Por qué no / cuidado | Cuándo | Optimizar hacia |
 |---|---|---|---|---|
-| **Apple Ads** (App Store) | Gente que ya está buscando una app de inversiones: máxima intención. Disponible en Argentina y Uruguay. Protege la búsqueda "Porty". Atribución nativa sin SDK extra (AdServices) | Solo iOS, que en Argentina/Uruguay es minoría. Volumen chico | Desde L | Instalaciones → luego CPA de `portfolio_loaded` |
-| **Google App Campaigns** (Play, YouTube, Search, Display) | Android es la mayoría del público objetivo. Totalmente automatizada (le das textos, imágenes y videos y ella combina). Se integra con Firebase, que ya usan para push | Poco control fino; necesita eventos in-app bien configurados para no traer instalaciones basura. **Campañas de preinscripción** en Play si hacés pre-registro antes de L | Preinscripción antes de L (opcional); instalaciones desde L+2 | Evento `portfolio_loaded`, después compra |
-| **Meta Advantage+ app** (Instagram, Facebook) | El mejor lugar para video corto con segmentación por intereses; reutiliza las piezas orgánicas que funcionaron | Servicios financieros es categoría restringida; estaría pidiendo verificación de identidad del anunciante (verificar). Sin SDK o MMP la optimización es mala. iOS limitado por ATT | Desde L+3 | Evento in-app vía SDK/MMP + RevenueCat |
-| **TikTok App campaigns / Smart+** | Público joven (S2), CPM bajo, el contenido nativo funciona | Calidad de usuario más variable; restricciones en finanzas y cripto (verificar); necesita SDK o MMP | Fase 3, solo si TikTok orgánico activa bien | Evento in-app |
+| **Apple Ads** (App Store) · US$20–25/mes | Gente que ya está buscando una app de inversiones: máxima intención. Disponible en Argentina y Uruguay. Protege la búsqueda "Porty". Atribución nativa sin SDK extra (AdServices) | Solo iOS, que en Argentina/Uruguay es minoría. Volumen chico | Desde L | Instalaciones → luego CPA de `portfolio_loaded` |
+| **Google App Campaigns** (Play, YouTube, Search, Display) · después, con US$150+/mes | Android es la mayoría del público objetivo. Totalmente automatizada (le das textos, imágenes y videos y ella combina). Se integra con Firebase, que ya usan para push | Poco control fino; necesita eventos in-app bien configurados para no traer instalaciones basura. **Campañas de preinscripción** en Play si hacés pre-registro antes de L | Preinscripción antes de L (opcional); instalaciones desde L+2 | Evento `portfolio_loaded`, después compra |
+| **Meta: promocionar Reels** y después Advantage+ app (Instagram, Facebook) · US$40–50/mes | El mejor lugar para video corto con segmentación por intereses; reutiliza las piezas orgánicas que funcionaron | Servicios financieros es categoría restringida; estaría pidiendo verificación de identidad del anunciante (verificar). Sin SDK o MMP la optimización es mala. iOS limitado por ATT | Desde L, como "promocionar publicación" con objetivo de clics a la tienda (no necesita SDK). Advantage+ app recién con más presupuesto | Clics a la tienda; después evento in-app vía SDK/MMP |
+| **TikTok Promote / Spark Ads**, después App campaigns · US$20–30/mes | Público joven (S2), CPM bajo, el contenido nativo funciona | Calidad de usuario más variable; restricciones en finanzas y cripto (verificar); necesita SDK o MMP | Desde L con Promote/Spark Ads sobre el mejor TikTok orgánico, solo si TikTok rinde más que Instagram | Clics; después evento in-app |
 | X, LinkedIn, Reddit Ads | — | CPI alto o sin buena campaña de apps para LatAm | No por ahora | — |
 
 **Bonus sin costo antes de L:**
@@ -123,11 +124,51 @@ Requisitos de las APIs (por eso el nivel 3 no es para ya):
 
 ---
 
-## 5. Recomendación concreta para arrancar
+## 5. Recomendación concreta para arrancar (US$100/mes)
 
-1. **Ahora (gratis):** cuenta de Metricool + Brevo; UTM en la landing; Canva con kit de marca (colores y tipografía de `DESIGN.md`).
-2. **Antes de L:** crear la cuenta de Apple Ads y la de Google Ads; vincular Firebase con Google Ads; activar en RevenueCat las integraciones de Apple Ads y Firebase; definir `portfolio_loaded` como evento de conversión.
-3. **L:** Apple Ads con keywords de marca y categoría, US$5–7/día.
-4. **L+2:** Google App Campaign optimizando `portfolio_loaded`, US$8–10/día, si la activación ≥ 30 %.
-5. **L+3:** decidir Meta. Si sí: MMP (AppsFlyer Zero o Tenjin) o SDK de Meta, con compliance y security review antes.
-6. **L+2 en adelante:** tarea programada semanal que arma el informe y te lo manda. Si querés, la configuro yo cuando haya datos.
+1. **Ahora (US$0):** cuenta de Metricool + Brevo; UTM en la landing; Canva con el kit de marca (colores y tipografía de `DESIGN.md`).
+2. **Antes de L (US$0):** crear la cuenta de Apple Ads; activar en RevenueCat la integración de Apple Ads; definir `portfolio_loaded` como evento de conversión en Firebase.
+3. **Semana L:** Apple Ads con keywords de marca y categoría (~US$0,80/día) + promoción del mejor Reel de la semana 1 (US$20).
+4. **L+1 en adelante:** cada semana, promocionar con US$10–15 el video orgánico que mejor retuvo esa semana, en Meta o TikTok según dónde rinda más.
+5. **Cuando haga falta un lote de planos nuevos:** un mes de Sunra o Higgsfield (§6), y se cancela.
+6. **L+2 en adelante:** tarea programada semanal que arma el informe y te lo manda. No cuesta plata (usa tu plan de Claude). Si querés, la configuro yo cuando haya datos.
+
+---
+
+## 6. Generar piezas con IA: ¿Sunra, Higgsfield u otra?
+
+### Primero: qué piezas necesitan IA y cuáles no
+
+| Tipo de pieza | Cómo se hace | Costo |
+|---|---|---|
+| Pantallas reales de la app (cartera, diagnóstico, chat, avisos) | Capturas de `test/screenshots` y grabaciones de pantalla | US$0 |
+| Porty animado (con accesorios) hablando o reaccionando | `tools/marketing/video/render_companion.mjs` y `render_overlays.mjs` | US$0 |
+| La notificación de Porty en pantalla ("Tu cartera bajó 3,2 % hoy. Te cuento por qué") | Plantilla HTML renderizada con los mismos scripts | US$0 |
+| Placas y carruseles | Canva (conectado) o `render_social.mjs` | US$0 |
+| Edición, subtítulos, música comercial | CapCut (gratis) | US$0 |
+| **Planos "de vida real"**: alguien en el colectivo, en la cocina o en el sillón que recibe el aviso y sigue con su día | **Video con IA** (ya se hicieron L1–L5 así con Sunra) | Lo único que cuesta |
+
+Para el mensaje "Porty está atento", la fórmula de ad que proponemos es: **plano de vida real con IA (3–4 s) → la notificación de Porty (render propio) → pantalla real con la explicación → Porty con un accesorio + "Vos seguí con tu día."** Solo el primer plano necesita IA: con 4–6 planos por mes alcanza para variar las piezas.
+
+### Comparación
+
+| | **Sunra** | **Higgsfield** |
+|---|---|---|
+| Modelos de video | Kling 3.0/4.0, Veo 3.1, Seedance 2.0/2.5, Wan, MiniMax, Happy Horse y más | Kling, Veo, Seedance, Nano Banana y modelos propios (verificar lista actual) |
+| Planes | Basic 1.200 créditos/mes, Pro desde 3.500, Creator desde 17.000 (dato del propio Sunra). **Precio en US$: no pude abrir sunra.ai/pricing desde este entorno, verificalo** | Basic US$9 / 120 créditos, Pro US$29 / 600, Max US$79 / 1.800 (fuentes de terceros de oct. 2026 que se contradicen; verificar) |
+| Costo medido de un plano | Seedance 2.0 Fast 5 s 720p = **58 créditos**; Kling 3.0 standard 5 s = **63**; Veo 3.1 Fast 8 s = **80**; una imagen Nano Banana Pro = **14** → el Basic alcanza para **~19–20 planos de 5 s** | Depende del modelo; con 120 créditos el Basic puede quedar corto para video (verificar créditos por clip) |
+| Gratis | Créditos diarios gratis, pero los modelos de video requieren plan activo | Plan gratis limitado (verificar) |
+| Integración con este repo | **Está conectado a esta sesión** y ya hay pipeline (`sunra_gen.mjs`, `live_prompts/`): yo genero, reviso y armo el video final sin que vos toques nada | No está conectado: generás vos a mano en la web y subís los archivos |
+| Fuerte | Automatización de punta a punta, mismos prompts versionados en el repo | Interfaz muy cómoda para humanos, presets de cámara y efectos, plantillas pensadas para ads y UGC |
+| Tu saldo hoy | 0 créditos, sin plan | — |
+
+### Recomendación
+1. **Sunra Basic, un mes por vez, cuando haga falta un lote de planos.** Gana porque está integrado: con un mes saco ~20 planos, los combino con las pantallas y Porty animado, y te entrego los videos listos para subir. Es la opción que más automatiza sin pagar herramientas aparte. **Condición:** que el Basic cueste ≤ US$15 (verificalo en sunra.ai/pricing; si querés que lo vea yo, hay que habilitar `sunra.ai` en la red del entorno).
+2. **Si el Basic de Sunra sale más caro, Higgsfield Basic (US$9)**, sabiendo que lo usás vos a mano y que alcanza para menos planos.
+3. **En ninguno de los dos hace falta suscripción permanente**: se paga el mes del lote y se cancela. Un lote cada 1–2 meses alcanza con la cadencia de publicación del plan.
+4. Modelo por defecto: **Seedance 2.0 Fast o Kling 3.0 standard** para planos de 5 s (los más baratos y suficientes para un plano de 3–4 s en vertical). Veo 3.1 solo si hace falta voz o sonido nativo.
+
+Reglas para los planos con IA (compliance, `docs/legal/reviews/2026-11-03-plan-redes.md`):
+- Nada de testimonios: una persona generada con IA no puede "contar su experiencia" con Porty.
+- Las plataformas piden marcar el contenido realista generado con IA (Meta y TikTok tienen etiqueta de "hecho con IA"): activarla.
+- Ningún ticker ni rendimiento en el plano; los números salen solo de la cuenta demo, con disclaimer.
