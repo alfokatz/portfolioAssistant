@@ -1,0 +1,114 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .im-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:66px;line-height:1.1;letter-spacing:-1.8px;color:#2F3437}
+  .im-title em{font-style:normal;color:#C27443}
+  .im-title .w{display:inline-block}
+  #im-wrap{position:absolute;left:210px;top:440px;width:660px;height:740px;
+    -webkit-mask-image:linear-gradient(180deg,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,#000 88%,transparent 100%)}
+  #im-body{width:100%;height:100%;border-radius:68px 68px 0 0;background:#171614;padding:18px 18px 0}
+  #im-screen{position:relative;width:624px;height:722px;border-radius:50px 50px 0 0;overflow:hidden;background:#EEF0F3}
+  .pane{position:absolute;inset:0;background:#FBFBFA}
+  .hd{position:absolute;left:28px;right:28px;top:40px}
+  .hd b{display:block;font-size:36px;font-weight:700;letter-spacing:-.6px}
+  .hd span{display:block;font-size:28px;font-weight:600;color:#5F5E5B;margin-top:10px}
+  .way{position:absolute;left:20px;right:20px;background:#fff;border:2px solid #ECEBE8;border-radius:26px;padding:20px 24px}
+  .way b{display:block;font-size:30px;font-weight:700}
+  .way p{font-size:28px;color:#5F5E5B;font-weight:500;line-height:1.3;margin-top:4px}
+  #im-w1{top:150px;border-color:#D98E5D;background:#FCF4EE}
+  #im-w2{top:376px}
+  /* Leyendo y lista */
+  #im-thumb{position:absolute;left:28px;top:150px;width:150px;height:174px;border-radius:18px;background:#EEF0F3;overflow:hidden;
+    box-shadow:0 8px 24px rgba(0,0,0,.12)}
+  #im-thumb i{display:block;height:16px;margin:12px 12px 0;border-radius:6px;background:#fff}
+  #im-scan{position:absolute;left:0;right:0;top:0;height:6px;background:#D98E5D;box-shadow:0 0 16px #D98E5D}
+  #im-reading{position:absolute;left:200px;top:196px;font-size:32px;font-weight:700}
+  #im-list{position:absolute;left:20px;right:20px;top:352px}
+  #im-list .ttl{display:flex;justify-content:space-between;font-size:28px;font-weight:700;margin:0 6px 12px}
+  #im-list .ttl span{color:#346538}
+  .row{display:flex;align-items:center;gap:14px;background:#fff;border:2px solid #ECEBE8;border-radius:18px;padding:12px 18px;margin-bottom:8px;font-size:28px;font-weight:600}
+  .row .ok{width:30px;height:30px;border-radius:50%;background:#EDF3EC;color:#346538;font-size:22px;display:flex;align-items:center;justify-content:center;flex:none}
+  .row .q{margin-left:auto;color:#5F5E5B;font-weight:500}
+  #im-save{position:absolute;left:20px;right:20px;top:620px;height:76px;border-radius:24px;background:#2F3437;color:#fff;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  /* Listo */
+  #im-done{background:#FBFBFA}
+  #im-check{position:absolute;left:50%;top:120px;width:120px;height:120px;margin-left:-60px;border-radius:50%;background:#EDF3EC;display:flex;align-items:center;justify-content:center}
+  #im-check svg{width:64px;height:64px}
+  #im-done .t{position:absolute;left:28px;right:28px;top:270px;text-align:center;font-size:38px;font-weight:700;letter-spacing:-.6px}
+  #im-done .s{position:absolute;left:40px;right:40px;top:326px;text-align:center;font-size:28px;font-weight:500;color:#5F5E5B;line-height:1.3}
+  #im-diag{position:absolute;left:20px;right:20px;top:440px;background:#fff;border:2px solid #ECEBE8;border-radius:26px;padding:22px 24px;display:flex;gap:16px;align-items:center}
+  #im-diag svg{width:64px;height:64px;flex:none;overflow:visible}
+  #im-diag b{display:block;font-size:30px;font-weight:700}
+  #im-diag p{font-size:28px;color:#5F5E5B;font-weight:500;line-height:1.3}
+</style>
+<div id="root" data-composition-id="phone" data-width="1080" data-height="1920">
+  <h2 id="im-k" class="im-title"><span class="w">Y</span> <span class="w">tu</span> <span class="w">cartera</span> <span class="w">queda</span> <em class="w">cargada</em> <em class="w">en</em> <em class="w">Porty.</em></h2>
+
+  <div id="im-wrap"><div id="im-cam"><div id="im-body"><div id="im-screen" data-layout-allow-overflow data-layout-allow-overlap>
+    <!-- 1 · Traé tu cartera (textos reales de la app) -->
+    <div id="im-ways" class="pane">
+      <div class="hd"><b>Traé tu cartera</b><span>Cómo la traés</span></div>
+      <div id="im-w1" class="way"><b>Una captura de pantalla</b><p>De la pantalla de tu app de inversiones donde se ven tus posiciones. Uso 1 consulta.</p></div>
+      <div id="im-w2" class="way"><b>Un archivo de tu bróker</b><p>El listado de posiciones o el estado de cuenta, en CSV, Excel o PDF.</p></div>
+    </div>
+    <!-- 2 · Leyendo y lista -->
+    <div id="im-read" class="pane" style="opacity:0">
+      <div class="hd"><b>Traé tu cartera</b></div>
+      <div id="im-thumb" data-layout-ignore><i></i><i></i><i></i><i></i><i></i><i></i><i></i><div id="im-scan"></div></div>
+      <div id="im-reading">Leyendo tu captura…</div>
+      <div id="im-list">
+        <div class="ttl">En tu captura <span id="im-count">0 de 6 listas</span></div>
+        <div class="row"><span class="ok">✓</span>ETF amplio A<span class="q">12</span></div>
+        <div class="row"><span class="ok">✓</span>ETF amplio B<span class="q">8</span></div>
+        <div class="row"><span class="ok">✓</span>Acción A<span class="q">15</span></div>
+        <div class="row" style="margin-bottom:0"><span class="ok">✓</span>Acción B · y 2 más<span class="q">6</span></div>
+      </div>
+      <div id="im-save">Guardar</div>
+    </div>
+    <!-- 3 · Listo -->
+    <div id="im-done" class="pane" style="opacity:0">
+      <div id="im-check"><svg viewBox="0 0 24 24"><path id="im-tick" d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#346538" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="24" stroke-dashoffset="24"/></svg></div>
+      <div class="t">Listo, sumé 6 posiciones</div>
+      <div class="s">Ya están en tu cartera como posiciones manuales.</div>
+      <div id="im-diag"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg>
+        <div><b>Miré tu cartera</b><p>Te cuento lo que no se ve a simple vista.</p></div></div>
+    </div>
+  </div></div></div></div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  // Mismo teléfono que la escena anterior (empalma en y = 12) y deriva lenta.
+  tl.fromTo("#im-cam", {y:12}, {y:40, duration:8.0, ease:"none"}, 0);
+  // Porty llega con la captura: se abre Porty en la pantalla de "Traé tu cartera".
+  tl.fromTo("#im-ways", {xPercent:100}, {xPercent:0, duration:.45, ease:"power3.out"}, 0)
+    .fromTo("#im-w1", {scale:1}, {scale:1.03, duration:.25, ease:"power2.out", yoyo:true, repeat:1}, .55)
+    .fromTo("#im-w2", {opacity:1}, {opacity:.55, duration:.4, ease:"power2.out"}, .55);
+  // Toca "Una captura de pantalla": pasa a leer.
+  tl.to("#im-ways", {xPercent:-100, duration:.45, ease:"power2.inOut"}, 1.15)
+    .fromTo("#im-read", {opacity:1, xPercent:100}, {opacity:1, xPercent:0, duration:.45, ease:"power2.inOut"}, 1.15)
+    .fromTo("#im-thumb", {scale:.6, opacity:0}, {scale:1, opacity:1, duration:.4, ease:"back.out(1.6)"}, 1.4)
+    .fromTo("#im-scan", {y:0}, {y:168, duration:.7, ease:"sine.inOut", yoyo:true, repeat:2}, 1.6)
+    .fromTo("#im-reading", {opacity:.35}, {opacity:1, duration:.35, ease:"sine.inOut", yoyo:true, repeat:5}, 1.5)
+    .fromTo("#im-list .ttl", {opacity:0}, {opacity:1, duration:.3, ease:"power2.out"}, 2.4)
+    .fromTo("#im-list .row", {opacity:0, y:18}, {opacity:1, y:0, duration:.35, ease:"expo.out", stagger:.22}, 2.5);
+  const cEl = document.getElementById("im-count"), c = {v:0};
+  tl.fromTo(c, {v:0}, {v:6, duration:1.0, ease:"none", onUpdate:() => { cEl.textContent = Math.round(c.v) + " de 6 listas"; }}, 2.5);
+  tl.to("#im-reading", {opacity:0, duration:.2}, 3.6)
+    .fromTo("#im-save", {opacity:0, y:20}, {opacity:1, y:0, duration:.4, ease:"expo.out"}, 3.5)
+  // Guardar.
+    .to("#im-save", {scale:.95, duration:.1, ease:"power2.in"}, 4.15)
+    .to("#im-save", {scale:1, duration:.18, ease:"power2.out"}, 4.25)
+    .to("#im-read", {opacity:0, duration:.3, ease:"power2.in"}, 4.35)
+    .fromTo("#im-done", {opacity:0, scale:1.04}, {opacity:1, scale:1, duration:.45, ease:"power3.out"}, 4.4)
+    .fromTo("#im-check", {scale:.5}, {scale:1, duration:.45, ease:"back.out(2)"}, 4.45)
+    .to("#im-tick", {strokeDashoffset:0, duration:.4, ease:"power2.out"}, 4.6)
+    .fromTo("#im-diag", {opacity:0, y:50}, {opacity:1, y:0, duration:.6, ease:"expo.out"}, 5.3)
+    .to("#im-diag svg", {y:-6, duration:.45, ease:"sine.inOut", yoyo:true, repeat:3}, 5.9);
+  // Titular: palabra por palabra con desenfoque, cuando la cartera queda cargada.
+  tl.fromTo("#im-k .w", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, 4.45)
+    .to("#im-k .w", {opacity:0, filter:"blur(8px)", duration:.15, stagger:.025, ease:"power2.in"}, 7.4);
+  // Salida.
+  tl.to("#im-wrap", {y:980, duration:.5, ease:"power3.in"}, 7.45);
+  window.__timelines["phone"] = tl;
+</script>
+</template>

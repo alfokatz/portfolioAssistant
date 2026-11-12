@@ -1,0 +1,102 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .mn-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:68px;line-height:1.1;letter-spacing:-1.9px;color:#2F3437}
+  .mn-title em{font-style:normal;color:#C27443}
+  .mn-title .w{display:inline-block}
+  #mn-wrap{position:absolute;left:210px;top:440px;width:660px;height:740px;
+    -webkit-mask-image:linear-gradient(180deg,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,#000 88%,transparent 100%)}
+  #mn-body{width:100%;height:100%;border-radius:68px 68px 0 0;background:#171614;padding:18px 18px 0}
+  #mn-screen{position:relative;width:624px;height:722px;border-radius:50px 50px 0 0;overflow:hidden;background:#FBFBFA}
+  #mn-lock{position:absolute;inset:0;background:linear-gradient(180deg,#5B4636 0%,#8A6A52 45%,#C49A78 75%,#5B4636 100%);background-size:100% 220%}
+  #mn-date{position:absolute;left:0;right:0;top:70px;text-align:center;color:rgba(255,248,240,.85);font-weight:500;font-size:28px}
+  #mn-clock{position:absolute;left:0;right:0;top:98px;text-align:center;color:#FFF8F0;font-weight:600;font-size:124px;letter-spacing:-4px}
+  #mn-notif{position:absolute;left:18px;top:300px;width:588px;background:rgba(251,251,250,.96);border-radius:34px;padding:22px;display:flex;gap:20px;align-items:flex-start;opacity:0}
+  #mn-icon{width:64px;height:64px;flex:none;border-radius:18px;background:#F8EDE5;display:flex;align-items:center;justify-content:center}
+  #mn-icon svg{width:50px;height:50px;overflow:visible}
+  .n-meta{display:flex;justify-content:space-between;font-size:22px;color:#6B6A67;font-weight:600;letter-spacing:.3px;margin-bottom:4px}
+  .n-t{font-size:33px;font-weight:700;letter-spacing:-.4px;color:#2F3437}
+  .n-b{font-size:28px;font-weight:500;color:#55595C;margin-top:4px;line-height:1.3}
+  #mn-home{position:absolute;inset:0;background:#FBFBFA}
+  #mn-hd{position:absolute;left:24px;right:24px;top:40px;display:flex;gap:16px;align-items:center}
+  #mn-hd svg{width:60px;height:60px;flex:none;overflow:visible}
+  #mn-hd b{font-size:34px;font-weight:700;letter-spacing:-.5px}
+  .ins{position:absolute;left:20px;right:20px;background:#fff;border:2px solid #ECEBE8;border-radius:26px;padding:22px 24px}
+  .ins b{display:block;font-size:30px;font-weight:700;line-height:1.25}
+  .ins p{font-size:28px;color:#5F5E5B;font-weight:500;margin-top:6px}
+  #mn-i1{top:140px;border-color:#E9C9B2}
+  #mn-i2{top:350px}
+  .bar{position:relative;height:20px;border-radius:10px;background:#F1F0EE;margin-top:16px}
+  .bar span{position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:10px;background:#D98E5D;transform-origin:left center}
+  #mn-cup{position:absolute;left:50px;top:1000px;width:170px;height:170px}
+  #mn-cup svg{width:100%;height:100%;overflow:visible}
+</style>
+<div id="root" data-composition-id="morning" data-width="1080" data-height="1920">
+  <h2 id="mn-a" class="mn-title"><span class="w">Son</span> <span class="w">las</span> <span class="w">8:40.</span> <em class="w">No</em> <em class="w">tenés</em> <em class="w">tiempo</em> <em class="w">de</em> <em class="w">revisar</em> <em class="w">todo.</em></h2>
+  <h2 id="mn-b" class="mn-title">Lo que pasó con lo tuyo, <em>con el café en la mano.</em></h2>
+
+  <div id="mn-wrap"><div id="mn-cam"><div id="mn-body"><div id="mn-screen" data-layout-allow-overlap>
+    <div id="mn-lock">
+      <div id="mn-date" data-layout-ignore>jueves 12 de diciembre</div>
+      <div id="mn-clock">8:40</div>
+      <div id="mn-notif">
+        <div id="mn-icon"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div class="n-meta" data-layout-ignore><span>PORTY</span><span>ahora</span></div>
+          <div class="n-t">Porty te marca 2 cosas hoy</div>
+          <div class="n-b">Una de tus posiciones pesa 34% de tu cartera. Y una cosa más. Tocá para verlo.</div>
+        </div>
+      </div>
+    </div>
+    <div id="mn-home">
+      <div id="mn-hd"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg><b>Hoy te marco 2 cosas</b></div>
+      <div id="mn-i1" class="ins"><b>Una de tus posiciones pesa 34% de tu cartera</b><div class="bar"><span></span></div></div>
+      <div id="mn-i2" class="ins"><b>Y una cosa más</b><p>Tocá para verlo.</p></div>
+    </div>
+  </div></div></div></div>
+
+  <!-- Taza de café ilustrada: el vapor se mueve todo el tiempo. -->
+  <div id="mn-cup">
+    <svg viewBox="0 0 100 100">
+      <path class="st" d="M38 30 C33 22 43 18 38 8" fill="none" stroke="#C9B79C" stroke-width="3.4" stroke-linecap="round"/>
+      <path class="st" d="M50 30 C45 22 55 18 50 8" fill="none" stroke="#C9B79C" stroke-width="3.4" stroke-linecap="round"/>
+      <path class="st" d="M62 30 C57 22 67 18 62 8" fill="none" stroke="#C9B79C" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M24 38 H76 V70 C76 82 66 90 54 90 H46 C34 90 24 82 24 70 Z" fill="#FFFFFF" stroke="#2F3437" stroke-width="3"/>
+      <path d="M24 48 H76" stroke="#D98E5D" stroke-width="6"/>
+      <path d="M76 46 C90 46 90 66 76 66" fill="none" stroke="#2F3437" stroke-width="3"/>
+      <ellipse cx="50" cy="94" rx="34" ry="4" fill="#ECEBE8"/>
+    </svg>
+  </div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  gsap.set("#mn-home", {clipPath:"inset(300px 18px 262px 18px round 34px)", opacity:0});
+  // Cámara y luz de la mañana que se mueven despacio; vapor del café todo el tiempo.
+  tl.fromTo("#mn-cam", {y:0}, {y:30, duration:11.0, ease:"none"}, 0)
+    .fromTo("#mn-lock", {backgroundPosition:"0% 0%"}, {backgroundPosition:"0% 100%", duration:6.2, ease:"none"}, 0);
+  document.querySelectorAll("#mn-cup .st").forEach((s, i) => {
+    tl.fromTo(s, {y:0, opacity:.2}, {y:-10, opacity:.9, duration:.9, ease:"sine.inOut", yoyo:true, repeat:10}, i * .3);
+  });
+  // Llega el aviso.
+  tl.fromTo("#mn-notif", {opacity:0, y:-150, scale:.94}, {opacity:1, y:0, scale:1, duration:.6, ease:"back.out(1.3)"}, 2.85)
+    .fromTo("#mn-icon", {scale:1.2}, {scale:1, duration:.3, ease:"back.out(2)"}, 3.0)
+    .to("#mn-icon svg", {scaleY:.9, duration:.08, yoyo:true, repeat:1, ease:"power1.inOut"}, 4.3);
+  tl.to("#mn-a .w", {opacity:0, filter:"blur(8px)", duration:.16, stagger:.025, ease:"power2.in"}, 3.25);
+  // Toque y el aviso se vuelve la Home.
+  tl.to("#mn-notif", {scale:.965, duration:.11, ease:"power2.in"}, 5.6)
+    .to("#mn-notif", {scale:1, duration:.2, ease:"power2.out"}, 5.71)
+    .to("#mn-home", {clipPath:"inset(0px 0px 0px 0px round 0px)", opacity:1, duration:.65, ease:"power2.inOut"}, 5.8)
+    .to("#mn-lock", {filter:"blur(15px)", opacity:0, duration:.3, ease:"power2.in"}, 5.85)
+    .fromTo("#mn-i1", {opacity:0, y:30}, {opacity:1, y:0, duration:.5, ease:"expo.out"}, 6.35)
+    .fromTo("#mn-i1 .bar span", {scaleX:0}, {scaleX:1, duration:.8, ease:"power2.inOut"}, 6.7)
+    .fromTo("#mn-i2", {opacity:0, y:30}, {opacity:1, y:0, duration:.5, ease:"expo.out"}, 6.85)
+    .to("#mn-hd svg", {y:-6, duration:.45, ease:"sine.inOut", yoyo:true, repeat:5}, 7.5);
+  // Titular 2: de gris a tinta, palabra por palabra (sin moverse).
+  tl.fromTo("#mn-b", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 6.55)
+    .to("#mn-b", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 10.55);
+  // Salida: teléfono y taza.
+  tl.to("#mn-wrap", {y:980, duration:.5, ease:"power3.in"}, 10.6)
+    .to("#mn-cup", {y:500, duration:.5, ease:"power3.in"}, 10.65);
+  window.__timelines["morning"] = tl;
+</script>
+</template>
