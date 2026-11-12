@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_cata
 import 'package:portfolio_assistant/features/assistant/catalog/portfolio_qa_catalog_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/broker_link_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
+import 'package:portfolio_assistant/features/assistant/utils/period_labels.dart';
 import 'package:portfolio_assistant/features/genui_core/prompts/critical_output_rules.dart';
 import 'package:portfolio_assistant/features/genui_core/widgets/guarded_catalog_widget.dart';
 
@@ -119,7 +120,12 @@ abstract final class AssistantCatalog {
           ],
           systemPromptFragments: [
             criticalOutputFormatRules,
-            ...base.systemPromptFragments,
+            // La surface la crea la app: las reglas de genui sin
+            // `createSurface` (ver [updateOnlyCatalogRules]).
+            for (final fragment in base.systemPromptFragments)
+              fragment == BasicCatalogItems.basicCatalogRules
+                  ? updateOnlyCatalogRules
+                  : fragment,
             lean
                 ? AreaSpecs.leanRules(assistantPromptRules)
                 : assistantPromptRules,
@@ -130,30 +136,24 @@ abstract final class AssistantCatalog {
 
 // Descripciones apuntando a los resultados de las tools (no a un snapshot).
 
+/// La ventana que nombró el usuario, como clave de `periods` (get_quote) o
+/// `position_periods.{T}` (get_portfolio_details). Los números de ese
+/// período los pone la app desde la tool (ver `TickerPriceData`).
+Schema _periodKey(String description) => S.string(
+  description: description,
+  enumValues: PeriodLabels.durations.keys.toList(),
+);
+
 final CatalogItem _tickerSnapshotItem = CatalogItem(
   name: 'QaTickerSnapshot',
   dataSchema: S.object(
     description:
         'FALLBACK de QaPriceChart: precio y cambios día/semana/mes de un '
         'ticker SOLO cuando get_quote.price_chart_available es false y no se '
-        'nombró un período.',
-    properties: {
-      'ticker': S.string(),
-      'currentPrice': S.number(description: 'Precio actual del ticker.'),
-      'dayChangePct': S.number(
-        description: 'Cambio porcentual del último día.',
-      ),
-      'weekChangePct': S.number(
-        description: 'Cambio porcentual de los últimos 7 días.',
-      ),
-      'monthChangePct': S.number(
-        description: 'Cambio porcentual de los últimos 30 días.',
-      ),
-      'weightPct': S.number(
-        description: 'Peso del ticker en el portfolio (opcional).',
-      ),
-    },
-    required: ['ticker', 'currentPrice'],
+        'nombró un período. Solo el ticker: la app pone precio, cambios y '
+        'peso desde get_quote.',
+    properties: {'ticker': S.string()},
+    required: ['ticker'],
   ),
   widgetBuilder:
       (ctx) =>
@@ -166,22 +166,20 @@ final CatalogItem _tickerMoveItem = CatalogItem(
   dataSchema: S.object(
     description:
         'Movimiento de precio de UN ticker en un período explícito. Dos '
-        'usos: (1) ticker que el usuario TIENE + período → desde '
+        'usos: (1) ticker que el usuario TIENE + período → con '
         'get_portfolio_details.position_periods; (2) FALLBACK de QaPriceChart '
-        'cuando price_chart_available es false → desde get_quote periods.',
+        'cuando price_chart_available es false → con get_quote. La app pone '
+        'los números de ese período desde la tool.',
     properties: {
       'ticker': S.string(),
-      'periodLabel': S.string(
-        description: 'Etiqueta del período, ej. "Últimos 7 días".',
-      ),
-      'changePct': S.number(description: 'Cambio porcentual del precio.'),
-      'priceStart': S.number(description: 'Precio al inicio del período.'),
-      'priceEnd': S.number(description: 'Precio al cierre del período.'),
+      'period': _periodKey('La ventana que nombró el usuario.'),
       'weightPct': S.number(
-        description: 'Peso del ticker en el portfolio (opcional).',
+        description:
+            'Solo si es un ticker propio y no llamaste get_quote: '
+            'PORTFOLIO_BRIEF positions[].weight_pct.',
       ),
     },
-    required: ['ticker', 'periodLabel', 'changePct'],
+    required: ['ticker', 'period'],
   ),
   widgetBuilder:
       (ctx) =>
@@ -197,8 +195,7 @@ final CatalogItem _priceChartItem = CatalogItem(
         '1D/1W/1M/3M/1Y/Todo que el usuario cambia sin volver a preguntar. '
         'DEFAULT para cualquier pregunta de precio o evolución de un ticker '
         'cuando get_quote.price_chart_available es true. La app trae la '
-        'serie de precios sola; los campos de período son el fallback que se '
-        'muestra si no hay histórico.',
+        'serie de precios y pone precio, cambios y peso desde get_quote.',
     properties: {
       'ticker': S.string(),
       'initialRange': S.string(
@@ -208,28 +205,11 @@ final CatalogItem _priceChartItem = CatalogItem(
             '"3M" (trimestre), "1Y" (año), "ALL" (todo el histórico).',
         enumValues: ['1D', '1W', '1M', '3M', '1Y', 'ALL'],
       ),
-      'currentPrice': S.number(description: 'get_quote current_price.'),
-      'dayChangePct': S.number(description: 'periods.day.change_pct.'),
-      'weekChangePct': S.number(description: 'periods.week.change_pct.'),
-      'monthChangePct': S.number(description: 'periods.month.change_pct.'),
-      'periodLabel': S.string(
-        description:
-            'Solo si el usuario nombró un período: periods.{period}.label_es.',
-      ),
-      'changePct': S.number(
-        description: 'Solo si nombró un período: periods.{period}.change_pct.',
-      ),
-      'priceStart': S.number(
-        description: 'Solo si nombró un período: periods.{period}.price_start.',
-      ),
-      'priceEnd': S.number(
-        description: 'Solo si nombró un período: periods.{period}.price_end.',
-      ),
-      'weightPct': S.number(
-        description: 'Peso del ticker en el portfolio (opcional).',
+      'period': _periodKey(
+        'Solo si el usuario nombró una ventana (no con "ALL").',
       ),
     },
-    required: ['ticker', 'initialRange', 'currentPrice'],
+    required: ['ticker', 'initialRange'],
   ),
   widgetBuilder:
       (ctx) =>

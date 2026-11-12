@@ -117,7 +117,16 @@ enum ProductEvent {
 
   /// Cerró la hoja con "Ahora no" o deslizándola, sin tocar "Agregar".
   /// Props: `source`.
-  widgetPromptDismissed('widget_prompt_dismissed');
+  widgetPromptDismissed('widget_prompt_dismissed'),
+
+  /// Cuánto tardó cada tramo de un turno del chat (ver `TurnTiming` y
+  /// docs/superpowers/research/2026-10-15-porty-latencia.md, §4). Props:
+  /// `result`, `stream`, `total_ms`, `pre_ms`, `throttle_ms`,
+  /// `first_text_ms`, `ready_ms`, `rounds` (`kind`, `start_ms`, `ms`,
+  /// `server`: tramos del proxy), `tools` (`name`, `ms`, `status`),
+  /// `extra_round`, `retries`, `final_chars`, `region`. Nunca texto,
+  /// tickers ni argumentos.
+  chatTurnTiming('chat_turn_timing');
 
   const ProductEvent(this.wire, {this.once = false});
 

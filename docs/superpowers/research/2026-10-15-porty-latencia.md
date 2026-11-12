@@ -1,6 +1,6 @@
 # Porty: cómo bajar el tiempo de respuesta sin perder calidad
 
-**Fecha:** 2026-10-15 · **Estado:** D y C1 implementados (ver §5); el resto, propuesto
+**Fecha:** 2026-10-15 · **Estado:** D, C1, A2, §4 (medición) y A1 para las cards de precio implementados (ver §5-§7); el resto, propuesto
 
 Hoy una consulta tarda 10-15 s, y más de 20 s cuando busca noticias. Este documento muestra en qué se va ese tiempo y qué se puede cambiar, ordenado por impacto. Ningún cambio toca qué datos ve el modelo ni qué responde. Lo que cambia es cuánto texto escribe, cuántas cosas se esperan una detrás de otra y cuándo ve el usuario la respuesta.
 
@@ -133,6 +133,57 @@ Con eso se ve el p50/p90 de cada tramo y se confirma (o corrige) la tabla del §
   - El texto que ya se leyó no se vuelve a tipear al final (`QaStreamedTextScope`). Si el control lo reescribió, se tipea el nuevo.
   - Activación: `{"percent": 0-100, "users": [uuid...]}`. Con `users` lo probás con tu cuenta antes de abrirlo a un porcentaje; el reparto por usuario es el mismo que el de `GPT6_ROLLOUT_PERCENT`. La app relee el valor cada 10 min, y con `percent: 0` y `users: []` todo vuelve a ser como antes.
   - Costo: el mismo (mismos tokens).
+
+## 7. Implementado (2026-11-12)
+
+- **§4, medición por tramo.**
+  - El proxy devuelve `Server-Timing` en cada ronda: `auth`, `prep` (body + allowlist), `begin` (`ai_begin_request`), `upstream` (hasta el primer byte de OpenAI; sin streaming, casi la ronda entera), `body` (sin streaming) y `oai` (lo que OpenAI dice que tardó, de `openai-processing-ms`). También devuelve `x-porty-region` (`SB_REGION`) y escribe una línea de log JSON por ronda (`fn: "ai-chat"`), así que se puede mirar desde los logs de Supabase aunque la app no esté actualizada.
+  - La app manda un evento `chat_turn_timing` por turno a `product_events`, con tiempos en ms desde que el usuario mandó la pregunta: `pre_ms` (hasta el primer pedido), `throttle_ms`, `first_text_ms` (con streaming), `ready_ms` (respuesta en pantalla), `rounds[]` (`kind`, `start_ms`, `ms`, `server` con los tramos del proxy), `tools[]` (`name`, `ms`, `status`), `extra_round` (`grounding` | `rewrite` | `needs_retry`), `retries`, `final_chars`, `region` y `result`. Nunca lleva texto, tickers ni argumentos.
+- **A2, sin `createSurface`.** El prompt pide solo `updateComponents` (`SurfaceOperations.updateOnly`, sin el esquema ni el ejemplo de `createSurface`) y la app crea la surface (`A2uiResponseNormalizer`). Son ~40 tokens menos por respuesta y ~2,4 KB menos de prompt.
+- **A1, cards de precio.** `QaPriceChart`, `QaTickerSnapshot` y `QaTickerMove` ya no le piden números al modelo: manda `ticker`, `initialRange` y, si el usuario nombró una ventana, `period`. La app completa precio, cambios, inicio y fin del período y peso desde `get_quote` / `get_portfolio_details` (`TickerPriceData.fillPayload`). `QaPriceChart` pasa de ~93 a ~27 tokens. El chequeo de "la intro repite los números de la card" usa esos mismos números. Las respuestas que todavía traen los números (versiones anteriores) se siguen viendo igual. Pendiente, con el mismo patrón: `QaPeriodChange`, `QaPositionsSnapshot`, `QaPnLBreakdown`, `QaEarningsCalendar`, `QaFundamentals` (ojo: `PortyAnswerTone` lee los campos de resultado de la cartera de las tres primeras).
+- **Despliegue:** `ai-chat` (allowlist nueva + `Server-Timing`) **antes** de publicar la versión de la app.
+
+### Consultas (Supabase → SQL Editor)
+
+Tiempos del turno (últimos 7 días, turnos respondidos):
+
+```sql
+select count(*) as turnos,
+  percentile_cont(0.5) within group (order by (props->>'ready_ms')::int) as p50_ready_ms,
+  percentile_cont(0.9) within group (order by (props->>'ready_ms')::int) as p90_ready_ms,
+  percentile_cont(0.5) within group (order by (props->>'first_text_ms')::int) as p50_primer_texto_ms,
+  percentile_cont(0.5) within group (order by (props->>'pre_ms')::int) as p50_antes_del_modelo_ms,
+  avg(((props->>'extra_round') is not null)::int) as pct_con_ronda_extra
+from public.product_events
+where name = 'chat_turn_timing' and props->>'result' = 'answered'
+  and created_at > now() - interval '7 days';
+```
+
+Por tipo de ronda, con el trabajo propio del proxy:
+
+```sql
+select r->>'kind' as ronda, count(*),
+  percentile_cont(0.5) within group (order by (r->>'ms')::int) as p50_ms,
+  percentile_cont(0.9) within group (order by (r->>'ms')::int) as p90_ms,
+  percentile_cont(0.5) within group (order by (r->'server'->>'auth')::int
+    + (r->'server'->>'begin')::int) as p50_proxy_ms,
+  percentile_cont(0.5) within group (order by (r->'server'->>'oai')::int) as p50_openai_ms
+from public.product_events, jsonb_array_elements(props->'rounds') r
+where name = 'chat_turn_timing' and created_at > now() - interval '7 days'
+group by 1 order by 2 desc;
+```
+
+Tools más lentas:
+
+```sql
+select t->>'name' as tool, count(*),
+  percentile_cont(0.5) within group (order by (t->>'ms')::int) as p50_ms,
+  percentile_cont(0.9) within group (order by (t->>'ms')::int) as p90_ms
+from public.product_events, jsonb_array_elements(props->'tools') t
+where name = 'chat_turn_timing' and t->>'status' <> 'memo'
+  and created_at > now() - interval '7 days'
+group by 1 order by p90_ms desc;
+```
 
 ## Fuentes
 

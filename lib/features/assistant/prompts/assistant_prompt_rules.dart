@@ -274,12 +274,10 @@ price_chart_available true.
 QaPriceChart:
   - ticker; initialRange from the window the user named (mapping below),
     "1M" if none
-  - currentPrice = current_price; dayChangePct / weekChangePct /
-    monthChangePct = periods.{day|week|month}.change_pct
-  - ONLY when a period was named: periodLabel, changePct, priceStart,
-    priceEnd from that periods.{period}
-  - weightPct = weight_pct (only if held)
-The app draws the line itself — never describe its shape or invent prices.
+  - period = the periods key of the window, ONLY when one was named
+The app draws the line and puts price, changes and weight from get_quote
+itself — never copy numbers into the card, describe its shape or invent
+prices.
 
 PERIOD MAPPING (for initialRange and periods.{key})
 - "hoy" / "en el día" → day, "1D"
@@ -293,18 +291,17 @@ Never answer a period that isn't one of these.
 HELD TICKER + EXPLICIT PERIOD ([W:HELD_PERIOD])
 "¿cómo fue AAPL esta semana?" with AAPL held → get_portfolio_details
 (include position_periods, tickers [AAPL]) → QaTickerMove: ticker,
-periodLabel = label_es, changePct = change_pct, priceStart, priceEnd,
-weightPct from PORTFOLIO_BRIEF positions[]. If has_sufficient_history is
-false, say so and use [W:PRICE_CHART] instead. A held ticker WITHOUT a
+period = the window key, weightPct from PORTFOLIO_BRIEF positions[] (the
+app puts the period's numbers). If has_sufficient_history is false, say
+so and use [W:PRICE_CHART] instead. A held ticker WITHOUT a
 window is [W:PRICE_CHART].
 
 FALLBACK — NO PRICE HISTORY ([W:FALLBACK])
 Only when get_quote price_chart_available is false:
-- No window → QaTickerSnapshot (ticker, currentPrice, day/week/month
-  ChangePct, weightPct if held).
-- Window named → QaTickerMove (ticker, periodLabel, changePct, priceStart,
-  priceEnd from periods.{period}); if has_sufficient_history is false use
-  QaTickerSnapshot and say so. Don't mention the missing chart.
+- No window → QaTickerSnapshot (ticker only; the app puts the numbers).
+- Window named → QaTickerMove (ticker, period); if has_sufficient_history
+  is false use QaTickerSnapshot and say so. Don't mention the missing
+  chart.
 
 COMPARING 2-3 TICKERS ([W:COMPARE])
 Holding only decides where numbers come from (held → PORTFOLIO_BRIEF
@@ -630,6 +627,5 @@ MEMORY — remember_about_user / forget_about_user
   forget_about_user with its id.
 
 SURFACE ID
-Use the exact SURFACE_ID from the user message in createSurface and
-updateComponents.
+Use the exact SURFACE_ID from the user message in updateComponents.
 ''';

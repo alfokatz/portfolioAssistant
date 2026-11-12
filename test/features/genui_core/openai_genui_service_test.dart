@@ -47,9 +47,16 @@ class _EchoTool implements DataTool {
 
 /// OpenAI falso: responde [script] en orden y guarda cada body enviado.
 class _FakeOpenAi {
-  _FakeOpenAi(this.script, {this.finishReasons = const {}});
+  _FakeOpenAi(
+    this.script, {
+    this.finishReasons = const {},
+    this.headers = const {},
+  });
 
   final List<Map<String, Object?> Function(Map<String, dynamic> body)> script;
+
+  /// Headers extra de cada respuesta (p. ej. el `Server-Timing` del proxy).
+  final Map<String, String> headers;
 
   /// `finish_reason` por número de request (por defecto `stop`).
   final Map<int, String> finishReasons;
@@ -88,7 +95,10 @@ class _FakeOpenAi {
         },
       }),
       200,
-      headers: {'content-type': 'application/json; charset=utf-8'},
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        ...headers,
+      },
     );
   });
 
@@ -173,6 +183,54 @@ void main() {
       expect(service.controller.registry.getSurface('s0'), isNotNull);
     },
   );
+
+  test('TurnTiming: rounds, tools and the proxy Server-Timing of a turn, '
+      'without tickers or text', () async {
+    final api = _FakeOpenAi(
+      [
+        (_) => _calls([('call_q', 'get_quote'), ('call_n', 'get_news')]),
+        (_) => _answer('s0'),
+      ],
+      headers: {
+        'server-timing': 'auth;dur=3, prep;dur=1, begin;dur=41, upstream;dur=812',
+        'x-porty-region': 'us-east-1',
+      },
+    );
+    final service = build(api);
+    final timing = TurnTiming();
+
+    await service.runTurn(
+      userText: '¿por qué bajó AAPL?',
+      surfaceId: 's0',
+      tools: [_EchoTool('get_quote'), _EchoTool('get_news', fails: true)],
+      timing: timing,
+    );
+    timing.ready();
+
+    expect(timing.rounds.map((r) => r.kind), ['tools', 'answer']);
+    expect(timing.rounds.every((r) => r.ms != null), isTrue);
+    expect(timing.rounds.first.server, {
+      'auth': 3,
+      'prep': 1,
+      'begin': 41,
+      'upstream': 812,
+    });
+    expect(timing.region, 'us-east-1');
+    expect({for (final t in timing.tools) t.name: t.status}, {
+      'get_quote': 'ok',
+      'get_news': 'failed',
+    });
+    expect(timing.finalChars, greaterThan(0));
+    expect(timing.extraRound, isNull);
+
+    final props = timing.toProps(result: 'answered');
+    expect(props['round_count'], 2);
+    expect(props['ready_ms'], isNotNull);
+    final wire = jsonEncode(props);
+    expect(wire, isNot(contains('AAPL')));
+    expect(wire, isNot(contains('bajó')));
+    expect(wire.length, lessThan(1800));
+  });
 
   test('parallel tool calls are answered in order, one failing does not '
       'abort the turn', () async {

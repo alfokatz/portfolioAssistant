@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_follow_up_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_market_parts.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 import '../../../helpers/genui_test_helpers.dart';
 
@@ -17,9 +20,10 @@ void main() {
     WidgetTester tester,
     Map<String, dynamic> component, {
     ValueChanged<String>? onFollowUp,
+    List<ToolCallRecord> evidence = const [],
   }) async {
     await tester.binding.setSurfaceSize(genuiTestViewportSize);
-    final body = SingleChildScrollView(
+    final card = SingleChildScrollView(
       child: Builder(
         builder:
             (context) => item(component['component'] as String).widgetBuilder(
@@ -31,6 +35,10 @@ void main() {
             ),
       ),
     );
+    final body = QaEvidenceScope(
+      lookup: (_) => ValueNotifier(TurnEvidence(calls: evidence)),
+      child: card,
+    );
     await tester.pumpWidget(
       genuiTestApp(
         child:
@@ -41,6 +49,39 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  // Lo que devuelve get_quote para NVDA: con esto la card pone sus números
+  // sola (el modelo solo manda ticker y período).
+  final nvdaQuote = ToolCallRecord(
+    name: 'get_quote',
+    args: {
+      'tickers': ['NVDA'],
+    },
+    result: {
+      'status': 'ok',
+      'tickers': {
+        'NVDA': {
+          'fetch_ok': true,
+          'current_price': 120.5,
+          'weight_pct': 12.0,
+          'periods': {
+            for (final (key, label, pct, start) in [
+              ('day', 'último día', 1.2, 119.07),
+              ('week', 'últimos 7 días', -2.1, 123.09),
+              ('month', 'últimos 30 días', 5.8, 113.89),
+            ])
+              key: {
+                'change_pct': pct,
+                'price_start': start,
+                'price_end': 120.5,
+                'has_sufficient_history': true,
+                'label_es': label,
+              },
+          },
+        },
+      },
+    },
+  );
 
   group('QaMarketParts', () {
     test('parses model-formatted numbers', () {
@@ -92,6 +133,37 @@ void main() {
       expect(find.text('Gráfico'), findsNothing);
       await tester.tap(find.text('Noticias'));
       expect(sent, ['¿Qué noticias hay de VOO?']);
+    });
+  });
+
+  group('numbers from the evidence (the model only sends the ticker)', () {
+    testWidgets('QaTickerSnapshot: price, chips and weight from get_quote', (
+      tester,
+    ) async {
+      await pumpComponent(tester, {
+        'component': 'QaTickerSnapshot',
+        'ticker': 'NVDA',
+      }, evidence: [nvdaQuote]);
+      expect(find.text('\$120.50'), findsOneWidget);
+      for (final label in ['Día', 'Semana', 'Mes']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(find.text('1.20%'), findsOneWidget);
+      expect(find.text('2.10%'), findsOneWidget);
+      expect(find.text('12% de tu portfolio'), findsOneWidget);
+    });
+
+    testWidgets('QaTickerMove: the period the model picked, numbers from '
+        'get_quote', (tester) async {
+      await pumpComponent(tester, {
+        'component': 'QaTickerMove',
+        'ticker': 'NVDA',
+        'period': 'week',
+      }, evidence: [nvdaQuote]);
+      expect(find.text('Últimos 7 días'), findsOneWidget);
+      expect(find.text('\$120.50'), findsNWidgets(2)); // hero + "Cierre"
+      expect(find.text('\$123.09'), findsOneWidget);
+      expect(find.text('\$2.59 (2.10%)'), findsOneWidget);
     });
   });
 

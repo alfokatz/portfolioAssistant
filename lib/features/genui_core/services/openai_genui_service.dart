@@ -13,6 +13,7 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/conversatio
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/openai_body_patch_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
+import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_timing.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_controller_dispatch.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/async_call_queue.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_normalizer.dart';
@@ -26,6 +27,7 @@ export 'package:portfolio_assistant/features/genui_core/genui_surface_ids.dart';
 export 'package:portfolio_assistant/features/genui_core/tool_calling/chat_completion_stream.dart'
     show ContentDeltaCallback;
 export 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
+export 'package:portfolio_assistant/features/genui_core/tool_calling/turn_timing.dart';
 
 /// Resultado de un turno: qué tools corrieron (para cuota, avisos y
 /// telemetría).
@@ -205,6 +207,8 @@ class OpenAIGenUiService {
        ),
        log = ConversationLog(systemPrompt: systemPrompt) {
     _httpClient = OpenAiBodyPatchClient(_proxyClient);
+    _proxyClient.onServerTiming =
+        (header, region) => _timing?.serverTiming(header, region);
     // `dart_openai` exige una key para armar el header; [AiProxyClient] lo
     // reemplaza por el JWT del usuario antes de salir del dispositivo.
     OpenAI.apiKey = 'proxy';
@@ -252,6 +256,9 @@ class OpenAIGenUiService {
   /// reparación de genui no muestra vista previa).
   ContentDeltaCallback? _onContent;
 
+  /// Tiempos del turno en curso (null fuera de un turno).
+  TurnTiming? _timing;
+
   // Tools y surface del último turno: los reusa la reparación que dispara
   // genui tras una validación fallida (llega sin surfaceId ni tools).
   List<DataTool> _lastTools = const [];
@@ -284,10 +291,18 @@ class OpenAIGenUiService {
     BeforeToolRound? beforeRound,
     ContentDeltaCallback? onContent,
     ResultExtrasFor? resultExtras,
+    TurnTiming? timing,
   }) {
     return _sendQueue.run(() async {
       log.pinnedContext = pinnedContext;
-      _onContent = onContent;
+      _timing = timing?..streaming = streaming;
+      _onContent =
+          onContent == null
+              ? null
+              : (raw) {
+                timing?.textSeen();
+                onContent(raw);
+              };
       try {
         return await _runTurn(
           userText: userText,
@@ -306,6 +321,7 @@ class OpenAIGenUiService {
         rethrow;
       } finally {
         _onContent = null;
+        _timing = null;
       }
     });
   }
@@ -368,7 +384,7 @@ class OpenAIGenUiService {
 
     final turn = log.beginTurn(userText, context: context);
     final deadline = DateTime.now().add(_turnDeadline);
-    final executor = _ToolExecutor(tools);
+    final executor = _ToolExecutor(tools, onTool: _timing?.tools.add);
     onActivity?.call(TurnActivity.thinking);
 
     Object? forcedChoice;
@@ -447,6 +463,7 @@ class OpenAIGenUiService {
                 'function': {'name': record.name},
               };
               retried = true;
+              _timing?.extraRound ??= 'needs_retry';
               break;
             }
           }
@@ -486,6 +503,8 @@ class OpenAIGenUiService {
           // Sin datos → la ronda extra tiene que traerlos; con datos → solo
           // reescribir (forzar una tool ahí la haría repetir llamadas).
           forcedChoice = correction.requiresTools ? 'required' : 'none';
+          _timing?.extraRound ??=
+              correction.requiresTools ? 'grounding' : 'rewrite';
           extraRound = correction.requiresTools;
           if (!correction.requiresTools) {
             rejectedRaw = raw;
@@ -532,9 +551,11 @@ class OpenAIGenUiService {
         }
         _applyFinal(attempt, surfaceId);
         turn.finalText = attempt;
+        _timing?.finalChars = attempt.length;
         return;
       } on StateError {
         if (lastTry) rethrow;
+        _timing?.retries++;
         await Future<void>.delayed(_transientRetryBackoff);
         final retry = await _request(
           tools: tools,
@@ -628,9 +649,15 @@ class OpenAIGenUiService {
       if (throttle) {
         // Espacia turnos, no las rondas de un mismo turno: una
         // continuación ya está "adentro" de un pedido del usuario.
+        final waitStart = _timing?.elapsedMs;
         await OpenAiRequestThrottle.waitIfNeeded();
         OpenAiRequestThrottle.markRequestStarted();
+        final timing = _timing;
+        if (timing != null && waitStart != null) {
+          timing.throttleMs += timing.elapsedMs - waitStart;
+        }
       }
+      final round = _timing?.startRound();
       // Rondas, reintentos y reparación del mismo turno comparten id: el
       // proxy cobra una consulta por turno.
       _proxyClient.turnId = log.currentTurn?.id;
@@ -676,11 +703,22 @@ class OpenAIGenUiService {
           log.currentTurn?.truncatedRounds++;
           GenUiDebugLog.outputTruncated(_textOf(message).length);
         }
+        if (round != null) {
+          final calls = message.toolCalls;
+          _timing?.endRound(
+            round,
+            calls != null && calls.isNotEmpty ? 'tools' : 'answer',
+          );
+        }
         return message;
       } on RequestFailedException catch (e) {
-        final canRetry =
-            isOpenAiRateLimitError(e) && attempt < maxRateLimitRetries;
+        final rateLimited = isOpenAiRateLimitError(e);
+        if (round != null) {
+          _timing?.endRound(round, rateLimited ? 'rate_limited' : 'failed');
+        }
+        final canRetry = rateLimited && attempt < maxRateLimitRetries;
         if (!canRetry || isDisposed) rethrow;
+        _timing?.retries++;
         final seconds = openAiSuggestedRetrySeconds(e.message) ?? 5;
         final wait = Duration(
           milliseconds: ((seconds + 1) * 1000).clamp(2000, 120000),
@@ -694,6 +732,11 @@ class OpenAIGenUiService {
           rethrow;
         }
         await Future<void>.delayed(wait);
+      } catch (_) {
+        if (round != null && round.endMs == null) {
+          _timing?.endRound(round, 'failed');
+        }
+        rethrow;
       }
     }
   }
@@ -837,8 +880,8 @@ class OpenAIGenUiService {
         return 'ERROR DE VALIDACIÓN en tu última respuesta para este '
             'surface: $message Corregí la interfaz: usá solo ids que ya '
             'definiste vos mismo (o que ya existen) y tipos de componente '
-            'que estén en el catálogo, y volvé a emitir createSurface + '
-            'updateComponents completos para este mismo surface.';
+            'que estén en el catálogo, y volvé a emitir updateComponents '
+            'completo para este mismo surface.';
       }
     } catch (_) {
       // Best-effort — si no es JSON o no tiene la forma esperada, se
@@ -863,10 +906,13 @@ class OpenAIGenUiService {
 /// Ejecuta las tool calls de un turno: en paralelo, con timeout por tool,
 /// presupuesto por turno y sin repetir una llamada idéntica.
 class _ToolExecutor {
-  _ToolExecutor(List<DataTool> tools)
+  _ToolExecutor(List<DataTool> tools, {this.onTool})
     : _byName = {for (final tool in tools) tool.name: tool};
 
   final Map<String, DataTool> _byName;
+
+  /// Cuánto tardó cada tool (para `TurnTiming`).
+  final void Function(TimedTool)? onTool;
   final records = <ToolCallRecord>[];
   final _memo = <String, Map<String, Object?>>{};
 
@@ -922,8 +968,10 @@ class _ToolExecutor {
     final key = '$name:${jsonEncode(args)}';
     final cached = _memo[key];
     if (cached != null) {
+      onTool?.call(TimedTool(name, 0, 'memo'));
       return ToolCallRecord(name: name, args: args, result: cached);
     }
+    final clock = Stopwatch()..start();
     Map<String, Object?> result;
     try {
       result = await tool
@@ -942,6 +990,13 @@ class _ToolExecutor {
     if (status != DataTool.needsRetryStatus && status != 'failed') {
       _memo[key] = result;
     }
+    onTool?.call(
+      TimedTool(
+        name,
+        clock.elapsedMilliseconds,
+        status is String ? status : 'ok',
+      ),
+    );
     return ToolCallRecord(name: name, args: args, result: result);
   }
 

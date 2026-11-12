@@ -69,7 +69,9 @@ class AssistantOpenAiService extends OpenAIGenUiService {
   static String systemPromptFor(Catalog catalog) => _compactSchemas(
     PromptBuilder.custom(
       catalog: catalog,
-      allowedOperations: SurfaceOperations.createAndUpdate(dataModel: false),
+      // La app crea la surface (A2uiResponseNormalizer): el modelo solo
+      // escribe `updateComponents`.
+      allowedOperations: SurfaceOperations.updateOnly(dataModel: false),
       technicalPossibilities: const TechnicalPossibilities(
         codeExecution: false,
         toolCall: false,
@@ -78,9 +80,10 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     ).systemPromptJoined(),
   );
 
-  /// Mensajes A2UI que la app no permite (`createAndUpdate` sin data
-  /// model): describirlos solo invita al modelo a usarlos.
+  /// Mensajes A2UI que el modelo no escribe (`updateOnly` sin data model;
+  /// la surface la crea la app): describirlos solo invita a usarlos.
   static const _unusedMessages = {
+    'CreateSurfaceMessage',
     'UpdateDataModelMessage',
     'DeleteSurfaceMessage',
   };
@@ -203,6 +206,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     TurnActivityCallback? onActivity,
     BeforeToolRound? beforeRound,
     ContentDeltaCallback? onContent,
+    TurnTiming? timing,
   }) {
     return runTurn(
       userText: question,
@@ -212,11 +216,12 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       onActivity: onActivity,
       beforeRound: beforeRound,
       onContent: onContent,
+      timing: timing,
       resultExtras: _resultExtras,
       pinnedContext: pinnedContextFor(portfolioBrief),
       context:
-          'SURFACE_ID (usar exactamente en createSurface y '
-          'updateComponents): $surfaceId\n\n'
+          'SURFACE_ID (usar exactamente en updateComponents): '
+          '$surfaceId\n\n'
           'PREGUNTA DEL USUARIO:',
     );
   }

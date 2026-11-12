@@ -920,6 +920,28 @@ void main() {
     });
   });
 
+  // Medición de latencia por tramo
+  // (docs/superpowers/research/2026-10-15-porty-latencia.md, §4).
+  test('an answered turn logs one chat_turn_timing, with times and no text',
+      () async {
+    final h = harness(SubscriptionTier.free, [_answer()]);
+    await h.notifier.bootstrap();
+
+    await h.notifier.submitMessage('¿Cómo viene AAPL hoy?');
+
+    final events = h.events.of(ProductEvent.chatTurnTiming);
+    expect(events, hasLength(1));
+    final props = events.single;
+    expect(props['result'], 'answered');
+    expect(props['round_count'], 1);
+    expect(props['ready_ms'], isA<int>());
+    expect(props['total_ms'], isA<int>());
+    expect((props['rounds'] as List).single, containsPair('kind', 'answer'));
+    final wire = jsonEncode(props);
+    expect(wire, isNot(contains('AAPL')));
+    expect(wire, isNot(contains('Cómo')));
+  });
+
   // Fase 4: de qué tickers habló el usuario, para retomarlo en otra charla.
   group('conversation topics (porty_topics)', () {
     test('a turn records the ticker it asked about, and the next turn '

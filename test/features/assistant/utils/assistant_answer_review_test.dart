@@ -183,6 +183,49 @@ void main() {
     expect(out, isNot(contains('Aquí tienes')));
   });
 
+  test('a price card without numbers in its JSON (the app puts them from '
+      'get_quote) still catches an intro that repeats them', () {
+    const quote = ToolCallRecord(
+      name: 'get_quote',
+      args: {
+        'tickers': ['NVDA'],
+      },
+      result: {
+        'status': 'ok',
+        'tickers': {
+          'NVDA': {
+            'fetch_ok': true,
+            'current_price': 120.5,
+            'periods': {
+              'week': {
+                'change_pct': -2.1,
+                'price_start': 123.09,
+                'price_end': 120.5,
+                'has_sufficient_history': true,
+                'label_es': 'últimos 7 días',
+              },
+            },
+          },
+        },
+      },
+    );
+    final raw = _answer([
+      _intro('NVDA está en 120,50 dólares y bajó 2,1% en la semana.'),
+      {
+        'id': 'p',
+        'component': 'QaPriceChart',
+        'ticker': 'NVDA',
+        'initialRange': '1W',
+        'period': 'week',
+      },
+    ]);
+    final evidence = TurnEvidence(calls: const [quote]);
+    expect(AssistantAnswerReview.check(raw, evidence), isNull);
+    final out = AssistantAnswerReview.postProcess(raw, evidence);
+    expect(out, isNot(contains('120,50')));
+    expect(out, contains('Este es el gráfico de precio de NVDA'));
+  });
+
   test('an intro that names the period but not the card numbers is kept', () {
     final raw = _answer([
       _intro(

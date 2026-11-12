@@ -28,6 +28,18 @@ void main() {
     expect(marker.allMatches(prompt).length, 1);
   });
 
+  test(
+    'the model only writes updateComponents: the app creates the surface '
+    '(A2uiResponseNormalizer), so the prompt never asks for createSurface',
+    () {
+      expect(prompt, contains('Supported messages are: `updateComponents`.'));
+      expect(prompt, isNot(contains('Output a `createSurface` message')));
+      expect(prompt, isNot(contains('"createSurface": {')));
+      expect(prompt, isNot(contains('"CreateSurfaceMessage"')));
+      expect(prompt, contains('never output `createSurface`'));
+    },
+  );
+
   test('every [W:…] rule referenced is defined, and no step numbers', () {
     final ids = RegExp(r'\[W:([A-Z_]+)\]');
     final defined = {

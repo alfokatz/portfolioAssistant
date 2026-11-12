@@ -542,6 +542,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     // Cómo terminó el turno para `widget_question_result`: cualquier salida
     // que no sea una de las tres de abajo es una falla.
     var result = _WidgetQuestionResult.failed;
+    // Desde que el usuario mandó la pregunta (evento `chat_turn_timing`).
+    final timing = TurnTiming();
+    var timingResult = 'failed';
 
     try {
       _ensureService();
@@ -676,6 +679,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                 await taste.beforeRound(calls);
               },
               onContent: service.streaming ? _previewSink(surfaceId) : null,
+              timing: timing,
             );
           },
         );
@@ -713,6 +717,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             sources: notices.sources,
           ),
         );
+        timing.ready();
+        timingResult = 'answered';
         _markMarketTaste(surfaceId, ctx);
         // El contador del header refleja lo que cobró el servidor; con la
         // cuota ya refrescada se decide la línea de cuota baja.
@@ -729,6 +735,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // regenerar la allowlist y desplegar `ai-chat` (ver runbook).
         if (kDebugMode) debugPrint('[Assistant/turn] rejected by proxy: $e');
         state = _applyServerLimit(state, e, surfaceId);
+        timingResult = e.isQuota ? 'quota' : 'limit';
         if (e.isQuota) {
           result = _WidgetQuestionResult.quota;
           unawaited(subscription.refresh());
@@ -740,6 +747,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         // El único que corta turnos es `AssistantTurnPolicy.paywallFor`.
         final paywall = e.reason as ChatPaywall;
         result = _WidgetQuestionResult.paywall;
+        timingResult = 'paywall';
         state = state.copyWith(
           messages: _removeTurn(state.messages, surfaceId),
           paywallReason: paywall.reason,
@@ -749,6 +757,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
       } on TimeoutException catch (e) {
         if (kDebugMode) debugPrint('[Assistant/turn] timed out: $e');
+        timingResult = 'timeout';
         // Falla de generación (el modelo no llegó a tiempo), no de
         // conexión: respuesta de texto simple, sin banner de error.
         state = state.copyWith(
@@ -759,6 +768,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         );
       } catch (e) {
         if (kDebugMode) debugPrint('[Assistant/turn] failed: $e');
+        timingResult = isConnectionFailure(e) ? 'offline' : 'fallback';
         if (isConnectionFailure(e)) {
           state = state.copyWith(
             error: genUiErrorMessage(e),
@@ -783,6 +793,15 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       _sendGuard.release();
       _setActivity(TurnActivity.idle);
       state = state.copyWith(isWaiting: false);
+      // Solo los turnos que llegaron a pedirle algo al modelo.
+      if (timing.rounds.isNotEmpty && mounted) {
+        ref
+            .read(productEventsProvider)
+            .log(
+              ProductEvent.chatTurnTiming,
+              timing.toProps(result: timingResult),
+            );
+      }
       if (origin is WidgetQuestionOrigin && mounted) {
         ref.read(productEventsProvider).log(ProductEvent.widgetQuestionResult, {
           'question_id': origin.questionId,

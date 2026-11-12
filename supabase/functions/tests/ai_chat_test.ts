@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { applyModelPolicy, config, handle, rolloutBucket, rolloutPercent } from "../ai-chat/handler.ts";
+import { applyModelPolicy, config, handle, RoundTimer, rolloutBucket, rolloutPercent } from "../ai-chat/handler.ts";
 import { sha256Hex } from "../_shared/common.ts";
 import { createUser, db, deps, fakeFetch, monthlyUsed } from "./helpers.ts";
 
@@ -355,4 +355,56 @@ Deno.test("paso gradual: GPT6_ROLLOUT_PERCENT reparte por usuario, estable, y se
   assertEquals(rolloutPercent({ env: env("25"), now: () => before }), 25);
   assertEquals(rolloutPercent({ env: env("basura"), now: () => before }), 100);
   assertEquals(rolloutPercent({ env: env("0"), now: () => after }), 100);
+});
+
+/// Nombres de los tramos de un header `Server-Timing`.
+function timingNames(header: string | null): string[] {
+  return (header ?? "").split(",").map((p) => p.trim().split(";")[0]).filter(Boolean);
+}
+
+Deno.test("Server-Timing: la ronda devuelve sus tramos (auth, prep, begin, upstream, body) y lo que tardó OpenAI", async () => {
+  const user = await createUser("premium");
+  const f = fakeFetch(() =>
+    Response.json(
+      { choices: [{ message: { role: "assistant", content: "ok" } }], usage },
+      { headers: { "openai-processing-ms": "812" } },
+    )
+  );
+  const d = deps(f.fetch, { ...env, SB_REGION: "us-east-1" });
+  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body()), d, { allowedPromptHashes: hashes });
+  assertEquals(r.status, 200);
+  await r.text();
+  await d.settle();
+  const header = r.headers.get("Server-Timing");
+  assertEquals(timingNames(header), ["auth", "prep", "begin", "upstream", "body", "oai"]);
+  assert(header!.includes("oai;dur=812"));
+  for (const part of header!.split(", ")) assert(/^[a-z]+;dur=\d+$/.test(part), part);
+  assertEquals(r.headers.get("x-porty-region"), "us-east-1");
+  assert(r.headers.get("Access-Control-Expose-Headers")!.includes("Server-Timing"));
+});
+
+Deno.test("Server-Timing con streaming: los headers salen hasta el primer byte de OpenAI (sin body)", async () => {
+  const user = await createUser("gold");
+  const enc = new TextEncoder();
+  const upstream = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(enc.encode(`data: {"choices":[],"usage":${JSON.stringify(usage)}}\n\ndata: [DONE]\n\n`));
+      c.close();
+    },
+  });
+  const f = fakeFetch(() => new Response(upstream, { headers: { "Content-Type": "text/event-stream" } }));
+  const d = deps(f.fetch, env);
+  const r = await handle(req(user.jwt, `turn-${crypto.randomUUID()}`, body({ stream: true })), d, { allowedPromptHashes: hashes });
+  await r.text();
+  await d.settle();
+  assertEquals(timingNames(r.headers.get("Server-Timing")), ["auth", "prep", "begin", "upstream"]);
+  assertEquals(r.headers.get("x-porty-region"), "");
+});
+
+Deno.test("RoundTimer: un header de OpenAI raro no rompe el Server-Timing", () => {
+  const t = new RoundTimer();
+  t.mark("auth");
+  assertEquals(timingNames(t.header("no-es-numero")), ["auth"]);
+  assertEquals(timingNames(t.header(null)), ["auth"]);
+  assertEquals(timingNames(t.header("40")), ["auth", "oai"]);
 });

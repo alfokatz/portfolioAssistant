@@ -213,6 +213,59 @@ async function recordRound(
   if (error) console.error("ai_record_round failed", error.message);
 }
 
+/// Tiempos de una ronda en el proxy (ms desde que llegó el pedido). Salen
+/// en el header estándar `Server-Timing` (la app los suma a su evento
+/// `chat_turn_timing`) y en una línea de log por ronda. Sin datos del
+/// usuario: solo duraciones, modelo y región.
+/// Ver docs/superpowers/research/2026-10-15-porty-latencia.md, §4.
+export class RoundTimer {
+  private readonly start = performance.now();
+  private last = this.start;
+  readonly marks: [string, number][] = [];
+
+  /// Cierra el tramo [name]: lo que pasó desde la marca anterior.
+  mark(name: string) {
+    const now = performance.now();
+    this.marks.push([name, now - this.last]);
+    this.last = now;
+  }
+
+  get totalMs(): number {
+    return performance.now() - this.start;
+  }
+
+  /// `auth;dur=12, begin;dur=40, …` (+ `oai`: lo que OpenAI dice que tardó
+  /// en procesar, de su header `openai-processing-ms`).
+  header(openAiProcessingMs?: string | null): string {
+    const parts = this.marks.map(([n, ms]) => `${n};dur=${Math.round(ms)}`);
+    const oai = Number(openAiProcessingMs);
+    if (openAiProcessingMs && Number.isFinite(oai)) parts.push(`oai;dur=${Math.round(oai)}`);
+    return parts.join(", ");
+  }
+
+  log(fields: Record<string, unknown>) {
+    console.log(JSON.stringify({
+      fn: "ai-chat",
+      ...Object.fromEntries(this.marks.map(([n, ms]) => [`${n}_ms`, Math.round(ms)])),
+      total_ms: Math.round(this.totalMs),
+      ...fields,
+    }));
+  }
+}
+
+/// Headers de tiempos para la respuesta de una ronda.
+function timingHeaders(
+  timer: RoundTimer,
+  deps: Deps,
+  upstream: Response,
+): Record<string, string> {
+  return {
+    "Server-Timing": timer.header(upstream.headers.get("openai-processing-ms")),
+    "x-porty-region": deps.env("SB_REGION") ?? "",
+    "Access-Control-Expose-Headers": "Server-Timing, x-porty-region",
+  };
+}
+
 type HandleOptions = {
   allowedPromptHashes?: Set<string>;
   allowedReportPromptHashes?: Set<string>;
@@ -226,9 +279,11 @@ export async function handle(
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return typedError(405, "method_not_allowed", "POST only");
 
+  const timer = new RoundTimer();
   const jwt = bearer(req);
   const userId = jwt ? await deps.authenticate(jwt) : null;
   if (!userId) return typedError(401, "unauthorized", "Missing or invalid JWT");
+  timer.mark("auth");
 
   // La app lo manda al abrir Porty: arranca la función (y la clave pública
   // de los JWT) antes de la primera pregunta. Sin OpenAI ni base.
@@ -265,6 +320,7 @@ export async function handle(
     options.allowedPromptHashes ?? bundledPromptHashes,
   );
   if (problem) return typedError(403, "prompt_not_allowed", problem);
+  timer.mark("prep");
 
   const begin = await deps.db.rpc("ai_begin_request", {
     p_user_id: userId,
@@ -284,6 +340,7 @@ export async function handle(
     const { ok: _ok, reason: _reason, ...extra } = verdict;
     return typedError(status, reason, message, extra);
   }
+  timer.mark("begin");
 
   // El servidor fija lo que no se negocia.
   const requested = Number(body.max_completion_tokens ?? body.max_tokens ?? config.maxOutputTokens);
@@ -305,11 +362,17 @@ export async function handle(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(body),
   });
+  // Con streaming: hasta el primer byte. Sin streaming, OpenAI manda los
+  // headers cuando ya generó todo, así que es casi la ronda entera.
+  timer.mark("upstream");
+  const roundLog = { model, stream, status: upstream.status, region: deps.env("SB_REGION") ?? null };
 
   // Errores de OpenAI (429, 5xx…) pasan tal cual: la app ya sabe
   // reintentar el 429 con el mismo turn_id, que no vuelve a cobrar.
   if (!upstream.ok || !stream || !upstream.body) {
     const text = await upstream.text();
+    timer.mark("body");
+    timer.log(roundLog);
     if (upstream.ok) {
       try {
         const parsed = JSON.parse(text);
@@ -323,7 +386,11 @@ export async function handle(
     }
     return new Response(text, {
       status: upstream.status,
-      headers: { ...corsHeaders, "Content-Type": upstream.headers.get("Content-Type") ?? "application/json" },
+      headers: {
+        ...corsHeaders,
+        ...timingHeaders(timer, deps, upstream),
+        "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
+      },
     });
   }
 
@@ -362,13 +429,21 @@ export async function handle(
       resolveDone();
     },
   });
+  // Los headers salen antes que el stream: el tramo `stream` (hasta el
+  // último chunk) solo queda en el log.
+  const headers = timingHeaders(timer, deps, upstream);
   deps.background(
-    done.then(() => recordRound(deps, userId, turnId, model, usage, !sawToolCall)),
+    done.then(() => {
+      timer.mark("stream");
+      timer.log({ ...roundLog, final: !sawToolCall });
+      return recordRound(deps, userId, turnId, model, usage, !sawToolCall);
+    }),
   );
   return new Response(upstream.body.pipeThrough(passthrough), {
     status: upstream.status,
     headers: {
       ...corsHeaders,
+      ...headers,
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
     },

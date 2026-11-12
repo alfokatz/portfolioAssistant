@@ -111,6 +111,10 @@ class AiProxyClient extends http.BaseClient {
   /// Turno en curso: lo fija el servicio antes de cada ronda.
   String? turnId;
 
+  /// Tiempos que devuelve el proxy en cada ronda (`Server-Timing`) y la
+  /// región donde corrió (`x-porty-region`). Ver `TurnTiming`.
+  void Function(String serverTiming, String? region)? onServerTiming;
+
   static const warmUpEvery = Duration(minutes: 5);
   static DateTime? _lastWarmUp;
 
@@ -181,6 +185,10 @@ class AiProxyClient extends http.BaseClient {
           })
           ..body = request.body;
     final response = await _inner.send(proxied);
+    final serverTiming = response.headers['server-timing'];
+    if (serverTiming != null) {
+      onServerTiming?.call(serverTiming, response.headers['x-porty-region']);
+    }
     if (response.statusCode < 400) return response;
 
     // Leer el cuerpo para decidir si es un rechazo NUESTRO; si no, se

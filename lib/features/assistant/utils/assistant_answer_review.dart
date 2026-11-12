@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/allocation_plan
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/ticker_price_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
@@ -713,6 +714,14 @@ abstract final class AssistantAnswerReview {
     'QaPeriodChange',
   };
 
+  /// Cards de precio de un ticker: sus números salen de la evidencia (ver
+  /// `TickerPriceData`).
+  static const _tickerPriceCards = {
+    'QaPriceChart',
+    'QaTickerMove',
+    'QaTickerSnapshot',
+  };
+
   static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};
 
   static const _sellTools = {'propose_sell', 'propose_delete_position'};
@@ -1106,6 +1115,13 @@ abstract final class AssistantAnswerReview {
         // Como el análisis: los pesos los pone la app, no están en el JSON.
         final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');
         if (d != null) out.addAll(d.backingNumbers);
+      } else if (_tickerPriceCards.contains(c['component'])) {
+        // Los números los pone la app desde get_quote: los que la card
+        // muestra, no todos los de la tool.
+        final shown = TickerPriceData.fillPayload(c, evidence);
+        for (final n in AnalysisProseCheck.numbersIn(jsonEncode(shown))) {
+          out.add(n.value);
+        }
       } else {
         for (final n in AnalysisProseCheck.numbersIn(jsonEncode(c))) {
           out.add(n.value);
