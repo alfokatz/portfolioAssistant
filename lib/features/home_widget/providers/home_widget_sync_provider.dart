@@ -318,8 +318,9 @@ class HomeWidgetSyncController {
             'line_kind': _renderLines.contains(line) ? line : 'none',
           if (size == 'medium') ...{
             'shown_kind':
-                WidgetFeedKind.fromWire(shownKind is String ? shownKind : null)
-                    ?.wire,
+                WidgetFeedKind.fromWire(
+                  shownKind is String ? shownKind : null,
+                )?.wire,
             'shown_prio': shownPrio is int ? shownPrio : null,
           },
           'tier': (tier ?? currentTier?.call())?.name,
@@ -430,48 +431,61 @@ class HomeWidgetSyncController {
       await _publish();
       return;
     }
-    final lots = summary.lots.isNotEmpty ? summary.lots : summary.valuations;
-    final positions = [for (final v in lots) v.position];
-    final candles = await _candlesFor(positions);
-    if (epoch != _epoch) return;
-    final move = PortfolioDayMove.compute(
-      history: history,
-      positions: positions,
-      candlesByTicker: candles,
-      now: _now(),
-    );
-    final chart = await loadWidgetChart(
-      positions: positions,
-      dailyCandles: candles,
-      movePercent: move.percent,
-      dailyValues: [for (final p in history) p.totalValue],
-      loadIntraday: loadIntraday,
-    );
-    if (epoch != _epoch) return;
-    _known = _KnownReady(
-      chart: chart,
-      holdings: [
-        for (final v in summary.valuations)
-          WidgetHolding(
-            ticker: v.position.ticker,
-            marketValue: v.marketValue,
-            isCrypto: v.position.source.isBinance,
-          ),
-      ],
-      facts: [
-        for (final v in summary.valuations)
-          WidgetPositionFact(
-            ticker: v.position.ticker,
-            marketValue: v.marketValue,
-            dayPct: WidgetPortfolioFacts.dayPct(
-              candles[v.position.ticker] ?? const [],
+    try {
+      final lots = summary.lots.isNotEmpty ? summary.lots : summary.valuations;
+      final positions = [for (final v in lots) v.position];
+      final candles = await _candlesFor(positions);
+      if (epoch != _epoch) return;
+      final move = PortfolioDayMove.compute(
+        history: history,
+        positions: positions,
+        candlesByTicker: candles,
+        now: _now(),
+      );
+      final chart = await loadWidgetChart(
+        positions: positions,
+        dailyCandles: candles,
+        movePercent: move.percent,
+        dailyValues: [for (final p in history) p.totalValue],
+        loadIntraday: loadIntraday,
+      );
+      if (epoch != _epoch) return;
+      _known = _KnownReady(
+        chart: chart,
+        holdings: [
+          for (final v in summary.valuations)
+            WidgetHolding(
+              ticker: v.position.ticker,
+              marketValue: v.marketValue,
+              isCrypto: v.position.source.isBinance,
             ),
-          ),
-      ],
-      totalValue: summary.totalValue,
-      move: move,
-      dataAsOf: dataAsOf,
-    );
+        ],
+        facts: [
+          for (final v in summary.valuations)
+            WidgetPositionFact(
+              ticker: v.position.ticker,
+              marketValue: v.marketValue,
+              dayPct: WidgetPortfolioFacts.dayPct(
+                candles[v.position.ticker] ?? const [],
+              ),
+            ),
+        ],
+        totalValue: summary.totalValue,
+        move: move,
+        dataAsOf: dataAsOf,
+      );
+    } catch (e, st) {
+      // Con posiciones, el widget nunca vuelve a "Cargá tu cartera": si falla
+      // el detalle (velas, gráfico, datos por ticker), queda el total y la
+      // variación del día de la Home.
+      if (kDebugMode) debugPrint('[home_widget] capture failed: $e\n$st');
+      if (epoch != _epoch) return;
+      _known = _KnownReady(
+        totalValue: summary.totalValue,
+        move: PortfolioDayMove.compute(history: history, now: _now()),
+        dataAsOf: dataAsOf,
+      );
+    }
     final uid = currentUserId();
     if (uid != null) await prefs.setString(WidgetPrefsKeys.ownerUid, uid);
     await _publish();
@@ -499,77 +513,95 @@ class HomeWidgetSyncController {
     final texts = await loadTexts(lang);
     if (epoch != _epoch) return;
     final now = _now();
-    final WidgetSnapshot snapshot;
+    WidgetSnapshot snapshot;
     Future<void> Function()? afterWrite;
     if (known is _KnownReady) {
-      final entry = await _itemsEntry(known, now);
-      if (epoch != _epoch) return;
-      final uid = currentUserId();
-      final tier = currentTier?.call() ?? SubscriptionTier.free;
-      final extras = feedExtras?.call() ?? const WidgetFeedExtras();
-      final hidden = amountsHidden();
-      final feedCache = WidgetFeedCache(prefs);
-      final biggest = WidgetPortfolioFacts.biggest(known.facts);
-      final built = WidgetSnapshotBuilder.readyBuild(
-        move: known.move,
-        chart: known.chart,
-        positionsHidden: hidden,
-        lang: lang,
-        now: now,
-        dataAsOf: known.dataAsOf,
-        texts: texts,
-        tier: tier,
-        platform: _platform,
-        selection: entry?.selection(now),
-        planUntil: entry?.planUntil,
-        insights: extras.insights,
-        mover: WidgetPortfolioFacts.mover(known.facts),
-        biggest: biggest,
-        questionContext: WidgetQuestionContext(
+      try {
+        final entry = await _itemsEntry(known, now);
+        if (epoch != _epoch) return;
+        final uid = currentUserId();
+        final tier = currentTier?.call() ?? SubscriptionTier.free;
+        final extras = feedExtras?.call() ?? const WidgetFeedExtras();
+        final hidden = amountsHidden();
+        final feedCache = WidgetFeedCache(prefs);
+        final biggest = WidgetPortfolioFacts.biggest(known.facts);
+        final built = WidgetSnapshotBuilder.readyBuild(
+          move: known.move,
+          chart: known.chart,
+          positionsHidden: hidden,
+          lang: lang,
+          now: now,
+          dataAsOf: known.dataAsOf,
+          texts: texts,
           tier: tier,
-          goalLabel: extras.goalLabel,
-          hasDrift: extras.driftTicker != null,
-          driftTicker: extras.driftTicker,
-          biggestTicker: biggest?.ticker,
-          profileRisk: extras.profileRisk,
-        ),
-        feedState:
-            uid == null
-                ? const WidgetFeedState()
-                : feedCache.readState(uid: uid),
-      );
-      snapshot = built.snapshot;
-      afterWrite = () async {
-        if (uid == null) return;
-        // Lo que el refresco de fondo y el toque de una pregunta necesitan.
-        // Va después de escribir el widget: si falla, el widget ya está.
-        try {
-          await feedCache.write(
-            WidgetFeedCacheEntry(
+          platform: _platform,
+          selection: entry?.selection(now),
+          planUntil: entry?.planUntil,
+          insights: extras.insights,
+          mover: WidgetPortfolioFacts.mover(known.facts),
+          biggest: biggest,
+          questionContext: WidgetQuestionContext(
+            tier: tier,
+            goalLabel: extras.goalLabel,
+            hasDrift: extras.driftTicker != null,
+            driftTicker: extras.driftTicker,
+            biggestTicker: biggest?.ticker,
+            profileRisk: extras.profileRisk,
+          ),
+          feedState:
+              uid == null
+                  ? const WidgetFeedState()
+                  : feedCache.readState(uid: uid),
+        );
+        snapshot = built.snapshot;
+        afterWrite = () async {
+          if (uid == null) return;
+          // Lo que el refresco de fondo y el toque de una pregunta necesitan.
+          // Va después de escribir el widget: si falla, el widget ya está.
+          try {
+            await feedCache.write(
+              WidgetFeedCacheEntry(
+                uid: uid,
+                writtenAt: now,
+                insights: extras.insights,
+                goalLabel: extras.goalLabel,
+                driftTicker: extras.driftTicker,
+                profileRisk: extras.profileRisk,
+                biggest: biggest,
+                questions: feedCache.read(uid: uid)?.questions ?? const {},
+              ),
+            );
+            await feedCache.rememberQuestions(
               uid: uid,
-              writtenAt: now,
-              insights: extras.insights,
-              goalLabel: extras.goalLabel,
-              driftTicker: extras.driftTicker,
-              profileRisk: extras.profileRisk,
-              biggest: biggest,
-              questions: feedCache.read(uid: uid)?.questions ?? const {},
-            ),
-          );
-          await feedCache.rememberQuestions(
-            uid: uid,
-            drafts: built.questionDrafts,
-            hidden: hidden,
-            now: now,
-          );
-          // Con posiciones ocultas no hay ids en el JSON: no se toca el estado.
-          if (!hidden) {
-            await feedCache.writeState(uid: uid, state: built.feedState);
+              drafts: built.questionDrafts,
+              hidden: hidden,
+              now: now,
+            );
+            // Con posiciones ocultas no hay ids en el JSON: no se toca el estado.
+            if (!hidden) {
+              await feedCache.writeState(uid: uid, state: built.feedState);
+            }
+          } catch (e, st) {
+            if (kDebugMode) debugPrint('[home_widget] feed cache: $e\n$st');
           }
-        } catch (e, st) {
-          if (kDebugMode) debugPrint('[home_widget] feed cache: $e\n$st');
-        }
-      };
+        };
+      } catch (e, st) {
+        // Si el armado completo falla (novedades, preguntas, caché), el
+        // widget igual muestra la cartera: nunca se queda en un estado viejo
+        // como "Cargá tu cartera" teniendo posiciones.
+        if (kDebugMode) debugPrint('[home_widget] full build failed: $e\n$st');
+        if (epoch != _epoch) return;
+        snapshot = WidgetSnapshotBuilder.ready(
+          move: known.move,
+          positionsHidden: amountsHidden(),
+          lang: lang,
+          now: now,
+          dataAsOf: known.dataAsOf,
+          texts: texts,
+          platform: _platform,
+        );
+        afterWrite = null;
+      }
     } else {
       snapshot = WidgetSnapshotBuilder.noPortfolio(
         lang: lang,
@@ -696,7 +728,8 @@ T? _safeRead<T>(T Function() read) {
 
 WidgetFeedExtras _feedExtras(Ref ref) {
   final insights = <WidgetInsightInput>[
-    for (final i in _safeRead(() => ref.read(portyInsightsProvider)) ?? const [])
+    for (final i
+        in _safeRead(() => ref.read(portyInsightsProvider)) ?? const [])
       if (WidgetInsightKind.fromName(i.kind.name) case final kind?)
         WidgetInsightInput(
           id: i.id,
@@ -777,7 +810,10 @@ final homeWidgetSyncProvider = Provider<HomeWidgetSyncController>((ref) {
     }
   });
   // Cualquier insumo del feed que cambie reescribe (mismo debounce y cola).
-  ref.listen(portyInsightsProvider, (_, __) => controller.onFeedInputsChanged());
+  ref.listen(
+    portyInsightsProvider,
+    (_, __) => controller.onFeedInputsChanged(),
+  );
   ref.listen(goalsProvider, (_, __) => controller.onFeedInputsChanged());
   ref.listen(
     allocationDriftProvider,

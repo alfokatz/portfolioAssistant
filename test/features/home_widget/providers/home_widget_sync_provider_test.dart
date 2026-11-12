@@ -144,69 +144,103 @@ void main() {
       expect(store.writes, hasLength(1));
     });
 
-    test('the cache fills the widget until this session wrote a portfolio', () async {
-      HomeState cached() => HomeState(
-        loading: false,
-        fromCache: true,
-        summary: _summary(),
-        history: _history(),
-      );
-      // Arranque: todavía no se escribió la cartera en esta sesión, el
-      // caché es mejor que "cargá tu cartera".
-      c.onHome(null, cached());
-      await c.flush();
-      expect(store.writes, hasLength(1));
-      expect(store.last['state'], 'ready');
-
-      // Ya hay una buena: ni el caché ni una carga fallida la pisan.
-      c.onHome(null, cached());
-      c.onHome(
-        null,
-        HomeState(
+    test(
+      'the cache fills the widget until this session wrote a portfolio',
+      () async {
+        HomeState cached() => HomeState(
           loading: false,
-          quoteError: 'x',
+          fromCache: true,
           summary: _summary(),
           history: _history(),
-        ),
-      );
-      c.onHome(null, HomeState());
-      await c.flush();
-      expect(store.writes, hasLength(1));
-    });
+        );
+        // Arranque: todavía no se escribió la cartera en esta sesión, el
+        // caché es mejor que "cargá tu cartera".
+        c.onHome(null, cached());
+        await c.flush();
+        expect(store.writes, hasLength(1));
+        expect(store.last['state'], 'ready');
 
-    test('a non-finite number in a Home insight still writes the portfolio', () async {
-      final withNaN = HomeWidgetSyncController(
-        store: store,
-        prefs: prefs,
-        events: events,
-        scheduler: scheduler,
-        loadTexts: loadRealTexts,
-        loadCandles: _candles,
-        currentUserId: () => 'uid-1',
-        amountsHidden: () => hidden,
-        initialLang: 'es',
-        now: () => _now,
-        feedExtras: () => const WidgetFeedExtras(
-          insights: [
-            WidgetInsightInput(
-              id: 'goal_overdue:Casa',
-              kind: WidgetInsightKind.goalOverdue,
-              score: 70,
-              goalLabel: 'Casa',
-              numbers: {'required': double.infinity, 'pct': double.nan},
-            ),
-          ],
-        ),
-      );
-      addTearDown(withNaN.dispose);
-      withNaN.onHome(null, _good(empty: true));
-      await withNaN.flush();
-      withNaN.onHome(null, _good());
-      await withNaN.flush();
-      expect(store.last['state'], 'ready');
-      // Y el refresco de fondo puede leer la caché de avisos.
-      expect(WidgetFeedCache(prefs).read(uid: 'uid-1'), isNotNull);
-    });
+        // Ya hay una buena: ni el caché ni una carga fallida la pisan.
+        c.onHome(null, cached());
+        c.onHome(
+          null,
+          HomeState(
+            loading: false,
+            quoteError: 'x',
+            summary: _summary(),
+            history: _history(),
+          ),
+        );
+        c.onHome(null, HomeState());
+        await c.flush();
+        expect(store.writes, hasLength(1));
+      },
+    );
+
+    test(
+      'a non-finite number in a Home insight still writes the portfolio',
+      () async {
+        final withNaN = HomeWidgetSyncController(
+          store: store,
+          prefs: prefs,
+          events: events,
+          scheduler: scheduler,
+          loadTexts: loadRealTexts,
+          loadCandles: _candles,
+          currentUserId: () => 'uid-1',
+          amountsHidden: () => hidden,
+          initialLang: 'es',
+          now: () => _now,
+          feedExtras:
+              () => const WidgetFeedExtras(
+                insights: [
+                  WidgetInsightInput(
+                    id: 'goal_overdue:Casa',
+                    kind: WidgetInsightKind.goalOverdue,
+                    score: 70,
+                    goalLabel: 'Casa',
+                    numbers: {'required': double.infinity, 'pct': double.nan},
+                  ),
+                ],
+              ),
+        );
+        addTearDown(withNaN.dispose);
+        withNaN.onHome(null, _good(empty: true));
+        await withNaN.flush();
+        withNaN.onHome(null, _good());
+        await withNaN.flush();
+        expect(store.last['state'], 'ready');
+        // Y el refresco de fondo puede leer la caché de avisos.
+        expect(WidgetFeedCache(prefs).read(uid: 'uid-1'), isNotNull);
+      },
+    );
+
+    test(
+      'a failing full build after no_portfolio still writes the portfolio',
+      () async {
+        final failing = HomeWidgetSyncController(
+          store: store,
+          prefs: prefs,
+          events: events,
+          scheduler: scheduler,
+          loadTexts: loadRealTexts,
+          loadCandles: _candles,
+          currentUserId: () => 'uid-1',
+          amountsHidden: () => hidden,
+          initialLang: 'es',
+          now: () => _now,
+          feedExtras: () => throw StateError('feed extras broke'),
+        );
+        addTearDown(failing.dispose);
+        failing.onHome(null, _good(empty: true));
+        await failing.flush();
+        expect(store.last['state'], 'no_portfolio');
+
+        failing.onHome(null, _good());
+        await failing.flush();
+        expect(store.last['state'], 'ready');
+      },
+    );
 
     test('an empty cache never writes no_portfolio', () async {
       c.onHome(
