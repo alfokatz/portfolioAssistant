@@ -55,6 +55,7 @@ import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dar
 import 'package:portfolio_assistant/features/assistant/data/market_taste/market_taste_repository.dart';
 import 'package:portfolio_assistant/features/assistant/tools/market_taste_grant.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
@@ -306,7 +307,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     _revealedPreview = null;
     return (raw) {
       if (!mounted || clock.elapsed - last < _previewInterval) return;
-      final text = AnswerStreamPreview.textOf(raw);
+      // Solo lo que ningún control va a borrar (ver
+      // `AssistantAnswerReview.previewSafePrefix`).
+      final text = AssistantAnswerReview.previewSafePrefix(
+        AnswerStreamPreview.textOf(raw),
+      );
       if (text.isEmpty) return;
       last = clock.elapsed;
       _preview.value = AnswerPreview(surfaceId, text);

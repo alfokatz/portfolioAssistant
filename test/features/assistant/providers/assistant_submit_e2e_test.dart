@@ -357,7 +357,9 @@ void main() {
 
     test('on: same turn and same answer; the text shows while it is written '
         'and the final answer continues from what the preview revealed', () async {
-      const text = 'AAPL subió 2 % en la semana, en línea con el mercado.';
+      const text =
+          'AAPL tuvo una buena semana, en línea con el mercado. Subió 2 % en '
+          'siete días.';
       final h = harness(SubscriptionTier.free, [
         _call('get_quote', {
           'tickers': ['AAPL'],
@@ -395,9 +397,11 @@ void main() {
       // Misma respuesta final, por el camino de siempre.
       expect(h.lastAnswer.isStreaming, isFalse);
       expect(h.lastAnswer.isFallback, isFalse);
-      // Lo que se vio era siempre el principio del texto final.
+      // Lo que se vio era siempre el principio del texto final, y nunca la
+      // oración con cifras (la que el control podría sacar).
       expect(previews, isNotEmpty);
       expect(previews.every(text.startsWith), isTrue);
+      expect(previews.any((p) => p.contains('2 %')), isFalse);
       // Terminado: la vista previa se apaga y queda anotado lo que llegó a
       // REVELAR (no todo lo que llegó): la respuesta final sigue desde ahí.
       expect(h.notifier.preview.value, isNull);

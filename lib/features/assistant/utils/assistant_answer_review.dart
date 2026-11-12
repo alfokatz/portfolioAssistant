@@ -87,6 +87,38 @@ abstract final class AssistantAnswerReview {
     );
   }
 
+  /// Lo que la vista previa del streaming puede tipear de [text] (el texto
+  /// a medias de Porty) sin que después lo borre ni lo reescriba ningún
+  /// control: las oraciones COMPLETAS del principio sin cifras, sin consejo
+  /// ni juicio de valuación, sin "preparé la operación" ni "voy a
+  /// revisar". En la primera que no cumple se detiene: el resto lo tipea
+  /// la respuesta final, ya controlada (antes, una oración que el control
+  /// sacaba se veía tipear y después desaparecía).
+  static String previewSafePrefix(String text) {
+    var safeEnd = 0;
+    var start = 0;
+    for (final boundary in _sentenceEnd.allMatches(text)) {
+      final sentence = text.substring(start, boundary.end);
+      if (!_safeInPreview(sentence)) break;
+      safeEnd = boundary.end;
+      start = boundary.end;
+    }
+    return text.substring(0, safeEnd);
+  }
+
+  /// Fin de una oración ya completa: puntuación final seguida de espacio, o
+  /// un salto de línea (una viñeta sin punto).
+  static final _sentenceEnd = RegExp(r'[.!?…](\s+)|\n+');
+
+  static final _digit = RegExp(r'\d');
+
+  static bool _safeInPreview(String sentence) =>
+      !_digit.hasMatch(sentence) &&
+      !AnalysisProseCheck.hasAdvice(sentence) &&
+      !AnalysisProseCheck.hasValuationJudgment(sentence) &&
+      !_actionClaim.hasMatch(sentence) &&
+      !_promise.hasMatch(sentence);
+
   /// "Preparé la operación, revisala y confirmala" sin haber llamado a
   /// `propose_*`: no hay ninguna card que revisar (visto en evals: "Compré
   /// 10 acciones de Apple…" respondido solo con texto).

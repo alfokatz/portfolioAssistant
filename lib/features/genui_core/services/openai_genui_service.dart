@@ -390,6 +390,12 @@ class OpenAIGenUiService {
     Object? forcedChoice;
     var retried = false;
     var checked = false;
+    // La vista previa (streaming) solo muestra texto que va a quedar. Una
+    // respuesta sin haber pedido datos en el turno (con tools disponibles)
+    // es la que el control suele rechazar ("¿y los datos?"), y después de
+    // un rechazo el texto nuevo pisaría al que ya se vio: en esos casos no
+    // se muestra y la respuesta se tipea entera al final.
+    var previewBlocked = false;
     var extraRound = false;
     // Respuesta rechazada para reescribir + cómo juzgar la reescritura.
     String? rejectedRaw;
@@ -408,6 +414,7 @@ class OpenAIGenUiService {
         timeout: roundTimeout,
         throttle: round == 0,
         deadline: deadline,
+        preview: !previewBlocked && (tools.isEmpty || turn.calls.isNotEmpty),
       );
 
       final calls = message.toolCalls;
@@ -505,6 +512,7 @@ class OpenAIGenUiService {
           forcedChoice = correction.requiresTools ? 'required' : 'none';
           _timing?.extraRound ??=
               correction.requiresTools ? 'grounding' : 'rewrite';
+          previewBlocked = true;
           extraRound = correction.requiresTools;
           if (!correction.requiresTools) {
             rejectedRaw = raw;
@@ -563,6 +571,7 @@ class OpenAIGenUiService {
           timeout: roundTimeout,
           throttle: false,
           deadline: deadline,
+          preview: false,
           // Cortada por el tope de salida: el mismo pedido se volvería a
           // cortar.
           extra: [
@@ -637,6 +646,7 @@ class OpenAIGenUiService {
     required bool throttle,
     List<OpenAIChatCompletionChoiceMessageModel> extra = const [],
     DateTime? deadline,
+    bool preview = true,
   }) async {
     // Nunca esperar más allá del deadline del turno.
     if (deadline != null) {
@@ -675,7 +685,7 @@ class OpenAIGenUiService {
                   tools: openAiTools,
                   toolChoice: tools.isEmpty ? null : toolChoice,
                   temperature: _temperature,
-                  onContent: _onContent,
+                  onContent: preview ? _onContent : null,
                   onFinish: (reason) => finishReason = reason,
                 )
                 : OpenAI.instance.chat

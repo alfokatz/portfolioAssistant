@@ -234,6 +234,83 @@ void main() {
     expect(wire.length, lessThan(1800));
   });
 
+  group('streaming preview only shows text that will stay', () {
+    OpenAIGenUiService streamed(
+      List<Map<String, Object?>> replies, {
+      AnswerCheck? answerCheck,
+    }) {
+      var n = 0;
+      final client = MockClient(
+        (_) async => http.Response(
+          ScriptedOpenAi.sseOf(replies[n++]),
+          200,
+          headers: {'content-type': 'text/event-stream; charset=utf-8'},
+        ),
+      );
+      final service = OpenAIGenUiService(
+        proxy: AiProxyConfig(
+          endpoint: Uri.parse('https://proxy.test/functions/v1/ai-chat'),
+          accessToken: () async => 'jwt-test',
+        ),
+        answerCheck: answerCheck,
+        model: 'gpt-4.1-mini',
+        systemPrompt: 'SYSTEM',
+        catalog: BasicCatalogItems.asCatalog(),
+        httpClient: client,
+      )..streaming = true;
+      addTearDown(service.dispose);
+      return service;
+    }
+
+    test('an answer before any data was asked for is not previewed', () async {
+      final seen = <String>[];
+      await streamed([_answer('s0', 'hola')]).runTurn(
+        userText: 'hola',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+        onContent: seen.add,
+      );
+      expect(seen, isEmpty);
+    });
+
+    test('after tools, the answer is previewed', () async {
+      final seen = <String>[];
+      await streamed([
+        _calls([('call_q', 'get_quote')]),
+        _answer('s0', 'listo'),
+      ]).runTurn(
+        userText: '¿cómo está AAPL?',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+        onContent: seen.add,
+      );
+      expect(seen, isNotEmpty);
+    });
+
+    test('after a rejected answer, the rewrite is not previewed over it', () async {
+      final seen = <String>[];
+      var checks = 0;
+      await streamed(
+        [
+          _calls([('call_q', 'get_quote')]),
+          _answer('s0', 'primero'),
+          _answer('s0', 'segundo'),
+        ],
+        answerCheck:
+            (_, __) =>
+                checks++ == 0
+                    ? const AnswerCorrection('fix', requiresTools: false)
+                    : null,
+      ).runTurn(
+        userText: '¿cómo está AAPL?',
+        surfaceId: 's0',
+        tools: [_EchoTool('get_quote')],
+        onContent: seen.add,
+      );
+      expect(seen.any((s) => s.contains('segundo')), isFalse);
+    });
+  });
+
   group('TurnTiming on the edges', () {
     OpenAIGenUiService withClient(http.Client client) {
       final service = OpenAIGenUiService(

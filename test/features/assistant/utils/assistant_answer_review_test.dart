@@ -66,6 +66,36 @@ Map<String, Object?> _analysis(String summary) => {
 };
 
 void main() {
+  group('previewSafePrefix (what the streaming preview may type)', () {
+    String safe(String t) => AssistantAnswerReview.previewSafePrefix(t);
+
+    test('only complete sentences: the one still arriving waits', () {
+      expect(
+        safe('Tu cartera tuvo una buena semana. NVDA fue la que'),
+        'Tu cartera tuvo una buena semana. ',
+      );
+      expect(safe('Tu cartera tuvo una buena'), '');
+      expect(
+        safe('• Subió por los chips de IA\n• Y por'),
+        '• Subió por los chips de IA\n',
+      );
+    });
+
+    test('stops at the first sentence a check could remove or rewrite', () {
+      // Con cifras: puede repetir la card o no tener respaldo.
+      expect(safe('NVDA bajó 3,1% hoy. La baja vino por China. '), '');
+      expect(
+        safe('La baja vino por China. Cayó 3,1% en el día. Igual sigue fuerte. '),
+        'La baja vino por China. ',
+      );
+      // Consejo, juicio de valuación, acción no hecha, promesa.
+      expect(safe('Es un buen momento. Comprá ahora. '), 'Es un buen momento. ');
+      expect(safe('Parece barata frente a sus pares. '), '');
+      expect(safe('Preparé la operación, revisala y confirmala. '), '');
+      expect(safe('Voy a revisar tu plan. '), '');
+    });
+  });
+
   group('phantom action', () {
     String answer(String text) =>
         '{"version":"v0.9","updateComponents":{"surfaceId":"s","components":'
