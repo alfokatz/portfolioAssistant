@@ -1,6 +1,6 @@
 # Porty: cómo bajar el tiempo de respuesta sin perder calidad
 
-**Fecha:** 2026-10-15 · **Estado:** D, C1, A2, §4 (medición) y A1 para las cards de precio implementados (ver §5-§7); el resto, propuesto
+**Fecha:** 2026-10-15 · **Estado:** D, C1, A2, §4 (medición) y A1 para las cards de datos implementados (ver §5-§7); el resto, propuesto
 
 Hoy una consulta tarda 10-15 s, y más de 20 s cuando busca noticias. Este documento muestra en qué se va ese tiempo y qué se puede cambiar, ordenado por impacto. Ningún cambio toca qué datos ve el modelo ni qué responde. Lo que cambia es cuánto texto escribe, cuántas cosas se esperan una detrás de otra y cuándo ve el usuario la respuesta.
 
@@ -140,7 +140,21 @@ Con eso se ve el p50/p90 de cada tramo y se confirma (o corrige) la tabla del §
   - El proxy devuelve `Server-Timing` en cada ronda: `auth`, `prep` (body + allowlist), `begin` (`ai_begin_request`), `upstream` (hasta el primer byte de OpenAI; sin streaming, casi la ronda entera), `body` (sin streaming) y `oai` (lo que OpenAI dice que tardó, de `openai-processing-ms`). También devuelve `x-porty-region` (`SB_REGION`) y escribe una línea de log JSON por ronda (`fn: "ai-chat"`), así que se puede mirar desde los logs de Supabase aunque la app no esté actualizada.
   - La app manda un evento `chat_turn_timing` por turno a `product_events`, con tiempos en ms desde que el usuario mandó la pregunta: `pre_ms` (hasta el primer pedido), `throttle_ms`, `first_text_ms` (con streaming), `ready_ms` (respuesta en pantalla), `rounds[]` (`kind`, `start_ms`, `ms`, `server` con los tramos del proxy), `tools[]` (`name`, `ms`, `status`), `extra_round` (`grounding` | `rewrite` | `needs_retry`), `retries`, `final_chars`, `region` y `result`. Nunca lleva texto, tickers ni argumentos.
 - **A2, sin `createSurface`.** El prompt pide solo `updateComponents` (`SurfaceOperations.updateOnly`, sin el esquema ni el ejemplo de `createSurface`) y la app crea la surface (`A2uiResponseNormalizer`). Son ~40 tokens menos por respuesta y ~2,4 KB menos de prompt.
-- **A1, cards de precio.** `QaPriceChart`, `QaTickerSnapshot` y `QaTickerMove` ya no le piden números al modelo: manda `ticker`, `initialRange` y, si el usuario nombró una ventana, `period`. La app completa precio, cambios, inicio y fin del período y peso desde `get_quote` / `get_portfolio_details` (`TickerPriceData.fillPayload`). `QaPriceChart` pasa de ~93 a ~27 tokens. El chequeo de "la intro repite los números de la card" usa esos mismos números. Las respuestas que todavía traen los números (versiones anteriores) se siguen viendo igual. Pendiente, con el mismo patrón: `QaPeriodChange`, `QaPositionsSnapshot`, `QaPnLBreakdown`, `QaEarningsCalendar`, `QaFundamentals` (ojo: `PortyAnswerTone` lee los campos de resultado de la cartera de las tres primeras).
+- **A1, cards de datos.** El modelo elige la card y QUÉ mostrar; los números los pone la app en `AssistantAnswerReview.postProcess` (`CardNumbers.fill`), desde las tools del turno o el `PORTFOLIO_BRIEF`. Quedan escritos en el componente: la card no depende de que la evidencia siga en memoria, y el tono de Porty y los chequeos ven los números. Las respuestas que todavía traen los números (versiones anteriores) se siguen viendo igual. Tokens de la card, antes → después:
+
+  | Card | El modelo manda | Antes → después |
+  |---|---|---|
+  | `QaPriceChart` | `ticker`, `initialRange`, `period` | 93 → 27 |
+  | `QaTickerSnapshot` / `QaTickerMove` | `ticker` (+ `period`) | 55 → 16 |
+  | `QaPeriodChange` | `period` | 52 → 15 |
+  | `QaPositionsSnapshot` (8 posiciones) | nada | 142 → 11 |
+  | `QaPnLBreakdown` | `scope` (`open` / `closed`) | 49 → 23 |
+  | `QaEarningsCalendar` (próximo + último) | `ticker`, `show` | 187 → 21 |
+  | `QaFundamentals` (general) | `ticker`, `metrics` (claves), `overview` | 140 → 51 |
+
+  Además el prompt fijo bajó (o200k): completo 20.401 → 18.560 tokens, lean 17.068 → 15.878.
+
+  Una ventana sin historia suficiente no se completa (un `QaTickerMove` así pasa a `QaTickerSnapshot`). `QaFundamentals` toma rótulo y formato de `AnalysisMetric` (el mismo de `QaCompanyAnalysis`).
 - **Despliegue:** `ai-chat` (allowlist nueva + `Server-Timing`) **antes** de publicar la versión de la app.
 
 ### Consultas (Supabase → SQL Editor)

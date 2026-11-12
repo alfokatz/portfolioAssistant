@@ -11,7 +11,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/allocation_plan
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
-import 'package:portfolio_assistant/features/assistant/data/market/ticker_price_data.dart';
+import 'package:portfolio_assistant/features/assistant/data/card_numbers.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
@@ -290,14 +290,14 @@ abstract final class AssistantAnswerReview {
     final components = list.whereType<Map<String, dynamic>>().toList();
     var changed = false;
 
-    // Cards de precio: el modelo manda ticker y período, y los números se
-    // ponen acá desde get_quote / get_portfolio_details (ver
-    // `TickerPriceData`). Quedan escritos en el componente: la card no
-    // depende de que la evidencia siga en memoria, y todo lo que lee el
-    // componente (chequeos de abajo, tono de Porty) ve los números.
+    // Cards de datos: el modelo elige qué mostrar y los números se ponen
+    // acá desde las tools o el PORTFOLIO_BRIEF (ver `CardNumbers`). Quedan
+    // escritos en el componente: la card no depende de que la evidencia
+    // siga en memoria, y todo lo que lee el componente (chequeos de abajo,
+    // tono de Porty) ve los números.
     for (final c in components) {
-      if (!_tickerPriceCards.contains(c['component'])) continue;
-      final filled = TickerPriceData.fillPayload(c, evidence);
+      if (!CardNumbers.components.contains(c['component'])) continue;
+      final filled = CardNumbers.fill(c, evidence);
       if (jsonEncode(filled) == jsonEncode(c)) continue;
       c
         ..clear()
@@ -727,14 +727,6 @@ abstract final class AssistantAnswerReview {
     'QaTickerMove',
     'QaTickerSnapshot',
     'QaPeriodChange',
-  };
-
-  /// Cards de precio de un ticker: sus números los pone [postProcess] desde
-  /// la evidencia (ver `TickerPriceData`).
-  static const _tickerPriceCards = {
-    'QaPriceChart',
-    'QaTickerMove',
-    'QaTickerSnapshot',
   };
 
   static const _goldSources = {'get_fundamentals', 'get_earnings', 'get_news'};

@@ -38,14 +38,6 @@ final _positionItemSchema = S.object(
   required: ['ticker', 'weightPct', 'pnlPct'],
 );
 
-final _allocationItemSchema = S.object(
-  properties: {
-    'ticker': S.string(),
-    'weightPct': S.number(description: 'positions[].weight_pct'),
-  },
-  required: ['ticker', 'weightPct'],
-);
-
 final _closedPositionItemSchema = S.object(
   properties: {
     'ticker': S.string(),
@@ -345,22 +337,9 @@ final CatalogItem qaPositionsSnapshotItem = CatalogItem(
   dataSchema: S.object(
     description:
         'Foto actual de TUS posiciones abiertas: valor total, P&L y P&L% '
-        'desde la compra (portfolio.total_value, total_pnl_abs, '
-        'total_pnl_pct). Nunca para comparar tickers.',
-    properties: {
-      'totalValue': S.number(description: 'portfolio.total_value'),
-      'pnlAbs': S.number(description: 'portfolio.total_pnl_abs'),
-      'pnlPct': S.number(description: 'portfolio.total_pnl_pct'),
-      'positionsCount': S.integer(
-        description: 'Cantidad de posiciones abiertas (portfolio.positions).',
-      ),
-      'positions': S.list(
-        description: 'Reparto por peso, de PORTFOLIO_BRIEF positions[].',
-        items: _allocationItemSchema,
-        maxItems: 10,
-      ),
-    },
-    required: ['totalValue', 'pnlAbs', 'pnlPct'],
+        'desde la compra y reparto por peso. Sin campos: la app pone todo '
+        'desde PORTFOLIO_BRIEF. Nunca para comparar tickers.',
+    properties: {},
   ),
   widgetBuilder:
       (ctx) => guardedCatalogWidget(
@@ -432,17 +411,15 @@ final CatalogItem qaPeriodChangeItem = CatalogItem(
   name: 'QaPeriodChange',
   dataSchema: S.object(
     description:
-        'Cambio del portfolio en un período temporal (semana, mes, etc.).',
+        'Cambio del portfolio en un período temporal (semana, mes, etc.). '
+        'La app pone los números desde PORTFOLIO_BRIEF period_returns.',
     properties: {
-      'periodLabel': S.string(
-        description: 'Etiqueta del período, ej. "Últimos 7 días".',
+      'period': S.string(
+        description: 'La ventana: clave de period_returns.',
+        enumValues: ['day', 'week', 'month', 'quarter', 'year'],
       ),
-      'changeAbs': S.number(description: 'Cambio absoluto en el período.'),
-      'changePct': S.number(description: 'Cambio porcentual en el período.'),
-      'valueStart': S.number(description: 'Valor del portfolio al inicio.'),
-      'valueEnd': S.number(description: 'Valor del portfolio al cierre.'),
     },
-    required: ['periodLabel', 'changeAbs', 'changePct'],
+    required: ['period'],
   ),
   widgetBuilder:
       (ctx) =>
@@ -506,17 +483,21 @@ final CatalogItem qaConcentrationBarItem = CatalogItem(
 final CatalogItem qaPnLBreakdownItem = CatalogItem(
   name: 'QaPnLBreakdown',
   dataSchema: S.object(
-    description: 'Desglose invertido → valor actual → resultado.',
+    description:
+        'Desglose invertido → valor actual → resultado. La app pone los '
+        'números desde PORTFOLIO_BRIEF.',
     properties: {
       'title': S.string(
         description: 'Opcional, ej. "Desde la compra" o "Resultado realizado".',
       ),
-      'costBasis': S.number(),
-      'currentValue': S.number(),
-      'gainLoss': S.number(),
-      'gainLossPercent': S.number(),
+      'scope': S.string(
+        description:
+            'open = posiciones abiertas desde la compra (total_*); closed = '
+            'resultado realizado de lo vendido (closed_pnl_total_*).',
+        enumValues: ['open', 'closed'],
+      ),
     },
-    required: ['costBasis', 'currentValue', 'gainLoss', 'gainLossPercent'],
+    required: ['scope'],
   ),
   widgetBuilder:
       (ctx) =>
@@ -648,62 +629,50 @@ final CatalogItem qaPositionListItem = CatalogItem(
   ],
 );
 
-const _fundamentalsGroupEnum = [
-  'valuation',
-  'profitability',
-  'dividend',
-  'other',
+/// Las métricas que `QaFundamentals` sabe rotular y formatear (ver
+/// `CardNumbers` y `AnalysisMetric`).
+const fundamentalsMetricKeys = [
+  'pe_ttm',
+  'forward_pe',
+  'pb',
+  'ps_ttm',
+  'peg_ttm',
+  'ev_ebitda_ttm',
+  'market_capitalization',
+  'roe_ttm',
+  'roa_ttm',
+  'gross_margin_ttm',
+  'operating_margin_ttm',
+  'net_margin_ttm',
+  'eps_growth_ttm_yoy',
+  'dividend_yield_indicated_annual',
+  'payout_ratio_ttm',
+  'beta',
 ];
-
-final _fundamentalsMetricItemSchema = S.object(
-  properties: {
-    'label': S.string(
-      description:
-          'Nombre corto del indicador, ej. "P/E", "Market cap", "Margen '
-          'neto", "Dividend yield".',
-    ),
-    'value': S.string(
-      description:
-          'Valor ya formateado como texto, copiado/formateado de '
-          'fundamentals.{TICKER} — nunca inventado. Ej. "38,6x", "\$4,98T", '
-          '"27,6%".',
-    ),
-    'group': S.string(
-      enumValues: _fundamentalsGroupEnum,
-      description:
-          'Sección: valuation (P/E, P/B, EV/EBITDA, market cap), '
-          'profitability (márgenes, ROE, ROA, EPS), dividend (yield, '
-          'payout), other (beta, volumen).',
-    ),
-  },
-  required: ['label', 'value'],
-);
 
 final CatalogItem qaFundamentalsItem = CatalogItem(
   name: 'QaFundamentals',
   dataSchema: S.object(
     description:
         'Métricas fundamentales de UN ticker (valuación, rentabilidad, '
-        'dividendo), tomadas de fundamentals.{TICKER}. Lista flexible de '
-        '1-8 pares label/value: incluí solo los indicadores relevantes a la '
-        'pregunta, no todos los disponibles. El rango de 52 semanas va en '
-        'week52Low/week52High, no como item.',
+        'dividendo) de get_fundamentals. Elegís QUÉ métricas (1-8, solo las '
+        'relevantes a la pregunta, no todas); la app pone rótulo, valor y '
+        'formato.',
     properties: {
       'ticker': S.string(),
-      'industry': S.string(description: 'fundamentals.industry (opcional).'),
-      'items': S.list(
-        items: _fundamentalsMetricItemSchema,
+      'metrics': S.list(
+        description: 'Claves de fundamentals.{TICKER}, en el orden a mostrar.',
+        items: S.string(enumValues: fundamentalsMetricKeys),
         minItems: 1,
         maxItems: 8,
       ),
-      'week52Low': S.number(description: 'week_52_low (opcional).'),
-      'week52High': S.number(description: 'week_52_high (opcional).'),
-      'currentPrice': S.number(
+      'overview': S.boolean(
         description:
-            'Precio actual de get_quote, solo si ya lo llamaste (opcional).',
+            'true solo en la pregunta general ("fundamentals de X"): suma '
+            'industria y rango de 52 semanas.',
       ),
     },
-    required: ['ticker', 'items'],
+    required: ['ticker', 'metrics'],
   ),
   widgetBuilder:
       (ctx) =>
@@ -989,75 +958,25 @@ final _newsItemSchema = S.object(
   required: ['headline', 'summaryLine', 'dateLabel'],
 );
 
-final _epsQuarterSchema = S.object(
-  properties: {
-    'periodLabel': S.string(description: 'fiscal_period_label, ej. "T2 FY26".'),
-    'epsActual': S.number(),
-    'epsEstimate': S.number(),
-    'epsYoyPct': S.number(),
-  },
-  required: ['periodLabel', 'epsActual'],
-);
-
 final CatalogItem qaEarningsCalendarItem = CatalogItem(
   name: 'QaEarningsCalendar',
   dataSchema: S.object(
     description:
         'Próximo reporte de resultados de un ticker y/o cómo le fue en sus '
-        'últimos reportes (real vs. esperado por el mercado). Los bloques '
-        'son independientes: nextReport* para "¿cuándo reporta X?", eps* + '
-        'history para "¿cómo le fue a X?".',
+        'últimos reportes (real vs. esperado por el mercado), de '
+        'get_earnings. Elegís QUÉ mostrar; la app pone fechas, EPS e '
+        'historial.',
     properties: {
       'ticker': S.string(),
-      'nextReportDateLabel': S.string(
+      'show': S.string(
         description:
-            'Fecha del próximo reporte, legible, ej. "13 nov 2026" '
-            '(omitir si no hay reporte próximo programado).',
-      ),
-      'nextReportDate': S.string(
-        description:
-            'next_report.date (ISO "2026-11-13"), junto con '
-            'nextReportDateLabel — la app calcula la cuenta regresiva.',
-      ),
-      'nextReportEstimated': S.boolean(),
-      'timingLabel': S.string(
-        description: 'next_report.timing_label (opcional).',
-      ),
-      'fiscalPeriodLabel': S.string(
-        description: 'Ej. "T3 FY26" (opcional, junto con nextReportDateLabel).',
-      ),
-      'nextEpsEstimate': S.number(
-        description:
-            'EPS esperado por el mercado para el PRÓXIMO reporte (consenso '
-            'de analistas, no un resultado ya publicado). Opcional, junto '
-            'con nextReportDateLabel — usar para "¿cuáles son las ganancias '
-            'esperadas de X?" / "expected earnings". Distinto de epsEstimate, '
-            'que es la comparación del último reporte YA publicado.',
-      ),
-      'latestReportDateLabel': S.string(
-        description:
-            'latest_result.report_date_label, o su fiscal_period_label si '
-            'no hay fecha (opcional).',
-      ),
-      'epsActual': S.number(
-        description: 'EPS real del último reporte (opcional).',
-      ),
-      'epsEstimate': S.number(
-        description: 'EPS esperado por el mercado (opcional).',
-      ),
-      'epsYoyPct': S.number(description: 'latest_result.eps_yoy_pct.'),
-      'beat': S.boolean(
-        description: 'true si epsActual superó epsEstimate (opcional).',
-      ),
-      'history': S.list(
-        description:
-            'get_earnings history copiado en el mismo orden (más viejo '
-            'primero), para "¿cómo le fue?" (opcional).',
-        items: _epsQuarterSchema,
-        maxItems: 4,
+            'next = cuándo reporta / qué espera el mercado (next_report); '
+            'latest = cómo le fue en el último (latest_result + history); '
+            'both = la pregunta pide las dos cosas.',
+        enumValues: ['next', 'latest', 'both'],
       ),
     },
-    required: ['ticker'],
+    required: ['ticker', 'show'],
   ),
   widgetBuilder:
       (ctx) => guardedCatalogWidget(

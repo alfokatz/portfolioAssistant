@@ -239,6 +239,41 @@ void main() {
     expect(card['priceEnd'], 120.5);
   });
 
+  test('a portfolio card with only the period gets its numbers from the '
+      'brief (what PortyAnswerTone reads), and an intro repeating them is '
+      'dropped', () {
+    final evidence = TurnEvidence(
+      calls: const [],
+      pinnedContext: 'PORTFOLIO_BRIEF — x:\n${jsonEncode({
+        'has_positions': true,
+        'period_returns': {
+          'week': {
+            'label_es': 'últimos 7 días',
+            'pnl_abs': -320.5,
+            'pnl_pct': -1.3,
+            'value_start': 24671.3,
+            'value_end': 24350.8,
+            'has_sufficient_history': true,
+          },
+        },
+      })}',
+    );
+    final raw = _answer([
+      _intro('Tu cartera bajó 1,3% en la semana.'),
+      {'id': 'p', 'component': 'QaPeriodChange', 'period': 'week'},
+    ]);
+    final out = AssistantAnswerReview.postProcess(raw, evidence);
+    final card =
+        (((jsonDecode(out) as Map)['updateComponents'] as Map)['components']
+                as List)
+            .cast<Map>()
+            .firstWhere((c) => c['id'] == 'p');
+    expect(card['changeAbs'], -320.5);
+    expect(card['changePct'], -1.3);
+    expect(card['periodLabel'], 'últimos 7 días');
+    expect(out, isNot(contains('1,3%')));
+  });
+
   test('an intro that names the period but not the card numbers is kept', () {
     final raw = _answer([
       _intro(
