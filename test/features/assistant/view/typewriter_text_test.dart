@@ -187,6 +187,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(words, 0);
   });
+
+  testWidgets('startAt shows what the preview already typed and continues '
+      'from there at the same pace', (tester) async {
+    var completed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TypewriterText(
+            text: 'hola porty, ¿cómo va?',
+            charsPerSecond: 10,
+            startAt: 'hola porty, '.length,
+            onComplete: () => completed = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final first = tester.widget<Text>(find.byType(Text)).data!;
+    expect(first.startsWith('hola porty,'), isTrue);
+    expect(completed, isFalse);
+
+    await tester.pumpAndSettle();
+    expect(find.text('hola porty, ¿cómo va?'), findsOneWidget);
+    expect(completed, isTrue);
+  });
+
+  testWidgets('startAt covering the whole text completes without typing', (
+    tester,
+  ) async {
+    var completed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TypewriterText(
+            text: 'ya leído',
+            startAt: 99,
+            onComplete: () => completed = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('ya leído'), findsOneWidget);
+    expect(completed, isTrue);
+  });
 }
 
 /// Ancestro mínimo cuyo `setState()` se dispara desde el `builder` que le

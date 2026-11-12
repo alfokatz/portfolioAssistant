@@ -356,7 +356,7 @@ void main() {
     });
 
     test('on: same turn and same answer; the text shows while it is written '
-        'and is not typed again at the end', () async {
+        'and the final answer continues from what the preview revealed', () async {
       const text = 'AAPL subió 2 % en la semana, en línea con el mercado.';
       final h = harness(SubscriptionTier.free, [
         _call('get_quote', {
@@ -371,7 +371,20 @@ void main() {
       }
 
       h.notifier.preview.addListener(listener);
+      // Lo que haría el typewriter de la pantalla: avisar lo que ya mostró.
+      void revealed() {
+        final p = h.notifier.preview.value;
+        if (p != null) {
+          h.notifier.previewRevealed(
+            p.surfaceId,
+            p.text.substring(0, p.text.length ~/ 2),
+          );
+        }
+      }
+
+      h.notifier.preview.addListener(revealed);
       await h.notifier.submitMessage('¿Cómo le fue a AAPL esta semana?');
+      h.notifier.preview.removeListener(revealed);
       h.notifier.preview.removeListener(listener);
 
       // Mismo turno: ronda de tools + respuesta, ambas con streaming.
@@ -385,10 +398,13 @@ void main() {
       // Lo que se vio era siempre el principio del texto final.
       expect(previews, isNotEmpty);
       expect(previews.every(text.startsWith), isTrue);
-      // Terminado: la vista previa se apaga y el texto queda anotado para
-      // no tipearlo de nuevo.
+      // Terminado: la vista previa se apaga y queda anotado lo que llegó a
+      // REVELAR (no todo lo que llegó): la respuesta final sigue desde ahí.
       expect(h.notifier.preview.value, isNull);
-      expect(h.notifier.streamedTextFor(h.lastAnswer.surfaceId!), text);
+      final shown = h.notifier.streamedTextFor(h.lastAnswer.surfaceId!)!;
+      expect(shown, isNotEmpty);
+      expect(text.startsWith(shown), isTrue);
+      expect(shown.length, lessThan(text.length));
     });
   });
 

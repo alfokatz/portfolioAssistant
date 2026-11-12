@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/shared/animation/reveal_animation.dart';
 
 /// Revela [text] carácter por carácter, simulando un typewriter, a un ritmo
-/// de lectura natural (`charsPerSecond`). No hay streaming real de tokens
-/// desde el backend — esto es una simulación puramente client-side, una vez
-/// que el texto final ya está disponible por completo.
+/// de lectura natural (`charsPerSecond`), una vez que el texto final ya está
+/// completo. Con streaming, la vista previa tipea mientras llega
+/// (`StreamingTypewriter`) y este sigue desde ahí ([startAt]).
 ///
 /// Accesibilidad: el texto COMPLETO va siempre en el nodo de semantics,
 /// desde el primer frame — un lector de pantalla no debe esperar a que
@@ -22,6 +22,7 @@ class TypewriterText extends StatefulWidget {
     this.onComplete,
     this.play = true,
     this.skipAnimation = false,
+    this.startAt = 0,
     this.onWordRevealed,
     this.builder,
   });
@@ -47,6 +48,11 @@ class TypewriterText extends StatefulWidget {
   /// una re-entrada del framework cuando coincidía con un cambio real de
   /// `MediaQuery` (ej. el teclado ocultándose al enviar un mensaje).
   final bool skipAnimation;
+
+  /// Caracteres que ya se vieron antes (la vista previa del streaming, ver
+  /// `QaStreamedTextScope`): se muestran de entrada y el tipeo sigue desde
+  /// ahí, al mismo ritmo. Si cubre todo [text], es como [skipAnimation].
+  final int startAt;
 
   /// Se llama cada vez que se termina de tipear una palabra (aparece un
   /// espacio después de texto), solo mientras la animación corre de verdad
@@ -104,9 +110,20 @@ class _TypewriterTextState extends State<TypewriterText>
   void _maybeStart() {
     if (_started || !widget.play) return;
     _started = true;
+    final length = widget.text.length;
+    final startAt = widget.startAt.clamp(0, length);
+    final skip =
+        widget.skipAnimation ||
+        MediaQuery.disableAnimationsOf(context) ||
+        (length > 0 && startAt >= length);
+    if (!skip && startAt > 0) {
+      _lastVisibleChars = startAt;
+      _controller.forward(from: startAt / length);
+      return;
+    }
     startRevealAnimation(
       _controller,
-      skip: widget.skipAnimation || MediaQuery.disableAnimationsOf(context),
+      skip: skip,
       statusListener: _handleStatus,
       isMounted: () => mounted,
     );

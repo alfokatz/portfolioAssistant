@@ -63,11 +63,9 @@ abstract final class PortfolioQaCatalogWidgets {
                   builder:
                       (context, visible) =>
                           AnswerTextBody(text: visible, style: style),
-                  // Ya se leyó mientras se escribía: no se tipea de nuevo.
-                  skipAnimation: QaStreamedTextScope.wasShown(
-                    context,
-                    data.text,
-                  ),
+                  // Con streaming, sigue desde lo que la vista previa ya
+                  // tipeó (todo leído → no se tipea de nuevo).
+                  startAt: QaStreamedTextScope.revealedChars(context, text),
                   onComplete: () {
                     onFinished();
                     // El avatar del header deja de hablar (ver PortyMood).

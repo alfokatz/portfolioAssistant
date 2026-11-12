@@ -281,11 +281,19 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   /// escribe (solo el texto; las cards llegan con la respuesta completa).
   ValueListenable<AnswerPreview?> get preview => _preview;
 
-  /// El texto que ya se vio en la vista previa de cada respuesta: la
-  /// respuesta final no lo vuelve a tipear (ver `QaStreamedTextScope`).
+  /// El texto que la vista previa llegó a revelar de cada respuesta: la
+  /// respuesta final sigue tipeando desde ahí (ver `QaStreamedTextScope`).
   final _streamedTexts = <String, String>{};
 
   String? streamedTextFor(String surfaceId) => _streamedTexts[surfaceId];
+
+  /// Lo que la vista previa del turno en curso ya mostró (lo avisa su
+  /// `StreamingTypewriter` a medida que tipea).
+  String? _revealedPreview;
+
+  void previewRevealed(String surfaceId, String visible) {
+    if (_preview.value?.surfaceId == surfaceId) _revealedPreview = visible;
+  }
 
   /// Cada cuánto se recalcula la vista previa (llegan ~100 pedazos por
   /// segundo; la pantalla no necesita más que esto).
@@ -295,9 +303,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   ContentDeltaCallback _previewSink(String surfaceId) {
     final clock = Stopwatch()..start();
     var last = Duration.zero - _previewInterval;
-    _lastRaw = null;
+    _revealedPreview = null;
     return (raw) {
-      _lastRaw = raw;
       if (!mounted || clock.elapsed - last < _previewInterval) return;
       final text = AnswerStreamPreview.textOf(raw);
       if (text.isEmpty) return;
@@ -306,23 +313,20 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     };
   }
 
-  /// Fin del turno de [surfaceId]: lo que se vio queda anotado y la vista
-  /// previa se apaga.
+  /// Fin del turno de [surfaceId]: lo que se llegó a ver queda anotado y
+  /// la vista previa se apaga.
   void _closePreview(String surfaceId) {
     final shown = _preview.value;
     if (shown != null && shown.surfaceId == surfaceId) {
-      // El texto entero de lo último que llegó (la vista previa se
-      // actualiza cada [_previewInterval] y pudo quedar un pedazo atrás).
-      final raw = _lastRaw;
-      final full = raw == null ? '' : AnswerStreamPreview.textOf(raw);
-      _streamedTexts[surfaceId] = full.isEmpty ? shown.text : full;
+      // Lo REVELADO, no todo lo que llegó: la vista previa tipea a ritmo
+      // de lectura y suele ir atrás del modelo; la respuesta final sigue
+      // desde ahí en vez de mostrar el resto de golpe.
+      _streamedTexts[surfaceId] = _revealedPreview ?? '';
     }
-    _lastRaw = null;
+    _revealedPreview = null;
     if (mounted) _preview.value = null;
   }
 
-  /// La respuesta a medias más reciente del turno en curso.
-  String? _lastRaw;
 
   @override
   void dispose() {

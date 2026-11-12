@@ -44,6 +44,8 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_ad
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_composer_field.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_error_banner.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quiet_notice.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/streaming_typewriter.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_market_taste_notice.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_quota_nudge.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_starter_suggestions.dart';
@@ -1194,13 +1196,24 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           if (preview == null || preview.surfaceId != message.surfaceId) {
             return const SizedBox(height: _MessageAvatar.size);
           }
-          // La fila crece: el seguimiento del scroll la acompaña.
-          _scheduleFollow();
+          // Porty tipea palabra por palabra lo que va llegando, igual que
+          // con la respuesta completa; la respuesta final sigue desde donde
+          // iba (ver `QaStreamedTextScope`).
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: AnswerTextBody(
-              text: AnswerTextFormat.normalize(preview.text),
-              style: PortfolioQaCatalogWidgets.answerTextStyle,
+            child: StreamingTypewriter(
+              text: preview.text,
+              onWordRevealed: PortyHapticsService.maybeOf(context)?.streamTick,
+              onRevealed: (visible) {
+                notifier.previewRevealed(preview.surfaceId, visible);
+                // La fila crece: el seguimiento del scroll la acompaña.
+                _scheduleFollow();
+              },
+              builder:
+                  (context, visible) => AnswerTextBody(
+                    text: AnswerTextFormat.normalize(visible),
+                    style: PortfolioQaCatalogWidgets.answerTextStyle,
+                  ),
             ),
           );
         },
