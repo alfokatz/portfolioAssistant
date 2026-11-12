@@ -224,6 +224,19 @@ void main() {
     final out = AssistantAnswerReview.postProcess(raw, evidence);
     expect(out, isNot(contains('120,50')));
     expect(out, contains('Este es el gráfico de precio de NVDA'));
+
+    // Los números quedan escritos en el componente que va a pantalla: la
+    // card no depende de que la evidencia siga en memoria.
+    final card =
+        (((jsonDecode(out) as Map)['updateComponents'] as Map)['components']
+                as List)
+            .cast<Map>()
+            .firstWhere((c) => c['id'] == 'p');
+    expect(card['currentPrice'], 120.5);
+    expect(card['weekChangePct'], -2.1);
+    expect(card['periodLabel'], 'últimos 7 días');
+    expect(card['priceStart'], 123.09);
+    expect(card['priceEnd'], 120.5);
   });
 
   test('an intro that names the period but not the card numbers is kept', () {

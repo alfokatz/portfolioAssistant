@@ -98,7 +98,9 @@ class TickerPriceData {
     ],
   ];
 
-  /// El payload de la card con sus números puestos desde la evidencia.
+  /// El payload de la card con sus números puestos desde la evidencia. Lo
+  /// aplica `AssistantAnswerReview.postProcess` antes de mostrar la
+  /// respuesta.
   ///
   /// El modelo manda `ticker` (+ `initialRange`) y, si el usuario nombró
   /// una ventana, `period` (clave de [PeriodLabels.durations]). Acá se
@@ -132,11 +134,16 @@ class TickerPriceData {
 
     final period = payload['period'];
     final move = period is String ? data.periods[period] : null;
-    if (move != null) {
+    if (move != null && move.sufficientHistory) {
       out['periodLabel'] = move.label;
       out['changePct'] = move.changePct;
       out['priceStart'] = move.priceStart;
       out['priceEnd'] = move.priceEnd;
+    } else if (move != null && payload['component'] == 'QaTickerMove') {
+      // Sin historia suficiente para esa ventana el movimiento no dice
+      // nada (inicio en 0): se muestra el precio y los períodos que sí hay,
+      // como pide la regla [W:FALLBACK].
+      out['component'] = 'QaTickerSnapshot';
     }
     return out;
   }

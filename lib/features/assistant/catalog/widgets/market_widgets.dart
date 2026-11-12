@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
@@ -12,39 +11,20 @@ import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_s
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_compare_chart.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_market_parts.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
-import 'package:portfolio_assistant/features/assistant/data/market/ticker_price_data.dart';
 import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
-import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:portfolio_assistant/shared/utils/genui_helpers.dart';
 
 /// Widgets del catálogo sobre el precio de un ticker y comparaciones entre
 /// tickers: gráfico de precio, gráfico comparado, snapshot, movimiento y
 /// comparativas.
 abstract final class MarketWidgets {
-  /// Las cards de precio de un ticker: el modelo manda el ticker (y el
-  /// período) y los números salen de `get_quote` / `get_portfolio_details`
-  /// del turno (ver [TickerPriceData.fillPayload]). Se redibuja si llegan
-  /// datos nuevos para la surface.
-  static Widget _withPrices(
-    CatalogItemContext ctx,
-    Widget Function(JsonMap map) build,
-  ) => Builder(
-    builder:
-        (context) => ValueListenableBuilder<TurnEvidence>(
-          valueListenable: QaEvidenceScope.listenableOf(context, ctx.surfaceId),
-          builder:
-              (context, evidence, _) => build(
-                TickerPriceData.fillPayload(ctx.data as JsonMap, evidence),
-              ),
-        ),
-  );
-
-  static Widget qaTickerSnapshot(CatalogItemContext ctx) => _withPrices(
-    ctx,
-    (map) => QaCardShell(
-      child: _tickerSnapshotContent(_TickerSnapshotData.fromMap(map)),
-    ),
-  );
+  static Widget qaTickerSnapshot(CatalogItemContext ctx) {
+    return QaCardShell(
+      child: _tickerSnapshotContent(
+        _TickerSnapshotData.fromMap(ctx.data as JsonMap),
+      ),
+    );
+  }
 
   /// Contenido de `QaTickerSnapshot` sin la card — lo reusa `QaPriceChart`
   /// como fallback dentro de su propia card.
@@ -81,10 +61,11 @@ abstract final class MarketWidgets {
     );
   }
 
-  static Widget qaTickerMove(CatalogItemContext ctx) => _withPrices(
-    ctx,
-    (map) => QaCardShell(child: _tickerMoveContent(_TickerMoveData.fromMap(map))),
-  );
+  static Widget qaTickerMove(CatalogItemContext ctx) {
+    return QaCardShell(
+      child: _tickerMoveContent(_TickerMoveData.fromMap(ctx.data as JsonMap)),
+    );
+  }
 
   /// Contenido de `QaTickerMove` sin la card (ver [_tickerSnapshotContent]).
   /// [periods] solo llega desde el fallback de `QaPriceChart`, cuyo payload
@@ -183,10 +164,8 @@ abstract final class MarketWidgets {
   /// misma card muestra el contenido de `QaTickerMove` (si el modelo mandó
   /// los campos de un período explícito) o de `QaTickerSnapshot` — ver
   /// `QaPriceChart`.
-  static Widget qaPriceChart(CatalogItemContext ctx) =>
-      _withPrices(ctx, _priceChart);
-
-  static Widget _priceChart(JsonMap map) {
+  static Widget qaPriceChart(CatalogItemContext ctx) {
+    final map = ctx.data as JsonMap;
     final data = _PriceChartData.fromMap(map);
     final fallback =
         data.hasExplicitPeriod

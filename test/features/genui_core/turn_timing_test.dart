@@ -55,7 +55,7 @@ void main() {
     ]);
   });
 
-  test('a turn that would not fit in product_events (2 KB) drops the proxy '
+  test('a turn whose jsonb would not fit in product_events (2 KB) drops the proxy '
       'details, not the event', () {
     final timing = TurnTiming();
     for (var i = 0; i < 12; i++) {
@@ -86,10 +86,10 @@ void main() {
         for (final r in timing.rounds.take(8)) r.toJson(),
         for (final t in timing.tools.take(8)) t.toJson(),
       ]).length,
-      greaterThan(1800),
+      greaterThan(1150),
     );
     final props = timing.toProps(result: 'answered');
-    expect(jsonEncode(props).length, lessThan(1800));
+    expect(jsonEncode(props).length, lessThan(1150));
     expect(props['round_count'], 12);
     expect((props['rounds'] as List), hasLength(8));
     expect((props['rounds'] as List).first, isNot(contains('server')));

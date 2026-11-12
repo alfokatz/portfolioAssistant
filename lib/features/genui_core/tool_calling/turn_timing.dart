@@ -93,15 +93,18 @@ class TurnTiming {
       if (region != null) 'region': region,
     };
     final full = build(withServer: true);
-    // `product_events.props` acepta hasta 2 KB: si un turno raro (muchas
-    // rondas) se pasa, se sacan los tramos del proxy, no el evento.
+    // `product_events.props` acepta hasta 2 KB de `pg_column_size` (jsonb),
+    // que para estos objetos chicos ocupa hasta ~1,7× el texto JSON
+    // (medido: 1.530 caracteres → 2.546 bytes). Si un turno raro (muchas
+    // rondas) se pasa, se sacan los tramos del proxy, no el evento: sin
+    // ellos, el peor caso (8 rondas y 8 tools) son 1.786 bytes.
     return jsonEncode(full).length <= _maxPropsChars
         ? full
         : build(withServer: false);
   }
 
   static const _maxItems = 8;
-  static const _maxPropsChars = 1800;
+  static const _maxPropsChars = 1150;
 
   /// `auth;dur=12.4, begin;dur=40` → `{auth: 12, begin: 40}`. Lo que no
   /// tenga esa forma se ignora.

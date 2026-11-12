@@ -8,6 +8,8 @@ import 'package:portfolio_assistant/features/genui_core/services/openai_genui_se
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
+import '../assistant/fakes/assistant_fakes.dart';
+
 /// Tool de prueba: devuelve [result] (o lanza si [fails]) y registra args.
 class _EchoTool implements DataTool {
   _EchoTool(
@@ -230,6 +232,88 @@ void main() {
     expect(wire, isNot(contains('AAPL')));
     expect(wire, isNot(contains('bajó')));
     expect(wire.length, lessThan(1800));
+  });
+
+  group('TurnTiming on the edges', () {
+    OpenAIGenUiService withClient(http.Client client) {
+      final service = OpenAIGenUiService(
+        proxy: AiProxyConfig(
+          endpoint: Uri.parse('https://proxy.test/functions/v1/ai-chat'),
+          accessToken: () async => 'jwt-test',
+        ),
+        model: 'gpt-4.1-mini',
+        systemPrompt: 'SYSTEM',
+        catalog: BasicCatalogItems.asCatalog(),
+        httpClient: client,
+      );
+      addTearDown(service.dispose);
+      return service;
+    }
+
+    test('an OpenAI 429 closes its round as rate_limited and counts a '
+        'retry; the next attempt is a new round', () async {
+      var n = 0;
+      final api = _FakeOpenAi([(_) => _answer('s0')]);
+      final client = MockClient((req) async {
+        if (n++ == 0) {
+          return http.Response(
+            jsonEncode({
+              'error': {
+                'message': 'Rate limit reached. Please try again in 0s.',
+                'code': 'rate_limit_exceeded',
+              },
+            }),
+            429,
+          );
+        }
+        return api.client.send(
+          http.Request(req.method, req.url)
+            ..headers.addAll(req.headers)
+            ..body = req.body,
+        ).then(http.Response.fromStream);
+      });
+      final timing = TurnTiming();
+
+      await withClient(client).runTurn(
+        userText: 'hola',
+        surfaceId: 's0',
+        tools: const [],
+        timing: timing,
+      );
+
+      expect(timing.rounds.map((r) => r.kind), ['rate_limited', 'answer']);
+      expect(timing.rounds.every((r) => r.ms != null), isTrue);
+      expect(timing.retries, 1);
+    });
+
+    test('with streaming, first_text_ms is when the first piece of text '
+        'arrived, before the answer is ready', () async {
+      final client = MockClient(
+        (_) async => http.Response(
+          ScriptedOpenAi.sseOf(_answer('s0', 'hola')),
+          200,
+          headers: {'content-type': 'text/event-stream; charset=utf-8'},
+        ),
+      );
+      final service = withClient(client)..streaming = true;
+      final seen = <String>[];
+      final timing = TurnTiming();
+
+      await service.runTurn(
+        userText: 'hola',
+        surfaceId: 's0',
+        tools: const [],
+        onContent: seen.add,
+        timing: timing,
+      );
+      timing.ready();
+
+      expect(seen, isNotEmpty);
+      expect(timing.streaming, isTrue);
+      expect(timing.firstTextMs, isNotNull);
+      expect(timing.firstTextMs, lessThanOrEqualTo(timing.readyMs!));
+      expect(timing.toProps(result: 'answered')['stream'], isTrue);
+    });
   });
 
   test('parallel tool calls are answered in order, one failing does not '

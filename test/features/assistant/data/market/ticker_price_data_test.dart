@@ -114,6 +114,37 @@ void main() {
     expect(filled['weekChangePct'], 4.0);
   });
 
+  test('a named window without enough history is not filled; a QaTickerMove '
+      'becomes a snapshot ([W:FALLBACK])', () {
+    final evidence = _evidence([
+      _quote(
+        'NEW',
+        periods: {
+          'week': _period(2.0, 9.8, 10),
+          'year': _period(0, 0, 10, label: 'último año', sufficient: false),
+        },
+      ),
+    ]);
+    final chart = TickerPriceData.fillPayload({
+      'component': 'QaPriceChart',
+      'ticker': 'NEW',
+      'initialRange': '1Y',
+      'period': 'year',
+    }, evidence);
+    expect(chart.containsKey('changePct'), isFalse);
+    expect(chart.containsKey('periodLabel'), isFalse);
+    expect(chart['component'], 'QaPriceChart');
+
+    final move = TickerPriceData.fillPayload({
+      'component': 'QaTickerMove',
+      'ticker': 'NEW',
+      'period': 'year',
+    }, evidence);
+    expect(move['component'], 'QaTickerSnapshot');
+    expect(move['currentPrice'], 120.5);
+    expect(move['weekChangePct'], 2.0);
+  });
+
   test('a held ticker + period takes the move from position_periods; the '
       'price from get_quote when there is one', () {
     final details = ToolCallRecord(

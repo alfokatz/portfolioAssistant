@@ -290,6 +290,21 @@ abstract final class AssistantAnswerReview {
     final components = list.whereType<Map<String, dynamic>>().toList();
     var changed = false;
 
+    // Cards de precio: el modelo manda ticker y período, y los números se
+    // ponen acá desde get_quote / get_portfolio_details (ver
+    // `TickerPriceData`). Quedan escritos en el componente: la card no
+    // depende de que la evidencia siga en memoria, y todo lo que lee el
+    // componente (chequeos de abajo, tono de Porty) ve los números.
+    for (final c in components) {
+      if (!_tickerPriceCards.contains(c['component'])) continue;
+      final filled = TickerPriceData.fillPayload(c, evidence);
+      if (jsonEncode(filled) == jsonEncode(c)) continue;
+      c
+        ..clear()
+        ..addAll(filled);
+      changed = true;
+    }
+
     // Si el modelo no corrigió la card genérica: afuera las filas con
     // números sin respaldo.
     if (components.any((c) => c['component'] == 'QaInfoList')) {
@@ -714,8 +729,8 @@ abstract final class AssistantAnswerReview {
     'QaPeriodChange',
   };
 
-  /// Cards de precio de un ticker: sus números salen de la evidencia (ver
-  /// `TickerPriceData`).
+  /// Cards de precio de un ticker: sus números los pone [postProcess] desde
+  /// la evidencia (ver `TickerPriceData`).
   static const _tickerPriceCards = {
     'QaPriceChart',
     'QaTickerMove',
@@ -1115,13 +1130,6 @@ abstract final class AssistantAnswerReview {
         // Como el análisis: los pesos los pone la app, no están en el JSON.
         final d = EtfHoldingsData.from(evidence, '${c['ticker'] ?? ''}');
         if (d != null) out.addAll(d.backingNumbers);
-      } else if (_tickerPriceCards.contains(c['component'])) {
-        // Los números los pone la app desde get_quote: los que la card
-        // muestra, no todos los de la tool.
-        final shown = TickerPriceData.fillPayload(c, evidence);
-        for (final n in AnalysisProseCheck.numbersIn(jsonEncode(shown))) {
-          out.add(n.value);
-        }
       } else {
         for (final n in AnalysisProseCheck.numbersIn(jsonEncode(c))) {
           out.add(n.value);
