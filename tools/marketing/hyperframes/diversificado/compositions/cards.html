@@ -1,0 +1,78 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .cd-title{position:absolute;left:60px;top:270px;width:880px;font-weight:700;font-size:70px;line-height:1.1;letter-spacing:-1.9px;color:#2F3437}
+  .cd-title em{font-style:normal;color:#C27443}
+  .cd-title .w{display:inline-block}
+  #cd-b{display:flex;gap:22px;align-items:flex-start}
+  #cd-b svg{width:92px;height:92px;flex:none;overflow:visible;margin-top:2px}
+  .card{position:absolute;width:420px;height:150px;background:#fff;border:2px solid #ECEBE8;border-radius:30px;padding:26px 28px;
+    box-shadow:0 10px 30px rgba(40,30,20,.06)}
+  .card b{display:block;font-size:34px;font-weight:700;letter-spacing:-.5px}
+  .card small{display:block;font-size:28px;font-weight:500;color:#5F5E5B;margin-top:6px}
+  .card i{position:absolute;right:26px;top:28px;width:22px;height:22px;border-radius:50%}
+  .chip{position:absolute;width:26px;height:26px;border-radius:50%;background:#D98E5D;opacity:0}
+  #cd-grid{position:absolute;inset:0;transform-origin:50% 40%}
+  #cd-porty{position:absolute;left:60px;top:1020px;width:170px;height:170px;transform-origin:50% 90%;opacity:0}
+  #cd-porty svg{width:100%;height:100%;overflow:visible}
+</style>
+<div id="root" data-composition-id="cards" data-width="1080" data-height="1920">
+  <!-- Cuadro 0 = miniatura: la pregunta y las 6 tarjetas ya están en pantalla. -->
+  <h2 id="cd-a" class="cd-title"><span class="w">Con</span> <span class="w">6</span> <span class="w">inversiones</span> <span class="w">distintas,</span> <em class="w">¿estás</em> <em class="w">diversificado?</em></h2>
+  <h2 id="cd-b" class="cd-title"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg><span>Dejame mirar adentro <em>de tus fondos.</em></span></h2>
+
+  <div id="cd-grid">
+  <div id="c1" class="card" style="left:70px;top:520px"><b>ETF amplio</b><small>Fondo</small><i style="background:#2F3437"></i></div>
+  <div id="c2" class="card" style="left:510px;top:520px"><b>ETF de tecnología</b><small>Fondo</small><i style="background:#2F3437"></i></div>
+  <div id="c3" class="card" style="left:70px;top:694px"><b>Acción tech</b><small>Acción</small><i style="background:#D98E5D"></i></div>
+  <div id="c4" class="card" style="left:510px;top:694px"><b>Otra acción tech</b><small>Acción</small><i style="background:#D98E5D"></i></div>
+  <div id="c5" class="card" style="left:70px;top:868px"><b>Bono</b><small>Renta fija</small><i style="background:#7C9F7E"></i></div>
+  <div id="c6" class="card" style="left:510px;top:868px"><b>Otra</b><small>Acción</small><i style="background:#C9B79C"></i></div>
+
+  <!-- Lo que hay adentro de los fondos: fichas de tecnología que salen y se juntan con las acciones tech. -->
+  <div class="chip" style="left:400px;top:624px"></div><div class="chip" style="left:432px;top:624px"></div>
+  <div class="chip" style="left:780px;top:624px"></div><div class="chip" style="left:812px;top:624px"></div>
+  <div class="chip" style="left:844px;top:624px"></div><div class="chip" style="left:876px;top:624px"></div>
+  </div>
+
+  <div id="cd-porty">
+    <svg viewBox="-3 -6 70 70">
+      <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+      <g id="cd-eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
+      <path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  const cards = ["#c1","#c2","#c3","#c4","#c5","#c6"];
+  // Las tarjetas ya están en el cuadro 0 y se acomodan apenas (movimiento desde el primer cuadro).
+  cards.forEach((c, i) => tl.fromTo(c, {y:16 + i * 3}, {y:0, duration:.9, ease:"power2.out"}, i * .05));
+  // Mientras se lee la pregunta, las tarjetas respiran desfasadas (la "cartera" está viva).
+  cards.forEach((c, i) => tl.to(c, {y:-6, duration:.65, ease:"sine.inOut", yoyo:true, repeat:3}, .9 + i * .05));
+
+  // Sale la pregunta palabra por palabra; entra Porty.
+  tl.to("#cd-a .w", {opacity:0, filter:"blur(8px)", duration:.16, stagger:.025, ease:"power2.in"}, 2.55);
+  tl.fromTo("#cd-porty", {y:240, opacity:0, scaleX:.9, scaleY:1.12}, {y:0, opacity:1, scaleX:1, scaleY:1, duration:.5, ease:"power3.out"}, 2.45)
+    .to("#cd-porty", {scaleX:1.12, scaleY:.88, duration:.09, ease:"power2.out"}, 2.95)
+    .to("#cd-porty", {scaleX:1, scaleY:1, duration:.36, ease:"back.out(2.2)"}, 3.04)
+    .fromTo("#cd-eyes", {x:0, y:0}, {x:1.5, y:-1.6, duration:.25, ease:"power2.inOut"}, 3.1);
+  tl.fromTo("#cd-b", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 2.85)
+    .to("#cd-b", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 4.75);
+
+  // Los fondos "se abren": se agrandan y sueltan lo que tienen adentro.
+  tl.to(["#c1","#c2"], {scale:1.05, borderColor:"#D98E5D", duration:.3, ease:"power2.out"}, 3.45)
+    .to(["#c1","#c2"], {scale:1, duration:.3, ease:"power2.inOut"}, 3.8);
+  const targets = [[380,790],[412,790],[780,790],[812,790],[844,790],[876,790]];
+  document.querySelectorAll(".chip").forEach((ch, i) => {
+    tl.fromTo(ch, {opacity:0, x:0, y:0, scale:.4}, {opacity:1, scale:1, duration:.2, ease:"back.out(2)"}, 3.55 + i * .05)
+      .to(ch, {x:targets[i][0] - parseFloat(ch.style.left), y:targets[i][1] - parseFloat(ch.style.top), duration:.55, ease:"power3.inOut"}, 3.75 + i * .05);
+  });
+  tl.to(["#c3","#c4"], {borderColor:"#D98E5D", backgroundColor:"#FCF4EE", duration:.3, ease:"power2.out"}, 4.2);
+
+  // Todo entra al teléfono (que sube en la escena siguiente) y Porty se va por abajo.
+  tl.to("#cd-grid", {y:60, scale:.5, opacity:0, duration:.5, ease:"power3.in"}, 4.5)
+    .to("#cd-porty", {y:300, scaleX:.94, scaleY:1.08, duration:.38, ease:"power3.in"}, 4.7);
+  window.__timelines["cards"] = tl;
+</script>
+</template>

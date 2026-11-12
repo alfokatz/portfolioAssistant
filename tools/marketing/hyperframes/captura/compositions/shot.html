@@ -1,0 +1,79 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .sh-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:70px;line-height:1.1;letter-spacing:-1.9px;color:#2F3437}
+  .sh-title em{font-style:normal;color:#C27443}
+  .sh-title .w{display:inline-block}
+  #sh-wrap{position:absolute;left:210px;top:440px;width:660px;height:740px;
+    -webkit-mask-image:linear-gradient(180deg,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,#000 88%,transparent 100%)}
+  #sh-body{width:100%;height:100%;border-radius:68px 68px 0 0;background:#171614;padding:18px 18px 0}
+  #sh-screen{position:relative;width:624px;height:722px;border-radius:50px 50px 0 0;overflow:hidden;background:#EEF0F3}
+  /* Una app de inversiones genérica (no es ningún bróker real). */
+  .app{position:absolute;inset:0;background:#EEF0F3;font-family:PJS}
+  .app .hd{position:absolute;left:28px;top:44px;font-size:34px;font-weight:700;color:#1F2933}
+  .app .rows{position:absolute;left:20px;right:20px;top:120px}
+  .app .r{display:flex;justify-content:space-between;background:#fff;border-radius:18px;padding:20px 24px;margin-bottom:12px;font-size:29px;font-weight:600;color:#1F2933}
+  .app .r span:last-child{color:#52606D;font-weight:500}
+  #sh-snap{transform-origin:8% 72%;border-radius:0;box-shadow:0 0 0 rgba(0,0,0,0)}
+  #sh-flash{position:absolute;inset:0;background:#fff;opacity:0}
+  #sh-fly{position:absolute;left:263px;top:831px;width:187px;height:217px;border-radius:12px;background:#EEF0F3;box-shadow:0 18px 40px rgba(0,0,0,.25);opacity:0;padding-top:24px}
+  #sh-fly i{display:block;height:20px;margin:8px 10px 0;border-radius:6px;background:#fff}
+  #sh-porty{position:absolute;left:40px;top:960px;width:200px;height:200px;transform-origin:50% 90%;opacity:0}
+  #sh-porty svg{width:100%;height:100%;overflow:visible}
+</style>
+<div id="root" data-composition-id="shot" data-width="1080" data-height="1920">
+  <h2 id="sh-a" class="sh-title"><span class="w">¿Tu</span> <span class="w">bróker</span> <span class="w">no</span> <span class="w">está</span> <span class="w">en</span> <span class="w">la</span> <span class="w">lista?</span> <em class="w">Sacale</em> <em class="w">una</em> <em class="w">captura.</em></h2>
+
+  <div id="sh-wrap"><div id="sh-cam"><div id="sh-body"><div id="sh-screen" data-layout-allow-overflow data-layout-allow-overlap>
+    <div id="sh-app" class="app"><div class="hd">Mis posiciones</div><div class="rows">
+      <div class="r"><span>ETF amplio A</span><span>12</span></div><div class="r"><span>ETF amplio B</span><span>8</span></div>
+      <div class="r"><span>Acción A</span><span>15</span></div><div class="r"><span>Acción B</span><span>6</span></div>
+      <div class="r"><span>Bono</span><span>1.000</span></div><div class="r"><span>Fondo</span><span>30</span></div>
+    </div></div>
+    <div id="sh-snap" class="app" data-layout-ignore><div class="hd">Mis posiciones</div><div class="rows">
+      <div class="r"><span>ETF amplio A</span><span>12</span></div><div class="r"><span>ETF amplio B</span><span>8</span></div>
+      <div class="r"><span>Acción A</span><span>15</span></div><div class="r"><span>Acción B</span><span>6</span></div>
+      <div class="r"><span>Bono</span><span>1.000</span></div><div class="r"><span>Fondo</span><span>30</span></div>
+    </div></div>
+    <div id="sh-flash"></div>
+  </div></div></div></div>
+
+  <!-- Copia de la miniatura fuera del teléfono, para que pueda volar hasta Porty. -->
+  <div id="sh-fly" data-layout-ignore><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="sh-porty">
+    <svg viewBox="-3 -6 70 70">
+      <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+      <g id="sh-eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
+      <path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  tl.fromTo("#sh-cam", {y:0}, {y:12, duration:4.4, ease:"none"}, 0);
+  // Buscando las posiciones: la lista baja y sube despacio.
+  tl.fromTo("#sh-app .rows", {y:0}, {y:-26, duration:1.5, ease:"power2.inOut"}, .1)
+    .fromTo("#sh-snap .rows", {y:0}, {y:-26, duration:1.5, ease:"power2.inOut"}, .1);
+  // Captura: destello, y la copia se achica a una miniatura abajo a la izquierda.
+  tl.fromTo("#sh-flash", {opacity:0}, {opacity:.85, duration:.06, ease:"power1.out"}, 1.75)
+    .to("#sh-flash", {opacity:0, duration:.22, ease:"power2.out"}, 1.81)
+    .fromTo("#sh-snap", {scale:1, borderRadius:0, boxShadow:"0 0 0 rgba(0,0,0,0)"},
+      {scale:.3, borderRadius:40, boxShadow:"0 18px 40px rgba(0,0,0,.25)", duration:.45, ease:"power3.inOut"}, 1.85)
+    .to("#sh-snap", {y:-10, duration:.5, ease:"sine.inOut", yoyo:true, repeat:1}, 2.35);
+  // Entra Porty, mira la miniatura y la agarra.
+  tl.fromTo("#sh-porty", {y:240, opacity:0, scaleX:.9, scaleY:1.12}, {y:0, opacity:1, scaleX:1, scaleY:1, duration:.5, ease:"power3.out"}, 2.2)
+    .to("#sh-porty", {scaleX:1.12, scaleY:.88, duration:.09, ease:"power2.out"}, 2.7)
+    .to("#sh-porty", {scaleX:1, scaleY:1, duration:.36, ease:"back.out(2.2)"}, 2.79)
+    .fromTo("#sh-eyes", {x:0, y:0}, {x:1.8, y:-1.2, duration:.25, ease:"power2.inOut"}, 2.6);
+  // La miniatura vuela hasta Porty, y Porty salta adentro del teléfono con ella.
+  tl.set("#sh-snap", {opacity:0}, 3.3)
+    .set("#sh-fly", {opacity:1}, 3.3)
+    .to("#sh-fly", {x:-180, y:140, scale:.35, duration:.5, ease:"power3.inOut"}, 3.35)
+    .to("#sh-porty", {scaleX:1.1, scaleY:.9, duration:.1, ease:"power2.out"}, 3.82)
+    .to("#sh-fly", {opacity:0, duration:.08}, 3.86)
+    .to("#sh-porty", {x:400, y:-260, scale:.3, duration:.5, ease:"power3.inOut"}, 3.95)
+    .to("#sh-porty", {opacity:0, duration:.08}, 4.38);
+  tl.to("#sh-a .w", {opacity:0, filter:"blur(8px)", duration:.16, stagger:.025, ease:"power2.in"}, 3.25);
+  window.__timelines["shot"] = tl;
+</script>
+</template>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es" data-resolution="portrait">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<!-- Video "Creés que estás diversificado" (16,5 s, 60 fps). Hecho con la skill porty-video (HyperFrames). Raíz: escenas, letra chica de compliance y efectos. Texto en la banda 168–1330 px. -->
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+@font-face{font-family:PJS;font-weight:500;src:url(assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+@font-face{font-family:PJS;font-weight:700;src:url(assets/fonts/PlusJakartaSans-Bold.ttf)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#FBFBFA}
+#root{position:relative;width:1080px;height:1920px;font-family:PJS;color:#2F3437;font-feature-settings:"tnum"}
+#bg{position:absolute;inset:0;background:#FBFBFA}
+.disc{position:absolute;left:60px;width:840px;top:1214px;font-size:28px;line-height:1.36;color:#5F5E5B;font-weight:500;z-index:30}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="16.5" data-width="1080" data-height="1920" data-fps="60">
+  <div id="bg"></div>
+  <div id="cards" data-composition-id="cards" data-composition-src="compositions/cards.html" data-start="0" data-duration="5.2" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:4"></div>
+  <div id="diag" data-composition-id="diag" data-composition-src="compositions/diag.html" data-start="4.6" data-duration="7.5" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
+  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="11.9" data-duration="4.6" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
+  <div id="d0" class="clip disc" data-start="0" data-duration="13.5" data-track-index="5"><span id="d0t">Imagen ilustrativa con datos de ejemplo.</span></div>
+  <div id="d1" class="clip disc" data-start="13.5" data-duration="3.0" data-track-index="6"><span id="d1t">Imagen ilustrativa con datos de ejemplo. No es asesoramiento financiero.</span></div>
+  <!-- Efectos: Pixabay Content License (assets/sfx/CREDITS.md). Pico del sonido un cuadro después de su imagen. -->
+  <audio id="sfx-0" class="clip" src="assets/sfx/pop.mp3" data-start="2.897" data-track-index="20" data-volume="0.55"></audio>
+  <audio id="sfx-1" class="clip" src="assets/sfx/pop.mp3" data-start="4.147" data-track-index="21" data-volume="0.35"></audio>
+  <audio id="sfx-2" class="clip" src="assets/sfx/whoosh.mp3" data-start="4.605" data-track-index="22" data-volume="0.6"></audio>
+  <audio id="sfx-3" class="clip" src="assets/sfx/pop.mp3" data-start="5.297" data-track-index="23" data-volume="0.4"></audio>
+  <audio id="sfx-4" class="clip" src="assets/sfx/pop.mp3" data-start="7.947" data-track-index="24" data-volume="0.4"></audio>
+  <audio id="sfx-5" class="clip" src="assets/sfx/whoosh.mp3" data-start="11.805" data-track-index="25" data-volume="0.4"></audio>
+  <audio id="sfx-6" class="clip" src="assets/sfx/pop.mp3" data-start="13.637" data-track-index="26" data-volume="0.7"></audio>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+tl.to("#d0t", {opacity:0, duration:.2, ease:"power2.in"}, 13.28);
+tl.fromTo("#d1t", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, 13.5);
+tl.to({}, {duration:.01}, 16.49);
+window.__timelines["main"] = tl;
+tl.seek(0);
+</script>
+</body>
+</html>

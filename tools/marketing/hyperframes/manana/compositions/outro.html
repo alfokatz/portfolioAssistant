@@ -1,0 +1,53 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .o-line{position:absolute;left:60px;width:900px;font-weight:700;font-size:72px;line-height:1.08;letter-spacing:-2.4px}
+  .o-line .w{display:inline-block}
+  #o-a{top:290px;color:#2F3437}
+  #o-b{top:390px;color:#C27443}
+  #o-porty{position:absolute;left:60px;top:600px;width:270px;height:270px;transform-origin:50% 92%}
+  #o-porty svg{width:100%;height:100%;overflow:visible}
+  #o-cta{position:absolute;left:380px;top:690px;width:540px}
+  #o-cta b{display:block;font-size:46px;font-weight:700;letter-spacing:-1px}
+  #o-cta small{display:block;font-size:30px;font-weight:500;color:#5F5E5B;margin-top:8px;line-height:1.3}
+</style>
+<div id="root" data-composition-id="outro" data-width="1080" data-height="1920">
+  <div id="o-a" class="o-line"><span class="w">Seguí</span> <span class="w">con</span> <span class="w">tu</span> <span class="w">día:</span></div>
+  <div id="o-b" class="o-line"><span class="w">Porty</span> <span class="w">te</span> <span class="w">avisa</span> <span class="w">si</span> <span class="w">se</span> <span class="w">mueve</span> <span class="w">fuerte.</span></div>
+  <div id="o-porty">
+    <svg viewBox="-3 -6 70 70">
+      <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+      <g id="o-eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
+      <!-- Anteojos de sol: uno de los accesorios de la app -->
+      <g id="o-glasses"><rect x="21" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/><rect x="35" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/>
+        <path d="M33.5 29H35" stroke="#2F3437" stroke-width="2.2"/><path d="M21.5 28L15 26.5M47 28L53 26.5" stroke="#2F3437" stroke-width="2" stroke-linecap="round"/></g>
+      <path id="o-mouth" d="M29.6 41Q33.6 44.5 38.6 40" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div id="o-cta"><b>Descargala gratis.</b><small>Algunas funciones son de planes pagos.</small></div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  // Porty vuelve desde abajo (como en la apertura), se aplasta al llegar y se acomoda.
+  tl.fromTo("#o-porty", {y:420, opacity:0, scaleX:.9, scaleY:1.12}, {y:0, opacity:1, scaleX:1, scaleY:1, duration:.6, ease:"power3.out"}, .0)
+    .to("#o-porty", {scaleX:1.12, scaleY:.88, duration:.09, ease:"power2.out"}, .6)
+    .to("#o-porty", {scaleX:1, scaleY:1, duration:.38, ease:"back.out(2.2)"}, .69);
+  // Textos: palabra por palabra con desenfoque; quedan quietos una vez que llegan.
+  tl.fromTo("#o-a .w", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, .3)
+    .fromTo("#o-b .w", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, .95);
+  // Se pone los anteojos: caen sobre la cara, la cara cede un poco, sonríe más.
+  tl.fromTo("#o-glasses", {y:-34, opacity:0}, {y:0, opacity:1, duration:.24, ease:"power2.in"}, 1.6)
+    .to("#o-porty", {scaleX:1.05, scaleY:.95, duration:.07, ease:"power2.out"}, 1.84)
+    .to("#o-porty", {scaleX:1, scaleY:1, duration:.25, ease:"back.out(2)"}, 1.91)
+    .fromTo("#o-mouth", {attr:{d:"M29.6 41Q33.6 44.5 38.6 40"}}, {attr:{d:"M28.6 40.5Q33.6 46.5 39.6 39.5"}, duration:.2, ease:"power2.out"}, 1.95)
+  // Asiente.
+    .to("#o-porty", {rotation:-7, duration:.22, ease:"power2.inOut"}, 2.25)
+    .to("#o-porty", {rotation:0, duration:.35, ease:"back.out(2)"}, 2.47);
+  tl.fromTo("#o-cta", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 2.3);
+  // Respira despacio (vida del personaje, no del texto).
+  tl.fromTo("#o-eyes", {scaleY:1}, {scaleY:.1, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 1.3)
+    .to("#o-eyes", {scaleY:.1, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 3.6);
+  tl.to("#o-porty", {y:-7, duration:.8, ease:"sine.inOut", yoyo:true, repeat:4}, 1.05);
+  window.__timelines["outro"] = tl;
+</script>
+</template>
