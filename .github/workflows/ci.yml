@@ -1,4 +1,4 @@
-# CI de Porty: en cada PR y en cada push a main o a ramas claude/**.
+# CI de Porty: en cada PR y en cada push a main, develop o a ramas claude/**.
 # - flutter: analyze (falla solo con errores) + suite completa de tests.
 # - supabase: levanta el stack local (aplica TODAS las migraciones: si una no
 #   corre, falla acá), corre los tests de Deno de las edge functions y los
@@ -9,7 +9,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, "claude/**"]
+    branches: [main, develop, "claude/**"]
   workflow_dispatch:
 
 concurrency:

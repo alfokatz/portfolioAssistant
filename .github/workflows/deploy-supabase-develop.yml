@@ -1,0 +1,42 @@
+# Deploy a la rama `develop` de Supabase (migraciones + edge functions).
+# Corre al pushear/mergear a la rama git `develop` cambios en supabase/, o a
+# mano (workflow_dispatch). No pide aprobación: develop es para probar.
+# Producción sigue en deploy-supabase.yml (rama main, con aprobación).
+# Runbook: docs/runbooks/ci-cd.md
+name: Deploy Supabase (develop)
+
+on:
+  push:
+    branches: [develop]
+    paths: ["supabase/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-supabase-develop
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: db push + functions deploy (develop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: development
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DEV_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_DEV_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Compatibilidad de config con la CLI actual
+        run: sed -i 's/^\[inbucket\]$/[local_smtp]/' supabase/config.toml
+      - name: Vincular la rama develop
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Migraciones pendientes (vista previa)
+        run: supabase db push --dry-run --password "$SUPABASE_DB_PASSWORD"
+      - name: Aplicar migraciones
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Desplegar edge functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
