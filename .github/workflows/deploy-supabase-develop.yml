@@ -37,6 +37,6 @@ jobs:
       - name: Migraciones pendientes (vista previa)
         run: supabase db push --remote --dry-run --password "$SUPABASE_DB_PASSWORD"
       - name: Aplicar migraciones
-        run: supabase db push --remote --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --remote --yes --password "$SUPABASE_DB_PASSWORD"
       - name: Desplegar edge functions
         run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
