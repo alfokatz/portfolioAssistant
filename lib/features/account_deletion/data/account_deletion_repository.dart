@@ -20,8 +20,16 @@ class AccountDeletionRepository {
     ),
   );
 
-  Future<AccountDeletionFailure?> deleteAccount() async {
-    final response = await _edge.post('delete-account', {'confirm': true});
+  /// [appleAuthorizationCode]: código de un uso de Apple para que el
+  /// servidor revoque el acceso de Porty a la cuenta de Apple.
+  Future<AccountDeletionFailure?> deleteAccount({
+    String? appleAuthorizationCode,
+  }) async {
+    final response = await _edge.post('delete-account', {
+      'confirm': true,
+      if (appleAuthorizationCode != null)
+        'apple_authorization_code': appleAuthorizationCode,
+    });
     if (response.statusCode == 401) return const DeletionSessionExpired();
     if (response.ok && response.body?['deleted'] == true) return null;
 
