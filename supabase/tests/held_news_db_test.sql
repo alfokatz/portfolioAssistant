@@ -23,13 +23,13 @@ insert into public.user_subscriptions (user_id, tier, status) values
   ('00000000-0000-0000-0000-0000000000b5', 'premium', 'active')
 on conflict (user_id) do update set tier = excluded.tier, status = excluded.status;
 
--- Premium b2 tiene NVDA, GGAL.BA y BTC-USD (y uno en cero). Free y el Premium
--- vencido también tienen NVDA: no alcanza.
+-- Premium b2 tiene NVDA, GGAL.BA y BTC-USD. Free y el Premium vencido también
+-- tienen NVDA: no alcanza. (Una posición en cero no se puede crear: check
+-- positions_quantity_positive, igual que en producción.)
 insert into public.positions (id, user_id, ticker, quantity, purchase_price, purchase_date) values
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b2', 'nvda', 1, 100, now()),
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b2', 'GGAL.BA', 10, 5000, now()),
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b2', 'BTC-USD', 0.5, 60000, now()),
-  (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b2', 'ZERO', 0, 10, now()),
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b1', 'NVDA', 1, 100, now()),
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000b4', 'NVDA', 1, 100, now());
 
@@ -53,9 +53,8 @@ begin
   -- Sufijos de bolsa y cripto, tal como vienen en el pedido.
   if not public.news_data_allowed(p, 'GGAL.BA') then raise exception 'Premium + GGAL.BA'; end if;
   if not public.news_data_allowed(p, 'BTC-USD') then raise exception 'Premium + BTC-USD'; end if;
-  -- Ajeno, en cero, sin ticker.
+  -- Ajeno y sin ticker.
   if public.news_data_allowed(p, 'TSLA') then raise exception 'Premium + ticker ajeno'; end if;
-  if public.news_data_allowed(p, 'ZERO') then raise exception 'Premium + posición en cero'; end if;
   if public.news_data_allowed(p, null) then raise exception 'Premium sin ticker'; end if;
   if public.news_data_allowed(p) then raise exception 'Premium con default'; end if;
   -- El ticker normalizado de la SEC (BTC.USD) no es el de la cartera.
