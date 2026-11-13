@@ -7,6 +7,8 @@
 //   1. SnapTrade: borra el usuario allá (deja de cobrarse) y el secreto acá.
 //   2. RevenueCat: DELETE /subscribers/{uid}.
 //   3. eToro: revoca los tokens (best effort) y desconecta.
+//      Apple: si la app mandó `apple_authorization_code` (cuenta con Sign in
+//      with Apple), revoca el acceso en Apple (best effort, apple.ts).
 //   4. Binance: desconecta (borra la clave de Vault; Binance no tiene API de
 //      revocación y la clave es de solo lectura).
 //   5. auth.admin.deleteUser: dispara el trigger
@@ -25,6 +27,7 @@
 // handler.ts obliga a redesplegar también esta función.
 
 import { bearer, corsHeaders, type Deps, json, sleep, typedError } from "../_shared/common.ts";
+import { appleConfig, appleCredentials, revokeAppleAccess } from "./apple.ts";
 import { EtoroClient, etoroEnvironment, type EtoroTokens } from "../etoro-sync/etoro.ts";
 import { config as revenueCatConfig } from "../revenuecat-webhook/handler.ts";
 import { SnaptradeClient, SnaptradeError, snaptradeConfig } from "../snaptrade-sync/snaptrade.ts";
@@ -39,7 +42,7 @@ export const config = {
   recheckTimeoutMs: 5_000,
 };
 
-type Step = "snaptrade" | "revenuecat" | "etoro" | "binance" | "auth";
+type Step = "snaptrade" | "revenuecat" | "etoro" | "apple" | "binance" | "auth";
 
 function log(fields: Record<string, unknown>) {
   // Nunca el uid ni tokens: solo qué pasó.
@@ -201,6 +204,14 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const etoroDisconnect = await deps.db.rpc("etoro_disconnect", { p_user_id: userId, p_keep_as_manual: true });
   if (etoroDisconnect.error) return fail(500, "delete_failed", "Could not disconnect eToro", !mutated, "etoro");
   mutated = true;
+
+  // 3b. Apple: best effort, nunca corta el borrado. Va antes de borrar el
+  //     usuario para que, si hay que reintentar, el código siga sirviendo.
+  const appleCode = body?.apple_authorization_code;
+  if (typeof appleCode === "string" && appleCode && appleCode.length <= appleConfig.maxCodeLength) {
+    const outcome = await revokeAppleAccess(fetchFn, appleCredentials(deps.env), appleCode, deps.now());
+    log({ step: "apple", outcome });
+  }
 
   // 4. Binance.
   const binance = await deps.db.rpc("binance_disconnect", { p_user_id: userId, p_keep_as_manual: true });
