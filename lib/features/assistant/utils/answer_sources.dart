@@ -1,3 +1,4 @@
+import 'package:genui/genui.dart' show SurfaceDefinition;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 /// Una fuente con link que respalda una respuesta.
@@ -20,6 +21,27 @@ class MessageSource {
 /// y fundamentals. Las pone la app, no el modelo.
 abstract final class AnswerSources {
   static const max = 8;
+
+  /// [sources] sin las notas que ya se ven, con su link, en una card de
+  /// noticias de la respuesta (p. ej. la que la app arma con las notas de
+  /// la búsqueda web cuando no hay titulares). Se mira la respuesta que
+  /// quedó en pantalla: si la card no está, las citas siguen en "Fuentes".
+  static List<MessageSource> notShownIn(
+    List<MessageSource> sources,
+    SurfaceDefinition? surface,
+  ) {
+    final shown = <String>{
+      for (final c in surface?.components.values ?? const <Never>[])
+        if (c.type == 'QaNewsSummary')
+          for (final item in (c.properties['items'] as List? ?? const []))
+            if (item is Map) '${item['url'] ?? ''}'.trim(),
+    };
+    if (shown.isEmpty) return sources;
+    return [
+      for (final s in sources)
+        if (!shown.contains(s.url)) s,
+    ];
+  }
 
   static List<MessageSource> of(List<ToolCallRecord> calls) {
     final out = <MessageSource>[];

@@ -4,7 +4,7 @@
 // url_citation).
 
 import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1";
-import { bullets, cacheKey, handle, isArticleUrl, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
+import { bullets, cacheKey, citationsOf, handle, isArticleUrl, mergeParts, type NewsContext, parseBody, partsOf, prompts, titleFromUrl } from "../news-context/handler.ts";
 import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider, withPlanLimit } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
@@ -430,4 +430,28 @@ Deno.test("isArticleUrl: notas sí; portadas, secciones, staging y páginas de m
     "https://www.marketwatch.com/investing/stock/nvda/quote",
   ];
   for (const u of no) assert(!isArticleUrl(new URL(u)), u);
+});
+
+Deno.test("citas sin título: el de la URL, no el nombre del medio repetido", () => {
+  assertEquals(
+    titleFromUrl(new URL("https://www.cnbc.com/2026/11/12/nvidia-ceo-jensen-huang-resigns.html")),
+    "Nvidia ceo jensen huang resigns",
+  );
+  assertEquals(
+    titleFromUrl(new URL("https://edition.cnn.com/2026/11/13/business/nvidia-ceo-scandal-explained/index.html")),
+    "Nvidia ceo scandal explained",
+  );
+  assertEquals(titleFromUrl(new URL("https://apnews.com/article/8f3a2c9d1e")), null);
+
+  const allow = new Map([["cnbc.com", "CNBC"]]);
+  const got = citationsOf([
+    { url: "https://www.cnbc.com/2026/11/12/nvidia-ceo-jensen-huang-resigns.html", title: "CNBC" },
+    { url: "https://www.cnbc.com/2026/11/12/huang-apology-letter.html" },
+    { url: "https://www.cnbc.com/2026/11/12/x-1.html", title: "Nvidia names interim CEO" },
+  ], allow);
+  assertEquals(got.map((c) => c.title), [
+    "Nvidia ceo jensen huang resigns",
+    "Huang apology letter",
+    "Nvidia names interim CEO",
+  ]);
 });

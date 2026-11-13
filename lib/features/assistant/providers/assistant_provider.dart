@@ -56,6 +56,7 @@ import 'package:portfolio_assistant/features/assistant/data/market_taste/market_
 import 'package:portfolio_assistant/features/assistant/tools/market_taste_grant.dart';
 import 'package:portfolio_assistant/features/assistant/tools/weekly_free_analysis_grant.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_answer_review.dart';
+import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_stream_preview.dart';
 import 'package:portfolio_assistant/features/assistant/utils/assistant_message_sync.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
@@ -724,7 +725,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
             showsAdviceDisclaimer: notices.showsDisclaimer,
             profileNudge: notices.profileNudge,
             rememberedFacts: notices.rememberedFacts,
-            sources: notices.sources,
+            // Lo que ya muestra la card de noticias no se repite abajo.
+            sources: AnswerSources.notShownIn(
+              notices.sources,
+              service.controller.registry.getSurface(surfaceId),
+            ),
           ),
         );
         timing.ready();

@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builde
 import 'package:portfolio_assistant/features/assistant/data/analysis/company_analysis_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/etf_holdings_data.dart';
 import 'package:portfolio_assistant/features/assistant/data/card_numbers.dart';
+import 'package:portfolio_assistant/features/assistant/utils/news_card_items.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/advice_tools.dart';
@@ -704,20 +705,17 @@ abstract final class AssistantAnswerReview {
       (c) => c.name == 'get_news' && c.status == 'ok',
       orElse: () => const ToolCallRecord(name: '', args: {}, result: {}),
     );
-    final raw = call.result['news'];
-    final news = [
-      for (final n in raw is List ? raw : const [])
-        if (n is Map &&
-            '${n['title'] ?? ''}'.trim().isNotEmpty &&
-            '${n['url'] ?? ''}'.startsWith('https://'))
-          n,
-    ];
+    final news = NewsCardItems.of(
+      call.result,
+      tickers: [
+        for (final t in (call.args['tickers'] as List? ?? const [])) '$t',
+      ],
+    );
     if (news.isEmpty) return false;
     final asOf = DateTime.tryParse('${call.result['as_of'] ?? ''}');
-    final tickers = {for (final n in news) '${n['ticker'] ?? ''}'.toUpperCase()}
-      ..remove('');
-    String dateOf(Map n) {
-      final published = DateTime.tryParse('${n['published_at'] ?? ''}');
+    final tickers = {for (final n in news) n.ticker}..remove('');
+    String dateOf(NewsCardItem n) {
+      final published = n.publishedAt;
       return published == null ? '' : QaTime.ago(published, now: asOf);
     }
 
@@ -727,15 +725,14 @@ abstract final class AssistantAnswerReview {
       'component': 'QaNewsSummary',
       'ticker': tickers.length == 1 ? tickers.first : tickers.join(', '),
       'items': [
-        for (final n in news.take(3))
+        for (final n in news)
           {
-            'headline': '${n['title']}'.trim(),
-            'summaryLine': '${n['snippet'] ?? ''}'.trim(),
+            'headline': n.headline,
+            'summaryLine': n.summaryLine,
             'dateLabel': dateOf(n),
-            if ('${n['source'] ?? ''}'.trim().isNotEmpty)
-              'source': '${n['source']}'.trim(),
-            'url': '${n['url']}',
-            if (tickers.length > 1) 'ticker': '${n['ticker'] ?? ''}',
+            if (n.source.isNotEmpty) 'source': n.source,
+            'url': n.url,
+            if (tickers.length > 1) 'ticker': n.ticker,
           },
       ],
     });

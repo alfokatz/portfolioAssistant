@@ -196,6 +196,25 @@ function looksLikeArticle(path: string): boolean {
   return last !== undefined && (/[-_\d]/.test(last) || /\.html?$/i.test(last));
 }
 
+/// Un título legible a partir del slug de la nota
+/// (`/2026/11/12/nvidia-ceo-jensen-huang-resigns.html` → "Nvidia ceo jensen
+/// huang resigns"). null si la ruta no tiene un slug con palabras.
+export function titleFromUrl(url: URL): string | null {
+  const segments = url.pathname.split("/").filter((s) => s.length > 0).reverse();
+  for (const seg of segments) {
+    const words = decodeURIComponent(seg)
+      .replace(/\.html?$/i, "")
+      .split(/[-_]+/)
+      // Fechas, ids y hashes del final no son palabras del título.
+      .filter((w) => /[a-záéíóúñ]/i.test(w) && !/^[0-9a-f]{6,}$/i.test(w) && !/\d{3,}/.test(w));
+    if (words.length >= 3) {
+      const text = words.join(" ").toLowerCase();
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+  }
+  return null;
+}
+
 /// Si [url] es un artículo citable: de un host de producción, que no sea
 /// una página de datos de mercado ni una portada o sección.
 export function isArticleUrl(url: URL): boolean {
@@ -219,7 +238,12 @@ export function citationsOf(annotations: { url: string; title?: string }[], allo
     const domain = allowedDomain(hostOf(clean), allow);
     if (!domain || seen.has(clean) || !isArticleUrl(url)) continue;
     seen.add(clean);
-    out.push({ title: (a.title ?? "").trim() || allow.get(domain)!, url: clean, source: allow.get(domain)!, domain });
+    const source = allow.get(domain)!;
+    const given = (a.title ?? "").trim();
+    // Sin título (o solo el nombre del medio), el de la URL: en la app la
+    // nota se ve con algo que dice de qué trata, no "CNBC, CNBC, CNBC".
+    const title = given && given.toLowerCase() !== source.toLowerCase() ? given : titleFromUrl(url) ?? source;
+    out.push({ title, url: clean, source, domain });
     if (out.length === config.maxCitations) break;
   }
   return out;
