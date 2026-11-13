@@ -934,30 +934,6 @@ final CatalogItem qaGoldTeaserItem = CatalogItem(
   ],
 );
 
-final _newsItemSchema = S.object(
-  properties: {
-    'headline': S.string(),
-    'summaryLine': S.string(
-      description: 'Resumen en UNA oración, lenguaje llano (no jerga).',
-    ),
-    'dateLabel': S.string(
-      description:
-          'Fecha legible de la noticia, ej. "hoy", "hace 2 días", '
-          '"18 sep 2026" — debe reflejar la antigüedad real.',
-    ),
-    'source': S.string(description: 'Medio/fuente de la noticia (opcional).'),
-    'url': S.string(
-      description:
-          'news[].url copiada TAL CUAL de get_news (la app la usa para la '
-          'imagen y el link). Nunca inventada.',
-    ),
-    'ticker': S.string(
-      description: 'news[].ticker, solo si la card mezcla varios tickers.',
-    ),
-  },
-  required: ['headline', 'summaryLine', 'dateLabel'],
-);
-
 final CatalogItem qaEarningsCalendarItem = CatalogItem(
   name: 'QaEarningsCalendar',
   dataSchema: S.object(
@@ -1041,14 +1017,10 @@ final CatalogItem qaNewsSummaryItem = CatalogItem(
   name: 'QaNewsSummary',
   dataSchema: S.object(
     description:
-        '2-3 titulares recientes de un ticker, resumidos en una línea cada '
-        'uno en lenguaje llano, con fecha visible. Cada item lleva la url '
-        'de get_news.',
-    properties: {
-      'ticker': S.string(),
-      'items': S.list(items: _newsItemSchema, minItems: 1, maxItems: 3),
-    },
-    required: ['ticker', 'items'],
+        'Las notas de get_news de un ticker, con fecha y link. Solo el '
+        'ticker: la app pone las notas que respaldan tu texto.',
+    properties: {'ticker': S.string()},
+    required: ['ticker'],
   ),
   widgetBuilder:
       (ctx) =>

@@ -714,27 +714,17 @@ abstract final class AssistantAnswerReview {
     if (news.isEmpty) return false;
     final asOf = DateTime.tryParse('${call.result['as_of'] ?? ''}');
     final tickers = {for (final n in news) n.ticker}..remove('');
-    String dateOf(NewsCardItem n) {
-      final published = n.publishedAt;
-      return published == null ? '' : QaTime.ago(published, now: asOf);
-    }
 
     const id = 'newsCard';
     list.add({
       'id': id,
       'component': 'QaNewsSummary',
       'ticker': tickers.length == 1 ? tickers.first : tickers.join(', '),
-      'items': [
-        for (final n in news)
-          {
-            'headline': n.headline,
-            'summaryLine': n.summaryLine,
-            'dateLabel': dateOf(n),
-            if (n.source.isNotEmpty) 'source': n.source,
-            'url': n.url,
-            if (tickers.length > 1) 'ticker': n.ticker,
-          },
-      ],
+      'items': NewsCardItems.toItems(
+        news,
+        dateLabel: (published) => QaTime.ago(published, now: asOf),
+        withTicker: tickers.length > 1,
+      ),
     });
     // Después del widget de precio si lo hay; si no, después del texto.
     final children = List.of(root['children'] as List);

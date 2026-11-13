@@ -17,16 +17,22 @@ class NewsCardItem {
   final DateTime? publishedAt;
 }
 
-/// Qué notas van en la card de noticias de un resultado de `get_news`: los
-/// titulares (`news`) y, si no llegó ninguno (la fuente de titulares a
-/// veces no responde), las notas que citó la búsqueda web
-/// (`context.sources`) con título propio. Antes, sin titulares, esas notas
-/// quedaban solo como una lista de "Fuentes" ("CNBC, CNBC, CNBC").
+/// Qué notas van en la card de noticias de un resultado de `get_news`.
 ///
-/// La lista de "Fuentes" ([AnswerSources]) no repite lo que ya está acá: la
-/// cita se sigue viendo y se puede tocar, en la card.
+/// Primero las que citó la búsqueda web (`context.sources`, con título
+/// propio): son las que respaldan lo que escribe Porty. Después, titulares
+/// de la última semana que no estén ya. Antes la card prefería los
+/// titulares de GDELT aunque fueran viejos y de otro tema: el texto hablaba
+/// de la renuncia de Jensen Huang y la card mostraba el retiro de otra
+/// ejecutiva de octubre (2026-11-14). Sin búsqueda web, los titulares como
+/// siempre.
+///
+/// "Fuentes" ([AnswerSources.notShownIn]) no repite lo que la card muestra.
 abstract final class NewsCardItems {
   static const max = 3;
+
+  /// Un titular más viejo que esto no acompaña a la búsqueda web.
+  static const recent = Duration(days: 7);
 
   /// [tickers]: los de la llamada (`args.tickers`), para rotular las notas
   /// de la búsqueda web, que no traen ticker.
@@ -46,21 +52,50 @@ abstract final class NewsCardItems {
             publishedAt: DateTime.tryParse(_str(n['published_at'])),
           ),
     ];
-    if (headlines.isNotEmpty) return headlines.take(max).toList();
-
     final context = result['context'];
-    if (context is! Map || context['status'] != 'ok') return const [];
+    final cited = [
+      if (context is Map && context['status'] == 'ok')
+        for (final s in _maps(context['sources']))
+          if (_isLink(s['url']) && _hasOwnTitle(s))
+            NewsCardItem(
+              headline: _str(s['title']),
+              url: _str(s['url']),
+              source: _str(s['source']),
+              ticker: tickers.length == 1 ? tickers.first.toUpperCase() : '',
+            ),
+    ];
+    if (cited.isEmpty) return headlines.take(max).toList();
+
+    final asOf = DateTime.tryParse(_str(result['as_of'])) ?? DateTime.now();
+    final urls = {for (final c in cited) c.url};
     return [
-      for (final s in _maps(context['sources']))
-        if (_isLink(s['url']) && _hasOwnTitle(s))
-          NewsCardItem(
-            headline: _str(s['title']),
-            url: _str(s['url']),
-            source: _str(s['source']),
-            ticker: tickers.length == 1 ? tickers.first.toUpperCase() : '',
-          ),
+      ...cited,
+      for (final h in headlines)
+        if (!urls.contains(h.url) &&
+            (h.publishedAt == null ||
+                asOf.difference(h.publishedAt!) <= recent))
+          h,
     ].take(max).toList();
   }
+
+  /// Las notas como `items` de `QaNewsSummary`, con la fecha relativa a
+  /// [asOf] (`dateLabel` lo arma [dateLabel], que pasa quien conoce
+  /// `QaTime`).
+  static List<Map<String, Object?>> toItems(
+    List<NewsCardItem> items, {
+    required String Function(DateTime published) dateLabel,
+    bool withTicker = false,
+  }) => [
+    for (final n in items)
+      {
+        'headline': n.headline,
+        'summaryLine': n.summaryLine,
+        'dateLabel': n.publishedAt == null ? '' : dateLabel(n.publishedAt!),
+        if (n.source.isNotEmpty) 'source': n.source,
+        'url': n.url,
+        if (withTicker) 'ticker': n.ticker,
+      },
+  ];
 
   /// Un título que dice algo: no vacío ni el nombre del medio.
   static bool _hasOwnTitle(Map s) {

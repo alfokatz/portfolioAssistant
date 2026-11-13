@@ -168,8 +168,10 @@ void main() {
     // Era 2.500: bajó cuando las cards dejaron de pedir números al modelo
     // (CardNumbers), que achicó los schemas que lean posterga en los dos
     // prompts (2026-11-12, o200k: completo 20.401 → 18.560 tokens, lean
-    // 17.068 → 15.878). Lean sigue ahorrando ~2.700 tokens reales.
-    test('the lean prompt saves at least 2.400 tokens of fixed prefix', () {
+    // 17.068 → 15.878), y otra vez cuando QaNewsSummary pasó a llevar solo
+    // el ticker (2026-11-14). Lo que baja es lo que lean posterga, porque
+    // ya no pesa en ninguno de los dos prompts.
+    test('the lean prompt saves at least 2.300 tokens of fixed prefix', () {
       final rulesSaved =
           (assistantPromptRules.length -
               AreaSpecs.leanRules(assistantPromptRules).length) /
@@ -180,7 +182,7 @@ void main() {
               jsonEncode(schemas[w]).length,
           ].fold(0, (s, c) => s + c) /
           _schemaCharsPerToken;
-      expect(rulesSaved + schemasSaved, greaterThan(2400));
+      expect(rulesSaved + schemasSaved, greaterThan(2300));
     });
 
     test('each deferring tool brings its rules and complete schemas; the '

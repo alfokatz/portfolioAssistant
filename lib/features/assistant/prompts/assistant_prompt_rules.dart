@@ -431,10 +431,8 @@ ETF HOLDINGS ([W:ETF_HOLDINGS]) — get_etf_holdings
   not in the current plan.
 
 NEWS ([W:NEWS]) — get_news
-- status ok → QaNewsSummary, one item per news entry (max 3): ticker,
-  headline = title, url = url (verbatim), summaryLine = snippet rewritten
-  as ONE plain sentence (no snippet → omit it, never invent one), dateLabel relative to as_of ("hoy", "hace 2 días", explicit date past a
-  week — anything older than 3 days must look old), source.
+- status ok → QaNewsSummary with ONLY the ticker: the app puts the notes
+  that back your text, with date and link. Never copy headlines into it.
 - empty → "No tengo noticias recientes sobre X"; failed / locked → TOOL
   STATUS wording. Never invent headlines.
 - context ok → context.summary is the verified "what happened and why".

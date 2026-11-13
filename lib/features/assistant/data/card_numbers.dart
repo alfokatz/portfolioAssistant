@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_time.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/ticker_price_data.dart';
+import 'package:portfolio_assistant/features/assistant/utils/news_card_items.dart';
 import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 
 /// Los números de las cards de datos los pone la app, no el modelo: el
@@ -25,6 +27,7 @@ abstract final class CardNumbers {
     'QaPnLBreakdown',
     'QaEarningsCalendar',
     'QaFundamentals',
+    'QaNewsSummary',
   };
 
   static Map<String, Object?> fill(
@@ -39,6 +42,7 @@ abstract final class CardNumbers {
     'QaPnLBreakdown' => _pnlBreakdown(component, _brief(evidence)),
     'QaEarningsCalendar' => _earnings(component, evidence),
     'QaFundamentals' => _fundamentals(component, evidence),
+    'QaNewsSummary' => _news(component, evidence),
     _ => component,
   };
 
@@ -220,6 +224,40 @@ abstract final class CardNumbers {
     _ when m.unit == AnalysisMetricUnit.percent => 'profitability',
     _ => 'valuation',
   };
+
+  // --- Noticias (get_news) -------------------------------------------------
+
+  /// Las notas de la card las pone la app ([NewsCardItems]): primero las que
+  /// respaldan el texto (búsqueda web), después titulares recientes. El
+  /// modelo solo manda el ticker.
+  static Map<String, Object?> _news(
+    Map<String, Object?> c,
+    TurnEvidence evidence,
+  ) {
+    final ticker = '${c['ticker'] ?? ''}'.trim().toUpperCase();
+    for (final call in evidence.calls.reversed) {
+      if (call.name != 'get_news' || call.status != 'ok') continue;
+      final asked = [
+        for (final t in (call.args['tickers'] as List? ?? const []))
+          '$t'.toUpperCase(),
+      ];
+      if (ticker.isNotEmpty && !asked.contains(ticker)) continue;
+      final items = NewsCardItems.of(call.result, tickers: asked);
+      if (items.isEmpty) return c;
+      final asOf = DateTime.tryParse('${call.result['as_of'] ?? ''}');
+      final tickers = {for (final n in items) n.ticker}..remove('');
+      return {
+        ...c,
+        if (ticker.isEmpty && tickers.isNotEmpty) 'ticker': tickers.join(', '),
+        'items': NewsCardItems.toItems(
+          items,
+          dateLabel: (published) => QaTime.ago(published, now: asOf),
+          withTicker: tickers.length > 1,
+        ),
+      };
+    }
+    return c;
+  }
 
   // --- Helpers --------------------------------------------------------------
 
