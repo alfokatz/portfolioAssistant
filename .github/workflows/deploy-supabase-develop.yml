@@ -8,7 +8,7 @@ name: Deploy Supabase (develop)
 on:
   push:
     branches: [develop]
-    paths: ["supabase/**"]
+    paths: ["supabase/**", ".github/workflows/deploy-supabase-develop.yml"]
   workflow_dispatch:
 
 concurrency:
