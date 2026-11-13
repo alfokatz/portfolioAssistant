@@ -39,4 +39,4 @@ jobs:
       - name: Aplicar migraciones
         run: supabase db push --remote --yes --password "$SUPABASE_DB_PASSWORD"
       - name: Desplegar edge functions
-        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --yes
