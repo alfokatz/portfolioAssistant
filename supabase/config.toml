@@ -443,11 +443,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.revenuecat-webhook]
 verify_jwt = false
 
-# Pública: la llama la Pages Function de porty-web sin sesión (valida
-# LANDING_PROXY_SECRET adentro).
-[functions.landing]
-verify_jwt = false
-
 # ai-chat y finnhub validan el JWT del usuario ellas mismas (auth.getUser →
 # 401) antes de cualquier trabajo. La verificación del gateway se apaga
 # porque el proyecto usa las signing keys nuevas (JWKS), con las que la
