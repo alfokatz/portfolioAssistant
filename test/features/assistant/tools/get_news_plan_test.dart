@@ -22,6 +22,23 @@ import 'package:portfolio_assistant/domain/repositories/company_brand_repository
 import '../data/market/commercial_sources_test.dart' show FakeEdgeClient;
 import '../fakes/assistant_fakes.dart';
 
+/// La búsqueda con contexto tarda [delay] (los titulares, nada).
+class _SlowContextEdge extends FakeEdgeClient {
+  _SlowContextEdge(super.respond, this.delay);
+
+  final Duration delay;
+
+  @override
+  Future<EdgeResponse> post(
+    String path,
+    Map<String, Object?> body, {
+    String? turnId,
+  }) async {
+    if (path == 'news-context') await Future<void>.delayed(delay);
+    return super.post(path, body, turnId: turnId);
+  }
+}
+
 class _NoBrands implements CompanyBrandRepository {
   @override
   Future<CompanyBrand?> getBrand(String ticker) async => null;
@@ -185,6 +202,83 @@ void main() {
       final r = await _run(w.ctx, ['AAPL']);
       expect((r['context'] as Map)['reason'], 'daily_limit');
       expect(r.containsKey(AnswerGuide.key), isFalse);
+    });
+  });
+
+  group('get_news: búsqueda con contexto lenta (NVDA, 2026-11-13)', () {
+    final headlinesOk = EdgeResponse(200, {
+      'status': 'ok',
+      'by_ticker': {
+        'NVDA': [
+          {
+            'title': 'NVDA: Nvidia CEO Jensen Huang faces questions',
+            'url': 'https://www.reuters.com/a',
+            'source': 'Reuters',
+            'domain': 'reuters.com',
+            'published_at': DateTime.now().toUtc().toIso8601String(),
+          },
+        ],
+      },
+    });
+
+    AssistantToolContext slowWorld(Duration delay) {
+      final edge = _SlowContextEdge(
+        (path, _) => path == 'news-context' ? _contextOk : headlinesOk,
+        delay,
+      );
+      return AssistantToolContext(
+        tier: SubscriptionTier.gold,
+        newsProvider: NewsProvider.v2,
+        summary: heldSummary,
+        data: AssistantDataSources(
+          quoteRepository: CountingQuoteRepository(),
+          preferences: FakePreferences(),
+          newsProvider: NewsProvider.v2,
+          news: NewsFetcher(
+            headlines: GdeltHeadlinesRepositoryImpl(
+              client: edge,
+              batchWindow: Duration.zero,
+            ),
+            brandRepository: _NoBrands(),
+          ),
+          newsContext: NewsContextClient(client: edge),
+        ),
+      );
+    }
+
+    test('si la búsqueda no termina, los titulares llegan igual y el modelo '
+        'recibe la guía para responder con ellos', () async {
+      final ctx = slowWorld(const Duration(milliseconds: 300));
+      final r = await GetNewsTool(
+        ctx,
+        contextTimeout: const Duration(milliseconds: 50),
+      ).run({
+        'tickers': ['NVDA'],
+        'question': '¿Qué pasó con el CEO de Nvidia?',
+      });
+      expect(r['status'], 'ok');
+      expect((r['news'] as List), isNotEmpty);
+      expect((r['context'] as Map)['status'], 'failed');
+      expect(r[AnswerGuide.key], GetNewsTool.contextFailedGuide);
+    });
+
+    test('a tiempo: contexto ok y sin guía', () async {
+      final ctx = slowWorld(const Duration(milliseconds: 10));
+      final r = await GetNewsTool(ctx).run({
+        'tickers': ['NVDA'],
+      });
+      expect((r['context'] as Map)['status'], 'ok');
+      expect(r.containsKey(AnswerGuide.key), isFalse);
+    });
+
+    test('la tool espera más que la búsqueda, y la búsqueda más que el '
+        'servidor (25 s)', () {
+      final tool = GetNewsTool(slowWorld(Duration.zero));
+      expect(tool.timeout, greaterThan(GetNewsTool.defaultContextTimeout));
+      expect(
+        GetNewsTool.defaultContextTimeout,
+        greaterThan(const Duration(seconds: 25)),
+      );
     });
   });
 

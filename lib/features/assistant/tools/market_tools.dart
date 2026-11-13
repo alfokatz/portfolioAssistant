@@ -1,4 +1,5 @@
 import 'package:portfolio_assistant/config/translate/app_language.dart';
+import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/ticker_quote_builder.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
@@ -274,15 +275,25 @@ class GetEarningsTool implements DataTool {
 /// Titulares recientes (Gold). v2: titulares de GDELT (medios permitidos) +
 /// contexto con citas de la búsqueda web del servidor.
 class GetNewsTool implements SlowDataTool {
-  GetNewsTool(this.ctx);
+  GetNewsTool(this.ctx, {this.contextTimeout = defaultContextTimeout});
 
   final AssistantToolContext ctx;
 
-  /// v2: la búsqueda web del servidor tarda ~5-11 s (gpt-5-mini con
-  /// búsqueda); los titulares se acotan aparte a [headlinesTimeout].
+  /// v2: la búsqueda web del servidor (gpt-5-mini, que busca al menos dos
+  /// veces: hoy/ayer y la semana) puede tardar más de 20 s; el servidor la
+  /// corta a los 25 (`news-context` `timeoutMs`). La app espera un poco más
+  /// que eso: antes cortaba la tool entera a los 22 s y se perdían la
+  /// búsqueda Y los titulares que ya habían llegado ("la búsqueda de
+  /// noticias falló", NVDA, 2026-11-13). Este tope tiene que quedar por
+  /// encima de [contextTimeout].
   @override
   Duration get timeout =>
-      ctx.secData ? const Duration(seconds: 22) : const Duration(seconds: 8);
+      ctx.secData ? const Duration(seconds: 32) : const Duration(seconds: 8);
+
+  /// Tope propio de la búsqueda con contexto: si no llega, la tool
+  /// responde igual con los titulares.
+  static const defaultContextTimeout = Duration(seconds: 28);
+  final Duration contextTimeout;
 
   static const headlinesTimeout = Duration(seconds: 10);
 
@@ -412,17 +423,9 @@ class GetNewsTool implements SlowDataTool {
       context = const {'status': 'limit', 'reason': 'turn_limit'};
     } else {
       ctx.newsContextCalls++;
-      final found = await Future.wait(tickers.map(news.companyName));
-      final names = <String, String>{
-        for (var i = 0; i < tickers.length; i++)
-          if (found[i] != null) tickers[i]: found[i]!,
-      };
-      context = await ctx.data.newsContext.fetch(
-        tickers,
-        names: names,
-        question: question,
-        // El resumen viene en el idioma de la pregunta (o el de la app).
-        lang: AppLanguage.detect(question ?? '', fallback: ctx.appLanguage),
+      context = await _context(news, tickers, question).timeout(
+        contextTimeout,
+        onTimeout: () => const {'status': 'failed', 'reason': 'timeout'},
       );
     }
     final headlines = await headlinesF;
@@ -444,6 +447,8 @@ class GetNewsTool implements SlowDataTool {
     // plan (sin paywall). Responde con los titulares.
     if (context['reason'] == monthlyLimitReason) {
       result = AnswerGuide.attach(result, monthlyLimitGuide);
+    } else if (context['status'] == 'failed' && headlines['status'] == 'ok') {
+      result = AnswerGuide.attach(result, contextFailedGuide);
     }
     if (lockedTickers.isNotEmpty) {
       ctx.lockedFeatures.add(PlanFeature.news);
@@ -461,6 +466,34 @@ class GetNewsTool implements SlowDataTool {
     }
     return ctx.courtesyTag(result);
   }
+
+  Future<Map<String, Object?>> _context(
+    NewsFetcher news,
+    List<String> tickers,
+    String? question,
+  ) async {
+    final found = await Future.wait(tickers.map(news.companyName));
+    final names = <String, String>{
+      for (var i = 0; i < tickers.length; i++)
+        if (found[i] != null) tickers[i]: found[i]!,
+    };
+    return ctx.data.newsContext.fetch(
+      tickers,
+      names: names,
+      question: question,
+      // El resumen viene en el idioma de la pregunta (o el de la app).
+      lang: AppLanguage.detect(question ?? '', fallback: ctx.appLanguage),
+    );
+  }
+
+  /// La búsqueda con contexto no terminó pero hay titulares: que responda
+  /// con ellos en vez de decir que "la búsqueda falló".
+  static const contextFailedGuide =
+      'The source-backed web search did not finish, but the headlines in '
+      'news are real: if they cover the question, answer from them (titles '
+      'only, no invented details) and say in one short clause that you only '
+      'saw the headlines. Only if they do not cover it, say you could not '
+      'find it right now.';
 
   /// `reason` del `locked` de un ticker que Premium no tiene en cartera.
   static const notHeldReason = 'not_held';
