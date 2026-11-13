@@ -134,6 +134,7 @@ class AssistantToolContext {
     this.queriesLeftThisMonth,
     this.pendingRequest,
     this.screenContext,
+    this.userQuestion,
     this.recentTopics = const [],
     this.loadWeeklyReport,
     this.userMemories = const [],
@@ -216,6 +217,11 @@ class AssistantToolContext {
   /// Lo que el usuario estaba mirando al abrir el chat
   /// (`PortyScreenContext.toBrief`); `null` si no vino de una pantalla.
   final Map<String, Object?>? screenContext;
+
+  /// Lo que escribió el usuario en este turno: las tools de operaciones lo
+  /// miran para no adivinar la clase de acción (ver `ShareClasses`). null =
+  /// no se sabe (y esa guarda no actúa).
+  final String? userQuestion;
 
   /// Tickers de los que habló en charlas anteriores (`PortyTopic.toBrief`).
   final List<Map<String, Object?>> recentTopics;

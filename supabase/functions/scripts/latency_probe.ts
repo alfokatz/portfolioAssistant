@@ -11,7 +11,7 @@ const N = Number(Deno.env.get("N") ?? 20);
 const prompt = await Deno.readTextFile(Deno.env.get("PROMPT_FILE") ?? "system_prompt.txt");
 
 const email = `latency-${crypto.randomUUID()}@example.test`;
-const password = crypto.randomUUID();
+const password = `Ev-${crypto.randomUUID()}`; // minúsculas, MAYÚSCULAS y dígitos (config.toml)
 const created = await fetch(`${API}/auth/v1/admin/users`, {
   method: "POST",
   headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" },

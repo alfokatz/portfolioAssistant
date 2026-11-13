@@ -29,7 +29,7 @@ const week = d.toISOString().slice(0, 10);
 const out: { jwt: string; week: string }[] = [];
 for (let i = 0; i < count; i++) {
   const email = `eval-report-${crypto.randomUUID()}@example.test`;
-  const password = crypto.randomUUID();
+  const password = `Ev-${crypto.randomUUID()}`; // minúsculas, MAYÚSCULAS y dígitos (config.toml)
   const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (created.error) throw created.error;
   const up = await admin.rpc("upsert_subscription_from_provider", {

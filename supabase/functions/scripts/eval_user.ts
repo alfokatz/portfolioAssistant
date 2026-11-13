@@ -12,7 +12,9 @@ if (!/127\.0\.0\.1|localhost/.test(API) && Deno.env.get("ALLOW_REMOTE") !== "1")
 }
 
 const email = `eval-${crypto.randomUUID()}@example.test`;
-const password = crypto.randomUUID();
+// El auth local pide minúsculas, MAYÚSCULAS y dígitos
+// (`password_requirements` en config.toml): un UUID solo no tiene mayúsculas.
+const password = `Ev-${crypto.randomUUID()}`;
 const admin = { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" };
 const created = await fetch(`${API}/auth/v1/admin/users`, {
   method: "POST",

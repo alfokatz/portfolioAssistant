@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/features/assistant/models/action_proposal.da
 import 'package:portfolio_assistant/features/assistant/tools/alert_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/manage_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/plan_tools.dart';
+import 'package:portfolio_assistant/features/assistant/tools/share_classes.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/tool_args.dart';
@@ -148,8 +149,19 @@ abstract class _ProposeTool implements DataTool {
   Future<Map<String, Object?>> propose(Map<String, Object?> args);
 
   @override
-  Future<Map<String, Object?>> run(Map<String, Object?> args) async =>
-      ActionGuides.attachTo(await propose(args));
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    // Una empresa con varias clases de acción y el usuario no dijo cuál:
+    // se pregunta, nunca se adivina (ver [ShareClasses]).
+    final ambiguous = ShareClasses.ambiguity(
+      ToolArgs.string(args, 'ticker'),
+      userText: ctx.userQuestion,
+      held: ctx.heldTickers,
+    );
+    if (ambiguous != null) {
+      return AnswerGuide.attach(ambiguous, ShareClasses.guide);
+    }
+    return ActionGuides.attachTo(await propose(args));
+  }
 
   DateTime get _today => DateTime(ctx.now.year, ctx.now.month, ctx.now.day);
 

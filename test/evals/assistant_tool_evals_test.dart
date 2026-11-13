@@ -27,6 +27,9 @@ import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.d
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
+import 'package:portfolio_assistant/domain/entities/closed_position.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
 import 'package:portfolio_assistant/domain/entities/symbol_search_result.dart';
 import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:dartz/dartz.dart';
@@ -116,6 +119,8 @@ class _Case {
     this.screen,
     this.plan = _evalPlan,
     this.topics = const [],
+    this.history = const [],
+    this.closed = const [],
   });
 
   final String id;
@@ -134,6 +139,13 @@ class _Case {
 
   /// De qué tickers habló en charlas anteriores: `recent_topics` en el brief.
   final List<PortyTopic> topics;
+
+  /// Historial de valor de la cartera (`period_returns` del brief). Vacío
+  /// por defecto: el brief del resto de los casos no cambia.
+  final List<PortfolioHistoryPoint> history;
+
+  /// Posiciones cerradas (totales realizados del brief).
+  final List<ClosedPosition> closed;
 
   /// Devuelve la lista de problemas (vacía = pasa) del ÚLTIMO turno.
   final List<String> Function(_TurnLog last, List<_TurnLog> all) check;
@@ -314,7 +326,129 @@ List<String> _asksInstead(_TurnLog t) => [
 /// Tools de mercado / ideas que nunca van en una meta de compra.
 const _stockTools = {'get_quote', 'get_invest_candidates', 'get_fundamentals'};
 
+/// Las props de la primera card [type] que escribió el modelo (antes de que
+/// la app complete los números: lo que se evalúa es lo que ELIGIÓ).
+Map<String, dynamic>? _cardOf(_TurnLog t, String type) {
+  for (final c in AssistantGroundingCheck.components(t.text)) {
+    if (c['component'] == type) return c;
+  }
+  return null;
+}
+
+/// 40 días de cartera: subió el mes, bajó la última semana.
+final _evalHistory = [
+  for (var i = 39; i >= 0; i--)
+    PortfolioHistoryPoint(
+      date: DateTime.now().subtract(Duration(days: i)),
+      totalValue: i > 6 ? 23000.0 + (39 - i) * 40 : 24600.0 - (6 - i) * 40,
+      totalCostBasis: 20000,
+    ),
+];
+
+/// Una venta cerrada con ganancia.
+final _evalClosed = [
+  ClosedPosition(
+    id: 'closed-msft',
+    ticker: 'MSFT',
+    quantity: 4,
+    avgPurchasePrice: 300,
+    closePrice: 380,
+    closeDate: DateTime.now().subtract(const Duration(days: 40)),
+    closedAt: DateTime.now().subtract(const Duration(days: 40)),
+  ),
+];
+
+/// Las cards que ya no copian números (CardNumbers): además del tipo, que
+/// el campo que elige el modelo sea el correcto.
+final _cardChoiceCases = <_Case>[
+  _Case(
+    'card-pnl-open',
+    ['¿Cuánto gané desde que compré?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaPnLBreakdown');
+      return [
+        ..._expect(c != null, 'sin QaPnLBreakdown: ${t.components}'),
+        if (c != null) ..._expect(c['scope'] == 'open', 'scope: ${c['scope']}'),
+      ];
+    },
+  ),
+  _Case(
+    'card-pnl-closed',
+    ['¿Cuánto gané en total con lo que ya vendí?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaPnLBreakdown');
+      return [
+        ..._expect(c != null, 'sin QaPnLBreakdown: ${t.components}'),
+        if (c != null)
+          ..._expect(c['scope'] == 'closed', 'scope: ${c['scope']}'),
+      ];
+    },
+    closed: _evalClosed,
+  ),
+  _Case(
+    'card-period-week',
+    ['¿Cuánto cambió mi cartera esta semana?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaPeriodChange');
+      return [
+        ..._expect(c != null, 'sin QaPeriodChange: ${t.components}'),
+        if (c != null)
+          ..._expect(c['period'] == 'week', 'period: ${c['period']}'),
+        ..._expect(
+          !t.components.contains('QaPnLBreakdown'),
+          'usó QaPnLBreakdown para una ventana',
+        ),
+      ];
+    },
+    history: _evalHistory,
+  ),
+  _Case(
+    'card-period-month',
+    ['¿Cómo le fue a mi cartera en el último mes?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaPeriodChange');
+      return [
+        ..._expect(c != null, 'sin QaPeriodChange: ${t.components}'),
+        if (c != null)
+          ..._expect(c['period'] == 'month', 'period: ${c['period']}'),
+      ];
+    },
+    history: _evalHistory,
+  ),
+  // Earnings: la card solo aparece con fuente; si aparece, el show tiene
+  // que corresponder a la pregunta. Correr también con EVAL_NEWS_V2=1.
+  _Case(
+    'card-earnings-next',
+    ['¿Cuándo presenta resultados Apple?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaEarningsCalendar');
+      return [
+        if (c != null)
+          ..._expect(
+            c['show'] == 'next' || c['show'] == 'both',
+            'show: ${c['show']}',
+          ),
+      ];
+    },
+  ),
+  _Case(
+    'card-earnings-latest',
+    ['¿Cómo le fue a Apple en su último reporte de resultados?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaEarningsCalendar');
+      return [
+        if (c != null)
+          ..._expect(
+            c['show'] == 'latest' || c['show'] == 'both',
+            'show: ${c['show']}',
+          ),
+      ];
+    },
+  ),
+];
+
 final _cases = <_Case>[
+  ..._cardChoiceCases,
   // Personalización (feedback 2026-10-11): fuera de tema, metas de compra,
   // continuidad y memoria.
   _Case(
@@ -1967,12 +2101,15 @@ void main() {
           final log = _TurnLog();
           final ctx = AssistantToolContext(
             pendingRequest: pending,
+            userQuestion: c.turns[i],
             screenContext:
                 i < PortyScreenContext.maxTurns
                     ? c.screen?.toBrief(turnsAgo: i)
                     : null,
             tier: c.tier,
             summary: heldSummary,
+            history: c.history,
+            closedPositions: c.closed,
             data: caseData,
             newsProvider: newsV2 ? NewsProvider.v2 : NewsProvider.legacy,
             saveMemory:

@@ -614,6 +614,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadAccountOverview: _accountOverviewForTool,
         pendingRequest: _pendingRequest,
         screenContext: screenContext,
+        userQuestion: trimmed,
         queriesLeftThisMonth: () {
           final sub = ref.read(subscriptionProvider);
           final left = sub.queriesLimit - sub.queriesUsed;

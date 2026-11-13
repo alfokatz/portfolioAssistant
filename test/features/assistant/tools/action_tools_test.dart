@@ -10,6 +10,7 @@ import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/assistant/models/action_proposal.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
+import 'package:portfolio_assistant/features/assistant/tools/share_classes.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 
@@ -121,6 +122,80 @@ void main() {
         ActionTools.build(_ctx()).map((t) => t.name).toSet(),
         ActionTools.names,
       );
+    });
+  });
+
+  // eval action-ambiguous-company: "Compré 5 acciones de Alphabet" y el
+  // modelo proponía GOOGL sin preguntar (se salteaba search_symbol).
+  group('share classes: never guess GOOGL vs GOOG', () {
+    AssistantToolContext ctxSaying(String question, {List<String> held = const []}) =>
+        AssistantToolContext(
+          tier: SubscriptionTier.premium,
+          data: fakeDataSources(quotes: _Quotes()),
+          summary: PortfolioSummary(
+            totalValue: 1000,
+            totalCostBasis: 1000,
+            totalPnlAbsolute: 0,
+            totalPnlPercent: 0,
+            valuations: [for (final t in held) valuation(t, qty: 1)],
+          ),
+          now: DateTime(2026, 9, 29),
+          userQuestion: question,
+        );
+
+    const buy = {'ticker': 'GOOGL', 'shares': 5, 'date': '2026-09-25'};
+
+    test('the company name only → ambiguous with both classes, no proposal',
+        () async {
+      final result = await ProposeBuyTool(
+        ctxSaying('Compré 5 acciones de Alphabet el 25 de septiembre'),
+      ).run(buy);
+      expect(result['status'], 'ambiguous');
+      expect(result['reason'], 'share_class');
+      expect(
+        (result['matches'] as List).map((m) => (m as Map)['symbol']),
+        ['GOOGL', 'GOOG'],
+      );
+      expect(result[AnswerGuide.key], ShareClasses.guide);
+      expect(result.containsKey('proposal_id'), isFalse);
+    });
+
+    test('the user wrote the ticker → proposes as always', () async {
+      final result = await ProposeBuyTool(
+        ctxSaying('Compré 5 GOOGL el 25 de septiembre'),
+      ).run(buy);
+      expect(result['status'], isNot('ambiguous'));
+      // "GOOG" escrito no es "GOOGL": sigue siendo la clase C.
+      final c = await ProposeBuyTool(
+        ctxSaying('Compré 5 GOOG el 25 de septiembre'),
+      ).run({...buy, 'ticker': 'GOOG'});
+      expect(c['status'], isNot('ambiguous'));
+    });
+
+    test('holding exactly that class is not ambiguous; the other one is',
+        () async {
+      final same = await ProposeBuyTool(
+        ctxSaying('Compré 5 de Alphabet', held: ['GOOGL']),
+      ).run(buy);
+      expect(same['status'], isNot('ambiguous'));
+      final other = await ProposeBuyTool(
+        ctxSaying('Compré 5 de Alphabet', held: ['GOOG']),
+      ).run(buy);
+      expect(other['status'], 'ambiguous');
+    });
+
+    test('sells too; other tickers and unknown user text are untouched',
+        () async {
+      final sell = await ProposeSellTool(
+        ctxSaying('Vendí 2 de Berkshire', held: ['BRK-A', 'BRK-B']),
+      ).run({'ticker': 'BRK.B', 'shares': 2, 'date': '2026-09-25'});
+      expect(sell['status'], 'ambiguous');
+      final aapl = await ProposeBuyTool(
+        ctxSaying('Compré 5 de Apple'),
+      ).run({...buy, 'ticker': 'AAPL'});
+      expect(aapl['status'], isNot('ambiguous'));
+      final unknown = await ProposeBuyTool(_ctx()).run(buy);
+      expect(unknown['status'], isNot('ambiguous'));
     });
   });
 
