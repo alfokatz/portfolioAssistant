@@ -181,10 +181,29 @@ export function allowedDomain(host: string, allow: Map<string, string>): string 
   return null;
 }
 
-/// Páginas de cotización o históricos de precios: no son una fuente de noticias.
-const quotePage = /\/(quotes?|symbol|historical|history)\b/i;
+/// Páginas de cotización o históricos de precios: no son una fuente de
+/// noticias (`/equities/` y `-historical-data` son las de Investing).
+const quotePage = /\/(quotes?|symbol|historical|history|equities)\b|-historical-data\b/i;
 
-/// Citas sin repetir, solo de medios permitidos, sin parámetros de rastreo.
+/// Hosts de prueba de un medio (visto: `www-stage-fastly.stellar.cnn.com`).
+const stagingHost = /(^|[.-])(stage|staging|preview|dev|qa|fastly)([.-]|$)/i;
+
+/// Una nota y no una portada o sección (`cnn.com/business`, `/markets/stocks`):
+/// el último tramo de la ruta tiene guiones o números (el slug o el id de la
+/// nota) o termina en .htm(l).
+function looksLikeArticle(path: string): boolean {
+  const last = path.split("/").filter((s) => s.length > 0).pop();
+  return last !== undefined && (/[-_\d]/.test(last) || /\.html?$/i.test(last));
+}
+
+/// Si [url] es un artículo citable: de un host de producción, que no sea
+/// una página de datos de mercado ni una portada o sección.
+export function isArticleUrl(url: URL): boolean {
+  return !stagingHost.test(url.hostname) && !quotePage.test(url.pathname) && looksLikeArticle(url.pathname);
+}
+
+/// Citas sin repetir, solo artículos ([isArticleUrl]) de medios permitidos, sin
+/// parámetros de rastreo.
 export function citationsOf(annotations: { url: string; title?: string }[], allow: Map<string, string>): Citation[] {
   const seen = new Set<string>();
   const out: Citation[] = [];
@@ -198,7 +217,7 @@ export function citationsOf(annotations: { url: string; title?: string }[], allo
     for (const k of [...url.searchParams.keys()]) if (k.startsWith("utm_")) url.searchParams.delete(k);
     const clean = url.toString();
     const domain = allowedDomain(hostOf(clean), allow);
-    if (!domain || seen.has(clean) || quotePage.test(url.pathname)) continue;
+    if (!domain || seen.has(clean) || !isArticleUrl(url)) continue;
     seen.add(clean);
     out.push({ title: (a.title ?? "").trim() || allow.get(domain)!, url: clean, source: allow.get(domain)!, domain });
     if (out.length === config.maxCitations) break;

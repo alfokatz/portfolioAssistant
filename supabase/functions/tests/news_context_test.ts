@@ -4,7 +4,7 @@
 // url_citation).
 
 import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert@1";
-import { bullets, cacheKey, handle, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
+import { bullets, cacheKey, handle, isArticleUrl, mergeParts, type NewsContext, parseBody, partsOf, prompts } from "../news-context/handler.ts";
 import { addPosition, createUser, db, deps, fakeFetch, withNewsProvider, withPlanLimit } from "./helpers.ts";
 
 const env = { OPENAI_API_KEY: "sk-server" };
@@ -406,4 +406,28 @@ Deno.test("news-context Premium: names y question del cliente se ignoran y la en
   // LIKE "_" es comodín, por eso se comparan las claves enteras.
   const { data: all } = await db.from("data_source_cache").select("cache_key").like("cache_key", `news:${held}|%`);
   assertEquals(all!.map((r) => r.cache_key), [shared]);
+});
+
+Deno.test("isArticleUrl: notas sí; portadas, secciones, staging y páginas de mercado no", () => {
+  const ok = [
+    "https://www.reuters.com/technology/nvidia-ceo-steps-down-2026-11-13/",
+    "https://apnews.com/article/nvidia-ceo-resigns-8f3a2c",
+    "https://www.bloomberg.com/news/articles/2026-11-13/nvidia-names-interim-ceo",
+    "https://edition.cnn.com/2026/11/13/business/nvidia-ceo/index.html",
+    "https://www.infobae.com/economia/2026/11/13/renuncio-el-ceo-de-nvidia/",
+    "https://www.ft.com/content/0b5e7c1a-1d2e-4c3f-9a8b-7c6d5e4f3a2b",
+    "https://finance.yahoo.com/news/nvidia-shares-fall-123456789.html",
+  ];
+  for (const u of ok) assert(isArticleUrl(new URL(u)), u);
+  const no = [
+    "https://www-stage-fastly.stellar.cnn.com/business",
+    "https://staging.reuters.com/technology/nvidia-ceo-2026-11-13/",
+    "https://www.cnn.com/business",
+    "https://www.reuters.com/",
+    "https://www.cnbc.com/markets/stocks",
+    "https://www.investing.com/equities/nvidia-corp",
+    "https://www.investing.com/equities/coca-cola-co-historical-data",
+    "https://www.marketwatch.com/investing/stock/nvda/quote",
+  ];
+  for (const u of no) assert(!isArticleUrl(new URL(u)), u);
 });
