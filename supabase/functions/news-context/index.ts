@@ -1,6 +1,8 @@
 // Deploy: supabase functions deploy news-context
 // Secrets: OPENAI_API_KEY (el mismo de ai-chat), SEC_USER_AGENT (nombre de
-// la empresa desde el mapa de la SEC); opcional NEWS_CONTEXT_MODEL.
+// la empresa desde el mapa de la SEC); opcional NEWS_CONTEXT_MODEL;
+// opcional NEWS_CONTEXT_SPLIT=1 (dos búsquedas a la vez, hoy/ayer y la
+// semana: ver `search` en handler.ts).
 import { defaultDeps } from "../_shared/common.ts";
 import { handle } from "./handler.ts";
 

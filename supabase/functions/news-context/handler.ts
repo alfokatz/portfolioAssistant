@@ -112,7 +112,13 @@ function subjectOf(b: Body): string {
   return b.tickers.map((t) => (b.names[t] ? `${b.names[t]} (${t})` : t)).join(", ");
 }
 
-export function prompts(b: Body, today: string): { instructions: string; input: string } {
+/// Con `NEWS_CONTEXT_SPLIT=1`, cada búsqueda son DOS pedidos a la vez: uno
+/// solo de hoy y ayer (`recent`) y otro de la semana (`week`), en vez de uno
+/// que busca dos veces seguidas. Tarda el más lento, no la suma (con una
+/// sola búsqueda doble, más de 20 s: se cortaba, ver `GetNewsTool`).
+export type Focus = "recent" | "week";
+
+export function prompts(b: Body, today: string, focus?: Focus): { instructions: string; input: string } {
   const language = b.lang === "en" ? "English" : "Spanish (neutral Latin American)";
   const instructions = [
     `Today is ${today}. You brief a retail investor inside a personal-finance app, using web search.`,
@@ -122,11 +128,17 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
       : `Start every bullet with the date of the event, like "- (${today}): ...".`,
     b.question
       ? "Answer the user's question in 1-5 bullets. If it asks for a date or a figure, give it exactly as the sources state it and say if it is not confirmed."
+      : focus === "recent"
+      ? `Write ${Math.min(4, 1 + b.tickers.length)} bullets at most about what happened TODAY and YESTERDAY and why it matters for an investor (including what moved the stock price, if reported).`
       : `Write ${Math.min(8, 3 + 2 * b.tickers.length)} bullets at most about what happened in the LAST 7 DAYS and why it matters for an investor (including what moved the stock price, if reported).`,
     // Una noticia de ayer (p. ej. un escándalo del CEO) quedaba afuera: con
     // "lo más importante de la semana primero" y una sola búsqueda, ganaban
     // los temas que ya llevaban días en los medios (NVDA, 2026-11-09).
-    `Freshness first: search at least twice — once for news from today and yesterday (${today} and the day before, e.g. "<company> news ${today}"), once for what moved the stock this week. Put anything from the last 48 hours that moved or could move the stock FIRST, even if fewer outlets covered it yet; then the rest of the week, newest first.`,
+    focus === "recent"
+      ? `Only the last 48 hours: search for news from ${today} and the day before (e.g. "<company> news ${today}"). Report anything from those two days that moved or could move the stock, even if few outlets covered it yet. Nothing older.`
+      : focus === "week"
+      ? `Search for what happened and what moved the stock in the last 7 days (today is ${today}), newest first.`
+      : `Freshness first: search at least twice — once for news from today and yesterday (${today} and the day before, e.g. "<company> news ${today}"), once for what moved the stock this week. Put anything from the last 48 hours that moved or could move the stock FIRST, even if fewer outlets covered it yet; then the rest of the week, newest first.`,
     "Count as news about the company: its results, products, deals, lawsuits, investigations, regulation and export rules, analyst moves, AND its executives and founders (e.g. a CEO scandal, investigation, health issue or departure), which often move the stock. Never mix in unrelated things with a similar name. Never use articles older than 7 days unless the question asks about an older fact.",
     "For an ETF, report what moved its market or sector this week (e.g. the S&P 500 for an S&P 500 ETF), from articles about it.",
     "Every bullet must be backed by a cited news ARTICLE (never a quote, price-history or market-data page). Prefer original reporting from major outlets. Paraphrase; never copy article text.",
@@ -134,8 +146,17 @@ export function prompts(b: Body, today: string): { instructions: string; input: 
     'If you find nothing relevant and recent, reply exactly: SIN_NOVEDADES',
   ].join("\n");
   const subject = subjectOf(b);
+  const when = focus === "recent"
+    ? "only reports from today and yesterday"
+    : focus === "week"
+    ? "reports from the last 7 days"
+    : "prefer the latest reports";
   const input = b.question
-    ? `${b.question}\n(About: ${subject}. Today is ${today}: prefer the latest reports.)`
+    ? `${b.question}\n(About: ${subject}. Today is ${today}: ${when}.)`
+    : focus === "recent"
+    ? b.lang === "en"
+      ? `What happened with ${subject} today and yesterday (today is ${today}), and why does it matter?`
+      : `¿Qué pasó con ${subject} hoy y ayer (hoy es ${today}) y por qué importa?`
     : b.lang === "en"
     ? `What happened with ${subject} today, yesterday and in the last 7 days (today is ${today}), and why does it matter?`
     : `¿Qué pasó con ${subject} hoy, ayer y en los últimos 7 días (hoy es ${today}) y por qué importa?`;
@@ -270,13 +291,67 @@ export function mergeParts(results: NewsContext[], tickers: string[], asOf: stri
 
 type Search = { result: NewsContext | null; calls: number; cost: number };
 
-/// Una búsqueda web para [b]. `result` null = falló o se cortó (no se cachea).
-async function search(
-  deps: Deps,
-  b: Body,
-  ctx: { apiKey: string; model: string; allow: Map<string, string>; today: string },
-): Promise<Search> {
-  const { instructions, input } = prompts(b, ctx.today);
+type SearchCtx = { apiKey: string; model: string; allow: Map<string, string>; today: string };
+
+/// La búsqueda de [b]: un pedido, o con `NEWS_CONTEXT_SPLIT=1` dos a la vez
+/// (hoy/ayer y la semana) juntados con [combineFocused].
+async function search(deps: Deps, b: Body, ctx: SearchCtx): Promise<Search> {
+  if (deps.env("NEWS_CONTEXT_SPLIT") !== "1") return searchOnce(deps, b, ctx);
+  const [recent, week] = await Promise.all([
+    searchOnce(deps, b, ctx, "recent"),
+    searchOnce(deps, b, ctx, "week"),
+  ]);
+  return {
+    result: combineFocused(recent.result, week.result),
+    calls: recent.calls + week.calls,
+    cost: Number((recent.cost + week.cost).toFixed(6)),
+  };
+}
+
+/// Palabras de una viñeta, sin la fecha ni el ticker del principio, para
+/// reconocer la misma noticia contada por las dos búsquedas.
+function wordsOf(line: string): Set<string> {
+  const body = line.replace(/^[A-Z0-9.\-]{1,10}\s+/, "").replace(/^\([^)]*\):?\s*/, "");
+  return new Set(
+    body.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3),
+  );
+}
+
+function sameNews(a: string, b: string): boolean {
+  const x = wordsOf(a);
+  const y = wordsOf(b);
+  if (x.size === 0 || y.size === 0) return false;
+  let both = 0;
+  for (const w of x) if (y.has(w)) both++;
+  return both / Math.min(x.size, y.size) >= 0.6;
+}
+
+/// Junta la búsqueda de hoy/ayer con la de la semana: primero lo más nuevo,
+/// sin repetir la misma noticia, con las citas de las dos (primero las de
+/// hoy). Si una falló, queda la otra; si fallaron las dos, null.
+export function combineFocused(recent: NewsContext | null, week: NewsContext | null): NewsContext | null {
+  if (!recent || recent.status !== "ok") return week ?? recent;
+  if (!week || week.status !== "ok") return recent;
+  const summary = [...recent.summary];
+  for (const line of week.summary) {
+    if (summary.length >= 8) break;
+    if (!summary.some((s) => sameNews(s, line))) summary.push(line);
+  }
+  const citations: Citation[] = [];
+  const seen = new Set<string>();
+  for (const c of [...recent.citations, ...week.citations]) {
+    if (seen.has(c.url) || citations.length >= config.maxCitations) continue;
+    seen.add(c.url);
+    citations.push(c);
+  }
+  return { ...recent, summary, citations, as_of: recent.as_of > week.as_of ? recent.as_of : week.as_of };
+}
+
+/// Un pedido de búsqueda web para [b] ([focus]: ver [Focus]). `result` null
+/// = falló o se cortó (no se cachea).
+async function searchOnce(deps: Deps, b: Body, ctx: SearchCtx, focus?: Focus): Promise<Search> {
+  const { instructions, input } = prompts(b, ctx.today, focus);
   let upstream: Response;
   try {
     upstream = await deps.fetch(config.openAiUrl, {
@@ -472,7 +547,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }));
   const have = results.map((r, i) => (r ? i : -1)).filter((i) => i >= 0);
   if (have.length === 0) return typedError(502, "upstream_failed", "Search failed");
-  log(searched === missing.length ? "miss" : "partial", started, calls, cost);
+  log(searched === missing.length ? "miss" : "partial", started, calls, cost, deps.env("NEWS_CONTEXT_SPLIT") === "1");
   return json(200, mergeParts(have.map((i) => results[i]!), have.map((i) => tickers[i]), asOf(), split), {
     "x-cache": searched === 0 ? "stale" : "miss",
   });
@@ -480,6 +555,6 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
 
 /// Una línea por pedido (sin usuario ni pregunta) para medir caché, latencia
 /// y costo en los logs.
-function log(cache: string, started: number, calls: number, cost = 0) {
-  console.log(JSON.stringify({ fn: "news-context", cache, ms: Date.now() - started, calls, cost_usd: cost }));
+function log(cache: string, started: number, calls: number, cost = 0, split = false) {
+  console.log(JSON.stringify({ fn: "news-context", cache, ms: Date.now() - started, calls, cost_usd: cost, split }));
 }
