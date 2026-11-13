@@ -168,6 +168,22 @@ begin
   end if;
 end $$;
 
+-- ── Retención: 12 meses ───────────────────────────────────────────────────
+insert into public.landing_events (created_at, anon_id, event) values
+  (now() - interval '13 months', 'anon-old0-0001', 'page_view'),
+  (now() - interval '11 months', 'anon-new0-0001', 'page_view');
+
+do $$
+begin
+  if public.landing_events_purge() <> 1 then raise exception 'retención: no borró justo el evento viejo'; end if;
+  if exists (select 1 from public.landing_events where anon_id = 'anon-old0-0001') then
+    raise exception 'retención: quedó el evento de hace 13 meses';
+  end if;
+  if not exists (select 1 from public.landing_events where anon_id = 'anon-new0-0001') then
+    raise exception 'retención: borró el evento de hace 11 meses';
+  end if;
+end $$;
+
 reset role;
 
 select 'LANDING_DB_TEST_OK';
