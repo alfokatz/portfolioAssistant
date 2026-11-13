@@ -2,9 +2,9 @@
 -- (20261102130000_account_deletion.sql; spec 2026-11-02-borrado-de-cuenta.md §4.1).
 --
 -- A tiene una fila en cada tabla con datos de usuario, secretos reales en
--- Vault, su uuid en flags de app_config y su mail en waitlist. B es el
--- control. C (mail sin confirmar) y D (OAuth sin confirmar) prueban la regla
--- de compliance §6.1 sobre waitlist.
+-- Vault y su uuid en flags de app_config. B es el control. (La waitlist de
+-- la landing ya no existe: 20261113000100_landing_store_clicks.sql; el
+-- borrado la saltea si no está.)
 --
 -- La guardia de catálogo corta si aparece una tabla de `public` con
 -- `user_id` (o una FK a auth.users) que no está en el inventario de abajo:
@@ -170,13 +170,6 @@ insert into public.app_config (key, value) values
   ('test_rollout_c', '{"users": "no es un array"}'::jsonb)
 on conflict (key) do update set value = excluded.value;
 
--- Waitlist de la landing.
-insert into public.waitlist (email, variant, ref_code, consent) values
-  ('borrar@test.local', 'a', 'AAAAA2', true),
-  ('control@test.local', 'a', 'BBBBB2', true),
-  ('sinconfirmar@test.local', 'a', 'CCCCC2', true),
-  ('oauth@test.local', 'a', 'DDDDD2', true);
-
 -- Foto antes del borrado.
 create temp table secret_ids on commit drop as
   select s.id from vault.secrets s
@@ -249,14 +242,6 @@ begin
   end if;
   if (select value->>'users' from public.app_config where key = 'test_rollout_c') <> 'no es un array' then
     raise exception 'tocó un users que no es array';
-  end if;
-
-  -- Waitlist: A (confirmado) y D (OAuth) se borran; C (sin confirmar) y B quedan.
-  if exists (select 1 from public.waitlist where email in ('borrar@test.local', 'oauth@test.local')) then
-    raise exception 'waitlist: no borró el mail confirmado u OAuth';
-  end if;
-  if (select count(*) from public.waitlist where email in ('sinconfirmar@test.local', 'control@test.local')) <> 2 then
-    raise exception 'waitlist: borró un mail sin confirmar o el de B';
   end if;
 
   if (select deletions from public.account_deletions_daily

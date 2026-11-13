@@ -1,4 +1,4 @@
-// Landing de validación (repo porty-web): lista de espera y eventos.
+// Landing de Porty (repo porty-web): eventos del embudo visita → tienda.
 // Deploy: supabase functions deploy landing --no-verify-jwt
 // Secrets: LANDING_PROXY_SECRET (el mismo que la Pages Function de
 // porty-web manda en `x-landing-proxy-secret`), LANDING_IP_SALT (cualquier
