@@ -415,36 +415,6 @@ final _cardChoiceCases = <_Case>[
     },
     history: _evalHistory,
   ),
-  // Earnings: la card solo aparece con fuente; si aparece, el show tiene
-  // que corresponder a la pregunta. Correr también con EVAL_NEWS_V2=1.
-  _Case(
-    'card-earnings-next',
-    ['¿Cuándo presenta resultados Apple?'],
-    (t, _) {
-      final c = _cardOf(t, 'QaEarningsCalendar');
-      return [
-        if (c != null)
-          ..._expect(
-            c['show'] == 'next' || c['show'] == 'both',
-            'show: ${c['show']}',
-          ),
-      ];
-    },
-  ),
-  _Case(
-    'card-earnings-latest',
-    ['¿Cómo le fue a Apple en su último reporte de resultados?'],
-    (t, _) {
-      final c = _cardOf(t, 'QaEarningsCalendar');
-      return [
-        if (c != null)
-          ..._expect(
-            c['show'] == 'latest' || c['show'] == 'both',
-            'show: ${c['show']}',
-          ),
-      ];
-    },
-  ),
 ];
 
 final _cases = <_Case>[
@@ -1845,6 +1815,38 @@ final _beatRe = RegExp(
 );
 
 final _newsV2Cases = <_Case>[
+  // Earnings con datos (solo hay con news_provider v2): que el show que
+  // elige el modelo corresponda a la pregunta.
+  _Case(
+    'card-earnings-next',
+    ['¿Cuándo presenta resultados Apple?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaEarningsCalendar');
+      return [
+        ..._expect(c != null, 'sin QaEarningsCalendar: ${t.components}'),
+        if (c != null)
+          ..._expect(
+            c['show'] == 'next' || c['show'] == 'both',
+            'show: ${c['show']}',
+          ),
+      ];
+    },
+  ),
+  _Case(
+    'card-earnings-latest',
+    ['¿Cómo le fue a Apple en su último reporte de resultados?'],
+    (t, _) {
+      final c = _cardOf(t, 'QaEarningsCalendar');
+      return [
+        ..._expect(c != null, 'sin QaEarningsCalendar: ${t.components}'),
+        if (c != null)
+          ..._expect(
+            c['show'] == 'latest' || c['show'] == 'both',
+            'show: ${c['show']}',
+          ),
+      ];
+    },
+  ),
   _Case(
     'v2-news-nvda-semana',
     ['¿Qué pasó con Nvidia esta semana?'],
@@ -1904,7 +1906,10 @@ final _newsV2Cases = <_Case>[
             ) ||
             !RegExp(r'consenso|analistas esperan|se espera', caseSensitive: false)
                 .hasMatch(_proseOf(t)) ||
-            RegExp(r'no (tengo|hay|cuento con|encontr)', caseSensitive: false)
+            RegExp(
+              r'no (tengo|hay|cuento con|encontr|pude|logr|est[aá] disponible)',
+              caseSensitive: false,
+            )
                 .hasMatch(_proseOf(t)),
         'atribuyó un consenso sin fuente: ${_proseOf(t)}',
       ),
