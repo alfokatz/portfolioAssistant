@@ -1,29 +1,34 @@
 <template>
 <style>
   #root{position:absolute;inset:0}
-  .o-line{position:absolute;left:60px;top:300px;width:900px;font-weight:700;font-size:80px;line-height:1.08;letter-spacing:-2.2px;color:#2F3437}
+  .o-line{position:absolute;left:60px;top:330px;width:900px;font-weight:700;font-size:80px;line-height:1.08;letter-spacing:-2.2px;color:#2F3437}
   .o-line em{font-style:normal;color:#C27443}
   .o-line .w{display:inline-block}
-  #o-porty{position:absolute;left:60px;top:600px;width:270px;height:270px;transform-origin:50% 92%}
+  #o-cta{position:absolute;left:60px;top:580px;width:860px;font-size:42px;font-weight:600;line-height:1.28;color:#2F3437}
+  #o-legal{position:absolute;left:60px;top:720px;width:860px;font-size:28px;font-weight:500;color:#5F5E5B}
+  #o-pwrap{position:absolute;left:320px;top:1030px;width:440px;height:440px}
+  #o-shadow{position:absolute;left:18%;right:18%;bottom:-2%;height:7%;border-radius:50%;background:rgba(80,55,35,.16)}
+  #o-porty{width:100%;height:100%;transform-origin:50% 92%}
   #o-porty svg{width:100%;height:100%;overflow:visible}
-  #o-cta{position:absolute;left:380px;top:670px;width:540px;font-size:38px;font-weight:600;line-height:1.3;color:#2F3437}
 </style>
 <div id="root" data-composition-id="outro" data-width="1080" data-height="1920">
   <div id="o-a" class="o-line"><span class="w">Próximamente</span> <span class="w">en</span> <em class="w">App</em> <em class="w">Store</em> <span class="w">y</span> <em class="w">Google</em> <em class="w">Play.</em></div>
-  <div id="o-porty">
+  <div id="o-cta">Sumate a la lista de espera desde el link de la bio.</div>
+  <div id="o-legal">No es asesoramiento financiero.</div>
+  <div id="o-pwrap"><div id="o-shadow"></div><div id="o-porty">
     <svg viewBox="-3 -6 70 70">
       <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
-      <g id="o-eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
+      <ellipse id="o-el" cx="28" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/><ellipse id="o-er" cx="40" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/>
       <g id="o-glasses"><rect x="21" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/><rect x="35" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/>
         <path d="M33.5 29H35" stroke="#2F3437" stroke-width="2.2"/><path d="M21.5 28L15 26.5M47 28L53 26.5" stroke="#2F3437" stroke-width="2" stroke-linecap="round"/></g>
       <path id="o-mouth" d="M29.6 41Q33.6 44.5 38.6 40" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
     </svg>
-  </div>
-  <div id="o-cta">Sumate a la lista de espera desde el link de la bio.</div>
+  </div></div>
 </div>
 <script>
   const tl = gsap.timeline({ paused: true });
-  tl.fromTo("#o-porty", {y:420, opacity:0, scaleX:.9, scaleY:1.12}, {y:0, opacity:1, scaleX:1, scaleY:1, duration:.6, ease:"power3.out"}, 0)
+  tl.fromTo("#o-pwrap", {y:560, opacity:0}, {y:0, opacity:1, duration:.6, ease:"power3.out"}, 0)
+    .fromTo("#o-porty", {scaleX:.9, scaleY:1.12}, {scaleX:1, scaleY:1, duration:.6, ease:"power3.out"}, 0)
     .to("#o-porty", {scaleX:1.12, scaleY:.88, duration:.09, ease:"power2.out"}, .6)
     .to("#o-porty", {scaleX:1, scaleY:1, duration:.38, ease:"back.out(2.2)"}, .69);
   tl.fromTo("#o-a .w", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, .2);
@@ -33,9 +38,10 @@
     .fromTo("#o-mouth", {attr:{d:"M29.6 41Q33.6 44.5 38.6 40"}}, {attr:{d:"M28.6 40.5Q33.6 46.5 39.6 39.5"}, duration:.2, ease:"power2.out"}, 1.55)
     .to("#o-porty", {rotation:-7, duration:.22, ease:"power2.inOut"}, 1.74)
     .to("#o-porty", {rotation:0, duration:.35, ease:"back.out(2)"}, 1.96);
-  tl.fromTo("#o-cta", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, .9);
-  tl.to("#o-porty svg", {y:-7, duration:.8, ease:"sine.inOut", yoyo:true, repeat:3}, 1.0)
-    .fromTo("#o-eyes", {scaleY:1}, {scaleY:.1, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 2.9);
+  tl.fromTo("#o-cta", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, .75)
+    .fromTo("#o-legal", {opacity:0}, {opacity:1, duration:.25, ease:"power2.out"}, .85);
+  tl.to("#o-porty svg", {y:-9, duration:.8, ease:"sine.inOut", yoyo:true, repeat:3}, 1.0)
+    .to(["#o-el","#o-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 2.9);
   window.__timelines["outro"] = tl;
 </script>
 </template>
