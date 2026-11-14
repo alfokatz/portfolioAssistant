@@ -2,7 +2,7 @@
 
 - Video: `hola_soy_porty.mp4` (16,4 s, 9:16, 60 fps, con efectos; música desde la biblioteca de Instagram). Proyecto: `tools/marketing/hyperframes/hola-soy-porty/`.
 - Portada: `hola_soy_porty_portada.png` (Porty guiñando con "Hola, soy Porty.").
-- Copy revisado por `porty-compliance` el 2026-11-14 (correcciones aplicadas). Sin IA generativa: no lleva etiqueta de IA.
+- Copy revisado por `porty-compliance` el 2026-11-14 (correcciones aplicadas). Aclaraciones dentro de la imagen como chips y notas contextuales (aprobado solo para orgánico). Sin IA generativa: no lleva etiqueta de IA.
 - Fijarlo arriba del perfil.
 
 ## Texto del post
