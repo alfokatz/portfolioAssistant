@@ -4,10 +4,9 @@
   .mn-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:68px;line-height:1.1;letter-spacing:-1.9px;color:#2F3437}
   .mn-title em{font-style:normal;color:#C27443}
   .mn-title .w{display:inline-block}
-  #mn-wrap{position:absolute;left:210px;top:440px;width:660px;height:740px;
-    -webkit-mask-image:linear-gradient(180deg,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,#000 88%,transparent 100%)}
+  #mn-wrap{position:absolute;left:210px;top:500px;width:660px;height:1040px}
   #mn-body{width:100%;height:100%;border-radius:68px 68px 0 0;background:#171614;padding:18px 18px 0}
-  #mn-screen{position:relative;width:624px;height:722px;border-radius:50px 50px 0 0;overflow:hidden;background:#FBFBFA}
+  #mn-screen{position:relative;width:624px;height:1022px;border-radius:50px 50px 0 0;overflow:hidden;background:#FBFBFA}
   #mn-lock{position:absolute;inset:0;background:linear-gradient(180deg,#5B4636 0%,#8A6A52 45%,#C49A78 75%,#5B4636 100%);background-size:100% 220%}
   #mn-date{position:absolute;left:0;right:0;top:70px;text-align:center;color:rgba(255,248,240,.85);font-weight:500;font-size:28px}
   #mn-clock{position:absolute;left:0;right:0;top:98px;text-align:center;color:#FFF8F0;font-weight:600;font-size:124px;letter-spacing:-4px}
@@ -25,11 +24,12 @@
   .ins b{display:block;font-size:30px;font-weight:700;line-height:1.25}
   .ins p{font-size:28px;color:#5F5E5B;font-weight:500;margin-top:6px}
   #mn-i1{top:140px;border-color:#E9C9B2}
-  #mn-i2{top:350px}
+  #mn-i2{top:400px}
   .bar{position:relative;height:20px;border-radius:10px;background:#F1F0EE;margin-top:16px}
   .bar span{position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:10px;background:#D98E5D;transform-origin:left center}
-  #mn-cup{position:absolute;left:50px;top:1000px;width:170px;height:170px}
+  #mn-cup{position:absolute;left:50px;top:1300px;z-index:6;width:170px;height:170px}
   #mn-cup svg{width:100%;height:100%;overflow:visible}
+  .ex{display:inline-block;font-size:28px;font-weight:600;letter-spacing:-.3px;color:#5F5E5B;background:#F1F0EE;border-radius:12px;padding:4px 12px;white-space:nowrap}
 </style>
 <div id="root" data-composition-id="morning" data-width="1080" data-height="1920">
   <h2 id="mn-a" class="mn-title"><span class="w">Son</span> <span class="w">las</span> <span class="w">8:40.</span> <em class="w">No</em> <em class="w">tenés</em> <em class="w">tiempo</em> <em class="w">de</em> <em class="w">revisar</em> <em class="w">todo.</em></h2>
@@ -44,13 +44,13 @@
         <div style="flex:1;min-width:0">
           <div class="n-meta" data-layout-ignore><span>PORTY</span><span>ahora</span></div>
           <div class="n-t">Porty te marca 2 cosas hoy</div>
-          <div class="n-b">Una de tus posiciones pesa 34% de tu cartera. Y una cosa más. Tocá para verlo.</div>
+          <div class="n-b">Una de tus posiciones pesa 34% de tu cartera. Y una cosa más. Tocá para verlo.</div><div style="margin-top:10px"><span class="ex">Datos de ejemplo</span></div>
         </div>
       </div>
     </div>
     <div id="mn-home">
       <div id="mn-hd"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg><b>Hoy te marco 2 cosas</b></div>
-      <div id="mn-i1" class="ins"><b>Una de tus posiciones pesa 34% de tu cartera</b><div class="bar"><span></span></div></div>
+      <div id="mn-i1" class="ins"><div style="margin-bottom:10px"><span class="ex">Datos de ejemplo</span></div><b>Una de tus posiciones pesa 34% de tu cartera</b><div class="bar"><span></span></div></div>
       <div id="mn-i2" class="ins"><b>Y una cosa más</b><p>Tocá para verlo.</p></div>
     </div>
   </div></div></div></div>
@@ -67,15 +67,16 @@
       <ellipse cx="50" cy="94" rx="34" ry="4" fill="#ECEBE8"/>
     </svg>
   </div>
+  <div class="floorfront" style="position:absolute;left:0;right:0;top:1470px;bottom:0;background:#F3EDE6;z-index:5"></div>
 </div>
 <script>
   const tl = gsap.timeline({ paused: true });
-  gsap.set("#mn-home", {clipPath:"inset(300px 18px 262px 18px round 34px)", opacity:0});
+  gsap.set("#mn-home", {clipPath:"inset(300px 18px 500px 18px round 34px)", opacity:0});
   // Cámara y luz de la mañana que se mueven despacio; vapor del café todo el tiempo.
-  tl.fromTo("#mn-cam", {y:0}, {y:30, duration:11.0, ease:"none"}, 0)
+  tl.fromTo("#mn-cam", {y:0}, {y:30, duration:11.6, ease:"none"}, 0)
     .fromTo("#mn-lock", {backgroundPosition:"0% 0%"}, {backgroundPosition:"0% 100%", duration:6.2, ease:"none"}, 0);
   document.querySelectorAll("#mn-cup .st").forEach((s, i) => {
-    tl.fromTo(s, {y:0, opacity:.2}, {y:-10, opacity:.9, duration:.9, ease:"sine.inOut", yoyo:true, repeat:10}, i * .3);
+    tl.fromTo(s, {y:0, opacity:.2}, {y:-10, opacity:.9, duration:.9, ease:"sine.inOut", yoyo:true, repeat:11}, i * .3);
   });
   // Llega el aviso.
   tl.fromTo("#mn-notif", {opacity:0, y:-150, scale:.94}, {opacity:1, y:0, scale:1, duration:.6, ease:"back.out(1.3)"}, 2.85)
@@ -93,10 +94,10 @@
     .to("#mn-hd svg", {y:-6, duration:.45, ease:"sine.inOut", yoyo:true, repeat:5}, 7.5);
   // Titular 2: de gris a tinta, palabra por palabra (sin moverse).
   tl.fromTo("#mn-b", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 6.55)
-    .to("#mn-b", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 10.55);
+    .to("#mn-b", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 11.15);
   // Salida: teléfono y taza.
-  tl.to("#mn-wrap", {y:980, duration:.5, ease:"power3.in"}, 10.6)
-    .to("#mn-cup", {y:500, duration:.5, ease:"power3.in"}, 10.65);
+  tl.to("#mn-wrap", {y:980, duration:.5, ease:"power3.in"}, 11.2)
+    .to("#mn-cup", {y:500, duration:.5, ease:"power3.in"}, 11.25);
   window.__timelines["morning"] = tl;
 </script>
 </template>

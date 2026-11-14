@@ -1,6 +1,6 @@
 # Creés que estás diversificado (HyperFrames)
 
-Video 9:16 de 16,5 s a 60 fps, solo motion design (sin IA generativa). Hecho con la skill `porty-video`.
+Video 9:16 de 17,6 s a 60 fps, solo motion design (sin IA generativa). Hecho con la skill `porty-video`.
 
 - Salida: `docs/marketing/social/piezas/2026-11-12/diversificado.mp4`
 - Renderizar: `npm run render` (Node 22+ y FFmpeg; en el entorno cloud, con `PUPPETEER_EXECUTABLE_PATH=/opt/pw-browsers/chromium`). Revisar: `npm run check` y `npm run snapshot`.
@@ -12,10 +12,17 @@ Video 9:16 de 16,5 s a 60 fps, solo motion design (sin IA generativa). Hecho con
 |---|---|---|---|
 | 0–5,2 s | `cards` | "Con 6 inversiones distintas, ¿estás diversificado?" → Porty: "Dejame mirar adentro de tus fondos." | 6 tarjetas genéricas; los fondos se abren y sueltan fichas de tecnología que se juntan con las acciones tech |
 | 4,6–12,1 s | `diag` | "Porty mira adentro de tus fondos." · "Y te marca lo que no se ve a simple vista." | Pantalla "Miré tu cartera" (textos reales del diagnóstico): "Tecnología es el 52% de tu cartera" (barra de 30 % a 52 %) y "Una empresa pesa 18% de tu cartera" (directa 8 % + en tus ETFs 10 %) |
-| 11,9–16,5 s | `outro` | "El diagnóstico está en el plan gratis." · "Descargala gratis. Algunas funciones son de planes pagos." | Porty con anteojos |
+| 13,4–17,6 s | `outro` | "Próximamente en App Store y Google Play." · "Vas a poder descargarla gratis." | Porty con anteojos sobre el piso |
 
-Letra chica (regla de compliance del 2026-11-12): "Imagen ilustrativa con datos de ejemplo." fija desde el segundo 0 y, en los últimos 3 s, "Imagen ilustrativa con datos de ejemplo. No es asesoramiento financiero."
+
+## Formato (v2, igual al reel "Hola, soy Porty")
+
+- Piso cálido desde y = 1470 px: Porty (o la taza) se para encima y el teléfono queda apoyado detrás, así la mitad de abajo no queda vacía y no hay texto en la zona que tapa la interfaz de la red.
+- Sin letra chica suelta: chip "Datos de ejemplo" en cada tarjeta con números (aprobado por `porty-compliance` solo para uso orgánico; si se pauta, vuelve a revisión). Sin notas de "Porty usa IA…" ni de plan (decisión del fundador: están en Términos y Condiciones).
+- Cierre común: "Próximamente en App Store y Google Play." · "Vas a poder descargarla gratis." · "Algunas funciones son de planes pagos. No es asesoramiento financiero." (sin lista de espera).
+- Pantallas con datos más lentas para que se lean.
 
 ## Pendiente antes de publicar
 - Música desde la biblioteca comercial de TikTok/Instagram al subirlo (el render trae solo efectos).
-- Revisión final de `porty-compliance` sobre el video renderizado (el copy ya fue revisado el 2026-11-12).
+
+Calidad v2: `check` sin errores; 1.045 de 1.056 cuadros únicos; ningún tramo quieto > 0,08 s.
