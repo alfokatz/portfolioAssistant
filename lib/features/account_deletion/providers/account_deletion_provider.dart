@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/porty_outfit/providers/porty_outfit_provider.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/account_deletion/data/account_deletion_repository.dart';
 import 'package:portfolio_assistant/features/account_deletion/data/subscription_store_probe.dart';
@@ -44,14 +45,20 @@ class AccountDeletionNotifier extends StateNotifier<AccountDeletionState> {
     required AccountDeletionRepository repository,
     required SubscriptionStoreProbe probe,
     AppleRevocation apple = const AppleRevocation.none(),
+    Future<void> Function()? onDeleted,
   }) : _repository = repository,
        _probe = probe,
        _apple = apple,
+       _onDeleted = onDeleted,
        super(const AccountDeletionState());
 
   final AccountDeletionRepository _repository;
   final SubscriptionStoreProbe _probe;
   final AppleRevocation _apple;
+
+  /// Lo que se borra del teléfono con la cuenta (p. ej. cómo estaba vestido
+  /// Porty): una cuenta nueva no hereda nada de la borrada.
+  final Future<void> Function()? _onDeleted;
 
   Future<DeletionStoreNotice> loadNotice() async {
     final notice = await _probe.notice();
@@ -91,6 +98,13 @@ class AccountDeletionNotifier extends StateNotifier<AccountDeletionState> {
     final failure = await _repository.deleteAccount(
       appleAuthorizationCode: appleCode,
     );
+    if (failure == null) {
+      try {
+        await _onDeleted?.call();
+      } catch (_) {
+        // Limpiar el teléfono nunca frena el borrado.
+      }
+    }
     if (mounted) {
       state = AccountDeletionState(notice: state.notice, failure: failure);
     }
@@ -115,6 +129,7 @@ final accountDeletionProvider =
           requestCode: () =>
               ref.read(supabaseAuthServiceProvider).appleAuthorizationCode(),
         ),
+        onDeleted: () => ref.read(portyOutfitProvider.notifier).forget(),
       ),
     );
 
