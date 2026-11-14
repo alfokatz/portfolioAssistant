@@ -1,9 +1,9 @@
 # Primer post de Instagram — "Hola, soy Porty"
 
-- Video: `hola_soy_porty.mp4` (16,4 s, 9:16, 60 fps, con efectos; música desde la biblioteca de Instagram). Proyecto: `tools/marketing/hyperframes/hola-soy-porty/`.
+- Video: `hola_soy_porty.mp4` (17,4 s, 9:16, 60 fps, con efectos; música desde la biblioteca de Instagram). Proyecto: `tools/marketing/hyperframes/hola-soy-porty/`.
 - Portada: `hola_soy_porty_portada.png` (Porty guiñando con "Hola, soy Porty.").
-- Copy revisado por `porty-compliance` el 2026-11-14 (correcciones aplicadas). Aclaraciones dentro de la imagen como chips y notas contextuales (aprobado solo para orgánico). Sin IA generativa: no lleva etiqueta de IA.
-- Fijarlo arriba del perfil.
+- Sin IA generativa: no lleva etiqueta de IA. Fijarlo arriba del perfil.
+- Decisión del fundador (2026-11-14): no hay lista de espera; la app sale directo en las tiendas y se descarga gratis. Sin notas de "Porty usa IA…" ni "Algunas funciones dependen del plan" en pantalla (están en Términos y Condiciones).
 
 ## Texto del post
 
@@ -18,20 +18,17 @@ Traés tu cartera y yo:
 
 Sin jerga y sin ruido.
 
-Próximamente en App Store y Google Play. Sumate a la lista de espera desde el link de la bio 👆
+Próximamente en App Store y Google Play, para descargar gratis.
 
-Algunas funciones dependen del plan. Imagen ilustrativa con datos de ejemplo. No es asesoramiento financiero. Porty usa IA y puede equivocarse.
+Algunas funciones son de planes pagos. No es asesoramiento financiero.
 
 #inversiones #finanzaspersonales #educacionfinanciera #cedears #argentina #uruguay
 ```
 
-## Bio corregida por compliance
+## Bio (sin lista de espera)
 
 ```
 Tu asistente personal de inversiones.
-Traé tu cartera y Porty la analiza, te explica cómo viene y te marca lo que no se ve.
-Unite 👇
+Traé tu cartera y Porty la analiza y te explica cómo viene.
+Próximamente gratis en App Store y Google Play
 ```
-
-## Antes de publicar
-- La landing de la lista de espera tiene que tener aviso de privacidad y consentimiento para el email (Ley 25.326 AR, Ley 18.331 UY).

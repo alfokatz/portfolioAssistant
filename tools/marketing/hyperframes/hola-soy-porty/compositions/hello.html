@@ -28,11 +28,30 @@
   #hl-diag .track{position:relative;height:26px;border-radius:13px;background:#F1F0EE;margin-top:24px}
   #hl-diag .fill{position:absolute;left:0;top:0;bottom:0;width:52%;border-radius:13px;background:#D98E5D;transform-origin:left center}
   .bub{position:absolute;font-size:36px;line-height:1.32;border-radius:32px;padding:24px 30px;font-weight:500;opacity:0}
-  #hl-q{right:110px;top:650px;background:#2F3437;color:#fff;font-weight:600}
-  #hl-dots{left:110px;top:790px;background:#fff;border:2px solid #ECEBE8;display:flex;gap:12px}
+  #hl-q{right:110px;top:560px;background:#2F3437;color:#fff;font-weight:600}
+  #hl-dots{left:110px;top:690px;background:#fff;border:2px solid #ECEBE8;display:flex;gap:12px}
   #hl-dots i{width:16px;height:16px;border-radius:50%;background:#B9B6B1;display:block}
-  #hl-a{left:110px;top:790px;width:780px;background:#fff;border:2px solid #ECEBE8}
+  #hl-a{left:110px;top:690px;width:780px;background:#fff;border:2px solid #ECEBE8}
   #hl-a .w{display:inline-block}
+  #hl-conc{position:absolute;left:110px;top:850px;width:800px;background:#fff;border:2px solid #ECEBE8;border-radius:34px;padding:28px 30px;
+    box-shadow:0 14px 40px rgba(40,30,20,.08);opacity:0}
+  #hl-conc .hd{display:flex;align-items:center;gap:16px}
+  #hl-conc .ic{width:64px;height:64px;border-radius:50%;background:#F8EDE5;display:flex;align-items:center;justify-content:center;flex:none}
+  #hl-conc .ic svg{width:34px;height:34px}
+  #hl-conc .hd b{font-size:32px;font-weight:700;letter-spacing:-.5px;flex:1}
+  #hl-conc .body{display:flex;align-items:center;gap:30px;margin-top:18px}
+  #hl-donut{position:relative;width:260px;height:260px;flex:none}
+  #hl-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+  #hl-donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  #hl-donut .ctr b{font-size:50px;font-weight:700;letter-spacing:-1.4px}
+  #hl-donut .ctr span{font-size:28px;font-weight:500;color:#5F5E5B}
+  .lg{flex:1}
+  .lg .row{margin-bottom:14px}
+  .lg .row .l{display:flex;align-items:center;gap:12px;font-size:30px;font-weight:600}
+  .lg .row .l i{width:16px;height:16px;border-radius:50%;flex:none}
+  .lg .row .l span{margin-left:auto;font-weight:600;color:#2F3437}
+  .lg .row .tr{height:10px;border-radius:5px;background:#F1F0EE;margin-top:8px;overflow:hidden}
+  .lg .row .tr u{display:block;height:100%;border-radius:5px;transform-origin:left center}
 </style>
 <div id="root" data-composition-id="hello" data-width="1080" data-height="1920">
   <!-- Cuadro 0 = miniatura: Porty y el saludo ya están en pantalla. -->
@@ -54,8 +73,25 @@
   <div id="hl-dots" class="bub"><i></i><i></i><i></i></div>
   <div id="hl-a" class="bub"><span class="w">Poco</span> <span class="w">más</span> <span class="w">de</span> <span class="w">la</span> <span class="w">mitad</span> <span class="w">está</span> <span class="w">en</span> <b class="w">tecnología,</b> <span class="w">contando</span> <span class="w">lo</span> <span class="w">que</span> <span class="w">hay</span> <span class="w">adentro</span> <span class="w">de</span> <span class="w">tus</span> <span class="w">ETFs.</span></div>
 
-  <div id="hl-n1" class="note" style="top:1100px">Algunas funciones dependen del plan.</div>
-  <div id="hl-n2" class="note" style="left:134px;top:1040px">Porty usa IA y puede equivocarse.</div>
+  <div id="hl-conc">
+    <div class="hd"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#D98E5D" stroke-width="2.4"/><path d="M12 4v8h8" fill="none" stroke="#D98E5D" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+      <b>Concentración por sector</b><span class="ex">Datos de ejemplo</span></div>
+    <div class="body">
+      <div id="hl-donut"><svg viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#F1F0EE" stroke-width="13"/>
+        <circle class="seg" data-pct="52" data-off="0"  cx="60" cy="60" r="46" fill="none" stroke="#D98E5D" stroke-width="13"/>
+        <circle class="seg" data-pct="14" data-off="52" cx="60" cy="60" r="46" fill="none" stroke="#2F3437" stroke-width="13"/>
+        <circle class="seg" data-pct="12" data-off="66" cx="60" cy="60" r="46" fill="none" stroke="#7C9F7E" stroke-width="13"/>
+        <circle class="seg" data-pct="22" data-off="78" cx="60" cy="60" r="46" fill="none" stroke="#C9B79C" stroke-width="13"/>
+      </svg><div class="ctr"><b id="hl-dpct">0%</b><span>Tecnología</span></div></div>
+      <div class="lg">
+        <div class="row"><div class="l"><i style="background:#D98E5D"></i>Tecnología<span class="pv" data-to="52">0%</span></div><div class="tr"><u style="width:52%;background:#D98E5D"></u></div></div>
+        <div class="row"><div class="l"><i style="background:#2F3437"></i>Salud<span class="pv" data-to="14">0%</span></div><div class="tr"><u style="width:14%;background:#2F3437"></u></div></div>
+        <div class="row"><div class="l"><i style="background:#7C9F7E"></i>Finanzas<span class="pv" data-to="12">0%</span></div><div class="tr"><u style="width:12%;background:#7C9F7E"></u></div></div>
+        <div class="row" style="margin-bottom:0"><div class="l"><i style="background:#C9B79C"></i>Otros<span class="pv" data-to="22">0%</span></div><div class="tr"><u style="width:22%;background:#C9B79C"></u></div></div>
+      </div>
+    </div>
+  </div>
   <div id="hl-pwrap"><div id="hl-shadow"></div><div id="hl-porty">
     <svg viewBox="-3 -6 70 70">
       <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
@@ -89,9 +125,9 @@
     .to("#hl-porty", {rotation:0, duration:.35, ease:"back.out(2)"}, 2.92);
 
   // Porty se corre a la esquina para dejar lugar (sigue mirando lo que pasa).
-  tl.to("#hl-pwrap", {x:-210, y:270, scale:.5, duration:.6, ease:"power3.inOut"}, 3.8)
+  tl.to("#hl-pwrap", {x:-210, y:324, scale:.4, duration:.6, ease:"power3.inOut"}, 3.8)
     .to("#hl-eyes", {x:1.6, y:-1.4, duration:.25, ease:"power2.inOut"}, 4.2)
-    .to("#hl-porty svg", {y:-6, duration:.6, ease:"sine.inOut", yoyo:true, repeat:12}, 4.55)
+    .to("#hl-porty svg", {y:-6, duration:.6, ease:"sine.inOut", yoyo:true, repeat:14}, 4.55)
     .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 7.4)
     .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 10.9);
 
@@ -106,7 +142,6 @@
     .fromTo("#hl-total", {opacity:0, scale:.88}, {opacity:1, scale:1, duration:.55, ease:"back.out(1.6)"}, 5.55);
   const sEl = document.getElementById("hl-sum"), s = {v:0};
   tl.fromTo(s, {v:0}, {v:12430, duration:.7, ease:"power2.out", onUpdate:() => { sEl.textContent = "$" + Math.round(s.v).toLocaleString("es-AR"); }}, 5.55);
-  tl.fromTo("#hl-n1", {opacity:0}, {opacity:1, duration:.3, ease:"power2.out"}, 4.6).to("#hl-n1", {opacity:0, duration:.25, ease:"power2.in"}, 8.3);
   blurOut("#hl-c3 .w", 6.0);
 
   // 4 · La analizo: la tarjeta se vuelve el hallazgo del diagnóstico.
@@ -129,11 +164,23 @@
     .fromTo("#hl-a .w", {opacity:0, filter:"blur(4px)"}, {opacity:1, filter:"blur(0px)", duration:.14, stagger:.065, ease:"power2.out"}, 9.7);
   tl.fromTo("#hl-a b", {color:"#2F3437"}, {color:"#A95F33", duration:.35, ease:"power2.out"}, 10.95)
     .to("#hl-a", {scale:1.02, duration:.45, ease:"sine.inOut", yoyo:true, repeat:1}, 11.3);
-tl.fromTo("#hl-n2", {opacity:0}, {opacity:1, duration:.3, ease:"power2.out"}, 10.2).to("#hl-n2", {opacity:0, duration:.25, ease:"power2.in"}, 12.05);
-blurOut("#hl-c5 .w", 12.0);
+// La respuesta trae su tarjeta: la dona se dibuja, la lista crece y los porcentajes cuentan.
+const C = 2 * Math.PI * 46;
+tl.fromTo("#hl-conc", {opacity:0, y:40}, {opacity:1, y:0, duration:.55, ease:"expo.out"}, 10.35);
+document.querySelectorAll("#hl-conc .seg").forEach((s, i) => {
+  const pct = +s.dataset.pct, off = +s.dataset.off;
+  s.setAttribute("stroke-dashoffset", String(-C * off / 100));
+  tl.fromTo(s, {attr:{"stroke-dasharray": `0 ${C}`}}, {attr:{"stroke-dasharray": `${C * pct / 100 - 1.2} ${C}`}, duration:.55, ease:"power2.inOut"}, 10.7 + i * .16);
+});
+document.querySelectorAll("#hl-conc .tr u").forEach((u, i) => tl.fromTo(u, {scaleX:0}, {scaleX:1, duration:.6, ease:"power2.inOut"}, 10.8 + i * .14));
+document.querySelectorAll("#hl-conc .pv").forEach((el, i) => { const o = {v:0}; tl.fromTo(o, {v:0}, {v:+el.dataset.to, duration:.6, ease:"power2.inOut", onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 10.8 + i * .14); });
+const dEl = document.getElementById("hl-dpct"), dO = {v:0};
+tl.fromTo(dO, {v:0}, {v:52, duration:.7, ease:"power2.inOut", onUpdate:() => { dEl.textContent = Math.round(dO.v) + "%"; }}, 10.7);
+tl.to("#hl-conc .lg .row:first-child", {scale:1.03, transformOrigin:"0% 50%", duration:.4, ease:"sine.inOut", yoyo:true, repeat:1}, 11.9);
+blurOut("#hl-c5 .w", 13.0);
   // Salida hacia el cierre.
-  tl.to(["#hl-q","#hl-a"], {opacity:0, y:-30, duration:.3, ease:"power2.in", stagger:.05}, 12.05)
-    .to("#hl-pwrap", {y:900, duration:.4, ease:"power3.in"}, 12.05);
+  tl.to(["#hl-q","#hl-a","#hl-conc"], {opacity:0, y:-30, duration:.3, ease:"power2.in", stagger:.05}, 13.05)
+    .to("#hl-pwrap", {y:900, duration:.4, ease:"power3.in"}, 13.05);
   window.__timelines["hello"] = tl;
 </script>
 </template>

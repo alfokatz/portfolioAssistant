@@ -1,6 +1,6 @@
 # Reel "Hola, soy Porty" (HyperFrames)
 
-Primer post de Instagram: Porty se presenta y resume lo que hace (junta, analiza, explica). 16,4 s, 9:16, 60 fps, solo motion design. Hecho con la skill `porty-video`. Copy, caption y portada: `docs/marketing/social/piezas/2026-11-14/README.md`.
+Primer post de Instagram: Porty se presenta y resume lo que hace (junta, analiza, explica). 17,4 s, 9:16, 60 fps, solo motion design. Hecho con la skill `porty-video`. Copy, caption y portada: `docs/marketing/social/piezas/2026-11-14/README.md`.
 
 | Tiempo | Texto en pantalla | Qué pasa |
 |---|---|---|
@@ -8,16 +8,11 @@ Primer post de Instagram: Porty se presenta y resume lo que hace (junta, analiza
 | 2–3,9 s | "Tu asistente personal de inversiones." | Porty asiente |
 | 4–6 s | "Traés tu cartera…" | Tres lugares genéricos se juntan en "Tu cartera" |
 | 6,2–8,6 s | "…la analizo…" | "Tecnología es el 52% de tu cartera" |
-| 8,75–12 s | "…y te explico cómo viene." | Chat: "¿Cómo está repartida mi cartera?" → "Poco más de la mitad está en tecnología, contando lo que hay adentro de tus ETFs." |
-| 12,15–16,4 s | "Próximamente en App Store y Google Play." | Porty con anteojos; "Sumate a la lista de espera desde el link de la bio." |
+| 8,75–13 s | "…y te explico cómo viene." | Chat: "¿Cómo está repartida mi cartera?" → "Poco más de la mitad está en tecnología…" + tarjeta "Concentración por sector" (dona y lista que se arman: Tecnología 52 %, Salud 14 %, Finanzas 12 %, Otros 22 %) |
+| 13,15–17,4 s | "Próximamente en App Store y Google Play." | Porty con anteojos; "Vas a poder descargarla gratis." + "Algunas funciones son de planes pagos. No es asesoramiento financiero." |
 
 Composición (v2, pedido del fundador): Porty parado sobre un piso cálido (de y = 1470 px hasta abajo) para que la mitad inferior no quede vacía; ese piso cae en la zona que tapa la interfaz de la red, así que ahí no va texto.
 
-Aclaraciones contextuales (aprobadas por `porty-compliance` el 2026-11-14, **solo para uso orgánico**; si se pauta, vuelve a revisión):
-- Chip "Datos de ejemplo" en cada tarjeta con números, visible desde que aparece el número.
-- "Algunas funciones dependen del plan." bajo las tarjetas al juntar la cartera.
-- "Porty usa IA y puede equivocarse." bajo la respuesta del chat.
-- "No es asesoramiento financiero." en el cierre, más de 3 s.
-- Sin la línea fija "Imagen ilustrativa…".
+Aclaraciones en pantalla: chip "Datos de ejemplo" en cada tarjeta con números y, en el cierre, "Algunas funciones son de planes pagos. No es asesoramiento financiero." Por decisión del fundador se sacaron las notas "Porty usa IA y puede equivocarse" y "Algunas funciones dependen del plan" (están en Términos y Condiciones) y no hay lista de espera.
 
-Calidad: `check` sin errores; 958 de 981 cuadros únicos (solo el cuadro 0 quieto); audio sin clipping. Sonido medido, no escuchado.
+Calidad: `check` sin errores; 1.015 de 1.041 cuadros únicos (solo el cuadro 0 quieto); audio sin clipping. Sonido medido, no escuchado.
