@@ -30,7 +30,7 @@ Algunas funciones dependen del plan. Imagen ilustrativa con datos de ejemplo. No
 ```
 Tu asistente personal de inversiones.
 Traé tu cartera y Porty la analiza, te explica cómo viene y te marca lo que no se ve.
-Unite a la lista de espera 👇
+Unite 👇
 ```
 
 ## Antes de publicar
