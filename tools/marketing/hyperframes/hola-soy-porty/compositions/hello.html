@@ -76,8 +76,7 @@
     .to("#hl-porty", {scaleX:1.14, scaleY:.86, duration:.08, ease:"power2.out"}, .66)
     .to("#hl-porty", {scaleX:1, scaleY:1, duration:.36, ease:"back.out(2.4)"}, .74)
     .to("#hl-er", {attr:{ry:.5}, duration:.08, ease:"power1.in"}, 1.05)
-    .to("#hl-er", {attr:{ry:3.6}, duration:.1, ease:"power1.out"}, 1.4)
-    .fromTo("#hl-mouth", {attr:{d:"M29.6 40Q33.6 43 38.6 38.6"}}, {attr:{d:"M28.6 39.6Q33.6 45.5 39.6 38.4"}, duration:.2, ease:"power2.out"}, 1.05);
+    .to("#hl-er", {attr:{ry:3.6}, duration:.1, ease:"power1.out"}, 1.4);
   // Respira mientras se presenta.
   tl.to("#hl-porty svg", {y:-6, duration:.55, ease:"sine.inOut", yoyo:true, repeat:5}, 1.2);
   blurOut("#hl-c1 .w", 1.85);

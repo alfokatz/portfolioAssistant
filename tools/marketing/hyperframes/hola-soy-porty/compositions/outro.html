@@ -21,7 +21,7 @@
       <ellipse id="o-el" cx="28" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/><ellipse id="o-er" cx="40" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/>
       <g id="o-glasses"><rect x="21" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/><rect x="35" y="25.5" width="12.5" height="9" rx="4" fill="#2F3437"/>
         <path d="M33.5 29H35" stroke="#2F3437" stroke-width="2.2"/><path d="M21.5 28L15 26.5M47 28L53 26.5" stroke="#2F3437" stroke-width="2" stroke-linecap="round"/></g>
-      <path id="o-mouth" d="M29.6 41Q33.6 44.5 38.6 40" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+      <path id="o-mouth" d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
     </svg>
   </div></div>
 </div>
@@ -35,7 +35,6 @@
   tl.fromTo("#o-glasses", {y:-34, opacity:0}, {y:0, opacity:1, duration:.24, ease:"power2.in"}, 1.2)
     .to("#o-porty", {scaleX:1.05, scaleY:.95, duration:.07, ease:"power2.out"}, 1.44)
     .to("#o-porty", {scaleX:1, scaleY:1, duration:.25, ease:"back.out(2)"}, 1.51)
-    .fromTo("#o-mouth", {attr:{d:"M29.6 41Q33.6 44.5 38.6 40"}}, {attr:{d:"M28.6 40.5Q33.6 46.5 39.6 39.5"}, duration:.2, ease:"power2.out"}, 1.55)
     .to("#o-porty", {rotation:-7, duration:.22, ease:"power2.inOut"}, 1.74)
     .to("#o-porty", {rotation:0, duration:.35, ease:"back.out(2)"}, 1.96);
   tl.fromTo("#o-cta", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, .75)
