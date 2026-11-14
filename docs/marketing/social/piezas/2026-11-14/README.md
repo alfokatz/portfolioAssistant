@@ -1,6 +1,6 @@
 # Primer post de Instagram — "Hola, soy Porty"
 
-- Video: `hola_soy_porty.mp4` (17,4 s, 9:16, 60 fps, con efectos; música desde la biblioteca de Instagram). Proyecto: `tools/marketing/hyperframes/hola-soy-porty/`.
+- Video: `hola_soy_porty.mp4` (20,4 s, 9:16, 60 fps, con efectos; música desde la biblioteca de Instagram). Proyecto: `tools/marketing/hyperframes/hola-soy-porty/`.
 - Portada: `hola_soy_porty_portada.png` (Porty guiñando con "Hola, soy Porty.").
 - Sin IA generativa: no lleva etiqueta de IA. Fijarlo arriba del perfil.
 - Decisión del fundador (2026-11-14): no hay lista de espera; la app sale directo en las tiendas y se descarga gratis. Sin notas de "Porty usa IA…" ni "Algunas funciones dependen del plan" en pantalla (están en Términos y Condiciones).

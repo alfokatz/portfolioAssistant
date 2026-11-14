@@ -127,60 +127,60 @@
   // Porty se corre a la esquina para dejar lugar (sigue mirando lo que pasa).
   tl.to("#hl-pwrap", {x:-210, y:324, scale:.4, duration:.6, ease:"power3.inOut"}, 3.8)
     .to("#hl-eyes", {x:1.6, y:-1.4, duration:.25, ease:"power2.inOut"}, 4.2)
-    .to("#hl-porty svg", {y:-6, duration:.6, ease:"sine.inOut", yoyo:true, repeat:14}, 4.55)
-    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 7.4)
-    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 10.9);
+    .to("#hl-porty svg", {y:-6, duration:.6, ease:"sine.inOut", yoyo:true, repeat:19}, 4.55)
+    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 8.8)
+    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 12.9);
 
   // 3 · Traés tu cartera: tres lugares que se juntan en uno.
   blurIn("#hl-c3 .w", 4.0);
   tl.fromTo("#hl-k1", {opacity:0, x:-380}, {opacity:1, x:0, duration:.6, ease:"expo.out"}, 4.15)
     .fromTo("#hl-k2", {opacity:0, y:260}, {opacity:1, y:0, duration:.6, ease:"expo.out"}, 4.27)
     .fromTo("#hl-k3", {opacity:0, x:380}, {opacity:1, x:0, duration:.6, ease:"expo.out"}, 4.39)
-    .to("#hl-k1", {x:305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.05)
-    .to("#hl-k2", {y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.05)
-    .to("#hl-k3", {x:-305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.05)
-    .fromTo("#hl-total", {opacity:0, scale:.88}, {opacity:1, scale:1, duration:.55, ease:"back.out(1.6)"}, 5.55);
+    .to("#hl-k1", {x:305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .to("#hl-k2", {y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .to("#hl-k3", {x:-305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .fromTo("#hl-total", {opacity:0, scale:.88}, {opacity:1, scale:1, duration:.55, ease:"back.out(1.6)"}, 6.25);
   const sEl = document.getElementById("hl-sum"), s = {v:0};
-  tl.fromTo(s, {v:0}, {v:12430, duration:.7, ease:"power2.out", onUpdate:() => { sEl.textContent = "$" + Math.round(s.v).toLocaleString("es-AR"); }}, 5.55);
-  blurOut("#hl-c3 .w", 6.0);
+  tl.fromTo(s, {v:0}, {v:12430, duration:.7, ease:"power2.out", onUpdate:() => { sEl.textContent = "$" + Math.round(s.v).toLocaleString("es-AR"); }}, 6.25);
+  blurOut("#hl-c3 .w", 7.4);
 
   // 4 · La analizo: la tarjeta se vuelve el hallazgo del diagnóstico.
-  tl.fromTo("#hl-c4 .w", {opacity:0}, {opacity:1, duration:.01, stagger:.1}, 6.2)
-    .fromTo("#hl-c4 span.w", {color:"#D2D0CC"}, {color:"#2F3437", duration:.14, ease:"none"}, 6.2)
-    .fromTo("#hl-c4 em.w", {color:"#EBD3C2"}, {color:"#C27443", duration:.14, ease:"none"}, 6.3)
-    .to("#hl-total", {opacity:0, y:-20, duration:.3, ease:"power2.in"}, 6.3)
-    .fromTo("#hl-diag", {opacity:0, y:30}, {opacity:1, y:0, duration:.5, ease:"expo.out"}, 6.5)
-    .fromTo("#hl-diag .fill", {scaleX:0}, {scaleX:1, duration:.9, ease:"power2.inOut"}, 6.75);
-  blurOut("#hl-c4 .w", 8.55);
+  tl.fromTo("#hl-c4 .w", {opacity:0}, {opacity:1, duration:.01, stagger:.1}, 7.6)
+    .fromTo("#hl-c4 span.w", {color:"#D2D0CC"}, {color:"#2F3437", duration:.14, ease:"none"}, 7.6)
+    .fromTo("#hl-c4 em.w", {color:"#EBD3C2"}, {color:"#C27443", duration:.14, ease:"none"}, 7.7)
+    .to("#hl-total", {opacity:0, y:-20, duration:.3, ease:"power2.in"}, 7.7)
+    .fromTo("#hl-diag", {opacity:0, y:30}, {opacity:1, y:0, duration:.5, ease:"expo.out"}, 7.9)
+    .fromTo("#hl-diag .fill", {scaleX:0}, {scaleX:1, duration:.9, ease:"power2.inOut"}, 8.15);
+  blurOut("#hl-c4 .w", 10.55);
 
   // 5 · Y te explico cómo viene: pregunta, "escribiendo…" y respuesta palabra por palabra.
-  blurIn("#hl-c5 .w", 8.75);
-  tl.to("#hl-diag", {opacity:0, y:-24, duration:.3, ease:"power2.in"}, 8.6)
-    .fromTo("#hl-q", {opacity:0, y:24}, {opacity:1, y:0, duration:.45, ease:"expo.out"}, 8.85)
-    .fromTo("#hl-dots", {opacity:0, y:16}, {opacity:1, y:0, duration:.3, ease:"expo.out"}, 9.15);
-  document.querySelectorAll("#hl-dots i").forEach((d, i) => tl.fromTo(d, {y:0}, {y:-9, duration:.15, ease:"sine.inOut", yoyo:true, repeat:1}, 9.25 + i * .1));
-  tl.to("#hl-dots", {opacity:0, duration:.12, ease:"power1.in"}, 9.6)
-    .fromTo("#hl-a", {opacity:0, y:18}, {opacity:1, y:0, duration:.4, ease:"expo.out"}, 9.65)
-    .fromTo("#hl-a .w", {opacity:0, filter:"blur(4px)"}, {opacity:1, filter:"blur(0px)", duration:.14, stagger:.065, ease:"power2.out"}, 9.7);
-  tl.fromTo("#hl-a b", {color:"#2F3437"}, {color:"#A95F33", duration:.35, ease:"power2.out"}, 10.95)
-    .to("#hl-a", {scale:1.02, duration:.45, ease:"sine.inOut", yoyo:true, repeat:1}, 11.3);
+  blurIn("#hl-c5 .w", 10.75);
+  tl.to("#hl-diag", {opacity:0, y:-24, duration:.3, ease:"power2.in"}, 10.6)
+    .fromTo("#hl-q", {opacity:0, y:24}, {opacity:1, y:0, duration:.45, ease:"expo.out"}, 10.85)
+    .fromTo("#hl-dots", {opacity:0, y:16}, {opacity:1, y:0, duration:.3, ease:"expo.out"}, 11.15);
+  document.querySelectorAll("#hl-dots i").forEach((d, i) => tl.fromTo(d, {y:0}, {y:-9, duration:.15, ease:"sine.inOut", yoyo:true, repeat:1}, 11.25 + i * .1));
+  tl.to("#hl-dots", {opacity:0, duration:.12, ease:"power1.in"}, 11.6)
+    .fromTo("#hl-a", {opacity:0, y:18}, {opacity:1, y:0, duration:.4, ease:"expo.out"}, 11.65)
+    .fromTo("#hl-a .w", {opacity:0, filter:"blur(4px)"}, {opacity:1, filter:"blur(0px)", duration:.14, stagger:.065, ease:"power2.out"}, 11.7);
+  tl.fromTo("#hl-a b", {color:"#2F3437"}, {color:"#A95F33", duration:.35, ease:"power2.out"}, 12.95)
+    .to("#hl-a", {scale:1.02, duration:.45, ease:"sine.inOut", yoyo:true, repeat:1}, 13.3);
 // La respuesta trae su tarjeta: la dona se dibuja, la lista crece y los porcentajes cuentan.
 const C = 2 * Math.PI * 46;
-tl.fromTo("#hl-conc", {opacity:0, y:40}, {opacity:1, y:0, duration:.55, ease:"expo.out"}, 10.35);
+tl.fromTo("#hl-conc", {opacity:0, y:40}, {opacity:1, y:0, duration:.55, ease:"expo.out"}, 12.35);
 document.querySelectorAll("#hl-conc .seg").forEach((s, i) => {
   const pct = +s.dataset.pct, off = +s.dataset.off;
   s.setAttribute("stroke-dashoffset", String(-C * off / 100));
-  tl.fromTo(s, {attr:{"stroke-dasharray": `0 ${C}`}}, {attr:{"stroke-dasharray": `${C * pct / 100 - 1.2} ${C}`}, duration:.55, ease:"power2.inOut"}, 10.7 + i * .16);
+  tl.fromTo(s, {attr:{"stroke-dasharray": `0 ${C}`}}, {attr:{"stroke-dasharray": `${C * pct / 100 - 1.2} ${C}`}, duration:.55, ease:"power2.inOut"}, 12.7 + i * .16);
 });
-document.querySelectorAll("#hl-conc .tr u").forEach((u, i) => tl.fromTo(u, {scaleX:0}, {scaleX:1, duration:.6, ease:"power2.inOut"}, 10.8 + i * .14));
-document.querySelectorAll("#hl-conc .pv").forEach((el, i) => { const o = {v:0}; tl.fromTo(o, {v:0}, {v:+el.dataset.to, duration:.6, ease:"power2.inOut", onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 10.8 + i * .14); });
+document.querySelectorAll("#hl-conc .tr u").forEach((u, i) => tl.fromTo(u, {scaleX:0}, {scaleX:1, duration:.6, ease:"power2.inOut"}, 12.8 + i * .14));
+document.querySelectorAll("#hl-conc .pv").forEach((el, i) => { const o = {v:0}; tl.fromTo(o, {v:0}, {v:+el.dataset.to, duration:.6, ease:"power2.inOut", onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 12.8 + i * .14); });
 const dEl = document.getElementById("hl-dpct"), dO = {v:0};
-tl.fromTo(dO, {v:0}, {v:52, duration:.7, ease:"power2.inOut", onUpdate:() => { dEl.textContent = Math.round(dO.v) + "%"; }}, 10.7);
-tl.to("#hl-conc .lg .row:first-child", {scale:1.03, transformOrigin:"0% 50%", duration:.4, ease:"sine.inOut", yoyo:true, repeat:1}, 11.9);
-blurOut("#hl-c5 .w", 13.0);
+tl.fromTo(dO, {v:0}, {v:52, duration:.7, ease:"power2.inOut", onUpdate:() => { dEl.textContent = Math.round(dO.v) + "%"; }}, 12.7);
+tl.to("#hl-conc .lg .row:first-child", {scale:1.03, transformOrigin:"0% 50%", duration:.4, ease:"sine.inOut", yoyo:true, repeat:1}, 13.9);
+blurOut("#hl-c5 .w", 16.0);
   // Salida hacia el cierre.
-  tl.to(["#hl-q","#hl-a","#hl-conc"], {opacity:0, y:-30, duration:.3, ease:"power2.in", stagger:.05}, 13.05)
-    .to("#hl-pwrap", {y:900, duration:.4, ease:"power3.in"}, 13.05);
+  tl.to(["#hl-q","#hl-a","#hl-conc"], {opacity:0, y:-30, duration:.3, ease:"power2.in", stagger:.05}, 16.05)
+    .to("#hl-pwrap", {y:900, duration:.4, ease:"power3.in"}, 16.05);
   window.__timelines["hello"] = tl;
 </script>
 </template>

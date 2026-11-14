@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=1080, height=1920" />
-<!-- Reel "Hola, soy Porty" v3 (17,4 s, 60 fps). Hecho con la skill porty-video (HyperFrames). Raíz: escenas, letra chica de compliance y efectos. Texto en la banda 168–1330 px. -->
+<!-- Reel "Hola, soy Porty" v4 (20,4 s, 60 fps). Hecho con la skill porty-video (HyperFrames). Raíz: escenas, letra chica de compliance y efectos. Texto en la banda 168–1330 px. -->
 <script src="assets/vendor/gsap.min.js"></script>
 <style>
 @font-face{font-family:PJS;font-weight:500;src:url(assets/fonts/PlusJakartaSans-Medium.ttf)}
@@ -17,27 +17,27 @@ html,body{width:1080px;height:1920px;overflow:hidden;background:#FBFBFA}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="17.35" data-width="1080" data-height="1920" data-fps="60">
+<div id="root" data-composition-id="main" data-start="0" data-duration="20.35" data-width="1080" data-height="1920" data-fps="60">
   <div id="bg"></div>
   <!-- Piso cálido: Porty se para encima; llena la mitad de abajo sin texto (zona de la interfaz de la red). -->
   <div id="floor" style="position:absolute;left:0;right:0;top:1470px;bottom:0;background:#F3EDE6"></div>
-  <div id="hello" data-composition-id="hello" data-composition-src="compositions/hello.html" data-start="0" data-duration="13.5" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:2"></div>
-  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="13.15" data-duration="4.2" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
+  <div id="hello" data-composition-id="hello" data-composition-src="compositions/hello.html" data-start="0" data-duration="16.5" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:2"></div>
+  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="16.15" data-duration="4.2" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
 
   <!-- Efectos: Pixabay Content License (assets/sfx/CREDITS.md). Pico del sonido un cuadro después de su imagen. -->
   <audio id="sfx-0" class="clip" src="assets/sfx/pop.mp3" data-start="0.557" data-track-index="20" data-volume="0.5"></audio>
-  <audio id="sfx-1" class="clip" src="assets/sfx/whoosh.mp3" data-start="5.155" data-track-index="21" data-volume="0.55"></audio>
-  <audio id="sfx-2" class="clip" src="assets/sfx/pop.mp3" data-start="5.597" data-track-index="22" data-volume="0.4"></audio>
-  <audio id="sfx-3" class="clip" src="assets/sfx/pop.mp3" data-start="8.797" data-track-index="23" data-volume="0.3"></audio>
-  <audio id="sfx-4" class="clip" src="assets/sfx/typing.mp3" data-start="9.263" data-track-index="24" data-volume="0.4"></audio>
-  <audio id="sfx-5" class="clip" src="assets/sfx/pop.mp3" data-start="10.347" data-track-index="25" data-volume="0.4"></audio>
-  <audio id="sfx-6" class="clip" src="assets/sfx/whoosh.mp3" data-start="13.055" data-track-index="26" data-volume="0.4"></audio>
-  <audio id="sfx-7" class="clip" src="assets/sfx/pop.mp3" data-start="14.487" data-track-index="27" data-volume="0.7"></audio>
+  <audio id="sfx-1" class="clip" src="assets/sfx/whoosh.mp3" data-start="5.855" data-track-index="21" data-volume="0.55"></audio>
+  <audio id="sfx-2" class="clip" src="assets/sfx/pop.mp3" data-start="6.297" data-track-index="22" data-volume="0.4"></audio>
+  <audio id="sfx-3" class="clip" src="assets/sfx/pop.mp3" data-start="10.797" data-track-index="23" data-volume="0.3"></audio>
+  <audio id="sfx-4" class="clip" src="assets/sfx/typing.mp3" data-start="11.263" data-track-index="24" data-volume="0.4"></audio>
+  <audio id="sfx-5" class="clip" src="assets/sfx/pop.mp3" data-start="12.347" data-track-index="25" data-volume="0.4"></audio>
+  <audio id="sfx-6" class="clip" src="assets/sfx/whoosh.mp3" data-start="16.055" data-track-index="26" data-volume="0.4"></audio>
+  <audio id="sfx-7" class="clip" src="assets/sfx/pop.mp3" data-start="17.487" data-track-index="27" data-volume="0.7"></audio>
 </div>
 <script>
 const tl = gsap.timeline({ paused: true });
 
-tl.to({}, {duration:.01}, 17.34);
+tl.to({}, {duration:.01}, 20.34);
 window.__timelines["main"] = tl;
 tl.seek(0);
 </script>
