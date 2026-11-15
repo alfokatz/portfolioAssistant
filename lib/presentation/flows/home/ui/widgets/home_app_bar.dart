@@ -11,7 +11,12 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 /// Es el mismo con datos y en skeleton (no depende de la cartera), así que
 /// al cargar no se mueve.
 class HomeAppBar extends StatelessWidget {
-  const HomeAppBar({super.key, required this.firstName, this.onOpenPorty});
+  const HomeAppBar({
+    super.key,
+    required this.firstName,
+    this.onOpenPorty,
+    this.now,
+  });
 
   /// `null` saluda sin nombre.
   final String? firstName;
@@ -21,14 +26,29 @@ class HomeAppBar extends StatelessWidget {
 
   static const avatarSize = 44.0;
 
+  /// La hora del saludo (tests y screenshots); `null` es ahora.
+  final DateTime? now;
+
+  /// Porty saluda según la hora: "Buen día" hasta las 13, "Buenas tardes"
+  /// hasta las 20, después "Buenas noches".
+  static String greetingKey(DateTime time, {required bool withName}) {
+    final part = switch (time.hour) {
+      >= 5 && < 13 => 'morning',
+      >= 13 && < 20 => 'afternoon',
+      _ => 'night',
+    };
+    return withName ? 'home_greeting_${part}_name' : 'home_greeting_$part';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
     final textTheme = Theme.of(context).textTheme;
     // El idioma del `MaterialApp` (EasyLocalization lo fija ahí).
+    final time = now ?? DateTime.now();
     final date = DateFormat.MMMMEEEEd(
       Localizations.maybeLocaleOf(context)?.toLanguageTag(),
-    ).format(DateTime.now());
+    ).format(time);
     final name = firstName;
     final onOpen = onOpenPorty;
 
@@ -59,8 +79,11 @@ class HomeAppBar extends StatelessWidget {
                   header: true,
                   child: Text(
                     name == null
-                        ? 'home_greeting'.tr()
-                        : 'home_greeting_name'.tr(namedArgs: {'name': name}),
+                        ? greetingKey(time, withName: false).tr()
+                        : greetingKey(
+                          time,
+                          withName: true,
+                        ).tr(namedArgs: {'name': name}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.titleLarge?.copyWith(

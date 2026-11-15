@@ -82,7 +82,8 @@ void main() {
         tester,
       ) async {
         await pump(tester, const ConnectBrokerScreen(), brightness: brightness);
-        expect(find.text('connect_broker_title'), findsOneWidget);
+        // Porty encabeza la pantalla (sin brókers conectados, para qué sirve).
+        expect(find.text('connect_broker_porty_none'), findsOneWidget);
         expect(find.text('eToro'), findsOneWidget);
         expect(find.text('Binance'), findsOneWidget);
         expect(find.text('connect_broker_others_title'), findsOneWidget);

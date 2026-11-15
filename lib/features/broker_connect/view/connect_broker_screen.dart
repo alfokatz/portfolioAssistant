@@ -2,8 +2,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/binance/domain/binance_connection.dart';
+import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
+import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/binance/nav/binance_router.dart';
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_brand.dart';
@@ -11,7 +15,6 @@ import 'package:portfolio_assistant/features/broker_connect/view/broker_status_l
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_brand.dart';
-import 'package:portfolio_assistant/features/snaptrade/domain/snaptrade_connection.dart';
 import 'package:portfolio_assistant/features/snaptrade/nav/snaptrade_router.dart';
 import 'package:portfolio_assistant/features/snaptrade/providers/snaptrade_provider.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_brand.dart';
@@ -78,26 +81,29 @@ class _ConnectBrokerScreenState extends ConsumerState<ConnectBrokerScreen> {
             AppDimens.sp48,
           ),
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                'connect_broker_title'.tr(),
-                style: tt.displaySmall?.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  height: 1.2,
-                  color: colors.textPrimary,
-                ),
+            // Porty dice qué tiene conectado, qué se cortó o para qué sirve
+            // conectar (con los nombres reales).
+            _ConnectBrokerPortyHeader(
+              loaded:
+                  etoroState.loaded &&
+                  binanceState.loaded &&
+                  othersState.loaded,
+              connected: BrokerStatusLabels.connectedNames(
+                etoro: etoroState,
+                binance: binanceState,
+                snaptrade: othersState,
               ),
-            ),
-            const SizedBox(height: AppDimens.sp8),
-            Text(
-              'connect_broker_body'.tr(),
-              style: tt.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                height: 1.5,
-              ),
+              reconnect: [
+                if (etoroState.connection.status ==
+                    EtoroConnectionStatus.reconnectRequired)
+                  'eToro',
+                if (binanceState.connection.status ==
+                    BinanceStatus.reconnectRequired)
+                  'Binance',
+                if (othersState.connection.status ==
+                    SnaptradeStatus.reconnectRequired)
+                  'connect_broker_others_title'.tr(),
+              ],
             ),
             const SizedBox(height: AppDimens.sectionGap),
             Container(
@@ -312,6 +318,62 @@ class BrokerChoiceRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConnectBrokerPortyHeader extends StatelessWidget {
+  const _ConnectBrokerPortyHeader({
+    required this.loaded,
+    required this.connected,
+    required this.reconnect,
+  });
+
+  final bool loaded;
+  final List<String> connected;
+  final List<String> reconnect;
+
+  static String _join(List<String> names) => switch (names.length) {
+    0 => '',
+    1 => names.single,
+    _ =>
+      '${names.sublist(0, names.length - 1).join(', ')} '
+          '${'diagnosis_list_and'.tr()} ${names.last}',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final (String key, String message, PortyAvatarState mood) =
+        !loaded || (connected.isEmpty && reconnect.isEmpty)
+            ? (
+              'none',
+              'connect_broker_porty_none'.tr(),
+              PortyAvatarState.idle,
+            )
+            : reconnect.isNotEmpty
+            ? (
+              'reconnect',
+              'connect_broker_porty_reconnect'.tr(
+                namedArgs: {'names': _join(reconnect)},
+              ),
+              PortyAvatarState.concerned,
+            )
+            : (
+              'connected',
+              'connect_broker_porty_connected'.tr(
+                namedArgs: {'names': _join(connected)},
+              ),
+              PortyAvatarState.answered,
+            );
+    return Semantics(
+      header: true,
+      child: PortySays(
+        messageKey: key,
+        mood: mood,
+        message: Text(message),
+        // La explicación, solo cuando todavía no conectó nada.
+        footnote: key == 'none' ? Text('connect_broker_body'.tr()) : null,
       ),
     );
   }
