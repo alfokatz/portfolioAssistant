@@ -23,6 +23,11 @@ enum ProductEvent {
   diagnosisQuestion('diagnosis_question'),
   firstChatAnswer('first_chat_answer', once: true),
 
+  /// Reportó una respuesta de Porty (manteniéndola apretada). Props:
+  /// `reason` (`wrong` | `advice` | `offensive` | `other`), `surface_id` y
+  /// `excerpt` (el comienzo de la respuesta, para revisarla).
+  aiAnswerReported('ai_answer_reported'),
+
   /// Se abrió el paywall. Props: `reason`, `source`, `tier`,
   /// `visible_tiers`, `queries_used`, `queries_limit`.
   paywallViewed('paywall_viewed'),

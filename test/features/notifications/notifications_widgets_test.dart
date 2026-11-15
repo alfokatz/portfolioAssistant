@@ -256,15 +256,23 @@ void main() {
       expect(find.text('price_alerts_section_paused'), findsOneWidget);
       expect(find.textContaining('VOO · '), findsOneWidget);
       expect(find.text('price_alert_status_paused_plan'), findsOneWidget);
+      // Porty dice cuántos precios vigila (las activas).
+      expect(
+        find.textContaining(RegExp('price_alerts_porty_watching_(one|many)')),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('vacía: explica cómo crear una', (tester) async {
+    testWidgets('vacía: Porty dice que no vigila nada y cómo crear una', (
+      tester,
+    ) async {
       await _pump(
         tester,
         const PriceAlertsScreen(),
         messaging: FakeMessaging(),
       );
-      expect(find.text('price_alerts_empty'), findsOneWidget);
+      expect(find.text('price_alerts_porty_empty'), findsOneWidget);
+      expect(find.text('price_alerts_porty_empty_hint'), findsOneWidget);
       expect(find.text('price_alerts_new'), findsOneWidget);
     });
   });

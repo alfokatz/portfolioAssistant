@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart' show openAppSettings;
 import 'package:portfolio_assistant/features/notifications/data/notifications_repository.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
 import 'package:portfolio_assistant/features/notifications/domain/notification_preferences.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/providers/notification_preferences_provider.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -170,12 +172,21 @@ class _NotificationSettingsScreenState
             AppDimens.sp48,
           ),
           children: [
-            Text(
-              'notifications_intro'.tr(),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                height: 1.45,
-              ),
+            // Porty dice en qué estado están sus avisos (con cuántos tipos
+            // prendidos), y debajo cómo trabaja.
+            _NotificationsPortyHeader(
+              permission: push.permission,
+              loaded: push.loaded && prefsState.loaded,
+              enabled: prefs.enabled,
+              activeTypes: [
+                prefs.priceAlerts,
+                prefs.bigMoves,
+                prefs.portfolioMoves,
+                prefs.weeklyReport,
+                prefs.earnings,
+                prefs.service,
+                prefs.morningBrief,
+              ].where((on) => on).length,
             ),
             const SizedBox(height: AppDimens.sp20),
             _PermissionSection(
@@ -395,6 +406,66 @@ class _PermissionSection extends StatelessWidget {
     return SettingsSectionCard(
       title: 'notifications_section_status'.tr(),
       children: [row],
+    );
+  }
+}
+
+class _NotificationsPortyHeader extends StatelessWidget {
+  const _NotificationsPortyHeader({
+    required this.permission,
+    required this.loaded,
+    required this.enabled,
+    required this.activeTypes,
+  });
+
+  final PushPermission permission;
+  final bool loaded;
+  final bool enabled;
+  final int activeTypes;
+
+  @override
+  Widget build(BuildContext context) {
+    final (String key, String message, PortyAvatarState mood) =
+        switch (permission) {
+          _ when !loaded => (
+            'loading',
+            'notifications_porty_loading'.tr(),
+            PortyAvatarState.thinking,
+          ),
+          PushPermission.denied => (
+            'denied',
+            'notifications_porty_denied'.tr(),
+            PortyAvatarState.concerned,
+          ),
+          PushPermission.unavailable => (
+            'unavailable',
+            'notifications_porty_unavailable'.tr(),
+            PortyAvatarState.serious,
+          ),
+          PushPermission.notDetermined => (
+            'undecided',
+            'notifications_porty_undecided'.tr(),
+            PortyAvatarState.idle,
+          ),
+          _ when !enabled || activeTypes == 0 => (
+            'paused',
+            'notifications_porty_paused'.tr(),
+            PortyAvatarState.serious,
+          ),
+          _ => (
+            'on',
+            (activeTypes == 1
+                    ? 'notifications_porty_on_one'
+                    : 'notifications_porty_on_many')
+                .tr(namedArgs: {'count': '$activeTypes'}),
+            PortyAvatarState.answered,
+          ),
+        };
+    return PortySays(
+      messageKey: key,
+      mood: mood,
+      message: Text(message),
+      footnote: Text('notifications_intro'.tr()),
     );
   }
 }

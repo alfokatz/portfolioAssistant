@@ -26,7 +26,9 @@ import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/report_answer_sheet.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_permission_sheet.dart';
+import 'package:portfolio_assistant/presentation/flows/error_page/ui/error_screen.dart';
 import 'package:portfolio_assistant/features/notifications/view/push_settings_sheet.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -155,6 +157,8 @@ Widget _screen(String scenario) => switch (scenario) {
   'welcome' => const _SheetFrame(
     child: PushPermissionSheet(reason: PushPromptReason.welcome),
   ),
+  'error' => const ErrorScreen(),
+  'report' => const _SheetFrame(child: ReportAnswerSheet()),
   _ => const _SheetFrame(child: PushSettingsSheet()),
 };
 
@@ -203,7 +207,13 @@ void main() {
 
   for (final MapEntry(key: device, value: (size, dpr)) in _devices.entries) {
     for (final brightness in Brightness.values) {
-      for (final scenario in ['revisit', 'welcome', 'settings']) {
+      for (final scenario in [
+        'revisit',
+        'welcome',
+        'settings',
+        'error',
+        'report',
+      ]) {
         final id = 'home_prompt_${scenario}_${device}_${brightness.name}';
         testWidgets(id, (tester) async {
           tester.view.physicalSize = size * dpr;

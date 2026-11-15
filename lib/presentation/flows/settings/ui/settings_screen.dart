@@ -3,9 +3,11 @@ import 'package:portfolio_assistant/config/legal/legal_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/account_deletion/view/widgets/delete_account_flow.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/allocation/nav/allocation_router.dart';
 import 'package:portfolio_assistant/features/binance/providers/binance_provider.dart';
@@ -266,6 +268,17 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                 ),
               ),
             ),
+            // Porty, en primera persona: si todavía no sabe cómo invierte,
+            // lo pide; si ya sabe, saluda por el nombre.
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppDimens.sp20),
+              child: _SettingsPortyLine(
+                firstName: fullName?.split(' ').first,
+                profileMissing:
+                    investorProfile.hasLoaded &&
+                    investorProfile.profile == null,
+              ),
+            ),
             SettingsProfileCard(
               name: fullName,
               email: email,
@@ -453,6 +466,32 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SettingsPortyLine extends StatelessWidget {
+  const _SettingsPortyLine({
+    required this.firstName,
+    required this.profileMissing,
+  });
+
+  final String? firstName;
+  final bool profileMissing;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = firstName?.trim() ?? '';
+    final message =
+        profileMissing
+            ? 'settings_porty_profile_missing'.tr()
+            : name.isEmpty
+            ? 'settings_porty_hello'.tr()
+            : 'settings_porty_hello_name'.tr(namedArgs: {'name': name});
+    return PortySays(
+      messageKey: profileMissing ? 'missing' : 'hello',
+      mood: PortyAvatarState.idle,
+      message: Text(message),
     );
   }
 }

@@ -52,6 +52,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_st
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/report_answer_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
@@ -1346,6 +1347,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           ),
         ),
       );
+      // Mantener apretada la respuesta abre "reportar" (contenido de IA).
+      final reportable = _ReportableAnswer(
+        surfaceId: message.surfaceId,
+        child: surface,
+      );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.
       final quotaLeft = message.quotaNudgeRemaining;
@@ -1357,7 +1363,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  surface,
+                  reportable,
                   _AdviceFooterEntrance(
                     message: message,
                     child: Column(
@@ -1394,7 +1400,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   ),
                 ],
               )
-              : surface;
+              : reportable;
     } else {
       contentKey = const ValueKey('bubble');
       content = PortfolioQaChatBubble(
@@ -1691,6 +1697,51 @@ class _SheetQuestions extends StatelessWidget {
                 onTap: () => onSelected?.call(questions[i]),
               ),
             ),
+      ),
+    );
+  }
+}
+
+/// Una respuesta de Porty que se puede reportar manteniéndola apretada
+/// (Apple 1.2 y la política de IA generativa de Google). El extracto es el
+/// texto que se ve en la respuesta.
+class _ReportableAnswer extends ConsumerWidget {
+  const _ReportableAnswer({required this.surfaceId, required this.child});
+
+  final String? surfaceId;
+  final Widget child;
+
+  static String _visibleText(BuildContext context) {
+    final parts = <String>[];
+    void visit(Element element) {
+      final widget = element.widget;
+      if (widget is RichText) {
+        final text = widget.text.toPlainText().trim();
+        if (text.isNotEmpty) parts.add(text);
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return parts.join('\n');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      onLongPressHint: 'assistant_report_hint'.tr(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.deferToChild,
+        onLongPress: () {
+          PortyHapticsService.maybeOf(context)?.selectionTap();
+          ReportAnswerSheet.show(
+            context,
+            ref,
+            surfaceId: surfaceId,
+            answer: _visibleText(context),
+          );
+        },
+        child: child,
       ),
     );
   }

@@ -13,10 +13,23 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// Firma de subida a Play: android/key.properties (fuera del repo). Sin el
+// archivo, debug y profile compilan igual (firma de debug); un release de
+// producción falla con un mensaje claro en vez de un cast a null.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val hasUploadKey = keystorePropertiesFile.exists()
+if (hasUploadKey) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+val buildsProductionRelease = gradle.startParameter.taskNames.any {
+    it.contains("ProductionRelease", ignoreCase = true)
+}
+if (buildsProductionRelease && !hasUploadKey) {
+    throw GradleException(
+        "Falta android/key.properties: un release de producción tiene que " +
+            "firmarse con la clave de subida a Play (ver docs/ops).",
+    )
 }
 
 android {
@@ -71,17 +84,26 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
+        if (hasUploadKey) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Sin clave de subida (dev/staging local): firma de debug, que
+            // Play rechaza; producción ya cortó arriba.
+            signingConfig =
+                if (hasUploadKey) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
         }
     }
 }

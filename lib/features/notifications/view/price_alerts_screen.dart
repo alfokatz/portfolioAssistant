@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/notifications/domain/price_alert.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
 import 'package:portfolio_assistant/features/notifications/view/create_price_alert_sheet.dart';
@@ -16,6 +17,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/ui/widgets/settings_section_card.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/ticker_search_sheet.dart';
 
 /// Ajustes → Alertas de precio (y al tocar una alerta cumplida de un ticker
@@ -97,8 +99,6 @@ class _PriceAlertsScreenState extends BaseStatefulWidget<PriceAlertsScreen> {
     final state = ref.watch(priceAlertsProvider);
     final tier = ref.watch(subscriptionProvider).tier;
     final limit = PlanMatrix.of(tier).priceAlertLimit;
-    final colors = context.customColors;
-    final text = Theme.of(context).textTheme;
 
     final active =
         state.alerts.where((a) => a.status == PriceAlertStatus.active).toList();
@@ -136,16 +136,18 @@ class _PriceAlertsScreenState extends BaseStatefulWidget<PriceAlertsScreen> {
               AppDimens.sp48,
             ),
             children: [
-              Text(
-                'price_alerts_usage'.tr(
+              // Porty dice cuántos precios vigila (o qué pasó), con los
+              // números reales; el uso del plan, debajo.
+              _AlertsPortyHeader(
+                loaded: state.loaded,
+                failed: state.loadFailed && state.alerts.isEmpty,
+                watching: active.length,
+                total: state.alerts.length,
+                usage: 'price_alerts_usage'.tr(
                   namedArgs: {
                     'count': '${active.length}',
                     'limit': '$limit',
                   },
-                ),
-                style: text.bodyMedium?.copyWith(
-                  color: colors.textSecondary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(height: AppDimens.sp20),
@@ -157,7 +159,8 @@ class _PriceAlertsScreenState extends BaseStatefulWidget<PriceAlertsScreen> {
                   ),
                 )
               else if (state.alerts.isEmpty)
-                _EmptyState(failed: state.loadFailed)
+                // Sin alertas: lo dice Porty arriba; acá, solo el botón.
+                const SizedBox.shrink()
               else ...[
                 if (active.isNotEmpty)
                   section('price_alerts_section_active'.tr(), active),
@@ -368,35 +371,74 @@ class _ActionsSheet extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.failed});
+/// La cabecera con la voz de Porty: cuántos precios vigila por el usuario,
+/// que todavía no vigila ninguno, o que no pudo traer las alertas.
+class _AlertsPortyHeader extends StatelessWidget {
+  const _AlertsPortyHeader({
+    required this.loaded,
+    required this.failed,
+    required this.watching,
+    required this.total,
+    required this.usage,
+  });
 
+  final bool loaded;
   final bool failed;
+  final int watching;
+  final int total;
+  final String usage;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp24),
-      child: Column(
-        children: [
-          Icon(
-            Icons.notifications_none_rounded,
-            size: 40,
-            color: colors.textSecondary,
+    final (String key, String message, String? footnote, PortyAvatarState mood) =
+        switch ((loaded, failed, total, watching)) {
+          (false, _, _, _) => (
+            'loading',
+            'price_alerts_porty_loading'.tr(),
+            null,
+            PortyAvatarState.thinking,
           ),
-          const SizedBox(height: AppDimens.sp12),
-          Text(
-            (failed ? 'price_alerts_load_error' : 'price_alerts_empty').tr(),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.textSecondary,
-              height: 1.45,
-            ),
+          (_, true, _, _) => (
+            'failed',
+            'price_alerts_porty_failed'.tr(),
+            'price_alerts_porty_failed_hint'.tr(),
+            PortyAvatarState.error,
           ),
-        ],
-      ),
+          (_, _, 0, _) => (
+            'empty',
+            'price_alerts_porty_empty'.tr(),
+            'price_alerts_porty_empty_hint'.tr(),
+            PortyAvatarState.idle,
+          ),
+          (_, _, _, 0) => (
+            'paused',
+            'price_alerts_porty_none_active'.tr(),
+            usage,
+            PortyAvatarState.idle,
+          ),
+          _ => (
+            'watching',
+            (watching == 1
+                    ? 'price_alerts_porty_watching_one'
+                    : 'price_alerts_porty_watching_many')
+                .tr(namedArgs: {'count': '$watching'}),
+            usage,
+            PortyAvatarState.answered,
+          ),
+        };
+    return PortySays(
+      messageKey: key,
+      mood: mood,
+      message: Text(message),
+      footnote:
+          footnote == null
+              ? null
+              : Text(
+                footnote,
+                style: const TextStyle(
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
     );
   }
 }
-
