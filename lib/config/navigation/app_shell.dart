@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/notifications/view/push_reminder_watcher.dart';
 import 'package:portfolio_assistant/features/binance/view/widgets/binance_auto_sync.dart';
 import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_auto_sync.dart';
 import 'package:go_router/go_router.dart';
@@ -107,17 +108,22 @@ class AppShell extends ConsumerWidget with BaseScreen {
       // La primera vez que la cartera tiene posiciones, Porty muestra lo
       // que vio en ella (el diagnóstico). Tocar el widget abre el chat (con
       // la pregunta enviada) y `AppOpenTracker` anota cómo se abrió la app.
+      // Al entrar a la Home, Porty ofrece las notificaciones (o, si se
+      // rechazaron, cada tanto recuerda cómo prenderlas).
       body: AppOpenTracker(
         onOpen: () => ref.read(widgetPromptProvider.notifier).registerOpen(),
         child: WidgetLaunchListener(
           child: PushOpenListener(
             child: FirstPortfolioWatcher(
               isHome: isHome,
-              child: WidgetPromptWatcher(
+              child: PushReminderWatcher(
                 isHome: isHome,
-                child: EtoroAutoSync(
-                  child: BinanceAutoSync(
-                    child: SnaptradeAutoSync(child: navigationShell),
+                child: WidgetPromptWatcher(
+                  isHome: isHome,
+                  child: EtoroAutoSync(
+                    child: BinanceAutoSync(
+                      child: SnaptradeAutoSync(child: navigationShell),
+                    ),
                   ),
                 ),
               ),

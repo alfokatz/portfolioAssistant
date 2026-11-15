@@ -113,8 +113,8 @@ void main() {
       );
     });
 
-    testWidgets('a Premium reason opens with Premium first, badge on it and '
-        'both promises', (tester) async {
+    testWidgets('a Premium reason opens with Premium first, the badge on '
+        'Gold and both promises', (tester) async {
       final h = PaywallHarness(offer: monthlyOffer);
       await h.pump(tester, reason: PaywallReason.marketDataLocked);
       await h.open(tester);
@@ -122,14 +122,30 @@ void main() {
       final premium = tester.getTopLeft(find.text('paywall_upgrade_premium'));
       final gold = tester.getTopLeft(find.text('paywall_upgrade_gold'));
       expect(premium.dy, lessThan(gold.dy));
-      // Un solo badge, en la primera tarjeta.
+      // Un solo badge, en la tarjeta de Gold (la segunda).
+      expect(find.text('paywall_recommended'), findsOneWidget);
+      final badge = tester.getTopLeft(find.text('paywall_recommended')).dy;
+      expect(badge, greaterThan(premium.dy));
+      expect(badge, lessThan(gold.dy));
+      expect(find.text('paywall_premium_promise'), findsOneWidget);
+      expect(find.text('paywall_gold_promise'), findsOneWidget);
+    });
+
+    testWidgets('from Plans, Gold goes first and carries the badge', (
+      tester,
+    ) async {
+      final h = PaywallHarness(offer: monthlyOffer);
+      await h.pump(tester, reason: PaywallReason.plans, source: 'settings');
+      await h.open(tester);
+
+      final premium = tester.getTopLeft(find.text('paywall_upgrade_premium'));
+      final gold = tester.getTopLeft(find.text('paywall_upgrade_gold'));
+      expect(gold.dy, lessThan(premium.dy));
       expect(find.text('paywall_recommended'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('paywall_recommended')).dy,
-        lessThan(premium.dy),
+        lessThan(gold.dy),
       );
-      expect(find.text('paywall_premium_promise'), findsOneWidget);
-      expect(find.text('paywall_gold_promise'), findsOneWidget);
     });
 
     testWidgets('a Gold reason from Free shows only Gold, no badge', (

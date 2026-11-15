@@ -1,16 +1,27 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 
 /// Por qué se ofrece el permiso: cambia el texto (plan §6, siempre en un
 /// momento en que aporta valor).
-enum PushPromptReason { priceAlert, weeklyReport, etoro, settings, diagnosis }
+enum PushPromptReason {
+  priceAlert,
+  weeklyReport,
+  etoro,
+  settings,
+  diagnosis,
+
+  /// Al entrar a la Home (la primera vez y, si dijo "Ahora no", cada tanto).
+  welcome,
+}
 
 /// La pantalla previa al diálogo del sistema. iOS deja mostrar ese diálogo
 /// UNA vez: si el usuario no quiere, que diga "Ahora no" acá y no allá.
@@ -72,6 +83,7 @@ class PushPermissionSheet extends ConsumerWidget {
     PushPromptReason.etoro => 'push_prompt_title_etoro',
     PushPromptReason.settings => 'push_prompt_title_settings',
     PushPromptReason.diagnosis => 'push_prompt_title_diagnosis',
+    PushPromptReason.welcome => 'push_prompt_title_welcome',
   };
 
   String get _bodyKey => switch (reason) {
@@ -80,10 +92,36 @@ class PushPermissionSheet extends ConsumerWidget {
     PushPromptReason.etoro => 'push_prompt_body_etoro',
     PushPromptReason.settings => 'push_prompt_body_settings',
     PushPromptReason.diagnosis => 'push_prompt_body_diagnosis',
+    PushPromptReason.welcome => 'push_prompt_body_welcome',
   };
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) => PushSheetLayout(
+    title: _titleKey.tr(),
+    body: _bodyKey.tr(),
+    actionLabel: 'push_prompt_enable'.tr(),
+  );
+}
+
+/// La forma de las hojas de notificaciones: Porty pregunta con su cara
+/// ([PortySays]), las tres promesas (control, silencio, privacidad) y la
+/// acción. `pop(true)` con la acción, `pop(false)` con "Ahora no".
+class PushSheetLayout extends StatelessWidget {
+  const PushSheetLayout({
+    super.key,
+    required this.title,
+    required this.body,
+    required this.actionLabel,
+    this.mood = PortyAvatarState.idle,
+  });
+
+  final String title;
+  final String body;
+  final String actionLabel;
+  final PortyAvatarState mood;
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.customColors;
     final text = Theme.of(context).textTheme;
 
@@ -119,32 +157,32 @@ class PushPermissionSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                _titleKey.tr(),
-                style: text.titleLarge?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppDimens.sp8),
-            Text(
-              _bodyKey.tr(),
-              style: text.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                height: 1.45,
-              ),
+            PortySays(
+              messageKey: title,
+              mood: mood,
+              message: Semantics(header: true, child: Text(title)),
+              footnote: Text(body),
             ),
             const SizedBox(height: AppDimens.sp20),
-            point(Icons.tune_rounded, 'push_prompt_point_control'),
-            point(Icons.bedtime_outlined, 'push_prompt_point_quiet'),
-            point(Icons.lock_outline_rounded, 'push_prompt_point_privacy'),
+            Padding(
+              // Las promesas, alineadas con el texto de Porty.
+              padding: const EdgeInsets.only(
+                left: PortySays.avatarSize + AppDimens.sp12,
+              ),
+              child: Column(
+                children: [
+                  point(Icons.tune_rounded, 'push_prompt_point_control'),
+                  point(Icons.bedtime_outlined, 'push_prompt_point_quiet'),
+                  point(
+                    Icons.lock_outline_rounded,
+                    'push_prompt_point_privacy',
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: AppDimens.sp12),
             PositionPrimaryButton(
-              label: 'push_prompt_enable'.tr(),
+              label: actionLabel,
               onPressed: () => Navigator.of(context).pop(true),
             ),
             const SizedBox(height: AppDimens.sp4),

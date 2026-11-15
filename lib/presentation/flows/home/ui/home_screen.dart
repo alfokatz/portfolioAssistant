@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_pr
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_extras_card.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -273,6 +274,9 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                     ),
                                 suggestions: _portySuggestions(valuations),
                               ),
+                              // Los hallazgos de Porty, para volver a verlos
+                              // después del primer diagnóstico.
+                              const DiagnosisRevisitCard(),
                               if (isBenchmarkAllowed)
                                 BenchmarkComparisonCard(
                                   portfolioPercent: periodPnl.percent,

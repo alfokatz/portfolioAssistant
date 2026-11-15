@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -95,6 +96,8 @@ Future<void> _pump(
 }
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   group('Ajustes → Notificaciones', () {
     testWidgets('sin permiso: ofrece activarlas y los tipos quedan apagados', (
       tester,

@@ -501,8 +501,12 @@ class _SubscriptionPaywallSheetState
                   tier: visibleTiers[i],
                   period: period,
                   featured: visibleTiers[i] == SubscriptionTier.gold,
-                  // El badge va en la primera tarjeta cuando hay dos.
-                  showRecommendedBadge: visibleTiers.length > 1 && i == 0,
+                  // "Recomendado" va siempre en Gold cuando hay dos planes,
+                  // aunque Premium vaya primero (el que destraba lo que el
+                  // usuario tocó).
+                  showRecommendedBadge:
+                      visibleTiers.length > 1 &&
+                      visibleTiers[i] == SubscriptionTier.gold,
                   price: offer.priceOf(visibleTiers[i], period),
                   savingsPercent:
                       period == BillingPeriod.annual
