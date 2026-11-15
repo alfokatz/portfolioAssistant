@@ -277,3 +277,19 @@ calm and content. Curtains move slightly with a breeze. Static camera. [+ bloque
 5. **Compliance:** los textos de las dos tablas de guion van a `porty-compliance` antes de generar.
 6. **Dependencia:** A dice "te aviso": se publica cuando el push funcione en producción (B4). E no depende del push.
 7. **Pauta:** confirmar con Meta y TikTok los requisitos vigentes para anuncios financieros en Argentina y Uruguay (verificación de anunciante) antes de gastar.
+
+---
+
+## 8. Revisión de compliance del copy (2026-11-12)
+
+`porty-compliance` revisó el copy de todos los videos. Reglas nuevas y correcciones:
+
+- **Letra chica (reemplaza la etiqueta "Cuenta demo"):** fija desde el segundo 0, ≥ 28 px: "Imagen ilustrativa con datos de ejemplo." En los últimos 3 s: "Imagen ilustrativa con datos de ejemplo. No es asesoramiento financiero." Si el video muestra variación o rendimiento: "Imagen ilustrativa con datos de ejemplo. Rendimientos pasados no garantizan resultados futuros. No es asesoramiento financiero."
+- **En pauta, no afirmar atributos del espectador:** "Vos, mirando tu cartera…" → "Si mirás tu cartera por la 7.ª vez hoy…"; "Tu plata, en tres apps distintas." → "Si tu plata está en tres apps distintas…".
+- **Cierre:** "Vos seguí con tu día. Porty está atento." → "Seguí con tu día: Porty te avisa si se mueve fuerte." (no garantiza monitoreo permanente).
+- **A "La reunión":** "Si no, ni te enterás." → "Si no, no te molesto."; letra chica con rendimientos (la variante "sube 2.1%"). Bloqueado hasta que funcione el push.
+- **E "Tres apps":** "Exchange" → "Otro bróker"; "Porty la junta en un solo lugar." → "Porty te ayuda a verla junta."; "La conexión automática es de Premium." → "…es de planes pagos."; agregar "Porty lee capturas con IA y puede equivocarse."
+- **Reel `reel-atento`:** pendiente aplicar las correcciones de arriba (gancho, cierre, letra chica con rendimientos) y volver a renderizar. Bloqueado hasta que funcione el push.
+- **Para el abogado:** reglas de Meta/TikTok para pauta financiera en AR/UY (CNV, defensa del consumidor) y si "te marca / te avisa" sobre concentración sigue siendo información.
+
+Producidos con este copy (sin IA): `tools/marketing/hyperframes/diversificado/`, `captura/` y `manana/` (salidas en `docs/marketing/social/piezas/2026-11-12/`).

@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 import 'package:http/testing.dart';
+import 'package:portfolio_assistant/config/supabase/apple_id_provider.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_redirect_url.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,6 +40,25 @@ class _FakeBrowser implements OAuthBrowser {
     openedUrl = url;
     this.callbackScheme = callbackScheme;
     return respond(url);
+  }
+}
+
+/// Hace de hoja nativa de Apple: guarda el nonce hasheado que recibió.
+class _FakeAppleId implements AppleIdProvider {
+  _FakeAppleId(this.respond);
+
+  final AppleIdCredential? Function() respond;
+  final hashedNonces = <String>[];
+  final withName = <bool>[];
+
+  @override
+  Future<AppleIdCredential?> requestCredential({
+    required String hashedNonce,
+    required bool withNameAndEmail,
+  }) async {
+    hashedNonces.add(hashedNonce);
+    withName.add(withNameAndEmail);
+    return respond();
   }
 }
 
@@ -235,5 +256,104 @@ void main() {
       SupabaseRedirectUrl.passwordRecoveryCallback,
     );
     expect(jsonDecode(recover.body)['email'], 'ana@mail.com');
+  });
+
+  group('Apple sign-in (native sheet + id token)', () {
+    SupabaseAuthService apple(_FakeAppleId sheet) => SupabaseAuthService(
+      client,
+      oauthBrowser: _FakeBrowser((_) => null),
+      appleIdProvider: sheet,
+      nativeApple: true,
+    );
+
+    test('sends the id token with the raw nonce whose sha256 went to Apple, '
+        'and saves the name Apple only sends once', () async {
+      final sheet = _FakeAppleId(
+        () => const AppleIdCredential(
+          authorizationCode: 'code',
+          identityToken: 'apple-id-token',
+          givenName: 'Ana',
+          familyName: 'Pérez',
+        ),
+      );
+
+      expect(await apple(sheet).signInWithApple(), isTrue);
+
+      final token = requests.firstWhere(
+        (r) => r.url.path == '/auth/v1/token',
+      );
+      expect(token.url.queryParameters['grant_type'], 'id_token');
+      final body = jsonDecode(token.body) as Map<String, dynamic>;
+      expect(body['provider'], 'apple');
+      expect(body['id_token'], 'apple-id-token');
+      final rawNonce = body['nonce'] as String;
+      expect(
+        sheet.hashedNonces.single,
+        sha256.convert(utf8.encode(rawNonce)).toString(),
+      );
+      expect(sheet.withName.single, isTrue);
+
+      final update = requests.firstWhere(
+        (r) => r.url.path == '/auth/v1/user' && r.method == 'PUT',
+      );
+      expect(jsonDecode(update.body)['data'], {
+        'full_name': 'Ana Pérez',
+        'given_name': 'Ana',
+        'family_name': 'Pérez',
+      });
+    });
+
+    test('closing the Apple sheet is not an error and does not sign in',
+        () async {
+      final sheet = _FakeAppleId(() => null);
+      expect(await apple(sheet).signInWithApple(), isFalse);
+      expect(requests, isEmpty);
+    });
+
+    test('without an identity token it fails before calling Supabase',
+        () async {
+      final sheet = _FakeAppleId(
+        () => const AppleIdCredential(authorizationCode: 'code'),
+      );
+      await expectLater(
+        apple(sheet).signInWithApple(),
+        throwsA(isA<AuthException>()),
+      );
+      expect(requests, isEmpty);
+    });
+
+    test('no name from Apple: does not touch the user metadata', () async {
+      final sheet = _FakeAppleId(
+        () => const AppleIdCredential(
+          authorizationCode: 'code',
+          identityToken: 'apple-id-token',
+        ),
+      );
+      expect(await apple(sheet).signInWithApple(), isTrue);
+      expect(requests.where((r) => r.url.path == '/auth/v1/user'), isEmpty);
+    });
+
+    test('the deletion code asks Apple without name or email', () async {
+      final sheet = _FakeAppleId(
+        () => const AppleIdCredential(authorizationCode: 'del-code'),
+      );
+      expect(await apple(sheet).appleAuthorizationCode(), 'del-code');
+      expect(sheet.withName.single, isFalse);
+    });
+
+    test('outside iOS it keeps the browser OAuth flow', () async {
+      final sheet = _FakeAppleId(() => null);
+      final browser = _FakeBrowser((_) => null);
+      final auth = SupabaseAuthService(
+        client,
+        oauthBrowser: browser,
+        appleIdProvider: sheet,
+        nativeApple: false,
+      );
+      expect(await auth.signInWithApple(), isFalse);
+      expect(browser.openedUrl?.queryParameters['provider'], 'apple');
+      expect(sheet.hashedNonces, isEmpty);
+      expect(await auth.appleAuthorizationCode(), isNull);
+    });
   });
 }

@@ -119,5 +119,17 @@ void main() {
       final f = await _repo(_Adapter(200, {'ok': 1})).deleteAccount();
       expect(f, isA<DeletionPartial>());
     });
+
+    test('with an Apple code, sends it as apple_authorization_code', () async {
+      final adapter = _Adapter(200, {'deleted': true});
+      expect(
+        await _repo(adapter).deleteAccount(appleAuthorizationCode: 'c-1'),
+        isNull,
+      );
+      expect(adapter.last!.data, {
+        'confirm': true,
+        'apple_authorization_code': 'c-1',
+      });
+    });
   });
 }

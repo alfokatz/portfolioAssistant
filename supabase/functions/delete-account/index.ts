@@ -4,6 +4,9 @@
 // Secrets (ya existen en el proyecto): REVENUECAT_SECRET_API_KEY (sk_… v1),
 // SNAPTRADE_CLIENT_ID, SNAPTRADE_CONSUMER_KEY, ETORO_CLIENT_ID,
 // ETORO_CLIENT_SECRET. Opcionales: SNAPTRADE_API_URL, ETORO_ENVIRONMENT y ETORO_DEMO_PROJECT_REF (solo staging).
+// Sign in with Apple (revocar al borrar): APPLE_TEAM_ID, APPLE_KEY_ID,
+// APPLE_CLIENT_ID (bundle id) y APPLE_PRIVATE_KEY (.p8). Sin ellos se borra
+// igual y queda en el log `apple: misconfigured`.
 import { defaultDeps } from "../_shared/common.ts";
 import { handle } from "./handler.ts";
 

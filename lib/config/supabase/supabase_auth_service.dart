@@ -1,10 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/supabase/apple_id_provider.dart';
 import 'package:portfolio_assistant/config/supabase/sign_up_result.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_redirect_url.dart';
@@ -53,11 +57,23 @@ final oauthBrowserProvider = Provider<OAuthBrowser>(
 );
 
 class SupabaseAuthService {
-  SupabaseAuthService(this._client, {OAuthBrowser? oauthBrowser})
-    : _oauthBrowser = oauthBrowser ?? const SystemOAuthBrowser();
+  SupabaseAuthService(
+    this._client, {
+    OAuthBrowser? oauthBrowser,
+    AppleIdProvider? appleIdProvider,
+    bool? nativeApple,
+  }) : _oauthBrowser = oauthBrowser ?? const SystemOAuthBrowser(),
+       _appleId = appleIdProvider ?? const SystemAppleIdProvider(),
+       _nativeApple =
+           nativeApple ??
+           (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS);
 
   final SupabaseClient _client;
   final OAuthBrowser _oauthBrowser;
+  final AppleIdProvider _appleId;
+
+  /// Hoja nativa de Apple (iOS). En otras plataformas, OAuth en el navegador.
+  final bool _nativeApple;
 
   GoTrueClient get auth => _client.auth;
 
@@ -134,7 +150,87 @@ class SupabaseAuthService {
     queryParams: const {'prompt': 'select_account'},
   );
 
-  Future<bool> signInWithApple() => _signInWithOAuth(OAuthProvider.apple);
+  /// Login con Apple. En iOS usa la hoja nativa (lo que espera la revisión
+  /// de la App Store, guía 4.8): Apple firma un `identityToken` con el
+  /// `nonce` hasheado y Supabase lo valida contra el nonce original, así un
+  /// token interceptado no sirve para otra sesión. Devuelve `false` si el
+  /// usuario cerró la hoja.
+  Future<bool> signInWithApple() async {
+    if (!_nativeApple) return _signInWithOAuth(OAuthProvider.apple);
+
+    final rawNonce = _client.auth.generateRawNonce();
+    final credential = await _appleId.requestCredential(
+      hashedNonce: _sha256(rawNonce),
+      withNameAndEmail: true,
+    );
+    if (credential == null) return false;
+
+    final idToken = credential.identityToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw const AuthException(
+        'Apple did not return an identity token',
+        code: 'apple_missing_id_token',
+      );
+    }
+    await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    // Apple manda el nombre solo la primera vez. Si no se guarda ahora, se
+    // pierde; si falla, el usuario igual entra y lo puede cargar en Settings.
+    final given = credential.givenName?.trim() ?? '';
+    final family = credential.familyName?.trim() ?? '';
+    final fullName = [given, family].where((s) => s.isNotEmpty).join(' ');
+    final current = _client.auth.currentUser?.userMetadata?['full_name'];
+    if (fullName.isNotEmpty && (current is! String || current.trim().isEmpty)) {
+      try {
+        await _client.auth.updateUser(
+          UserAttributes(
+            data: {
+              'full_name': fullName,
+              if (given.isNotEmpty) 'given_name': given,
+              if (family.isNotEmpty) 'family_name': family,
+            },
+          ),
+        );
+      } catch (_) {
+        // Ver arriba: no bloquea el login.
+      }
+    }
+    return true;
+  }
+
+  /// Si la cuenta entró (alguna vez) con Apple. Al borrarla hay que revocar
+  /// el acceso en Apple (guía 5.1.1(v)).
+  bool get usesApple {
+    final user = _client.auth.currentUser;
+    if (user == null) return false;
+    final providers = user.appMetadata['providers'];
+    if (providers is List && providers.contains('apple')) return true;
+    if (user.appMetadata['provider'] == 'apple') return true;
+    return user.identities?.any((i) => i.provider == 'apple') ?? false;
+  }
+
+  /// Si al borrar la cuenta hay que (y se puede) pedirle a Apple el código
+  /// para revocar el acceso: cuenta con Apple y hoja nativa disponible.
+  bool get canRevokeApple => _nativeApple && usesApple;
+
+  /// Código de un uso de Apple para que el servidor revoque el acceso al
+  /// borrar la cuenta. Muestra la hoja de Apple otra vez. `null` si el
+  /// usuario la cerró o si no hay hoja nativa en esta plataforma.
+  Future<String?> appleAuthorizationCode() async {
+    if (!_nativeApple) return null;
+    final credential = await _appleId.requestCredential(
+      hashedNonce: _sha256(_client.auth.generateRawNonce()),
+      withNameAndEmail: false,
+    );
+    return credential?.authorizationCode;
+  }
+
+  static String _sha256(String value) =>
+      sha256.convert(utf8.encode(value)).toString();
 
   /// OAuth con PKCE:
   /// 1. GoTrue arma la URL de `/authorize` y guarda el code verifier en el
@@ -243,6 +339,7 @@ final supabaseAuthServiceProvider = Provider<SupabaseAuthService>(
   (ref) => SupabaseAuthService(
     ref.watch(supabaseClientProvider),
     oauthBrowser: ref.watch(oauthBrowserProvider),
+    appleIdProvider: ref.watch(appleIdProviderProvider),
   ),
 );
 

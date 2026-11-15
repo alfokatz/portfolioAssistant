@@ -28,19 +28,27 @@ void main() {
     test(
       'returns the earliest upcoming report as next earnings date',
       () async {
+        // Relativas a hoy: con fechas fijas el test se vencía cuando el
+        // "próximo" reporte pasaba a ser del pasado.
+        final today = DateTime.now();
+        String day(DateTime d) =>
+            '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+            '${d.day.toString().padLeft(2, '0')}';
+        final soon = today.add(const Duration(days: 30));
+        final later = today.add(const Duration(days: 120));
         final dio = dioResolving(
           (_) => {
             'earningsCalendar': [
               {
                 'symbol': 'NVDA',
-                'date': '2027-02-10',
+                'date': day(later),
                 'quarter': 4,
                 'year': 2026,
                 'epsEstimate': 1.5,
               },
               {
                 'symbol': 'NVDA',
-                'date': '2026-11-13',
+                'date': day(soon),
                 'quarter': 3,
                 'year': 2026,
                 'epsEstimate': 1.36,
@@ -58,7 +66,7 @@ void main() {
         final entry = result.fold((_) => null, (value) => value);
 
         expect(entry, isNotNull);
-        expect(entry!.reportDate, DateTime(2026, 11, 13));
+        expect(entry!.reportDate, DateTime(soon.year, soon.month, soon.day));
         expect(entry.fiscalQuarter, 3);
         expect(entry.fiscalYear, 2026);
         expect(entry.hour, 'amc');

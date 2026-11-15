@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/social_sign_in_button.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart' show AppleLogoPainter;
 
 /// "Continuar con Apple" con el estilo de las Human Interface Guidelines:
 /// negro con logo y texto blancos en light, blanco con negro en dark (Apple
@@ -8,7 +9,9 @@ import 'package:portfolio_assistant/presentation/flows/auth/ui/widgets/social_si
 /// que el botón de Google para que el par se lea como un solo bloque.
 ///
 /// Los colores son los de Apple, no tokens de la app: la guía no permite
-/// teñir el botón con el color de marca.
+/// teñir el botón con el color de marca. El logo es el trazado oficial de la
+/// manzana (el `AppleLogoPainter` del paquete sign_in_with_apple), no el
+/// ícono de Material, que la revisión de la App Store no acepta.
 class AppleSignInButton extends StatelessWidget {
   const AppleSignInButton({
     super.key,
@@ -43,7 +46,14 @@ class AppleSignInButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.apple, size: AppDimens.iconLg, color: foreground),
+            SizedBox(
+              // Proporción del logo de Apple (25 de ancho por 31 de alto).
+              width: AppDimens.iconLg * 25 / 31,
+              height: AppDimens.iconLg,
+              child: CustomPaint(
+                painter: AppleLogoPainter(color: foreground),
+              ),
+            ),
             const SizedBox(width: AppDimens.sp8),
             Text(
               label,

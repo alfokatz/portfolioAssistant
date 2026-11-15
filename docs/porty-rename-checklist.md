@@ -34,28 +34,28 @@ Cambios a mano que acompañan el renombre de la app a **Porty** y el login nuevo
 - [ ] **URL Configuration**: Site URL y Redirect URLs (ver deep link más arriba).
 - [ ] `supabase/config.toml` tiene `project_id = "portfolio_assistant"`. Es técnico y no lo ve el usuario: no hace falta cambiarlo.
 
-## Sign in with Apple (hoy NO está activo)
+## Sign in with Apple (flujo nativo, activo desde el 2026-11-13)
 
-Hoy la app ofrece Google y no ofrece Apple. Con eso, la guía **4.8** de la App Store puede rechazar la app en revisión. El servicio ya tiene `signInWithApple()` (flujo web vía Supabase), pero no había botón, entitlement ni configuración. El botón ya está en el diseño, apagado detrás de `--dart-define=APPLE_SIGN_IN_ENABLED=true` y visible solo en iOS.
+La app ofrece Apple arriba de Google, solo en iOS (guía 4.8 de la App Store).
 
-**Apple Developer (Certificates, Identifiers & Profiles)**
-- [ ] Identifiers → el App ID de la app → habilitar la capability **Sign In with Apple**.
-- [ ] Keys → crear una key con **Sign in with Apple** habilitado. Bajar el `.p8` y anotar el Key ID y el Team ID.
-- [ ] Solo para el flujo web/OAuth (o para Android y web): Identifiers → **Services ID** (ej. `<bundle-id>.signin`). Configurarle el dominio `<project-ref>.supabase.co` y la Return URL `https://<project-ref>.supabase.co/auth/v1/callback`.
+**Apple Developer**
+- [x] App ID `com.portyassistant.app` con **Sign In with Apple**.
+- [x] Key con Sign in with Apple (`.p8`, Key ID, Team ID), guardada en el gestor de contraseñas.
+- No hace falta Services ID: el login es nativo (sin flujo web).
 
-**Xcode**
-- [ ] Runner → Signing & Capabilities → **+ Sign In with Apple**. Esto crea `Runner.entitlements` con `com.apple.developer.applesignin`.
+**Supabase → Authentication → Providers → Apple (producción y develop)**
+- [x] Enable, Client IDs = `com.portyassistant.app`. Secret Key (for OAuth) vacío: solo lo usa el flujo web, así no hay que renovarlo cada 6 meses.
 
-**Supabase → Authentication → Providers → Apple**
-- [ ] Enable.
-- [ ] Client IDs: el bundle id (flujo nativo) y el Services ID (flujo web).
-- [ ] Secret key: el JWT generado con el `.p8`, el Key ID y el Team ID (lo necesita el flujo OAuth). **Vence cada 6 meses**: agendá la renovación.
+**Secretos de edge functions (producción y develop), para revocar al borrar la cuenta**
+- [x] `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_CLIENT_ID` (bundle id), `APPLE_PRIVATE_KEY` (contenido del `.p8`).
 
-**Código, cuando esté lo anterior (recomendado)**
-- [ ] Pasar al flujo nativo: hoy `signInWithApple()` abre Safari, y Apple espera la hoja nativa. Se hace con `sign_in_with_apple` + nonce SHA-256 + `supabase.auth.signInWithIdToken(provider: OAuthProvider.apple, idToken: …, nonce: …)`. Apple manda el nombre solo en el primer login: guardarlo en `user_metadata`.
-- [ ] El logo del botón hoy es `Icons.apple` de Material. Para la revisión, usar el logo oficial de Apple Design Resources o el botón del sistema (`SignInWithAppleButton`). El tamaño, el radio y la posición ya están resueltos en `AppleSignInButton`.
-- [ ] Buildear con `--dart-define=APPLE_SIGN_IN_ENABLED=true`.
-- [ ] La app ya tiene "Eliminar cuenta" en Settings (lo exige la 5.1.1(v) con login social). Con Apple, al borrar la cuenta también hay que revocar el token (`/auth/revoke`).
+**Código**
+- [x] Hoja nativa con `sign_in_with_apple`: nonce SHA-256 + `signInWithIdToken` (`SupabaseAuthService.signInWithApple`). El nombre, que Apple manda solo la primera vez, se guarda en `user_metadata`.
+- [x] Logo oficial de la manzana en `AppleSignInButton` (`AppleLogoPainter`).
+- [x] Capability `com.apple.developer.applesignin` en `Runner.entitlements`.
+- [x] `APPLE_SIGN_IN_ENABLED` prendido por defecto; `--dart-define=APPLE_SIGN_IN_ENABLED=false` lo apaga.
+- [x] Borrar cuenta (5.1.1(v)): la app pide a Apple un código y `delete-account` lo canjea y revoca el token (`delete-account/apple.ts`, best effort). Si el usuario cierra la hoja de Apple, no se borra nada.
+- [ ] Probar en un iPhone real: login con Apple (incluido "Ocultar mi email"), cerrar sesión y volver a entrar, y borrar la cuenta (en Ajustes del iPhone → Apple ID → Iniciar sesión con Apple, Porty tiene que desaparecer).
 
 ## App Store Connect
 

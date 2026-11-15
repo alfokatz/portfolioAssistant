@@ -34,7 +34,9 @@ class _FakeRepo implements AccountDeletionRepository {
   int calls = 0;
 
   @override
-  Future<AccountDeletionFailure?> deleteAccount() {
+  Future<AccountDeletionFailure?> deleteAccount({
+    String? appleAuthorizationCode,
+  }) {
     calls++;
     return result();
   }
@@ -51,6 +53,9 @@ class _FakeAuth implements SupabaseAuthService {
 
   @override
   Future<void> signOutLocal() async => signOutLocalCalls++;
+
+  @override
+  bool get canRevokeApple => false;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
