@@ -4,13 +4,13 @@ Las grabaciones reemplazan las pantallas dibujadas dentro del celular. El gancho
 
 ## Preparación (una vez)
 
-- **Cuenta demo nueva**, con un mail de prueba sin tu nombre. Nunca tu cuenta real.
+- **Cuentas demo** (ver `tools/marketing/demo/README.md`): `demo.captura@…` vacía para la toma C y `demo@…` con la cartera de ejemplo (script `cuenta_demo.sql`) para las tomas D y E. Nunca tu cuenta real.
 - Modo claro, idioma español, modo no molestar, batería alta, sin notificaciones a la vista.
 - Grabadora nativa: iPhone (Centro de control → Grabar pantalla) o Android (Grabador de pantalla, 1080p o más).
 - Gestos lentos, sin zoom con los dedos, 1 s de pausa entre toques. Grabá cada toma 2 veces.
 - Revisá cada archivo antes de mandarlo: mail, nombre de cuenta, notificaciones.
 
-## Toma C · "De una captura a tu cartera" (hacela primero, con la cuenta vacía)
+## Toma C · "De una captura a tu cartera" (con la cuenta vacía `demo.captura@…`)
 
 Guardá `captura_de_ejemplo.png` en las fotos del celular (datos inventados: SPY, QQQ, AAPL, MSFT, KO; no es ningún bróker real).
 
@@ -23,7 +23,7 @@ Guardá `captura_de_ejemplo.png` en las fotos del celular (datos inventados: SPY
 
 Duración aproximada: 20–30 s (después recorto las esperas). Usa 1 consulta del plan gratis.
 
-## Toma D · "Creés que estás diversificado" (con la cartera de la toma C ya cargada)
+## Toma D · "Creés que estás diversificado" (con la cuenta `demo@…` y su cartera de ejemplo)
 
 1. Desde la Home, tocá la tarjeta **"Miré tu cartera"** (o abrí el diagnóstico).
 2. Bajá despacio hasta el hallazgo de sector o de concentración ("Tecnología es el X% de tu cartera", "… pesa X% contando tus ETFs").
