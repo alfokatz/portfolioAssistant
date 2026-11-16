@@ -206,6 +206,10 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                   // Hasta que vea su primer diagnóstico: "Miré tu
                   // cartera". Trae su propio espacio inferior.
                   const DiagnosisEntryCard(),
+                  // Después de verlo: "Lo que vi en tu cartera", para volver
+                  // a los hallazgos (con los números de hoy). Ocupa el mismo
+                  // lugar que la entrada de arriba; nunca están las dos.
+                  const DiagnosisRevisitCard(),
                   // Lo que Porty marca hoy (el desvío del plan, metas,
                   // concentración, alertas). Trae su propio espacio
                   // inferior; sin nada para marcar, no ocupa lugar.
@@ -274,9 +278,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                     ),
                                 suggestions: _portySuggestions(valuations),
                               ),
-                              // Los hallazgos de Porty, para volver a verlos
-                              // después del primer diagnóstico.
-                              const DiagnosisRevisitCard(),
                               if (isBenchmarkAllowed)
                                 BenchmarkComparisonCard(
                                   portfolioPercent: periodPnl.percent,
