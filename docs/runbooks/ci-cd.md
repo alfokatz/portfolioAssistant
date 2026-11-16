@@ -15,14 +15,15 @@ Si el CI falla en un PR, no se mergea. Para ver el error: GitHub → Actions →
 
 | Rama git | Supabase | Deploy |
 |---|---|---|
-| `develop` | rama persistente `develop` (Branching, plan Pro) | `deploy-supabase-develop.yml`, automático al pushear cambios en `supabase/` |
+| `develop` | rama persistente `develop` (Branching, plan Pro) | `deploy-supabase-develop.yml`, automático al pushear cambios en `supabase/`: migraciones + edge functions |
+| cualquier otra (menos `main`) | la misma rama `develop` de Supabase | `deploy-supabase-develop.yml`: **solo edge functions** (las migraciones, vista previa sin aplicar) |
 | `main` | producción | `deploy-supabase.yml`, con tu aprobación |
 
 Flujo: rama de trabajo → PR a `develop` → se despliega a Supabase develop y probás la app con el flavor `development` → PR de `develop` a `main` → aprobás el deploy a producción. Nunca se cambia el esquema a mano en ninguno de los dos: todo va por migraciones.
 
 ## Deploy de Supabase develop (`.github/workflows/deploy-supabase-develop.yml`)
 
-Igual que el de producción, pero contra la rama `develop` de Supabase y sin aprobación.
+Igual que el de producción, pero contra la rama `develop` de Supabase y sin aprobación. Corre con cualquier push con cambios en `supabase/` a una rama que no sea `main`: despliega las edge functions de esa rama (para probar, por ejemplo, el chat antes de mergear; el último push gana) y aplica migraciones solo si la rama es `develop`. Si el environment `development` tiene "Deployment branches" limitado a `develop`, ampliarlo a todas las ramas (o "No restriction") para que corra desde las ramas de trabajo.
 
 ### Configuración (una sola vez)
 
