@@ -1,8 +1,14 @@
 # CI de Porty: en cada PR y en cada push a main, develop o a ramas claude/**.
-# - flutter: analyze (falla solo con errores) + suite completa de tests.
+# - changes: mira qué carpetas tocó el cambio. Lo que no tocó, no se corre
+#   (un PR solo de supabase/ no corre Flutter y uno solo de lib/ no levanta
+#   Supabase). Push a main/develop y "Run workflow" corren todo.
+# - analyze: flutter analyze (falla solo con errores), en su propia máquina.
+# - flutter-tests: la suite de Flutter partida en 4 shards en paralelo.
 # - supabase: levanta el stack local (aplica TODAS las migraciones: si una no
 #   corre, falla acá), corre los tests de Deno de las edge functions y los
 #   tests SQL de supabase/tests/.
+# - ci-ok: un solo check que resume todo (el que conviene marcar como
+#   requerido en la protección de ramas; los jobs salteados cuentan como ok).
 # Runbook: docs/runbooks/ci-cd.md
 name: CI
 
@@ -17,10 +23,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  flutter:
-    name: Flutter (analyze + tests)
+  changes:
+    name: Qué cambió
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      flutter: ${{ steps.all.outputs.run == 'true' || steps.filter.outputs.flutter == 'true' }}
+      supabase: ${{ steps.all.outputs.run == 'true' || steps.filter.outputs.supabase == 'true' }}
+    steps:
+      - name: Push a main/develop o corrida manual corren todo
+        id: all
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+             || [ "${{ github.ref }}" = "refs/heads/main" ] \
+             || [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.all.outputs.run != 'true'
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: steps.all.outputs.run != 'true'
+        with:
+          filters: |
+            flutter:
+              - "lib/**"
+              - "test/**"
+              - "assets/**"
+              - "pubspec.yaml"
+              - "pubspec.lock"
+              - "analysis_options.yaml"
+              - "android/**"
+              - "ios/**"
+              - "web/**"
+              # El test de seguridad del chat compara el prompt con estas listas.
+              - "supabase/functions/ai-chat/allowed_*.json"
+              - ".github/workflows/ci.yml"
+            supabase:
+              - "supabase/**"
+              - ".github/workflows/ci.yml"
+
+  analyze:
+    name: Flutter analyze
+    needs: changes
+    if: needs.changes.outputs.flutter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -32,12 +82,37 @@ jobs:
         run: flutter pub get
       - name: Analyze (sin errores; los warnings e infos no frenan)
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  flutter-tests:
+    name: Flutter tests (shard ${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.flutter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      # Que un shard falle no corta los otros: se ven todas las fallas juntas.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.9"
+          channel: stable
+          cache: true
+      - name: Dependencias
+        run: flutter pub get
       - name: Tests
         # failures-only: el log muestra solo los tests que fallan (con su error).
-        run: flutter test --reporter failures-only
+        run: >-
+          flutter test --reporter failures-only
+          --total-shards 4 --shard-index $(( ${{ matrix.shard }} - 1 ))
 
   supabase:
     name: Supabase (migraciones + Deno + SQL)
+    needs: changes
+    if: needs.changes.outputs.supabase == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -81,3 +156,17 @@ jobs:
       - name: Apagar Supabase
         if: always()
         run: supabase stop --no-backup
+
+  ci-ok:
+    name: CI ok
+    needs: [changes, analyze, flutter-tests, supabase]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Todo lo que corrió pasó
+        run: |
+          if echo '${{ toJSON(needs.*.result) }}' | grep -qE '"(failure|cancelled)"'; then
+            echo "::error::Falló o se canceló un job del CI"
+            exit 1
+          fi
