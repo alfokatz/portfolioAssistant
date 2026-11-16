@@ -2587,5 +2587,6 @@
   "fx_porty_down": "El tipo de cambio te restó {amount}.",
   "fx_porty_flat": "El tipo de cambio no movió tu ganancia.",
   "home_widget_sheet_porty_one": "Te junté 1 novedad de tu cartera.",
-  "home_widget_sheet_porty_many": "Te junté {count} novedades de tu cartera."
+  "home_widget_sheet_porty_many": "Te junté {count} novedades de tu cartera.",
+  "settings_queries_remaining": "Te quedan {remaining} de {limit} consultas a Porty este mes"
 }

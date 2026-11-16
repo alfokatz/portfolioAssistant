@@ -2587,5 +2587,6 @@
   "fx_porty_down": "The exchange rate took {amount} off.",
   "fx_porty_flat": "The exchange rate didn't move your gain.",
   "home_widget_sheet_porty_one": "I gathered 1 update on your portfolio.",
-  "home_widget_sheet_porty_many": "I gathered {count} updates on your portfolio."
+  "home_widget_sheet_porty_many": "I gathered {count} updates on your portfolio.",
+  "settings_queries_remaining": "{remaining} of {limit} Porty questions left this month"
 }

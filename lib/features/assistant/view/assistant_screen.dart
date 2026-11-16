@@ -894,26 +894,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
               // Durante el turno actúa el avatar del mensaje; el del header
               // queda en reposo y lo que cambia es su línea de estado.
               entrance: _playEntrance,
-              quota: PortyQuota(
-                remaining: subscription.queriesRemaining,
-                limit: subscription.queriesLimit,
-              ),
-              // El único detalle de cuota que existe es el paywall de
-              // "consultas agotadas": solo tiene sentido abrirlo en cero.
-              onQuotaTap:
-                  subscription.queriesRemaining == 0
-                      ? () => SubscriptionPaywallSheet.show(
-                        context,
-                        ref,
-                        reason: PaywallReason.quotaExceeded,
-                        source: PaywallSource.quotaZeroHeader,
-                        onUpgraded:
-                            () =>
-                                ref
-                                    .read(subscriptionProvider.notifier)
-                                    .refresh(),
-                      )
-                      : null,
+              // Las consultas que quedan se ven en Ajustes (tarjeta del plan),
+              // no en el chat.
             ),
           ),
           //const PortfolioQaDisclaimerBanner(),
