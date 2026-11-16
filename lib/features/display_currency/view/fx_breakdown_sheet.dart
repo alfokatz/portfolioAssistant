@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/fx_breakdown.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
@@ -8,6 +9,7 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 
 /// Debajo del total de la Home: "≈ $U 1.234.567". Solo si eligió otra
 /// moneda y hay tipo de cambio. Al tocarla, el desglose.
@@ -79,8 +81,6 @@ class FxBreakdownSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     final currency = ref.watch(displayCurrencyProvider);
     final breakdown = ref.watch(fxBreakdownProvider);
 
@@ -96,27 +96,25 @@ class FxBreakdownSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                'fx_sheet_title'.tr(
-                  namedArgs: {'currency': currency.labelKey.tr().toLowerCase()},
-                ),
-                style: tt.titleLarge?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
+            // Porty dice cuánto movió el tipo de cambio (con el número), o
+            // que no pudo traerlo; debajo, en qué moneda está viendo todo.
+            _FxPortyHeader(
+              currency: currency,
+              data: breakdown.valueOrNull,
+              loading: breakdown.isLoading,
+              failed:
+                  !breakdown.isLoading &&
+                  (breakdown.hasError || breakdown.valueOrNull == null),
             ),
-            const SizedBox(height: AppDimens.sp16),
+            const SizedBox(height: AppDimens.sp20),
             breakdown.when(
               loading: () => _Body(currency: currency, data: null),
-              error: (_, __) => _Unavailable(),
+              // Sin tipo de cambio lo dice Porty arriba.
+              error: (_, __) => const SizedBox.shrink(),
               data:
                   (data) =>
                       data == null
-                          ? _Unavailable()
+                          ? const SizedBox.shrink()
                           : _Body(currency: currency, data: data),
             ),
           ],
@@ -126,14 +124,66 @@ class FxBreakdownSheet extends ConsumerWidget {
   }
 }
 
-class _Unavailable extends StatelessWidget {
+class _FxPortyHeader extends StatelessWidget {
+  const _FxPortyHeader({
+    required this.currency,
+    required this.data,
+    required this.loading,
+    required this.failed,
+  });
+
+  final DisplayCurrency currency;
+  final FxBreakdown? data;
+  final bool loading;
+  final bool failed;
+
   @override
-  Widget build(BuildContext context) => Text(
-    'fx_sheet_unavailable'.tr(),
-    style: Theme.of(
-      context,
-    ).textTheme.bodyMedium?.copyWith(color: context.customColors.textSecondary),
-  );
+  Widget build(BuildContext context) {
+    final where = 'fx_sheet_title'.tr(
+      namedArgs: {'currency': currency.labelKey.tr().toLowerCase()},
+    );
+    final d = data;
+    final (String key, String message, PortyAvatarState mood) =
+        failed
+            ? (
+              'failed',
+              'fx_sheet_unavailable'.tr(),
+              PortyAvatarState.error,
+            )
+            : loading || d == null
+            ? ('loading', where, PortyAvatarState.thinking)
+            : d.currencyEffect > 0
+            ? (
+              'up',
+              'fx_porty_up'.tr(
+                namedArgs: {'amount': currency.money(d.currencyEffect)},
+              ),
+              PortyAvatarState.answered,
+            )
+            : d.currencyEffect < 0
+            ? (
+              'down',
+              'fx_porty_down'.tr(
+                namedArgs: {'amount': currency.money(-d.currencyEffect)},
+              ),
+              PortyAvatarState.serious,
+            )
+            : ('flat', 'fx_porty_flat'.tr(), PortyAvatarState.idle);
+    return PortySays(
+      messageKey: key,
+      mood: mood,
+      message: Semantics(
+        header: true,
+        child: Text(
+          message,
+          style: const TextStyle(
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+      footnote: key == 'loading' ? null : Text(where),
+    );
+  }
 }
 
 class _Body extends StatelessWidget {

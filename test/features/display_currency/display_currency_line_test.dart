@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/fx_breakdown.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
@@ -10,6 +11,8 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   Future<void> pump(
     WidgetTester tester, {
     required DisplayCurrency currency,
@@ -65,6 +68,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FxBreakdownSheet), findsOneWidget);
     expect(find.text('fx_sheet_investments'), findsOneWidget);
+    // Porty encabeza con cuánto movió el tipo de cambio.
+    expect(find.textContaining(RegExp('fx_porty_(up|down|flat)')), findsOneWidget);
     expect(find.text('+\$U 8,000'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

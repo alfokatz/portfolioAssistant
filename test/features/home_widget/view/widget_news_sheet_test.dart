@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_news_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
@@ -32,6 +33,8 @@ final _items = [
 ];
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   for (final dark in [false, true]) {
     group(dark ? 'dark' : 'light', () {
       Future<void> pump(
@@ -76,7 +79,11 @@ void main() {
           onAsk: (i) => asked.add(i.id),
         );
 
-        expect(find.text('home_widget_sheet_title'), findsOneWidget);
+        // Porty encabeza con cuántas novedades juntó.
+        expect(
+          find.textContaining(RegExp('home_widget_sheet_porty_(one|many)')),
+          findsOneWidget,
+        );
         expect(find.text('home_widget_sheet_legend'), findsOneWidget);
         expect(find.textContaining('AAA anuncia'), findsOneWidget);
         expect(find.textContaining('home_widget_earnings_date'), findsOneWidget);
