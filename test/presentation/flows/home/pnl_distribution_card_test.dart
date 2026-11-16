@@ -1,59 +1,100 @@
-// P&L por activo: con datos raros (precio NaN o infinito) no puede quedar en
-// blanco. Correr: flutter test test/presentation/flows/home/pnl_distribution_card_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
-import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/pnl_distribution_card.dart';
+import 'package:portfolio_assistant/presentation/shared/charts/diverging_bar.dart';
+
+PositionValuation _v(String ticker, double pnl, double pct) =>
+    PositionValuation(
+      position: Position(
+        id: ticker,
+        ticker: ticker,
+        quantity: 1,
+        purchasePrice: 100,
+        purchaseDate: DateTime(2026, 1, 5),
+      ),
+      currentPrice: 100,
+      marketValue: 100,
+      pnlAbsolute: pnl,
+      pnlPercent: pct,
+    );
+
+Widget _app(List<PositionValuation> valuations) {
+  final container = ProviderContainer();
+  return MaterialApp(
+    theme: container.read(themeDataLightProvider),
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: PnlDistributionCard(valuations: valuations),
+      ),
+    ),
+  );
+}
 
 void main() {
-  Future<void> pump(WidgetTester tester, List<double> prices) async {
-    final probe = ProviderContainer();
+  testWidgets('rows from best to worst, with the numbers written '
+      '(bug 2026-10-06: raw-double tooltip)', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: probe.read(themeDataDarkProvider),
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: PnlDistributionCard(
-              valuations: [
-                for (var i = 0; i < prices.length; i++)
-                  PortfolioCalculator.valuate(
-                    position: Position(
-                      id: '$i',
-                      ticker: 'T$i',
-                      quantity: 1,
-                      purchasePrice: 100,
-                      purchaseDate: DateTime(2025),
-                    ),
-                    currentPrice: prices[i],
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      _app([
+        _v('AMZN', 120.5, 8.2),
+        _v('TSLA', -45.1, -3.4),
+        _v('VOO', 445.7497684488692, 12.3),
+      ]),
+    );
+
+    final voo = tester.getTopLeft(find.text('VOO')).dy;
+    final amzn = tester.getTopLeft(find.text('AMZN')).dy;
+    final tsla = tester.getTopLeft(find.text('TSLA')).dy;
+    expect(voo < amzn && amzn < tsla, isTrue);
+    expect(find.text('+\$445.75'), findsOneWidget);
+    expect(find.text('+12.3%'), findsOneWidget);
+    expect(find.text('-\$45.10'), findsOneWidget);
+    expect(find.text('-3.4%'), findsOneWidget);
+    expect(find.byType(DivergingBar), findsNWidgets(3));
+    expect(find.textContaining('445.749'), findsNothing);
+  });
+
+  testWidgets('long portfolios collapse to five with "show all"', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app([for (var i = 0; i < 8; i++) _v('T$i', 10.0 * i, i.toDouble())]),
+    );
+    expect(find.byType(DivergingBar), findsNWidgets(5));
+    expect(find.text('home_pnl_show_all'), findsOneWidget);
+
+    await tester.tap(find.text('home_pnl_show_all'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DivergingBar), findsNWidgets(8));
+    expect(find.text('home_pnl_show_less'), findsOneWidget);
+  });
+
+  testWidgets('six or fewer: no toggle', (tester) async {
+    await tester.pumpWidget(
+      _app([for (var i = 0; i < 6; i++) _v('T$i', 10.0 * i, i.toDouble())]),
+    );
+    expect(find.byType(DivergingBar), findsNWidgets(6));
+    expect(find.text('home_pnl_show_all'), findsNothing);
+  });
+
+  // Datos raros (cotización NaN, infinita o en cero): la tarjeta no se rompe.
+  testWidgets('weird prices (NaN, infinite, zero) do not break the card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app([
+        _v('AAA', 20, 20),
+        _v('BBB', double.nan, double.nan),
+        _v('CCC', double.infinity, double.infinity),
+        _v('DDD', -100, -100),
+      ]),
     );
     await tester.pumpAndSettle();
-  }
-
-  testWidgets('una cotización NaN no rompe la tarjeta', (tester) async {
-    await pump(tester, [120, double.nan, 80]);
     expect(tester.takeException(), isNull);
-    expect(find.text('T0'), findsWidgets);
-    expect(find.text('T2'), findsWidgets);
-  });
-
-  testWidgets('precio infinito o cero tampoco', (tester) async {
-    await pump(tester, [double.infinity, 0, 90]);
-    expect(tester.takeException(), isNull);
-    expect(find.text('T2'), findsWidgets);
-  });
-
-  testWidgets('con datos normales dibuja las filas', (tester) async {
-    await pump(tester, [120, 95, 80, 130, 101, 99, 70]);
-    expect(tester.takeException(), isNull);
-    expect(find.text('T3'), findsWidgets);
+    expect(find.text('AAA'), findsWidgets);
+    expect(find.text('DDD'), findsWidgets);
   });
 }
