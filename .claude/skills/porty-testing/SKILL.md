@@ -52,13 +52,35 @@ Archivos `<sujeto>_test.dart`. Helpers compartidos sin sufijo `_test` (ej. `test
 
 | Cambio | Mínimo |
 |---|---|
-| Entidad / cálculo | unit test puro con casos borde |
+| Entidad / cálculo | unit test puro con casos borde + **property test** si hay una regla que vale siempre (ver abajo) |
 | Repositorio | parseo + errores tipados con HTTP/Supabase falso |
 | Notifier | estados `loaded` / `loadFailed` / acciones con `ProviderContainer` |
 | Pantalla o widget | widget test: render, estados vacío/carga/error, interacción, claro y oscuro, ancho de iPhone SE (375) |
 | UI visible nueva | además, screenshot test y **mirar las PNG** ([references/screenshots.md](references/screenshots.md)) |
 | Tool o card del chat | ver skill **porty-assistant** + [references/evals-and-guards.md](references/evals-and-guards.md) |
 | Edge function / SQL | [references/supabase-tests.md](references/supabase-tests.md) |
+
+## Property tests y tests diferenciales
+
+**Property test**: una regla que tiene que valer para *cualquier* entrada, probada contra cientos de
+entradas generadas al azar con semilla fija. Encuentran los bordes que no se te ocurren (y que el
+agente que escribió el código tampoco pensó). Helper sin dependencias: `test/helpers/property.dart`
+(`property(...)` + generadores `Gen` sesgados a 0, centavos y montos enormes). Ejemplos:
+`test/features/allocation/allocation_properties_test.dart`, `test/features/statement_import/holding_diff_properties_test.dart`.
+
+Reglas típicas en Porty:
+- **Invariante:** los repartos suman 100; nada queda negativo, NaN o infinito.
+- **Idempotencia:** importar/sincronizar dos veces no cambia nada la segunda vez.
+- **Ida y vuelta:** `fromRow(toRow(x)) == x`, `fromJson(toJson(x)) == x`.
+- **Equivalencia:** la versión optimizada da lo mismo que la simple.
+
+Si falla, el mensaje trae la semilla y la entrada: `PROPERTY_SEED=<n> flutter test <archivo>`.
+Para buscar más: `PROPERTY_RUNS=20000`. Una falla es un bug o una regla mal escrita, nunca flaky.
+
+**Test diferencial** (en migraciones y refactors grandes): correr la versión vieja y la nueva con las
+mismas entradas (generadas o reales anonimizadas) y comparar. Normalizá lo irrelevante (orden,
+espacios, redondeo) y llevá una lista explícita de diferencias aprobadas. Copiá la versión vieja a
+`test/<feature>/legacy/` mientras dura la migración y borrala al terminar.
 
 ## Tests guardianes (si fallan, no es flaky)
 

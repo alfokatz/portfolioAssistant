@@ -34,18 +34,21 @@ modificás este archivo, va en un PR propio, sin código de producto.
 
 Leé el diff, elegí los ítems que aplican (suelen ser 3 a 10) y revisá solo esos.
 
-| # | Disparador (se ve en el diff) | Qué revisar | Origen |
+| # | Disparador (se ve en el diff) | Qué revisar | Origen (commits) |
 |---|---|---|---|
-| F1 | Cambia un modelo que se lee de Supabase, SharedPreferences o JSON guardado | Un registro viejo **sin** el campo nuevo carga sin romper (default o null manejado) | Regla de compatibilidad de datos |
-| F2 | Archivo nuevo o cambiado en `supabase/migrations/` | Es una migración **nueva** (no editada); tabla nueva con RLS y políticas `using` + `with check`; no borra columnas sin paso de backfill | `porty-guard`, revisor de seguridad |
-| F3 | Toca sync de brokers (SnapTrade, Binance, eToro) o import de estados de cuenta | Correrlo dos veces no duplica posiciones ni operaciones (idempotencia) | Riesgo de datos duplicados |
-| F4 | Toca planes, cuota o `ctx.gate` | El plan se valida en el servidor; free no accede a premium/gold; la cuota no se supera | Revisor de seguridad |
-| F5 | Toca el prompt, tools o catálogo del chat | Hash del allowlist del proxy `ai-chat` regenerado; contenido externo no cambia instrucciones | Skill `porty-assistant` |
-| F6 | Toca edge functions | Verifica el JWT antes de actuar; no confía en `user_id` del cliente; errores sin secretos | Revisor de seguridad |
-| F7 | Texto visible nuevo | Está en las dos traducciones; voz de Porty (skill `porty-ui-design`) | Regla de i18n |
-| F8 | Cambia cálculo de PnL, distribución o desglose por moneda | Test con datos raros (NaN, infinito, cero, lista vacía) | Tarjeta de P&L con datos raros (nov 2026) |
-| F9 | Reemplaza un archivo de test entero | No se perdieron tests anteriores (comparar contra la base) | Tests pisados en la tarjeta de P&L (nov 2026) |
-| F10 | Agrega claves, URLs o tokens en `lib/` o assets | Nada secreto en la app (`test/security/no_secrets_in_app_test.dart`) | Revisor de seguridad |
+| F1 | Estado nuevo que guarda datos del usuario: provider con caché, `SharedPreferences`, archivo local, caché del widget o de un job | Al cambiar de cuenta se descarta (`SessionScope`, claves por usuario); otra cuenta nunca lo ve, ni por un instante | **3 veces:** `9e23bbe` estado al cambiar de usuario, `32aef25` informe semanal entre cuentas, `328bf74` Porty de otra cuenta |
+| F2 | Número que se muestra o se manda al widget: PnL, %, gráfico, aviso, distribución | NaN, infinito, cero, lista vacía y serie plana no rompen ni dejan la UI en un estado falso | **3 veces:** `04b58e7` NaN dejaba el widget vacío, `9444be4` gráfico con serie plana, `58a9fdf` P&L con datos raros |
+| F3 | Toca el widget de inicio o cómo decide qué mostrar | Con cartera nunca queda en "cargá tu cartera"; refleja cambios aunque se salga enseguida de la app | **3 veces:** `0e97a31`, `a309ec2`, `c49a866` |
+| F4 | Acción que escribe (importar, agregar, comprar, sincronizar, conectar) | Doble toque o reintento no la ejecuta dos veces; correrla de nuevo no duplica (idempotencia; property test en `holding_diff_properties_test.dart`) | `b6d69e6` doble toque importaba dos veces |
+| F5 | Toca planes, cuota, `ctx.gate` o la vinculación de un bróker | El plan y la cuota se validan en el servidor; free no accede a premium/gold | `ca24d64` cuota de IA, eToro y plan en Finnhub |
+| F6 | Clave de caché en una edge function (noticias, titulares, precios) | La clave incluye todo lo que cambia la respuesta (usuario, idioma, nombres) | `b83dfba` nombres fuera de la clave de caché |
+| F7 | Texto generado o guardado en un idioma (informe, aviso, push) | Sigue el idioma actual de la app, aunque cambie en el medio | **2 veces:** `e5306e8`, `69fb6f4` (informe semanal) |
+| F8 | Archivo nuevo o cambiado en `supabase/migrations/` | Migración **nueva** (no editada); tabla con RLS y políticas `using` + `with check`; triggers que no fallan si falta una tabla opcional; no borra columnas sin backfill | `cdd92b4` trigger de borrado de cuenta; `porty-guard` |
+| F9 | Toca el prompt, tools, cards o streaming del chat | Hash del allowlist regenerado; topes de tokens/resultados no cortan datos (`9c23ac9`); respuestas vacías se reintentan (`53a40c2`); contenido externo no cambia instrucciones | Skill `porty-assistant` |
+| F10 | Toca edge functions | Verifica el JWT antes de actuar; no confía en `user_id` del cliente; errores sin secretos | `840c3ae` fixes de seguridad de delete-account |
+| F11 | Texto visible nuevo | Está en `es-ES.json` y `en-US.json`; voz de Porty (skill `porty-ui-design`) | Regla de i18n |
+| F12 | Reemplaza o reescribe un archivo de test entero | No se perdieron tests anteriores (comparar contra la base) | `90cde59` tests de P&L pisados |
+| F13 | Agrega claves, URLs o tokens en `lib/` o assets | Nada secreto en la app (`test/security/no_secrets_in_app_test.dart`) | Revisor de seguridad |
 
 ## Mantenimiento
 
