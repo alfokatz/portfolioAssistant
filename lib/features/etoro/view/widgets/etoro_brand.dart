@@ -119,7 +119,11 @@ class PortyPartnerLockup extends StatelessWidget {
         children: [
           PortyAvatar(size: size, state: mood, animated: animated),
           _Link(state: state, height: size),
-          partner,
+          // Flexible: si la marca es un texto largo (ej. "Tu bróker" con la
+          // letra agrandada), se acorta ella y no desborda la fila.
+          // IntrinsicWidth: la card de la marca mide lo que su contenido (sin
+          // él, el Container centrado se estiraría hasta el borde).
+          Flexible(child: IntrinsicWidth(child: partner)),
         ],
       ),
     );

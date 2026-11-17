@@ -33,6 +33,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataDarkProvider, themeDataLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/app_bootstrap.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/dismiss_keyboard_on_tap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
@@ -64,7 +65,8 @@ Future<Widget> _initialize() async {
   await SupabaseInitializer.initialize();
   // Con sesión restaurada: un toque del widget con una pregunta se atiende
   // al abrir; sin sesión, la pregunta se descarta tras el login.
-  final launchedWithSession = Supabase.instance.client.auth.currentSession != null;
+  final launchedWithSession =
+      Supabase.instance.client.auth.currentSession != null;
   // App Group del widget y refresco de fondo (workmanager).
   await initializeHomeWidgetPlugins();
   final revenueCatService = await RevenueCatInitializer.initialize();
@@ -174,17 +176,23 @@ class MyApp extends HookConsumerWidget {
         // Los accesorios que eligió el usuario, para todos los Porty.
         return PortyOutfitScope(
           outfit: outfit,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ColoredBox(color: Theme.of(context).colorScheme.surface),
-              ),
-              if (child != null) child,
-              if (update?.required ?? false)
+          // Tocar afuera de un campo baja el teclado (el numérico de iOS no
+          // tiene tecla para cerrarlo).
+          child: DismissKeyboardOnTap(
+            child: Stack(
+              children: [
                 Positioned.fill(
-                  child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
+                  child: ColoredBox(
+                    color: Theme.of(context).colorScheme.surface,
+                  ),
                 ),
-            ],
+                if (child != null) child,
+                if (update?.required ?? false)
+                  Positioned.fill(
+                    child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
+                  ),
+              ],
+            ),
           ),
         );
       },
