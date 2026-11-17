@@ -24,6 +24,18 @@ if ! supabase status >/dev/null 2>&1; then
 fi
 
 eval "$(supabase status -o env 2>/dev/null)"
+# Recién levantado, `status` a veces todavía no devuelve las variables: se
+# reintenta un rato y, si siguen vacías, se corta (antes devolvía `export`
+# vacíos y psql terminaba conectándose a un socket local que no existe).
+for _ in $(seq 1 15); do
+  [ -n "${DB_URL:-}" ] && break
+  sleep 2
+  eval "$(supabase status -o env 2>/dev/null)"
+done
+if [ -z "${DB_URL:-}" ]; then
+  echo "[supabase-env] el stack no devolvió sus variables (supabase status)" >&2
+  exit 1
+fi
 cat <<EOF
 export API_URL='$API_URL'
 export SUPABASE_URL='$API_URL'
