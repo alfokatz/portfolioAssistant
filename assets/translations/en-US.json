@@ -1871,6 +1871,7 @@
   "qa_sp_start_stated": "You start with {amount}.",
   "qa_sp_start_portfolio": "You start from the value of your portfolio ({amount}).",
   "qa_sp_start_zero": "You start from zero.",
+  "qa_sp_assumptions_local": "{capital} Amounts are in today's {currency}. Real return (after inflation) of {low}, {base} and {high} per year depending on the scenario; contributions that rise with inflation. This is a simulation, not a guarantee.",
   "qa_sp_assumptions": "{capital} Amounts are in today's dollars. Real return (after inflation) of {low}, {base} and {high} per year depending on the scenario; contributions that rise with inflation. With {inflation} inflation, the goal is equivalent to {nominal} in {year}. This is a simulation, not a guarantee.",
   "qa_fu_build_buy": "Build my monthly buy",
   "qa_fu_build_buy_q": "Build my monthly buy for this plan",

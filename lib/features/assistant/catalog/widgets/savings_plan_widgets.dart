@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
@@ -200,7 +202,15 @@ class SavingsPlanCardData {
   }
 }
 
-enum _Block { savings, instruments, income, growth, progress, allocation, whatIf }
+enum _Block {
+  savings,
+  instruments,
+  income,
+  growth,
+  progress,
+  allocation,
+  whatIf,
+}
 
 class QaSavingsPlanCard extends StatefulWidget {
   const QaSavingsPlanCard({
@@ -277,7 +287,8 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               : null,
       risk: change.risk != original.risk ? change.risk : null,
     );
-    final data = edited == null ? null : SavingsPlanCardData.fromToolResult(edited);
+    final data =
+        edited == null ? null : SavingsPlanCardData.fromToolResult(edited);
     if (data == null) return;
     QaGoalScope.maybeOf(context)?.onPlanEdited?.call(widget.planId!, edited);
     setState(() {
@@ -293,7 +304,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       _monthly = null;
     });
   }
+
   SavingsPlanInputs get _inputs => _plan.inputs;
+
+  /// Un monto del plan en su moneda (en dólares, como siempre).
+  String _money(num v) =>
+      goalMoney(DisplayCurrency.fromCode(_inputs.currency), v);
   IncomePlan? get _income => _plan.income;
 
   SavingsPlanFocus get _focus {
@@ -358,13 +374,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       children: [
         QaCardTitle(
           title: data.label.isEmpty ? 'qa_sp_your_plan'.tr() : data.label,
-          subtitle:
-              'qa_sp_subtitle'.tr(
-                namedArgs: {
-                  'amount': QaFormat.money(_inputs.targetAmount),
-                  'horizon': _horizon(_inputs.months),
-                },
-              ),
+          subtitle: 'qa_sp_subtitle'.tr(
+            namedArgs: {
+              'amount': _money(_inputs.targetAmount),
+              'horizon': _horizon(_inputs.months),
+            },
+          ),
           // El de lo que es (un viaje, un auto…), igual que en Metas.
           icon: GoalIcon.of(
             data.label,
@@ -514,12 +529,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(QaFormat.money(_inputs.currentAmount), style: QaText.display),
+          Text(_money(_inputs.currentAmount), style: QaText.display),
           const SizedBox(height: 2),
-          Text(
-            'qa_sp_reached_note'.tr(),
-            style: QaText.label,
-          ),
+          Text('qa_sp_reached_note'.tr(), style: QaText.label),
         ],
       );
     }
@@ -542,12 +554,10 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final subtitle =
         [
           if (stated != null)
-            'qa_sp_you_contribute'.tr(
-              namedArgs: {'amount': QaFormat.money(stated)},
-            ),
+            'qa_sp_you_contribute'.tr(namedArgs: {'amount': _money(stated)}),
           if (plan.requiredMonthlyNoReturn > required[PlanScenario.base]! + 1)
             'qa_sp_without_investing'.tr(
-              namedArgs: {'amount': QaFormat.money(plan.requiredMonthlyNoReturn)},
+              namedArgs: {'amount': _money(plan.requiredMonthlyNoReturn)},
             ),
         ].join(' · ').capitalized();
     return Column(
@@ -565,7 +575,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              QaFormat.money(required[PlanScenario.base]!),
+              _money(required[PlanScenario.base]!),
               style: full ? QaText.display : QaText.displaySm,
             ),
             const SizedBox(width: 4),
@@ -584,15 +594,15 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               stats: [
                 QaStat(
                   label: 'qa_sp_weak_market'.tr(),
-                  value: QaFormat.money(required[PlanScenario.pessimistic]!),
+                  value: _money(required[PlanScenario.pessimistic]!),
                 ),
                 QaStat(
                   label: 'qa_sp_expected'.tr(),
-                  value: QaFormat.money(required[PlanScenario.base]!),
+                  value: _money(required[PlanScenario.base]!),
                 ),
                 QaStat(
                   label: 'qa_sp_good_market'.tr(),
-                  value: QaFormat.money(required[PlanScenario.optimistic]!),
+                  value: _money(required[PlanScenario.optimistic]!),
                 ),
               ],
             ),
@@ -615,9 +625,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       title: 'qa_sp_from_dividends'.tr(),
       value:
           desired != null
-              ? QaFormat.money(income.dividendsCapital)
+              ? _money(income.dividendsCapital)
               : 'qa_per_month'.tr(
-                namedArgs: {'amount': QaFormat.money(income.dividendsMonthly)},
+                namedArgs: {'amount': _money(income.dividendsMonthly)},
               ),
       note: 'qa_sp_dont_touch_capital'.tr(),
       selected: desired != null && income.strategy == IncomeStrategy.dividends,
@@ -626,9 +636,9 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
       title: 'qa_sp_withdraw_4'.tr(),
       value:
           desired != null
-              ? QaFormat.money(income.withdrawalCapital)
+              ? _money(income.withdrawalCapital)
               : 'qa_per_month'.tr(
-                namedArgs: {'amount': QaFormat.money(income.withdrawalMonthly)},
+                namedArgs: {'amount': _money(income.withdrawalMonthly)},
               ),
       note: withdrawalNote,
       selected: desired != null && income.strategy == IncomeStrategy.withdrawal,
@@ -640,10 +650,10 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         Text(
           desired != null
               ? 'qa_sp_to_collect_need'.tr(
-                namedArgs: {'amount': QaFormat.money(desired)},
+                namedArgs: {'amount': _money(desired)},
               )
               : 'qa_sp_could_collect'.tr(
-                namedArgs: {'amount': QaFormat.money(_inputs.targetAmount)},
+                namedArgs: {'amount': _money(_inputs.targetAmount)},
               ),
           style: QaText.body,
         ),
@@ -684,12 +694,12 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             children: [
               QaSectionLabel('qa_sp_today_you_have'.tr()),
               const SizedBox(height: 6),
-              Text(QaFormat.money(current), style: QaText.display),
+              Text(_money(current), style: QaText.display),
               const SizedBox(height: 2),
               Text(
                 'qa_sp_you_are_missing'.tr(
                   namedArgs: {
-                    'amount': QaFormat.money(math.max(0, target - current)),
+                    'amount': _money(math.max(0, target - current)),
                     'horizon': _horizon(_inputs.months),
                   },
                 ),
@@ -734,7 +744,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     // "$97,405" se lee mal).
     final compact = end.contributed >= 100000 || growth >= 100000;
     String legend(double v) =>
-        compact ? QaFormat.moneyCompact(v) : QaFormat.money(v);
+        compact && _inputs.isUsd ? QaFormat.moneyCompact(v) : _money(v);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -744,7 +754,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(QaFormat.money(base), style: QaText.displaySm),
+            Text(_money(base), style: QaText.displaySm),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -758,9 +768,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               reaches
                   ? 'qa_sp_tag_on_track'.tr()
                   : 'qa_sp_missing_amount'.tr(
-                    namedArgs: {
-                      'amount': QaFormat.money(_inputs.targetAmount - base),
-                    },
+                    namedArgs: {'amount': _money(_inputs.targetAmount - base)},
                   ),
               color: reaches ? QaColors.profit : QaColors.loss,
             ),
@@ -770,8 +778,8 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         Text(
           'qa_sp_between'.tr(
             namedArgs: {
-              'low': QaFormat.money(end.values[PlanScenario.pessimistic]!),
-              'high': QaFormat.money(end.values[PlanScenario.optimistic]!),
+              'low': _money(end.values[PlanScenario.pessimistic]!),
+              'high': _money(end.values[PlanScenario.optimistic]!),
             },
           ),
           style: QaText.caption,
@@ -816,9 +824,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                     child: Text('qa_sp_try_other'.tr(), style: QaText.label),
                   ),
                   Text(
-                    'qa_per_month'.tr(
-                      namedArgs: {'amount': QaFormat.money(monthly)},
-                    ),
+                    'qa_per_month'.tr(namedArgs: {'amount': _money(monthly)}),
                     style: QaText.value,
                   ),
                 ],
@@ -839,7 +845,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                   divisions: math.max(1, (max / step).round()),
                   semanticFormatterCallback:
                       (v) => 'qa_sp_slider_semantics'.tr(
-                        namedArgs: {'amount': QaFormat.money(v)},
+                        namedArgs: {'amount': _money(v)},
                       ),
                   onChanged: (v) => setState(() => _monthly = v),
                 ),
@@ -941,9 +947,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
                 children: [
                   Text(
                     'qa_per_month'.tr(
-                      namedArgs: {
-                        'amount': QaFormat.money(monthly * items[i].weight),
-                      },
+                      namedArgs: {'amount': _money(monthly * items[i].weight)},
                     ),
                     style: QaText.value,
                   ),
@@ -958,10 +962,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
           ),
         ],
         const SizedBox(height: QaSpace.gap),
-        Text(
-          'qa_sp_etf_examples'.tr(),
-          style: QaText.caption,
-        ),
+        Text('qa_sp_etf_examples'.tr(), style: QaText.caption),
       ],
     );
   }
@@ -985,7 +986,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
               Text(
                 'qa_per_month'.tr(
                   namedArgs: {
-                    'amount': QaFormat.money(plan.sensitivities[i].requiredMonthly),
+                    'amount': _money(plan.sensitivities[i].requiredMonthly),
                   },
                 ),
                 style: QaText.value,
@@ -1038,13 +1039,26 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
     final capital =
         _data.capitalStated
             ? 'qa_sp_start_stated'.tr(
-              namedArgs: {'amount': QaFormat.money(_inputs.currentAmount)},
+              namedArgs: {'amount': _money(_inputs.currentAmount)},
             )
             : _inputs.currentAmount > 0
             ? 'qa_sp_start_portfolio'.tr(
-              namedArgs: {'amount': QaFormat.money(_inputs.currentAmount)},
+              namedArgs: {'amount': _money(_inputs.currentAmount)},
             )
             : 'qa_sp_start_zero'.tr();
+    // En otra moneda: sin la equivalencia nominal (la inflación del
+    // supuesto es la del dólar, no la de esa moneda).
+    if (!_inputs.isUsd) {
+      return 'qa_sp_assumptions_local'.tr(
+        namedArgs: {
+          'capital': capital,
+          'currency': _inputs.currency,
+          'low': _pct(r[PlanScenario.pessimistic]!),
+          'base': _pct(r[PlanScenario.base]!),
+          'high': _pct(r[PlanScenario.optimistic]!),
+        },
+      );
+    }
     return 'qa_sp_assumptions'.tr(
       namedArgs: {
         'capital': capital,
@@ -1052,7 +1066,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
         'base': _pct(r[PlanScenario.base]!),
         'high': _pct(r[PlanScenario.optimistic]!),
         'inflation': _pct(PlanAssumptions.inflation),
-        'nominal': QaFormat.money(plan.nominalTarget),
+        'nominal': _money(plan.nominalTarget),
         'year': '${_data.targetDate.year}',
       },
     );
@@ -1091,9 +1105,7 @@ class _QaSavingsPlanCardState extends State<QaSavingsPlanCard> {
             icon: Icons.pie_chart_outline_rounded,
           ),
       for (final risk in RiskTolerance.values)
-        if (risk != _inputs.risk &&
-            !_data.shortHorizon &&
-            !_inputs.shortTerm)
+        if (risk != _inputs.risk && !_data.shortHorizon && !_inputs.shortTerm)
           QaFollowUp(
             _riskName(risk),
             'qa_fu_redo_risk_q'.tr(

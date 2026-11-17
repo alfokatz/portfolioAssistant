@@ -331,6 +331,8 @@ class GoalDraft {
             ].whereType<GoalBuyPlanEntry>().toList(),
       ),
       planKey: planId is String ? planId : null,
+      // La moneda en la que el usuario armó el plan con Porty.
+      currency: DisplayCurrency.fromCode(inputs.currency),
     );
   }
 }

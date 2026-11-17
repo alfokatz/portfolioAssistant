@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/invest/invest_candidates_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/buy_plan_builder.dart';
@@ -216,7 +217,7 @@ class GetGoalProjectionTool implements DataTool {
   String get description =>
       'The user\'s financial GOAL (target amount + date: retirement, or '
       'something to BUY like a laptop, a car, a trip, a house deposit) '
-      'with a pre-computed SAVINGS PLAN: compound growth in today\'s dollars '
+      'with a pre-computed SAVINGS PLAN: compound growth in today\'s money '
       '(after inflation), a suggested allocation for their risk, required '
       'monthly savings in pessimistic/base/optimistic scenarios, what they '
       'would need without investing, what-if horizons and, for retirement or '
@@ -255,7 +256,13 @@ class GetGoalProjectionTool implements DataTool {
     'properties': {
       'target_amount': {
         'type': 'number',
-        'description': 'Target amount in USD, if the user stated it.',
+        'description': 'Target amount the user stated, in `currency`.',
+      },
+      'currency': {
+        'type': 'string',
+        'description':
+            'ISO code of the amounts the user stated (pesos uruguayos → '
+            'UYU). Omit for USD. Never convert amounts.',
       },
       'months_from_now': {
         'type': 'integer',
@@ -302,21 +309,19 @@ class GetGoalProjectionTool implements DataTool {
       'monthly_contribution': {
         'type': 'number',
         'description':
-            'Monthly amount in USD the user said they can save, if stated. '
-            'Said in another currency (pesos) → convert it with a rate from '
-            'search_web first; never pass it unconverted.',
+            'Monthly amount the user said they can save, in `currency`.',
       },
       'current_savings': {
         'type': 'number',
         'description':
-            'USD the user said they already have for this goal, if stated '
-            '(default: their portfolio value; 0 for a purchase).',
+            'What the user said they already have for this goal, in '
+            '`currency` (default: portfolio value; 0 for a purchase).',
       },
       'desired_monthly_income': {
         'type': 'number',
         'description':
-            'Retirement only: monthly income in USD the user wants to live '
-            'on, if stated instead of a target amount.',
+            'Retirement only: monthly income wanted, in `currency`, if '
+            'stated instead of a target amount.',
       },
       'income_strategy': {
         'type': 'string',
@@ -386,6 +391,31 @@ class GetGoalProjectionTool implements DataTool {
         GoalShares.holdingsFor(savedGoal, ctx.savedGoals, ctx.holdingsByTicker),
       );
     }
+    // La moneda del plan: la de la meta guardada; si no, la que dijo el
+    // usuario o la del plan que se está cambiando; si no, dólares. La
+    // cartera (en dólares) se pasa a esa moneda con el tipo de cambio de hoy.
+    final currency =
+        savedGoal?.currency.code ??
+        _supportedCurrency(ToolArgs.string(args, 'currency')) ??
+        baseInputs?.currency ??
+        SavingsPlanInputs.usd;
+    var portfolioValue = ctx.summary?.totalValue ?? 0;
+    if (currency != SavingsPlanInputs.usd) {
+      final rate = await ctx.loadFxRate
+          ?.call(currency)
+          .catchError((Object _) => null);
+      if (rate == null || rate <= 0) {
+        return {
+          'status': 'failed',
+          'reason': 'fx_rate_unavailable',
+          'message':
+              'No exchange rate for $currency right now: the plan cannot be '
+              'built in that currency. Tell the user and offer to do it in '
+              'USD.',
+        };
+      }
+      portfolioValue *= rate;
+    }
     final profile = await ctx.loadInvestorProfile?.call();
     final retirement = args['is_retirement'];
     final statedAmount = _positive(ToolArgs.number(args, 'target_amount'));
@@ -403,18 +433,20 @@ class GetGoalProjectionTool implements DataTool {
         args['goal_type'] != 'retirement') {
       return {
         'status': 'invalid',
-        'reason': 'monthly_contribution_not_usd',
+        'reason': 'monthly_contribution_other_currency',
         'message':
             'monthly_contribution ($statedMonthly) is as big as the whole '
-            'goal ($target USD): it is surely in another currency. Convert '
-            'it to USD with a rate from search_web, or omit it.',
+            'goal ($target $currency): they are surely in different '
+            'currencies. Ask the user which currency each amount is in and '
+            'pass both in the same `currency`, or omit it.',
       };
     }
     final result = <String, Object?>{
       'status': 'ok',
       'as_of': ctx.asOf,
       ...GoalProjectionBuilder.build(
-        currentPortfolioValue: ctx.summary?.totalValue ?? 0,
+        currentPortfolioValue: portfolioValue,
+        currency: currency,
         targetAmount: statedAmount,
         targetDate: targetDateOf(args, ctx.now),
         label: ToolArgs.string(args, 'goal_label'),
@@ -477,6 +509,13 @@ class GetGoalProjectionTool implements DataTool {
   }
 
   static double? _positive(double? v) => v != null && v > 0 ? v : null;
+
+  /// Solo las monedas que ofrece la app (un código desconocido se ignora:
+  /// el plan queda en dólares).
+  static String? _supportedCurrency(String? code) {
+    final c = code?.trim().toUpperCase();
+    return DisplayCurrency.values.any((d) => d.code == c) ? c : null;
+  }
   static double? _nonNegative(double? v) => v != null && v >= 0 ? v : null;
 }
 

@@ -142,6 +142,7 @@ class AssistantToolContext {
     this.deleteMemory,
     this.savedGoals = const [],
     this.saveGoal,
+    this.loadFxRate,
     this.newsProvider = NewsProvider.legacy,
     String? appLanguage,
     DateTime? now,
@@ -173,6 +174,11 @@ class AssistantToolContext {
   final List<PortfolioHistoryPoint> history;
   final List<ClosedPosition> closedPositions;
   final Future<InvestorProfile?> Function()? loadInvestorProfile;
+
+  /// Tipo de cambio de hoy: unidades de la moneda [code] ("UYU") por dólar;
+  /// `null` si no se pudo traer. Para planes en la moneda del usuario (el
+  /// valor de la cartera está en dólares).
+  final Future<double?> Function(String code)? loadFxRate;
 
   /// El perfil ya cargado al empezar el turno (para PORTFOLIO_BRIEF); `null`
   /// si no lo completó o no se pudo leer.
@@ -381,8 +387,8 @@ class AssistantToolContext {
     PlanFeature.brokerSync => PaywallReason.brokerSync,
     PlanFeature.heldNews => PaywallReason.heldNews,
     // Incluidas en todos los planes: nunca llegan bloqueadas.
-    PlanFeature.ownPortfolio || PlanFeature.portfolioActions =>
-      PaywallReason.plans,
+    PlanFeature.ownPortfolio ||
+    PlanFeature.portfolioActions => PaywallReason.plans,
     PlanFeature.companyAnalysis ||
     PlanFeature.news ||
     PlanFeature.earnings ||
