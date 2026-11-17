@@ -21,4 +21,11 @@ class DisplayMoney {
 
   /// "+$637.96" / "-$U 25,906".
   String signedMoney(double usd) => currency.signedMoney(usd * rate);
+
+  @override
+  bool operator ==(Object other) =>
+      other is DisplayMoney && other.currency == currency && other.rate == rate;
+
+  @override
+  int get hashCode => Object.hash(currency, rate);
 }
