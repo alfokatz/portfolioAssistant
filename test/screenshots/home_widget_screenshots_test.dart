@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:easy_localization/easy_localization.dart';
 // ignore: implementation_imports
 import 'package:easy_localization/src/localization.dart';
 // ignore: implementation_imports
@@ -21,10 +22,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:intl/intl.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_money.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
+import 'package:portfolio_assistant/features/display_currency/view/fx_breakdown_sheet.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
-import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
@@ -124,28 +127,25 @@ ThemeData _theme(Brightness b) {
   return t;
 }
 
-Widget _app(
-  Brightness b,
-  Widget home, {
-  List<Override> overrides = const [],
-}) => ProviderScope(
-  overrides: overrides,
-  child: MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: _theme(b),
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    supportedLocales: const [Locale('es', 'ES')],
-    locale: const Locale('es', 'ES'),
-    builder:
-        (context, child) => Stack(
-          children: [
-            const Positioned.fill(child: AppBackgroundGradient()),
-            child!,
-          ],
-        ),
-    home: home,
-  ),
-);
+Widget _app(Brightness b, Widget home, {List<Override> overrides = const []}) =>
+    ProviderScope(
+      overrides: overrides,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: _theme(b),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('es', 'ES')],
+        locale: const Locale('es', 'ES'),
+        builder:
+            (context, child) => Stack(
+              children: [
+                const Positioned.fill(child: AppBackgroundGradient()),
+                child!,
+              ],
+            ),
+        home: home,
+      ),
+    );
 
 Future<void> _capture(WidgetTester tester, GlobalKey k, String name) async {
   final render = k.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -336,56 +336,95 @@ void main() {
         }, skip: !_enabled);
       }
 
-      testWidgets('day_move_$suffix', (t) async {
-        await setUpView(t, size, dpr, b);
-        final key = GlobalKey();
-        final history = [
-          for (var i = 0; i < 20; i++)
-            PortfolioHistoryPoint(
-              date: DateTime(2026, 10, 15 + i),
-              totalValue: 12000 + i * 25.0,
-              totalCostBasis: 11000,
-            ),
-        ];
-        await t.pumpWidget(
-          RepaintBoundary(
-            key: key,
-            child: _app(
-              b,
-              Scaffold(
-                body: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: PortfolioHeroSection(
-                      summary: const PortfolioSummary(
-                        totalValue: 12480,
+      // El encabezado de la Home: un mes en dólares, el día (1D) y en pesos
+      // uruguayos (todo el encabezado en esa moneda).
+      for (final variant in ['m1', 'd1', 'uyu']) {
+        testWidgets('hero_${variant}_$suffix', (t) async {
+          await setUpView(t, size, dpr, b);
+          final key = GlobalKey();
+          final day = variant == 'd1';
+          final history =
+              day
+                  ? [
+                    PortfolioHistoryPoint(
+                      date: DateTime(2026, 11, 16),
+                      totalValue: 12605,
+                      totalCostBasis: 11000,
+                    ),
+                    for (var i = 0; i < 40; i++)
+                      PortfolioHistoryPoint(
+                        date: DateTime(
+                          2026,
+                          11,
+                          17,
+                          10,
+                          30,
+                        ).add(Duration(minutes: 10 * i)),
+                        totalValue:
+                            12605 - 60 * (i / 39) + 25 * ((i % 7) - 3) / 3,
                         totalCostBasis: 11000,
-                        totalPnlAbsolute: 1480,
-                        totalPnlPercent: 13.4,
-                        valuations: [],
                       ),
-                      history: history,
-                      periodPnlAbsolute: 480,
-                      periodPnlPercent: 4.0,
-                      selectedRange: ChartTimeRange.m1,
-                      onRangeSelected: (_) {},
-                      dayMove: const PortfolioDayMove(
-                        absolute: 125.3,
-                        percent: 1.0,
-                        period: DayMovePeriod.today,
-                        asOfDay: null,
-                        topContributor: null,
+                    PortfolioHistoryPoint(
+                      date: DateTime(2026, 11, 17, 17),
+                      totalValue: 12480,
+                      totalCostBasis: 11000,
+                    ),
+                  ]
+                  : [
+                    for (var i = 0; i < 20; i++)
+                      PortfolioHistoryPoint(
+                        date: DateTime(2026, 10, 15 + i),
+                        totalValue: 12000 + i * 25.0,
+                        totalCostBasis: 11000,
+                      ),
+                  ];
+          await t.pumpWidget(
+            RepaintBoundary(
+              key: key,
+              child: _app(
+                b,
+                Scaffold(
+                  body: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: PortfolioHeroSection(
+                        summary: const PortfolioSummary(
+                          totalValue: 12480,
+                          totalCostBasis: 11000,
+                          totalPnlAbsolute: 1480,
+                          totalPnlPercent: 13.4,
+                          valuations: [],
+                        ),
+                        history: history,
+                        periodPnlAbsolute: day ? -125.3 : 480,
+                        periodPnlPercent: day ? -1.0 : 4.0,
+                        selectedRange:
+                            day ? ChartTimeRange.d1 : ChartTimeRange.m1,
+                        onRangeSelected: (_) {},
+                        periodLabel: day ? 'home_range_d1'.tr() : null,
+                        money:
+                            variant == 'uyu'
+                                ? const DisplayMoney(DisplayCurrency.uyu, 40.6)
+                                : DisplayMoney.usd,
+                        totalLabel:
+                            variant == 'uyu' ? const DisplayTotalLabel() : null,
                       ),
                     ),
                   ),
                 ),
+                overrides: [
+                  if (variant == 'uyu')
+                    displayMoneyProvider.overrideWithValue(
+                      const DisplayMoney(DisplayCurrency.uyu, 40.6),
+                    ),
+                ],
               ),
             ),
-          ),
-        );
-        await settle(t);
-        await _capture(t, key, 'day_move_$suffix');
-      }, skip: !_enabled);
+          );
+          await settle(t);
+          await _capture(t, key, 'hero_${variant}_$suffix');
+        }, skip: !_enabled);
+      }
     }
   }
 }
