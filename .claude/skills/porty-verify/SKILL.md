@@ -68,6 +68,15 @@ verifican con los tests de Flutter/Deno y las evals (pagas: solo con OK del usua
 Capturas por variable de entorno (skill **porty-testing**) y revisión contra `DESIGN.md`
 (skill **porty-ui-design**). El E2E también deja `build/e2e/<flujo>-ok.png`.
 
+## 5. Antes de abrir un PR
+
+```bash
+tools/verify/check-controls.sh --base main   # ¿mezclé controles con código? ¿todos los commits tienen Verified:?
+```
+
+El CI corre lo mismo (job `controles`, con el script de la rama base) y el E2E (job `e2e`), ambos en
+modo observe. Cómo y cuándo pasarlos a enforce: `docs/runbooks/ci-cd.md`.
+
 ## Reglas
 
 - **Tests inestables:** prohibido reintentar hasta que pase, agregar `sleep`/esperas fijas o saltearlos.
