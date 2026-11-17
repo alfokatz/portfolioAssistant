@@ -238,7 +238,8 @@ class GetGoalProjectionTool implements DataTool {
     final months = ToolArgs.number(args, 'months_from_now')?.round();
     if (months != null && months > 0 && months <= 1200) {
       final firstOfTarget = DateTime(now.year, now.month + months);
-      final lastDay = DateTime(firstOfTarget.year, firstOfTarget.month + 1, 0).day;
+      final lastDay =
+          DateTime(firstOfTarget.year, firstOfTarget.month + 1, 0).day;
       return DateTime(
         firstOfTarget.year,
         firstOfTarget.month,
@@ -264,8 +265,7 @@ class GetGoalProjectionTool implements DataTool {
       },
       'target_date': {
         'type': 'string',
-        'description':
-            'Only a date the user named: YYYY-MM-DD.',
+        'description': 'Only a date the user named: YYYY-MM-DD.',
       },
       'goal_label': {
         'type': 'string',
@@ -614,6 +614,9 @@ abstract final class GoalTools {
         'label': g.label,
         'goal_type': g.type.storageValue,
         'target_amount': g.targetAmount.round(),
+        // Los montos de la meta están en su moneda (las de antes, dólares).
+        if (!g.currency.isUsd) 'currency': g.currency.code,
+        if (g.fxMissing) 'holdings_not_counted_no_fx_rate': true,
         'target_date': GoalProgress.formatDate(g.targetDate),
         if (g.snapshot.buyPlan.isNotEmpty)
           'plan_instruments': [for (final e in g.snapshot.buyPlan) e.ticker],
@@ -732,7 +735,9 @@ class GetMonthlyBuyPlanTool implements DataTool {
     final stored = {...result, 'investor_profile': base['investor_profile']};
     if (planId is String) {
       ctx.data.plans.record(planId, stored);
-      if (ctx.unconfirmedPlans.contains(base[GoalProjectionBuilder.planIdKey])) {
+      if (ctx.unconfirmedPlans.contains(
+        base[GoalProjectionBuilder.planIdKey],
+      )) {
         ctx.unconfirmedPlans.add(planId);
       }
     }

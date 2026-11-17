@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/goal_projection_builder.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 
@@ -118,6 +119,8 @@ class UserGoal {
     this.linkedTickers = const {},
     this.externalSavings = 0,
     this.planKey,
+    this.currency = DisplayCurrency.usd,
+    this.fxRate,
   });
 
   /// Tope de metas activas (lo hace cumplir un trigger).
@@ -142,12 +145,55 @@ class UserGoal {
   /// Lo que tiene para la meta fuera de la app (banco, efectivo).
   final double externalSavings;
 
-  /// El valor de cada inversión asignada que el usuario tiene hoy
-  /// ([holdings] = valor de mercado por ticker de su cartera).
-  Map<String, double> linkedValues(Map<String, double> holdings) => {
-    for (final t in linkedTickers)
-      if ((holdings[t] ?? 0) > 0) t: holdings[t]!,
-  };
+  /// En qué moneda están los montos de la meta: el objetivo, el aporte del
+  /// plan, lo de afuera. Las metas viejas, en dólares.
+  final DisplayCurrency currency;
+
+  /// Tipo de cambio de hoy (unidades de [currency] por dólar) para valuar
+  /// sus inversiones asignadas, que se cotizan en dólares. Lo pone el
+  /// provider de metas al cargarlas ([withFx]); en dólares no hace falta.
+  final double? fxRate;
+
+  /// La moneda no es dólar y todavía no hay tipo de cambio: sus inversiones
+  /// no se pueden valuar ahora (no cuentan; la pantalla lo avisa y el plan
+  /// no se rehace con ese número).
+  bool get fxMissing => !currency.isUsd && (fxRate == null || fxRate! <= 0);
+
+  /// Por cuánto se multiplica un valor en dólares para llevarlo a [currency].
+  double get _toGoalCurrency => currency.isUsd ? 1 : (fxMissing ? 0 : fxRate!);
+
+  /// La misma meta con el tipo de cambio de hoy para su moneda.
+  UserGoal withFx(double? rate) => withCurrency(currency, rate);
+
+  /// La misma meta en otra moneda (los montos quedan como están escritos),
+  /// con el tipo de cambio de hoy de esa moneda.
+  UserGoal withCurrency(DisplayCurrency to, double? rate) => UserGoal(
+    id: id,
+    label: label,
+    type: type,
+    targetAmount: targetAmount,
+    targetDate: targetDate,
+    snapshot: snapshot,
+    status: status,
+    createdAt: createdAt,
+    linkedTickers: linkedTickers,
+    externalSavings: externalSavings,
+    planKey: planKey,
+    currency: to,
+    fxRate: rate,
+  );
+
+  /// El valor de cada inversión asignada que el usuario tiene hoy, en la
+  /// moneda de la meta ([holdings] = valor de mercado por ticker de su
+  /// cartera, en dólares). Sin tipo de cambio ([fxMissing]), vacío.
+  Map<String, double> linkedValues(Map<String, double> holdings) {
+    final rate = _toGoalCurrency;
+    if (rate <= 0) return const {};
+    return {
+      for (final t in linkedTickers)
+        if ((holdings[t] ?? 0) > 0) t: holdings[t]! * rate,
+    };
+  }
 
   /// Lo que lleva juntado: sus inversiones asignadas + lo de afuera.
   double savedWith(Map<String, double> holdings) =>
@@ -185,6 +231,8 @@ class UserGoal {
       },
       externalSavings: external is num ? external.toDouble() : 0,
       planKey: row['plan_key'] as String?,
+      // Sin la columna (base sin migrar) o desconocida: dólares.
+      currency: DisplayCurrency.fromCode(row['currency'] as String?),
     );
   }
 }
@@ -199,6 +247,7 @@ class GoalDraft {
     required this.targetDate,
     required this.snapshot,
     this.planKey,
+    this.currency = DisplayCurrency.usd,
   });
 
   final String label;
@@ -206,6 +255,9 @@ class GoalDraft {
   final double targetAmount;
   final DateTime targetDate;
   final GoalPlanSnapshot snapshot;
+
+  /// La moneda de los montos (los planes del chat, en dólares).
+  final DisplayCurrency currency;
 
   /// El `plan_id` del chat: guardar dos veces el mismo plan no duplica.
   final String? planKey;
@@ -236,6 +288,7 @@ class GoalDraft {
         ],
       ),
       planKey: GoalProjectionBuilder.planIdFor(inputs),
+      currency: currency,
     );
   }
 

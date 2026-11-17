@@ -24,6 +24,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
@@ -77,6 +78,7 @@ UserGoal _goal(
   GoalType type = GoalType.purchase,
   GoalStatus status = GoalStatus.active,
   bool savedAtStart = false,
+  DisplayCurrency currency = DisplayCurrency.usd,
 }) {
   final now = DateTime.now();
   final start = DateTime(now.year, now.month - monthsAgo, now.day);
@@ -100,6 +102,8 @@ UserGoal _goal(
     status: status,
     createdAt: start,
     externalSavings: saved,
+    currency: currency,
+    fxRate: currency.isUsd ? null : 40,
   );
 }
 
@@ -129,13 +133,16 @@ List<UserGoal> _onTrack() => [
 /// Una atrasada, una adelantada y una cumplida.
 List<UserGoal> _mixed() => [
   _goal('a', 'Viaje a Japón', 18000, months: 16, monthsAgo: 4, saved: 1500),
+  // En pesos uruguayos: sus montos con su símbolo; el total del
+  // encabezado, uno por moneda.
   _goal(
     'b',
     'Fondo de emergencia',
-    6000,
+    240000,
     months: 12,
     monthsAgo: 3,
-    saved: 2400,
+    saved: 96000,
+    currency: DisplayCurrency.uyu,
   ),
   _goal('e', 'iPhone 17 Pro', 1400, months: 8, monthsAgo: 2, saved: 330),
   _goal('f', 'Depto propio', 90000, months: 96, monthsAgo: 1, saved: 1200),

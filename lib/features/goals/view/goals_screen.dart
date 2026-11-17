@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -363,7 +363,7 @@ class _GoalRow extends ConsumerWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: QaFormat.money(progress.saved),
+                  text: g.goal.money(progress.saved),
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -371,7 +371,7 @@ class _GoalRow extends ConsumerWidget {
                 ),
                 TextSpan(
                   text:
-                      ' ${'goals_of_target'.tr(namedArgs: {'target': QaFormat.money(progress.target)})}',
+                      ' ${'goals_of_target'.tr(namedArgs: {'target': g.goal.money(progress.target)})}',
                 ),
               ],
             ),
@@ -607,8 +607,11 @@ class _NewGoalRow extends StatelessWidget {
     label: 'goals_new'.tr(),
     accent: true,
     onTap:
-        () => PortyChatSheet.show(context, question: 'goals_new_question'.tr(),
-          screen: const PortyScreenContext(PortyScreen.goals),),
+        () => PortyChatSheet.show(
+          context,
+          question: 'goals_new_question'.tr(),
+          screen: const PortyScreenContext(PortyScreen.goals),
+        ),
   );
 }
 
@@ -647,8 +650,7 @@ class _IdeaRow extends StatelessWidget {
   Widget build(BuildContext context) => _ActionRow(
     icon: idea.icon,
     label: idea.label.tr(),
-    onTap:
-        () => PortyChatSheet.show(context, question: idea.question.tr(),),
+    onTap: () => PortyChatSheet.show(context, question: idea.question.tr()),
   );
 }
 
