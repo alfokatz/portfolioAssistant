@@ -4,7 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show appFlavor;
+import 'package:flutter/services.dart'
+    show DeviceOrientation, SystemChrome, appFlavor;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -40,6 +41,9 @@ const _dotenvBaseFolder = 'assets/env/';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Solo vertical: la app no está pensada para horizontal (iPhone y Android;
+  // también fijado en Info.plist y AndroidManifest).
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   GoogleFonts.config.allowRuntimeFetching = false;
   GenUiDebugLog.installLoggerBridge();
   // Antes del primer frame (sigue el splash nativo): el loader del arranque

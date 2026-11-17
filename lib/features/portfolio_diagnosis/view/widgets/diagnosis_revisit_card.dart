@@ -6,6 +6,7 @@ import 'package:portfolio_assistant/features/assistant/services/porty_haptics_se
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/nav/portfolio_diagnosis_router.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/providers/portfolio_diagnosis_provider.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_entry_card.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -15,9 +16,9 @@ import 'package:portfolio_assistant/presentation/flows/home/providers/home_provi
 /// [DiagnosisEntryCard], arriba en la Home). El diagnóstico se arma de nuevo
 /// cada vez que se abre, así que siempre muestra los números de hoy.
 ///
-/// Va en la pestaña de análisis, con el mismo formato que la entrada de
-/// ventas cerradas. Trae su propio espacio inferior; si no corresponde, no
-/// ocupa lugar.
+/// Va arriba en la Home, debajo del total, en el lugar de
+/// [DiagnosisEntryCard] (nunca están las dos). Trae su propio espacio
+/// inferior; si no corresponde, no ocupa lugar.
 class DiagnosisRevisitCard extends ConsumerWidget {
   const DiagnosisRevisitCard({super.key});
 
@@ -38,7 +39,7 @@ class DiagnosisRevisitCard extends ConsumerWidget {
         AppDimens.pageHorizontal,
         0,
         AppDimens.pageHorizontal,
-        AppDimens.sp16,
+        AppDimens.sectionGap,
       ),
       child: Semantics(
         button: true,

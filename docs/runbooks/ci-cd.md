@@ -6,8 +6,13 @@ Corre en cada PR y en cada push a `main`, `develop` o a ramas `claude/**`. No ne
 
 | Job | Qué verifica |
 |---|---|
-| Flutter | `flutter analyze` sin errores (warnings e infos no frenan) y la suite completa de `flutter test` (screenshots y evals pagas se saltean solas) |
+| Qué cambió | Mira qué carpetas tocó el cambio. En PRs y ramas de trabajo se saltea lo que no aplica: sin cambios de app (`lib/`, `test/`, `assets/`, `pubspec`, `android/`, `ios/`, `web/`, las allowlists de `ai-chat`) no corre Flutter; sin cambios en `supabase/` no corre Supabase. Push a `main`/`develop` y "Run workflow" corren todo |
+| Flutter analyze | `flutter analyze` sin errores (warnings e infos no frenan) |
+| Flutter tests (shard 1-4/4) | La suite completa de `flutter test`, partida en 4 máquinas en paralelo (`--total-shards 4`). Screenshots y evals pagas se saltean solas. Si un shard falla, los otros siguen: se ven todas las fallas juntas |
 | Supabase | `supabase start` aplica todas las migraciones desde cero (si una migración no corre, falla acá), tests de Deno de las edge functions y los tests SQL de `supabase/tests/` |
+| CI ok | Resume todo en un check: falla si algún job falló o se canceló (los salteados cuentan como ok). Es el que conviene marcar como requerido en la protección de ramas |
+
+Para reproducir un shard en local: `flutter test --total-shards 4 --shard-index 0` (índices 0 a 3). Si un shard queda mucho más lento que los otros o la suite crece, subir a 6 shards en `matrix.shard` y `--total-shards`.
 
 Si el CI falla en un PR, no se mergea. Para ver el error: GitHub → Actions → la corrida → el paso en rojo.
 
@@ -15,14 +20,15 @@ Si el CI falla en un PR, no se mergea. Para ver el error: GitHub → Actions →
 
 | Rama git | Supabase | Deploy |
 |---|---|---|
-| `develop` | rama persistente `develop` (Branching, plan Pro) | `deploy-supabase-develop.yml`, automático al pushear cambios en `supabase/` |
+| `develop` | rama persistente `develop` (Branching, plan Pro) | `deploy-supabase-develop.yml`, automático al pushear cambios en `supabase/`: migraciones + edge functions |
+| cualquier otra (menos `main`) | la misma rama `develop` de Supabase | `deploy-supabase-develop.yml`: **solo edge functions** (las migraciones, vista previa sin aplicar) |
 | `main` | producción | `deploy-supabase.yml`, con tu aprobación |
 
 Flujo: rama de trabajo → PR a `develop` → se despliega a Supabase develop y probás la app con el flavor `development` → PR de `develop` a `main` → aprobás el deploy a producción. Nunca se cambia el esquema a mano en ninguno de los dos: todo va por migraciones.
 
 ## Deploy de Supabase develop (`.github/workflows/deploy-supabase-develop.yml`)
 
-Igual que el de producción, pero contra la rama `develop` de Supabase y sin aprobación.
+Igual que el de producción, pero contra la rama `develop` de Supabase y sin aprobación. Corre con cualquier push con cambios en `supabase/` a una rama que no sea `main`: despliega las edge functions de esa rama (para probar, por ejemplo, el chat antes de mergear; el último push gana) y aplica migraciones solo si la rama es `develop`. Si el environment `development` tiene "Deployment branches" limitado a `develop`, ampliarlo a todas las ramas (o "No restriction") para que corra desde las ramas de trabajo.
 
 ### Configuración (una sola vez)
 
