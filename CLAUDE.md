@@ -64,7 +64,7 @@ Preguntas rápidas, cambios chicos de una capa que ya entendés, o cuando el con
 
 ## Verificación (cómo se demuestra que un cambio funciona)
 
-- **Verificá antes de decir "listo"**: corré lo barato primero (analyze de lo tocado + tests relacionados) antes de commitear o abrir un PR; no gastes CI ni revisión en algo que no probaste. Si tocó UI, generá las capturas; si tocó backend, Deno/SQL (skill `porty-testing`).
+- **Verificá antes de decir "listo"** (skill `porty-verify`): `tools/verify/verify.sh` siempre (analyze + tests de lo tocado, ~30 s) antes de commitear o abrir un PR; si tocó backend, Supabase local + Deno/SQL; si cambió un flujo del usuario, el E2E web (`tools/verify/e2e/run.sh`). No gastes CI ni revisión en algo que no probaste.
 - **3 rondas y frená:** si un chequeo sigue fallando después de 3 intentos de arreglo, pará y avisale al usuario qué falla, qué probaste y tu mejor hipótesis. No sigas probando a ciegas.
 - **Tests inestables:** prohibido saltearlos, agregar esperas o reintentar hasta que pasen. Buscá la causa; si no la encontrás, borrá el test y dejá escrito por qué en el commit.
 - **Cada commit dice cómo se verificó**, con una línea al final del mensaje (antes de `Co-Authored-By`): `Verified: <qué se corrió>` (ej. `Verified: flutter test test/features/goals, analyze`) o `Verified: none — <motivo>`. Nunca omitirla.

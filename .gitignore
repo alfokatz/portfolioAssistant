@@ -82,3 +82,8 @@ supabase/functions/.env*
 out/
 scripts/ads/node_modules/
 ads-out/
+
+# E2E local (tools/verify/e2e): claves del stack local, se genera y se borra solo
+assets/env/.env.e2e
+build/e2e/
+.claude/verify-gate.log

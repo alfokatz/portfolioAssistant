@@ -10,6 +10,7 @@ memory: project
 skills:
   - porty-assistant
   - porty-testing
+  - porty-verify
   - porty-ui-design
 ---
 
