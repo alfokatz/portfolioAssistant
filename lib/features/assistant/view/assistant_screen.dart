@@ -687,7 +687,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       ref
           .read(alertProvider.notifier)
           .showError(message: 'goal_limit_reached'.tr());
-    } catch (_) {
+    } catch (e, stack) {
+      // El cartel es genérico: el motivo real queda en la consola.
+      debugPrint('[Goals/save] failed: $e\n$stack');
       ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
     }
     return null;

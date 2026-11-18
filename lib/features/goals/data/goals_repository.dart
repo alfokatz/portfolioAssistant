@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
@@ -87,6 +88,7 @@ class GoalsRepository {
       if (e.message.contains('user_goal_limit_reached')) {
         throw const GoalLimitReached();
       }
+      debugPrint('[Goals/create] ${e.code}: ${e.message} ${e.details ?? ''}');
       throw const GoalsUnavailable();
     }
   }
@@ -115,7 +117,8 @@ class GoalsRepository {
             if (currency != null) 'currency': currency.code,
           })
           .eq('id', id);
-    } on PostgrestException {
+    } on PostgrestException catch (e) {
+      debugPrint('[Goals/update] ${e.code}: ${e.message} ${e.details ?? ''}');
       throw const GoalsUnavailable();
     }
   }
