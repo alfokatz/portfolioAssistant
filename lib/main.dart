@@ -4,9 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'
-    show DeviceOrientation, SystemChrome, appFlavor;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart' show DeviceOrientation, SystemChrome;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'
@@ -33,11 +31,13 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart'
     show themeDataDarkProvider, themeDataLightProvider;
 import 'package:portfolio_assistant/presentation/base/theme/theme_mode_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/app_bootstrap.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/dismiss_keyboard_on_tap.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/env_badge.dart';
+import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 const _translationsPath = 'assets/translations';
-const _dotenvBaseFolder = 'assets/env/';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,14 +57,14 @@ Future<void> main() async {
   runApp(AppBootstrap(initialize: _initialize, themeMode: themeMode));
 }
 
-/// Entorno, Supabase (restaura la sesión guardada), RevenueCat, idioma y
+/// Supabase (restaura la sesión guardada), RevenueCat, idioma y
 /// preferencias; devuelve la app lista para montar.
 Future<Widget> _initialize() async {
-  await _setupEnviroment();
   await SupabaseInitializer.initialize();
   // Con sesión restaurada: un toque del widget con una pregunta se atiende
   // al abrir; sin sesión, la pregunta se descarta tras el login.
-  final launchedWithSession = Supabase.instance.client.auth.currentSession != null;
+  final launchedWithSession =
+      Supabase.instance.client.auth.currentSession != null;
   // App Group del widget y refresco de fondo (workmanager).
   await initializeHomeWidgetPlugins();
   final revenueCatService = await RevenueCatInitializer.initialize();
@@ -85,16 +85,6 @@ Future<Widget> _initialize() async {
     secureStorage: appSecureStorage,
     launchedWithSession: launchedWithSession,
   );
-}
-
-Future<void> _setupEnviroment() async {
-  // Android: `--flavor X` (appFlavor). iOS todavía no tiene esquemas por
-  // flavor, así que ahí sigue siendo `--dart-define=FLAVOR=X`.
-  final flavor =
-      appFlavor ??
-      const String.fromEnvironment('FLAVOR', defaultValue: 'development');
-  final fileName = '$_dotenvBaseFolder.env.$flavor';
-  await dotenv.load(fileName: fileName);
 }
 
 Widget _setupRiverpod({
@@ -174,17 +164,30 @@ class MyApp extends HookConsumerWidget {
         // Los accesorios que eligió el usuario, para todos los Porty.
         return PortyOutfitScope(
           outfit: outfit,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ColoredBox(color: Theme.of(context).colorScheme.surface),
+          // Tocar afuera de un campo baja el teclado (el numérico de iOS no
+          // tiene tecla para cerrarlo).
+          child: DismissKeyboardOnTap(
+            // La moneda elegida para los montos de tu plata, en toda la app.
+            child: DisplayMoneyHost(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surface,
+                    ),
+                  ),
+                  if (child != null) child,
+                  if (update?.required ?? false)
+                    Positioned.fill(
+                      child: AppUpdateRequiredScreen(
+                        storeUrl: update!.storeUrl,
+                      ),
+                    ),
+                  // Builds de develop (TestFlight): pastilla DEV; en prod, nada.
+                  const EnvBadge(),
+                ],
               ),
-              if (child != null) child,
-              if (update?.required ?? false)
-                Positioned.fill(
-                  child: AppUpdateRequiredScreen(storeUrl: update!.storeUrl),
-                ),
-            ],
+            ),
           ),
         );
       },

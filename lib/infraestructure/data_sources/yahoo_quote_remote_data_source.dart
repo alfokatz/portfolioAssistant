@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/data_sources/quote_remote_data_source.dart';
 import 'package:portfolio_assistant/domain/entities/price_candle.dart';
@@ -28,12 +28,7 @@ class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
   })  : _reader = reader ?? YahooFinanceDailyReader(),
         _dio = dio ?? _createIntradayDio(),
         _cacheTtl = cacheTtl ??
-            Duration(
-              minutes: int.tryParse(
-                    dotenv.env['YAHOO_CACHE_TTL_MINUTES'] ?? '10',
-                  ) ??
-                  10,
-            );
+            Duration(minutes: AppEnv.yahooCacheTtlMinutes);
 
   String _symbol(String ticker) =>
       PortfolioCalculator.toYahooFinanceSymbol(ticker);

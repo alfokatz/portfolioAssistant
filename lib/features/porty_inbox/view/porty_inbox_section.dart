@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
 import 'package:portfolio_assistant/features/allocation/providers/allocation_provider.dart';
@@ -63,8 +64,11 @@ class _PortyInboxSectionState extends ConsumerState<PortyInboxSection> {
 
   void _open(PortyInsight insight) {
     PortyHapticsService.maybeOf(context)?.selectionTap();
-    PortyChatSheet.show(context, question: PortyInsightCopy.question(insight),
-      screen: insight.screen,);
+    PortyChatSheet.show(
+      context,
+      question: PortyInsightCopy.question(insight),
+      screen: insight.screen,
+    );
   }
 
   @override
@@ -134,8 +138,9 @@ class _PortyInboxSectionState extends ConsumerState<PortyInboxSection> {
                       ),
                       child: Text(
                         'porty_inbox_hide'.tr(),
-                        style: Theme.of(context).textTheme.labelLarge
-                            ?.copyWith(color: colors.textSecondary),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ),
                     child: _InsightRow(
@@ -267,6 +272,12 @@ abstract final class PortyInsightCopy {
       AppNumberFormat.percent(v ?? 0, decimals: decimals, signed: false);
   static String _money(double? v) => AppNumberFormat.money(v ?? 0);
 
+  /// Montos de una meta, en su moneda.
+  static String _goalMoney(PortyInsight i, double? v) =>
+      i.goalCurrency == null || i.goalCurrency!.isUsd
+          ? _money(v)
+          : goalMoney(i.goalCurrency!, (v ?? 0).round());
+
   static Map<String, String> _args(PortyInsight i) {
     final n = i.numbers;
     return {
@@ -276,9 +287,9 @@ abstract final class PortyInsightCopy {
       'target_pct': _pct(n['target']),
       'pct': _pct(n['pct']),
       'weight': _pct(n['weight']),
-      'required': _money(n['required']),
-      'planned': _money(n['planned']),
-      'left': _money(n['left']),
+      'required': _goalMoney(i, n['required']),
+      'planned': _goalMoney(i, n['planned']),
+      'left': _goalMoney(i, n['left']),
       'price': _money(n['price']),
       'target_price': _money(n['target']),
       'distance': _pct(n['distance'], decimals: 1),
@@ -304,12 +315,13 @@ abstract final class PortyInsightCopy {
   /// Un tema de charla dice que lo consultó (no que lo tiene) y si subió o
   /// bajó con palabras: al lado de las posiciones, "TSLA -13%" se leía como
   /// una acción de la cartera.
-  static String title(PortyInsight i) => i.kind == PortyInsightKind.topicMoved
-      ? ((i.numbers['change'] ?? 0) < 0
-                ? 'porty_inbox_topic_moved_down_title'
-                : 'porty_inbox_topic_moved_up_title')
-            .tr(namedArgs: _args(i))
-      : 'porty_inbox_${_key(i)}_title'.tr(namedArgs: _args(i));
+  static String title(PortyInsight i) =>
+      i.kind == PortyInsightKind.topicMoved
+          ? ((i.numbers['change'] ?? 0) < 0
+                  ? 'porty_inbox_topic_moved_down_title'
+                  : 'porty_inbox_topic_moved_up_title')
+              .tr(namedArgs: _args(i))
+          : 'porty_inbox_${_key(i)}_title'.tr(namedArgs: _args(i));
 
   static String detail(PortyInsight i) =>
       'porty_inbox_${_key(i)}_detail'.tr(namedArgs: _args(i));

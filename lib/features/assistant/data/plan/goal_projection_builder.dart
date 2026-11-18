@@ -38,6 +38,7 @@ abstract final class GoalProjectionBuilder {
     InvestorProfile? profile,
     ({String label, double targetAmount, String targetDate})? savedGoal,
     DateTime? asOf,
+    String currency = SavingsPlanInputs.usd,
   }) {
     final reference = asOf ?? DateTime.now();
     // "Quiero cobrar $3.000 por mes cuando me jubile" define la meta: el
@@ -110,6 +111,8 @@ abstract final class GoalProjectionBuilder {
     final startingCapital =
         currentSavings ?? (retirementGoal ? currentPortfolioValue : 0.0);
     final result = <String, Object?>{
+      // Montos en la moneda que usó el usuario (sin la clave: dólares).
+      if (currency != SavingsPlanInputs.usd) 'currency': currency,
       'current_portfolio_value': currentPortfolioValue,
       'starting_capital': startingCapital,
       'starting_capital_source':
@@ -179,6 +182,7 @@ abstract final class GoalProjectionBuilder {
       incomeStrategy: strategy,
       dividendYield: dividendYield,
       shortTerm: shortTermPurchase,
+      currency: currency,
     );
     final plan = SavingsPlan.build(inputs);
     result[planIdKey] = planIdFor(inputs);
@@ -232,6 +236,7 @@ abstract final class GoalProjectionBuilder {
       incomeStrategy: inputs.incomeStrategy,
       dividendYield: inputs.dividendYield,
       shortTerm: shortTerm,
+      currency: inputs.currency,
     );
     final name = label?.trim();
     final result = <String, Object?>{

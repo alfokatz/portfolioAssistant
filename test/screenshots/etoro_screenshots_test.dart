@@ -34,6 +34,8 @@ import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_disconnect
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
+import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
@@ -103,6 +105,22 @@ EtoroConnection _connection(EtoroConnectionStatus status) => EtoroConnection(
   lastResult: status == EtoroConnectionStatus.notConnected ? null : _result(),
 );
 
+/// Plan fijo (Premium) para las capturas, como en las de Binance y SnapTrade.
+class _Subscription extends StateNotifier<SubscriptionState>
+    implements SubscriptionNotifier {
+  _Subscription()
+    : super(
+        const SubscriptionState(
+          tier: SubscriptionTier.premium,
+          queriesUsed: 0,
+          queriesLimit: 100,
+        ),
+      );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Widget _app(
   Brightness brightness,
   Widget home,
@@ -119,6 +137,9 @@ Widget _app(
   return ProviderScope(
     overrides: [
       etoroConnectionRepositoryProvider.overrideWithValue(_Repo(connection)),
+      // La pantalla sin conectar mira el plan (importación gratis): sin este
+      // override el provider real llamaba a Supabase sin inicializar.
+      subscriptionProvider.overrideWith((ref) => _Subscription()),
       ...overrides,
     ],
     child: MaterialApp(
@@ -164,10 +185,15 @@ class _LoadThenState extends ConsumerState<_LoadThen> {
 
 void _noop() {}
 
-Future<void> _capture(WidgetTester tester, GlobalKey boundary, String name) async {
+Future<void> _capture(
+  WidgetTester tester,
+  GlobalKey boundary,
+  String name,
+) async {
   final render =
       boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final image = (await tester.runAsync(() => render.toImage(pixelRatio: _dpr)))!;
+  final image =
+      (await tester.runAsync(() => render.toImage(pixelRatio: _dpr)))!;
   final bytes =
       (await tester.runAsync(
         () => image.toByteData(format: ui.ImageByteFormat.png),
@@ -333,20 +359,25 @@ void main() {
     testWidgets('etoro_position_rows_$b', (tester) async {
       await setUp(tester, brightness);
       final boundary = GlobalKey();
-      Widget row(String ticker, double qty, double buy, double now, PositionSource source) =>
-          PositionRowWidget(
-            valuation: PortfolioCalculator.valuate(
-              position: Position(
-                id: ticker,
-                ticker: ticker,
-                quantity: qty,
-                purchasePrice: buy,
-                purchaseDate: DateTime(2026, 3, 1),
-                source: source,
-              ),
-              currentPrice: now,
-            ),
-          );
+      Widget row(
+        String ticker,
+        double qty,
+        double buy,
+        double now,
+        PositionSource source,
+      ) => PositionRowWidget(
+        valuation: PortfolioCalculator.valuate(
+          position: Position(
+            id: ticker,
+            ticker: ticker,
+            quantity: qty,
+            purchasePrice: buy,
+            purchaseDate: DateTime(2026, 3, 1),
+            source: source,
+          ),
+          currentPrice: now,
+        ),
+      );
       await tester.pumpWidget(
         RepaintBoundary(
           key: boundary,

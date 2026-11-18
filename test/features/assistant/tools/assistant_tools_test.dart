@@ -588,7 +588,7 @@ void main() {
         'monthly_contribution': 20000,
       });
       expect(result['status'], 'invalid');
-      expect(result['reason'], 'monthly_contribution_not_usd');
+      expect(result['reason'], 'monthly_contribution_other_currency');
 
       final ok = await GetGoalProjectionTool(_ctx(SubscriptionTier.gold)).run({
         'target_amount': 5000,

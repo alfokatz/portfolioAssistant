@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_money.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/fx_breakdown.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
@@ -56,6 +57,16 @@ final fxRateProvider = FutureProvider.autoDispose
       final result = await quotes.getCurrentPrice(currency.yahooSymbol);
       return result.fold<double?>((_) => null, (r) => r > 0 ? r : null);
     });
+
+/// Cómo se muestran los montos de la Home: en la moneda elegida con el
+/// tipo de cambio de hoy, o en dólares si eligió dólar o todavía no hay
+/// tipo de cambio (no se muestra nada a medias).
+final displayMoneyProvider = Provider.autoDispose<DisplayMoney>((ref) {
+  final currency = ref.watch(displayCurrencyProvider);
+  if (currency.isUsd) return DisplayMoney.usd;
+  final rate = ref.watch(fxRateProvider(currency)).valueOrNull;
+  return rate == null ? DisplayMoney.usd : DisplayMoney(currency, rate);
+});
 
 /// Arma el desglose de las compras de [lots] en [currency]. `null` si no
 /// hay tipo de cambio de hoy.

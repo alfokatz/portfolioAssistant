@@ -11,48 +11,42 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 import 'package:portfolio_assistant/presentation/shared/widgets/labeled_value_row.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 
-/// Debajo del total de la Home: "≈ $U 1.234.567". Solo si eligió otra
-/// moneda y hay tipo de cambio. Al tocarla, el desglose.
-class DisplayCurrencyLine extends ConsumerWidget {
-  const DisplayCurrencyLine({super.key, required this.totalUsd});
-
-  final double totalUsd;
+/// La etiqueta del total de la Home. En dólares (o sin tipo de cambio),
+/// "Total". Con otra moneda, "Total en UYU ›": todos los números del
+/// encabezado ya están en esa moneda y al tocarla se abre el desglose (de
+/// dónde sale la ganancia: las inversiones o el tipo de cambio).
+class DisplayTotalLabel extends ConsumerWidget {
+  const DisplayTotalLabel({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currency = ref.watch(displayCurrencyProvider);
-    if (currency.isUsd) return const SizedBox.shrink();
-    final rate = ref.watch(fxRateProvider(currency)).valueOrNull;
-    if (rate == null) return const SizedBox.shrink();
+    final money = ref.watch(displayMoneyProvider);
     final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    final amount = currency.money(totalUsd * rate);
+    final style = Theme.of(context).textTheme.labelLarge?.copyWith(
+      color: colors.textSecondary,
+      letterSpacing: 0.3,
+    );
+    if (money.isUsd) return Text('portfolio_total_label'.tr(), style: style);
+    final currency = money.currency;
     return Semantics(
       button: true,
-      label: 'fx_line_semantics'.tr(
-        namedArgs: {'amount': amount, 'currency': currency.labelKey.tr()},
+      label: 'fx_total_semantics'.tr(
+        namedArgs: {'currency': currency.labelKey.tr()},
       ),
       child: InkWell(
         onTap: () => FxBreakdownSheet.show(context),
         borderRadius: BorderRadius.circular(AppDimens.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: ExcludeSemantics(
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                  child: Text(
-                    '≈ $amount',
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.bodyMedium?.copyWith(
-                      color: colors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
+                Text(
+                  'fx_total_label'.tr(namedArgs: {'code': currency.code}),
+                  style: style,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 Icon(
                   Icons.chevron_right_rounded,
                   size: AppDimens.iconSm,
@@ -145,11 +139,7 @@ class _FxPortyHeader extends StatelessWidget {
     final d = data;
     final (String key, String message, PortyAvatarState mood) =
         failed
-            ? (
-              'failed',
-              'fx_sheet_unavailable'.tr(),
-              PortyAvatarState.error,
-            )
+            ? ('failed', 'fx_sheet_unavailable'.tr(), PortyAvatarState.error)
             : loading || d == null
             ? ('loading', where, PortyAvatarState.thinking)
             : d.currencyEffect > 0
@@ -176,9 +166,7 @@ class _FxPortyHeader extends StatelessWidget {
         header: true,
         child: Text(
           message,
-          style: const TextStyle(
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
+          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
         ),
       ),
       footnote: key == 'loading' ? null : Text(where),

@@ -108,6 +108,8 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     final action = await showModalBottomSheet<_Action>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => _ActionsSheet(item: item, quote: quote),
     );
     if (action == null || !mounted) return;
@@ -122,15 +124,16 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
             currentPrice: quote?.price,
           );
         case _Action.ask:
-          PortyChatSheet.show(context, question: 'watchlist_ask_question'.tr(
+          PortyChatSheet.show(
+            context,
+            question: 'watchlist_ask_question'.tr(
               namedArgs: {'ticker': item.symbol},
             ),
             screen: PortyScreenContext(
               PortyScreen.watchlist,
               ticker: item.symbol,
-            ),);
-        case _Action.toggleNotify:
-          await notifier.setNotify(item, !item.notify);
+            ),
+          );
         case _Action.remove:
           await notifier.remove(item);
           if (mounted) {
@@ -765,165 +768,227 @@ class _AddRow extends StatelessWidget {
   }
 }
 
-enum _Action { alert, ask, toggleNotify, remove }
+enum _Action { alert, ask, remove }
 
-/// Las acciones de un ticker: arriba su logo, nombre, precio y día; abajo
-/// cada acción como una fila de Ajustes (quitar, en rojo).
-class _ActionsSheet extends StatelessWidget {
+/// Las acciones de un ticker, con la voz de Porty: arriba el ticker con su
+/// precio y día; Porty dice cómo le fue desde que lo agregaste (con números
+/// reales); la acción principal es preguntarle a Porty; después la alerta de
+/// precio y el aviso de movimientos fuertes como un switch que muestra su
+/// estado (antes era una fila que decía lo contrario de lo que estaba
+/// prendido); "quitar" queda abajo, en rojo y sin peso.
+class _ActionsSheet extends ConsumerWidget {
   const _ActionsSheet({required this.item, required this.quote});
 
   final WatchlistItem item;
   final WatchQuote? quote;
 
+  String _portyLine() {
+    // Mismo formato que la fila (el locale lo fija EasyLocalization).
+    final date = DateFormat.yMMMd().format(item.createdAt);
+    final since = quote?.sinceAddedPct(item.addedPrice);
+    if (since == null || !since.isFinite) {
+      return 'watchlist_sheet_no_quote'.tr(namedArgs: {'date': date});
+    }
+    final pct = AppNumberFormat.percent(since.abs(), signed: false);
+    final key =
+        since.abs() < 0.05
+            ? 'watchlist_sheet_flat'
+            : since > 0
+            ? 'watchlist_sheet_up'
+            : 'watchlist_sheet_down';
+    return key.tr(namedArgs: {'pct': pct, 'date': date});
+  }
+
+  Future<void> _setNotify(WidgetRef ref, WatchlistItem current, bool on) async {
+    try {
+      await ref.read(watchlistProvider.notifier).setNotify(current, on);
+    } on WatchlistFailure {
+      ref
+          .read(alertProvider.notifier)
+          .showError(message: 'watchlist_error_network'.tr());
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
-    final q = quote;
-    final day = q?.dayChangePct;
-
-    Widget tile(
-      _Action a,
-      IconData icon,
-      String label, {
-      String? subtitle,
-      bool destructive = false,
-    }) => InkWell(
-      onTap: () => Navigator.of(context).pop(a),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimens.pageHorizontal,
-          vertical: AppDimens.sp12,
-        ),
-        child: Row(
-          children: [
-            _Bubble(icon: icon, destructive: destructive),
-            const SizedBox(width: AppDimens.sp12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: tt.bodyLarge?.copyWith(
-                      color: destructive ? colors.loss : colors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle,
-                      style: tt.bodySmall?.copyWith(
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    const tabular = [FontFeature.tabularFigures()];
+    // El switch se actualiza al toque: se lee el ítem vivo del provider.
+    final current = ref.watch(
+      watchlistProvider.select(
+        (s) => s.items.firstWhere((i) => i.id == item.id, orElse: () => item),
       ),
     );
+    final q = quote;
+    final day = q?.dayChangePct;
+    final since = q?.sinceAddedPct(item.addedPrice);
+    final mood =
+        since == null || since.abs() < 0.05
+            ? PortyAvatarState.idle
+            : since > 0
+            ? PortyAvatarState.answered
+            : PortyAvatarState.concerned;
 
     return SafeArea(
       child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.pageHorizontal,
+          0,
+          AppDimens.pageHorizontal,
+          AppDimens.sp12,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppDimens.pageHorizontal,
-                0,
-                AppDimens.pageHorizontal,
-                AppDimens.sp16,
+            // Ticker, nombre, precio y día.
+            QaBrandBuilder(
+              ticker: item.symbol,
+              builder:
+                  (context, brand) => Row(
+                    children: [
+                      QaTickerAvatar(
+                        ticker: item.symbol,
+                        size: 48,
+                        brand: brand,
+                      ),
+                      const SizedBox(width: AppDimens.sp12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.symbol,
+                              style: tt.titleLarge?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (brand.name?.isNotEmpty == true)
+                              Text(
+                                brand.name!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodyMedium?.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (q != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              AppNumberFormat.money(q.price),
+                              style: tt.titleMedium?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: tabular,
+                              ),
+                            ),
+                            if (day != null) ...[
+                              const SizedBox(height: 4),
+                              _DayPill(pct: day),
+                            ],
+                          ],
+                        ),
+                    ],
+                  ),
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            // Porty cuenta cómo le fue, con números reales.
+            PortySays(
+              messageKey: 'watchlist-sheet-${item.id}',
+              mood: mood,
+              message: Text(
+                _portyLine(),
+                style: tt.bodyLarge?.copyWith(
+                  color: colors.textPrimary,
+                  fontFeatures: tabular,
+                  height: 1.35,
+                ),
               ),
-              child: QaBrandBuilder(
-                ticker: item.symbol,
-                builder:
-                    (context, brand) => Row(
-                      children: [
-                        QaTickerAvatar(
-                          ticker: item.symbol,
-                          size: 48,
-                          brand: brand,
-                        ),
-                        const SizedBox(width: AppDimens.sp12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.symbol,
-                                style: tt.titleLarge?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (brand.name?.isNotEmpty == true)
-                                Text(
-                                  brand.name!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodyMedium?.copyWith(
-                                    color: colors.textSecondary,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        if (q != null)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                AppNumberFormat.money(q.price),
-                                style: tt.titleMedium?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (day != null) ...[
-                                const SizedBox(height: 4),
-                                _DayPill(pct: day),
-                              ],
-                            ],
-                          ),
-                      ],
+            ),
+            const SizedBox(height: AppDimens.sp20),
+            PositionPrimaryButton(
+              label: 'watchlist_sheet_ask'.tr(
+                namedArgs: {'ticker': item.symbol},
+              ),
+              onPressed: () => Navigator.of(context).pop(_Action.ask),
+            ),
+            const SizedBox(height: AppDimens.sp12),
+            // Alerta de precio: abre su hoja.
+            InkWell(
+              borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+              onTap: () => Navigator.of(context).pop(_Action.alert),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
+                child: Row(
+                  children: [
+                    const _Bubble(icon: Icons.notifications_active_outlined),
+                    const SizedBox(width: AppDimens.sp12),
+                    Expanded(
+                      child: _RowText(
+                        label: 'watchlist_action_alert'.tr(),
+                        subtitle: 'watchlist_action_alert_body'.tr(),
+                      ),
                     ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colors.textSecondary,
+                    ),
+                  ],
+                ),
               ),
             ),
-            Divider(height: 1, color: colors.border),
-            const SizedBox(height: AppDimens.sp4),
-            tile(
-              _Action.ask,
-              Icons.chat_bubble_outline_rounded,
-              'watchlist_action_ask'.tr(),
-              subtitle: 'watchlist_action_ask_body'.tr(),
-            ),
-            tile(
-              _Action.alert,
-              Icons.notifications_active_outlined,
-              'watchlist_action_alert'.tr(),
-              subtitle: 'watchlist_action_alert_body'.tr(),
-            ),
-            tile(
-              _Action.toggleNotify,
-              item.notify
-                  ? Icons.notifications_off_outlined
-                  : Icons.notifications_none_rounded,
-              (item.notify
-                      ? 'watchlist_action_notify_off'
-                      : 'watchlist_action_notify_on')
-                  .tr(),
-            ),
-            tile(
-              _Action.remove,
-              Icons.delete_outline_rounded,
-              'watchlist_action_remove'.tr(),
-              destructive: true,
+            Divider(height: 1, indent: 48, color: colors.border),
+            // Movimientos fuertes: un switch con el estado a la vista.
+            MergeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
+                child: Row(
+                  children: [
+                    const _Bubble(icon: Icons.bolt_rounded),
+                    const SizedBox(width: AppDimens.sp12),
+                    Expanded(
+                      child: _RowText(
+                        label: 'watchlist_sheet_notify'.tr(),
+                        subtitle: 'watchlist_sheet_notify_body'.tr(),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: current.notify,
+                      onChanged: (on) => _setNotify(ref, current, on),
+                      activeTrackColor: colors.accentBlue,
+                      activeThumbColor: colors.surfaceCard,
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: AppDimens.sp8),
+            // Quitar: al final, en rojo y sin peso de botón.
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(_Action.remove),
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.loss,
+                  minimumSize: const Size(0, AppDimens.touchTarget),
+                ),
+                child: Text(
+                  'watchlist_sheet_remove'.tr(
+                    namedArgs: {'ticker': item.symbol},
+                  ),
+                  style: tt.bodyMedium?.copyWith(
+                    color: colors.loss,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -931,12 +996,41 @@ class _ActionsSheet extends StatelessWidget {
   }
 }
 
+/// Título y explicación de una fila de la hoja.
+class _RowText extends StatelessWidget {
+  const _RowText({required this.label, required this.subtitle});
+
+  final String label;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: tt.bodyLarge?.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          subtitle,
+          style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
 /// Un ícono en un círculo teñido, como en Ajustes.
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.icon, this.destructive = false});
+  const _Bubble({required this.icon});
 
   final IconData icon;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
@@ -944,15 +1038,8 @@ class _Bubble extends StatelessWidget {
     return Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
-        color: destructive ? colors.lossContainer : colors.chip,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon,
-        size: 18,
-        color: destructive ? colors.loss : colors.onChip,
-      ),
+      decoration: BoxDecoration(color: colors.chip, shape: BoxShape.circle),
+      child: Icon(icon, size: 18, color: colors.onChip),
     );
   }
 }

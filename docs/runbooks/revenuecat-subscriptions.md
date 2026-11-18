@@ -67,14 +67,14 @@ Bundle iOS y package Android de producción: `com.portyassistant.app`.
 
 ## 5. Build
 
-En `assets/env/.env.production` (local, no va al repo; si probás con otro flavor, en ese `.env`):
+En `env/prod.json` y `env/develop.json` (locales, no van al repo; la misma key en los dos):
 
-```
-REVENUECAT_APPLE_API_KEY=appl_...
-REVENUECAT_GOOGLE_API_KEY=goog_...
+```json
+"REVENUECAT_APPLE_API_KEY": "appl_...",
+"REVENUECAT_GOOGLE_API_KEY": "goog_..."
 ```
 
-Compilar siempre con el flavor: `flutter run --dart-define=FLAVOR=production` (iOS) o `--flavor production` (Android).
+Compilar siempre con el archivo de entorno: `scripts/build_prod.sh` / `scripts/build_testflight.sh` (iOS) o `--flavor production --dart-define-from-file=env/prod.json` (Android). Ver `docs/runbooks/build-entornos.md`.
 
 ## 6. Probar
 

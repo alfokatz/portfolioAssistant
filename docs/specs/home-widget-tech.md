@@ -140,7 +140,7 @@ El nativo agrega además `age=<min>` (minutos desde `data_as_of`) para `data_age
 **No usa la sesión de Supabase.** Motivo: `supabase_flutter` rota el refresh token; un segundo cliente en otro isolate que refresque mientras el de la UI guarda uno más viejo puede disparar la detección de reutilización y cerrar la sesión del usuario. El refresco no la necesita:
 - Tenencias: el caché privado de la Home (`HomePortfolioCache`, `SharedPreferences` privado, por uid) ya guarda los lotes con ticker, cantidad, precio y fecha de compra.
 - Uid: `widget_owner_uid` en el `SharedPreferences` **privado** (lo escribe el sync al escribir `ready`; lo borra el signOut). No va al almacenamiento compartido.
-- Precios: `YahooQuoteRemoteDataSource` va directo a Yahoo, sin JWT. En el isolate de fondo se construye con `cacheTtl` explícito (si no, lee `dotenv`, que no está cargado).
+- Precios: `YahooQuoteRemoteDataSource` va directo a Yahoo, sin JWT. En el isolate de fondo se construye con `cacheTtl` explícito (siempre 10 min en ese isolate).
 
 Callback `widgetBackgroundDispatcher` (`@pragma('vm:entry-point')`, top-level): lee uid → si no hay, termina. Lee caché → si no hay lotes, termina. Trae velas diarias por ticker único (si falla un ticker, usa el `currentPrice` del caché; si fallan todos, no escribe) → `PortfolioCalculator.valuate` + `PortfolioSeriesBuilder` + `PortfolioDayMove` + `WidgetSnapshotBuilder` → **relee el uid y solo escribe si sigue igual** (evita resucitar datos después de un signOut) → `updateWidget`. No escribe el caché de la Home ni loguea eventos (sin sesión).
 

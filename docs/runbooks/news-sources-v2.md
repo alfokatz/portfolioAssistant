@@ -78,7 +78,7 @@ Todo queda detrás de `app_config.news_provider` (`legacy` | `v2`). El valor arr
 # supabase start + functions serve con OPENAI_API_KEY y SEC_USER_AGENT
 cd supabase/functions && export EVAL_PROXY_JWT=$(deno run -A scripts/eval_user.ts)
 cd ../.. && RUN_ASSISTANT_EVALS=1 EVAL_NEWS_V2=1 EVAL_ANON_KEY=$ANON_KEY EVAL_CASE_DELAY_S=6 \
-  flutter test test/evals/assistant_tool_evals_test.dart
+  flutter test --dart-define-from-file=env/develop.json test/evals/assistant_tool_evals_test.dart
 ```
 
 Son 10 casos en español (noticias, "por qué se movió", resultados, consenso, emisor extranjero, fundamentals). Cada uno verifica que se use la tool correcta, que haya citas (al menos 3 en "¿Qué pasó con Nvidia esta semana?"), que no aparezcan cifras sin respaldo en las tools, que no haya consejos de compra o venta y que nunca se diga "superó / no alcanzó" sin consenso. Última corrida: 10/10.

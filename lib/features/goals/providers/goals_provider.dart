@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
@@ -43,7 +45,9 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
     Set<String> Function()? heldTickers,
     Map<String, double> Function()? holdings,
     DateTime Function()? clock,
+    Future<double?> Function(DisplayCurrency currency)? loadFxRate,
   }) : _holdings = holdings ?? (() => const {}),
+       _loadFxRate = loadFxRate ?? ((_) async => null),
        _heldTickers =
            heldTickers ??
            (holdings == null
@@ -59,9 +63,37 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
   final Map<String, double> Function() _holdings;
   final DateTime Function() _clock;
 
+  /// Tipo de cambio de hoy (unidades por dólar) de una moneda; `null` si no
+  /// se pudo traer.
+  final Future<double?> Function(DisplayCurrency currency) _loadFxRate;
+
+  /// El último tipo de cambio que se consiguió por moneda (si el de ahora
+  /// falla, se sigue usando ese).
+  final Map<DisplayCurrency, double> _fx = {};
+
+  /// Cada meta en otra moneda con el tipo de cambio de hoy, para valuar sus
+  /// inversiones (que están en dólares). Ver [UserGoal.withFx].
+  Future<List<UserGoal>> _withFx(List<UserGoal> goals) async {
+    final needed = {
+      for (final g in goals)
+        if (!g.currency.isUsd) g.currency,
+    };
+    await Future.wait([
+      for (final c in needed)
+        _loadFxRate(c)
+            .then((r) {
+              if (r != null && r > 0) _fx[c] = r;
+            })
+            .catchError((Object _) {}),
+    ]);
+    return [
+      for (final g in goals) g.currency.isUsd ? g : g.withFx(_fx[g.currency]),
+    ];
+  }
+
   Future<List<UserGoal>> load() async {
     try {
-      final goals = await _repo.list();
+      final goals = await _withFx(await _repo.list());
       if (mounted) state = GoalsState(goals: goals, loaded: true);
       return goals;
     } catch (e) {
@@ -160,7 +192,9 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
     var changed = false;
     for (final id in ids) {
       final goal = state.byId(id);
-      if (goal == null) continue;
+      // Sin tipo de cambio sus inversiones no se pueden valuar: el plan no
+      // se rehace con un número a medias.
+      if (goal == null || goal.fxMissing) continue;
       final draft = GoalReplan.rebase(
         goal,
         GoalReplan.capital(goal, GoalShares.holdingsFor(goal, goals, holdings)),
@@ -200,6 +234,7 @@ class GoalsNotifier extends StateNotifier<GoalsState> {
       id,
       draft,
       linkedTickers: {...goal.linkedTickers, ...added},
+      currency: draft.currency != goal.currency ? draft.currency : null,
     );
     await load();
     // La compra mensual nueva cambia cómo se reparten las inversiones que
@@ -233,6 +268,12 @@ final goalsProvider = StateNotifierProvider<GoalsNotifier, GoalsState>(
   (ref) => GoalsNotifier(
     ref.watch(goalsRepositoryProvider),
     holdings: () => ref.read(goalHoldingsProvider),
+    loadFxRate: (currency) async {
+      final result = await ref
+          .read(quoteRepositoryProvider)
+          .getCurrentPrice(currency.yahooSymbol);
+      return result.fold<double?>((_) => null, (r) => r > 0 ? r : null);
+    },
   ),
 );
 

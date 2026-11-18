@@ -75,8 +75,7 @@ abstract final class PortyInsightsBuilder {
       final asked = topic.lastAskedAt.toLocal();
       best = PortyInsight(
         kind: PortyInsightKind.topicMoved,
-        subject:
-            '${topic.ticker}@${asked.year}-${asked.month}-${asked.day}',
+        subject: '${topic.ticker}@${asked.year}-${asked.month}-${asked.day}',
         tone: PortyInsightTone.neutral,
         score: 45 + (change.abs() - topicMovePct).clamp(0, 15),
         ticker: topic.ticker,
@@ -107,7 +106,9 @@ abstract final class PortyInsightsBuilder {
     DateTime now,
   ) sync* {
     for (final goal in goals) {
-      if (goal.status == GoalStatus.achieved) continue;
+      // Sin tipo de cambio sus inversiones no cuentan: el avance saldría
+      // bajo y Porty avisaría un atraso que no es.
+      if (goal.status == GoalStatus.achieved || goal.fxMissing) continue;
       final p = GoalProgress.of(goal, now, holdings: holdings);
       final pct = p.fraction * 100;
       switch (p.status) {
@@ -118,6 +119,7 @@ abstract final class PortyInsightsBuilder {
             tone: PortyInsightTone.attention,
             score: 90,
             goalLabel: goal.label,
+            goalCurrency: goal.currency,
             numbers: {'pct': pct},
           );
         case GoalProgressStatus.behind:
@@ -134,6 +136,7 @@ abstract final class PortyInsightsBuilder {
             tone: PortyInsightTone.attention,
             score: 70 + (extra * 20).clamp(0, 15),
             goalLabel: goal.label,
+            goalCurrency: goal.currency,
             numbers: {
               'required': p.requiredMonthlyNow,
               'planned': p.plannedMonthly,
@@ -147,6 +150,7 @@ abstract final class PortyInsightsBuilder {
             tone: PortyInsightTone.good,
             score: 50,
             goalLabel: goal.label,
+            goalCurrency: goal.currency,
             numbers: {'pct': pct, 'left': p.target - p.saved},
           );
         default:
@@ -191,7 +195,8 @@ abstract final class PortyInsightsBuilder {
     // Una alerta de precio (fijo) que está por saltar.
     PortyInsight? nearest;
     for (final alert in alerts) {
-      if (alert.status != PriceAlertStatus.active || alert.condition.isPercent) {
+      if (alert.status != PriceAlertStatus.active ||
+          alert.condition.isPercent) {
         continue;
       }
       final ticker = alert.symbol.toUpperCase();

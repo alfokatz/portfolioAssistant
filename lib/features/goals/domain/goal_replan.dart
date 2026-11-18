@@ -89,6 +89,7 @@ abstract final class GoalReplan {
         targetDate: draft.targetDate,
         snapshot: draft.snapshot,
         planKey: draft.planKey,
+        currency: goal.currency,
       );
     }
     final monthly = draft.snapshot.plan.monthlyUsed;
@@ -112,6 +113,8 @@ abstract final class GoalReplan {
         ],
       ),
       planKey: draft.planKey,
+      // La meta sigue en su moneda.
+      currency: goal.currency,
     );
   }
 }

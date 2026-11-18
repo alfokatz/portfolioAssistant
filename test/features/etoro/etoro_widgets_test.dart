@@ -12,6 +12,9 @@ import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_position_lots_by_ticker_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_money.dart';
+import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
 import 'package:portfolio_assistant/features/etoro/data/etoro_connection_repository.dart';
 import 'package:portfolio_assistant/features/etoro/domain/etoro_connection.dart';
 import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_provider.dart';
@@ -219,6 +222,24 @@ void main() {
       await tester.scrollUntilVisible(find.byType(EtoroSyncNote), 200);
       expect(find.text('etoro_detail_partial_note'), findsOneWidget);
       expect(find.text('position_detail_close_all'), findsNothing);
+    });
+
+    testWidgets('en pesos: lo que es tu plata en \$U; los precios por acción siguen en dólares', (tester) async {
+      await tester.pumpWidget(
+        DisplayMoneyScope(
+          money: const DisplayMoney(DisplayCurrency.uyu, 40),
+          child: detail([_lot('a', 2, PositionSource.manual)]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // 2 × 200 = 400 → $U 16.000; ganancia 2 × 50 = 100 → $U 4.000;
+      // invertido 300 → $U 12.000.
+      expect(find.text('\$U 16,000'), findsOneWidget);
+      expect(find.textContaining('+\$U 4,000'), findsWidgets);
+      expect(find.text('\$U 12,000'), findsOneWidget);
+      // Precio actual y promedio de compra, como se cotizan.
+      expect(find.text('\$200.00'), findsOneWidget);
+      expect(find.text('\$150.00'), findsOneWidget);
     });
 
     testWidgets('una posición manual no cambia: cerrar todo sigue ahí', (tester) async {

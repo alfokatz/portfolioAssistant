@@ -7,6 +7,10 @@
 # - supabase: levanta el stack local (aplica TODAS las migraciones: si una no
 #   corre, falla acá), corre los tests de Deno de las edge functions y los
 #   tests SQL de supabase/tests/.
+# - controles (solo PR, observe): reglas de verificación leídas de la rama
+#   base (controles en PR aparte, línea Verified: en cada commit).
+# - e2e (solo PR con cambios de Flutter, observe): la app web real contra
+#   Supabase local con Playwright; sube capturas.
 # - ci-ok: un solo check que resume todo (el que conviene marcar como
 #   requerido en la protección de ramas; los jobs salteados cuentan como ok).
 # Runbook: docs/runbooks/ci-cd.md
@@ -156,6 +160,75 @@ jobs:
       - name: Apagar Supabase
         if: always()
         run: supabase stop --no-backup
+
+  # Reglas de verificación (tools/verify/check-controls.sh), en modo observe:
+  # avisa si el PR toca controles (REVIEW.md, CLAUDE.md, hooks, CI, tests de
+  # seguridad, tools/verify) junto con código, y qué commits no dicen cómo se
+  # verificaron. Las reglas salen de la rama BASE, no del PR: un cambio no
+  # puede aflojar el control que lo juzga. Para que bloquee: CONTROLS_GATE=enforce.
+  controles:
+    name: Controles (observe)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CONTROLS_GATE: observe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Script y REVIEW.md desde la rama base
+        run: |
+          git fetch origin "${{ github.base_ref }}" --quiet
+          mkdir -p "$RUNNER_TEMP/base"
+          if git show "origin/${{ github.base_ref }}:tools/verify/check-controls.sh" > "$RUNNER_TEMP/base/check-controls.sh" 2>/dev/null; then
+            echo "Usando check-controls.sh de ${{ github.base_ref }}"
+          else
+            # Primera vez (todavía no está en la base): se usa el del PR.
+            cp tools/verify/check-controls.sh "$RUNNER_TEMP/base/check-controls.sh"
+            echo "::notice::check-controls.sh todavía no está en ${{ github.base_ref }}: uso el del PR"
+          fi
+      - name: Revisar
+        run: bash "$RUNNER_TEMP/base/check-controls.sh" --base "${{ github.base_ref }}"
+
+  # E2E real de la app web contra Supabase local (tools/verify/e2e), en modo
+  # observe (continue-on-error): reporta y sube capturas, pero todavía no
+  # bloquea el merge. Cuando lleve unas semanas estable, sacar continue-on-error
+  # y sumarlo a ci-ok.
+  e2e:
+    name: E2E web (observe)
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.flutter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.9"
+          channel: stable
+          cache: true
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Dependencias
+        run: |
+          flutter pub get
+          npm install -g playwright@1.63.0
+          npx -y playwright@1.63.0 install --with-deps chromium
+      - name: Flujos E2E
+        run: tools/verify/e2e/run.sh
+      - name: Capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-capturas
+          path: build/e2e/
+          if-no-files-found: ignore
+      - name: Apagar Supabase
+        if: always()
+        run: supabase stop --no-backup || true
 
   ci-ok:
     name: CI ok

@@ -1,6 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
@@ -74,10 +77,17 @@ class BuyPlanCardData {
     this.weightedYieldPct,
     this.desiredMonthlyIncome,
     this.draft,
+    this.currency = DisplayCurrency.usd,
   });
 
   /// La meta con este plan y esta compra, para "Guardar en Metas".
   final GoalDraft? draft;
+
+  /// La moneda del plan (la que usó el usuario).
+  final DisplayCurrency currency;
+
+  /// Un monto del plan en su moneda.
+  String money(num v) => goalMoney(currency, v);
 
   final int monthlyAmount;
   final List<BuyPlanItem> items;
@@ -143,6 +153,9 @@ class BuyPlanCardData {
     final plan = r['plan'] as Map? ?? const {};
     final income = plan['income'] as Map? ?? const {};
     return BuyPlanCardData(
+      currency: DisplayCurrency.fromCode(
+        SavingsPlanInputs.fromJson(plan['inputs'])?.currency,
+      ),
       monthlyAmount: i(r['monthly_amount']),
       items: [
         for (final it in rawItems.whereType<Map>())
@@ -204,7 +217,7 @@ class QaBuyPlanCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(QaFormat.money(data.monthlyAmount), style: QaText.display),
+            Text(data.money(data.monthlyAmount), style: QaText.display),
             const SizedBox(width: 4),
             Text('qa_sp_per_month'.tr(), style: QaText.label),
           ],
@@ -222,7 +235,11 @@ class QaBuyPlanCard extends StatelessWidget {
         const SizedBox(height: QaSpace.sectionGap),
         for (var k = 0; k < items.length; k++) ...[
           if (k > 0) const SizedBox(height: QaSpace.rowGap),
-          _ItemRow(item: items[k], color: QaPalette.series(k)),
+          _ItemRow(
+            item: items[k],
+            color: QaPalette.series(k),
+            currency: data.currency,
+          ),
         ],
         QaSection(title: 'qa_bp_with_yields'.tr(), child: _impact()),
         QaSection(
@@ -280,17 +297,17 @@ class QaBuyPlanCard extends StatelessWidget {
         label:
             changed
                 ? 'qa_bp_goal_before'.tr(
-                  namedArgs: {'amount': QaFormat.money(data.targetBefore)},
+                  namedArgs: {'amount': data.money(data.targetBefore)},
                 )
                 : 'qa_bp_goal'.tr(),
-        value: QaFormat.money(data.targetAfter),
+        value: data.money(data.targetAfter),
       ),
       QaStat(
         label:
             desired != null
                 ? 'qa_bp_you_would_collect'.tr()
                 : 'qa_bp_dividends_monthly'.tr(),
-        value: QaFormat.money(desired ?? data.annualDividends / 12),
+        value: data.money(desired ?? data.annualDividends / 12),
       ),
     ];
     return Column(
@@ -308,7 +325,13 @@ class QaBuyPlanCard extends StatelessWidget {
 }
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item, required this.color});
+  const _ItemRow({
+    required this.item,
+    required this.color,
+    this.currency = DisplayCurrency.usd,
+  });
+
+  final DisplayCurrency currency;
 
   final BuyPlanItem item;
   final Color color;
@@ -361,7 +384,9 @@ class _ItemRow extends StatelessWidget {
                   const Spacer(),
                   Text(
                     'qa_per_month'.tr(
-                      namedArgs: {'amount': QaFormat.money(item.monthlyAmount)},
+                      namedArgs: {
+                        'amount': goalMoney(currency, item.monthlyAmount),
+                      },
                     ),
                     style: QaText.value,
                   ),

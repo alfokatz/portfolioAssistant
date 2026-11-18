@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -9,7 +9,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 /// números de [GoalProgress] (nunca las escribe el modelo).
 abstract final class GoalAnalysis {
   static String text(UserGoal goal, GoalProgress p, Locale locale) {
-    String money(double v) => QaFormat.money(v);
+    String money(double v) => goal.money(v);
     final date = DateFormat.yMMMM(
       locale.toLanguageTag(),
     ).format(goal.targetDate);

@@ -1,9 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/confirm_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/savings_plan_edit_sheet.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_replan.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_shares.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -69,6 +71,14 @@ abstract final class GoalActions {
       ref.read(goalHoldingsProvider),
     );
     final invested = GoalReplan.capital(goal, holdings, externalSavings: 0);
+    // La moneda de la meta: dólares, la que eligió en Ajustes o la que ya
+    // tiene.
+    final options =
+        {
+          DisplayCurrency.usd,
+          ref.read(displayCurrencyProvider),
+          goal.currency,
+        }.toList();
     final change = await SavingsPlanEditSheet.show(
       context,
       label: goal.label,
@@ -79,12 +89,33 @@ abstract final class GoalActions {
       currentHelper:
           invested > 0
               ? 'goal_edit_outside_helper_invested'.tr(
-                namedArgs: {'amount': QaFormat.money(invested)},
+                namedArgs: {'amount': goal.money(invested)},
               )
               : 'goal_outside_subtitle'.tr(),
+      currency: goal.currency,
+      currencyOptions: options,
     );
-    if (change == null) return;
-    final draft = editedDraft(goal, change, holdings: holdings);
+    if (change == null || !context.mounted) return;
+    // Cambió la moneda: sus inversiones se valúan con el tipo de cambio de
+    // la nueva. Sin tipo de cambio no se puede (el plan saldría mal).
+    var target = goal;
+    final to = change.currency ?? goal.currency;
+    if (to != goal.currency) {
+      final rate =
+          to.isUsd
+              ? 1.0
+              : await ref
+                  .read(fxRateProvider(to).future)
+                  .catchError((Object _) => null);
+      if (rate == null) {
+        ref
+            .read(alertProvider.notifier)
+            .showError(message: 'goal_currency_no_rate'.tr());
+        return;
+      }
+      target = goal.withCurrency(to, to.isUsd ? null : rate);
+    }
+    final draft = editedDraft(target, change, holdings: holdings);
     if (draft == null) return;
     try {
       await ref

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_goal_scope.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
@@ -66,7 +67,9 @@ class QaGoalStatusCard extends StatelessWidget {
     final locale = Localizations.localeOf(context);
     final p = progress;
     final statusColor = GoalAnalysis.statusColor(p.status, colors);
-    final date = DateFormat.yMMMM(locale.toLanguageTag()).format(goal.targetDate);
+    final date = DateFormat.yMMMM(
+      locale.toLanguageTag(),
+    ).format(goal.targetDate);
     final missing = (p.target - p.saved).clamp(0.0, double.infinity);
     final behind = p.status == GoalProgressStatus.behind;
     return Column(
@@ -76,23 +79,26 @@ class QaGoalStatusCard extends StatelessWidget {
         QaCardTitle(
           title: goal.label,
           subtitle: 'goals_card_subtitle'.tr(
-            namedArgs: {'amount': QaFormat.money(goal.targetAmount), 'date': date},
+            namedArgs: {'amount': goal.money(goal.targetAmount), 'date': date},
           ),
           // El de lo que es (un viaje, un auto…), igual que en Metas.
           icon: GoalIcon.forGoal(goal),
-          trailing: QaTag(GoalAnalysis.statusLabel(p.status), color: statusColor),
+          trailing: QaTag(
+            GoalAnalysis.statusLabel(p.status),
+            color: statusColor,
+          ),
         ),
         const SizedBox(height: QaSpace.sectionGap),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(QaFormat.money(p.saved), style: QaText.display, maxLines: 1),
+            Text(goal.money(p.saved), style: QaText.display, maxLines: 1),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 'goal_of_target'.tr(
-                  namedArgs: {'target': QaFormat.money(goal.targetAmount)},
+                  namedArgs: {'target': goal.money(goal.targetAmount)},
                 ),
                 style: QaText.label,
                 maxLines: 1,
@@ -118,7 +124,7 @@ class QaGoalStatusCard extends StatelessWidget {
                     behind
                         ? 'goal_stat_monthly_now'.tr()
                         : 'goal_stat_monthly'.tr(),
-                value: QaFormat.money(
+                value: goal.money(
                   behind ? p.requiredMonthlyNow : p.plannedMonthly,
                 ),
               ),
@@ -132,7 +138,7 @@ class QaGoalStatusCard extends StatelessWidget {
             Expanded(
               child: QaStat(
                 label: 'goal_stat_missing'.tr(),
-                value: QaFormat.money(missing),
+                value: goal.money(missing),
               ),
             ),
           ],
@@ -140,10 +146,7 @@ class QaGoalStatusCard extends StatelessWidget {
         const SizedBox(height: QaSpace.gap),
         QaInset(
           color: statusColor.withValues(alpha: 0.08),
-          child: Text(
-            GoalAnalysis.text(goal, p, locale),
-            style: QaText.body,
-          ),
+          child: Text(GoalAnalysis.text(goal, p, locale), style: QaText.body),
         ),
         if (onOpen != null)
           Align(

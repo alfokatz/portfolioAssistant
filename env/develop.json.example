@@ -1,0 +1,10 @@
+{
+  "APP_ENV": "develop",
+  "SUPABASE_URL": "https://<ref-de-la-branch-develop>.supabase.co",
+  "SUPABASE_ANON_KEY": "<anon key de la branch develop (NUNCA la service role)>",
+  "REVENUECAT_APPLE_API_KEY": "appl_<public sdk key>",
+  "REVENUECAT_GOOGLE_API_KEY": "goog_<public sdk key>",
+  "OPENAI_MODEL": "",
+  "YAHOO_CACHE_TTL_MINUTES": "10",
+  "SUPABASE_FUNCTIONS_REGION": ""
+}

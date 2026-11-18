@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
@@ -134,7 +135,7 @@ class GoalDetailScreen extends ConsumerWidget {
           Text(
             'goals_card_subtitle'.tr(
               namedArgs: {
-                'amount': QaFormat.money(goal.targetAmount),
+                'amount': goal.money(goal.targetAmount),
                 'date': date,
               },
             ),
@@ -142,6 +143,18 @@ class GoalDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.sp20),
           _ProgressCard(goal: goal, progress: progress),
+          // Meta en otra moneda sin tipo de cambio: sus inversiones no se
+          // pueden valuar ahora; mejor decirlo que mostrar un avance bajo.
+          if (goal.fxMissing) ...[
+            const SizedBox(height: AppDimens.sp8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp4),
+              child: Text(
+                'goal_fx_missing'.tr(namedArgs: {'code': goal.currency.code}),
+                style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+              ),
+            ),
+          ],
           const SizedBox(height: AppDimens.sectionGap),
           _SectionTitle('goal_plan_title'.tr()),
           _PlanCard(
@@ -235,7 +248,7 @@ class _ProgressCard extends StatelessWidget {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        QaFormat.money(progress.saved),
+                        goal.money(progress.saved),
                         style: tt.displaySmall?.copyWith(
                           fontSize: 30,
                           fontWeight: FontWeight.w700,
@@ -247,9 +260,7 @@ class _ProgressCard extends StatelessWidget {
                       const SizedBox(width: AppDimens.sp6),
                       Text(
                         'goal_of_target'.tr(
-                          namedArgs: {
-                            'target': QaFormat.money(goal.targetAmount),
-                          },
+                          namedArgs: {'target': goal.money(goal.targetAmount)},
                         ),
                         style: tt.bodyMedium?.copyWith(
                           color: colors.textSecondary,
@@ -289,7 +300,7 @@ class _ProgressCard extends StatelessWidget {
                       progress.status == GoalProgressStatus.behind
                           ? 'goal_stat_monthly_now'.tr()
                           : 'goal_stat_monthly'.tr(),
-                  value: QaFormat.money(
+                  value: goal.money(
                     progress.status == GoalProgressStatus.behind
                         ? progress.requiredMonthlyNow
                         : progress.plannedMonthly,
@@ -303,7 +314,7 @@ class _ProgressCard extends StatelessWidget {
                 VerticalDivider(width: AppDimens.sp24, color: colors.border),
                 _Stat(
                   label: 'goal_stat_missing'.tr(),
-                  value: QaFormat.money(missing),
+                  value: goal.money(missing),
                 ),
               ],
             ),
@@ -492,7 +503,7 @@ class _PlanCard extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          QaFormat.money(plan.monthlyUsed),
+                          goal.money(plan.monthlyUsed),
                           style: tt.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.4,
@@ -663,9 +674,7 @@ class _PlanCard extends StatelessWidget {
                       children: [
                         Text(
                           'goal_plan_buy_amount'.tr(
-                            namedArgs: {
-                              'amount': QaFormat.money(items[i].monthly),
-                            },
+                            namedArgs: {'amount': goal.money(items[i].monthly)},
                           ),
                           style: tt.titleSmall?.copyWith(
                             color: colors.textPrimary,
@@ -792,8 +801,8 @@ class _CountsCard extends StatelessWidget {
                   (allHoldings[t] ?? 0) > 0
                       ? 'goal_counts_shared'.tr(
                         namedArgs: {
-                          'share': QaFormat.money(holdings[t] ?? 0),
-                          'total': QaFormat.money(allHoldings[t] ?? 0),
+                          'share': goal.holdingMoney(holdings[t] ?? 0),
+                          'total': goal.holdingMoney(allHoldings[t] ?? 0),
                           'goals': others.map((g) => g.label).join(', '),
                         },
                       )
@@ -808,7 +817,7 @@ class _CountsCard extends StatelessWidget {
                       : 'goal_counts_not_held'.tr(),
               },
               trailing: Text(
-                QaFormat.money(holdings[t] ?? 0),
+                goal.holdingMoney(holdings[t] ?? 0),
                 style: valueStyle,
               ),
               trailingIcon:
@@ -838,10 +847,7 @@ class _CountsCard extends StatelessWidget {
             ),
             title: 'goal_outside_title'.tr(),
             subtitle: 'goal_outside_subtitle'.tr(),
-            trailing: Text(
-              QaFormat.money(goal.externalSavings),
-              style: valueStyle,
-            ),
+            trailing: Text(goal.money(goal.externalSavings), style: valueStyle),
             trailingIcon: Icons.edit_outlined,
             onTap: onEditOutside,
           ),
@@ -980,13 +986,16 @@ class _AskPortyButton extends StatelessWidget {
       ),
       child: InkWell(
         onTap:
-            () => PortyChatSheet.show(context, question: 'goal_ask_porty_question'.tr(
+            () => PortyChatSheet.show(
+              context,
+              question: 'goal_ask_porty_question'.tr(
                 namedArgs: {'goal': goal.label},
               ),
               screen: PortyScreenContext(
                 PortyScreen.goalDetail,
                 goalLabel: goal.label,
-              ),),
+              ),
+            ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppDimens.cardPadding,
@@ -1286,7 +1295,7 @@ class _LinkHoldingsSheetState extends ConsumerState<_LinkHoldingsSheet> {
                       subtitle: Text(
                         [
                           (holdings[t] ?? 0) > 0
-                              ? QaFormat.money(holdings[t]!)
+                              ? widget.goal.holdingMoney(holdings[t]!)
                               : 'goal_counts_not_held'.tr(),
                           if (ownerOf(t) case final owner?)
                             'goal_link_also_in'.tr(namedArgs: {'goal': owner}),
