@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
@@ -314,7 +315,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       // Solo lo que ningún control va a borrar (ver
       // `AssistantAnswerReview.previewSafePrefix`).
       final text = AssistantAnswerReview.previewSafePrefix(
-        AnswerStreamPreview.textOf(raw),
+        PortyDashes.clean(AnswerStreamPreview.textOf(raw)),
       );
       if (text.isEmpty) return;
       last = clock.elapsed;

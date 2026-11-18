@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_norm
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
@@ -762,7 +763,7 @@ class OpenAIGenUiService {
     GenUiDebugLog.rawResponse(surfaceId: surfaceId, raw: raw);
 
     var cleaned = LlmJsonSanitizer.sanitizeOrFallback(
-      raw,
+      PortyDashes.clean(raw),
       surfaceId: surfaceId,
       catalogId: catalogId,
     );

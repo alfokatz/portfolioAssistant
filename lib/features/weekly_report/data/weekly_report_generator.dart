@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:http/http.dart' as http;
@@ -202,7 +203,7 @@ class WeeklyReportGenerator {
           ((jsonDecode(body) as Map)['choices'] as List?)?.firstOrNull;
       final text = (content as Map?)?['message']?['content'];
       return text is String && text.isNotEmpty
-          ? (content: text, error: null)
+          ? (content: PortyDashes.clean(text), error: null)
           : (content: null, error: 'empty_response');
     } catch (_) {
       return (content: null, error: 'network');
