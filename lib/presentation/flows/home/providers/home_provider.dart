@@ -71,7 +71,15 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     }
     String? quoteError;
 
-    final summaryResult = await getPortfolioSummaryUseCase();
+    // Las cuatro cargas salen juntas (antes iban en fila y la primera vez,
+    // sin caché, la Home quedaba ~10 s en skeleton). Comparten las
+    // cotizaciones: cada ticker se baja una sola vez.
+    final summaryFuture = getPortfolioSummaryUseCase();
+    final historyFuture = getPortfolioHistoryUseCase();
+    final benchmarkFuture = getBenchmarkComparisonUseCase();
+    final closedFuture = getClosedPositionsUseCase();
+
+    final summaryResult = await summaryFuture;
     PortfolioSummary summary = const PortfolioSummary(
       totalValue: 0,
       totalCostBasis: 0,
@@ -90,9 +98,9 @@ class HomeProvider extends BaseStateNotifier<HomeState, HomeAction> {
     final previous = state.summary;
     if (!summaryOk && previous != null) summary = previous;
 
-    final historyResult = await getPortfolioHistoryUseCase();
-    final benchmarkResult = await getBenchmarkComparisonUseCase();
-    final closedResult = await getClosedPositionsUseCase();
+    final historyResult = await historyFuture;
+    final benchmarkResult = await benchmarkFuture;
+    final closedResult = await closedFuture;
 
     // Mismo criterio que el total: si la cartera no cargó, el gráfico se
     // queda con la serie anterior en vez de quedar en blanco.

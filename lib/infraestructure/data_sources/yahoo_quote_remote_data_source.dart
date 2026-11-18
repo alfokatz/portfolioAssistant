@@ -69,6 +69,22 @@ class YahooQuoteRemoteDataSource implements QuoteRemoteDataSource {
       }
     }
 
+    // La Home pide el total, el gráfico y la comparación con el S&P a la
+    // vez: el mismo ticker en vuelo se baja una sola vez.
+    final pending = _historyInFlight[symbol];
+    if (pending != null) return pending;
+    final request = _fetchHistory(symbol);
+    _historyInFlight[symbol] = request;
+    try {
+      return await request;
+    } finally {
+      _historyInFlight.remove(symbol);
+    }
+  }
+
+  final Map<String, Future<List<PriceCandle>>> _historyInFlight = {};
+
+  Future<List<PriceCandle>> _fetchHistory(String symbol) async {
     final response = await _reader.getDailyDTOs(symbol);
     final candles = response.candlesData
         .map(

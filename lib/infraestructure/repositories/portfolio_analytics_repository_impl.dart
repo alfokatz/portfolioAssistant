@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/repositories/portfolio_analytics_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
 import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/domain/utils/bounded_concurrency.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_series_builder.dart';
 import 'package:portfolio_assistant/infraestructure/repositories/position_repository_impl.dart';
@@ -43,25 +44,29 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
             if (p.brokerPrice != null)
               PortfolioCalculator.normalizeTicker(p.ticker): p.brokerPrice!,
         };
-        final valuations = <PositionValuation>[];
-        for (final position in positions) {
-          final priceResult =
-              await quoteRepository.getCurrentPrice(position.ticker);
-          final price = priceResult.fold(
-            (_) =>
-                brokerPrices[PortfolioCalculator.normalizeTicker(
-                  position.ticker,
-                )] ??
-                position.purchasePrice,
-            (p) => p,
-          );
-          valuations.add(
+        // Una cotización por ticker (no por lote), varias a la vez.
+        final tickers = {for (final p in positions) p.ticker}.toList();
+        final quotes = await mapWithConcurrency(
+          tickers,
+          quoteRepository.getCurrentPrice,
+        );
+        final priceByTicker = {
+          for (var i = 0; i < tickers.length; i++) tickers[i]: quotes[i],
+        };
+        final valuations = <PositionValuation>[
+          for (final position in positions)
             PortfolioCalculator.valuate(
               position: position,
-              currentPrice: price,
+              currentPrice: priceByTicker[position.ticker]!.fold(
+                (_) =>
+                    brokerPrices[PortfolioCalculator.normalizeTicker(
+                      position.ticker,
+                    )] ??
+                    position.purchasePrice,
+                (p) => p,
+              ),
             ),
-          );
-        }
+        ];
         return Right(valuations);
       },
     );
@@ -112,8 +117,10 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
 
           final startDate = PortfolioSeriesBuilder.seriesStart(positions);
 
+          // El S&P se baja junto con la cartera, no después.
+          final spFuture = quoteRepository.getHistoricalDaily(_sp500Ticker);
           final portfolioHistory = await _buildPortfolioSeries(positions);
-          final spResult = await quoteRepository.getHistoricalDaily(_sp500Ticker);
+          final spResult = await spFuture;
           return spResult.fold(
             Left.new,
             (spCandles) {
@@ -191,17 +198,15 @@ class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
   Future<List<PortfolioHistoryPoint>> _buildPortfolioSeries(
     List<Position> positions,
   ) async {
-    final histories = <String, List<PriceCandle>>{};
-
-    for (final position in positions) {
-      final ticker = position.ticker;
-      if (histories.containsKey(ticker)) continue;
-      final result = await quoteRepository.getHistoricalDaily(ticker);
-      result.fold(
-        (_) => histories[ticker] = [],
-        (candles) => histories[ticker] = candles,
-      );
-    }
+    final tickers = {for (final p in positions) p.ticker}.toList();
+    final results = await mapWithConcurrency(
+      tickers,
+      quoteRepository.getHistoricalDaily,
+    );
+    final histories = <String, List<PriceCandle>>{
+      for (var i = 0; i < tickers.length; i++)
+        tickers[i]: results[i].fold((_) => <PriceCandle>[], (c) => c),
+    };
 
     return PortfolioSeriesBuilder.build(positions, histories);
   }
