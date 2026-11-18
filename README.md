@@ -9,16 +9,10 @@ App Flutter para inversores que combina un dashboard de portfolio con flujos con
 
 ## Configuración
 
-1. Copia las variables en `assets/env/.env.development`:
-
-```env
-OPENAI_API_KEY=sk-...   # Opcional: sin key usa UI offline de respaldo
-YAHOO_CACHE_TTL_MINUTES=10
-FINNHUB_API_KEY=...     # Opcional: sin key, calendario de resultados y noticias responden con fallback honesto
-```
+1. Copiá `env/develop.json.example` a `env/develop.json` y cargá la URL y la anon key de la branch develop de Supabase (ver `docs/runbooks/build-entornos.md`). Las claves de OpenAI y Finnhub viven en las edge functions, nunca en la app.
 
 > **Para probar calendario de resultados / noticias en local hacen falta DOS cosas, no solo la key:**
-> 1. `FINNHUB_API_KEY` seteada arriba (sin ella, la llamada falla y Porty dice que no pudo consultar ahora mismo).
+> 1. `FINNHUB_API_KEY` cargada en los secretos de la edge function `finnhub` (sin ella, la llamada falla y Porty dice que no pudo consultar ahora mismo).
 > 2. La cuenta con la que probás debe tener tier **Gold** en la tabla `user_subscriptions` de Supabase — no hay ningún override de debug para esto en el código. Una cuenta nueva sin compra es `free` por defecto, y con `free`/`premium` Porty dice explícitamente que la función no está en tu plan (no sugiere que falte información). Para subir a Gold un usuario de prueba sin pasar por una compra real, actualizá esa fila directamente en Supabase (requiere la service-role key).
 >
 > Sin ninguna de las dos cosas, la app no crashea (degrada bien), pero el mensaje que ves depende de cuál falte: revisá `news_enrichment`/`earnings_calendar_status` en el snapshot (`ok`/`empty`/`failed`/`locked`) para saber cuál es.
@@ -32,10 +26,10 @@ flutter pub get
 3. Ejecuta:
 
 ```bash
-# Android: el flavor elige el applicationId y el .env (development | staging | production)
-flutter run --flavor development
-# iOS (todavía sin esquemas por flavor)
-flutter run --dart-define=FLAVOR=development
+# iOS
+flutter run --dart-define-from-file=env/develop.json
+# Android: el flavor elige el applicationId (development | staging | production)
+flutter run --flavor development --dart-define-from-file=env/develop.json
 ```
 
 ## Arquitectura

@@ -54,7 +54,7 @@ Igual que el de producción, pero contra la rama `develop` de Supabase y sin apr
    - `SUPABASE_DEV_DB_PASSWORD`: la contraseña de la base de la rama.
 4. Primer deploy: GitHub → Actions → **Deploy Supabase (develop)** → **Run workflow** (rama `develop`).
 5. Lo que no se copia de producción y hay que cargar en la rama: secretos de las edge functions (`supabase secrets set --project-ref <ref develop> --env-file ...`, con claves de sandbox donde haya), `project_url` y `cron_secret` en el Vault (ver `push-notifications.md`; sin `project_url` los cron no llaman a nada), URL Configuration y proveedores de Auth (Google/Apple) con la URL de la rama.
-6. App: `assets/env/.env.development` con la `SUPABASE_URL` y `SUPABASE_ANON_KEY` de la rama.
+6. App: `env/develop.json` con la `SUPABASE_URL` y `SUPABASE_ANON_KEY` de la rama (ver `build-entornos.md`).
 
 ## Deploy de Supabase producción (`.github/workflows/deploy-supabase.yml`)
 

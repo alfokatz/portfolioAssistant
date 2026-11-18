@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 
 /// Respuesta de una edge function de datos: el status HTTP y el body JSON
@@ -38,7 +38,7 @@ class PortyEdgeClient {
        _region = region ?? AiProxyConfig.functionsRegion(),
        _baseUrl = baseUrl ?? _defaultBaseUrl(),
        _accessToken = accessToken ?? AiProxyConfig.supabaseAccessToken,
-       _anonKey = anonKey ?? _env('SUPABASE_ANON_KEY');
+       _anonKey = anonKey ?? AppEnv.supabaseAnonKeyOrNull;
 
   final Dio _dio;
   final String _baseUrl;
@@ -47,16 +47,8 @@ class PortyEdgeClient {
   final String? _region;
 
   static String _defaultBaseUrl() {
-    final supabase = _env('SUPABASE_URL') ?? '';
+    final supabase = AppEnv.supabaseUrl;
     return supabase.isEmpty ? '' : '$supabase/functions/v1';
-  }
-
-  static String? _env(String name) {
-    try {
-      return dotenv.maybeGet(name)?.trim();
-    } catch (_) {
-      return null; // `.env` sin cargar (tests)
-    }
   }
 
   static Dio _createDio() => Dio(

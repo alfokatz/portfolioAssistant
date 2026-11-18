@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 
 /// Cliente HTTP compartido para Finnhub (calendario de resultados,
@@ -19,7 +19,7 @@ class FinnhubHttpClient {
   }) : _dio = dio ?? _createDio(),
        _baseUrl = baseUrl ?? _defaultBaseUrl(),
        _accessToken = accessToken ?? AiProxyConfig.supabaseAccessToken,
-       _anonKey = anonKey ?? _env('SUPABASE_ANON_KEY');
+       _anonKey = anonKey ?? AppEnv.supabaseAnonKeyOrNull;
 
   final Dio _dio;
   final String _baseUrl;
@@ -27,16 +27,8 @@ class FinnhubHttpClient {
   final String? _anonKey;
 
   static String _defaultBaseUrl() {
-    final supabase = _env('SUPABASE_URL') ?? '';
+    final supabase = AppEnv.supabaseUrl;
     return supabase.isEmpty ? '' : '$supabase/functions/v1/finnhub';
-  }
-
-  static String? _env(String name) {
-    try {
-      return dotenv.maybeGet(name)?.trim();
-    } catch (_) {
-      return null; // `.env` sin cargar (tests)
-    }
   }
 
   /// Hay proxy al que pedirle (sin `SUPABASE_URL`, las fuentes Finnhub se

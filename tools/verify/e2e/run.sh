@@ -12,7 +12,7 @@ cd "$(git rev-parse --show-toplevel)"
 ROOT=$(pwd)
 PORT="${E2E_PORT:-8099}"
 OUT="$ROOT/build/e2e"
-ENV_FILE="assets/env/.env.e2e"
+ENV_FILE="env/e2e.json"
 
 eval "$(tools/verify/supabase-env.sh)"
 
@@ -26,24 +26,18 @@ curl -fsS -o /dev/null -X POST "$SUPABASE_URL/auth/v1/admin/users" \
   -d "{\"email\":\"$E2E_EMAIL\",\"password\":\"$E2E_PASSWORD\",\"email_confirm\":true,\"user_metadata\":{\"full_name\":\"Prueba E2E\"}}" \
   || { echo "No pude crear el usuario de prueba en $SUPABASE_URL"; exit 1; }
 
-# .env del flavor e2e (solo claves del stack LOCAL; está en .gitignore).
-mkdir -p assets/env
+# Entorno e2e (solo claves del stack LOCAL; está en .gitignore).
+mkdir -p env
 cat > "$ENV_FILE" <<EOF
-SUPABASE_URL=$SUPABASE_URL
-SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-API_URL=$SUPABASE_URL/functions/v1
+{"APP_ENV": "develop", "SUPABASE_URL": "$SUPABASE_URL", "SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY"}
 EOF
-# El build web incluye todos los .env de assets/env/: solo dejamos el de e2e.
-TMP_ENV=$(mktemp -d)
-find assets/env -maxdepth 1 -type f ! -name '.env.e2e' -exec mv {} "$TMP_ENV/" \;
-restore_env() { mv "$TMP_ENV"/.[!.]* "$TMP_ENV"/* assets/env/ 2>/dev/null || true; rm -f "$ENV_FILE"; }
-trap 'restore_env; [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true' EXIT
+trap 'rm -f "$ENV_FILE"; [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true' EXIT
 
 if [ "${E2E_SKIP_BUILD:-0}" != "1" ] || [ ! -f build/web/index.html ]; then
-  echo "▶ flutter build web (FLAVOR=e2e, ~2 min)…"
+  echo "▶ flutter build web ($ENV_FILE, ~2 min)…"
   # --no-web-resources-cdn: CanvasKit va dentro del build (el navegador del
   # entorno cloud no siempre llega a gstatic.com).
-  flutter build web --no-pub --no-wasm-dry-run --no-web-resources-cdn --dart-define=FLAVOR=e2e >/tmp/porty-e2e-build.log 2>&1 \
+  flutter build web --no-pub --no-wasm-dry-run --no-web-resources-cdn --dart-define-from-file="$ENV_FILE" >/tmp/porty-e2e-build.log 2>&1 \
     || { tail -30 /tmp/porty-e2e-build.log; exit 1; }
 fi
 

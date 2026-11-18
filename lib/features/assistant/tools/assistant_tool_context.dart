@@ -58,8 +58,8 @@ class AssistantDataSources {
   final QuoteRepository quoteRepository;
   final PreferencesManager preferences;
 
-  // Lazy: los clientes de Finnhub y Yahoo leen `dotenv` al construirse, y un turno
-  // que no pide esos datos no debería tocarlo.
+  // Lazy: los clientes de Finnhub y Yahoo se arman al construirse, y un turno
+  // que no pide esos datos no debería tocarlos.
   CompanyTickerResolver? _tickerResolver;
   EarningsSource? _earnings;
   FundamentalsSource? _fundamentals;

@@ -135,8 +135,8 @@ void widgetBackgroundDispatcher() {
 
 /// Velas diarias directo de Yahoo, sin sesión de Supabase (ver §3.5 de la
 /// spec: un segundo cliente de Supabase podría rotar el refresh token y
-/// cerrar la sesión del usuario). Con `cacheTtl` explícito: `dotenv` no
-/// está cargado en este isolate.
+/// cerrar la sesión del usuario). Con `cacheTtl` explícito, igual que siempre
+/// en este isolate.
 YahooQuoteRemoteDataSource _yahooSource() => YahooQuoteRemoteDataSource(
   cacheTtl: const Duration(minutes: 10),
   dio: Dio(

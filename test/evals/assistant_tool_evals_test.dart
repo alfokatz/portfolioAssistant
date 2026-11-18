@@ -21,7 +21,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:portfolio_assistant/features/allocation/domain/allocation_plan.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1977,9 +1977,7 @@ void main() {
       // para reproducir bugs que dependen de la forma real de los datos.
       AssistantDataSources? realData;
       if (Platform.environment['EVAL_REAL_DATA'] == '1') {
-        dotenv.testLoad(
-          fileInput: File('assets/env/.env.development').readAsStringSync(),
-        );
+        _requireEnvFile();
         realData = AssistantDataSources(
           quoteRepository: QuoteRepositoryImpl(
             remoteDataSource: YahooQuoteRemoteDataSource(),
@@ -1994,9 +1992,7 @@ void main() {
       // por las edge functions locales (mismo JWT que el proxy).
       final newsV2 = Platform.environment['EVAL_NEWS_V2'] == '1';
       if (newsV2) {
-        dotenv.testLoad(
-          fileInput: File('assets/env/.env.development').readAsStringSync(),
-        );
+        _requireEnvFile();
         final edge = PortyEdgeClient(
           baseUrl: proxy.endpoint.toString().replaceFirst(RegExp(r'/ai-chat$'), ''),
           accessToken: () async => jwt,
@@ -2358,6 +2354,17 @@ class _AnyTickerDividends extends FakeYahooProxy {
       name: '$symbol Fund',
       etf: !stock,
       yieldFraction: stock ? 0.029 : 0.036,
+    );
+  }
+}
+
+/// Los modos con datos reales necesitan la URL y la anon key de Supabase:
+/// correr con `--dart-define-from-file=env/develop.json`.
+void _requireEnvFile() {
+  if (AppEnv.supabaseUrl.isEmpty) {
+    throw StateError(
+      'EVAL_REAL_DATA / EVAL_NEWS_V2 necesitan '
+      '--dart-define-from-file=env/develop.json',
     );
   }
 }

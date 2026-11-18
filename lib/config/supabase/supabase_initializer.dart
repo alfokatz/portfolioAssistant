@@ -1,25 +1,17 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:portfolio_assistant/config/supabase/clock_skew_retry_client.dart';
 import 'package:portfolio_assistant/config/supabase/secure_auth_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Inicializa el cliente global de Supabase desde variables `.env`.
+/// Inicializa el cliente global de Supabase desde [AppEnv] (`--dart-define-from-file`).
 class SupabaseInitializer {
   SupabaseInitializer._();
 
   static Future<void> initialize() async {
-    final url = dotenv.env['SUPABASE_URL']?.trim();
-    final anonKey = dotenv.env['SUPABASE_ANON_KEY']?.trim();
-
-    if (url == null || url.isEmpty) {
-      throw StateError('Falta SUPABASE_URL en el archivo .env del flavor activo.');
-    }
-    if (anonKey == null || anonKey.isEmpty) {
-      throw StateError(
-        'Falta SUPABASE_ANON_KEY en el archivo .env del flavor activo.',
-      );
-    }
+    AppEnv.ensureValid();
+    final url = AppEnv.supabaseUrl;
+    final anonKey = AppEnv.supabaseAnonKey;
 
     await Supabase.initialize(
       url: url,
