@@ -1,3 +1,4 @@
 /* Textos de permisos de iOS en inglés (los mismos que Info.plist). */
 "NSMicrophoneUsageDescription" = "Porty uses the microphone so you can dictate your questions in the chat.";
 "NSSpeechRecognitionUsageDescription" = "Porty transcribes what you dictate to write your question in the chat.";
+"NSPhotoLibraryUsageDescription" = "Porty reads the screenshot of your broker statement that you choose, to import your positions.";

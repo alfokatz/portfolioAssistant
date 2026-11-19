@@ -66,6 +66,8 @@
 	<string>Porty uses the microphone so you can dictate your questions in the chat.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Porty transcribes what you dictate to write your question in the chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Porty reads the screenshot of your broker statement that you choose, to import your positions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
