@@ -6,7 +6,7 @@
 
 - Skip por defecto: `RUN_ASSISTANT_EVALS=1` las activa.
 - Van por el proxy `ai-chat`: por defecto `http://127.0.0.1:54321/functions/v1/ai-chat` (`supabase functions serve` local). Requiere `EVAL_PROXY_JWT` (falla si falta). Cada corrida completa necesita su propio usuario de eval (100 consultas/día).
-- Opciones: `EVAL_ONLY=id1,id2` (subconjunto, preferido), `EVAL_DEBUG=1`, `EVAL_PRINT_TEXT=1`, `ASSISTANT_EVALS_REPORT=<archivo.json>`, `EVAL_REAL_DATA=1` (datos reales en vez de fakes), `EVAL_CASE_DELAY_S`, `EVAL_DUMP_DIR`.
+- Opciones: `EVAL_ONLY=id1,id2` (subconjunto, preferido), `EVAL_DEBUG=1`, `EVAL_PRINT_TEXT=1`, `ASSISTANT_EVALS_REPORT=<archivo.json>`, `EVAL_REAL_DATA=1` (datos reales en vez de fakes; junto con `EVAL_NEWS_V2=1` requiere `--dart-define-from-file=env/develop.json`), `EVAL_CASE_DELAY_S`, `EVAL_DUMP_DIR`.
 - Runbook: `docs/runbooks/ai-proxy-cutover.md`.
 - Errores de proceso que ya costaron plata: editar `handler.ts` con `functions serve` corriendo, timeouts del test, límites de CPU del serve local. Reiniciar `functions serve` antes de una corrida larga y no tocar archivos de funciones mientras corre.
 - No son determinísticas: un caso que falla una vez se compara contra la versión anterior antes de llamarlo regresión.

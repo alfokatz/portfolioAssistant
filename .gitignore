@@ -82,3 +82,13 @@ supabase/functions/.env*
 out/
 scripts/ads/node_modules/
 ads-out/
+
+# E2E local (tools/verify/e2e): claves del stack local, se genera y se borra solo
+env/e2e.json
+build/e2e/
+.claude/verify-gate.log
+
+# Entornos de build (--dart-define-from-file): los reales no se commitean,
+# solo los .example. Ver docs/runbooks/build-entornos.md.
+env/develop.json
+env/prod.json

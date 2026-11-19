@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_add_sheet.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/providers/portfolio_diagnosis_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 
@@ -66,6 +67,8 @@ class _WidgetPromptWatcherState extends ConsumerState<WidgetPromptWatcher> {
     if (!mounted || _showing) return;
     final notifier = ref.read(widgetPromptProvider.notifier);
     if (_diagnosisThisOpen || !widget.isHome || !_onTop) return;
+    // Las notificaciones ya se ofrecieron en esta apertura: a la próxima.
+    if (ref.read(homePromptShownThisOpenProvider)) return;
     // Barato primero: sin esto no vale la pena preguntarle al sistema.
     if (!notifier.shouldOffer(installed: false, hasPortfolio: _hasPortfolio)) {
       return;
@@ -78,6 +81,7 @@ class _WidgetPromptWatcherState extends ConsumerState<WidgetPromptWatcher> {
     }
     // Pasó tiempo: vuelve a mirar que nada se haya abierto encima.
     if (!mounted || !widget.isHome || !_onTop || _showing) return;
+    if (ref.read(homePromptShownThisOpenProvider)) return;
     if (!notifier.shouldOffer(
       installed: sizes.isNotEmpty,
       hasPortfolio: _hasPortfolio,

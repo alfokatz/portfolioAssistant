@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/genui_core/utils/a2ui_response_norm
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_debug_log.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_error_message.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/llm_json_sanitizer.dart';
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/gen_ui_surface_readiness.dart';
 import 'package:portfolio_assistant/features/genui_core/utils/openai_request_throttle.dart';
 
@@ -200,7 +201,7 @@ class OpenAIGenUiService {
     this.answerCheck,
     http.Client? httpClient,
     this.roundTimeout = defaultRoundTimeout,
-  }) : model = model ?? dotenv.env['OPENAI_MODEL'] ?? defaultModel,
+  }) : model = model ?? AppEnv.openAiModel ?? defaultModel,
        _proxyClient = AiProxyClient(
          proxy ?? AiProxyConfig.fromEnvironment(),
          httpClient,
@@ -762,7 +763,7 @@ class OpenAIGenUiService {
     GenUiDebugLog.rawResponse(surfaceId: surfaceId, raw: raw);
 
     var cleaned = LlmJsonSanitizer.sanitizeOrFallback(
-      raw,
+      PortyDashes.clean(raw),
       surfaceId: surfaceId,
       catalogId: catalogId,
     );

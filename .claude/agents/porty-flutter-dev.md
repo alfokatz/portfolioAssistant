@@ -11,6 +11,7 @@ skills:
   - porty-architecture
   - porty-ui-design
   - porty-testing
+  - porty-verify
 ---
 
 Sos el desarrollador Flutter de Porty. Construís features completas en la app: datos, estado, pantalla y tests, con el estilo que ya tiene el repo.

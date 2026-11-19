@@ -203,9 +203,12 @@ class SavingsPlanInputs {
     this.incomeStrategy = IncomeStrategy.dividends,
     this.dividendYield,
     this.shortTerm = false,
+    this.currency = usd,
   });
 
-  /// En dólares de hoy.
+  static const usd = 'USD';
+
+  /// En la moneda del plan ([currency]), en plata de hoy.
   final double targetAmount;
   final int months;
   final double currentAmount;
@@ -231,6 +234,13 @@ class SavingsPlanInputs {
   /// Compra a corto plazo (ver [PlanAssumptions.shortTermAllocation]).
   final bool shortTerm;
 
+  /// En qué moneda están los montos (código ISO: "USD", "UYU"…): la que usó
+  /// el usuario. El cálculo es en términos reales (plata de hoy, rendimiento
+  /// después de inflación), así que vale igual en cualquier moneda.
+  final String currency;
+
+  bool get isUsd => currency == usd;
+
   double get effectiveDividendYield =>
       dividendYield ?? PlanAssumptions.dividendYield;
 
@@ -250,6 +260,7 @@ class SavingsPlanInputs {
         incomeStrategy: incomeStrategy,
         dividendYield: dividendYield ?? this.dividendYield,
         shortTerm: shortTerm,
+        currency: currency,
       );
 
   Map<String, Object?> toJson() => {
@@ -264,6 +275,8 @@ class SavingsPlanInputs {
     'income_strategy': incomeStrategy.key,
     if (dividendYield != null) 'dividend_yield': dividendYield,
     if (shortTerm) 'short_term': true,
+    // Solo si no es dólar: los planes de siempre (y sus plan_id) no cambian.
+    if (currency != usd) 'currency': currency,
   };
 
   static SavingsPlanInputs? fromJson(Object? json) {
@@ -296,6 +309,10 @@ class SavingsPlanInputs {
           IncomeStrategy.dividends,
       dividendYield: yieldOverride is num ? yieldOverride.toDouble() : null,
       shortTerm: json['short_term'] == true,
+      currency: switch (json['currency']) {
+        final String c when RegExp(r'^[A-Z]{3}$').hasMatch(c) => c,
+        _ => usd,
+      },
     );
   }
 

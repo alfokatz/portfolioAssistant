@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -29,6 +30,8 @@ Uri _uri(String query) =>
     Uri.parse('porty-widget://open?homeWidget&$query');
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   late FakeHomeWidgetStore store;
   late PaywallHarness h;
   late SharedPreferences prefs;
@@ -146,7 +149,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('home_widget_sheet_title'), findsOneWidget);
+    // Porty encabeza con cuántas novedades juntó.
+    expect(
+      find.textContaining(RegExp('home_widget_sheet_porty_(one|many)')),
+      findsOneWidget,
+    );
     expect(find.text('AAA abre una planta'), findsOneWidget);
     // El tocado va arriba del de resultados.
     final newsY = tester.getTopLeft(find.text('AAA abre una planta')).dy;

@@ -68,13 +68,13 @@ Es juicio del modelo, no una garantía: si alguna vez querés forzar uno, `@"por
 0. `porty-product-owner` → brief con problema, métrica y alcance mínimo (o "no construir").
 1. `porty-architect` → spec con contrato y tareas por dueño.
 2. En paralelo: `porty-backend-dev` y `porty-flutter-dev` (y `porty-assistant-dev` si toca el chat). Flutter arranca contra fakes del contrato.
-3. En paralelo: `porty-code-reviewer` (contra la spec), `porty-security-reviewer` (si tocó supabase/auth/planes), `porty-ui-reviewer` (si hay UI visible).
+3. Revisor principal: `porty-code-reviewer` (contra la spec y `REVIEW.md` de la rama base). Sumá `porty-security-reviewer` solo si tocó supabase/auth/planes/brokers y `porty-ui-reviewer` solo si hay UI visible. No apiles revisores "por las dudas": si una revisión deja pasar algo, se mejora `REVIEW.md`.
 4. Los dueños corrigen hallazgos ALTA; `porty-test-runner` confirma verde.
 5. Reportar al usuario lo que necesita su OK: `db push`, deploy de `ai-chat`/functions, evals pagas, commit/PR.
 
 **Bug con causa dudosa** (agent team, hipótesis en competencia): 3 teammates investigan teorías distintas y tratan de refutarse entre sí; el que sobrevive va al dueño de esa capa para el fix + test que reproduzca.
 
-**Revisión de un PR/diff:** los tres revisores en paralelo, cada uno con su lente; el lead sintetiza y descarta duplicados y estilo.
+**Revisión de un PR/diff:** un revisor principal (`porty-code-reviewer` o `/code-review`) guiado por `REVIEW.md`; security/ui solo si el diff toca su área. Si hay una segunda ronda, que parta de los hallazgos de la primera en vez de revisar todo de cero.
 
 **Cambio chico de una capa:** hacelo directo + `porty-test-runner` (o `/code-review`) al final.
 

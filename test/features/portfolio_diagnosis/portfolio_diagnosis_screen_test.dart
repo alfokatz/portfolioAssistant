@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/portfolio_diagnosis/domain/portfoli
 import 'package:portfolio_assistant/features/portfolio_diagnosis/providers/portfolio_diagnosis_provider.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/portfolio_diagnosis_screen.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_entry_card.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/states/home_state.dart';
@@ -323,6 +324,35 @@ void main() {
       expect(find.text('diagnosis_entry_title'), findsNothing);
       await pumpEntry(tester, _homeWith(0), false);
       expect(find.text('diagnosis_entry_title'), findsNothing);
+    });
+  });
+
+  group('volver a ver los hallazgos', () {
+    Future<void> pumpRevisit(WidgetTester tester, HomeState home, bool seen) =>
+        tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              homeProvider.overrideWith((ref) => _Home(home)),
+              diagnosisSeenProvider.overrideWith((ref) => _Seen(seen)),
+            ],
+            child: MaterialApp(
+              theme: _light,
+              home: const Scaffold(body: DiagnosisRevisitCard()),
+            ),
+          ),
+        );
+
+    testWidgets('ya visto y con cartera, aparece', (tester) async {
+      await pumpRevisit(tester, _homeWith(3), true);
+      expect(find.text('diagnosis_revisit_title'), findsOneWidget);
+    });
+
+    testWidgets('sin haberlo visto (lo ofrece la entrada de arriba) o sin '
+        'cartera, no ocupa lugar', (tester) async {
+      await pumpRevisit(tester, _homeWith(3), false);
+      expect(find.text('diagnosis_revisit_title'), findsNothing);
+      await pumpRevisit(tester, _homeWith(0), true);
+      expect(find.text('diagnosis_revisit_title'), findsNothing);
     });
   });
 }

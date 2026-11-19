@@ -56,10 +56,11 @@ class SnaptradeLogoTile extends StatelessWidget {
             color: colors.textPrimary,
           ),
           SizedBox(width: height * 0.12),
-          // Texto traducido (no una marca fija como "Binance"): con tope de
-          // ancho para que el lockup entre en pantallas angostas.
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: height * 1.4),
+          // Texto traducido (no una marca fija como "Binance"): ocupa lo que
+          // necesita y solo se acorta si de verdad no entra en la pantalla.
+          // Antes tenía un tope fijo (height × 1.4) que cortaba "Your broker"
+          // en "Your bro…" aun con lugar de sobra.
+          Flexible(
             child: Text(
               'snaptrade_tile'.tr(),
               maxLines: 1,

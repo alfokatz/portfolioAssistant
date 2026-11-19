@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/etoro/providers/etoro_connection_pr
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_extras_card.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
+import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -19,6 +20,8 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_greeting_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/home/providers/home_intraday_provider.dart';
+import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_comparison_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/benchmark_locked_card.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/closed_positions_entry_card.dart';
@@ -117,8 +120,22 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
       state.benchmark,
       state.selectedRange,
     );
+    // 1D: la variación del día (la misma cuenta y el mismo número que el
+    // widget de inicio) y, mientras llegan las velas, la recta entre el
+    // cierre anterior y hoy.
+    final isDay = state.selectedRange == ChartTimeRange.d1;
+    final dayMove =
+        state.history.length < 2
+            ? null
+            : PortfolioDayMove.compute(history: state.history);
+    final chartHistory =
+        isDay
+            ? (ref.watch(homeIntradayProvider).valueOrNull ?? filteredHistory)
+            : filteredHistory;
     final periodPnl =
-        state.selectedRange == ChartTimeRange.all && summary != null
+        isDay && dayMove != null
+            ? PeriodPnl(absolute: dayMove.absolute, percent: dayMove.percent)
+            : state.selectedRange == ChartTimeRange.all && summary != null
             ? PeriodPnl(
               absolute: summary.totalPnlAbsolute,
               percent: summary.totalPnlPercent,
@@ -163,9 +180,7 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     ),
                     child: Material(
                       color: colors.surfaceCard,
-                      borderRadius: BorderRadius.circular(
-                        AppDimens.radiusLg,
-                      ),
+                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
                       child: ListTile(
                         dense: true,
                         title: Text(
@@ -185,26 +200,31 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     0,
                     PortfolioHeroSection(
                       summary: summary,
-                      history: filteredHistory,
+                      history: chartHistory,
                       periodPnlAbsolute: periodPnl.absolute,
                       periodPnlPercent: periodPnl.percent,
                       selectedRange: state.selectedRange,
                       onRangeSelected: notifier.selectTimeRange,
-                      dayMove:
-                          state.history.length < 2
-                              ? null
-                              : PortfolioDayMove.compute(
-                                history: state.history,
-                              ),
-                      secondaryLine: DisplayCurrencyLine(
-                        totalUsd: summary.totalValue,
-                      ),
+                      // Todo el encabezado en la moneda elegida; la etiqueta
+                      // lo dice y abre el desglose.
+                      money: ref.watch(displayMoneyProvider),
+                      totalLabel: const DisplayTotalLabel(),
+                      periodLabel:
+                          isDay && dayMove != null
+                              ? (dayMove.period == DayMovePeriod.today
+                                  ? 'home_range_d1'.tr()
+                                  : 'home_widget_period_last_close'.tr())
+                              : null,
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),
                   // Hasta que vea su primer diagnóstico: "Miré tu
                   // cartera". Trae su propio espacio inferior.
                   const DiagnosisEntryCard(),
+                  // Después de verlo: "Lo que vi en tu cartera", para volver
+                  // a los hallazgos (con los números de hoy). Ocupa el mismo
+                  // lugar que la entrada de arriba; nunca están las dos.
+                  const DiagnosisRevisitCard(),
                   // Lo que Porty marca hoy (el desvío del plan, metas,
                   // concentración, alertas). Trae su propio espacio
                   // inferior; sin nada para marcar, no ocupa lugar.
@@ -239,18 +259,21 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                                         showConnectEtoro:
                                             etoro.loaded &&
                                             etoro.connection.status ==
-                                                EtoroConnectionStatus.notConnected,
+                                                EtoroConnectionStatus
+                                                    .notConnected,
                                         valuations: displayValuations,
                                         totalCount: valuations.length,
                                         expanded: state.showAllPositions,
                                         onToggleExpanded:
                                             hasMorePositions
-                                                ? notifier.togglePositionsExpanded
+                                                ? notifier
+                                                    .togglePositionsExpanded
                                                 : null,
-                                        onPositionTap: notifier.openPositionDetail,
+                                        onPositionTap:
+                                            notifier.openPositionDetail,
                                         onDeletePosition:
-                                            (valuation) =>
-                                                notifier.deletePositionsForTicker(
+                                            (valuation) => notifier
+                                                .deletePositionsForTicker(
                                                   valuation.position.ticker,
                                                 ),
                                       ),

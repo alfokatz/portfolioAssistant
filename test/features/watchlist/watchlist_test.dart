@@ -300,8 +300,38 @@ void main() {
       expect(find.text('watchlist_count'), findsOneWidget);
       await tester.tap(find.text('AMZN').first);
       await settle(tester);
-      expect(find.text('watchlist_action_ask'), findsOneWidget);
-      expect(find.text('watchlist_action_remove'), findsOneWidget);
+      // La hoja: Porty cuenta cómo le fue (110 vs. 100 al agregarla), la
+      // acción principal es preguntarle y quitar queda abajo.
+      expect(find.text('watchlist_sheet_up'), findsOneWidget);
+      expect(find.text('watchlist_sheet_ask'), findsOneWidget);
+      expect(find.text('watchlist_action_alert'), findsOneWidget);
+      expect(find.text('watchlist_sheet_remove'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('hoja: el aviso de movimientos fuertes es un switch con su '
+        'estado, que se cambia sin cerrar la hoja', (tester) async {
+      await pump(
+        tester,
+        tier: SubscriptionTier.premium,
+        items: [
+          WatchlistItem(
+            id: '1',
+            symbol: 'AMZN',
+            addedPrice: 100,
+            createdAt: _today,
+          ),
+        ],
+      );
+      await tester.tap(find.text('AMZN').first);
+      await settle(tester);
+      Switch notifySwitch() => tester.widget<Switch>(find.byType(Switch));
+      expect(notifySwitch().value, isTrue);
+      await tester.tap(find.byType(Switch));
+      await settle(tester);
+      // Sigue abierta y el switch refleja el cambio.
+      expect(find.text('watchlist_sheet_ask'), findsOneWidget);
+      expect(notifySwitch().value, isFalse);
       expect(tester.takeException(), isNull);
     });
 

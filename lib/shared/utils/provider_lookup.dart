@@ -7,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 /// aislamiento. Devuelve `null` si no hay scope.
 ///
 /// También devuelve `null` si construir el provider falla (p. ej. un cliente
-/// HTTP que lee `dotenv` antes de que esté cargado): todo lo que se busca
+/// HTTP sin configuración): todo lo que se busca
 /// por acá es opcional — logos, sparklines, haptics — y una falla de eso no
 /// puede tumbar la card entera.
 T? readProviderOrNull<T>(BuildContext context, ProviderListenable<T> provider) {

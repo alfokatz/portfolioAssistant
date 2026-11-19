@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:easy_localization/easy_localization.dart';
@@ -247,9 +248,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   PortyTopic? resumeTopic(List<PortyTopic> topics, {DateTime? now}) {
     final today = now ?? DateTime.now();
     final tier = ref.read(subscriptionProvider).tier;
-    final held = ref.read(homeProvider).summary?.valuations.map(
-          (v) => v.position.ticker.toUpperCase(),
-        ) ??
+    final held =
+        ref
+            .read(homeProvider)
+            .summary
+            ?.valuations
+            .map((v) => v.position.ticker.toUpperCase()) ??
         const <String>[];
     for (final t in topics) {
       if (today.difference(t.lastAskedAt) > const Duration(days: 14)) break;
@@ -311,7 +315,7 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       // Solo lo que ningún control va a borrar (ver
       // `AssistantAnswerReview.previewSafePrefix`).
       final text = AssistantAnswerReview.previewSafePrefix(
-        AnswerStreamPreview.textOf(raw),
+        PortyDashes.clean(AnswerStreamPreview.textOf(raw)),
       );
       if (text.isEmpty) return;
       last = clock.elapsed;
@@ -332,7 +336,6 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     _revealedPreview = null;
     if (mounted) _preview.value = null;
   }
-
 
   @override
   void dispose() {
@@ -599,6 +602,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
         loadInvestorProfile:
             () => ref.read(investorProfileProvider.notifier).refresh(),
         investorProfile: await profileF,
+        loadFxRate: (code) async {
+          final currency = DisplayCurrency.fromCode(code);
+          if (currency.isUsd) return 1;
+          return ref.read(fxRateProvider(currency).future);
+        },
         actionsThisConversation: [
           for (final MapEntry(key: id, value: progress)
               in state.actionProposals.entries)
@@ -1224,7 +1232,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
                   .where((i) => i.symbol == draft.ticker)
                   .firstOrNull;
           if (item == null) {
-            return 'qa_pv_not_following'.tr(namedArgs: {'ticker': draft.ticker});
+            return 'qa_pv_not_following'.tr(
+              namedArgs: {'ticker': draft.ticker},
+            );
           }
           if (op == ManageOp.unwatch) {
             await notifier.remove(item);
@@ -1329,7 +1339,9 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     try {
       if (!ref.read(watchlistProvider).loaded) await watchlist.load();
       if (ref.read(watchlistProvider).contains(draft.ticker)) {
-        return 'qa_pv_already_following'.tr(namedArgs: {'ticker': draft.ticker});
+        return 'qa_pv_already_following'.tr(
+          namedArgs: {'ticker': draft.ticker},
+        );
       }
       final item = await watchlist.add(draft.ticker);
       if (!draft.watchNotify) await watchlist.setNotify(item, false);

@@ -52,6 +52,7 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/assistant_st
 import 'package:portfolio_assistant/features/assistant/view/widgets/message_appear_fade.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_assistant_surface.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/portfolio_qa_chat_bubble.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/report_answer_sheet.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_header.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_mood.dart';
@@ -686,7 +687,9 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
       ref
           .read(alertProvider.notifier)
           .showError(message: 'goal_limit_reached'.tr());
-    } catch (_) {
+    } catch (e, stack) {
+      // El cartel es genérico: el motivo real queda en la consola.
+      debugPrint('[Goals/save] failed: $e\n$stack');
       ref.read(alertProvider.notifier).showError(message: 'goal_error'.tr());
     }
     return null;
@@ -893,26 +896,8 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
               // Durante el turno actúa el avatar del mensaje; el del header
               // queda en reposo y lo que cambia es su línea de estado.
               entrance: _playEntrance,
-              quota: PortyQuota(
-                remaining: subscription.queriesRemaining,
-                limit: subscription.queriesLimit,
-              ),
-              // El único detalle de cuota que existe es el paywall de
-              // "consultas agotadas": solo tiene sentido abrirlo en cero.
-              onQuotaTap:
-                  subscription.queriesRemaining == 0
-                      ? () => SubscriptionPaywallSheet.show(
-                        context,
-                        ref,
-                        reason: PaywallReason.quotaExceeded,
-                        source: PaywallSource.quotaZeroHeader,
-                        onUpgraded:
-                            () =>
-                                ref
-                                    .read(subscriptionProvider.notifier)
-                                    .refresh(),
-                      )
-                      : null,
+              // Las consultas que quedan se ven en Ajustes (tarjeta del plan),
+              // no en el chat.
             ),
           ),
           //const PortfolioQaDisclaimerBanner(),
@@ -1346,6 +1331,11 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
           ),
         ),
       );
+      // Mantener apretada la respuesta abre "reportar" (contenido de IA).
+      final reportable = _ReportableAnswer(
+        surfaceId: message.surfaceId,
+        child: surface,
+      );
       // Los avisos fijos (perfil de inversor + disclaimer) entran recién
       // cuando la respuesta terminó su reveal, para no cortar la secuencia.
       final quotaLeft = message.quotaNudgeRemaining;
@@ -1357,7 +1347,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
               ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  surface,
+                  reportable,
                   _AdviceFooterEntrance(
                     message: message,
                     child: Column(
@@ -1394,7 +1384,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                   ),
                 ],
               )
-              : surface;
+              : reportable;
     } else {
       contentKey = const ValueKey('bubble');
       content = PortfolioQaChatBubble(
@@ -1691,6 +1681,51 @@ class _SheetQuestions extends StatelessWidget {
                 onTap: () => onSelected?.call(questions[i]),
               ),
             ),
+      ),
+    );
+  }
+}
+
+/// Una respuesta de Porty que se puede reportar manteniéndola apretada
+/// (Apple 1.2 y la política de IA generativa de Google). El extracto es el
+/// texto que se ve en la respuesta.
+class _ReportableAnswer extends ConsumerWidget {
+  const _ReportableAnswer({required this.surfaceId, required this.child});
+
+  final String? surfaceId;
+  final Widget child;
+
+  static String _visibleText(BuildContext context) {
+    final parts = <String>[];
+    void visit(Element element) {
+      final widget = element.widget;
+      if (widget is RichText) {
+        final text = widget.text.toPlainText().trim();
+        if (text.isNotEmpty) parts.add(text);
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return parts.join('\n');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      onLongPressHint: 'assistant_report_hint'.tr(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.deferToChild,
+        onLongPress: () {
+          PortyHapticsService.maybeOf(context)?.selectionTap();
+          ReportAnswerSheet.show(
+            context,
+            ref,
+            surfaceId: surfaceId,
+            answer: _visibleText(context),
+          );
+        },
+        child: child,
       ),
     );
   }

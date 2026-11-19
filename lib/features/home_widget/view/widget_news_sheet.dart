@@ -1,6 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/home_widget/data/widget_items_cache.dart';
@@ -184,14 +186,21 @@ class WidgetNewsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                'home_widget_sheet_title'.tr(),
-                style: tt.titleLarge?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
+            // Porty dice cuántas novedades juntó (o solo el título si están
+            // bloqueadas por el plan).
+            PortySays(
+              messageKey: 'news',
+              mood: PortyAvatarState.idle,
+              message: Semantics(
+                header: true,
+                child: Text(
+                  lockedKind != null || items.isEmpty
+                      ? 'home_widget_sheet_title'.tr()
+                      : items.length == 1
+                      ? 'home_widget_sheet_porty_one'.tr()
+                      : 'home_widget_sheet_porty_many'.tr(
+                        namedArgs: {'count': '${items.length}'},
+                      ),
                 ),
               ),
             ),

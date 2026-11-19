@@ -277,7 +277,7 @@ El prompt las pide, pero el modelo no siempre las cumple. Cada una salió de una
 | Punta a punta de `submitMessage` (paywall, cuota, avisos, G1) | `test/features/assistant/providers/assistant_submit_e2e_test.dart` | servicio y loop reales; OpenAI guionado |
 | Contrato de prompt y catálogo (IDs `[W:…]`, sin duplicados, tamaño, tools nombradas) | `test/features/assistant/catalog/assistant_catalog_test.dart` | sin red |
 | Guardas de grounding y layout | `test/features/assistant/utils/` | sin red |
-| **Evals contra el modelo real** (23 casos: charla, conceptual, cartera, tickers, G1/G2/G5/G6/G8, Invest por tema, metas, por qué, paywall) | `test/evals/assistant_tool_evals_test.dart` | `RUN_ASSISTANT_EVALS=1 flutter test test/evals/assistant_tool_evals_test.dart` (usa la key de `assets/env/.env.development`; filtros `EVAL_ONLY=id1,id2`, `EVAL_DEBUG=1`, `ASSISTANT_EVALS_REPORT=archivo.json`) |
+| **Evals contra el modelo real** (23 casos: charla, conceptual, cartera, tickers, G1/G2/G5/G6/G8, Invest por tema, metas, por qué, paywall) | `test/evals/assistant_tool_evals_test.dart` | `RUN_ASSISTANT_EVALS=1 flutter test test/evals/assistant_tool_evals_test.dart` (con `EVAL_REAL_DATA`/`EVAL_NEWS_V2`, agregar `--dart-define-from-file=env/develop.json`; filtros `EVAL_ONLY=id1,id2`, `EVAL_DEBUG=1`, `ASSISTANT_EVALS_REPORT=archivo.json`) |
 
 Las evals tienen **skip** por default: cuestan (~$0,11 la corrida completa) y no son determinísticas. Conviene correrlas en cada cambio de prompt, tools o modelo.
 

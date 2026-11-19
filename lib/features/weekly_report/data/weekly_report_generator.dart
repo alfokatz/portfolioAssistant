@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:portfolio_assistant/features/genui_core/utils/porty_dashes.dart';
 import 'package:portfolio_assistant/config/translate/app_language.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:http/http.dart' as http;
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/report_week.dart';
@@ -62,14 +63,7 @@ class WeeklyReportGenerator {
   static const maxOutputTokens = 1500;
   static const timeout = Duration(seconds: 40);
 
-  static String _envModel() {
-    try {
-      final m = dotenv.maybeGet('OPENAI_MODEL')?.trim();
-      return m == null || m.isEmpty ? defaultModel : m;
-    } catch (_) {
-      return defaultModel;
-    }
-  }
+  static String _envModel() => AppEnv.openAiModel ?? defaultModel;
 
   /// [language]: el de la app ('es' | 'en'); elige el prompt del informe.
   Future<WeeklyReportGeneration> generate({
@@ -209,7 +203,7 @@ class WeeklyReportGenerator {
           ((jsonDecode(body) as Map)['choices'] as List?)?.firstOrNull;
       final text = (content as Map?)?['message']?['content'];
       return text is String && text.isNotEmpty
-          ? (content: text, error: null)
+          ? (content: PortyDashes.clean(text), error: null)
           : (content: null, error: 'empty_response');
     } catch (_) {
       return (content: null, error: 'network');

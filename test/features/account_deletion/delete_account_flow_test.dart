@@ -304,7 +304,7 @@ void main() {
     );
 
     testWidgets(
-      'success for an Apple user: toast with the manual revocation guide',
+      'success for an Apple user: toast saying access was revoked, with the manual path as backup',
       (tester) async {
         final h = _Harness(user: _user(providers: const ['email', 'apple']));
         await h.pump(tester);
@@ -404,7 +404,7 @@ void main() {
     await h.confirm(tester, label: 'Eliminar cuenta');
     expect(
       h.toasts.single,
-      startsWith('No pudimos terminar de eliminar tu cuenta.'),
+      startsWith('No pude terminar de eliminar tu cuenta.'),
     );
     expect(h.toasts.single, contains('soporte@'));
   });

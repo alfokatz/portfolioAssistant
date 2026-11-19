@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -104,7 +105,10 @@ class PositionRowWidget extends StatelessWidget {
                 SkeletonText(
                   valuation == null
                       ? null
-                      : AppNumberFormat.money(valuation.marketValue),
+                      // Cuánto vale tu posición: en tu moneda.
+                      : DisplayMoneyScope.of(
+                        context,
+                      ).money(valuation.marketValue),
                   animate: true,
                   placeholder: '\$0,000.00',
                   style: tt.titleSmall?.copyWith(

@@ -1,3 +1,4 @@
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 
 /// Lo que Porty puede marcar en la Home. Cada uno sale de un cálculo de la
@@ -44,6 +45,7 @@ class PortyInsight {
     this.ticker,
     this.goalLabel,
     this.numbers = const {},
+    this.goalCurrency,
   });
 
   final PortyInsightKind kind;
@@ -56,6 +58,9 @@ class PortyInsight {
   final double score;
   final String? ticker;
   final String? goalLabel;
+
+  /// La moneda de los montos de una meta (sus `numbers` en plata).
+  final DisplayCurrency? goalCurrency;
 
   /// Los números del texto (porcentajes en puntos, montos en dólares).
   final Map<String, double> numbers;

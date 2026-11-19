@@ -9,9 +9,11 @@ import 'package:portfolio_assistant/config/networking/error/http_error.dart';
 import 'package:portfolio_assistant/domain/entities/closed_position.dart';
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_closed_positions_use_case.dart';
 import 'package:portfolio_assistant/domain/use_cases/get_position_lots_by_ticker_use_case.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/features/assistant/services/price_chart_data_loader.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/position_row_widget.dart';
@@ -64,7 +66,10 @@ final _seed = PositionDetailSeed.fromLots(_lots)!;
 ThemeData get _theme => ProviderContainer().read(themeDataLightProvider);
 
 Widget _detail(_PendingLots lots, {PositionDetailSeed? seed}) => ProviderScope(
-  overrides: [getPositionLotsByTickerUseCaseProvider.overrideWithValue(lots)],
+  overrides: [
+    getPositionLotsByTickerUseCaseProvider.overrideWithValue(lots),
+    priceChartDataLoaderProvider.overrideWithValue(_NoChart()),
+  ],
   child: MaterialApp(
     theme: _theme,
     home: PositionDetailScreen(ticker: 'AMZN', seed: seed),
@@ -111,6 +116,7 @@ void main() {
       ProviderScope(
         overrides: [
           getPositionLotsByTickerUseCaseProvider.overrideWithValue(lots),
+          priceChartDataLoaderProvider.overrideWithValue(_NoChart()),
           getClosedPositionsUseCaseProvider.overrideWithValue(_NoSales()),
         ],
         child: MaterialApp.router(theme: _theme, routerConfig: router),
@@ -271,6 +277,7 @@ void main() {
       ProviderScope(
         overrides: [
           getPositionLotsByTickerUseCaseProvider.overrideWithValue(lots),
+          priceChartDataLoaderProvider.overrideWithValue(_NoChart()),
         ],
         child: MaterialApp.router(theme: _theme, routerConfig: router),
       ),
@@ -297,4 +304,15 @@ void main() {
     expect(lots.completer.isCompleted, isFalse);
     await tester.pumpAndSettle();
   });
+}
+
+/// El gráfico del detalle no sale a la red en los tests (antes lo evitaba,
+/// de casualidad, que `dotenv` no estuviera cargado).
+class _NoChart implements PriceChartDataLoader {
+  @override
+  Future<List<PriceCandle>?> load(String ticker, PriceChartRange range) async =>
+      null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

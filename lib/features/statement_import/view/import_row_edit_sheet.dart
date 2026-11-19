@@ -1,11 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/statement_import/domain/import_row.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/position/ui/widgets/position_primary_button.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/porty_says.dart';
 import 'package:portfolio_assistant/shared/utils/user_number.dart';
 
 /// Lo que el usuario corrigió de una fila.
@@ -111,6 +112,21 @@ class _ImportRowEditSheetState extends State<ImportRowEditSheet> {
     );
   }
 
+  bool get _needsFix =>
+      widget.row.quote == QuoteCheck.notFound ||
+      widget.row.purchasePrice == null ||
+      widget.row.purchaseDate == null;
+
+  String get _portyMessage {
+    final row = widget.row;
+    if (row.quote == QuoteCheck.notFound) {
+      return 'import_edit_porty_ticker'.tr(namedArgs: {'ticker': row.ticker});
+    }
+    if (row.purchasePrice == null) return 'import_edit_porty_price'.tr();
+    if (row.purchaseDate == null) return 'import_edit_porty_date'.tr();
+    return 'import_edit_porty_review'.tr();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.customColors;
@@ -132,42 +148,19 @@ class _ImportRowEditSheetState extends State<ImportRowEditSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  ExcludeSemantics(
-                    child: QaTickerAvatar(ticker: widget.row.ticker, size: 40),
-                  ),
-                  const SizedBox(width: AppDimens.sp12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Semantics(
-                          header: true,
-                          child: Text(
-                            'import_edit_title'.tr(),
-                            style: tt.titleLarge?.copyWith(
-                              color: colors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.row.name == null
-                              ? widget.row.ticker
-                              : '${widget.row.ticker} · ${widget.row.name}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodyMedium?.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              // Porty dice qué no pudo leer de esta fila (o que revise lo
+              // que leyó); debajo, de qué posición se trata.
+              PortySays(
+                messageKey: 'edit',
+                mood: _needsFix ? PortyAvatarState.concerned : PortyAvatarState.idle,
+                message: Semantics(header: true, child: Text(_portyMessage)),
+                footnote: Text(
+                  widget.row.name == null
+                      ? widget.row.ticker
+                      : '${widget.row.ticker} · ${widget.row.name}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(height: AppDimens.sp20),
               TextField(

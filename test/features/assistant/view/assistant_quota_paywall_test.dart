@@ -97,25 +97,11 @@ void main() {
     return world;
   }
 
-  testWidgets('the counter at 0 opens the quota paywall with source '
-      'quota_zero_header', (tester) async {
-    final world = await pumpScreen(tester, used: 20);
-
-    await tester.tap(find.text('0 restantes'));
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(world.events.of(ProductEvent.paywallViewed), [
-      {
-        'reason': 'quotaExceeded',
-        'source': PaywallSource.quotaZeroHeader,
-        'tier': 'free',
-        'visible_tiers': ['premium', 'gold'],
-        'queries_used': 20,
-        'queries_limit': 20,
-      },
-    ]);
+  testWidgets('the chat header no longer shows the queries counter (it '
+      'lives in Settings)', (tester) async {
+    await pumpScreen(tester, used: 15);
+    expect(find.textContaining('restantes'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   // Pregunta del widget de inicio: el request con `origin` se envía una sola
@@ -162,17 +148,6 @@ void main() {
     expect(results(), hasLength(1));
     // Que terminen las entradas con timer (fade del saludo).
     await tester.pump(const Duration(seconds: 3));
-  });
-
-  testWidgets('with 5 left the counter is not a button: no paywall', (
-    tester,
-  ) async {
-    final world = await pumpScreen(tester, used: 15);
-
-    await tester.tap(find.text('5 restantes'), warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(world.events.of(ProductEvent.paywallViewed), isEmpty);
   });
 
   testWidgets('the low quota line shows the plan numbers and "Ver planes" '

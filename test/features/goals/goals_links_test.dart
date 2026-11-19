@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
 import 'package:portfolio_assistant/features/goals/data/goals_repository.dart';
@@ -39,6 +40,7 @@ class _Repo extends GoalsRepository {
     String id,
     GoalDraft draft, {
     Set<String>? linkedTickers,
+    DisplayCurrency? currency,
   }) async {
     final i = goals.indexWhere((g) => g.id == id);
     final g = goals[i];
@@ -117,7 +119,9 @@ void main() {
 
     // Una jubilación sin compra mensual parte del valor de la cartera:
     // cuenta lo que tiene y todavía no cuenta para otra meta.
-    final retirement = await goals.save(_draft('Jubilación', GoalType.retirement, []));
+    final retirement = await goals.save(
+      _draft('Jubilación', GoalType.retirement, []),
+    );
     expect(retirement.linkedTickers, {'AAPL'});
   });
 
@@ -125,8 +129,12 @@ void main() {
       'duplicating it', () async {
     final repo = _Repo();
     final goals = GoalsNotifier(repo);
-    final first = await goals.save(_draft('MacBook', GoalType.purchase, ['BIL']));
-    final again = await goals.save(_draft('macbook ', GoalType.purchase, ['SGOV']));
+    final first = await goals.save(
+      _draft('MacBook', GoalType.purchase, ['BIL']),
+    );
+    final again = await goals.save(
+      _draft('macbook ', GoalType.purchase, ['SGOV']),
+    );
     expect(again.id, first.id);
     expect(goals.state.goals, hasLength(1));
     expect(again.linkedTickers, {'BIL', 'SGOV'});

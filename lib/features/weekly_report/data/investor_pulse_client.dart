@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/ai_proxy_client.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/investor_pulse_item.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/report_week.dart';
@@ -26,7 +26,7 @@ class InvestorPulseClient {
            ),
        _baseUrl = baseUrl ?? _defaultBaseUrl(),
        _accessToken = accessToken ?? AiProxyConfig.supabaseAccessToken,
-       _anonKey = anonKey ?? _env('SUPABASE_ANON_KEY');
+       _anonKey = anonKey ?? AppEnv.supabaseAnonKeyOrNull;
 
   final Dio _dio;
   final String _baseUrl;
@@ -34,16 +34,8 @@ class InvestorPulseClient {
   final String? _anonKey;
 
   static String _defaultBaseUrl() {
-    final supabase = _env('SUPABASE_URL') ?? '';
+    final supabase = AppEnv.supabaseUrl;
     return supabase.isEmpty ? '' : '$supabase/functions/v1/investor-pulse';
-  }
-
-  static String? _env(String name) {
-    try {
-      return dotenv.maybeGet(name)?.trim();
-    } catch (_) {
-      return null; // `.env` sin cargar (tests)
-    }
   }
 
   Future<List<InvestorPulseItem>?> fetch(ReportWeek week) async {

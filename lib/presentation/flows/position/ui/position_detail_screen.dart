@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_price_chart.dart';
@@ -151,8 +152,11 @@ class _PositionDetailScreenState
           onCloseAll: notifier.closeAll,
           onCloseLot: notifier.closeLot,
           onAskPorty:
-              (question) => PortyChatSheet.show(context, question: question,
-                screen: PortyScreenContext.position(widget.ticker),),
+              (question) => PortyChatSheet.show(
+                context,
+                question: question,
+                screen: PortyScreenContext.position(widget.ticker),
+              ),
           animateEntrance: !_seeded,
         ),
       );
@@ -236,16 +240,16 @@ class _PositionDetailScreenState
       body: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
         child: AnimatedSwitcher(
-        duration:
-            reduceMotion ? Duration.zero : PositionDetailScreen.swapDuration,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
-        layoutBuilder:
-            (current, previous) => Stack(
-              alignment: Alignment.topCenter,
-              children: [...previous, if (current != null) current],
-            ),
-        child: KeyedSubtree(key: ValueKey(bodyKey), child: body),
+          duration:
+              reduceMotion ? Duration.zero : PositionDetailScreen.swapDuration,
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          layoutBuilder:
+              (current, previous) => Stack(
+                alignment: Alignment.topCenter,
+                children: [...previous, if (current != null) current],
+              ),
+          child: KeyedSubtree(key: ValueKey(bodyKey), child: body),
         ),
       ),
     );
@@ -442,6 +446,7 @@ class _PositionCard extends StatelessWidget {
     const tabular = [FontFeature.tabularFigures()];
     final pnl = s?.pnlAbsolute ?? 0;
     final invested = s?.position.costBasis;
+    final display = DisplayMoneyScope.of(context);
 
     return _Card(
       title: 'position_detail_summary'.tr(),
@@ -449,7 +454,10 @@ class _PositionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SkeletonText(
-            s == null ? null : AppNumberFormat.money(s.marketValue),
+            // Lo que es tu plata, en tu moneda; los precios por acción
+            // (actual, promedio, de cada compra) siguen en dólares, como
+            // se cotizan.
+            s == null ? null : display.money(s.marketValue),
             animate: true,
             placeholder: '\$0,000.00',
             style: tt.displaySmall?.copyWith(
@@ -469,7 +477,7 @@ class _PositionCard extends StatelessWidget {
               SkeletonText(
                 s == null
                     ? null
-                    : '${AppNumberFormat.signedMoney(pnl)} · '
+                    : '${display.signedMoney(pnl)} · '
                         '${AppNumberFormat.percent(s.pnlPercent)}',
                 animate: true,
                 placeholder: '+\$000.00 · +00.0%',
@@ -491,7 +499,10 @@ class _PositionCard extends StatelessWidget {
               Expanded(
                 child: _Stat(
                   label: 'position_preview_shares'.tr(),
-                  value: s == null ? null : AppNumberFormat.shares(s.position.quantity),
+                  value:
+                      s == null
+                          ? null
+                          : AppNumberFormat.shares(s.position.quantity),
                 ),
               ),
               Expanded(
@@ -518,8 +529,7 @@ class _PositionCard extends StatelessWidget {
               Expanded(
                 child: _Stat(
                   label: 'position_detail_invested'.tr(),
-                  value:
-                      invested == null ? null : AppNumberFormat.money(invested),
+                  value: invested == null ? null : display.money(invested),
                 ),
               ),
             ],
@@ -718,7 +728,9 @@ class _PurchaseRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             SkeletonText(
-              lot == null ? null : AppNumberFormat.signedMoney(pnl),
+              lot == null
+                  ? null
+                  : DisplayMoneyScope.of(context).signedMoney(pnl),
               animate: true,
               placeholder: '+\$000.00',
               style: tt.titleSmall?.copyWith(
@@ -746,7 +758,10 @@ class _PurchaseRow extends StatelessWidget {
             onPressed: onClose,
             style: TextButton.styleFrom(
               foregroundColor: colors.textPrimary,
-              minimumSize: const Size(AppDimens.touchTarget, AppDimens.touchTarget),
+              minimumSize: const Size(
+                AppDimens.touchTarget,
+                AppDimens.touchTarget,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: AppDimens.sp8),
               textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),

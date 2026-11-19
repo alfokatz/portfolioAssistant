@@ -11,6 +11,7 @@ import 'package:portfolio_assistant/features/home_widget/data/home_widget_store.
 import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_settings_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_prompt_watcher.dart';
+import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/providers/portfolio_diagnosis_provider.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
@@ -126,6 +127,16 @@ void main() {
     await tester.pump(delay * 2);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('if notifications were already offered this open, waits', (
+    tester,
+  ) async {
+    await pump(tester);
+    container.read(homePromptShownThisOpenProvider.notifier).state = true;
+    await wait(tester);
+    expect(find.text('home_widget_add_title'), findsNothing);
+    expect(prefs.getInt(WidgetPrefsKeys.promptShown), isNull);
+  });
 
   testWidgets('3rd open with portfolio: offers once and stores the count', (
     tester,

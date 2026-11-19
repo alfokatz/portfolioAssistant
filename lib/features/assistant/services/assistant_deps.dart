@@ -7,7 +7,7 @@ import 'package:portfolio_assistant/infraestructure/managers/preferences_manager
 import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Dependencias externas del asistente, como fábricas: tocan dotenv/red al
+/// Dependencias externas del asistente, como fábricas: tocan config/red al
 /// construirse (OpenAI, Finnhub), así que se crean recién cuando hace falta
 /// — y los tests las reemplazan (OpenAI falso a nivel HTTP, repos fake)
 /// sin tocar el cableado real.

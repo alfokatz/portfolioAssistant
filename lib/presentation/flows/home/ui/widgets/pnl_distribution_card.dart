@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -92,7 +93,7 @@ class _PnlRow extends StatelessWidget {
     final colors = context.customColors;
     final tt = Theme.of(context).textTheme;
     final v = valuation;
-    final money = AppNumberFormat.signedMoney(v.pnlAbsolute);
+    final money = DisplayMoneyScope.of(context).signedMoney(v.pnlAbsolute);
     final percent = AppNumberFormat.percent(v.pnlPercent);
     const tabular = [FontFeature.tabularFigures()];
 
@@ -175,9 +176,7 @@ class _ToggleButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppDimens.radiusSm),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: AppDimens.touchTarget,
-            ),
+            constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

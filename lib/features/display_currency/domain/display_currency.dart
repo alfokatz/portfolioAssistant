@@ -45,9 +45,11 @@ enum DisplayCurrency {
   NumberFormat get format =>
       NumberFormat.currency(symbol: symbol, decimalDigits: decimals);
 
-  String money(double value) => format.format(value);
+  /// El símbolo trae un espacio ("$U ") para "$U 1,234"; en español va
+  /// después del número ("1.234 $U") y el espacio quedaría colgando.
+  String money(double value) => format.format(value).trim();
 
   /// "+$U 1.234" / "-$U 1.234".
   String signedMoney(double value) =>
-      '${value < 0 ? '-' : '+'}${format.format(value.abs())}';
+      '${value < 0 ? '-' : '+'}${money(value.abs())}';
 }

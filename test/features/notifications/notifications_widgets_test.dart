@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_router.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
@@ -95,6 +96,8 @@ Future<void> _pump(
 }
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   group('Ajustes → Notificaciones', () {
     testWidgets('sin permiso: ofrece activarlas y los tipos quedan apagados', (
       tester,
@@ -253,15 +256,23 @@ void main() {
       expect(find.text('price_alerts_section_paused'), findsOneWidget);
       expect(find.textContaining('VOO · '), findsOneWidget);
       expect(find.text('price_alert_status_paused_plan'), findsOneWidget);
+      // Porty dice cuántos precios vigila (las activas).
+      expect(
+        find.textContaining(RegExp('price_alerts_porty_watching_(one|many)')),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('vacía: explica cómo crear una', (tester) async {
+    testWidgets('vacía: Porty dice que no vigila nada y cómo crear una', (
+      tester,
+    ) async {
       await _pump(
         tester,
         const PriceAlertsScreen(),
         messaging: FakeMessaging(),
       );
-      expect(find.text('price_alerts_empty'), findsOneWidget);
+      expect(find.text('price_alerts_porty_empty'), findsOneWidget);
+      expect(find.text('price_alerts_porty_empty_hint'), findsOneWidget);
       expect(find.text('price_alerts_new'), findsOneWidget);
     });
   });

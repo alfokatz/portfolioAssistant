@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/features/display_currency/domain/fx_breakdown.dart';
 import 'package:portfolio_assistant/features/display_currency/providers/display_currency_provider.dart';
@@ -10,6 +11,8 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // La cara de Porty (PortySays) no se anima sola: pumpAndSettle termina.
+  setUpAll(() => PortyAvatar.ambientMotion = false);
   Future<void> pump(
     WidgetTester tester, {
     required DisplayCurrency currency,
@@ -41,30 +44,39 @@ void main() {
         ],
         child: MaterialApp(
           theme: theme,
-          home: const Scaffold(body: DisplayCurrencyLine(totalUsd: 1000)),
+          home: const Scaffold(body: DisplayTotalLabel()),
         ),
       ),
     );
     await tester.pump();
   }
 
-  testWidgets('con dólar no muestra nada', (tester) async {
+  testWidgets('con dólar dice "Total" y no abre nada', (tester) async {
     await pump(tester, currency: DisplayCurrency.usd);
-    expect(find.textContaining('≈'), findsNothing);
+    expect(find.text('portfolio_total_label'), findsOneWidget);
+    expect(find.byType(InkWell), findsNothing);
   });
 
-  testWidgets('sin tipo de cambio no muestra nada', (tester) async {
+  testWidgets('sin tipo de cambio sigue en dólares: "Total"', (tester) async {
     await pump(tester, currency: DisplayCurrency.uyu, rate: null);
-    expect(find.textContaining('≈'), findsNothing);
+    expect(find.text('portfolio_total_label'), findsOneWidget);
+    expect(find.text('fx_total_label'), findsNothing);
   });
 
-  testWidgets('muestra el total convertido y abre el desglose', (tester) async {
+  testWidgets('con otra moneda dice en cuál y abre el desglose', (
+    tester,
+  ) async {
     await pump(tester, currency: DisplayCurrency.uyu);
-    expect(find.text('≈ \$U 40,000'), findsOneWidget);
-    await tester.tap(find.byType(DisplayCurrencyLine));
+    expect(find.text('fx_total_label'), findsOneWidget);
+    await tester.tap(find.byType(DisplayTotalLabel));
     await tester.pumpAndSettle();
     expect(find.byType(FxBreakdownSheet), findsOneWidget);
     expect(find.text('fx_sheet_investments'), findsOneWidget);
+    // Porty encabeza con cuánto movió el tipo de cambio.
+    expect(
+      find.textContaining(RegExp('fx_porty_(up|down|flat)')),
+      findsOneWidget,
+    );
     expect(find.text('+\$U 8,000'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

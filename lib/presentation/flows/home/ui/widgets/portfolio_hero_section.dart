@@ -2,8 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
 import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
-import 'package:portfolio_assistant/domain/utils/portfolio_day_move.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_money.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/models/chart_time_range.dart';
@@ -12,7 +12,6 @@ import 'package:portfolio_assistant/presentation/shared/charts/portfolio_area_li
 import 'package:portfolio_assistant/presentation/shared/loading/skeleton.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/pnl_badge.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/skeleton_text.dart';
-import 'package:portfolio_assistant/presentation/shared/formatting/app_number_format.dart';
 
 /// La card del total: valor, variación del período (diciendo de qué
 /// período), gráfico y selector de rango. Arrastrando el dedo sobre el
@@ -30,14 +29,17 @@ class PortfolioHeroSection extends StatefulWidget {
   final ChartTimeRange selectedRange;
   final ValueChanged<ChartTimeRange> onRangeSelected;
 
-  /// Debajo de la variación: el total en la moneda que eligió el usuario
-  /// (ver `DisplayCurrencyLine`). Se oculta mientras se recorre el gráfico.
-  final Widget? secondaryLine;
+  /// En qué moneda se muestran el total, la variación y el recorrido del
+  /// gráfico (dólares por defecto). Los porcentajes no cambian.
+  final DisplayMoney money;
 
-  /// La variación del último día ("Hoy +$X (+Y%)"): la misma cuenta y el
-  /// mismo número que muestra el widget de la pantalla de inicio. `null`
-  /// (sin historial de dos días) no dibuja la línea.
-  final PortfolioDayMove? dayMove;
+  /// La etiqueta de arriba del total ("Total", o "Total en UYU ›" con su
+  /// desglose; ver `DisplayTotalLabel`). `null`: "Total".
+  final Widget? totalLabel;
+
+  /// De qué período habla la variación, si no es el del rango (en 1D:
+  /// "Hoy" o "Último cierre", como el widget de inicio).
+  final String? periodLabel;
 
   const PortfolioHeroSection({
     super.key,
@@ -47,8 +49,9 @@ class PortfolioHeroSection extends StatefulWidget {
     required this.periodPnlPercent,
     required this.selectedRange,
     required this.onRangeSelected,
-    this.secondaryLine,
-    this.dayMove,
+    this.money = DisplayMoney.usd,
+    this.totalLabel,
+    this.periodLabel,
   });
 
   const PortfolioHeroSection.skeleton({
@@ -59,8 +62,9 @@ class PortfolioHeroSection extends StatefulWidget {
        periodPnlAbsolute = 0,
        periodPnlPercent = 0,
        onRangeSelected = _ignoreRange,
-       secondaryLine = null,
-       dayMove = null;
+       money = DisplayMoney.usd,
+       totalLabel = null,
+       periodLabel = null;
 
   static void _ignoreRange(ChartTimeRange _) {}
 
@@ -90,7 +94,7 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = AppNumberFormat.currency();
+    final money = widget.money;
     final colors = context.customColors;
     final summary = widget.summary;
     final skeleton = summary == null;
@@ -116,14 +120,17 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
       value = history[scrub].totalValue;
       pnl = upTo.absolute;
       pnlPercent = upTo.percent;
-      periodText = DateFormat.yMMMd().format(history[scrub].date);
+      // En 1D cada punto es un momento del día: la hora.
+      periodText =
+          widget.selectedRange == ChartTimeRange.d1
+              ? DateFormat.Hm().format(history[scrub].date.toLocal())
+              : DateFormat.yMMMd().format(history[scrub].date);
     } else {
       value = summary?.totalValue ?? 0;
       pnl = widget.periodPnlAbsolute;
       pnlPercent = widget.periodPnlPercent;
-      periodText = widget.selectedRange.periodLabel;
+      periodText = widget.periodLabel ?? widget.selectedRange.periodLabel;
     }
-    final sign = pnl >= 0 ? '+' : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.pageHorizontal),
@@ -139,18 +146,19 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'portfolio_total_label'.tr(),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.textSecondary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
+                widget.totalLabel ??
+                    Text(
+                      'portfolio_total_label'.tr(),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.textSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                 const SizedBox(height: 4),
                 // Los valores cambian en el lugar con un crossfade corto
                 // (caché → datos nuevos, o al refrescar).
                 SkeletonText(
-                  skeleton ? null : currency.format(value),
+                  skeleton ? null : money.money(value),
                   // Recorriendo, el valor sigue al dedo sin crossfade.
                   animate: scrub == null,
                   placeholder: '\$00,000.00',
@@ -169,7 +177,7 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
                   runSpacing: 4,
                   children: [
                     SkeletonText(
-                      skeleton ? null : '$sign${currency.format(pnl)}',
+                      skeleton ? null : money.signedMoney(pnl),
                       animate: scrub == null,
                       placeholder: '+\$000.00',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -203,27 +211,6 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
                     ],
                   ],
                 ),
-                if (widget.dayMove != null && !skeleton)
-                  // Mismo alto recorriendo o no: el gráfico no salta.
-                  Visibility(
-                    visible: scrub == null,
-                    maintainSize: true,
-                    maintainAnimation: true,
-                    maintainState: true,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: DayMoveLine(move: widget.dayMove!),
-                    ),
-                  ),
-                if (widget.secondaryLine != null && !skeleton)
-                  // Mismo alto recorriendo o no: el gráfico no salta.
-                  Visibility(
-                    visible: scrub == null,
-                    maintainSize: true,
-                    maintainAnimation: true,
-                    maintainState: true,
-                    child: widget.secondaryLine!,
-                  ),
                 const SizedBox(height: 12),
               ],
             ),
@@ -261,46 +248,6 @@ class _PortfolioHeroSectionState extends State<PortfolioHeroSection> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// "Hoy +$123.45 (+1.0%)" (o "Último cierre …" si el dato no es de hoy): la
-/// variación del último día. Los mismos textos que el snapshot del widget.
-class DayMoveLine extends StatelessWidget {
-  const DayMoveLine({super.key, required this.move});
-
-  final PortfolioDayMove move;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final textTheme = Theme.of(context).textTheme;
-    final label =
-        move.period == DayMovePeriod.today
-            ? 'home_widget_period_today'.tr()
-            : 'home_widget_period_last_close'.tr();
-    final amount =
-        '${AppNumberFormat.signedMoney(move.absolute)} '
-        '(${AppNumberFormat.percent(move.percent)})';
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '$label ',
-            style: TextStyle(color: colors.textSecondary),
-          ),
-          TextSpan(
-            text: amount,
-            style: TextStyle(
-              color: colors.pnlColor(move.absolute),
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-      style: textTheme.bodyMedium,
     );
   }
 }

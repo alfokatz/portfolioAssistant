@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/domain/entities/investor_profile.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_calculator.dart';
@@ -13,6 +14,7 @@ class SavingsPlanEdit {
     required this.targetDate,
     required this.currentAmount,
     required this.risk,
+    this.currency,
   });
 
   final String label;
@@ -20,6 +22,10 @@ class SavingsPlanEdit {
   final DateTime targetDate;
   final double currentAmount;
   final RiskTolerance risk;
+
+  /// La moneda elegida para la meta; `null` si el editor no la ofrece (los
+  /// planes del chat, en dólares).
+  final DisplayCurrency? currency;
 }
 
 /// "Editar plan": nombre, monto, fecha, lo que ya tiene y el riesgo. Al
@@ -34,6 +40,8 @@ class SavingsPlanEditSheet extends StatefulWidget {
     this.currentAmount,
     this.currentLabel,
     this.currentHelper,
+    this.currency,
+    this.currencyOptions = const [],
   });
 
   final String label;
@@ -48,6 +56,12 @@ class SavingsPlanEditSheet extends StatefulWidget {
   final String? currentLabel;
   final String? currentHelper;
 
+  /// La moneda de la meta guardada. Con [currencyOptions] (más de una), se
+  /// puede cambiar: los montos se quedan como están escritos y pasan a ser
+  /// de la moneda elegida.
+  final DisplayCurrency? currency;
+  final List<DisplayCurrency> currencyOptions;
+
   static Future<SavingsPlanEdit?> show(
     BuildContext context, {
     required String label,
@@ -56,6 +70,8 @@ class SavingsPlanEditSheet extends StatefulWidget {
     double? currentAmount,
     String? currentLabel,
     String? currentHelper,
+    DisplayCurrency? currency,
+    List<DisplayCurrency> currencyOptions = const [],
   }) => showModalBottomSheet<SavingsPlanEdit>(
     context: context,
     isScrollControlled: true,
@@ -70,14 +86,13 @@ class SavingsPlanEditSheet extends StatefulWidget {
           currentAmount: currentAmount,
           currentLabel: currentLabel,
           currentHelper: currentHelper,
+          currency: currency,
+          currencyOptions: currencyOptions,
         ),
   );
 
   static String monthYear(DateTime d) => 'qa_month_year'.tr(
-    namedArgs: {
-      'month': 'qa_month_long_${d.month}'.tr(),
-      'year': '${d.year}',
-    },
+    namedArgs: {'month': 'qa_month_long_${d.month}'.tr(), 'year': '${d.year}'},
   );
 
   @override
@@ -97,6 +112,11 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
   );
   late DateTime _date = widget.targetDate;
   late RiskTolerance _risk = widget.inputs.risk;
+  late DisplayCurrency? _currency = widget.currency;
+
+  /// El prefijo de los montos: el símbolo de la moneda de la meta.
+  String get _prefix =>
+      '${(_currency ?? DisplayCurrency.usd).symbol.trimRight()} ';
 
   DateTime get _start => widget.inputs.startDate;
 
@@ -182,6 +202,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
         targetDate: _date,
         currentAmount: _currentValue!,
         risk: _risk,
+        currency: _currency,
       ),
     );
   }
@@ -240,10 +261,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
           children: [
             Text('qa_edit_title'.tr(), style: QaText.cardTitle),
             const SizedBox(height: 4),
-            Text(
-              'qa_edit_hint'.tr(),
-              style: QaText.caption,
-            ),
+            Text('qa_edit_hint'.tr(), style: QaText.caption),
             const SizedBox(height: 16),
             TextField(
               controller: _label,
@@ -251,11 +269,30 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               decoration: _decoration('qa_edit_goal_name'.tr()),
             ),
             const SizedBox(height: 12),
+            if (widget.currencyOptions.length > 1) ...[
+              Text('goal_currency_label'.tr(), style: QaText.label),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final c in widget.currencyOptions)
+                    _chip(
+                      c.code,
+                      selected: _currency == c,
+                      onTap: () => setState(() => _currency = c),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text('goal_currency_hint'.tr(), style: QaText.caption),
+              const SizedBox(height: 12),
+            ],
             TextField(
               controller: _amount,
               keyboardType: TextInputType.number,
               inputFormatters: digits,
-              decoration: _decoration('qa_edit_how_much'.tr(), prefix: r'$ '),
+              decoration: _decoration('qa_edit_how_much'.tr(), prefix: _prefix),
             ),
             const SizedBox(height: 16),
             Text('qa_edit_when'.tr(), style: QaText.label),
@@ -319,7 +356,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
               inputFormatters: digits,
               decoration: _decoration(
                 widget.currentLabel ?? 'qa_edit_current'.tr(),
-                prefix: r'$ ',
+                prefix: _prefix,
                 hint: '0',
               ).copyWith(
                 helperText: widget.currentHelper,
@@ -331,10 +368,7 @@ class _SavingsPlanEditSheetState extends State<SavingsPlanEditSheet> {
             Text('qa_edit_how_invest'.tr(), style: QaText.label),
             const SizedBox(height: 8),
             if (_shortTerm)
-              Text(
-                'qa_edit_short_term_note'.tr(),
-                style: QaText.caption,
-              )
+              Text('qa_edit_short_term_note'.tr(), style: QaText.caption)
             else
               Wrap(
                 spacing: 8,

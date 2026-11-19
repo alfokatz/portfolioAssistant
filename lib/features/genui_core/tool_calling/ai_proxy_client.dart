@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:portfolio_assistant/config/env/app_env.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -32,30 +32,23 @@ class AiProxyConfig {
   });
 
   /// La de la app: la edge function `ai-chat` del proyecto de Supabase del
-  /// flavor activo y el JWT de la sesión (renovado si ya venció).
+  /// entorno del build ([AppEnv]) y el JWT de la sesión (renovado si ya venció).
   factory AiProxyConfig.fromEnvironment() {
-    final base = (dotenv.env['SUPABASE_URL'] ?? '').trim();
+    final base = AppEnv.supabaseUrl;
     return AiProxyConfig(
       endpoint: Uri.parse('$base/functions/v1/ai-chat'),
-      anonKey: dotenv.env['SUPABASE_ANON_KEY']?.trim(),
+      anonKey: AppEnv.supabaseAnonKeyOrNull,
       accessToken: supabaseAccessToken,
       region: functionsRegion(),
     );
   }
 
-  /// Región fija para las edge functions (`SUPABASE_FUNCTIONS_REGION` en el
-  /// `.env`, p. ej. `us-east-1`): la de la base de datos. Por default
+  /// Región fija para las edge functions (`SUPABASE_FUNCTIONS_REGION` en
+  /// `env/<entorno>.json`, p. ej. `us-east-1`): la de la base de datos. Por default
   /// Supabase corre la función en la región más cercana al usuario, y desde
   /// Argentina cada RPC a la base (2-3 por ronda de Porty) cruzaba el
   /// continente. Sin la variable no se manda nada (comportamiento anterior).
-  static String? functionsRegion() {
-    try {
-      final region = dotenv.maybeGet('SUPABASE_FUNCTIONS_REGION')?.trim();
-      return region == null || region.isEmpty ? null : region;
-    } catch (_) {
-      return null; // `.env` sin cargar (tests)
-    }
-  }
+  static String? functionsRegion() => AppEnv.supabaseFunctionsRegion;
 
   /// Sesión fija (tests, evals contra el proxy local).
   factory AiProxyConfig.fixed(Uri endpoint, String token, {String? anonKey}) =>

@@ -79,4 +79,22 @@ void main() {
     expect(find.byType(DivergingBar), findsNWidgets(6));
     expect(find.text('home_pnl_show_all'), findsNothing);
   });
+
+  // Datos raros (cotización NaN, infinita o en cero): la tarjeta no se rompe.
+  testWidgets('weird prices (NaN, infinite, zero) do not break the card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app([
+        _v('AAA', 20, 20),
+        _v('BBB', double.nan, double.nan),
+        _v('CCC', double.infinity, double.infinity),
+        _v('DDD', -100, -100),
+      ]),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('AAA'), findsWidgets);
+    expect(find.text('DDD'), findsWidgets);
+  });
 }

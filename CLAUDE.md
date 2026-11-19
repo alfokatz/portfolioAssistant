@@ -33,7 +33,7 @@ Hay 22 agentes especializados en `.claude/agents/`. **El usuario no los nombra: 
 
 ### Cadenas por defecto (encadená sin que te lo pidan)
 
-- **Feature nueva:** product-owner (valor) → architect (spec) → devs en paralelo → code/security/ui reviewers → qa-engineer → product-owner (acepta) → devops-release si se publica.
+- **Feature nueva:** product-owner (valor) → architect (spec) → devs en paralelo (cada uno verifica su cambio) → revisor principal (`porty-code-reviewer` con `REVIEW.md`; security-reviewer solo si toca supabase/auth/planes/brokers, ui-reviewer solo si hay UI visible) → qa-engineer → product-owner (acepta) → devops-release si se publica.
 - **Algo público** (marketing, ads, ASO, social, ficha, textos legales): el especialista prepara → `porty-compliance` revisa → se entrega al usuario para aprobar.
 - **Cambio de planes o precios:** monetization → data-analyst (números) → compliance → product-owner.
 - **Bug:** el dueño de la capa reproduce y corrige con test → code-reviewer → test-runner.
@@ -61,3 +61,13 @@ Preguntas rápidas, cambios chicos de una capa que ya entendés, o cuando el con
 - Solo el usuario autoriza: deploys, `db push`, push/PR, subir a tiendas, publicar en redes, mandar mails o notificaciones, gastar plata en ads, cambiar precios, correr evals pagas.
 - Dos agentes no editan el mismo archivo; cada uno tiene su carpeta (ver `porty-team`).
 - Hooks en `.claude/settings.json` bloquean editar migraciones commiteadas, `git stash` y `dart format` sobre carpetas.
+
+## Verificación (cómo se demuestra que un cambio funciona)
+
+- **Verificá antes de decir "listo"** (skill `porty-verify`): `tools/verify/verify.sh` siempre (analyze + tests de lo tocado, ~30 s) antes de commitear o abrir un PR; si tocó backend, Supabase local + Deno/SQL; si cambió un flujo del usuario, el E2E web (`tools/verify/e2e/run.sh`). No gastes CI ni revisión en algo que no probaste.
+- **3 rondas y frená:** si un chequeo sigue fallando después de 3 intentos de arreglo, pará y avisale al usuario qué falla, qué probaste y tu mejor hipótesis. No sigas probando a ciegas.
+- **Tests inestables:** prohibido saltearlos, agregar esperas o reintentar hasta que pasen. Buscá la causa; si no la encontrás, borrá el test y dejá escrito por qué en el commit.
+- **Cada commit dice cómo se verificó**, con una línea al final del mensaje (antes de `Co-Authored-By`): `Verified: <qué se corrió>` (ej. `Verified: flutter test test/features/goals, analyze`) o `Verified: none — <motivo>`. Nunca omitirla.
+- **Una revisión, bien afinada:** el revisor principal es `porty-code-reviewer` (o `/code-review`) guiado por `REVIEW.md`. No sumes revisores por las dudas; si una revisión deja pasar algo, se agrega una regla a `REVIEW.md`.
+- **Un cambio no modifica sus propios controles:** `REVIEW.md`, `.claude/hooks/`, `.claude/settings.json`, `.github/` y `test/security/` no se tocan en el mismo cambio que juzgan; van en un PR aparte y con OK del usuario (ver `.github/CODEOWNERS`). La revisión lee `REVIEW.md` de la rama base.
+- **Errores que se escapan se vuelven reglas:** si un bug llega a producción o se repite en 2+ PRs y se ve en el diff, proponé el ítem para el checklist de `REVIEW.md`.

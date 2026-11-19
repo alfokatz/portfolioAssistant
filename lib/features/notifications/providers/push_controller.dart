@@ -215,3 +215,68 @@ class PushPromptPolicy {
 final pushPromptPolicyProvider = Provider<PushPromptPolicy>(
   (ref) => PushPromptPolicy(ref.watch(sharedPreferencesProvider)),
 );
+
+/// Cuándo recordarle a quien rechazó el permiso en el diálogo del sistema que
+/// puede prenderlas desde los ajustes del teléfono (iOS no deja volver a
+/// mostrar ese diálogo). Poco y espaciado: la primera vez a los
+/// [firstDelay] de haber visto el rechazo (no en la misma semana en que dijo
+/// que no), después cada [cooldown], y como mucho [maxReminders] veces.
+class PushSettingsReminderPolicy {
+  PushSettingsReminderPolicy(this._prefs, {DateTime Function()? now})
+    : _now = now ?? DateTime.now;
+
+  final SharedPreferences _prefs;
+  final DateTime Function() _now;
+
+  static const _deniedSeenAtKey = 'push_denied_seen_at';
+  static const _shownAtKey = 'push_settings_reminder_at';
+  static const _countKey = 'push_settings_reminder_count';
+  static const maxReminders = 3;
+  static const firstDelay = Duration(days: 3);
+  static const cooldown = Duration(days: 14);
+
+  /// Anota la primera vez que se ve el permiso rechazado; si vuelve a estar
+  /// prendido, olvida todo (si lo apaga de nuevo, arranca de cero).
+  Future<void> observe(PushPermission permission) async {
+    if (permission == PushPermission.denied) {
+      if (_prefs.getInt(_deniedSeenAtKey) == null) {
+        await _prefs.setInt(_deniedSeenAtKey, _now().millisecondsSinceEpoch);
+      }
+    } else if (permission.canReceive) {
+      await _prefs.remove(_deniedSeenAtKey);
+      await _prefs.remove(_shownAtKey);
+      await _prefs.remove(_countKey);
+    }
+  }
+
+  bool shouldOffer(PushPermission permission) {
+    if (permission != PushPermission.denied) return false;
+    if ((_prefs.getInt(_countKey) ?? 0) >= maxReminders) return false;
+    final deniedAt = _prefs.getInt(_deniedSeenAtKey);
+    if (deniedAt == null) return false;
+    final now = _now();
+    if (now.difference(DateTime.fromMillisecondsSinceEpoch(deniedAt)) <
+        firstDelay) {
+      return false;
+    }
+    final shownAt = _prefs.getInt(_shownAtKey);
+    if (shownAt == null) return true;
+    return now.difference(DateTime.fromMillisecondsSinceEpoch(shownAt)) >=
+        cooldown;
+  }
+
+  Future<void> recordShown() async {
+    await _prefs.setInt(_countKey, (_prefs.getInt(_countKey) ?? 0) + 1);
+    await _prefs.setInt(_shownAtKey, _now().millisecondsSinceEpoch);
+  }
+}
+
+final pushSettingsReminderPolicyProvider =
+    Provider<PushSettingsReminderPolicy>(
+      (ref) => PushSettingsReminderPolicy(ref.watch(sharedPreferencesProvider)),
+    );
+
+/// En esta apertura de la app ya se ofreció algo desde la Home (el permiso de
+/// notificaciones): el resto de los avisos automáticos (el del widget) espera
+/// a la próxima, para no apilar hojas.
+final homePromptShownThisOpenProvider = StateProvider<bool>((ref) => false);

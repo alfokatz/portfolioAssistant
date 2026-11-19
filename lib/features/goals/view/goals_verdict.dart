@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
+import 'package:portfolio_assistant/features/goals/view/goal_money.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -34,19 +35,29 @@ class GoalsVerdict {
           );
     }
 
-    String money(double v) => QaFormat.money(v);
     final count = active.length;
-    final monthly = active.fold<double>(
-      0,
-      (sum, g) => sum + g.progress.plannedMonthly,
-    );
-    final saved = active.fold<double>(0, (sum, g) => sum + g.progress.saved);
-    final target = active.fold<double>(0, (sum, g) => sum + g.progress.target);
+    // Metas en monedas distintas no se suman entre sí: un total por moneda
+    // ("$500 + $U 4,000"), en el orden en que aparecen.
+    String total(double Function(GoalProgress p) amount) {
+      final byCurrency = <DisplayCurrency, double>{};
+      for (final g in active) {
+        byCurrency[g.goal.currency] =
+            (byCurrency[g.goal.currency] ?? 0) + amount(g.progress);
+      }
+      return [
+        for (final e in byCurrency.entries) goalMoney(e.key, e.value),
+      ].join(' + ');
+    }
+
+    final monthly = total((p) => p.plannedMonthly);
     final footnote =
         count < 2
             ? null
             : 'goals_verdict_totals'.tr(
-              namedArgs: {'saved': money(saved), 'target': money(target)},
+              namedArgs: {
+                'saved': total((p) => p.saved),
+                'target': total((p) => p.target),
+              },
             );
 
     List<({UserGoal goal, GoalProgress progress})> withStatus(
@@ -65,7 +76,7 @@ class GoalsVerdict {
         'goals_verdict_overdue'.tr(
           namedArgs: {
             'goal': g.goal.label,
-            'missing': money(
+            'missing': g.goal.money(
               (g.progress.target - g.progress.saved).clamp(0, double.infinity),
             ),
           },
@@ -83,7 +94,7 @@ class GoalsVerdict {
       final g = behind.first;
       final args = {
         'goal': g.goal.label,
-        'required': money(g.progress.requiredMonthlyNow),
+        'required': g.goal.money(g.progress.requiredMonthlyNow),
         'count': '${behind.length}',
       };
       return GoalsVerdict._(
@@ -99,7 +110,7 @@ class GoalsVerdict {
     final args = {
       'goal': active.first.goal.label,
       'count': '$count',
-      'monthly': money(monthly),
+      'monthly': monthly,
     };
     // Todas recién guardadas: todavía no hay nada que festejar.
     if (active.every(

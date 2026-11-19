@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/display_currency/domain/display_currency.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_client_provider.dart';
 import 'package:portfolio_assistant/features/goals/domain/goal_progress.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -24,9 +26,10 @@ class GoalsRepository {
   final SupabaseClient? Function() _client;
 
   static const _goals = 'user_goals';
-  static const _select =
-      'id, label, goal_type, target_amount, target_date, plan, status, '
-      'created_at, plan_key, linked_tickers, external_savings';
+
+  /// Todas las columnas: así la app nueva funciona también contra una base
+  /// que todavía no tiene `currency` (la meta queda en dólares).
+  static const _select = '*';
 
   SupabaseClient? get _signedIn {
     final client = _client();
@@ -66,6 +69,8 @@ class GoalsRepository {
                 'plan': draft.snapshot.toJson(),
                 'plan_key': draft.planKey,
                 'linked_tickers': linkedTickers.toList(),
+                // Dólares es el default de la columna: solo se manda si no.
+                if (!draft.currency.isUsd) 'currency': draft.currency.code,
               })
               .select(_select)
               .single();
@@ -83,6 +88,7 @@ class GoalsRepository {
       if (e.message.contains('user_goal_limit_reached')) {
         throw const GoalLimitReached();
       }
+      debugPrint('[Goals/create] ${e.code}: ${e.message} ${e.details ?? ''}');
       throw const GoalsUnavailable();
     }
   }
@@ -93,6 +99,7 @@ class GoalsRepository {
     String id,
     GoalDraft draft, {
     Set<String>? linkedTickers,
+    DisplayCurrency? currency,
   }) async {
     final client = _signedIn;
     if (client == null) throw const GoalsUnavailable();
@@ -107,9 +114,11 @@ class GoalsRepository {
             'plan': draft.snapshot.toJson(),
             'plan_key': draft.planKey,
             if (linkedTickers != null) 'linked_tickers': linkedTickers.toList(),
+            if (currency != null) 'currency': currency.code,
           })
           .eq('id', id);
-    } on PostgrestException {
+    } on PostgrestException catch (e) {
+      debugPrint('[Goals/update] ${e.code}: ${e.message} ${e.details ?? ''}');
       throw const GoalsUnavailable();
     }
   }

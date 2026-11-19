@@ -23,12 +23,13 @@ class SettingsSubscriptionCard extends ConsumerWidget {
     final tier = subscription.tier;
     final isGold = tier == SubscriptionTier.gold;
 
-    final usageText = 'paywall_usage'.tr(
-      namedArgs: {
-        'used': '${subscription.queriesUsed}',
-        'limit': '${subscription.queriesLimit}',
-      },
+    final limit = subscription.queriesLimit;
+    final remaining = subscription.queriesRemaining.clamp(0, limit);
+    final usageText = 'settings_queries_remaining'.tr(
+      namedArgs: {'remaining': '$remaining', 'limit': '$limit'},
     );
+    final usedShare =
+        limit <= 0 ? 0.0 : ((limit - remaining) / limit).clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,13 +71,23 @@ class SettingsSubscriptionCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppDimens.sp12),
+              // Las consultas a Porty que le quedan este mes (ya no se ven
+              // en el chat): el número y una barra de lo usado.
               Text(
                 usageText,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isGold
-                          ? Colors.white.withValues(alpha: 0.72)
-                          : colors.textSecondary,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isGold ? Colors.white : colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
+              ),
+              const SizedBox(height: AppDimens.sp8),
+              _UsageBar(
+                share: usedShare,
+                track: isGold
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : colors.border,
+                fill: isGold ? SubscriptionGoldTheme.accent : colors.accentBlue,
               ),
               const SizedBox(height: AppDimens.sp12),
               Text(
@@ -233,4 +244,37 @@ class _PlanBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Barra fina de lo usado de la cuota del mes.
+class _UsageBar extends StatelessWidget {
+  const _UsageBar({
+    required this.share,
+    required this.track,
+    required this.fill,
+  });
+
+  final double share;
+  final Color track;
+  final Color fill;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: SizedBox(
+        height: 6,
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: track)),
+            FractionallySizedBox(
+              widthFactor: share,
+              heightFactor: 1,
+              child: ColoredBox(color: fill),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
