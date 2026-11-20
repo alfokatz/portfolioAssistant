@@ -152,7 +152,7 @@ void main() {
         'title': 't',
         'channel': 'c',
         'url': 'https://youtu.be/abcdefghijk',
-        'embeddable': ?flag,
+        if (flag != null) 'embeddable': flag,
       };
       expect(NewsVideo.tryParse(raw(false))!.embeddable, isFalse);
       expect(NewsVideo.tryParse(raw(true))!.embeddable, isTrue);
