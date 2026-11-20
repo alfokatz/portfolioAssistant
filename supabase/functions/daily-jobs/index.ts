@@ -5,6 +5,7 @@ import { defaultDeps } from "../_shared/common.ts";
 import { FcmSender } from "../notify-dispatch/fcm.ts";
 import { supabaseDispatchStore } from "../notify-dispatch/store.ts";
 import { secEarningsReleases } from "../_shared/sec_data.ts";
+import { fetchQuotes } from "../market-watch/quotes.ts";
 import { handle } from "./handler.ts";
 import { supabaseJobsStore } from "./store.ts";
 
@@ -19,5 +20,6 @@ Deno.serve((req) =>
     dispatchStore: supabaseDispatchStore(deps.db),
     sender,
     secReleases: (symbols, since) => secEarningsReleases(deps, symbols, since),
+    quotes: (symbols) => fetchQuotes(deps, symbols),
   })
 );

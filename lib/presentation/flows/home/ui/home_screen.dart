@@ -14,6 +14,7 @@ import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widge
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
 import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/news_feed/nav/news_feed_router.dart';
 import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_home_row.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
@@ -247,11 +248,10 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     lots: [for (final lot in summary.lots) lot.position],
                   ),
                   DailyBriefFeedEntry(
-                    // La ruta del feed la registra la Fase 2 (NewsFeedRouter).
                     onOpen:
                         () => context.pushNamed(
-                          'NewsFeed',
-                          extra: const {'tab': 'mine', 'source': 'home'},
+                          NewsFeedRouter.routeName,
+                          extra: NewsFeedRouter.args(),
                         ),
                   ),
                   _enter(

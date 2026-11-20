@@ -78,7 +78,7 @@ void main() {
   test('every source has its wire name', () {
     expect(
       {for (final s in AppOpenSource.values) s.wire},
-      {'icon', 'widget', 'widget_question', 'push', 'other'},
+      {'icon', 'widget', 'widget_question', 'push', 'push_daily_brief', 'other'},
     );
   });
 

@@ -71,8 +71,9 @@ class NewsHeadlineRow extends StatelessWidget {
   }
 }
 
-/// Los botones de una [NewsHeadlineRow]: "Leer en (medio)" (contorno) y la
-/// pregunta a Porty (acento, sin relleno). Cualquiera puede faltar.
+/// Los botones de una [NewsHeadlineRow]: "Leer en (medio)" (contorno), la
+/// pregunta a Porty (acento, sin relleno) y "Qué dice cada medio" (tinta,
+/// sin relleno). Cualquiera puede faltar.
 class NewsHeadlineActions extends StatelessWidget {
   const NewsHeadlineActions({
     super.key,
@@ -80,12 +81,16 @@ class NewsHeadlineActions extends StatelessWidget {
     this.onRead,
     this.askLabel,
     this.onAsk,
+    this.compareLabel,
+    this.onCompare,
   });
 
   final String? readLabel;
   final VoidCallback? onRead;
   final String? askLabel;
   final VoidCallback? onAsk;
+  final String? compareLabel;
+  final VoidCallback? onCompare;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +120,15 @@ class NewsHeadlineActions extends StatelessWidget {
               foregroundColor: colors.accentBlue,
             ),
             child: Text(askLabel!),
+          ),
+        if (compareLabel != null)
+          TextButton(
+            onPressed: onCompare,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, AppDimens.touchTarget),
+              foregroundColor: colors.textPrimary,
+            ),
+            child: Text(compareLabel!),
           ),
       ],
     );

@@ -603,10 +603,13 @@ final dailyBriefControllerProvider =
       );
     });
 
-/// La entrada al feed de noticias (Fase 2): `false` hasta que exista la
-/// pantalla y su ruta. La Fase 2 la reemplaza por el estado del
-/// interruptor (`pieces.feed`).
-final newsFeedAvailableProvider = Provider<bool>((ref) => false);
+/// La entrada al feed de noticias: solo con el interruptor general y la pieza
+/// `feed` prendidos (`daily_brief_status`). Apagado, la app queda igual.
+final newsFeedAvailableProvider = Provider<bool>(
+  (ref) => ref.watch(
+    dailyBriefControllerProvider.select((s) => s.status.piece('feed')),
+  ),
+);
 
 /// Plan para el evento `daily_brief_opened` (no hay `PlanFeature`: el brief
 /// lo decide el servidor).

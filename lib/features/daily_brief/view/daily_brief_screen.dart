@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
@@ -12,6 +13,7 @@ import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_p
 import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_format.dart';
 import 'package:portfolio_assistant/features/daily_brief/view/widgets/daily_brief_feedback.dart';
 import 'package:portfolio_assistant/features/display_currency/view/display_money_scope.dart';
+import 'package:portfolio_assistant/features/news_feed/nav/news_feed_router.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -149,7 +151,13 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
                                 from: 'footer',
                               ),
                           onTeaser: _openPaywall,
-                          onSeeAll: () => _tapped('see_all'),
+                          onSeeAll: () {
+                            _tapped('see_all');
+                            context.pushNamed(
+                              NewsFeedRouter.routeName,
+                              extra: NewsFeedRouter.args(source: 'brief'),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -619,6 +627,9 @@ class _Footer extends ConsumerWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: NewsHeadlineActions(
+              // "Ver todas las noticias": solo con el feed prendido.
+              readLabel: feedAvailable ? 'daily_brief_see_all'.tr() : null,
+              onRead: feedAvailable ? onSeeAll : null,
               askLabel: 'daily_brief_ask_porty'.tr(),
               onAsk: onAskPorty,
             ),

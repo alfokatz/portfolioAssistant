@@ -102,6 +102,12 @@ export type PulseLine = {
 
 export type MarketBlock = { instruments: Instrument[]; pulse: PulseLine[] };
 
+/// Video de un canal de la allowlist (solo de mercado o de un tema, nunca de
+/// un ticker; gratis en todos los planes). `video_id` alcanza para el IFrame
+/// Player; `url` abre YouTube afuera como respaldo. Los campos de abajo del
+/// thumbnail los manda el servidor desde la fase 2 (el reproductor embebido
+/// lo aprobó el usuario): son opcionales en el tipo porque los fixtures
+/// viejos no los traen.
 export type Video = {
   video_id: string;
   title: string;
@@ -110,6 +116,11 @@ export type Video = {
   topic_id: string | null;
   url: string;
   thumbnail: string;
+  /// `https://www.youtube.com/embed/<id>?playsinline=1&rel=0&modestbranding=1`.
+  embed_url?: string;
+  /// Id del canal (`UC...`), para atribuir.
+  channel_id?: string;
+  lang?: Lang;
 };
 
 export type SourceRef = {

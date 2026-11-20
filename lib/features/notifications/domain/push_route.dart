@@ -16,6 +16,7 @@ sealed class PushRoute {
     return switch (arg('route')) {
       'home' => const PushRouteHome(),
       'weekly_report' => const PushRouteWeeklyReport(),
+      'daily_brief' => PushRouteDailyBrief(day: PushRouteDailyBrief.validDay(arg('day'))),
       'etoro' => const PushRouteEtoro(),
       'notification_settings' => const PushRouteNotificationSettings(),
       'alerts' => const PushRoutePriceAlerts(),
@@ -36,6 +37,19 @@ class PushRouteHome extends PushRoute {
 
 class PushRouteWeeklyReport extends PushRoute {
   const PushRouteWeeklyReport();
+}
+
+/// El brief del día (`route: daily_brief`, `routeArgs: {day}`).
+class PushRouteDailyBrief extends PushRoute {
+  const PushRouteDailyBrief({this.day});
+
+  /// `YYYY-MM-DD`; sin valor (o con uno mal formado), el de hoy.
+  final String? day;
+
+  static final _day = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  static String? validDay(String? raw) =>
+      raw != null && _day.hasMatch(raw) ? raw : null;
 }
 
 class PushRouteEtoro extends PushRoute {

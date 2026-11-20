@@ -10,8 +10,10 @@
 //   (validador de atribución, `news_attribution.ts`): lo que no tiene cita se
 //   descarta. Sin consejo, sin causas afirmadas (lo pide el prompt), sin
 //   órdenes escondidas en el texto.
-// - Claves: `digest:pulse:<region>:<lang>:<día utc>:<franja 6 h>` y
-//   `digest:topic:<id>:<lang>:<día utc>:<franja 12 h>`.
+// - Claves: `digest:pulse:<region>:<lang>:<día utc>:<franja>` y
+//   `digest:topic:<id>:<lang>:<día utc>:<franja>`. Las franjas por día
+//   (1 por defecto; 4 y 2 era el peor caso de la spec) salen de
+//   `app_config.daily_brief_costs` (`loadDigestCosts`): es el costo fijo.
 // - Generación perezosa con UN solo generador por clave. La spec pide
 //   `pg_try_advisory_lock`, pero un lock de sesión no sobrevive entre llamadas
 //   a PostgREST (cada una puede usar otra conexión): se usa un arriendo en
@@ -35,9 +37,10 @@ export const digestConfig = {
   maxBullets: 4,
   /// Arriendo del generador de una clave: si falla, otro intenta pasado esto.
   leaseMs: 90_000,
-  /// Franjas de caché (horas UTC).
-  pulseSlotHours: 6,
-  topicSlotHours: 12,
+  /// Franjas de caché por defecto: 1 por día (la opción más barata, spec §11
+  /// P5). Se cambian en `app_config.daily_brief_costs` (`loadDigestCosts`).
+  pulseSlotsPerDay: 1,
+  topicSlotsPerDay: 1,
   /// Un pulso/tema servido de la franja anterior sigue siendo útil hasta acá.
   maxStaleHours: 30,
   /// Hasta 100 dominios en `filters.allowed_domains`.
@@ -78,6 +81,45 @@ export type DigestBody = {
 // Claves
 // ---------------------------------------------------------------------------
 
+/// Costo fijo configurable (`app_config.daily_brief_costs`): cuántas franjas
+/// por día se generan del pulso y de cada tema. Cada franja es una clave de
+/// caché distinta, o sea una búsqueda web por región/tema e idioma.
+export type DigestCosts = { pulseSlotsPerDay: number; topicSlotsPerDay: number; maxDigestsPerRun: number };
+
+export const defaultDigestCosts: DigestCosts = {
+  pulseSlotsPerDay: digestConfig.pulseSlotsPerDay,
+  topicSlotsPerDay: digestConfig.topicSlotsPerDay,
+  maxDigestsPerRun: 24,
+};
+
+/// Solo divisores de 24: las franjas tienen que ser de un número entero de
+/// horas y entrar justas en el día. Lo demás vuelve al valor por defecto.
+const validSlots = (v: unknown, fallback: number) =>
+  typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 24 && 24 % v === 0 ? v : fallback;
+
+export function parseDigestCosts(value: unknown): DigestCosts {
+  const v = (value ?? {}) as Record<string, unknown>;
+  const max = typeof v.max_digests_per_run === "number" && Number.isInteger(v.max_digests_per_run) &&
+      v.max_digests_per_run >= 1 && v.max_digests_per_run <= 200
+    ? v.max_digests_per_run
+    : defaultDigestCosts.maxDigestsPerRun;
+  return {
+    pulseSlotsPerDay: validSlots(v.pulse_slots_per_day, defaultDigestCosts.pulseSlotsPerDay),
+    topicSlotsPerDay: validSlots(v.topic_slots_per_day, defaultDigestCosts.topicSlotsPerDay),
+    maxDigestsPerRun: max,
+  };
+}
+
+/// Lee `app_config.daily_brief_costs`; sin fila o con error, los defaults.
+export async function loadDigestCosts(deps: Pick<Deps, "db">): Promise<DigestCosts> {
+  try {
+    const { data } = await deps.db.from("app_config").select("value").eq("key", "daily_brief_costs").maybeSingle();
+    return parseDigestCosts(data?.value);
+  } catch {
+    return defaultDigestCosts;
+  }
+}
+
 const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 function slotOf(ms: number, hours: number): { day: string; slot: number } {
@@ -92,20 +134,22 @@ function previousSlot(ms: number, hours: number): { day: string; slot: number } 
   return { day: utcDay(ms - 24 * 3600 * 1000), slot: Math.floor(23 / hours) };
 }
 
-export const pulseKey = (region: Region, lang: Lang, ms: number, back = false) => {
-  const s = back ? previousSlot(ms, digestConfig.pulseSlotHours) : slotOf(ms, digestConfig.pulseSlotHours);
+export const pulseKey = (region: Region, lang: Lang, ms: number, back = false, costs = defaultDigestCosts) => {
+  const hours = 24 / costs.pulseSlotsPerDay;
+  const s = back ? previousSlot(ms, hours) : slotOf(ms, hours);
   return `digest:pulse:${region}:${lang}:${s.day}:${s.slot}`;
 };
 
-export const topicKey = (topicId: string, lang: Lang, ms: number, back = false) => {
-  const s = back ? previousSlot(ms, digestConfig.topicSlotHours) : slotOf(ms, digestConfig.topicSlotHours);
+export const topicKey = (topicId: string, lang: Lang, ms: number, back = false, costs = defaultDigestCosts) => {
+  const hours = 24 / costs.topicSlotsPerDay;
+  const s = back ? previousSlot(ms, hours) : slotOf(ms, hours);
   return `digest:topic:${topicId}:${lang}:${s.day}:${s.slot}`;
 };
 
-export function keyOf(spec: DigestSpec, ms: number, back = false): string {
+export function keyOf(spec: DigestSpec, ms: number, back = false, costs = defaultDigestCosts): string {
   return spec.kind === "pulse"
-    ? pulseKey(spec.region, spec.lang, ms, back)
-    : topicKey(spec.topicId, spec.lang, ms, back);
+    ? pulseKey(spec.region, spec.lang, ms, back, costs)
+    : topicKey(spec.topicId, spec.lang, ms, back, costs);
 }
 
 /// Arriendo del generador (sin día ni franja: las filas quedan acotadas por el
@@ -246,11 +290,12 @@ export async function generateDigest(
 export async function readDigest(
   deps: Pick<Deps, "db" | "now">,
   spec: DigestSpec,
+  costs: DigestCosts = defaultDigestCosts,
 ): Promise<{ body: DigestBody; fresh: boolean } | null> {
   const now = deps.now();
-  const current = await readCache<DigestBody>(deps, keyOf(spec, now));
+  const current = await readCache<DigestBody>(deps, keyOf(spec, now, false, costs));
   if (current) return { body: current.body, fresh: true };
-  const previous = await readCache<DigestBody>(deps, keyOf(spec, now, true));
+  const previous = await readCache<DigestBody>(deps, keyOf(spec, now, true, costs));
   if (previous && previous.ageSeconds < digestConfig.maxStaleHours * 3600) {
     return { body: previous.body, fresh: false };
   }
@@ -263,6 +308,7 @@ export async function generateAndCache(
   deps: Pick<Deps, "db" | "fetch" | "env" | "now">,
   spec: DigestSpec,
   allow: Allow,
+  costs: DigestCosts = defaultDigestCosts,
 ): Promise<DigestBody | null> {
   const apiKey = deps.env("OPENAI_API_KEY");
   if (!apiKey) return null;
@@ -277,7 +323,7 @@ export async function generateAndCache(
     model: deps.env("NEWS_CONTEXT_MODEL") ?? citationConfig.defaultModel,
   });
   if (!body) return null;
-  await writeCache(deps, keyOf(spec, deps.now()), body);
+  await writeCache(deps, keyOf(spec, deps.now(), false, costs), body);
   return body;
 }
 
@@ -288,11 +334,12 @@ export async function digestFor(
   deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
   spec: DigestSpec,
   allow: Allow,
+  costs: DigestCosts = defaultDigestCosts,
 ): Promise<DigestBody | null> {
   try {
-    const found = await readDigest(deps, spec);
+    const found = await readDigest(deps, spec, costs);
     if (found?.fresh) return found.body;
-    deps.background(generateAndCache(deps, spec, allow).catch((e) => console.error("[news-digest] background", String(e))));
+    deps.background(generateAndCache(deps, spec, allow, costs).catch((e) => console.error("[news-digest] background", String(e))));
     return found?.body ?? null;
   } catch (e) {
     console.error("[news-digest] read", String(e));

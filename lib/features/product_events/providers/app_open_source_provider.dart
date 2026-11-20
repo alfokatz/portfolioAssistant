@@ -6,6 +6,7 @@ enum AppOpenSource {
   widget,
   widgetQuestion('widget_question'),
   push,
+  pushDailyBrief('push_daily_brief'),
   other;
 
   const AppOpenSource([this._wire]);

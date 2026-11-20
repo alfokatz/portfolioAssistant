@@ -79,6 +79,10 @@ dependencies:
   sign_in_with_apple: ^8.2.0
   # sha256 del nonce de Sign in with Apple.
   crypto: ^3.0.7
+  # Reproductor embebido de los videos del brief (IFrame Player oficial).
+  youtube_player_iframe: ^5.2.2
+  # Tope: 3.27+ exige Flutter 3.47; mientras el piso del repo sea 3.44, se queda acá.
+  webview_flutter_wkwebview: ">=3.26.0 <3.27.0"
 
 dev_dependencies:
   build_runner: ^2.4.12

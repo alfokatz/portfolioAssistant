@@ -23,10 +23,20 @@ import {
   tickerKey,
   tickerTtlSeconds,
 } from "../_shared/gdelt.ts";
-import { digestFor, type DigestSpec, applySourcePrefs, remapSources, regions, type Region } from "../_shared/news_digest.ts";
+import {
+  applySourcePrefs,
+  type DigestCosts,
+  digestFor,
+  type DigestSpec,
+  loadDigestCosts,
+  regions,
+  type Region,
+  remapSources,
+} from "../_shared/news_digest.ts";
 import { looksLikeInstructions } from "../_shared/news_attribution.ts";
 import { isRecommendation } from "../_shared/recommendation.ts";
 import { fetchQuotes } from "../market-watch/quotes.ts";
+import { earningsFor } from "./earnings.ts";
 import type {
   BundleResponse, Entitlement, Instrument, Lang, MarketBlock, NewsItem, PulseLine, Scope, SourceRef,
   TopicDigest, TopicNewsItem, Video,
@@ -188,7 +198,15 @@ async function build(
   }
   if (scope === "brief") out.asset_classes = ent.asset_classes;
 
-  const wantsDigest = (spec: DigestSpec) => digestFor(deps, spec, allow);
+  // Resultados: solo Gold (con la watchlist), solo en el brief completo.
+  if (scope === "brief" && full && ent.tier === "gold") {
+    const symbols = [...heldSymbols, ...ent.watchlist.filter((s) => !heldSymbols.includes(s))];
+    out.earnings = await earningsFor(deps, symbols, day);
+  }
+
+  // Franjas por día de los digests: configurables (costo fijo, `daily_brief_costs`).
+  const costs: DigestCosts = await loadDigestCosts(deps);
+  const wantsDigest = (spec: DigestSpec) => digestFor(deps, spec, allow, costs);
   const pulseOf = async (region: Region) => {
     const d = await wantsDigest({ kind: "pulse", region, lang });
     return d && d.status === "ok" ? { ...applySourcePrefs(d, prefer, mute), topic: null as string | null } : null;
@@ -253,14 +271,19 @@ async function build(
   if (scope === "topic") out.topic_news = await topicNews(deps, topicById.get(topicId!)!, day, rows, prefer, mute);
 
   if (scope === "market") {
-    out.market = await marketBlock(deps, ent, lang, allow, prefer, mute, out.sources);
+    out.market = await marketBlock(deps, ent, lang, allow, prefer, mute, out.sources, costs);
   }
 
   if (ent.pieces.videos && (scope === "feed" || scope === "market" || scope === "topic")) {
-    out.videos = await videosFor(deps.db, nowMs, scope === "market" ? [] : scope === "topic" ? [topicId!] : ent.topics, scope === "market", prefer);
+    out.videos = await videosFor(deps.db, nowMs, scope === "market" ? [] : scope === "topic" ? [topicId!] : ent.topics, scope === "market", prefer, lang);
   }
   return out;
 }
+
+/// URL del IFrame Player de YouTube (la app puede usarla tal cual en un
+/// WebView o tomar `video_id` para el plugin del reproductor).
+export const embedUrl = (videoId: string) =>
+  `https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1`;
 
 /// Región con más peso en la cartera (sufijo de la bolsa); `us` si no hay.
 export function primaryRegionOf(ent: Pick<Entitlement, "held">): string {
@@ -283,7 +306,7 @@ async function loadTopics(db: Db): Promise<TopicRow[]> {
 
 async function marketBlock(
   deps: Deps, ent: Entitlement, lang: Lang, allow: Map<string, string>,
-  prefer: Set<string>, mute: Set<string>, sources: Record<string, SourceRef>,
+  prefer: Set<string>, mute: Set<string>, sources: Record<string, SourceRef>, costs: DigestCosts,
 ): Promise<MarketBlock> {
   const { data } = await deps.db.from("market_reference_instruments")
     .select("symbol, kind, label_es, label_en, markets, core").eq("enabled", true).order("sort");
@@ -315,7 +338,7 @@ async function marketBlock(
   }));
   const regs = [...new Set([primaryRegionOf(ent), ...ent.held.map((h) => regionOfSymbol(h.symbol))])]
     .filter((r): r is Region => (regions as readonly string[]).includes(r)).slice(0, 4);
-  const digests = await Promise.all(regs.map((r) => digestFor(deps, { kind: "pulse", region: r, lang }, allow)));
+  const digests = await Promise.all(regs.map((r) => digestFor(deps, { kind: "pulse", region: r, lang }, allow, costs)));
   const parts = digests.map((d) => d && d.status === "ok" ? applySourcePrefs(d, prefer, mute) : null)
     .filter((p): p is NonNullable<typeof p> => !!p);
   const mapped = remapSources(parts, "p");
@@ -352,22 +375,37 @@ async function topicNews(
 
 /// Videos de canales de la allowlist (últimas 48 h): de los temas dados o, con
 /// [marketOnly], los generales (sin tema). Hasta 3, preferidos primero.
-async function videosFor(db: Db, nowMs: number, topicIds: string[], marketOnly: boolean, prefer: Set<string>): Promise<Video[]> {
+async function videosFor(
+  db: Db, nowMs: number, topicIds: string[], marketOnly: boolean, prefer: Set<string>, lang: Lang,
+): Promise<Video[]> {
   const since = new Date(nowMs - config.videoWindowHours * 3600_000).toISOString();
   const { data, error } = await db.from("news_videos")
-    .select("video_id, title, published_at, topic_ids, channel:video_channel_allowlist(name, outlet_domain, enabled)")
+    .select("video_id, channel_id, title, published_at, lang, topic_ids, channel:video_channel_allowlist(name, outlet_domain, enabled)")
     .gte("published_at", since).order("published_at", { ascending: false }).limit(60);
   if (error || !data) return [];
-  type Row = { video_id: string; title: string; published_at: string; topic_ids: string[]; channel: { name: string; outlet_domain: string | null; enabled: boolean } | null };
+  type Row = {
+    video_id: string; channel_id: string; title: string; published_at: string; lang: string; topic_ids: string[];
+    channel: { name: string; outlet_domain: string | null; enabled: boolean } | null;
+  };
   return (data as unknown as Row[])
     .filter((v) => v.channel?.enabled && !isRecommendation(v.title) &&
       (marketOnly ? v.topic_ids.length === 0 : v.topic_ids.some((t) => topicIds.includes(t))))
-    .sort((a, b) => Number(prefer.has(b.channel!.outlet_domain ?? "")) - Number(prefer.has(a.channel!.outlet_domain ?? "")))
+    // Preferidos primero; después los del idioma del usuario; después los más nuevos.
+    .sort((a, b) =>
+      Number(prefer.has(b.channel!.outlet_domain ?? "")) - Number(prefer.has(a.channel!.outlet_domain ?? "")) ||
+      Number(b.lang === lang) - Number(a.lang === lang) ||
+      b.published_at.localeCompare(a.published_at)
+    )
     .slice(0, config.maxVideosPerBlock)
     .map((v) => ({
       video_id: v.video_id, title: v.title, channel: v.channel!.name, published_at: v.published_at,
       topic_id: marketOnly ? null : v.topic_ids.find((t) => topicIds.includes(t)) ?? null,
       url: `https://www.youtube.com/watch?v=${v.video_id}`,
       thumbnail: `https://i.ytimg.com/vi/${v.video_id}/mqdefault.jpg`,
+      // Reproductor embebido (IFrame Player): `video_id` es lo que necesita el
+      // reproductor; el resto es para armar el embed y atribuir.
+      embed_url: embedUrl(v.video_id),
+      channel_id: v.channel_id,
+      lang: v.lang === "en" ? "en" : "es",
     }));
 }

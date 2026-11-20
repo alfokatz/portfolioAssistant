@@ -6,9 +6,11 @@ import {
   applySourcePrefs,
   type DigestBody,
   digestPrompts,
+  defaultDigestCosts,
   keyOf,
   leaseSource,
   parseDigest,
+  parseDigestCosts,
   pulseKey,
   remapSources,
   topicKey,
@@ -17,14 +19,39 @@ import { readResponse } from "../_shared/openai_responses.ts";
 
 const allow = new Map([["reuters.com", "Reuters"], ["apnews.com", "AP"], ["cnbc.com", "CNBC"]]);
 
-Deno.test("claves: franja de 6 h para el pulso y de 12 h para temas, por día UTC", () => {
+Deno.test("claves: por defecto 1 franja por día (la opción más barata)", () => {
+  assertEquals(defaultDigestCosts.pulseSlotsPerDay, 1);
+  assertEquals(defaultDigestCosts.topicSlotsPerDay, 1);
   const t = Date.parse("2026-12-02T13:30:00Z");
-  assertEquals(pulseKey("us", "es", t), "digest:pulse:us:es:2026-12-02:2");
-  assertEquals(topicKey("fed_rates", "en", t), "digest:topic:fed_rates:en:2026-12-02:1");
+  assertEquals(pulseKey("us", "es", t), "digest:pulse:us:es:2026-12-02:0");
+  assertEquals(topicKey("fed_rates", "en", t), "digest:topic:fed_rates:en:2026-12-02:0");
+  // La franja anterior es la de ayer.
+  assertEquals(pulseKey("us", "es", t, true), "digest:pulse:us:es:2026-12-01:0");
+});
+
+Deno.test("claves: franjas de 6 h para el pulso y de 12 h para temas (peor caso de la spec), por día UTC", () => {
+  const costs = { pulseSlotsPerDay: 4, topicSlotsPerDay: 2, maxDigestsPerRun: 24 };
+  const t = Date.parse("2026-12-02T13:30:00Z");
+  assertEquals(pulseKey("us", "es", t, false, costs), "digest:pulse:us:es:2026-12-02:2");
+  assertEquals(topicKey("fed_rates", "en", t, false, costs), "digest:topic:fed_rates:en:2026-12-02:1");
   // La franja anterior cruza el día.
   const early = Date.parse("2026-12-02T01:00:00Z");
-  assertEquals(pulseKey("eu", "es", early, true), "digest:pulse:eu:es:2026-12-01:3");
-  assertEquals(topicKey("fed_rates", "es", early, true), "digest:topic:fed_rates:es:2026-12-01:1");
+  assertEquals(pulseKey("eu", "es", early, true, costs), "digest:pulse:eu:es:2026-12-01:3");
+  assertEquals(topicKey("fed_rates", "es", early, true, costs), "digest:topic:fed_rates:es:2026-12-01:1");
+});
+
+Deno.test("costos: app_config.daily_brief_costs solo acepta divisores de 24; lo demás vuelve al default", () => {
+  assertEquals(parseDigestCosts(null), defaultDigestCosts);
+  assertEquals(parseDigestCosts({ pulse_slots_per_day: 4, topic_slots_per_day: 2, max_digests_per_run: 10 }), {
+    pulseSlotsPerDay: 4, topicSlotsPerDay: 2, maxDigestsPerRun: 10,
+  });
+  // 5 no divide 24, 0 y 25 están fuera de rango, 1.5 no es entero, "2" no es número.
+  for (const bad of [5, 0, 25, 1.5, "2", -1, null]) {
+    assertEquals(parseDigestCosts({ pulse_slots_per_day: bad, topic_slots_per_day: bad }).pulseSlotsPerDay, 1);
+    assertEquals(parseDigestCosts({ pulse_slots_per_day: bad, topic_slots_per_day: bad }).topicSlotsPerDay, 1);
+  }
+  assertEquals(parseDigestCosts({ max_digests_per_run: 0 }).maxDigestsPerRun, 24);
+  assertEquals(parseDigestCosts({ max_digests_per_run: 9999 }).maxDigestsPerRun, 24);
 });
 
 Deno.test("claves: no dependen de preferencias ni de usuario", () => {

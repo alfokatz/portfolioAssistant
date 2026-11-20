@@ -388,6 +388,50 @@ export function render(kind: Kind, data: Data, opts: RenderOptions): Rendered {
       };
     }
 
+    case "daily_brief": {
+      // Sin IA y sin montos, porcentajes ni tickers: solo lo que hay (los
+      // conteos). Los números del brief los ve la app al abrirlo.
+      const news = Math.max(0, Math.trunc(optNum(data.news_tickers) || 0));
+      const signals = Math.max(0, Math.trunc(optNum(data.signals) || 0));
+      const earnings = Math.max(0, Math.trunc(optNum(data.earnings) || 0));
+      const lines: string[] = [];
+      if (data.moved === true) {
+        lines.push(es ? "Tu cartera se movió más que de costumbre." : "Your portfolio moved more than usual.");
+      }
+      if (news > 0) {
+        lines.push(
+          es
+            ? news === 1 ? "Hay 1 noticia de lo tuyo." : `Hay ${news} noticias de lo tuyo.`
+            : news === 1
+            ? "There is 1 news story about your holdings."
+            : `There are ${news} news stories about your holdings.`,
+        );
+      }
+      if (signals > 0) {
+        lines.push(es ? "Porty marcó algo en tu cartera." : "Porty flagged something in your portfolio.");
+      }
+      if (earnings > 0) {
+        lines.push(
+          es
+            ? earnings === 1 ? "Salió un resultado de lo tuyo." : `Salieron ${earnings} resultados de lo tuyo.`
+            : earnings === 1
+            ? "Earnings are out for one of your holdings."
+            : `Earnings are out for ${earnings} of your holdings.`,
+        );
+      }
+      return {
+        title: es ? "Tu brief de hoy está listo" : "Your daily brief is ready",
+        // Con filas viejas o sin conteos: la invitación sola.
+        body: lines.length > 0
+          ? lines.join(" ")
+          : es
+          ? "Tocá para ver cómo viene tu cartera."
+          : "Tap to see how your portfolio is doing.",
+        route: "daily_brief",
+        routeArgs: { day: str(data.day) },
+      };
+    }
+
     case "earnings_result": {
       const symbol = str(data.symbol);
       const actual = num(data.eps_actual);
