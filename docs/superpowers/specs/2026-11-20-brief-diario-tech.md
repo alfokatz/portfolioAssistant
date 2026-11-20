@@ -31,7 +31,6 @@ Es global por defecto, y lo argentino es un tema más.
 - Elegir la hora, mandar por mail, compartir, historial de más de 2 días y calendario económico.
 - Temas de texto libre (el catálogo es cerrado) y medios o canales fuera de las allowlists.
 - Rankings de "lo que más sube/baja" o "lo más buscado". Tampoco noticias de tickers que el usuario no tiene ni sigue (eso sigue siendo Gold en el chat, como hoy).
-- Reproductor de YouTube embebido en la app: en v1 el video se abre en YouTube (D4).
 - Videos asociados a tickers: solo de mercado y de temas (D4).
 - Integración con el widget de inicio (v1.1).
 - Recomendaciones de cualquier tipo.
@@ -807,7 +806,7 @@ Todo se mide en `ai_turn_usage` (`purpose = 'daily_brief'`) y en los logs de `ne
 | D1 | Generar el brief al abrir, en la app | Generarlo en el servidor a las 8 para todos: los números no coincidirían con la Home (la valuación vive en la app) y se pagaría IA por briefs que nadie lee. |
 | D2 | Bundle `daily-brief` que lee la cartera desde la base | Reusar `headlines` con los tickers del cliente: obliga a abrir `gold_data_allowed` durante la generación (hoy el semanal habilita **todo** Gold por 30 minutos) y la caché por conjunto de tickers no escala. |
 | D3 | "Mercado hoy" tranquilo: índices de referencia en orden fijo, más el "por qué" en prosa con citas | Lo que más sube o baja y lo más buscado: es estilo casino y va contra `PRODUCT.md` ("No trader UX"). |
-| D4 | Videos por YouTube Data API desde canales de medios, asignados a **temas y mercado**, gratis en todos los planes, abiertos **en YouTube** | (a) `search.list` por ticker: 100 unidades por llamada y un tope de unas 100 llamadas por día. (b) Videos por ticker: con las políticas de YouTube no se pueden poner detrás de un plan, y si se dan gratis le regalan a Free las "noticias de lo tuyo" que el 05/11 reserva para Premium. (c) Reproductor embebido: suma WebView como dependencia nativa y desde 2025 YouTube exige identificar al embebedor (error 153 en las WebView de Android). Queda como pregunta (P6). |
+| D4 | Videos por YouTube Data API desde canales de medios, asignados a **temas y mercado**, gratis en todos los planes, reproducidos **embebidos** (IFrame Player oficial, `youtube_player_iframe` 5.x) con respaldo a abrir en YouTube (P6 cerrada por el usuario el 20/11) | (a) `search.list` por ticker: 100 unidades por llamada y un tope de unas 100 llamadas por día. (b) Videos por ticker: con las políticas de YouTube no se pueden poner detrás de un plan, y si se dan gratis le regalan a Free las "noticias de lo tuyo" que el 05/11 reserva para Premium. (c) Reproductor embebido: suma WebView como dependencia nativa y desde 2025 YouTube exige identificar al embebedor (error 153 en las WebView de Android). Se aceptan esos costos (P6). Obligaciones de YouTube en `docs/legal/reviews/2026-11-21-brief-diario-medios-y-youtube.md` §3. |
 | D5 | Comparar fuentes con 3 unidades del tope de `news-context` y caché de 6 h | Un cupo nuevo, `compare_per_month`: es otra columna, otro espejo en `PlanSpec` y otro paywall, sin ganancia real. |
 | D6 | Preferencias de medios aplicadas después de la caché | Filtrar la búsqueda por los medios del usuario: rompe la caché compartida y multiplica el costo. |
 | D7 | "¿Cómo me afecta?" sin tool nueva | Una tool `explain_news_impact`: suma tokens fijos y deploy, y no agrega datos que el contexto no tenga. |
@@ -840,7 +839,7 @@ Todo se mide en `ai_turn_usage` (`purpose = 'daily_brief'`) y en los logs de `ne
 - **P3. Lanzamiento frente a la prueba de Gold de enero.** Es la pregunta 3 del brief y sigue abierta.
 - **P4. `courtesy_since`.** ¿La cortesía de 7 días es solo para las altas desde el lanzamiento (mi recomendación) o también para la base actual?
 - **P5. Costo fijo compartido.** ¿Aprobás hasta unos US$90 por mes en el peor caso (unos US$21 típico) para "Mercado hoy" y los temas en es y en? Si no, arrancamos con una franja por día.
-- **P6. Videos.** ¿Alcanza con abrirlos en YouTube en v1, o querés el reproductor embebido? El embebido suma WebView y el cumplimiento del reproductor; se estima en unos 3 días más.
+- **P6. Videos.** ~~¿Abrir en YouTube o reproductor embebido?~~ **Cerrada (20/11): embebido, con respaldo a abrir en YouTube.**
 - **P7. Videos por ticker.** ¿Los descartamos (mi recomendación, por lo de D4) o los damos gratis a todos los planes, aceptando que Free vea videos de sus tickers?
 - **P8. Allowlist global.** ¿Aprobás sumar los medios y las fuentes oficiales de §3.2? La lista final sale de la medición de §8 y la revisa compliance. ¿Hay algún medio que quieras sí o sí, o ninguno?
 - **P9. Medición en producción.** ¿Autorizás correr `news_coverage.ts` en modo lectura contra producción (lee símbolos agregados, sin `user_id`)?
