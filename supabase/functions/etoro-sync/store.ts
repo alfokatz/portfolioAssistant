@@ -45,7 +45,8 @@ export type SyncResult = {
 
 export type ApplySync = {
   open: (PortyOpenRow & { id: string })[];
-  closed: (PortyClosedRow & { id: string })[];
+  /// `openId`: el id que tuvo como abierta (ver etoro_apply_sync).
+  closed: (PortyClosedRow & { id: string; openId: string })[];
   result: SyncResult;
   historyUntil: string;
 };
@@ -78,7 +79,9 @@ export interface EtoroStore {
   getInstruments(ids: number[]): Promise<Map<number, InstrumentMeta>>;
   saveInstruments(items: InstrumentMeta[]): Promise<void>;
 
-  manualOpenTickers(userId: string): Promise<string[]>;
+  /// Tickers de las abiertas manuales, sin las de `excludeIds` (las copias
+  /// manuales de eToro que el próximo applySync reemplaza).
+  manualOpenTickers(userId: string, excludeIds?: string[]): Promise<string[]>;
   applySync(userId: string, data: ApplySync): Promise<void>;
   disconnect(userId: string, keepAsManual: boolean): Promise<{ open: number; closed: number }>;
   /// Cierra una importación gratis: lo importado pasa a manual, se borran
@@ -304,14 +307,15 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
       fail("saveInstruments", error);
     },
 
-    async manualOpenTickers(userId) {
+    async manualOpenTickers(userId, excludeIds = []) {
       const { data, error } = await db
         .from("positions")
-        .select("ticker")
+        .select("id, ticker")
         .eq("user_id", userId)
         .eq("source", "manual");
       fail("manualOpenTickers", error);
-      return (data ?? []).map((r) => r.ticker as string);
+      const skip = new Set(excludeIds);
+      return (data ?? []).filter((r) => !skip.has(r.id as string)).map((r) => r.ticker as string);
     },
 
     async applySync(userId, d) {
@@ -328,6 +332,7 @@ export function supabaseStore(db: SupabaseClient): EtoroStore {
         })),
         p_closed: d.closed.map((r) => ({
           id: r.id,
+          open_id: r.openId,
           external_id: r.externalId,
           ticker: r.ticker,
           quantity: r.quantity,
