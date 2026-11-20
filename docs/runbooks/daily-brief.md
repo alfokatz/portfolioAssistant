@@ -56,3 +56,19 @@ SQL
 
 Si `users` quedó vacío y `percent` es 0, el interruptor vuelve a estar apagado para todos. En un
 proyecto remoto de desarrollo, la misma limpieza con `psql "$DB_URL"` en lugar de `docker exec`.
+
+## Canales de YouTube
+
+`video_channel_allowlist` arranca vacía: ningún `channel_id` se carga de memoria. La lista de candidatos sale de la revisión de compliance (`docs/legal/reviews/2026-11-21-brief-diario-medios-y-youtube.md` §2.3) y vive en `supabase/functions/scripts/youtube_channels.ts`.
+
+1. Con la clave de YouTube (la misma del secreto `YOUTUBE_API_KEY`), desde `supabase/functions`:
+   ```bash
+   YOUTUBE_API_KEY=<clave> deno run -A scripts/youtube_channels.ts > /tmp/channels.sql
+   ```
+   Cuesta 1 unidad de cuota por intento (de 10.000 diarias). `--all` suma los de prioridad 2.
+2. El reporte sale por la terminal: ✓ para cada canal verificado (título, handle, suscriptores y link) y ✗ para los que no resolvieron. **Abrí cada link** y confirmá que es el canal oficial del medio. Si uno no es, borrá su fila de `/tmp/channels.sql`.
+3. Para un ✗: buscá el link del canal en el sitio del medio, agregá el handle o el id `UC…` en `lookups` y volvé a correr.
+4. Corré `/tmp/channels.sql` en el SQL editor de Supabase. Es idempotente. `outlet_domain` queda en null si el medio no está habilitado en `news_source_allowlist`.
+5. Los videos aparecen después de la próxima corrida de `news-warm` (cada 15 min, solo con `daily_brief` prendido).
+
+Para sacar un canal: `update public.video_channel_allowlist set enabled = false where channel_id = '<id>';`
