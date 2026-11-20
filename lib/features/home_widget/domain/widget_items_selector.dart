@@ -88,6 +88,10 @@ abstract final class WidgetItemsSelector {
   /// Titulares con recomendación directa al lector (revisión de compliance
   /// 2026-11-05). Se descartan, no se reescriben. "Analyst upgrades to Buy"
   /// no entra: informa un hecho.
+  // Misma lista y orden que `isRecommendation` en
+  // supabase/functions/_shared/recommendation.ts (criterio documentado ahí):
+  // los imperativos ambiguos solo cuentan al inicio del titular, así
+  // "Apple compra una startup" pasa.
   static final recommendation = <RegExp>[
     RegExp(r'should you (buy|sell)', caseSensitive: false),
     RegExp(r'(stocks?|shares?) to (buy|sell)', caseSensitive: false),
@@ -95,21 +99,41 @@ abstract final class WidgetItemsSelector {
     RegExp(r'time to (buy|sell)', caseSensitive: false),
     RegExp(r'must[- ](buy|sell)', caseSensitive: false),
     RegExp(r'best .* to (buy|sell)', caseSensitive: false),
-    RegExp(r'top stock picks|stock picks|price target', caseSensitive: false),
-    RegExp(r'stocks to buy|buy now|should you buy', caseSensitive: false),
+    RegExp(r'comprá|vendé|aprovechá', caseSensitive: false),
+    RegExp(r'\b(stock|etf|crypto)s? picks?\b', caseSensitive: false),
+    RegExp(r'\btop (\d+ )?picks?\b', caseSensitive: false),
     RegExp(
-      r'predicción de precio|qué comprar|dónde invertir',
+      r'price targets?\b|precio objetivo|objetivo de precio',
       caseSensitive: false,
     ),
-    RegExp(r'comprá|vendé|invertí|aprovechá', caseSensitive: false),
-    // Imperativo al comienzo del titular ("Compra YPF antes de..."), no
-    // "Apple compra una startup" ni el sustantivo "Compra de acciones".
     RegExp(
-      r'^\W*(compra|compre|vende|venda|invierte|invierta|aprovecha)'
-      r'(?![\p{L}])(?!\s+(de|del)\b)',
+      r'price (predictions?|forecasts?)|predicci[oó]n(es)? del? precios?|pron[oó]sticos? del? precios?',
       caseSensitive: false,
-      unicode: true,
     ),
+    RegExp(r'\bwhat (\w+ )?to (buy|sell)\b', caseSensitive: false),
+    RegExp(r'\bqu[eé] (\w+ )?(comprar|vender)\b', caseSensitive: false),
+    RegExp(
+      r'd[oó]nde (invertir|poner (tu|su) (plata|dinero))|where to (invest|put your money)',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'(acciones|cedears|bonos|criptos?|criptomonedas|etfs?) para (comprar|vender|invertir)',
+      caseSensitive: false,
+    ),
+    RegExp(r'mejores .* para (comprar|invertir)', caseSensitive: false),
+    RegExp(
+      r'^\s*(?:(?:buy|sell)\s+(?!off\b|america\b|american\b)|invest\s+(?:in|now|today)\b)',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'(?:^|[:!¡¿|–—])\s*(?:compra|vende|invierte|aprovecha)\s+(?!de\b|del\b)',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'(?:^|[:!¡¿|–—])\s*(?:compre|venda|invierta)n?\b',
+      caseSensitive: false,
+    ),
+    RegExp(r'invert[ií](?![a-záéíóúñ])', caseSensitive: false),
   ];
 
   static bool isRecommendation(String headline) =>

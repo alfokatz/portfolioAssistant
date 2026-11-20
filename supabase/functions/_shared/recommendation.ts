@@ -39,7 +39,7 @@ export const recommendationPatterns: RegExp[] = [
   /(acciones|cedears|bonos|criptos?|criptomonedas|etfs?) para (comprar|vender|invertir)/i,
   /mejores .* para (comprar|invertir)/i,
   /^\s*(?:(?:buy|sell)\s+(?!off\b|america\b|american\b)|invest\s+(?:in|now|today)\b)/i,
-  /(?:^|[:!¡¿|–—])\s*(?:compra|vende|invierte)\s+(?!de\b|del\b)/i,
+  /(?:^|[:!¡¿|–—])\s*(?:compra|vende|invierte|aprovecha)\s+(?!de\b|del\b)/i,
   /(?:^|[:!¡¿|–—])\s*(?:compre|venda|invierta)n?\b/i,
   /invert[ií](?![a-záéíóúñ])/i,
 ];

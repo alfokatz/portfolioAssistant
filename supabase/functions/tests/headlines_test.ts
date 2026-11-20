@@ -189,6 +189,7 @@ Deno.test("isRecommendation: misma lista y casos que el selector de Dart", () =>
     "Buy Tesla before earnings",
     "Los mejores cedears para comprar este mes",
     "Invertí en dólares",
+    "Aprovecha la baja",
   ]) assert(isRecommendation(h), h);
   for (const h of [
     "Analyst upgrades NVDA to Buy",
