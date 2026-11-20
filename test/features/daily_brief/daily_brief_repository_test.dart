@@ -129,17 +129,17 @@ void main() {
     });
 
     test('complete: ok, rejected and not_claimed', () async {
-      Future<DailyBriefRepository> repoWith(Object? response) async => _repo(
-        rest: _rpc({'complete_daily_brief': response}),
-        edge: noEdge,
-      );
+      Future<DailyBriefRepository> repoWith(Object? response) async =>
+          _repo(rest: _rpc({'complete_daily_brief': response}), edge: noEdge);
       expect(
         await (await repoWith({'ok': true})).complete(briefDay, {'v': 1}),
         isTrue,
       );
       expect(
-        await (await repoWith({'ok': false, 'reason': 'invalid_payload'}))
-            .complete(briefDay, {'v': 1}),
+        await (await repoWith({
+          'ok': false,
+          'reason': 'invalid_payload',
+        })).complete(briefDay, {'v': 1}),
         isFalse,
       );
       await expectLater(
@@ -169,18 +169,21 @@ void main() {
       edge: edge,
     ).bundle('brief', day: briefDay, lang: 'es');
 
-    test('sends scope, lang and day with the JWT and returns the body', () async {
-      final edge = _Adapter(200, bundleFixture('bundle_brief_full'));
-      final body = await call(edge);
-      expect(body['status'], 'ok');
-      expect(edge.last!.uri.path, '/functions/v1/daily-brief');
-      expect(edge.last!.queryParameters, {
-        'scope': 'brief',
-        'lang': 'es',
-        'day': briefDay,
-      });
-      expect(edge.last!.headers['Authorization'], 'Bearer jwt');
-    });
+    test(
+      'sends scope, lang and day with the JWT and returns the body',
+      () async {
+        final edge = _Adapter(200, bundleFixture('bundle_brief_full'));
+        final body = await call(edge);
+        expect(body['status'], 'ok');
+        expect(edge.last!.uri.path, '/functions/v1/daily-brief');
+        expect(edge.last!.queryParameters, {
+          'scope': 'brief',
+          'lang': 'es',
+          'day': briefDay,
+        });
+        expect(edge.last!.headers['Authorization'], 'Bearer jwt');
+      },
+    );
 
     test('403 disabled is a typed disabled failure', () async {
       final edge = _Adapter(403, {

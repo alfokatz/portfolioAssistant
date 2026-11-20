@@ -149,7 +149,8 @@ class DailyBriefNumbers {
       if (p.purchaseDateKnown && p.purchaseDate.isAfter(previousDay)) continue;
       final prev = PortfolioSeriesBuilder.closeOnOrBefore(series, previousDay);
       if (prev == null || prev == 0) continue;
-      contribution[key] = (contribution[key] ?? 0) + p.quantity * (close - prev);
+      contribution[key] =
+          (contribution[key] ?? 0) + p.quantity * (close - prev);
       before[key] = prev;
       after[key] = close;
     }

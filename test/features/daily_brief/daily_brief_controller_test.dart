@@ -92,24 +92,27 @@ void main() {
   });
 
   group('Free (numbers_only)', () {
-    test('never calls the generator; saves a numbers payload with a teaser', () async {
-      final store = FakeDailyBriefStore(); // numbers_only + bundle numbers
-      final writer = FakeDailyBriefWriter();
-      final c = _controller(store, writer);
-      await c.ensureFor(history(), lots);
+    test(
+      'never calls the generator; saves a numbers payload with a teaser',
+      () async {
+        final store = FakeDailyBriefStore(); // numbers_only + bundle numbers
+        final writer = FakeDailyBriefWriter();
+        final c = _controller(store, writer);
+        await c.ensureFor(history(), lots);
 
-      expect(writer.requests, isEmpty);
-      expect(c.state.phase, DailyBriefPhase.ready);
-      final brief = c.state.brief!;
-      expect(brief.variant, DailyBriefVariant.numbers);
-      expect(brief.day, briefDay);
-      expect(brief.market, hasLength(1));
-      expect(brief.market.single.connection, isNull);
-      expect(brief.teaser?.requiredPlan, 'premium');
-      expect(store.completed.single['variant'], 'numbers');
-      expect(store.completed.single['teaser'], isNotNull);
-      expect(store.completed.single['why'], isEmpty);
-    });
+        expect(writer.requests, isEmpty);
+        expect(c.state.phase, DailyBriefPhase.ready);
+        final brief = c.state.brief!;
+        expect(brief.variant, DailyBriefVariant.numbers);
+        expect(brief.day, briefDay);
+        expect(brief.market, hasLength(1));
+        expect(brief.market.single.connection, isNull);
+        expect(brief.teaser?.requiredPlan, 'premium');
+        expect(store.completed.single['variant'], 'numbers');
+        expect(store.completed.single['teaser'], isNotNull);
+        expect(store.completed.single['why'], isEmpty);
+      },
+    );
 
     test('without the news server it still shows the numbers', () async {
       final store = FakeDailyBriefStore(
@@ -170,38 +173,41 @@ void main() {
       final c = _controller(store, FakeDailyBriefWriter());
       await c.ensureFor(history(), lots);
       final n = c.state.brief!.numbers;
-      final home = PortfolioDayMove.compute(history: history(), now: briefNow());
+      final home = PortfolioDayMove.compute(
+        history: history(),
+        now: briefNow(),
+      );
       expect(n.pct, home.percent);
       expect(n.abs, home.absolute);
       expect(n.movers.first.ticker, 'NVDA');
       expect(n.asOfDay, DateTime(2026, 11, 25));
     });
 
-    test('generator fails: the claim is released and numbers are shown without a teaser', () async {
-      final store = FakeDailyBriefStore(
-        claims: const [BriefClaimGranted(courtesy: false, attempt: 1)],
-        bundleBody: bundleFixture('bundle_brief_full'),
-      );
-      final writer = FakeDailyBriefWriter(
-        writing: const DailyBriefWriting(
-          prose: DailyBriefProse.empty,
-          rounds: 1,
-          error: 'http_500',
-        ),
-      );
-      final events = <(ProductEvent, Map<String, Object?>)>[];
-      final c = _controller(store, writer, events: events);
-      await c.ensureFor(history(), lots);
+    test(
+      'generator fails: the claim is released and numbers are shown without a teaser',
+      () async {
+        final store = FakeDailyBriefStore(
+          claims: const [BriefClaimGranted(courtesy: false, attempt: 1)],
+          bundleBody: bundleFixture('bundle_brief_full'),
+        );
+        final writer = FakeDailyBriefWriter(
+          writing: const DailyBriefWriting(
+            prose: DailyBriefProse.empty,
+            rounds: 1,
+            error: 'http_500',
+          ),
+        );
+        final events = <(ProductEvent, Map<String, Object?>)>[];
+        final c = _controller(store, writer, events: events);
+        await c.ensureFor(history(), lots);
 
-      expect(store.failCalls, 1);
-      expect(store.completed, isEmpty);
-      expect(c.state.brief!.variant, DailyBriefVariant.numbers);
-      expect(c.state.brief!.teaser, isNull);
-      expect(
-        events.single.$2,
-        containsPair('error', 'http_500'),
-      );
-    });
+        expect(store.failCalls, 1);
+        expect(store.completed, isEmpty);
+        expect(c.state.brief!.variant, DailyBriefVariant.numbers);
+        expect(c.state.brief!.teaser, isNull);
+        expect(events.single.$2, containsPair('error', 'http_500'));
+      },
+    );
 
     test('news server down: claim released, no LLM call', () async {
       final store = FakeDailyBriefStore(
@@ -236,10 +242,9 @@ void main() {
             day: briefDay,
             lang: 'es',
             now: briefNow(),
-            numbers: (await DailyBriefNumbersLoader(quotes: FakeQuotes()).load(
-              history: history(),
-              lots: lots,
-            )),
+            numbers: (await DailyBriefNumbersLoader(
+              quotes: FakeQuotes(),
+            ).load(history: history(), lots: lots)),
             bundle: DailyBriefBundle.parse(bundleFixture('bundle_brief_full')),
             variant: DailyBriefVariant.full,
           ).toJson();
@@ -255,18 +260,21 @@ void main() {
       expect(store.completed, isEmpty);
     });
 
-    test('ready with a payload of another version: numbers are recomputed', () async {
-      final store = FakeDailyBriefStore(
-        claims: [
-          const BriefClaimReady(payload: {'v': 99}, courtesy: false),
-        ],
-      );
-      final c = _controller(store, FakeDailyBriefWriter());
-      await c.ensureFor(history(), lots);
-      expect(c.state.brief!.variant, DailyBriefVariant.numbers);
-      expect(c.state.brief!.teaser, isNull);
-      expect(store.completed, isEmpty);
-    });
+    test(
+      'ready with a payload of another version: numbers are recomputed',
+      () async {
+        final store = FakeDailyBriefStore(
+          claims: [
+            const BriefClaimReady(payload: {'v': 99}, courtesy: false),
+          ],
+        );
+        final c = _controller(store, FakeDailyBriefWriter());
+        await c.ensureFor(history(), lots);
+        expect(c.state.brief!.variant, DailyBriefVariant.numbers);
+        expect(c.state.brief!.teaser, isNull);
+        expect(store.completed, isEmpty);
+      },
+    );
 
     test('in_progress shows the numbers and asks again later', () async {
       final store = FakeDailyBriefStore(
@@ -304,12 +312,20 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final store = FakeDailyBriefStore(
         claims: const [
-          BriefClaimGranted(courtesy: true, attempt: 1, courtesyNumber: 1, courtesyTotal: 7),
+          BriefClaimGranted(
+            courtesy: true,
+            attempt: 1,
+            courtesyNumber: 1,
+            courtesyTotal: 7,
+          ),
         ],
         bundleBody: bundleFixture('bundle_brief_full'),
       );
-      await (_controller(store, FakeDailyBriefWriter(), prefs: prefs))
-          .ensureFor(history(), lots);
+      await (_controller(
+        store,
+        FakeDailyBriefWriter(),
+        prefs: prefs,
+      )).ensureFor(history(), lots);
 
       final second = FakeDailyBriefStore();
       final c = _controller(second, FakeDailyBriefWriter(), prefs: prefs);
@@ -327,34 +343,47 @@ void main() {
         claims: const [BriefClaimGranted(courtesy: false, attempt: 1)],
         bundleBody: bundleFixture('bundle_brief_full'),
       );
-      await (_controller(store, FakeDailyBriefWriter(), prefs: prefs))
-          .ensureFor(history(), lots);
+      await (_controller(
+        store,
+        FakeDailyBriefWriter(),
+        prefs: prefs,
+      )).ensureFor(history(), lots);
       _user = 'user-b';
-      final c = _controller(FakeDailyBriefStore(), FakeDailyBriefWriter(), prefs: prefs);
+      final c = _controller(
+        FakeDailyBriefStore(),
+        FakeDailyBriefWriter(),
+        prefs: prefs,
+      );
       expect(c.state.brief, isNull);
     });
 
-    test('same close as the last brief of another day: no brief (holiday)', () async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final store = FakeDailyBriefStore(
-        claims: const [BriefClaimGranted(courtesy: false, attempt: 1)],
-        bundleBody: bundleFixture('bundle_brief_full'),
-      );
-      // El jueves cubre el cierre del miércoles…
-      await (_controller(store, FakeDailyBriefWriter(), prefs: prefs))
-          .ensureFor(history(), lots);
-      // …y el viernes, con el mismo último cierre (feriado), no hay brief.
-      final friday = FakeDailyBriefStore();
-      final c = _controller(
-        friday,
-        FakeDailyBriefWriter(),
-        prefs: prefs,
-        clock: () => DateTime(2026, 11, 27, 8),
-      );
-      await c.ensureFor(history(), lots);
-      expect(c.state.phase, DailyBriefPhase.hidden);
-      expect(friday.claimCalls, 0);
-    });
+    test(
+      'same close as the last brief of another day: no brief (holiday)',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final store = FakeDailyBriefStore(
+          claims: const [BriefClaimGranted(courtesy: false, attempt: 1)],
+          bundleBody: bundleFixture('bundle_brief_full'),
+        );
+        // El jueves cubre el cierre del miércoles…
+        await (_controller(
+          store,
+          FakeDailyBriefWriter(),
+          prefs: prefs,
+        )).ensureFor(history(), lots);
+        // …y el viernes, con el mismo último cierre (feriado), no hay brief.
+        final friday = FakeDailyBriefStore();
+        final c = _controller(
+          friday,
+          FakeDailyBriefWriter(),
+          prefs: prefs,
+          clock: () => DateTime(2026, 11, 27, 8),
+        );
+        await c.ensureFor(history(), lots);
+        expect(c.state.phase, DailyBriefPhase.hidden);
+        expect(friday.claimCalls, 0);
+      },
+    );
   });
 }

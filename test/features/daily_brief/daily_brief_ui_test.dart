@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_numbers_loader.dart';
-import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_repository.dart';
 import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/daily_brief/nav/daily_brief_router.dart';
 import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
@@ -81,7 +80,9 @@ Future<PaywallHarness> _pumpScreen(
 void main() {
   group('DailyBriefScreen (Premium, full)', () {
     for (final brightness in Brightness.values) {
-      testWidgets('renders every section in ${brightness.name}', (tester) async {
+      testWidgets('renders every section in ${brightness.name}', (
+        tester,
+      ) async {
         final controller = _controller(_premiumStore());
         await controller.ensureFor(history(), lots);
         await _pumpScreen(tester, controller, brightness: brightness);
@@ -89,7 +90,9 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.text('daily_brief_title'), findsOneWidget);
         expect(
-          find.text(AppNumberFormat.percent(controller.state.brief!.numbers.pct)),
+          find.text(
+            AppNumberFormat.percent(controller.state.brief!.numbers.pct),
+          ),
           findsWidgets,
         );
         expect(find.text('NVDA'), findsOneWidget);
@@ -110,7 +113,9 @@ void main() {
       });
     }
 
-    testWidgets('every news line shows its outlet and opens its link', (tester) async {
+    testWidgets('every news line shows its outlet and opens its link', (
+      tester,
+    ) async {
       final controller = _controller(_premiumStore());
       await controller.ensureFor(history(), lots);
       final launched = <Uri>[];
@@ -125,7 +130,10 @@ void main() {
       await tester.ensureVisible(read);
       await tester.tap(read);
       await tester.pump();
-      expect(launched.single.toString(), startsWith('https://www.reuters.com/'));
+      expect(
+        launched.single.toString(),
+        startsWith('https://www.reuters.com/'),
+      );
     });
 
     testWidgets('courtesy brief says which day it is', (tester) async {
@@ -146,7 +154,9 @@ void main() {
       expect(find.text('daily_brief_courtesy_n'), findsOneWidget);
     });
 
-    testWidgets('logs daily_brief_opened with source and variant', (tester) async {
+    testWidgets('logs daily_brief_opened with source and variant', (
+      tester,
+    ) async {
       final controller = _controller(_premiumStore());
       await controller.ensureFor(history(), lots);
       final h = await _pumpScreen(
@@ -163,21 +173,26 @@ void main() {
 
   group('DailyBriefScreen (Free, numbers)', () {
     for (final brightness in Brightness.values) {
-      testWidgets('no ticker news, one market fact and the plan notice (${brightness.name})', (tester) async {
-        final controller = _controller(FakeDailyBriefStore());
-        await controller.ensureFor(history(), lots);
-        await _pumpScreen(tester, controller, brightness: brightness);
+      testWidgets(
+        'no ticker news, one market fact and the plan notice (${brightness.name})',
+        (tester) async {
+          final controller = _controller(FakeDailyBriefStore());
+          await controller.ensureFor(history(), lots);
+          await _pumpScreen(tester, controller, brightness: brightness);
 
-        expect(tester.takeException(), isNull);
-        expect(find.text('daily_brief_section_held'), findsNothing);
-        expect(find.text('daily_brief_section_market'), findsOneWidget);
-        expect(find.text('daily_brief_teaser_premium'), findsOneWidget);
-        // El hecho de mercado lleva medio y link.
-        expect(find.textContaining('Reuters'), findsWidgets);
-      });
+          expect(tester.takeException(), isNull);
+          expect(find.text('daily_brief_section_held'), findsNothing);
+          expect(find.text('daily_brief_section_market'), findsOneWidget);
+          expect(find.text('daily_brief_teaser_premium'), findsOneWidget);
+          // El hecho de mercado lleva medio y link.
+          expect(find.textContaining('Reuters'), findsWidgets);
+        },
+      );
     }
 
-    testWidgets('the notice opens the paywall with source daily_brief', (tester) async {
+    testWidgets('the notice opens the paywall with source daily_brief', (
+      tester,
+    ) async {
       final controller = _controller(FakeDailyBriefStore());
       await controller.ensureFor(history(), lots);
       final h = await _pumpScreen(tester, controller);
@@ -284,7 +299,8 @@ void main() {
           GoRoute(
             name: DailyBriefRouter.routeName,
             path: DailyBriefRouter.path,
-            builder: (_, state) => Text('screen:${(state.extra as Map)['source']}'),
+            builder:
+                (_, state) => Text('screen:${(state.extra as Map)['source']}'),
           ),
         ],
       );
@@ -306,7 +322,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     }
 
-    testWidgets('switch off: nothing is drawn and the feed entry is hidden', (tester) async {
+    testWidgets('switch off: nothing is drawn and the feed entry is hidden', (
+      tester,
+    ) async {
       final store = FakeDailyBriefStore(statusResult: DailyBriefStatus.off);
       await pumpHome(tester, _controller(store), feedAvailable: true);
       expect(find.text('daily_brief_home_title'), findsNothing);
@@ -314,7 +332,9 @@ void main() {
       expect(store.claimCalls, 0);
     });
 
-    testWidgets('on: shows the close and opens the brief from home', (tester) async {
+    testWidgets('on: shows the close and opens the brief from home', (
+      tester,
+    ) async {
       final controller = _controller(_premiumStore());
       await pumpHome(tester, controller);
       expect(find.text('daily_brief_home_title'), findsOneWidget);
@@ -327,7 +347,9 @@ void main() {
       expect(find.text('screen:home'), findsOneWidget);
     });
 
-    testWidgets('on with the feed ready: the secondary entry shows', (tester) async {
+    testWidgets('on with the feed ready: the secondary entry shows', (
+      tester,
+    ) async {
       final controller = _controller(_premiumStore());
       await pumpHome(tester, controller, feedAvailable: true);
       expect(find.text('daily_brief_feed_entry_title'), findsOneWidget);

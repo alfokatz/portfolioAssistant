@@ -149,9 +149,14 @@ class _DailyBriefHomeRowState extends ConsumerState<DailyBriefHomeRow> {
                 minHeight: AppDimens.touchTarget,
               ),
               child: AnimatedSwitcher(
-                duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+                duration:
+                    reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
                 child: KeyedSubtree(
-                  key: ValueKey(brief == null ? 'loading' : 'ready-${brief.day}'),
+                  key: ValueKey(
+                    brief == null ? 'loading' : 'ready-${brief.day}',
+                  ),
                   child: body,
                 ),
               ),
@@ -173,7 +178,9 @@ class DailyBriefFeedEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(dailyBriefControllerProvider.select((s) => s.status));
+    final status = ref.watch(
+      dailyBriefControllerProvider.select((s) => s.status),
+    );
     if (!ref.watch(newsFeedAvailableProvider) || !status.piece('feed')) {
       return const SizedBox.shrink();
     }

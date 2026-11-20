@@ -86,7 +86,8 @@ class BriefMarketFact {
       text: text,
       sourceIds: ids is List ? ids.whereType<String>().toList() : const [],
       topicId: raw['topic_id'] is String ? raw['topic_id'] as String : null,
-      assetLink: raw['asset_link'] is String ? raw['asset_link'] as String : null,
+      assetLink:
+          raw['asset_link'] is String ? raw['asset_link'] as String : null,
       assetClass:
           raw['asset_class'] is String ? raw['asset_class'] as String : null,
     );
@@ -233,7 +234,8 @@ class DailyBriefBundle {
         if (sources is Map)
           for (final e in sources.entries)
             if (e.key is String)
-              if (BriefSource.tryParse(e.value) case final s?) e.key as String: s,
+              if (BriefSource.tryParse(e.value) case final s?)
+                e.key as String: s,
       },
     );
   }

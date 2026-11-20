@@ -14,11 +14,9 @@ import 'fakes/daily_brief_fakes.dart';
 void main() {
   group('DailyBriefNumbers', () {
     test('abs, pct, period and asOfDay equal the Home 1D line', () async {
-      final numbers = await DailyBriefNumbersLoader(quotes: FakeQuotes()).load(
-        history: history(),
-        lots: lots,
-        now: briefNow(),
-      );
+      final numbers = await DailyBriefNumbersLoader(
+        quotes: FakeQuotes(),
+      ).load(history: history(), lots: lots, now: briefNow());
       final move = PortfolioDayMove.compute(
         history: history(),
         positions: lots,
@@ -210,7 +208,9 @@ void main() {
     final free = DailyBriefBundle.parse(bundleFixture('bundle_brief_numbers'));
     const prose = DailyBriefProse(
       why: [BriefLine(ticker: 'NVDA', text: 'Subió 4,1 %.', newsId: 'h1')],
-      held: [BriefLine(ticker: 'AAPL', text: 'Productos nuevos.', newsId: 'h3')],
+      held: [
+        BriefLine(ticker: 'AAPL', text: 'Productos nuevos.', newsId: 'h3'),
+      ],
       connections: {'bonds_rates': 'Tenés renta fija.', 'fed_rates': '  '},
     );
 
@@ -235,7 +235,10 @@ void main() {
       expect(b.market, hasLength(1));
       expect(b.market.single.connection, isNull);
       expect(b.teaser?.requiredPlan, 'premium');
-      expect(b.toJson()['teaser'], {'kind': 'held_news', 'required_plan': 'premium'});
+      expect(b.toJson()['teaser'], {
+        'kind': 'held_news',
+        'required_plan': 'premium',
+      });
     });
 
     test('free: the payload carries no ticker of a headline', () {

@@ -310,7 +310,9 @@ class _ItemRow extends StatelessWidget {
               ? NewsHeadlineActions(
                 readLabel:
                     item.isNews && (item.url ?? '').isNotEmpty
-                        ? 'home_widget_read_on'.tr(namedArgs: {'source': source})
+                        ? 'home_widget_read_on'.tr(
+                          namedArgs: {'source': source},
+                        )
                         : null,
                 onRead: () => onRead?.call(item),
                 askLabel: 'home_widget_ask_porty'.tr(),

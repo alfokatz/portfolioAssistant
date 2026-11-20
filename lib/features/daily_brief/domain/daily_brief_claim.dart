@@ -112,7 +112,8 @@ class DailyBriefStatus {
       pieces: {
         if (pieces is Map)
           for (final e in pieces.entries)
-            if (e.key is String && e.value is bool) e.key as String: e.value as bool,
+            if (e.key is String && e.value is bool)
+              e.key as String: e.value as bool,
       },
     );
   }

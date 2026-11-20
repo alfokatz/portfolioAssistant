@@ -139,7 +139,10 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
       return Future.value();
     }
     if (_disabledDay == day) return Future.value();
-    return _inFlight ??= _load(day, _epoch).whenComplete(() => _inFlight = null);
+    return _inFlight ??= _load(
+      day,
+      _epoch,
+    ).whenComplete(() => _inFlight = null);
   }
 
   /// Vuelve a intentar después de un error (botón de la pantalla).
@@ -367,8 +370,7 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
       );
       return;
     }
-    final hasContent =
-        bundle.mine.isNotEmpty || bundle.market.isNotEmpty;
+    final hasContent = bundle.mine.isNotEmpty || bundle.market.isNotEmpty;
     final writing =
         hasContent
             ? await _writer.write(
@@ -453,9 +455,10 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
   /// Porcentaje (0-100) de las posiciones de más peso con al menos un
   /// titular. El denominador es lo que el servidor miró: las 8 de más peso.
   int _heldWithNewsPct(DailyBriefBundle bundle) {
-    final distinct = {
-      for (final p in _lots) PortfolioCalculator.normalizeTicker(p.ticker),
-    }.length;
+    final distinct =
+        {
+          for (final p in _lots) PortfolioCalculator.normalizeTicker(p.ticker),
+        }.length;
     final looked = distinct < newsTickers ? distinct : newsTickers;
     if (looked == 0) return 0;
     final withNews = {for (final h in bundle.held) h.ticker}.length;
@@ -594,7 +597,8 @@ final dailyBriefControllerProvider =
         writer: ref.watch(dailyBriefWriterProvider),
         userId: () => ref.read(supabaseAuthServiceProvider).currentUser?.id,
         preferences: ref.watch(sharedPreferencesProvider),
-        logEvent: (event, props) => ref.read(productEventsProvider).log(event, props),
+        logEvent:
+            (event, props) => ref.read(productEventsProvider).log(event, props),
       );
     });
 

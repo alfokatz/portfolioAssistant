@@ -69,9 +69,10 @@ class BriefSignal {
     return BriefSignal(
       kind: raw['kind'] as String,
       ticker: raw['ticker'] is String ? raw['ticker'] as String : null,
-      weightPct: raw['weight_pct'] is num
-          ? (raw['weight_pct'] as num).toDouble()
-          : null,
+      weightPct:
+          raw['weight_pct'] is num
+              ? (raw['weight_pct'] as num).toDouble()
+              : null,
     );
   }
 }
@@ -292,7 +293,8 @@ class DailyBrief {
         if (sources is Map)
           for (final e in sources.entries)
             if (e.key is String)
-              if (BriefSource.tryParse(e.value) case final s?) e.key as String: s,
+              if (BriefSource.tryParse(e.value) case final s?)
+                e.key as String: s,
       },
       courtesy: courtesy,
       courtesyNumber: courtesyNumber,

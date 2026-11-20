@@ -60,7 +60,8 @@ List<PortfolioHistoryPoint> history() => [
 ];
 
 class FakeQuotes implements QuoteRepository {
-  FakeQuotes([Map<String, List<PriceCandle>>? series]) : series = series ?? candles;
+  FakeQuotes([Map<String, List<PriceCandle>>? series])
+    : series = series ?? candles;
   final Map<String, List<PriceCandle>> series;
 
   @override
@@ -163,7 +164,8 @@ class FakeDailyBriefWriter implements DailyBriefWriter {
               ),
             ],
             connections: {
-              'bonds_rates': 'Tenés bonos o ETF de renta fija, que se mueven con las tasas.',
+              'bonds_rates':
+                  'Tenés bonos o ETF de renta fija, que se mueven con las tasas.',
             },
           ),
           rounds: 1,

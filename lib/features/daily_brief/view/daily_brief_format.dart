@@ -10,8 +10,7 @@ import 'package:portfolio_assistant/presentation/shared/formatting/app_number_fo
 abstract final class DailyBriefFormat {
   static String pct(double v) => AppNumberFormat.percent(v);
 
-  static String weight(double v) =>
-      AppNumberFormat.percent(v, signed: false);
+  static String weight(double v) => AppNumberFormat.percent(v, signed: false);
 
   /// El idioma del `MaterialApp` (EasyLocalization lo fija ahí).
   static String? locale(BuildContext context) =>
@@ -48,12 +47,8 @@ abstract final class DailyBriefFormat {
   }
 
   /// La línea de un resultado de Gold.
-  static String earnings(BuildContext context, BriefEarning e) =>
-      (e.reported ? 'daily_brief_earnings_reported' : 'daily_brief_earnings_estimated')
-          .tr(
-            namedArgs: {
-              'ticker': e.ticker,
-              'date': shortDate(context, e.date),
-            },
-          );
+  static String earnings(BuildContext context, BriefEarning e) => (e.reported
+          ? 'daily_brief_earnings_reported'
+          : 'daily_brief_earnings_estimated')
+      .tr(namedArgs: {'ticker': e.ticker, 'date': shortDate(context, e.date)});
 }

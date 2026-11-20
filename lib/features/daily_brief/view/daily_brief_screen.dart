@@ -57,9 +57,10 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     });
   }
 
-  void _tapped(String kind) => ref
-      .read(productEventsProvider)
-      .log(ProductEvent.dailyBriefItemTapped, {'kind': kind});
+  void _tapped(String kind) => ref.read(productEventsProvider).log(
+    ProductEvent.dailyBriefItemTapped,
+    {'kind': kind},
+  );
 
   void _read(String kind, BriefSource? source) {
     final uri = Uri.tryParse(source?.url ?? '');
@@ -80,7 +81,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
       'from': 'brief',
     });
     GotoAssistant(
-      initialQuestion: 'daily_brief_ask_affects'.tr(namedArgs: {'title': title}),
+      initialQuestion: 'daily_brief_ask_affects'.tr(
+        namedArgs: {'title': title},
+      ),
     ).navigate(context: context);
   }
 
@@ -204,7 +207,9 @@ class _Body extends StatelessWidget {
           readLabel:
               source == null
                   ? null
-                  : 'daily_brief_read_on'.tr(namedArgs: {'source': source.source}),
+                  : 'daily_brief_read_on'.tr(
+                    namedArgs: {'source': source.source},
+                  ),
           onRead: () => onRead(kind, source),
           askLabel: 'daily_brief_how_affects'.tr(),
           onAsk: () => onAskAffects(source?.title ?? line.text),
@@ -241,17 +246,26 @@ class _Body extends StatelessWidget {
       if (brief.market.isNotEmpty)
         _Section(
           title: 'daily_brief_section_market'.tr(),
-          children: [
-            for (final m in brief.market)
-              _marketRow(context, m, now),
-          ],
+          children: [for (final m in brief.market) _marketRow(context, m, now)],
         ),
       if (brief.earnings.isNotEmpty)
         _Section(
           title: 'daily_brief_section_earnings'.tr(),
           children: [
             for (final e in brief.earnings)
-              _EarningsRow(earning: e, onOpen: () => onRead('earnings', BriefSource(title: e.ticker, source: 'SEC', domain: 'sec.gov', url: e.url ?? ''))),
+              _EarningsRow(
+                earning: e,
+                onOpen:
+                    () => onRead(
+                      'earnings',
+                      BriefSource(
+                        title: e.ticker,
+                        source: 'SEC',
+                        domain: 'sec.gov',
+                        url: e.url ?? '',
+                      ),
+                    ),
+              ),
           ],
         ),
       if (brief.signals.any((s) => s.kind == 'concentration'))
@@ -289,16 +303,17 @@ class _Body extends StatelessWidget {
   Widget _marketRow(BuildContext context, BriefMarketLine m, DateTime now) {
     final source = brief.sourceOf(m.sourceIds.firstOrNull);
     return NewsHeadlineRow(
-      meta: source == null
-          ? null
-          : DailyBriefFormat.sourceLine(source, now: now),
+      meta:
+          source == null ? null : DailyBriefFormat.sourceLine(source, now: now),
       title: m.text,
       detail: m.connection,
       actions: NewsHeadlineActions(
         readLabel:
             source == null
                 ? null
-                : 'daily_brief_read_on'.tr(namedArgs: {'source': source.source}),
+                : 'daily_brief_read_on'.tr(
+                  namedArgs: {'source': source.source},
+                ),
         onRead: () => onRead('macro', source),
       ),
     );
@@ -610,12 +625,11 @@ class _Footer extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.sp16),
           DailyBriefFeedback(
-            onAnswer: (useful, reason) => ref
-                .read(productEventsProvider)
-                .log(ProductEvent.dailyBriefFeedback, {
-                  'useful': useful,
-                  if (reason != null) 'reason': reason,
-                }),
+            onAnswer:
+                (useful, reason) => ref.read(productEventsProvider).log(
+                  ProductEvent.dailyBriefFeedback,
+                  {'useful': useful, if (reason != null) 'reason': reason},
+                ),
           ),
         ],
       ),
@@ -708,10 +722,7 @@ class _Empty extends StatelessWidget {
           ),
           if (failed) ...[
             const SizedBox(height: AppDimens.sp16),
-            NewsHeadlineActions(
-              readLabel: 'retry'.tr(),
-              onRead: onRetry,
-            ),
+            NewsHeadlineActions(readLabel: 'retry'.tr(), onRead: onRetry),
           ],
         ],
       ),

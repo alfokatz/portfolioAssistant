@@ -48,7 +48,10 @@ class _DailyBriefFeedbackState extends State<DailyBriefFeedback> {
       ],
       _Step.reason => [
         for (final r in DailyBriefFeedback.reasons)
-          _Choice('daily_brief_feedback_reason_$r'.tr(), () => _answer(false, r)),
+          _Choice(
+            'daily_brief_feedback_reason_$r'.tr(),
+            () => _answer(false, r),
+          ),
       ],
       _Step.thanks => const <Widget>[],
     };
