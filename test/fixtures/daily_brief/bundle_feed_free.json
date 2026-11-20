@@ -1,0 +1,23 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": { "tier": "free", "variant": "numbers", "courtesy": false },
+  "mine": [],
+  "locked": { "mine_tickers_48h": 2 },
+  "earnings": [],
+  "topics": [
+    {
+      "topic_id": "fed_rates", "label": "Fed y tasas", "status": "ok",
+      "summary": [ { "text": "La Reserva Federal mantuvo las tasas sin cambios.", "source_ids": ["c1"] } ],
+      "as_of": "2026-12-02T06:35:00Z"
+    }
+  ],
+  "market": { "instruments": [], "pulse": [] },
+  "videos": [
+    { "video_id": "dQw4w9WgXcQ", "title": "Qué pasó hoy en los mercados", "channel": "Reuters", "published_at": "2026-12-02T01:00:00Z", "topic_id": "fed_rates", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg" }
+  ],
+  "sources": {
+    "c1": { "title": "Fed holds rates steady", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/" }
+  },
+  "attribution": { "videos": "YouTube" }
+}

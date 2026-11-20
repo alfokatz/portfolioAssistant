@@ -131,7 +131,59 @@ enum ProductEvent {
   /// `server`: tramos del proxy), `tools` (`name`, `ms`, `status`),
   /// `extra_round`, `retries`, `final_chars`, `region`. Nunca texto,
   /// tickers ni argumentos.
-  chatTurnTiming('chat_turn_timing');
+  chatTurnTiming('chat_turn_timing'),
+
+  // Brief diario y noticias (spec 2026-11-20-brief-diario-tech.md §3.11).
+  // Ningún evento lleva tickers ni titulares.
+
+  /// Se abrió el brief. Props: `source` (`push` | `home` | `feed`), `variant`
+  /// (`full` | `numbers`), `courtesy`, `tier`.
+  dailyBriefOpened('daily_brief_opened'),
+
+  /// Terminó de generarse en este dispositivo. Props: `variant`, `rounds`,
+  /// `removed_items`, `held_with_news_pct` (0-100), `ms`, `error?`.
+  dailyBriefGenerated('daily_brief_generated'),
+
+  /// Tocó algo del brief. Props: `kind` (`why` | `headline` | `watch` |
+  /// `macro` | `earnings` | `source` | `video` | `teaser` | `see_all`).
+  dailyBriefItemTapped('daily_brief_item_tapped'),
+
+  /// "Preguntale a Porty" desde el brief. Props: `from` (`footer` | `item`).
+  dailyBriefAskPorty('daily_brief_ask_porty'),
+
+  /// "¿Te sirvió?". Props: `useful` (bool), `reason?` (`wrong` |
+  /// `irrelevant` | `too_long`).
+  dailyBriefFeedback('daily_brief_feedback'),
+
+  /// Props: `tab` (`mine` | `topics` | `market`), `source` (`brief` | `home`
+  /// | `push`).
+  newsFeedOpened('news_feed_opened'),
+
+  /// Props: `kind` (`held` | `watch` | `topic` | `market`), `preferred`.
+  newsItemOpened('news_item_opened'),
+
+  /// Props: `from` (`brief` | `feed` | `topic` | `market`).
+  newsHowAffectsTapped('news_how_affects_tapped'),
+
+  /// Props: `from` (`feed` | `topic`), `subject_kind` (`ticker` | `topic`),
+  /// `locked`.
+  newsCompareTapped('news_compare_tapped'),
+
+  /// Props: `result` (`ok` | `insufficient` | `locked` | `limit` | `failed`),
+  /// `cache` (`hit` | `miss`). Lo registra la tool del chat.
+  newsCompareResult('news_compare_result'),
+
+  /// Props: `source`.
+  marketTodayOpened('market_today_opened'),
+
+  /// Props: `kind` (`topic` | `market`).
+  newsVideoOpened('news_video_opened'),
+
+  /// Props: `topic_id`, `followed`, `was_default`.
+  newsTopicChanged('news_topic_changed'),
+
+  /// Props: `domain`, `preference` (`prefer` | `mute` | `none`).
+  newsSourceChanged('news_source_changed');
 
   const ProductEvent(this.wire, {this.once = false});
 

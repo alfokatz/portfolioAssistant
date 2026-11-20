@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/assistant_catalog.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_rules.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
@@ -18,10 +19,14 @@ import '../fakes/assistant_fakes.dart';
 /// - `genui`: el resto del system prompt (texto fijo de genui y formato);
 /// - `tools`: las definiciones de las tools, como viajan en `tools`
 ///   (plan Gold: el que más tools tiene).
-Map<String, String> promptBlocks() {
+///
+/// [dailyBrief]: con el interruptor del brief diario prendido (el prefijo más
+/// grande) o apagado (el de antes del brief).
+Map<String, String> promptBlocks({bool dailyBrief = true}) {
   final prompt = AssistantOpenAiService.systemPromptFor(
-    AssistantCatalog.build(),
+    AssistantCatalog.build(dailyBrief: dailyBrief),
   );
+  final rules = assistantPromptRulesFor(dailyBrief: dailyBrief);
   final schemas = <String>[];
   var rest = prompt;
   for (final name in const ['COMMON_TYPES', 'CATALOG_SCHEMA', 'MESSAGE_SCHEMA']) {
@@ -33,21 +38,22 @@ Map<String, String> promptBlocks() {
     schemas.add(section.group(1)!);
     rest = rest.replaceFirst(section.group(0)!, '');
   }
-  if (!rest.contains(assistantPromptRules.trim())) {
+  if (!rest.contains(rules.trim())) {
     throw StateError('las reglas no están enteras en el prompt');
   }
-  rest = rest.replaceFirst(assistantPromptRules.trim(), '');
+  rest = rest.replaceFirst(rules.trim(), '');
 
   final ctx = AssistantToolContext(
     tier: SubscriptionTier.gold,
     data: fakeDataSources(),
+    dailyBriefStatus: DailyBriefStatus(enabled: dailyBrief),
   );
   final tools = jsonEncode([
     for (final t in AssistantToolset.build(ctx)) t.toOpenAi().toMap(),
   ]);
 
   return {
-    'rules': assistantPromptRules.trim(),
+    'rules': rules.trim(),
     'schemas': schemas.join('\n'),
     'genui': rest,
     'tools': tools,

@@ -1,7 +1,15 @@
 // Acceso a la base de daily-jobs (RPCs de 20261011030000_push_producers.sql).
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import type { AllocationInput, ContributionInput, HoldingWeights, LocalUser, OutboxInsert } from "./jobs.ts";
+import type {
+  AllocationInput,
+  BriefPushInput,
+  CachedHeadline,
+  ContributionInput,
+  HoldingWeights,
+  LocalUser,
+  OutboxInsert,
+} from "./jobs.ts";
 
 export interface JobsStore {
   usersAtLocalHour(hour: number): Promise<LocalUser[]>;
@@ -19,7 +27,21 @@ export interface JobsStore {
   holdingWeights?(userIds: string[]): Promise<HoldingWeights>;
   /// Planes con recordatorio de aporte (Premium/Gold) de [userIds].
   contributionInputs?(userIds: string[]): Promise<ContributionInput[]>;
+  /// Brief diario (spec §3.7): insumos del push de [userIds]
+  /// (`daily_brief_push_inputs`). Sin implementar = nadie lo tiene prendido.
+  dailyBriefInputs?(userIds: string[]): Promise<BriefPushInput[]>;
+  /// true si el interruptor `daily_brief` está prendido para alguien
+  /// (`_daily_brief_cron_on`). Sin implementar = se asume prendido.
+  dailyBriefCronOn?(): Promise<boolean>;
+  /// Titulares ya calentados de [symbols] para la fecha local [day]: solo lee
+  /// la caché (`gdelt:t:<SYM>:<día>`), nunca consulta GDELT.
+  warmedHeadlines?(symbols: string[], day: string): Promise<Map<string, CachedHeadline[]>>;
+  /// Hashes de las señales que el brief ya avisó en el mes [month] (`YYYY-MM`).
+  seenBriefSignals?(userIds: string[], month: string): Promise<Map<string, Set<string>>>;
   purge(): Promise<void>;
+  /// 04:00 UTC: videos de más de 7 días y briefs de más de 14
+  /// (`daily_brief_purge`).
+  purgeBrief?(): Promise<void>;
 }
 
 function fail(what: string, error: { message: string } | null) {
@@ -97,9 +119,61 @@ export function supabaseJobsStore(db: SupabaseClient): JobsStore {
         })),
       }));
     },
+    async dailyBriefCronOn() {
+      const { data, error } = await db.rpc("_daily_brief_cron_on");
+      fail("dailyBriefCronOn", error);
+      return data === true;
+    },
+    async dailyBriefInputs(userIds) {
+      const { data, error } = await db.rpc("daily_brief_push_inputs", { p_user_ids: userIds });
+      fail("dailyBriefInputs", error);
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        user_id: r.user_id as string,
+        tier: (r.tier as string) ?? "free",
+        big_move_sensitivity: (r.big_move_sensitivity as string) ?? "normal",
+        brief_on: r.brief_on === true,
+        push_piece: r.push_piece === true,
+        show_amounts: r.show_amounts === true,
+        last_brief_day: r.last_brief_day ? String(r.last_brief_day) : null,
+        holdings: ((r.holdings as Record<string, unknown>[]) ?? []).map((h) => ({
+          symbol: String(h.symbol),
+          weight_pct: h.weight_pct === null || h.weight_pct === undefined ? null : Number(h.weight_pct),
+        })),
+      }));
+    },
+    async warmedHeadlines(symbols, day) {
+      const out = new Map<string, CachedHeadline[]>();
+      for (let i = 0; i < symbols.length; i += 100) {
+        const chunk = symbols.slice(i, i + 100);
+        const { data, error } = await db.from("data_source_cache").select("cache_key, body")
+          .in("cache_key", chunk.map((s) => `gdelt:t:${s}:${day}`));
+        fail("warmedHeadlines", error);
+        for (const row of (data ?? []) as { cache_key: string; body: { items?: CachedHeadline[] } }[]) {
+          const symbol = row.cache_key.slice("gdelt:t:".length, row.cache_key.length - day.length - 1);
+          out.set(symbol, (row.body?.items ?? []).map((h) => ({ title: String(h.title), published_at: String(h.published_at) })));
+        }
+      }
+      return out;
+    },
+    async seenBriefSignals(userIds, month) {
+      const out = new Map<string, Set<string>>();
+      const { data, error } = await db.from("notification_outbox").select("user_id, data")
+        .eq("kind", "daily_brief").in("user_id", userIds).like("dedupe_key", `daily_brief:${month}-%`);
+      fail("seenBriefSignals", error);
+      for (const row of (data ?? []) as { user_id: string; data: { signal_keys?: unknown } }[]) {
+        const set = out.get(row.user_id) ?? new Set<string>();
+        for (const k of Array.isArray(row.data?.signal_keys) ? row.data.signal_keys : []) set.add(String(k));
+        out.set(row.user_id, set);
+      }
+      return out;
+    },
     async purge() {
       const { error } = await db.rpc("push_purge");
       fail("purge", error);
+    },
+    async purgeBrief() {
+      const { error } = await db.rpc("daily_brief_purge");
+      fail("purgeBrief", error);
     },
   };
 }

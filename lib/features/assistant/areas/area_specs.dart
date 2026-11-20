@@ -38,12 +38,16 @@ abstract final class AreaSpecs {
 
   /// Las reglas lean: las clásicas sin las secciones diferidas y con
   /// [leanRule]. Las clásicas no se tocan (su hash sigue en el allowlist).
-  static String leanRules(String classic) {
+  /// [dailyBrief]: `classic` trae lo del brief diario (ver
+  /// `assistantPromptRulesFor`), así que también se difiere su sección.
+  static String leanRules(String classic, {bool dailyBrief = false}) {
     if (!classic.contains(_anchor)) {
       throw StateError('no está la regla de answer_guide para anclar');
     }
     var out = classic.replaceFirst(_anchor, '$_anchor$leanRule');
-    for (final heading in PortyAreas.deferredRuleSections) {
+    for (final heading in PortyAreas.deferredRuleSectionsFor(
+      dailyBrief: dailyBrief,
+    )) {
       out = out.replaceFirst('${section(out, heading)}\n\n', '');
     }
     return out;

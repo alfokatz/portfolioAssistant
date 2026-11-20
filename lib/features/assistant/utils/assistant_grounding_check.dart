@@ -38,6 +38,7 @@ abstract final class AssistantGroundingCheck {
     'QaWatchlist': {'get_watchlist'},
     'QaWeeklyReport': {'get_weekly_report'},
     'QaNewsSummary': {'get_news'},
+    'QaSourceComparison': {'compare_sources'},
     'QaBudgetSplit': {'get_invest_candidates'},
     'QaInvestOption': {'get_invest_candidates'},
     'QaInvestConfirm': {'get_invest_candidates'},
@@ -124,6 +125,106 @@ abstract final class AssistantGroundingCheck {
       for (final t in (call.args['tickers'] as List? ?? const []))
         if (!lockedTickers.contains('$t'.toUpperCase())) '$t'.toUpperCase(),
     };
+  }
+
+  /// Tools cuyo resultado puede nombrar un medio: de ahí sale lo que la prosa
+  /// puede atribuir ("según Reuters").
+  static const _outletSources = {
+    'get_news',
+    'compare_sources',
+    'get_daily_brief',
+    'get_weekly_report',
+    'search_web',
+  };
+
+  /// "según X" / "according to X" y "X dice" / "X says": el medio que nombra
+  /// la prosa. Un nombre es una o más palabras con mayúscula inicial.
+  static const _nameWord = r"[A-ZÁÉÍÓÚÑ][\p{L}\p{N}&.'’-]*";
+  static final _outletByPhrase = RegExp(
+    r'(?:[Ss]eg[uú]n|[Aa]ccording\s+to)\s+'
+    '($_nameWord(?:\\s+$_nameWord){0,3})',
+    unicode: true,
+  );
+  static final _outletAsSubject = RegExp(
+    '($_nameWord(?:\\s+$_nameWord){0,3})\\s+'
+    r'(?:dice|informa|reporta|cuenta|señala|destaca|asegura|afirma|says|'
+    r'reports|reported|notes|highlights|claims)\b',
+    unicode: true,
+  );
+
+  static const _articles = {'the', 'el', 'la', 'los', 'las'};
+
+  /// Palabras con mayúscula que no son un medio ("Esto dice", "Según Porty").
+  static const _notOutlets = {
+    'porty', 'esto', 'eso', 'todo', 'nada', 'él', 'ella', 'ellos', 'nadie',
+    'alguien', 'cada', 'uno', 'otro', 'ninguno', 'ambos', 'this', 'that',
+    'it', 'he', 'she', 'they', 'each', 'one', 'both', 'nobody', 'everyone',
+    'the', 'el', 'la', 'los', 'las', 'un', 'una', 'gold', 'premium', 'free',
+  };
+
+  /// Medios que la prosa de la respuesta atribuye y que ningún resultado de
+  /// noticias del turno (`outlets` de `compare_sources`, `source` de
+  /// `get_news`, el brief…) ni la noticia desde la que se abrió el chat
+  /// ([pinnedContext]) menciona: el modelo los puso de memoria. Se mira la
+  /// primera palabra del nombre ("Reuters Business" → "Reuters"), así que es
+  /// laxo a propósito: solo atrapa un medio que no aparece en ningún lado.
+  static List<String> unlistedOutlets(
+    Iterable<Map<String, dynamic>> components,
+    List<ToolCallRecord> calls, {
+    String? pinnedContext,
+  }) {
+    final candidates = <String>[];
+    for (final c in components) {
+      final text = switch (c['component']) {
+        'QaAnswerText' => c['text'],
+        'QaTipBanner' => c['message'],
+        _ => null,
+      };
+      if (text is! String) continue;
+      for (final re in [_outletByPhrase, _outletAsSubject]) {
+        for (final m in re.allMatches(text)) {
+          candidates.add(m.group(1)!);
+        }
+      }
+    }
+    if (candidates.isEmpty) return const [];
+
+    final haystack = _normalized(
+      '${pinnedContext ?? ''} '
+      '${jsonEncode([for (final c in calls) if (_outletSources.contains(c.name)) c.result])}',
+    );
+    final out = <String>[];
+    for (final name in candidates) {
+      final words = name.split(RegExp(r'\s+'));
+      // Artículos al principio ("The Wall Street Journal").
+      var i = 0;
+      while (i < words.length - 1 && _articles.contains(words[i].toLowerCase())) {
+        i++;
+      }
+      final first = words[i];
+      if (_notOutlets.contains(first.toLowerCase())) continue;
+      final needle = _normalized(first).trim();
+      if (needle.length < 3) continue;
+      if (!haystack.contains(' $needle ') && !out.contains(name)) {
+        out.add(name);
+      }
+    }
+    return out;
+  }
+
+  /// En minúsculas, sin tildes y con todo lo que no es letra o número hecho
+  /// espacio (y espacios a los costados), para buscar palabras enteras.
+  static String _normalized(String text) {
+    const from = 'áàäâéèëêíìïîóòöôúùüûñ';
+    const to = 'aaaaeeeeiiiioooouuuun';
+    final lower = text.toLowerCase();
+    final buffer = StringBuffer(' ');
+    for (final rune in lower.runes) {
+      final ch = String.fromCharCode(rune);
+      final i = from.indexOf(ch);
+      buffer.write(i >= 0 ? to[i] : ch);
+    }
+    return '${buffer.toString().replaceAll(RegExp(r'[^a-z0-9]+'), ' ')} ';
   }
 
   /// Componentes de los `updateComponents` de la respuesta (con o sin

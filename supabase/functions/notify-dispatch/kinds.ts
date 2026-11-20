@@ -17,7 +17,8 @@ export type Kind =
   | "allocation_drift"
   | "watchlist_move"
   | "morning_brief"
-  | "contribution_reminder";
+  | "contribution_reminder"
+  | "daily_brief";
 
 /// Preferencia del usuario que la controla (columna de
 /// `notification_preferences`).
@@ -159,6 +160,19 @@ export const kinds: Record<Kind, KindMeta> = {
     quiet: "defer",
     maxAgeMinutes: 6 * 60,
     androidChannel: "portfolio",
+    interruption: "active",
+  },
+  // Brief diario (spec §3.7): reemplaza a `morning_brief` para quien tiene el
+  // interruptor prendido. Misma preferencia (`morning_brief`) y mismo horario;
+  // si cae en el silencio, sale al terminar (sigue valiendo esa mañana). Es el
+  // primero del día, así que entra en el tope de 3 automáticos antes que el resto.
+  daily_brief: {
+    pref: "morning_brief",
+    category: "automatic",
+    minTier: "free",
+    quiet: "defer",
+    maxAgeMinutes: 6 * 60,
+    androidChannel: "reports",
     interruption: "active",
   },
   // Lo pidió el usuario en su plan (y se apaga ahí): no cuenta para el

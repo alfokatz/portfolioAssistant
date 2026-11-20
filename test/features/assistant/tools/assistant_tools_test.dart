@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/domain/subscription/ai_usage_limits.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
 import 'package:portfolio_assistant/domain/entities/company_fundamentals.dart';
@@ -816,45 +817,90 @@ void main() {
     });
   });
 
+  // Las tools de antes del brief diario, en su orden fijo (es parte del
+  // prefijo cacheado). Con el interruptor apagado, esta es TODA la lista.
+  const baseToolNames = [
+    'get_quote',
+    'search_symbol',
+    'get_fundamentals',
+    'get_earnings',
+    'get_news',
+    'get_etf_holdings',
+    'get_dividends',
+    'get_portfolio_details',
+    'get_invest_candidates',
+    'get_goal_projection',
+    'save_goal',
+    'get_monthly_buy_plan',
+    'propose_buy',
+    'propose_sell',
+    'propose_delete_position',
+    'propose_price_alert',
+    'list_price_alerts',
+    'get_allocation_plan',
+    'get_watchlist',
+    'propose_watch',
+    'propose_alert_change',
+    'propose_goal_change',
+    'propose_allocation_plan',
+    'get_app_settings',
+    'propose_settings_change',
+    'propose_broker_action',
+    'get_weekly_report',
+    'remember_about_user',
+    'forget_about_user',
+    'search_web',
+  ];
+
+  List<String> namesWith(DailyBriefStatus status) => [
+    for (final DataTool t in AssistantToolset.build(
+      AssistantToolContext(
+        tier: SubscriptionTier.free,
+        data: fakeDataSources(),
+        dailyBriefStatus: status,
+      ),
+    ))
+      t.name,
+  ];
+
   test('the toolset order is stable (it is part of the cached prefix)', () {
-    final names = [
-      for (final DataTool t in AssistantToolset.build(
-        _ctx(SubscriptionTier.free),
-      ))
-        t.name,
-    ];
-    expect(names, [
-      'get_quote',
-      'search_symbol',
-      'get_fundamentals',
-      'get_earnings',
-      'get_news',
-      'get_etf_holdings',
-      'get_dividends',
-      'get_portfolio_details',
-      'get_invest_candidates',
-      'get_goal_projection',
-      'save_goal',
-      'get_monthly_buy_plan',
-      'propose_buy',
-      'propose_sell',
-      'propose_delete_position',
-      'propose_price_alert',
-      'list_price_alerts',
-      'get_allocation_plan',
-      'get_watchlist',
-      'propose_watch',
-      'propose_alert_change',
-      'propose_goal_change',
-      'propose_allocation_plan',
-      'get_app_settings',
-      'propose_settings_change',
-      'propose_broker_action',
-      'get_weekly_report',
-      'remember_about_user',
-      'forget_about_user',
-      'search_web',
+    // Interruptor del brief apagado (el default): la lista de antes.
+    expect(
+      [
+        for (final DataTool t in AssistantToolset.build(
+          _ctx(SubscriptionTier.free),
+        ))
+          t.name,
+      ],
+      baseToolNames,
+    );
+    // Prendido: las dos tools del brief, siempre al final.
+    expect(namesWith(const DailyBriefStatus(enabled: true)), [
+      ...baseToolNames,
+      'get_daily_brief',
+      'compare_sources',
     ]);
+  });
+
+  test('each daily brief tool needs its own piece (and the switch on)', () {
+    expect(
+      namesWith(
+        const DailyBriefStatus(enabled: true, pieces: {'compare': false}),
+      ),
+      [...baseToolNames, 'get_daily_brief'],
+    );
+    expect(
+      namesWith(
+        const DailyBriefStatus(enabled: true, pieces: {'brief': false}),
+      ),
+      [...baseToolNames, 'compare_sources'],
+    );
+    // Apagado manda sobre las piezas (una pieza faltante vale prendida).
+    expect(
+      namesWith(const DailyBriefStatus(enabled: false, pieces: {'compare': true})),
+      baseToolNames,
+    );
+    expect(namesWith(DailyBriefStatus.unreachable), baseToolNames);
   });
 
   group('answer_guide de las metas', () {

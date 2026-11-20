@@ -1,6 +1,7 @@
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/info_list_widgets.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/source_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/user_data_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/allocation_plan_widgets.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/widgets/analysis_widgets.dart';
@@ -778,6 +779,21 @@ final CatalogItem qaWeeklyReportItem = CatalogItem(
       (ctx) => guardedCatalogWidget(ctx, UserDataWidgets.qaWeeklyReport),
   exampleData: [
     () => '''[{"id": "r", "component": "QaWeeklyReport"}]''',
+  ],
+);
+
+/// "Qué dice cada medio" (`compare_sources`). Sin props: la app la dibuja
+/// desde el resultado de la tool, con medio y link en cada fila.
+final CatalogItem qaSourceComparisonItem = CatalogItem(
+  name: 'QaSourceComparison',
+  dataSchema: S.object(
+    description: 'No props.',
+    properties: {},
+  ),
+  widgetBuilder:
+      (ctx) => guardedCatalogWidget(ctx, SourceWidgets.qaSourceComparison),
+  exampleData: [
+    () => '''[{"id": "cmp", "component": "QaSourceComparison"}]''',
   ],
 );
 

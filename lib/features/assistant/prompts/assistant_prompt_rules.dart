@@ -632,3 +632,54 @@ MEMORY — remember_about_user / forget_about_user
 SURFACE ID
 Use the exact SURFACE_ID from the user message in updateComponents.
 ''';
+
+/// Lo que el brief diario le suma a las reglas (spec 2026-11-20 §1 y §6):
+/// solo existe con el interruptor `daily_brief` prendido. Apagado, las reglas
+/// son exactamente [assistantPromptRules] (mismo hash que antes del brief).
+abstract final class DailyBriefPromptRules {
+  static const _knowOld = '''
+  Weekly report → get_weekly_report; their plan, queries, connected
+  accounts or achieved goals → get_app_settings.
+''';
+  static const _knowNew = '''
+  Weekly report → get_weekly_report; today's brief → get_daily_brief;
+  their plan, queries, connected accounts or achieved goals →
+  get_app_settings.
+''';
+
+  static const _newsRuleEnd = '''
+[W:NEWS] News / headlines for a ticker → QaNewsSummary (see NEWS).
+''';
+  static const _sourcesRule = '''
+[W:SOURCES] What each outlet says about ONE ticker or topic →
+  compare_sources (see SOURCES).
+''';
+
+  static const _whyHeading = 'WHY / CAUSATION ([W:WHY]) — NO HALLUCINATION\n';
+  static const _sourcesSectionText = '''
+SOURCES ([W:SOURCES]) — compare_sources
+- ok → QaSourceComparison is the ONE data widget (never with
+  QaNewsSummary). Any other status → QaAnswerText only; never invent what
+  an outlet said.
+
+''';
+
+  static String _swap(String rules, String from, String to) {
+    if (!rules.contains(from)) {
+      throw StateError('falta el ancla del brief diario en las reglas');
+    }
+    return rules.replaceFirst(from, to);
+  }
+
+  /// Las reglas clásicas más lo del brief diario.
+  static final String rules = () {
+    var out = _swap(assistantPromptRules, _knowOld, _knowNew);
+    out = _swap(out, _newsRuleEnd, '$_newsRuleEnd$_sourcesRule');
+    return _swap(out, '\n$_whyHeading', '\n$_sourcesSectionText$_whyHeading');
+  }();
+}
+
+/// Las reglas del chat con el interruptor del brief diario [dailyBrief]
+/// prendido o apagado. Apagado: [assistantPromptRules], sin cambios.
+String assistantPromptRulesFor({required bool dailyBrief}) =>
+    dailyBrief ? DailyBriefPromptRules.rules : assistantPromptRules;

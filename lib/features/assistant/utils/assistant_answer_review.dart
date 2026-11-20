@@ -38,7 +38,15 @@ abstract final class AssistantAnswerReview {
   /// Widgets de texto/decoración: su texto no es "una card con números".
   static const _nonData = {'Column', 'Text', 'QaAnswerText', 'QaTipBanner'};
 
-  static AnswerCorrection? check(String raw, TurnEvidence evidence) {
+  /// [outletAttribution]: también revisa que los medios que nombra la prosa
+  /// salgan de las noticias del turno. Es de la fase 2 del brief diario:
+  /// con el interruptor apagado queda en `false` y el chat revisa lo mismo
+  /// que antes.
+  static AnswerCorrection? check(
+    String raw,
+    TurnEvidence evidence, {
+    bool outletAttribution = true,
+  }) {
     final grounding = AssistantGroundingCheck.check(raw, evidence.calls);
     if (grounding != null) return AnswerCorrection(grounding);
 
@@ -58,6 +66,15 @@ abstract final class AssistantAnswerReview {
     final problems = <String>[
       ..._planProseProblems(components, evidence),
       ..._infoListProblems(components, evidence),
+      if (outletAttribution)
+        for (final outlet in AssistantGroundingCheck.unlistedOutlets(
+          components,
+          evidence.calls,
+          pinnedContext: evidence.pinnedContext,
+        ))
+          'you attribute something to "$outlet" but no news result of this '
+              'conversation lists that outlet: name only outlets that appear '
+              'in get_news / compare_sources, or drop the attribution',
     ];
     for (final c in components) {
       if (c['component'] != 'QaCompanyAnalysis') continue;
@@ -1044,6 +1061,12 @@ abstract final class AssistantAnswerReview {
             'frente a lo que esperaba el mercado.',
         "This sums up $of's earnings: its next report and how it did "
             'against what the market expected.',
+      ),
+      'QaSourceComparison' => t(
+        'Esto es lo que dice cada medio: en qué coinciden, en qué difieren y '
+            'lo que cuenta uno solo.',
+        'This is what each outlet says: where they agree, where they differ '
+            'and what only one reports.',
       ),
       'QaNewsSummary' => t(
         'Estos son los titulares más recientes de $of, cada uno resumido en '

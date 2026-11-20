@@ -1,8 +1,187 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_evidence_scope.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_identity.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_primitives.dart';
 import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/qa_card_shell.dart';
+import 'package:portfolio_assistant/features/assistant/data/web/source_comparison_card_data.dart';
 import 'package:portfolio_assistant/features/assistant/utils/answer_sources.dart';
+import 'package:portfolio_assistant/features/genui_core/services/openai_genui_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+/// Cards de la comparación de medios (`compare_sources`).
+abstract final class SourceWidgets {
+  /// `QaSourceComparison`: sin props. La dibuja la app desde el resultado de
+  /// `compare_sources` del turno; sin él no se dibuja nada (el chequeo de
+  /// grounding ya rechaza esa respuesta).
+  static Widget qaSourceComparison(CatalogItemContext ctx) => Builder(
+    builder:
+        (context) => ValueListenableBuilder<TurnEvidence>(
+          valueListenable: QaEvidenceScope.listenableOf(context, ctx.surfaceId),
+          builder: (context, evidence, _) {
+            final data = SourceComparisonCardData.from(evidence);
+            return data == null
+                ? const SizedBox.shrink()
+                : QaCardShell(
+                  child: _ComparisonBody(data: data, ctx: ctx),
+                );
+          },
+        ),
+  );
+}
+
+class _ComparisonBody extends StatelessWidget {
+  const _ComparisonBody({required this.data, required this.ctx});
+
+  final SourceComparisonCardData data;
+  final CatalogItemContext ctx;
+
+  /// El orden de las filas y la clave de su título.
+  static const _kinds = [
+    ('agree', 'qa_src_compare_agree'),
+    ('differ', 'qa_src_compare_differ'),
+    ('only', 'qa_src_compare_only'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = [
+      for (final (kind, titleKey) in _kinds)
+        if (data.of(kind).isNotEmpty) (titleKey, data.of(kind)),
+    ];
+    final ticker = data.ticker;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        QaCardTitle(
+          title: 'qa_src_compare_title'.tr(),
+          subtitle: data.subject.isEmpty ? null : data.subject,
+          icon: Icons.compare_arrows_rounded,
+        ),
+        for (final (i, (titleKey, points)) in sections.indexed)
+          QaSection(
+            title: titleKey.tr(),
+            first: i == 0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (j, point) in points.indexed) ...[
+                  if (j > 0) const SizedBox(height: QaSpace.rowGap),
+                  _PointRow(point: point),
+                ],
+              ],
+            ),
+          ),
+        if (data.outlets.isNotEmpty) ...[
+          const SizedBox(height: QaSpace.gap),
+          Text(
+            'qa_src_compare_outlets'.tr(
+              namedArgs: {'outlets': data.outlets.join(', ')},
+            ),
+            style: QaText.label,
+          ),
+        ],
+        if (ticker != null)
+          QaFollowUpBar(
+            surfaceId: ctx.surfaceId,
+            items: QaTickerFollowUps.of(
+              ticker,
+              exclude: const {
+                QaTickerFollowUps.compare,
+                QaTickerFollowUps.earnings,
+                QaTickerFollowUps.fundamentals,
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Una fila: lo que dice (o en lo que coinciden) y, debajo, cada medio con su
+/// link tocable.
+class _PointRow extends StatelessWidget {
+  const _PointRow({required this.point});
+
+  final ComparisonPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(point.text, style: QaText.body),
+        const SizedBox(height: 2),
+        Wrap(
+          spacing: 12,
+          children: [for (final s in point.sources) _OutletLink(source: s)],
+        ),
+      ],
+    );
+  }
+}
+
+class _OutletLink extends StatelessWidget {
+  const _OutletLink({required this.source});
+
+  final ComparisonSource source;
+
+  @override
+  Widget build(BuildContext context) {
+    final outlet =
+        source.outlet.isNotEmpty
+            ? source.outlet
+            : (Uri.tryParse(source.url)?.host ?? '');
+    return Semantics(
+      link: true,
+      label: 'qa_src_semantics'.tr(
+        namedArgs: {
+          'source': outlet,
+          'title': source.title.isEmpty ? outlet : source.title,
+        },
+      ),
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => _openExternal(source.url),
+        borderRadius: BorderRadius.circular(QaSpace.chipRadius),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                outlet,
+                style: QaText.label.copyWith(
+                  color: QaColors.accentBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 14,
+                color: QaColors.accentBlue,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nunca lanza: un link roto no puede tumbar la respuesta.
+Future<void> _openExternal(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
+    return;
+  }
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {}
+}
 
 /// De dónde salió lo que dice la respuesta, con links (ver [AnswerSources]):
 /// las citas de la búsqueda web — OpenAI exige que se vean y se puedan
@@ -76,7 +255,7 @@ class _SourceRow extends StatelessWidget {
       ),
       excludeSemantics: true,
       child: InkWell(
-        onTap: () => _open(link.url),
+        onTap: () => _openExternal(link.url),
         borderRadius: BorderRadius.circular(QaSpace.chipRadius),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
@@ -115,16 +294,5 @@ class _SourceRow extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// Nunca lanza: un link roto no puede tumbar la respuesta.
-  static Future<void> _open(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
-      return;
-    }
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
   }
 }

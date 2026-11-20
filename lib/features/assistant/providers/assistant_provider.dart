@@ -47,6 +47,7 @@ import 'package:portfolio_assistant/features/assistant/models/portfolio_qa_messa
 import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
+import 'package:portfolio_assistant/features/assistant/areas/area_specs.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
 import 'package:portfolio_assistant/features/assistant/tools/action_tools.dart';
@@ -86,6 +87,8 @@ import 'package:portfolio_assistant/presentation/flows/home/providers/home_provi
 import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_topics_extractor.dart';
+import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_chat_loader.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
 /// modelo decide qué datos pedir (ver `AssistantToolset`), el plan del
@@ -368,7 +371,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
     }
 
-    _leanPrompt = await _leanPromptForConversation();
+    // En paralelo: la lectura del interruptor del brief no suma espera.
+    final leanF = _leanPromptForConversation();
+    final briefStatusF = _dailyBriefStatusForConversation();
+    _leanPrompt = await leanF;
+    _dailyBriefStatus = await briefStatusF;
     // Para ofrecer retomar la última charla en el chat vacío.
     unawaited(ref.read(portyTopicsProvider.notifier).ensureLoaded());
     _ensureService();
@@ -479,10 +486,30 @@ class AssistantProvider extends StateNotifier<AssistantState> {
     }
   }
 
+  /// El interruptor del brief diario (y sus piezas) de esta conversación. Se
+  /// decide una vez, al abrir el chat, como [_leanPrompt]: el prompt y la lista
+  /// de tools tienen que ser los mismos en todos los turnos. Apagado (lo
+  /// normal, y siempre ante cualquier falla), el chat es el de antes del brief.
+  DailyBriefStatus _dailyBriefStatus = DailyBriefStatus.off;
+
+  Future<DailyBriefStatus> _dailyBriefStatusForConversation() async {
+    final status = ref.read(assistantDepsProvider).dailyBriefStatus;
+    if (status == null) return DailyBriefStatus.off;
+    try {
+      return await status();
+    } catch (_) {
+      return DailyBriefStatus.off;
+    }
+  }
+
   void _ensureService() {
     if (_service != null) return;
     final deps = ref.read(assistantDepsProvider);
+    final createBrief =
+        _dailyBriefStatus.enabled ? deps.createDailyBriefService : null;
+    final variant = _leanPrompt ? PromptVariant.lean : PromptVariant.classic;
     final service =
+        createBrief?.call(variant) ??
         (_leanPrompt ? deps.createLeanService : null)?.call() ??
         deps.createService();
     _service = service;
@@ -630,6 +657,12 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           return left < 0 ? 0 : left;
         }(),
         loadWeeklyReport: _weeklyReportForTool,
+        loadDailyBrief: ref.read(dailyBriefChatLoaderProvider),
+        // Lo que decide las tools es lo que trae el prompt del servicio:
+        // nunca una tool del brief sin sus reglas (ni al revés).
+        dailyBriefStatus:
+            service.dailyBrief ? _dailyBriefStatus : DailyBriefStatus.off,
+        turnId: () => service.log.currentTurn?.id,
         userMemories: await memoriesF,
         saveMemory: _saveMemory,
         deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),

@@ -486,6 +486,10 @@ verify_jwt = false
 [functions.daily-jobs]
 verify_jwt = false
 
+# Calentamiento del brief diario: la llama pg_cron con `x-cron-secret`, sin JWT.
+[functions.news-warm]
+verify_jwt = false
+
 # Valida el JWT del usuario ella misma, como finnhub.
 [functions.web-search]
 verify_jwt = false

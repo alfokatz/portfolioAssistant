@@ -5,6 +5,7 @@ import 'package:portfolio_assistant/features/allocation/nav/allocation_router.da
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
+import 'package:portfolio_assistant/features/daily_brief/nav/daily_brief_router.dart';
 import 'package:portfolio_assistant/features/etoro/nav/etoro_router.dart';
 import 'package:portfolio_assistant/features/notifications/data/notifications_repository.dart';
 import 'package:portfolio_assistant/features/notifications/domain/push_route.dart';
@@ -57,7 +58,10 @@ class _PushOpenListenerState extends ConsumerState<PushOpenListener> {
   }
 
   void _open(PushMessage message) {
-    ref.read(appOpenSourceProvider.notifier).state = AppOpenSource.push;
+    ref.read(appOpenSourceProvider.notifier).state =
+        message.route is PushRouteDailyBrief
+            ? AppOpenSource.pushDailyBrief
+            : AppOpenSource.push;
     final logId = message.logId;
     if (logId != null) {
       unawaited(
@@ -96,6 +100,11 @@ void openPushRoute(
       context.goNamed(HomeRouter.homeRouteName);
     case PushRouteWeeklyReport():
       context.pushNamed(WeeklyReportRouter.routeName);
+    case PushRouteDailyBrief(:final day):
+      context.pushNamed(
+        DailyBriefRouter.routeName,
+        extra: DailyBriefRouter.args(day: day, source: 'push'),
+      );
     case PushRouteEtoro():
       context.pushNamed(EtoroRouter.connectionRouteName);
     case PushRouteNotificationSettings():

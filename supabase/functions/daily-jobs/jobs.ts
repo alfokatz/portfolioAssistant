@@ -2,6 +2,11 @@
 // `push_users_at_local_hour`; el despacho decide después (preferencias,
 // silencio, tope).
 
+import { isRecommendation } from "../_shared/recommendation.ts";
+import { looksLikeInstructions } from "../_shared/news_attribution.ts";
+import { type Sensitivity, thresholds as moveThresholds } from "../market-watch/moves.ts";
+import type { Quote } from "../market-watch/quotes.ts";
+
 export type LocalUser = {
   user_id: string;
   timezone: string;
@@ -250,6 +255,30 @@ function signalId(s: BriefSignal): string {
   return `${s.kind}:${s.symbol}`;
 }
 
+/// Las señales de UN usuario (misma regla que la bandeja de la app): el desvío
+/// del plan (Premium/Gold, no los lunes: ese día avisa `allocation_drift` a las
+/// 10) antes que la concentración. [weights]: símbolo → peso del usuario.
+export function briefSignals(
+  u: LocalUser,
+  weights: Map<string, number> | undefined,
+  plan: AllocationInput | undefined,
+): BriefSignal[] {
+  const signals: BriefSignal[] = [];
+  if (plan && u.tier !== "free" && u.local_dow !== 1) {
+    const worst = allocationDrift(plan)[0];
+    if (worst && Math.abs(worst.current_pct - worst.target_pct) >= plan.drift_threshold) {
+      signals.push({ kind: "drift", ...worst });
+    }
+  }
+  if (weights && weights.size >= 2) {
+    const [symbol, weight] = [...weights.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    if (weight >= concentrationPct) {
+      signals.push({ kind: "concentration", symbol, weight_pct: round1(weight) });
+    }
+  }
+  return signals;
+}
+
 /// Las 8 de cada día: lo que Porty ve en la cartera, de lo más importante a
 /// lo menos (el desvío del plan antes que la concentración, como en la
 /// app). Sale una vez por mes por cada conjunto de señales: lo mismo no se
@@ -263,24 +292,7 @@ export function morningBriefRows(
   const plans = new Map(inputs.map((i) => [i.user_id, i]));
   const out: OutboxInsert[] = [];
   for (const u of users) {
-    const signals: BriefSignal[] = [];
-
-    const input = plans.get(u.user_id);
-    if (input && u.tier !== "free" && u.local_dow !== 1) {
-      const worst = allocationDrift(input)[0];
-      if (worst && Math.abs(worst.current_pct - worst.target_pct) >= input.drift_threshold) {
-        signals.push({ kind: "drift", ...worst });
-      }
-    }
-
-    const mine = weights.get(u.user_id);
-    if (mine && mine.size >= 2) {
-      const [symbol, weight] = [...mine.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-      if (weight >= concentrationPct) {
-        signals.push({ kind: "concentration", symbol, weight_pct: round1(weight) });
-      }
-    }
-
+    const signals = briefSignals(u, weights.get(u.user_id), plans.get(u.user_id));
     if (signals.length === 0) continue;
     const ids = signals.map(signalId).sort().join("|");
     out.push({
@@ -288,6 +300,162 @@ export function morningBriefRows(
       kind: "morning_brief",
       dedupe_key: `morning_brief:${u.local_date.slice(0, 7)}:${ids}`,
       data: { signals, count: signals.length },
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Push `daily_brief` (spec §3.7): reemplaza a `morning_brief` para quien tiene
+// el interruptor prendido.
+// ---------------------------------------------------------------------------
+
+/// Lo que devuelve `daily_brief_push_inputs` por usuario.
+export type BriefPushInput = {
+  user_id: string;
+  tier: string;
+  big_move_sensitivity: Sensitivity | string;
+  /// Interruptor `daily_brief` prendido para el usuario.
+  brief_on: boolean;
+  /// Pieza `push` prendida.
+  push_piece: boolean;
+  show_amounts: boolean;
+  /// Último brief listo (fecha local): para exigir "un cierre nuevo".
+  last_brief_day: string | null;
+  holdings: { symbol: string; weight_pct: number | null }[];
+};
+
+/// Un titular ya calentado en la caché (`gdelt:t:<SYM>:<día>`).
+export type CachedHeadline = { title: string; published_at: string };
+
+/// Cobertura mínima de precios para hablar de cuánto se movió la cartera (como
+/// `minPortfolioCoverage` de `market-watch/moves.ts`).
+export const briefMinCoverage = 0.8;
+
+/// Cuánto se movió la cartera en el último cierre, sobre `prevClose` y el
+/// precio de cada posición, ponderando por su peso actual: valor_i ∝ peso_i,
+/// valor de ayer_i = peso_i · prevClose_i / price_i. null si la cobertura es
+/// menor a 80 % (posiciones sin cotización, sin cierre previo o sin peso).
+export function portfolioMove(
+  holdings: BriefPushInput["holdings"],
+  quotes: Map<string, Quote>,
+): { pct: number; coverage: number } | null {
+  if (holdings.length === 0) return null;
+  let total = 0;
+  let prevTotal = 0;
+  let covered = 0;
+  for (const h of holdings) {
+    const q = quotes.get(h.symbol);
+    const w = h.weight_pct;
+    if (!q || w === null || !(w > 0) || q.prevClose === null || !(q.prevClose > 0) || !(q.price > 0)) continue;
+    total += w;
+    prevTotal += w * (q.prevClose / q.price);
+    covered++;
+  }
+  const coverage = covered / holdings.length;
+  if (coverage < briefMinCoverage || !(total > 0) || !(prevTotal > 0)) return null;
+  return { pct: ((total - prevTotal) / prevTotal) * 100, coverage };
+}
+
+/// ¿Hubo un cierre nuevo de algún mercado de la cartera desde el brief anterior?
+/// El día del cierre sale de `regularMarketTime` (UTC). Sin brief anterior,
+/// vale un cierre de los últimos 4 días. Un feriado de todos los mercados
+/// deja la hora del cierre en un día ya cubierto: no hay brief ese día.
+export function hasNewClose(
+  holdings: BriefPushInput["holdings"],
+  quotes: Map<string, Quote>,
+  lastBriefDay: string | null,
+  localDate: string,
+): boolean {
+  const floor = lastBriefDay ?? addDays(localDate, -4);
+  return holdings.some((h) => {
+    const t = quotes.get(h.symbol)?.regularMarketTime;
+    if (typeof t !== "number" || !Number.isFinite(t)) return false;
+    return new Date(t * 1000).toISOString().slice(0, 10) >= floor;
+  });
+}
+
+/// Símbolos de [symbols] con al menos un titular de las últimas 24 h en la
+/// caché ya calentada (nunca se consulta GDELT por usuario).
+export function newsTickerCount(
+  symbols: string[],
+  cache: Map<string, CachedHeadline[]>,
+  nowMs: number,
+): number {
+  return symbols.filter((s) =>
+    (cache.get(s) ?? []).some((h) => {
+      const age = nowMs - Date.parse(h.published_at);
+      return age >= -5 * 60_000 && age <= 24 * 3600_000 && !isRecommendation(h.title) &&
+        !looksLikeInstructions(h.title);
+    })
+  ).length;
+}
+
+/// Hash corto y estable de una señal ("concentration:NVDA"): se guarda en
+/// `data.signal_keys` para saber qué señales ya avisó el brief este mes sin
+/// dejar tickers en el outbox.
+export function signalKey(s: BriefSignal): string {
+  let h = 0x811c9dc5;
+  for (const c of signalId(s)) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+export type BriefPushContext = {
+  /// Cotizaciones de las posiciones (Yahoo, en lote).
+  quotes: Map<string, Quote>;
+  /// Usuario → símbolos con titular reciente en la caché calentada.
+  headlineCounts: Map<string, number>;
+  /// Usuario → señales de cartera (concentración o desvío).
+  signals: Map<string, BriefSignal[]>;
+  /// Usuario → hashes de las señales que el brief ya avisó este mes.
+  seenSignals?: Map<string, Set<string>>;
+  /// Usuario (Gold) → resultados `reported` desde el último cierre.
+  earnings?: Map<string, number>;
+};
+
+/// Las 8 locales, de lunes a viernes: "Tu brief de hoy está listo", solo si hay
+/// algo que contar y un cierre nuevo. `data` lleva solo booleanos y conteos
+/// (nunca montos, porcentajes ni tickers); `signal_keys` son hashes opacos.
+export function dailyBriefRows(
+  users: LocalUser[],
+  inputs: BriefPushInput[],
+  quotes: Map<string, Quote>,
+  headlineCounts: Map<string, number>,
+  signals: Map<string, BriefSignal[]>,
+  extra: Pick<BriefPushContext, "seenSignals" | "earnings"> = {},
+): OutboxInsert[] {
+  const byUser = new Map(inputs.map((i) => [i.user_id, i]));
+  const out: OutboxInsert[] = [];
+  for (const u of users) {
+    if (u.local_dow < 1 || u.local_dow > 5 || u.symbols.length === 0) continue;
+    const input = byUser.get(u.user_id);
+    if (!input || !input.brief_on || !input.push_piece || input.holdings.length === 0) continue;
+    if (!hasNewClose(input.holdings, quotes, input.last_brief_day, u.local_date)) continue;
+
+    const threshold = (moveThresholds[input.big_move_sensitivity as Sensitivity] ?? moveThresholds.normal).portfolio;
+    const move = portfolioMove(input.holdings, quotes);
+    const moved = move !== null && Math.abs(move.pct) >= threshold;
+    const newsTickers = headlineCounts.get(u.user_id) ?? 0;
+    const seen = extra.seenSignals?.get(u.user_id) ?? new Set<string>();
+    const fresh = (signals.get(u.user_id) ?? []).filter((s) => !seen.has(signalKey(s)));
+    const earnings = u.tier === "gold" ? extra.earnings?.get(u.user_id) ?? 0 : 0;
+    if (!moved && newsTickers === 0 && fresh.length === 0 && earnings === 0) continue;
+
+    out.push({
+      user_id: u.user_id,
+      kind: "daily_brief",
+      dedupe_key: `daily_brief:${u.local_date}`,
+      data: {
+        day: u.local_date,
+        moved,
+        news_tickers: newsTickers,
+        signals: fresh.length,
+        earnings,
+        signal_keys: fresh.map(signalKey),
+      },
     });
   }
   return out;

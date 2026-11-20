@@ -58,11 +58,17 @@ class DeferredSpec {
     required this.tool,
     this.ruleSections = const [],
     this.widgets = const [],
+    this.dailyBrief = false,
   });
 
   final String tool;
   final List<String> ruleSections;
   final List<String> widgets;
+
+  /// Existe solo con el interruptor del brief diario prendido: apagado, ni
+  /// la tool ni sus reglas ni su card están en el prompt (ver
+  /// [PortyAreas.dailyBriefTools]).
+  final bool dailyBrief;
 }
 
 class PortyAreaSpec {
@@ -92,6 +98,10 @@ class PortyAreaSpec {
   final List<DeferredSpec> deferred;
 
   Set<String> get deferredWidgets => {for (final d in deferred) ...d.widgets};
+
+  /// Lo diferido que existe con el interruptor [dailyBrief] en ese estado.
+  Iterable<DeferredSpec> deferredFor({required bool dailyBrief}) =>
+      deferred.where((d) => dailyBrief || !d.dailyBrief);
 }
 
 abstract final class PortyAreas {
@@ -144,6 +154,7 @@ abstract final class PortyAreas {
         'get_news',
         'get_etf_holdings',
         'get_dividends',
+        'compare_sources',
       },
       widgets: {
         'QaEarningsCalendar',
@@ -151,8 +162,11 @@ abstract final class PortyAreas {
         'QaCompanyAnalysis',
         'QaEtfHoldings',
         'QaNewsSummary',
+        'QaSourceComparison',
       },
-      budgetTokens: 1060,
+      // 2026-11-20: 1060 → 1150 por compare_sources (su definición, ~90
+      // tokens medidos; la card y su regla viajan diferidas).
+      budgetTokens: 1150,
       deferred: [
         DeferredSpec(
           tool: 'get_earnings',
@@ -175,6 +189,14 @@ abstract final class PortyAreas {
           tool: 'get_news',
           ruleSections: ['NEWS ([W:NEWS]) — get_news'],
           widgets: ['QaNewsSummary'],
+        ),
+        // "Qué dice cada medio": la card y su regla solo hacen falta con
+        // los datos de la comparación.
+        DeferredSpec(
+          tool: 'compare_sources',
+          ruleSections: ['SOURCES ([W:SOURCES]) — compare_sources'],
+          widgets: ['QaSourceComparison'],
+          dailyBrief: true,
         ),
       ],
     ),
@@ -250,9 +272,11 @@ abstract final class PortyAreas {
     ),
     PortyAreaSpec(
       area: PortyArea.report,
-      tools: {'get_weekly_report'},
+      tools: {'get_weekly_report', 'get_daily_brief'},
       widgets: {'QaWeeklyReport'},
-      budgetTokens: 150,
+      // 2026-11-20: 150 → 180 por get_daily_brief (solo su definición: la
+      // respuesta es QaAnswerText y su guía viaja en el resultado).
+      budgetTokens: 180,
     ),
     PortyAreaSpec(
       area: PortyArea.web,
@@ -278,14 +302,32 @@ abstract final class PortyAreas {
     return null;
   }
 
-  /// Todos los widgets que el prompt lean saca del esquema fijo.
-  static Set<String> get deferredWidgets => {
-    for (final spec in all) ...spec.deferredWidgets,
+  /// Las tools que solo existen con el interruptor `daily_brief` prendido
+  /// (cada una, además, con su pieza: `compare_sources` con `compare`,
+  /// `get_daily_brief` con `brief`). Apagado, la lista de tools es la de
+  /// antes del brief.
+  static const dailyBriefTools = {'get_daily_brief', 'compare_sources'};
+
+  /// Los widgets que solo existen con el interruptor prendido.
+  static const dailyBriefWidgets = {'QaSourceComparison'};
+
+  /// Todos los widgets que el prompt lean saca del esquema fijo (con el
+  /// brief diario prendido).
+  static Set<String> get deferredWidgets => deferredWidgetsFor(dailyBrief: true);
+
+  /// Todas las secciones de reglas que el prompt lean saca del prefijo (con
+  /// el brief diario prendido).
+  static List<String> get deferredRuleSections =>
+      deferredRuleSectionsFor(dailyBrief: true);
+
+  static Set<String> deferredWidgetsFor({required bool dailyBrief}) => {
+    for (final spec in all)
+      for (final d in spec.deferredFor(dailyBrief: dailyBrief)) ...d.widgets,
   };
 
-  /// Todas las secciones de reglas que el prompt lean saca del prefijo.
-  static List<String> get deferredRuleSections => [
+  static List<String> deferredRuleSectionsFor({required bool dailyBrief}) => [
     for (final spec in all)
-      for (final d in spec.deferred) ...d.ruleSections,
+      for (final d in spec.deferredFor(dailyBrief: dailyBrief))
+        ...d.ruleSections,
   ];
 }

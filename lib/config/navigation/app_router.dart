@@ -22,6 +22,11 @@ import 'package:portfolio_assistant/features/statement_import/nav/statement_impo
 import 'package:portfolio_assistant/features/portfolio_diagnosis/nav/portfolio_diagnosis_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
+import 'package:portfolio_assistant/features/daily_brief/nav/daily_brief_router.dart';
+import 'package:portfolio_assistant/features/news_feed/nav/market_today_router.dart';
+import 'package:portfolio_assistant/features/news_feed/nav/news_feed_router.dart';
+import 'package:portfolio_assistant/features/news_feed/nav/news_topic_router.dart';
+import 'package:portfolio_assistant/features/news_preferences/nav/news_preferences_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
@@ -136,6 +141,11 @@ class AppRouter {
         SnaptradeRouter.getRoute(),
         ConnectBrokerRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
+        DailyBriefRouter.getRoute(),
+        NewsFeedRouter.getRoute(),
+        MarketTodayRouter.getRoute(),
+        NewsTopicRouter.getRoute(),
+        NewsPreferencesRouter.getRoute(),
         ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),
       ],

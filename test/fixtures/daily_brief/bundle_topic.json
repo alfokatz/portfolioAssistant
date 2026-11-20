@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": { "tier": "free", "variant": "numbers", "courtesy": false },
+  "mine": [],
+  "locked": null,
+  "earnings": [],
+  "topics": [
+    {
+      "topic_id": "fed_rates", "label": "Fed y tasas", "status": "ok",
+      "summary": [
+        { "text": "La Reserva Federal mantuvo las tasas sin cambios.", "source_ids": ["c1"] },
+        { "text": "El mercado descuenta un recorte recién en el segundo trimestre.", "source_ids": ["c2"] }
+      ],
+      "as_of": "2026-12-02T06:35:00Z"
+    }
+  ],
+  "topic_news": [
+    { "id": "n1", "title": "Fed holds rates steady and signals patience", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/", "published_at": "2026-12-01T19:00:00Z", "lang": "en", "preferred": true },
+    { "id": "n2", "title": "La Fed mantiene las tasas y los mercados miran a la primavera", "source": "Infobae", "domain": "infobae.com", "url": "https://www.infobae.com/economia/2026/12/01/la-fed-mantiene-las-tasas/", "published_at": "2026-12-01T20:10:00Z", "lang": "es", "preferred": false }
+  ],
+  "market": { "instruments": [], "pulse": [] },
+  "videos": [],
+  "sources": {
+    "c1": { "title": "Fed holds rates steady", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/" },
+    "c2": { "title": "Markets price in a spring cut", "source": "AP", "domain": "apnews.com", "url": "https://apnews.com/article/fed-rate-cut-expectations-2026" }
+  },
+  "attribution": { "videos": "YouTube" }
+}

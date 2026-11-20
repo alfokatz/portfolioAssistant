@@ -36,3 +36,9 @@
 - Interacción del widget sin abrir la app: AppIntent iOS 17+ / broadcast explícito al provider en Android; nunca los callbacks de `home_widget` que levantan Dart.
 - Preguntas/acciones desde el widget viajan como plantilla cerrada + `ref` a caché privada (nunca texto, ticker ni nombre de meta en la URL).
 - Selectores nativos con lógica: implementación de referencia en Dart que genera `feed_cases.json`; Kotlin con test JVM (junit + org.json) y Swift puro Foundation chequeado con `swiftc` fuera del target.
+- Contenido por plan que depende de la cartera: edge function que lee positions/watchlist de la base (el cliente no manda tickers); evita abrir `gold_data_allowed` (el claim `generating` del semanal habilita TODO Gold 30 min).
+- GDELT: límite global 1 req/5,5 s; para usos masivos, caché por ticker+día y calentamiento por cron, nunca clave por conjunto de tickers de la cartera.
+- Contenido general (mercado, temas) se cachea compartido por región/tema/idioma/franja y es gratis en todos los planes; lo pago es el cruce con lo tuyo.
+- YouTube: prohibido vender acceso al contenido audiovisual → videos nunca detrás de un plan; usar `playlistItems.list` (1 unidad) de canales en allowlist, nunca `search.list`; purgar metadata ≤30 días.
+- Tests de hash de prompts nuevos van fuera de `test/security/` (CODEOWNERS) y se mudan en PR aparte con OK.
+- Precio efectivo de ai-chat: gpt-6-luna fast US$0,20/1,00 por M; búsqueda web US$0,01 + tokens de contenido (~US$0,015 por llamada).

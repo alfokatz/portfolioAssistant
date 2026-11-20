@@ -24,6 +24,8 @@ import 'package:portfolio_assistant/features/investor_profile/providers/investor
 import 'package:portfolio_assistant/features/home_widget/view/widget_add_tile.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_positions_tile.dart';
 import 'package:portfolio_assistant/features/notifications/data/push_messaging.dart';
+import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
+import 'package:portfolio_assistant/features/news_preferences/nav/news_preferences_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/notifications/providers/price_alerts_provider.dart';
 import 'package:portfolio_assistant/features/notifications/providers/push_controller.dart';
@@ -233,6 +235,11 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
     final investorProfile = ref.watch(investorProfileProvider);
     final push = ref.watch(pushControllerProvider);
     final alerts = ref.watch(priceAlertsProvider);
+    final briefStatus = ref.watch(
+      dailyBriefControllerProvider.select((b) => b.status),
+    );
+    final newsPrefsAvailable =
+        briefStatus.piece('topics') || briefStatus.piece('sources');
     final displayCurrency = ref.watch(displayCurrencyProvider);
 
     final email = user?.email ?? 'auth_no_email'.tr();
@@ -361,6 +368,18 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
                       ),
                 ),
                 const SettingsDivider(),
+                // Noticias (brief diario): solo con el interruptor prendido.
+                if (newsPrefsAvailable) ...[
+                  SettingsNavRow(
+                    icon: Icons.newspaper_rounded,
+                    label: 'news_prefs_title'.tr(),
+                    onTap:
+                        () => context.pushNamed(
+                          NewsPreferencesRouter.routeName,
+                        ),
+                  ),
+                  const SettingsDivider(),
+                ],
                 SettingsNavRow(
                   icon: Icons.notifications_active_outlined,
                   label: 'price_alerts_title'.tr(),

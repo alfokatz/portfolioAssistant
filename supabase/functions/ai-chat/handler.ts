@@ -31,6 +31,7 @@ import {
 } from "../_shared/common.ts";
 import allowedPrompts from "./allowed_system_prompts.json" with { type: "json" };
 import allowedReportPrompts from "./allowed_report_prompts.json" with { type: "json" };
+import allowedBriefPrompts from "./allowed_brief_prompts.json" with { type: "json" };
 
 export const config = {
   /// Tope de salida por ronda. La respuesta más larga de la app (un análisis
@@ -53,6 +54,9 @@ export const config = {
   maxReportRounds: 8,
   /// El informe es JSON de prosa corta: ~900 tokens esperados.
   maxReportOutputTokens: 2000,
+  /// Brief diario: 1 borrador + 1 reescritura, JSON de prosa corta.
+  maxBriefRounds: 2,
+  maxBriefOutputTokens: 900,
   /// Modelos que OpenAI apaga → su reemplazo. Las versiones de la app ya
   /// publicadas piden gpt-4.1-mini (apagado el 2027-01-14).
   modelReplacements: { "gpt-4.1-mini": "gpt-6-luna" } as Record<string, string>,
@@ -131,6 +135,12 @@ export const bundledReportPromptHashes = new Set<string>(
   (allowedReportPrompts as { hashes: string[] }).hashes,
 );
 
+/// Hashes del prompt del brief diario (los agrega el dev del chat; vacío =
+/// el purpose `daily_brief` rechaza todo con prompt_not_allowed).
+export const bundledBriefPromptHashes = new Set<string>(
+  (allowedBriefPrompts as { hashes: string[] }).hashes,
+);
+
 type ChatMessage = { role?: string; content?: unknown };
 
 function textOf(content: unknown): string {
@@ -172,8 +182,8 @@ const limitStatus: Record<string, [number, string]> = {
   daily_limit: [429, "Daily query limit reached"],
   rate_limited: [429, "Too many requests"],
   too_many_rounds: [429, "Too many rounds for this turn"],
-  not_claimed: [409, "No weekly report is being generated for this week"],
-  disabled: [403, "The weekly report is disabled"],
+  not_claimed: [409, "No weekly report or daily brief is being generated for this period"],
+  disabled: [403, "The weekly report or daily brief is disabled"],
   turn_mismatch: [409, "turn_id belongs to another user"],
   model_not_allowed: [400, "Model not allowed"],
 };
@@ -269,6 +279,7 @@ function timingHeaders(
 type HandleOptions = {
   allowedPromptHashes?: Set<string>;
   allowedReportPromptHashes?: Set<string>;
+  allowedBriefPromptHashes?: Set<string>;
 };
 
 export async function handle(
@@ -310,6 +321,9 @@ export async function handle(
   const purpose = req.headers.get("x-porty-purpose") ?? "chat";
   if (purpose === "weekly_report") {
     return handleReport(req, deps, userId, turnId, body, options);
+  }
+  if (purpose === "daily_brief") {
+    return handleBrief(req, deps, userId, turnId, body, options);
   }
   if (purpose !== "chat") return typedError(400, "invalid_purpose", "Unknown x-porty-purpose");
 
@@ -507,6 +521,91 @@ async function handleReport(
   body.max_completion_tokens = Math.min(
     Number.isFinite(requested) && requested > 0 ? requested : config.maxReportOutputTokens,
     config.maxReportOutputTokens,
+  );
+  body.n = 1;
+  body.store = false;
+
+  const apiKey = deps.env("OPENAI_API_KEY");
+  if (!apiKey) return typedError(503, "unavailable", "OpenAI key not configured");
+
+  const upstream = await deps.fetch(config.openAiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  });
+  const text = await upstream.text();
+  if (upstream.ok) {
+    try {
+      // final = false siempre: suma tokens y costo, nunca cobra la consulta.
+      await recordRound(deps, userId, turnId, model, usageOf(JSON.parse(text).usage), false);
+    } catch (e) {
+      console.error("could not parse OpenAI response", String(e));
+    }
+  }
+  return new Response(text, {
+    status: upstream.status,
+    headers: { ...corsHeaders, "Content-Type": upstream.headers.get("Content-Type") ?? "application/json" },
+  });
+}
+
+/// El brief diario: copia de [handleReport] contra `daily_briefs`: una sola
+/// respuesta JSON, sin tools ni stream ni mensajes de sistema extra, solo con
+/// un claim vigente del día (`ai_brief_begin`). No cobra cuota.
+async function handleBrief(
+  req: Request,
+  deps: Deps,
+  userId: string,
+  turnId: string,
+  body: Record<string, unknown>,
+  options: HandleOptions,
+): Promise<Response> {
+  const day = req.headers.get("x-porty-brief-day") ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return typedError(400, "invalid_brief_day", "x-porty-brief-day header required");
+  }
+  if (body.tools !== undefined || body.tool_choice !== undefined || body.functions !== undefined) {
+    return typedError(400, "tools_not_allowed", "The daily brief does not use tools");
+  }
+  if (body.stream === true) {
+    return typedError(400, "stream_not_allowed", "The daily brief is not streamed");
+  }
+
+  const model = applyModelPolicy(body, { userId, percent: rolloutPercent(deps) });
+  const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
+  if (messages.length < 2 || messages[0].role !== "system") {
+    return typedError(403, "prompt_not_allowed", "the first message must be the brief prompt");
+  }
+  const hash = await sha256Hex(textOf(messages[0].content));
+  const allowed = options.allowedBriefPromptHashes ?? bundledBriefPromptHashes;
+  if (!allowed.has(hash)) return typedError(403, "prompt_not_allowed", "brief prompt not allowed");
+  if (messages.slice(1).some((m) => m.role === "system")) {
+    return typedError(403, "prompt_not_allowed", "extra system messages are not allowed");
+  }
+
+  const begin = await deps.db.rpc("ai_brief_begin", {
+    p_user_id: userId,
+    p_turn_id: turnId,
+    p_day: day,
+    p_model: model,
+    p_max_rounds: config.maxBriefRounds,
+    p_rate_per_minute: config.ratePerMinute,
+  });
+  if (begin.error) {
+    console.error("ai_brief_begin failed", begin.error.message);
+    return typedError(503, "unavailable", "Quota service unavailable");
+  }
+  const verdict = begin.data as { ok: boolean; reason?: string };
+  if (!verdict.ok) {
+    const reason = verdict.reason ?? "rejected";
+    const [status, message] = limitStatus[reason] ?? [403, "Rejected"];
+    return typedError(status, reason, message);
+  }
+
+  const requested = Number(body.max_completion_tokens ?? body.max_tokens ?? config.maxBriefOutputTokens);
+  delete body.max_tokens;
+  body.max_completion_tokens = Math.min(
+    Number.isFinite(requested) && requested > 0 ? requested : config.maxBriefOutputTokens,
+    config.maxBriefOutputTokens,
   );
   body.n = 1;
   body.store = false;

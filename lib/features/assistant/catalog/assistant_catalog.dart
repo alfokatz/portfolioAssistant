@@ -34,6 +34,7 @@ abstract final class AssistantCatalog {
     'QaInfoList',
     'QaGoldTeaser',
     'QaNewsSummary',
+    'QaSourceComparison',
     'QaPositionsSnapshot',
     'QaPeriodChange',
     'QaConcentrationBar',
@@ -50,6 +51,11 @@ abstract final class AssistantCatalog {
     'QaGoalStatus',
     'QaActionProposal',
   };
+
+  /// Los widgets de `widgetNames` que solo existen con el interruptor
+  /// `daily_brief` prendido (`build` con `dailyBrief`): apagado, el prompt y
+  /// el catálogo son los de antes del brief.
+  static const dailyBriefWidgetNames = {'QaSourceComparison'};
 
   static const basicComponentNames = {'Column', 'Text'};
 
@@ -78,6 +84,7 @@ abstract final class AssistantCatalog {
     qaInfoListItem,
     qaGoldTeaserItem,
     qaNewsSummaryItem,
+    qaSourceComparisonItem,
     qaPositionsSnapshotItem,
     qaPeriodChangeItem,
     qaConcentrationBarItem,
@@ -99,9 +106,15 @@ abstract final class AssistantCatalog {
   /// viajan con el resultado de su tool (`area_spec`) y con las reglas lean.
   /// Para mostrar las respuestas se usa siempre el completo, con
   /// [forDisplay] (suma los [appOnlyWidgetNames]).
+  ///
+  /// [dailyBrief]: el interruptor del brief diario está prendido para este
+  /// usuario (ver `AssistantToolContext.dailyBriefStatus`). Apagado (lo
+  /// normal), ni los widgets ni las reglas del brief entran: el prompt es
+  /// byte a byte el de antes (su hash sigue en el allowlist).
   static Catalog build({
     PromptVariant variant = PromptVariant.classic,
     bool forDisplay = false,
+    bool dailyBrief = false,
   }) {
     final base = BasicCatalogItems.asCatalog();
     final unused = [
@@ -109,13 +122,18 @@ abstract final class AssistantCatalog {
         if (!basicComponentNames.contains(item.name)) item,
     ];
     final lean = variant == PromptVariant.lean;
-    final deferred = lean ? PortyAreas.deferredWidgets : const <String>{};
+    final deferred =
+        lean
+            ? PortyAreas.deferredWidgetsFor(dailyBrief: dailyBrief)
+            : const <String>{};
     return base
         .copyWithout(itemsToRemove: unused)
         .copyWith(
           newItems: [
             for (final item in items)
-              if (!deferred.contains(item.name)) item,
+              if (!deferred.contains(item.name) &&
+                  (dailyBrief || !dailyBriefWidgetNames.contains(item.name)))
+                item,
             if (forDisplay) ..._appOnlyItems,
           ],
           systemPromptFragments: [
@@ -127,8 +145,11 @@ abstract final class AssistantCatalog {
                   ? updateOnlyCatalogRules
                   : fragment,
             lean
-                ? AreaSpecs.leanRules(assistantPromptRules)
-                : assistantPromptRules,
+                ? AreaSpecs.leanRules(
+                  assistantPromptRulesFor(dailyBrief: dailyBrief),
+                  dailyBrief: dailyBrief,
+                )
+                : assistantPromptRulesFor(dailyBrief: dailyBrief),
           ],
         );
   }

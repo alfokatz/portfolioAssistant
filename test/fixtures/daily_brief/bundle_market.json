@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": { "tier": "premium", "variant": "full", "courtesy": false },
+  "mine": [],
+  "locked": null,
+  "earnings": [],
+  "topics": [],
+  "market": {
+    "instruments": [
+      { "symbol": "^GSPC", "label": "S&P 500", "kind": "index", "pct": -0.4, "as_of": "2026-12-01T21:00:00Z" },
+      { "symbol": "^IXIC", "label": "Nasdaq", "kind": "index", "pct": 0.3, "as_of": "2026-12-01T21:00:00Z" },
+      { "symbol": "^DJI", "label": "Dow Jones", "kind": "index", "pct": -0.6, "as_of": "2026-12-01T21:00:00Z" },
+      { "symbol": "CL=F", "label": "Petróleo WTI", "kind": "commodity", "pct": -1.2, "as_of": "2026-12-01T19:30:00Z" },
+      { "symbol": "^TNX", "label": "Bono a 10 años de EE. UU.", "kind": "rate", "pct": null, "as_of": null },
+      { "symbol": "BTC-USD", "label": "Bitcoin", "kind": "crypto", "pct": 1.1, "as_of": "2026-12-02T08:00:00Z" }
+    ],
+    "pulse": [
+      { "text": "Wall Street cerró mixta mientras los inversores esperan datos de empleo.", "source_ids": ["p1"], "topic_id": null },
+      { "text": "El petróleo cayó por señales de mayor oferta.", "source_ids": ["p2"], "topic_id": "oil_energy" }
+    ]
+  },
+  "videos": [
+    { "video_id": "9bZkp7q19f0", "title": "Wall Street hoy", "channel": "CNBC Television", "published_at": "2026-12-01T22:30:00Z", "topic_id": null, "url": "https://www.youtube.com/watch?v=9bZkp7q19f0", "thumbnail": "https://i.ytimg.com/vi/9bZkp7q19f0/mqdefault.jpg" }
+  ],
+  "sources": {
+    "p1": { "title": "Wall Street ends mixed ahead of jobs data", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/wall-street-ends-mixed-2026-12-01/" },
+    "p2": { "title": "Oil settles lower on supply signals", "source": "AP", "domain": "apnews.com", "url": "https://apnews.com/article/oil-prices-supply-2026-12-01" }
+  },
+  "attribution": { "videos": "YouTube" }
+}

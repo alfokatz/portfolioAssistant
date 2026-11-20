@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "subject": "NVIDIA (NVDA)",
+  "points": [
+    { "kind": "agree", "text": "Reuters y CNBC informan que los ingresos superaron las previsiones.", "source_ids": ["s1", "s2"] },
+    { "kind": "differ", "text": "Según Bloomberg Línea, el foco está en la demanda de centros de datos.", "source_ids": ["s3"] },
+    { "kind": "only", "text": "Según Expansión, la compañía anticipó mayores costos de producción.", "source_ids": ["s4"] }
+  ],
+  "outlets": ["Reuters", "CNBC", "Bloomberg Línea", "Expansión"],
+  "sources": {
+    "s1": { "title": "Nvidia beats revenue forecasts", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/technology/nvidia-beats-revenue-forecasts-2026-12-01/" },
+    "s2": { "title": "Nvidia shares rise after results", "source": "CNBC", "domain": "cnbc.com", "url": "https://www.cnbc.com/2026/12/01/nvidia-shares-rise-after-results.html" },
+    "s3": { "title": "Nvidia y la demanda de centros de datos", "source": "Bloomberg Línea", "domain": "bloomberglinea.com", "url": "https://www.bloomberglinea.com/2026/12/01/nvidia-demanda-centros-de-datos/" },
+    "s4": { "title": "Nvidia anticipa mayores costos", "source": "Expansión", "domain": "expansion.com", "url": "https://www.expansion.com/mercados/2026/12/01/nvidia-costos.html" }
+  },
+  "as_of": "2026-12-02T08:05:00Z"
+}

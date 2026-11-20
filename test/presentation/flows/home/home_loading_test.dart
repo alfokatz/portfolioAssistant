@@ -30,9 +30,13 @@ import 'package:portfolio_assistant/presentation/flows/home/ui/home_screen.dart'
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/home_skeleton.dart';
 import 'package:portfolio_assistant/presentation/flows/home/ui/widgets/portfolio_hero_section.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
+import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_numbers_loader.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
+import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../features/daily_brief/fakes/daily_brief_fakes.dart';
 import '../../../features/weekly_report/weekly_report_ui_test.dart'
     show FixedWeeklyReportController;
 
@@ -107,6 +111,15 @@ class HomeTestHarness {
         ),
         weeklyReportControllerProvider.overrideWith(
           (ref) => FixedWeeklyReportController(const WeeklyReportState()),
+        ),
+        // Brief diario apagado: la Home queda como siempre.
+        dailyBriefControllerProvider.overrideWith(
+          (ref) => DailyBriefController(
+            store: FakeDailyBriefStore(statusResult: DailyBriefStatus.off),
+            numbers: DailyBriefNumbersLoader(quotes: FakeQuotes()),
+            writer: FakeDailyBriefWriter(),
+            userId: () => null,
+          ),
         ),
       ],
       child: MaterialApp(

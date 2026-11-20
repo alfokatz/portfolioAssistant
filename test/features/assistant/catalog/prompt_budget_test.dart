@@ -26,7 +26,10 @@ const _budgets = {
   // [W:PORTFOLIO_NOW] y no QaInvestOption (merge de feature/ui_redesign).
   // 2026-11-05: 9450 → 9650 por LANGUAGE (Porty bilingüe es/en: aplica a
   // todos los turnos, no puede ir en un answer_guide).
-  'rules': (tokens: 9650, charsPerToken: 3.78),
+  // 2026-11-20: 9650 → 9700 por [W:SOURCES] (una línea de ruteo y su sección,
+  // diferida con el prompt lean) y get_daily_brief en [W:KNOW] (brief diario,
+  // fase 2 del chat); medido 9695.
+  'rules': (tokens: 9700, charsPerToken: 3.78),
   // 2026-10-23: 9400 → 9600 por QaWatchlist, QaWeeklyReport (sin props) y
   // QaInfoList (la card genérica): casi todo es lo fijo de cada item.
   'schemas': (tokens: 9600, charsPerToken: 4.17),
@@ -39,11 +42,38 @@ const _budgets = {
   // tokens). El área planning sigue en su presupuesto (porty_areas_test).
   // 2026-11-05: 6850 → 6880 por months_from_now en get_goal_projection
   // (la app calcula la fecha; el modelo sumaba mal los meses).
+  // 2026-11-20: 6880 → 7070 por compare_sources y get_daily_brief (brief
+  // diario, fase 2 del chat); medido 7066. Van al final de la lista.
+  'tools': (tokens: 7070, charsPerToken: 4.19),
+};
+
+// Presupuestos de antes del brief diario: con el interruptor apagado el
+// prefijo es el de entonces (no puede crecer para todos por una función que
+// no ven). Los de `_budgets` valen con el brief prendido.
+const _baseBudgets = {
+  'rules': (tokens: 9650, charsPerToken: 3.78),
+  'schemas': (tokens: 9600, charsPerToken: 4.17),
+  'genui': (tokens: 1250, charsPerToken: 4.59),
   'tools': (tokens: 6880, charsPerToken: 4.19),
 };
 
 void main() {
+  // Con el interruptor del brief diario prendido: el prefijo más grande.
   final blocks = promptBlocks();
+  final baseBlocks = promptBlocks(dailyBrief: false);
+
+  for (final MapEntry(key: name, value: budget) in _baseBudgets.entries) {
+    test('$name fits its pre daily brief budget with the switch off', () {
+      final estimate = (baseBlocks[name]!.length / budget.charsPerToken).round();
+      expect(
+        estimate,
+        lessThanOrEqualTo(budget.tokens),
+        reason:
+            '$name ≈ $estimate tokens (presupuesto ${budget.tokens}). Con el '
+            'interruptor del brief apagado el prefijo no puede crecer.',
+      );
+    });
+  }
 
   for (final MapEntry(key: name, value: budget) in _budgets.entries) {
     test('$name fits its token budget', () {
