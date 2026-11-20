@@ -35,7 +35,9 @@ import {
   readDigest,
 } from "../_shared/news_digest.ts";
 import {
+  applyVideoStatus,
   fetchPlaylist,
+  fetchVideoStatuses,
   type TopicKeywords,
   type VideoChannel,
   videoRows,

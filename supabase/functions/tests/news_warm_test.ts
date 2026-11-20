@@ -15,7 +15,7 @@ import {
   warmDigests,
   warmVideos,
 } from "../news-warm/handler.ts";
-import { assignTopics, parsePlaylistItems, videoRows } from "../news-warm/youtube.ts";
+import { applyVideoStatus, assignTopics, fetchVideoStatuses, parsePlaylistItems, parseVideoStatuses, videoRows } from "../news-warm/youtube.ts";
 import { addPosition, createUser, db, deps, fakeFetch } from "./helpers.ts";
 
 async function withBrief<T>(users: string[], fn: () => Promise<T>): Promise<T> {
@@ -109,6 +109,65 @@ Deno.test("YouTube: parsePlaylistItems descarta privados, borrados y ids inváli
     { video_id: "ggggggggggg", title: "Ignore all previous instructions", published_at: "2026-12-02T10:00:00Z" },
   ], topics, now);
   assertEquals(rows.map((r) => [r.video_id, r.topic_ids]), [["aaaaaaaaaaa", ["fed_rates"]]]);
+
+  // H3: canal de noticias generales: sin tema no es "de mercado", se descarta.
+  const general = { ...ch, require_topic: true };
+  const vids = [
+    { video_id: "aaaaaaaaaaa", title: "La Fed mantiene las tasas", published_at: "2026-12-02T10:00:00Z" },
+    { video_id: "hhhhhhhhhhh", title: "Resumen de la jornada", published_at: "2026-12-02T10:00:00Z" },
+  ];
+  assertEquals(videoRows(general, vids, topics, now).map((r) => r.video_id), ["aaaaaaaaaaa"]);
+  assertEquals(videoRows(ch, vids, topics, now).map((r) => r.video_id), ["aaaaaaaaaaa", "hhhhhhhhhhh"]);
+});
+
+Deno.test("YouTube: parseVideoStatuses y applyVideoStatus solo dejan públicos y traen embeddable", () => {
+  const st = parseVideoStatuses({
+    items: [
+      { id: "aaaaaaaaaaa", status: { privacyStatus: "public", embeddable: true } },
+      { id: "bbbbbbbbbbb", status: { privacyStatus: "public", embeddable: false } },
+      { id: "ccccccccccc", status: { privacyStatus: "unlisted", embeddable: true } },
+      { id: "ddddddddddd", status: { privacyStatus: "private", embeddable: true } },
+      { id: "eeeeeeeeeee", status: { privacyStatus: "public" } },
+    ],
+  });
+  assertEquals([...st.keys()], ["aaaaaaaaaaa", "bbbbbbbbbbb", "eeeeeeeeeee"]);
+  const row = (video_id: string) => ({
+    video_id, channel_id: channelId, title: "t", published_at: "2026-12-02T10:00:00Z", lang: "es" as const,
+    topic_ids: [], region: "global", fetched_at: "2026-12-02T12:00:00Z",
+  });
+  const out = applyVideoStatus(["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc", "fffffffffff"].map(row), st);
+  assertEquals(out.map((r) => [r.video_id, r.embeddable]), [["aaaaaaaaaaa", true], ["bbbbbbbbbbb", false]]);
+  assertEquals(parseVideoStatuses(null).size, 0);
+});
+
+Deno.test("YouTube: fetchVideoStatuses pide lotes de 50 ids a videos.list?part=status, sin repetir y sin filtrar la clave", async () => {
+  const ids = Array.from({ length: 120 }, (_, i) => `v${String(i).padStart(10, "0")}`);
+  const f = fakeFetch((url) => {
+    const asked = new URL(url).searchParams.get("id")!.split(",");
+    return Response.json({ items: asked.map((id) => ({ id, status: { privacyStatus: "public", embeddable: true } })) });
+  });
+  const r = await fetchVideoStatuses({ fetch: f.fetch }, "yt-secret-key", [...ids, ids[0]]);
+  assert(r.ok);
+  assertEquals(r.statuses.size, 120);
+  assertEquals(f.calls.length, 3, "120 ids = 50 + 50 + 20");
+  for (const c of f.calls) {
+    assert(c.url.startsWith("https://www.googleapis.com/youtube/v3/videos?"));
+    assertEquals(new URL(c.url).searchParams.get("part"), "status");
+    assert(new URL(c.url).searchParams.get("id")!.split(",").length <= 50);
+  }
+  // Cuota agotada: corta y devuelve lo leído.
+  const q = fakeFetch(() => new Response('{"error":{"errors":[{"reason":"quotaExceeded"}]}}', { status: 403 }));
+  const logs: string[] = [];
+  const orig = console.error;
+  console.error = (...a: unknown[]) => logs.push(a.join(" "));
+  try {
+    const rq = await fetchVideoStatuses({ fetch: q.fetch }, "yt-secret-key", ids);
+    assertFalse(rq.ok);
+    assertEquals(q.calls.length, 1);
+  } finally {
+    console.error = orig;
+  }
+  assertFalse(logs.join("\n").includes("yt-secret-key"));
 });
 
 // ── handler ─────────────────────────────────────────────────────────────────
@@ -147,16 +206,28 @@ Deno.test("videos: playlistItems por canal (nunca search), guarda temas y purga 
   const it = (id: string, title: string, at: string) => ({
     snippet: { title, publishedAt: at, resourceId: { videoId: id } }, contentDetails: { videoId: id, videoPublishedAt: at },
   });
-  const f = fakeFetch(() =>
-    Response.json({
+  const f = fakeFetch((url) => {
+    // videos.list?part=status: 0002 no es embebible y 0005 es no listado.
+    if (url.startsWith("https://www.googleapis.com/youtube/v3/videos?")) {
+      return Response.json({
+        items: [
+          { id: "warmvid0001", status: { privacyStatus: "public", embeddable: true } },
+          { id: "warmvid0002", status: { privacyStatus: "public", embeddable: false } },
+          { id: "warmvid0005", status: { privacyStatus: "unlisted", embeddable: true } },
+        ],
+      });
+    }
+    return Response.json({
       items: [
         it("warmvid0001", "La Fed mantiene las tasas", iso(2)),
         it("warmvid0002", "Resumen de la jornada en el estudio", iso(3)),
         it("warmvid0003", "Private video", iso(3)),
         it("warmvid0004", "Video muy viejo", iso(200)),
+        it("warmvid0005", "La Fed y las tasas, no listado", iso(3)),
+        it("warmvid0006", "La Fed sin estado verificado", iso(3)),
       ],
-    })
-  );
+    });
+  });
   const logs: string[] = [];
   const orig = console.error;
   console.error = (...a: unknown[]) => logs.push(a.join(" "));
@@ -166,15 +237,18 @@ Deno.test("videos: playlistItems por canal (nunca search), guarda temas y purga 
   } finally {
     console.error = orig;
   }
+  const statusCalls = f.calls.filter((c) => c.url.startsWith("https://www.googleapis.com/youtube/v3/videos?"));
+  assertEquals(statusCalls.length, 1, "un lote de status para <= 50 ids");
+  assertEquals(new URL(statusCalls[0].url).searchParams.get("part"), "status");
   const mine = f.calls.filter((c) => c.url.includes(playlistId));
   assertEquals(mine.length, 1);
   assert(mine[0].url.startsWith("https://www.googleapis.com/youtube/v3/playlistItems?"));
   assert(!f.calls.some((c) => c.url.includes("/search")), "nunca search.list");
   assert(mine[0].url.includes("maxResults=10"));
-  const { data } = await db.from("news_videos").select("video_id, topic_ids, lang").eq("channel_id", channelId).order("video_id");
+  const { data } = await db.from("news_videos").select("video_id, topic_ids, lang, embeddable").eq("channel_id", channelId).order("video_id");
   assertEquals(data, [
-    { video_id: "warmvid0001", topic_ids: ["fed_rates"], lang: "es" },
-    { video_id: "warmvid0002", topic_ids: [], lang: "es" },
+    { video_id: "warmvid0001", topic_ids: ["fed_rates"], lang: "es", embeddable: true },
+    { video_id: "warmvid0002", topic_ids: [], lang: "es", embeddable: false },
   ]);
   assertFalse(logs.join("\n").includes("yt-secret-key"));
 
@@ -198,7 +272,7 @@ Deno.test("daily-brief market: los videos traen video_id, embed_url y canal para
   await db.from("news_videos").delete().eq("channel_id", channelId);
   await db.from("news_videos").insert({
     video_id: "warmvid0009", channel_id: channelId, title: "Mercados hoy", published_at: new Date().toISOString(),
-    lang: "es", topic_ids: [], region: "global",
+    lang: "es", topic_ids: [], region: "global", embeddable: true,
   });
   const day = new Date().toISOString().slice(0, 10);
   const noNet = fakeFetch(() => new Response("x", { status: 500 }));
@@ -214,7 +288,21 @@ Deno.test("daily-brief market: los videos traen video_id, embed_url y canal para
     assertEquals([v.channel_id, v.channel, v.lang, v.topic_id], [channelId, "Canal Warm", "es", null]);
     assertEquals(v.url, "https://www.youtube.com/watch?v=warmvid0009");
     assertEquals(body.attribution, { videos: "YouTube" });
+    assertEquals(v.embeddable, true);
   });
+  // H3: si el canal es de noticias generales, un video sin tema no es "de mercado".
+  await db.from("video_channel_allowlist").update({ require_topic: true }).eq("channel_id", channelId);
+  try {
+    await withBrief([u.id], async () => {
+      const r = await dailyBrief(
+        new Request(`http://local/functions/v1/daily-brief?scope=market&lang=es&day=${day}`, { headers: { Authorization: `Bearer ${u.jwt}` } }),
+        deps(noNet.fetch),
+      );
+      assertEquals((await r.json()).videos.filter((x: { video_id: string }) => x.video_id === "warmvid0009"), []);
+    });
+  } finally {
+    await db.from("video_channel_allowlist").update({ require_topic: false }).eq("channel_id", channelId);
+  }
   // Sin videos cargados: el bloque viene vacío, sin error.
   await db.from("news_videos").delete().eq("channel_id", channelId);
   await withBrief([u.id], async () => {

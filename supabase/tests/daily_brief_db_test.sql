@@ -95,7 +95,7 @@ begin
   -- Los medios nuevos entran deshabilitados hasta compliance.
   perform pg_temp.check_true('medios nuevos deshabilitados',
     not exists (select 1 from public.news_source_allowlist
-                 where domain in ('asia.nikkei.com', 'federalreserve.gov') and enabled));
+                 where domain in ('asia.nikkei.com', 'imf.org') and enabled));
   perform pg_temp.check_true('reuters con prioridad de GDELT',
     (select gdelt_priority from public.news_source_allowlist where domain = 'reuters.com') = 1);
   perform pg_temp.check_true('notification kind', exists (

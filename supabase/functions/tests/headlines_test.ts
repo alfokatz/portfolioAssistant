@@ -170,11 +170,41 @@ Deno.test("isRecommendation: misma lista y casos que el selector de Dart", () =>
     "Comprá AAA antes de que suba",
     "Aprovechá la baja",
     "Vendé todo",
+    // H5 (2026-11-21)
+    "Top stock picks for 2027",
+    "Goldman raises Nvidia price target to $200",
+    "Stocks to buy in December",
+    "Bitcoin price prediction: where is it headed",
+    "Predicción de precio de Bitcoin para diciembre",
+    "Qué comprar en una recesión",
+    "Qué acciones comprar hoy",
+    "What to buy before the Fed meeting",
+    "Dónde invertir tus ahorros en 2027",
+    "Where to invest $10,000 now",
+    "Compra acciones de energía antes del invierno",
+    "Compre bonos ahora",
+    "Venda sus dólares hoy",
+    "Invierta en oro",
+    "Atención: invierte en cripto ya",
+    "Buy Tesla before earnings",
+    "Los mejores cedears para comprar este mes",
+    "Invertí en dólares",
   ]) assert(isRecommendation(h), h);
   for (const h of [
     "Analyst upgrades NVDA to Buy",
     "AAA presenta resultados del trimestre",
     "Microsoft compra una empresa de videojuegos",
+    // H5: titulares legítimos con las mismas palabras
+    "Apple compra una startup de inteligencia artificial",
+    "Amazon vende su participación en Rivian",
+    "Berkshire invierte en una petrolera japonesa",
+    "Compra de Twitter: nuevo capítulo judicial",
+    "Por qué Tesla quiere vender su división solar",
+    "Sell-off in tech stocks deepens",
+    "Sell off hits Asian markets",
+    "Los fondos compraron bonos en octubre",
+    "Qué pasó hoy en los mercados",
+    "Apple buys a startup",
   ]) assert(!isRecommendation(h), h);
 });
 
