@@ -8,9 +8,9 @@
 //   con el JWT y `x-porty-turn-id`.
 //
 // - Exactamente uno de `ticker` o `topic_id`.
-// - Gating en el servidor: ticker → `news_data_allowed` (Gold cualquiera,
-//   Premium solo tickers en cartera); tema → `gold_data_allowed(uid, null)`
-//   (solo Gold). Free: 403 `plan_required` con `required_plan` (`premium` para
+// - Gating en el servidor: ticker → `news_compare_allowed` (Gold cualquiera,
+//   Premium solo tickers en cartera); tema → `news_compare_allowed(uid, null)`
+//   (solo Gold; ni la cortesía ni un informe en curso alcanzan). Free: 403 `plan_required` con `required_plan` (`premium` para
 //   un ticker en cartera, `gold` para el resto).
 // - Interruptor `daily_brief` + pieza `compare`: apagado = 403 `disabled`.
 // - Costo: caché compartida de 6 h (un hit no gasta nada). Un miss gasta 3
@@ -21,7 +21,7 @@
 //   (`_shared/news_attribution.ts`).
 
 import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/common.ts";
-import { allHeld, goldAllowed, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
+import { allHeld, readCache, writeCache } from "../_shared/data_cache.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { readResponse } from "../_shared/openai_responses.ts";
 import { allowedDomain, citationConfig, costUsd, hostOf } from "../_shared/news_citations.ts";
@@ -174,6 +174,14 @@ async function allowlist(deps: Deps): Promise<Map<string, string>> {
   return new Map((data ?? []).map((r: { domain: string; name: string }) => [r.domain, r.name]));
 }
 
+/// Plan efectivo (RPC `news_compare_allowed`): Gold ticker o tema, Premium solo
+/// tickers en cartera. No pasa por `gold_data_allowed`: esa deja entrar a
+/// cualquiera con un informe semanal en curso o la cortesía de un ticker.
+async function compareAllowed(deps: Deps, userId: string, ticker: string | null): Promise<boolean> {
+  const { data } = await deps.db.rpc("news_compare_allowed", { p_user_id: userId, p_ticker: ticker });
+  return data === true;
+}
+
 export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return typedError(405, "method_not_allowed", "POST only");
@@ -208,13 +216,13 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
 
   // Gating: el servidor manda.
   if (body.ticker) {
-    if (!(await newsAllowed(deps, userId, [body.ticker]))) {
+    if (!(await compareAllowed(deps, userId, body.ticker))) {
       const held = await allHeld(deps, userId, [body.ticker]);
       return typedError(403, "plan_required", "plan does not include this comparison", {
         required_plan: held ? "premium" : "gold",
       });
     }
-  } else if (!(await goldAllowed(deps, userId, []))) {
+  } else if (!(await compareAllowed(deps, userId, null))) {
     return typedError(403, "plan_required", "Gold required", { required_plan: "gold" });
   }
 

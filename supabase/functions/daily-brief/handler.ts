@@ -69,7 +69,7 @@ function validDay(day: string | null, nowMs: number): day is string {
   if (!day || !isoDay.test(day)) return false;
   const t = Date.parse(`${day}T00:00:00Z`);
   if (!Number.isFinite(t) || new Date(t).toISOString().slice(0, 10) !== day) return false;
-  return Math.abs(t - nowMs) <= 3 * 24 * 3600 * 1000;
+  return Math.abs(t - nowMs) <= 24 * 3600 * 1000;
 }
 
 const pieceOf: Record<Scope, "feed" | "market" | "topics" | null> = {
@@ -90,7 +90,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return typedError(400, "invalid_scope", "scope must be brief, feed, market or topic");
   }
   if (!validDay(url.searchParams.get("day"), deps.now())) {
-    return typedError(400, "invalid_day", "day must be YYYY-MM-DD (today, give or take)");
+    return typedError(400, "invalid_day", "day must be YYYY-MM-DD (yesterday, today or tomorrow, UTC)");
   }
   const day = url.searchParams.get("day")!;
   const lang: Lang = url.searchParams.get("lang") === "en" ? "en" : "es";

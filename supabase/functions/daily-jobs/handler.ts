@@ -235,6 +235,8 @@ async function briefPushRows(
   if (!deps.store.dailyBriefInputs) return none;
   const withPortfolio = eight.filter((u) => u.symbols.length > 0);
   if (withPortfolio.length === 0) return none;
+  // Interruptor apagado para todos (sin `percent` ni `users`): ni se pregunta.
+  if (deps.store.dailyBriefCronOn && !(await deps.store.dailyBriefCronOn())) return none;
   const all = await deps.store.dailyBriefInputs(withPortfolio.map((u) => u.user_id));
   const inputs = all.filter((i) => i.brief_on && i.push_piece);
   const users = new Set(inputs.map((i) => i.user_id));

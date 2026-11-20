@@ -37,6 +37,10 @@ export const digestConfig = {
   maxBullets: 4,
   /// Arriendo del generador de una clave: si falla, otro intenta pasado esto.
   leaseMs: 90_000,
+  /// Una generación que falló no se reintenta antes de esto (por clave y
+  /// franja): sin este freno, un fallo persistente de OpenAI se redisparaba
+  /// cada `leaseMs` con cualquier pedido (~960 búsquedas/día por clave).
+  failTtlSeconds: 1_800,
   /// Franjas de caché por defecto: 1 por día (la opción más barata, spec §11
   /// P5). Se cambian en `app_config.daily_brief_costs` (`loadDigestCosts`).
   pulseSlotsPerDay: 1,
@@ -312,6 +316,9 @@ export async function generateAndCache(
 ): Promise<DigestBody | null> {
   const apiKey = deps.env("OPENAI_API_KEY");
   if (!apiKey) return null;
+  const failKey = `digestfail:${keyOf(spec, deps.now(), false, costs)}`;
+  const failed = await readCache<unknown>(deps, failKey);
+  if (failed && failed.ageSeconds < digestConfig.failTtlSeconds) return null;
   const lease = await deps.db.rpc("upstream_rate_take", {
     p_source: leaseSource(spec),
     p_interval_ms: digestConfig.leaseMs,
@@ -322,7 +329,10 @@ export async function generateAndCache(
     allow,
     model: deps.env("NEWS_CONTEXT_MODEL") ?? citationConfig.defaultModel,
   });
-  if (!body) return null;
+  if (!body) {
+    await writeCache(deps, failKey, { failed: true });
+    return null;
+  }
   await writeCache(deps, keyOf(spec, deps.now(), false, costs), body);
   return body;
 }

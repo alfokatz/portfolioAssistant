@@ -30,6 +30,9 @@ export interface JobsStore {
   /// Brief diario (spec §3.7): insumos del push de [userIds]
   /// (`daily_brief_push_inputs`). Sin implementar = nadie lo tiene prendido.
   dailyBriefInputs?(userIds: string[]): Promise<BriefPushInput[]>;
+  /// true si el interruptor `daily_brief` está prendido para alguien
+  /// (`_daily_brief_cron_on`). Sin implementar = se asume prendido.
+  dailyBriefCronOn?(): Promise<boolean>;
   /// Titulares ya calentados de [symbols] para la fecha local [day]: solo lee
   /// la caché (`gdelt:t:<SYM>:<día>`), nunca consulta GDELT.
   warmedHeadlines?(symbols: string[], day: string): Promise<Map<string, CachedHeadline[]>>;
@@ -115,6 +118,11 @@ export function supabaseJobsStore(db: SupabaseClient): JobsStore {
           price: h.price === null || h.price === undefined ? null : Number(h.price),
         })),
       }));
+    },
+    async dailyBriefCronOn() {
+      const { data, error } = await db.rpc("_daily_brief_cron_on");
+      fail("dailyBriefCronOn", error);
+      return data === true;
     },
     async dailyBriefInputs(userIds) {
       const { data, error } = await db.rpc("daily_brief_push_inputs", { p_user_ids: userIds });
