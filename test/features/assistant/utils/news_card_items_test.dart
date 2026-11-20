@@ -49,7 +49,10 @@ const _noHeadlines = ToolCallRecord(
 void main() {
   test('the web-search notes (with a real title) first, then recent '
       'headlines; without the search, headlines as always', () {
+    // Fecha fija: sin `as_of` el filtro de recientes usa la hora real y el
+    // titular del 12/11 se caía a los 7 días.
     final withHeadlines = NewsCardItems.of({
+      'as_of': '2026-11-14T13:05:00Z',
       'news': [
         {
           'title': 'Nvidia CEO resigns',
