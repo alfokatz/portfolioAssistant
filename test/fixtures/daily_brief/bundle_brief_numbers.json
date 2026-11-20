@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": { "tier": "free", "variant": "numbers", "courtesy": false },
+  "mine": [],
+  "locked": { "mine_tickers_48h": 2 },
+  "earnings": [],
+  "topics": [],
+  "market": {
+    "instruments": [],
+    "pulse": [
+      { "text": "La Reserva Federal dejó las tasas sin cambios y los mercados esperan la próxima reunión.", "source_ids": ["p1"], "topic_id": "fed_rates" }
+    ]
+  },
+  "videos": [],
+  "sources": {
+    "p1": { "title": "Fed holds rates steady", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/", "published_at": "2026-12-01T19:00:00Z" }
+  },
+  "attribution": { "videos": "YouTube" },
+  "asset_classes": ["equity"]
+}

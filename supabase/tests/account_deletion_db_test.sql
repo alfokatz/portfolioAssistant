@@ -26,13 +26,14 @@ create temp table inventory (table_name text primary key, how text not null) on 
 insert into inventory values
   ('ai_turn_usage', 'cascade'), ('ai_usage_monthly', 'cascade'), ('allocation_plans', 'cascade'),
   ('api_rate_limits', 'cascade'), ('binance_connections', 'cascade'), ('binance_keys', 'cascade'),
-  ('closed_positions', 'cascade'), ('etoro_connections', 'cascade'), ('etoro_oauth_states', 'cascade'),
+  ('closed_positions', 'cascade'), ('daily_briefs', 'cascade'), ('etoro_connections', 'cascade'), ('etoro_oauth_states', 'cascade'),
   ('etoro_tokens', 'cascade'), ('first_full_imports', 'cascade'), ('investor_profiles', 'cascade'), ('market_tastes', 'cascade'), ('news_context_usage', 'cascade'),
   ('notification_log', 'cascade'), ('notification_outbox', 'cascade'), ('notification_preferences', 'cascade'),
   ('porty_topics', 'cascade'), ('positions', 'cascade'), ('price_alerts', 'cascade'),
   ('product_events', 'cascade'), ('push_devices', 'cascade'), ('snaptrade_connections', 'cascade'),
   ('snaptrade_users', 'cascade'), ('subscription_events', 'cascade'), ('user_goals', 'cascade'),
-  ('user_memories', 'cascade'), ('user_subscriptions', 'cascade'), ('watchlist_items', 'cascade'),
+  ('user_memories', 'cascade'), ('user_news_sources', 'cascade'), ('user_news_topics', 'cascade'),
+  ('user_subscriptions', 'cascade'), ('watchlist_items', 'cascade'),
   ('web_search_usage', 'cascade'), ('weekly_free_analysis', 'cascade'), ('weekly_reports', 'cascade'),
   ('subscription_sync_log', 'trigger');
 
@@ -141,6 +142,9 @@ begin
   insert into public.web_search_usage (user_id, day) values (u, current_date);
   insert into public.weekly_free_analysis (user_id, week_start) values (u, date_trunc('week', now())::date);
   insert into public.weekly_reports (user_id, week_start, status) values (u, date_trunc('week', now())::date, 'ready');
+  insert into public.daily_briefs (user_id, brief_day, status, variant) values (u, current_date, 'ready', 'numbers');
+  insert into public.user_news_topics (user_id, topic_id, followed) values (u, 'fed_rates', true);
+  insert into public.user_news_sources (user_id, domain, preference) values (u, 'reuters.com', 'prefer');
 end;
 $$;
 

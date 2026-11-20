@@ -19,6 +19,13 @@ export type Quote = {
   marketState: string | null;
   /// EQUITY, ETF, MUTUALFUND, CRYPTOCURRENCY…
   quoteType: string | null;
+  /// Nombre de la empresa según Yahoo (para buscar noticias de tickers sin
+  /// CIK de la SEC). Opcionales: solo están si Yahoo los trae.
+  longName?: string;
+  shortName?: string;
+  /// Hora (epoch en segundos) de la última operación: cuándo fue el último
+  /// cierre del mercado de ese símbolo.
+  regularMarketTime?: number;
 };
 
 export const quotesConfig = {
@@ -31,6 +38,7 @@ export const quotesConfig = {
 };
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const text = (v: unknown): string | undefined => (typeof v === "string" && v.trim() !== "" ? v.trim() : undefined);
 
 export function parseYahooQuotes(body: unknown): Quote[] {
   const result = (body as { quoteResponse?: { result?: unknown[] } })?.quoteResponse?.result;
@@ -50,6 +58,9 @@ export function parseYahooQuotes(body: unknown): Quote[] {
       currency: typeof r.currency === "string" ? r.currency : null,
       marketState: typeof r.marketState === "string" ? r.marketState : null,
       quoteType: typeof r.quoteType === "string" ? r.quoteType : null,
+      ...(text(r.longName) ? { longName: text(r.longName) } : {}),
+      ...(text(r.shortName) ? { shortName: text(r.shortName) } : {}),
+      ...(num(r.regularMarketTime) !== null ? { regularMarketTime: num(r.regularMarketTime)! } : {}),
     });
   }
   return out;

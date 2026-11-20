@@ -26,13 +26,18 @@ import { bearer, corsHeaders, type Deps, json, typedError } from "../_shared/com
 import { clientTextTrusted, newsAllowed, readCache, writeCache } from "../_shared/data_cache.ts";
 import { pressName } from "../_shared/gdelt.ts";
 import { resolveCik } from "../_shared/sec_data.ts";
-import { readResponse, type ResponsesOutput } from "../_shared/openai_responses.ts";
+import { readResponse } from "../_shared/openai_responses.ts";
+import { allowedDomain, type Citation, citationConfig, citationsOf, costUsd, isArticleUrl, titleFromUrl } from "../_shared/news_citations.ts";
+
+// Los helpers de citas viven en `_shared/news_citations.ts` (los usan también
+// `daily-brief` y `news-compare`); se re-exportan para no tocar los tests.
+export { allowedDomain, citationsOf, costUsd, isArticleUrl, titleFromUrl };
 
 export const config = {
   openAiUrl: "https://api.openai.com/v1/responses",
   /// Modelo con `web_search` (override: NEWS_CONTEXT_MODEL). Tiene que
   /// aceptar `filters.allowed_domains`: gpt-4.1-mini NO lo acepta (400).
-  defaultModel: "gpt-5-mini",
+  defaultModel: citationConfig.defaultModel,
   cacheTtlSeconds: 45 * 60,
   /// Sin novedades: se vuelve a buscar antes (puede haber sido un mal momento).
   emptyCacheTtlSeconds: 10 * 60,
@@ -41,24 +46,15 @@ export const config = {
   /// afuera la mitad de las posiciones de una cartera chica.
   maxTickers: 5,
   maxQuestionLength: 240,
-  maxCitations: 8,
+  maxCitations: citationConfig.maxCitations,
   /// Incluye el razonamiento de gpt-5-mini (~500 tokens con effort low):
   /// con 900 la respuesta quedaba cortada o vacía.
   maxOutputTokens: 2_500,
   timeoutMs: 25_000,
-  /// US$ por búsqueda (developers.openai.com/api/docs/pricing, 2026-10).
-  searchCallUsd: 0.01,
-  /// US$ por millón de tokens [entrada, salida]; lo desconocido usa el default.
-  tokenPrices: {
-    "gpt-4.1-mini": [0.4, 1.6],
-    "gpt-4.1": [2, 8],
-    "gpt-5-mini": [0.25, 2],
-    "gpt-5": [1.25, 10],
-    "gpt-6-luna": [0.1, 0.5],
-  } as Record<string, [number, number]>,
+  /// US$ por búsqueda y por millón de tokens: ver `citationConfig`.
+  searchCallUsd: citationConfig.searchCallUsd,
+  tokenPrices: citationConfig.tokenPrices,
 };
-
-type Citation = { title: string; url: string; source: string; domain: string };
 
 export type NewsContext = {
   status: "ok" | "empty";
@@ -163,98 +159,6 @@ export function bullets(text: string): string[] {
     )
     .filter((l) => l.length > 0)
     .slice(0, 8);
-}
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-  } catch {
-    return "";
-  }
-};
-
-/// El medio permitido al que pertenece [host] (subdominios incluidos).
-export function allowedDomain(host: string, allow: Map<string, string>): string | null {
-  for (const domain of allow.keys()) {
-    if (host === domain || host.endsWith(`.${domain}`)) return domain;
-  }
-  return null;
-}
-
-/// Páginas de cotización o históricos de precios: no son una fuente de
-/// noticias (`/equities/` y `-historical-data` son las de Investing).
-const quotePage = /\/(quotes?|symbol|historical|history|equities)\b|-historical-data\b/i;
-
-/// Hosts de prueba de un medio (visto: `www-stage-fastly.stellar.cnn.com`).
-const stagingHost = /(^|[.-])(stage|staging|preview|dev|qa|fastly)([.-]|$)/i;
-
-/// Una nota y no una portada o sección (`cnn.com/business`, `/markets/stocks`):
-/// el último tramo de la ruta tiene guiones o números (el slug o el id de la
-/// nota) o termina en .htm(l).
-function looksLikeArticle(path: string): boolean {
-  const last = path.split("/").filter((s) => s.length > 0).pop();
-  return last !== undefined && (/[-_\d]/.test(last) || /\.html?$/i.test(last));
-}
-
-/// Un título legible a partir del slug de la nota
-/// (`/2026/11/12/nvidia-ceo-jensen-huang-resigns.html` → "Nvidia ceo jensen
-/// huang resigns"). null si la ruta no tiene un slug con palabras.
-export function titleFromUrl(url: URL): string | null {
-  const segments = url.pathname.split("/").filter((s) => s.length > 0).reverse();
-  for (const seg of segments) {
-    const words = decodeURIComponent(seg)
-      .replace(/\.html?$/i, "")
-      .split(/[-_]+/)
-      // Fechas, ids y hashes del final no son palabras del título.
-      .filter((w) => /[a-záéíóúñ]/i.test(w) && !/^[0-9a-f]{6,}$/i.test(w) && !/\d{3,}/.test(w));
-    if (words.length >= 3) {
-      const text = words.join(" ").toLowerCase();
-      return text.charAt(0).toUpperCase() + text.slice(1);
-    }
-  }
-  return null;
-}
-
-/// Si [url] es un artículo citable: de un host de producción, que no sea
-/// una página de datos de mercado ni una portada o sección.
-export function isArticleUrl(url: URL): boolean {
-  return !stagingHost.test(url.hostname) && !quotePage.test(url.pathname) && looksLikeArticle(url.pathname);
-}
-
-/// Citas sin repetir, solo artículos ([isArticleUrl]) de medios permitidos, sin
-/// parámetros de rastreo.
-export function citationsOf(annotations: { url: string; title?: string }[], allow: Map<string, string>): Citation[] {
-  const seen = new Set<string>();
-  const out: Citation[] = [];
-  for (const a of annotations) {
-    let url: URL;
-    try {
-      url = new URL(a.url);
-    } catch {
-      continue;
-    }
-    for (const k of [...url.searchParams.keys()]) if (k.startsWith("utm_")) url.searchParams.delete(k);
-    const clean = url.toString();
-    const domain = allowedDomain(hostOf(clean), allow);
-    if (!domain || seen.has(clean) || !isArticleUrl(url)) continue;
-    seen.add(clean);
-    const source = allow.get(domain)!;
-    const given = (a.title ?? "").trim();
-    // Sin título (o solo el nombre del medio), el de la URL: en la app la
-    // nota se ve con algo que dice de qué trata, no "CNBC, CNBC, CNBC".
-    const title = given && given.toLowerCase() !== source.toLowerCase() ? given : titleFromUrl(url) ?? source;
-    out.push({ title, url: clean, source, domain });
-    if (out.length === config.maxCitations) break;
-  }
-  return out;
-}
-
-export function costUsd(model: string, out: ResponsesOutput): number {
-  const [inPrice, outPrice] = config.tokenPrices[model] ?? config.tokenPrices[config.defaultModel];
-  const calls = Math.max(out.searchCalls, 1);
-  return Number(
-    (calls * config.searchCallUsd + (out.inputTokens * inPrice + out.outputTokens * outPrice) / 1e6).toFixed(6),
-  );
 }
 
 async function allowlist(deps: Deps): Promise<Map<string, string>> {

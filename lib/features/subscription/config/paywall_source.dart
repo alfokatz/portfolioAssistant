@@ -95,6 +95,15 @@ abstract final class PaywallSource {
   /// Chat: noticias de un ticker que el usuario no tiene (Premium → Gold).
   static const chatNewsNotHeld = 'chat_news_not_held';
 
+  /// Brief diario: el aviso de plan (Free) de las noticias de lo tuyo.
+  static const dailyBrief = 'daily_brief';
+
+  /// Feed de noticias: las noticias de lo tuyo bloqueadas (Free).
+  static const newsFeed = 'news_feed';
+
+  /// "Qué dice cada medio" sin el plan que lo trae.
+  static const newsCompare = 'news_compare';
+
   /// Las constantes fijas (los tests chequean que sean únicas y válidas).
   static const values = <String>[
     settings,
@@ -128,6 +137,9 @@ abstract final class PaywallSource {
     priceAlertReactivate,
     chatActionPositionLimit,
     chatNewsNotHeld,
+    dailyBrief,
+    newsFeed,
+    newsCompare,
   ];
 
   static final _format = RegExp(r'^[a-z][a-z0-9_]{2,59}$');

@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": { "tier": "premium", "variant": "full", "courtesy": false },
+  "mine": [
+    { "id": "h1", "ticker": "NVDA", "kind": "held", "title": "Nvidia supera las previsiones de ingresos y sube en el after hours", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/technology/nvidia-beats-revenue-forecasts-2026-12-01/", "published_at": "2026-12-01T21:40:00Z", "lang": "es", "preferred": true },
+    { "id": "h2", "ticker": "NVDA", "kind": "held", "title": "Nvidia shares rise after quarterly results top estimates", "source": "CNBC", "domain": "cnbc.com", "url": "https://www.cnbc.com/2026/12/01/nvidia-shares-rise-after-results.html", "published_at": "2026-12-01T22:05:00Z", "lang": "en", "preferred": false },
+    { "id": "h3", "ticker": "AAPL", "kind": "held", "title": "Apple presenta una nueva línea de productos para el año próximo", "source": "AP", "domain": "apnews.com", "url": "https://apnews.com/article/apple-new-products-2026", "published_at": "2026-12-01T16:20:00Z", "lang": "es", "preferred": false }
+  ],
+  "locked": null,
+  "earnings": [],
+  "topics": [],
+  "market": {
+    "instruments": [],
+    "pulse": [
+      { "text": "La Reserva Federal dejó las tasas sin cambios y los mercados esperan la próxima reunión.", "source_ids": ["p1"], "topic_id": "fed_rates", "asset_link": null, "asset_class": null },
+      { "text": "El petróleo cerró a la baja por señales de mayor oferta.", "source_ids": ["p2"], "topic_id": "oil_energy", "asset_link": null, "asset_class": null },
+      { "text": "Los rendimientos de los bonos del Tesoro subieron tras datos de empleo.", "source_ids": ["p3"], "topic_id": "bonds_rates", "asset_link": "tenés bonos o ETF de renta fija, que se mueven con las tasas", "asset_class": "bond" }
+    ]
+  },
+  "videos": [],
+  "sources": {
+    "p1": { "title": "Fed holds rates steady", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/", "published_at": "2026-12-01T19:00:00Z" },
+    "p2": { "title": "Oil settles lower on supply signals", "source": "AP", "domain": "apnews.com", "url": "https://apnews.com/article/oil-prices-supply-2026-12-01", "published_at": "2026-12-01T20:00:00Z" },
+    "p3": { "title": "Treasury yields climb after jobs data", "source": "CNBC", "domain": "cnbc.com", "url": "https://www.cnbc.com/2026/12/01/treasury-yields-jobs-data.html", "published_at": "2026-12-01T15:00:00Z" }
+  },
+  "attribution": { "videos": "YouTube" },
+  "asset_classes": ["equity", "bond"]
+}

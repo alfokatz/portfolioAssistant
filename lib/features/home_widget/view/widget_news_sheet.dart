@@ -12,6 +12,7 @@ import 'package:portfolio_assistant/features/subscription/providers/subscription
 import 'package:portfolio_assistant/features/subscription/ui/subscription_paywall_sheet.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/news_headline_row.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Abre una URL afuera de la app (inyectable en tests).
@@ -288,8 +289,6 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
     final source = item.source ?? '';
     final String small;
     final String main;
@@ -303,58 +302,21 @@ class _ItemRow extends StatelessWidget {
       main = WidgetNewsSheet.earningsLine(item, now);
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (small.isNotEmpty)
-            Text(
-              small,
-              style: tt.bodySmall?.copyWith(color: colors.textSecondary),
-            ),
-          Text(
-            main,
-            style: tt.bodyLarge?.copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
-            ),
-          ),
-          if (primary) ...[
-            const SizedBox(height: AppDimens.sp12),
-            Wrap(
-              spacing: AppDimens.sp8,
-              runSpacing: AppDimens.sp8,
-              children: [
-                if (item.isNews && (item.url ?? '').isNotEmpty)
-                  OutlinedButton(
-                    onPressed: () => onRead?.call(item),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, AppDimens.touchTarget),
-                      foregroundColor: colors.textPrimary,
-                      side: BorderSide(color: colors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                      ),
-                    ),
-                    child: Text(
-                      'home_widget_read_on'.tr(namedArgs: {'source': source}),
-                    ),
-                  ),
-                TextButton(
-                  onPressed: () => onAsk?.call(item),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, AppDimens.touchTarget),
-                    foregroundColor: colors.accentBlue,
-                  ),
-                  child: Text('home_widget_ask_porty'.tr()),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
+    return NewsHeadlineRow(
+      meta: small,
+      title: main,
+      actions:
+          primary
+              ? NewsHeadlineActions(
+                readLabel:
+                    item.isNews && (item.url ?? '').isNotEmpty
+                        ? 'home_widget_read_on'.tr(namedArgs: {'source': source})
+                        : null,
+                onRead: () => onRead?.call(item),
+                askLabel: 'home_widget_ask_porty'.tr(),
+                onAsk: () => onAsk?.call(item),
+              )
+              : null,
     );
   }
 }

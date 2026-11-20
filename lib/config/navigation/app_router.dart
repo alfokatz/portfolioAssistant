@@ -22,6 +22,7 @@ import 'package:portfolio_assistant/features/statement_import/nav/statement_impo
 import 'package:portfolio_assistant/features/portfolio_diagnosis/nav/portfolio_diagnosis_router.dart';
 import 'package:portfolio_assistant/features/notifications/nav/notifications_router.dart';
 import 'package:portfolio_assistant/features/watchlist/nav/watchlist_router.dart';
+import 'package:portfolio_assistant/features/daily_brief/nav/daily_brief_router.dart';
 import 'package:portfolio_assistant/features/weekly_report/nav/weekly_report_router.dart';
 import 'package:portfolio_assistant/presentation/flows/home/nav/home_router.dart';
 import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding_router.dart';
@@ -136,6 +137,7 @@ class AppRouter {
         SnaptradeRouter.getRoute(),
         ConnectBrokerRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
+        DailyBriefRouter.getRoute(),
         ...NotificationsRouter.getRoutes(),
         AssistantRouter.getLegacyRedirect(),
       ],
