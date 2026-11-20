@@ -80,7 +80,7 @@ class DailyBriefRepository implements DailyBriefStore {
       _authService.requireUserId();
       return DailyBriefStatus.parse(await _client.rpc('daily_brief_status'));
     } catch (_) {
-      return DailyBriefStatus.off;
+      return DailyBriefStatus.unreachable;
     }
   }
 

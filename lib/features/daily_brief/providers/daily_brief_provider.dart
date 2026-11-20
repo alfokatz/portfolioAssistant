@@ -192,6 +192,11 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
     }
     final status = await _store.status();
     if (_stale(epoch)) return;
+    if (!status.reachable) {
+      // Falla transitoria (red, servidor): se deja lo que había, sin cerrar
+      // el día ni borrar la caché; la próxima carga vuelve a preguntar.
+      return;
+    }
     if (!status.enabled) {
       // Apagado: nada nuevo en la Home. No se vuelve a preguntar hoy.
       _disabledDay = day;

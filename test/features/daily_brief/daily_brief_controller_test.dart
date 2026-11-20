@@ -56,6 +56,22 @@ void main() {
       expect(store.statusCalls, 1);
     });
 
+    test('a failed status check does not close the day', () async {
+      final store = FakeDailyBriefStore(
+        statusResult: DailyBriefStatus.unreachable,
+      );
+      final c = _controller(store, FakeDailyBriefWriter());
+      await c.ensureFor(history(), lots);
+      expect(c.state.phase, DailyBriefPhase.hidden);
+      expect(store.claimCalls, 0);
+
+      // Vuelve la red: la próxima carga pregunta de nuevo y el brief aparece.
+      store.statusResult = const DailyBriefStatus(enabled: true);
+      await c.ensureFor(history(), lots);
+      expect(store.statusCalls, 2);
+      expect(c.state.phase, DailyBriefPhase.ready);
+    });
+
     test('claim disabled also hides it', () async {
       final store = FakeDailyBriefStore(claims: const [BriefClaimDisabled()]);
       final c = _controller(store, FakeDailyBriefWriter());

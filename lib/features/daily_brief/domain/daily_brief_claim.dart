@@ -91,12 +91,23 @@ class BriefClaimUnavailable extends DailyBriefClaim {
 
 /// `daily_brief_status()`: el interruptor general y las piezas.
 class DailyBriefStatus {
-  const DailyBriefStatus({required this.enabled, this.pieces = const {}});
+  const DailyBriefStatus({
+    required this.enabled,
+    this.pieces = const {},
+    this.reachable = true,
+  });
 
-  /// Apagado o sin respuesta: la app no muestra nada nuevo.
+  /// Apagado: la app no muestra nada nuevo.
   static const off = DailyBriefStatus(enabled: false);
 
+  /// No se pudo preguntar (sin red, error del servidor). No es "apagado":
+  /// la app no muestra nada nuevo, pero tampoco da el día por cerrado.
+  static const unreachable = DailyBriefStatus(enabled: false, reachable: false);
+
   final bool enabled;
+
+  /// `false` solo cuando la consulta falló; ver [unreachable].
+  final bool reachable;
 
   /// `push`, `feed`, `topics`, `sources`, `market`, `compare`, `videos`.
   final Map<String, bool> pieces;
