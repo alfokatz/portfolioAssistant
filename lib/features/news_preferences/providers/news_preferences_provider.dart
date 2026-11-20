@@ -73,6 +73,16 @@ class NewsPreferencesNotifier extends StateNotifier<NewsPreferencesState> {
   final Set<String> Function() _heldTickers;
   final void Function(ProductEvent, Map<String, Object?>) _logEvent;
 
+  /// Mercados de la cartera. Es una ayuda para marcar "por defecto": si la
+  /// Home todavía no tiene la cartera, queda vacío (nunca rompe la carga).
+  Set<String> _markets() {
+    try {
+      return {for (final t in _heldTickers()) marketOfTicker(t)};
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<void> load() async {
     try {
       final results = await Future.wait<Object>([
@@ -91,7 +101,7 @@ class NewsPreferencesNotifier extends StateNotifier<NewsPreferencesState> {
             if (s.kind == 'media') s,
         ],
         sourcePrefs: results[3] as Map<String, SourcePreference>,
-        markets: {for (final t in _heldTickers()) marketOfTicker(t)},
+        markets: _markets(),
       );
     } catch (_) {
       if (!mounted) return;

@@ -107,7 +107,10 @@ void main() {
       expect(b.topics.first.status, NewsDigestStatus.ok);
       expect(b.topics.last.status, NewsDigestStatus.empty);
       expect(b.videos.single.embeddable, isTrue);
-      expect(b.sourceOf(b.topics.first.lines.first.sourceIds)?.source, 'Reuters');
+      expect(
+        b.sourceOf(b.topics.first.lines.first.sourceIds)?.source,
+        'Reuters',
+      );
     });
 
     test('free feed: only a count, no tickers', () {
@@ -132,7 +135,11 @@ void main() {
     });
 
     test('broken blocks arrive empty and a bad video id is not embeddable', () {
-      final b = NewsBundle.parse({'mine': 'x', 'videos': [1], 'topics': null});
+      final b = NewsBundle.parse({
+        'mine': 'x',
+        'videos': [1],
+        'topics': null,
+      });
       expect(b.mine, isEmpty);
       expect(b.videos, isEmpty);
       const v = NewsVideo(videoId: 'a b', title: 't', channel: 'c', url: 'u');
@@ -158,7 +165,9 @@ void main() {
       testWidgets('premium shows held news with outlet in ${brightness.name}', (
         tester,
       ) async {
-        final store = _ScopedStore({'feed': bundleFixture('bundle_feed_premium')});
+        final store = _ScopedStore({
+          'feed': bundleFixture('bundle_feed_premium'),
+        });
         final h = await _pump(
           tester,
           store,
@@ -167,7 +176,9 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         expect(
-          find.text('Nvidia supera las previsiones de ingresos y sube en el after hours'),
+          find.text(
+            'Nvidia supera las previsiones de ingresos y sube en el after hours',
+          ),
           findsOneWidget,
         );
         expect(find.textContaining('NVDA · Reuters'), findsOneWidget);
@@ -195,16 +206,16 @@ void main() {
       await tester.tap(find.text('news_feed_locked'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(
-        h.events.logged.any(
-          (e) => e.$2['source'] == PaywallSource.newsFeed,
-        ),
+        h.events.logged.any((e) => e.$2['source'] == PaywallSource.newsFeed),
         isTrue,
       );
     });
 
     testWidgets('read opens the source outside the app', (tester) async {
       final launched = <Uri>[];
-      final store = _ScopedStore({'feed': bundleFixture('bundle_feed_premium')});
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_premium'),
+      });
       await _pump(tester, store, const NewsFeedScreen(), launched: launched);
       await tester.tap(find.text('news_feed_read_on').first);
       await tester.pump();
@@ -225,10 +236,15 @@ void main() {
     });
 
     testWidgets('topics tab lists digests with their outlet', (tester) async {
-      final store = _ScopedStore({'feed': bundleFixture('bundle_feed_premium')});
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_premium'),
+      });
       await _pump(tester, store, const NewsFeedScreen(tab: 'topics'));
       expect(find.text('Fed y tasas'), findsOneWidget);
-      expect(find.text('La Reserva Federal mantuvo las tasas sin cambios.'), findsOneWidget);
+      expect(
+        find.text('La Reserva Federal mantuvo las tasas sin cambios.'),
+        findsOneWidget,
+      );
       expect(find.text('Reuters'), findsWidgets);
       expect(find.text('news_video_section'), findsOneWidget);
     });
@@ -256,16 +272,18 @@ void main() {
       final h = await _pump(tester, store, const MarketTodayScreen());
       expect(find.text('market_today_why_title'), findsOneWidget);
       final why = tester.getTopLeft(find.text('market_today_why_title')).dy;
-      final inst = tester.getTopLeft(find.text('market_today_instruments_title')).dy;
+      final inst =
+          tester.getTopLeft(find.text('market_today_instruments_title')).dy;
       expect(why, lessThan(inst));
-      final order = [
-        'S&P 500',
-        'Nasdaq',
-        'Dow Jones',
-        'Petróleo WTI',
-        'Bono a 10 años de EE. UU.',
-        'Bitcoin',
-      ].map((l) => tester.getTopLeft(find.text(l)).dy).toList();
+      final order =
+          [
+            'S&P 500',
+            'Nasdaq',
+            'Dow Jones',
+            'Petróleo WTI',
+            'Bono a 10 años de EE. UU.',
+            'Bitcoin',
+          ].map((l) => tester.getTopLeft(find.text(l)).dy).toList();
       expect(order, [...order]..sort());
       expect(find.text('—'), findsOneWidget);
       expect(
@@ -276,7 +294,10 @@ void main() {
 
     testWidgets('empty market says so', (tester) async {
       final store = _ScopedStore({
-        'market': {'market': {'instruments': [], 'pulse': []}, 'videos': []},
+        'market': {
+          'market': {'instruments': [], 'pulse': []},
+          'videos': [],
+        },
       });
       await _pump(tester, store, const MarketTodayScreen());
       expect(find.text('market_today_empty'), findsOneWidget);
@@ -288,14 +309,13 @@ void main() {
       tester,
     ) async {
       final store = _ScopedStore({'topic': bundleFixture('bundle_topic')});
-      await _pump(
-        tester,
-        store,
-        const NewsTopicScreen(topicId: 'fed_rates'),
-      );
+      await _pump(tester, store, const NewsTopicScreen(topicId: 'fed_rates'));
       expect(store.topics, ['fed_rates']);
       expect(find.text('news_topic_screen_headlines'), findsOneWidget);
-      expect(find.text('Fed holds rates steady and signals patience'), findsOneWidget);
+      expect(
+        find.text('Fed holds rates steady and signals patience'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('free compare on a topic opens the paywall', (tester) async {
@@ -323,7 +343,9 @@ void main() {
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
 
-    testWidgets('embeds the player and keeps "open on YouTube"', (tester) async {
+    testWidgets('embeds the player and keeps "open on YouTube"', (
+      tester,
+    ) async {
       await _pump(
         tester,
         FakeDailyBriefStore(),

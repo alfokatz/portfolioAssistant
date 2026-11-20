@@ -62,8 +62,7 @@ class FakeNewsPreferencesStore implements NewsPreferencesStore {
   Future<List<NewsSource>> sources() async => sampleSources;
 
   @override
-  Future<Map<String, SourcePreference>> userSources() async =>
-      userSourcesData;
+  Future<Map<String, SourcePreference>> userSources() async => userSourcesData;
 
   @override
   Future<void> setTopic(String topicId, {required bool followed}) async {

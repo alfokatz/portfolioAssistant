@@ -75,30 +75,31 @@ class _NewsTopicScreenState extends ConsumerState<NewsTopicScreen> {
         'news_topic_screen_title'.tr();
     final canFollow = topic != null && (status?.piece('topics') ?? true);
     final followed = topic != null && prefs.isFollowed(topic);
+    final follow =
+        !canFollow
+            ? null
+            : Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => _toggleFollow(topic, !followed),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, AppDimens.touchTarget),
+                  padding: EdgeInsets.zero,
+                  foregroundColor:
+                      followed
+                          ? context.customColors.textSecondary
+                          : context.customColors.accentBlue,
+                ),
+                child: Text(
+                  (followed
+                          ? 'news_topic_screen_following'
+                          : 'news_topic_screen_follow')
+                      .tr(),
+                ),
+              ),
+            );
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        actions: [
-          if (canFollow)
-            TextButton(
-              onPressed: () => _toggleFollow(topic, !followed),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(0, AppDimens.touchTarget),
-                foregroundColor:
-                    followed
-                        ? context.customColors.textSecondary
-                        : context.customColors.accentBlue,
-              ),
-              child: Text(
-                (followed
-                        ? 'news_topic_screen_following'
-                        : 'news_topic_screen_follow')
-                    .tr(),
-              ),
-            ),
-          const SizedBox(width: AppDimens.sp8),
-        ],
-      ),
+      appBar: AppBar(title: Text(title)),
       body: LoadingSwitcher(
         loading: bundle == null && state.phase == NewsLoadPhase.loading,
         placeholder: (_) => const PortyLoader(),
@@ -134,6 +135,7 @@ class _NewsTopicScreenState extends ConsumerState<NewsTopicScreen> {
                 bundle: bundle,
                 digest: digest,
                 canCompare: status?.piece('compare') ?? true,
+                follow: follow,
               ),
             ),
           );
@@ -150,6 +152,7 @@ class _Content extends ConsumerWidget {
     required this.bundle,
     required this.digest,
     required this.canCompare,
+    this.follow,
   });
 
   final String topicId;
@@ -157,6 +160,7 @@ class _Content extends ConsumerWidget {
   final NewsBundle bundle;
   final NewsTopicDigest? digest;
   final bool canCompare;
+  final Widget? follow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -167,6 +171,7 @@ class _Content extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (follow != null) follow!,
         if (empty)
           NewsMessage(
             messageKey: 'topic_empty',
