@@ -133,7 +133,11 @@ begin
     public.ai_brief_begin('00000000-0000-0000-0000-0000000b0a01', 'turn-brief-off-0001',
                           pg_temp.bday(), 'gpt-6-luna', 2, 30),
     '{"ok":false,"reason":"disabled"}');
-  perform pg_temp.check_true('no se escribió nada', not exists (select 1 from public.daily_briefs));
+  -- Solo este usuario: en CI los tests de Deno corren antes contra la misma
+  -- base y dejan briefs de sus propios usuarios.
+  perform pg_temp.check_true('no se escribió nada', not exists (
+    select 1 from public.daily_briefs
+     where user_id = '00000000-0000-0000-0000-0000000b0a01'));
 end $$;
 
 -- ── 3. Prendido para la lista interna (users) ────────────────────────────────
