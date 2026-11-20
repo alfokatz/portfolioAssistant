@@ -96,7 +96,7 @@ begin
     select 1 from public.daily_brief_warm_zones((v_min + 60) % 1380, (v_min + 60) % 1380 + 10) z
      where z.timezone = 'Asia/Tokyo'));
   perform pg_temp.check_true('sin dispositivos no hay zona', not exists (
-    select 1 from public.daily_brief_warm_zones(0, 1440) z where z.timezone = 'Europe/Madrid'));
+    select 1 from public.daily_brief_warm_zones(0, 1440) z where z.timezone = 'Pacific/Auckland'));
 end $$;
 
 -- ── 4. Plan de calentamiento (sin user_id) ──────────────────────────────────

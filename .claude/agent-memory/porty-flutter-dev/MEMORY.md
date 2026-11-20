@@ -16,4 +16,7 @@
 - Extensión iOS nueva = ciclo de build en Runner: mover "Embed Foundation Extensions" antes de "Thin Binary" en buildPhases. Los colorsets generan `Color.<nombre>`: no declarar extensiones con el mismo nombre.
 - Android: estilos con punto (`PortyWidget.Total`) necesitan `parent=""`; `sed -i` en macOS pide `''`, y un `&&` cortado deja los heredocs escribiendo en el cwd equivocado.
 - Widget nativo: `flutter build ios` puede fallar por Dart en edición del otro agente; compilar solo la extensión con `xcodebuild -workspace Runner.xcworkspace -scheme PortyWidgetExtension -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build` y chequear la decodificación con un swiftc scratch (stub de PortyEntry + SnapshotStore + PortyWidgetItems) contra test/fixtures/home_widget.
+- Hook de `dart format`: sin pipes (`| tail`) ni `cd`; paths absolutos literales, también para test/.
+- `youtube_player_iframe` 6.x y `webview_flutter_wkwebview` 3.27 exigen Flutter 3.47 (suben el piso del lock): usar 5.2.2 y tope `<3.27.0`. En 5.x `origin` es también el `host` del iframe: no poner uno propio.
+- Notifiers que leen `homeProvider` revientan en widget tests sin Supabase: try/catch o callback inyectado.
 - Widget Android: sin SDK ni Maven (429) no hay forma de compilar Kotlin acá; el selector (PortyFeedPicker, solo org.json) se puede probar con un proyecto kotlin("jvm") en el scratchpad si Maven responde. Caras nuevas se buscan por getIdentifier (necesitan tools:keep en values/widget_keep.xml).
