@@ -15,6 +15,7 @@ import 'package:portfolio_assistant/features/assistant/prompts/assistant_prompt_
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_tool_context.dart';
 import 'package:portfolio_assistant/features/assistant/tools/assistant_toolset.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.dart';
 
 import '../fakes/assistant_fakes.dart';
@@ -25,15 +26,23 @@ const _schemaCharsPerToken = 4.16;
 const _rulesCharsPerToken = 3.80;
 
 void main() {
+  // El registro cubre todo: con el interruptor del brief diario prendido (el
+  // prefijo más grande). Apagado, las tools, widgets y secciones del brief no
+  // existen (ver el último grupo y daily_brief_gate_test).
   final tools = AssistantToolset.build(
-    AssistantToolContext(tier: SubscriptionTier.gold, data: fakeDataSources()),
+    AssistantToolContext(
+      tier: SubscriptionTier.gold,
+      data: fakeDataSources(),
+      dailyBriefStatus: const DailyBriefStatus(enabled: true),
+    ),
   );
   final toolNames = [for (final t in tools) t.name];
+  final assistantPromptRules = assistantPromptRulesFor(dailyBrief: true);
   final classic = AssistantOpenAiService.systemPromptFor(
-    AssistantCatalog.build(),
+    AssistantCatalog.build(dailyBrief: true),
   );
   final lean = AssistantOpenAiService.systemPromptFor(
-    AssistantCatalog.build(variant: PromptVariant.lean),
+    AssistantCatalog.build(variant: PromptVariant.lean, dailyBrief: true),
   );
   final schemas = AreaSpecs.widgetSchemas(classic);
 
@@ -53,7 +62,9 @@ void main() {
     });
 
     test('every catalog widget belongs to exactly one area', () {
-      final widgets = [for (final i in AssistantCatalog.build().items) i.name];
+      final widgets = [
+        for (final i in AssistantCatalog.build(dailyBrief: true).items) i.name,
+      ];
       for (final name in widgets) {
         final owners = [
           for (final a in PortyAreas.all)
@@ -135,7 +146,10 @@ void main() {
 
     test('the lean rules are the classic ones without the deferred sections, '
         'plus the area_spec rule', () {
-      final leanRules = AreaSpecs.leanRules(assistantPromptRules);
+      final leanRules = AreaSpecs.leanRules(
+        assistantPromptRules,
+        dailyBrief: true,
+      );
       expect(leanRules, contains(AreaSpecs.leanRule));
       for (final h in PortyAreas.deferredRuleSections) {
         expect(leanRules, isNot(contains('\n$h\n')), reason: h);
@@ -174,7 +188,8 @@ void main() {
     test('the lean prompt saves at least 2.300 tokens of fixed prefix', () {
       final rulesSaved =
           (assistantPromptRules.length -
-              AreaSpecs.leanRules(assistantPromptRules).length) /
+              AreaSpecs.leanRules(assistantPromptRules, dailyBrief: true)
+                  .length) /
           _rulesCharsPerToken;
       final schemasSaved =
           [
@@ -230,6 +245,44 @@ void main() {
           schemas: schemas,
         ),
         isNull,
+      );
+    });
+  });
+
+  group('with the daily brief switch off', () {
+    test('the brief tools, card and rule section are not in any prompt', () {
+      final offTools = AssistantToolset.build(
+        AssistantToolContext(
+          tier: SubscriptionTier.gold,
+          data: fakeDataSources(),
+        ),
+      );
+      expect({for (final t in offTools) t.name}, {
+        for (final t in tools)
+          if (!PortyAreas.dailyBriefTools.contains(t.name)) t.name,
+      });
+      expect(toolNames, containsAll(PortyAreas.dailyBriefTools));
+      expect(
+        PortyAreas.deferredWidgetsFor(dailyBrief: false),
+        PortyAreas.deferredWidgets.difference(PortyAreas.dailyBriefWidgets),
+      );
+      final offLean = AssistantOpenAiService.systemPromptFor(
+        AssistantCatalog.build(variant: PromptVariant.lean),
+      );
+      expect(offLean, isNot(contains('QaSourceComparison')));
+      expect(offLean, isNot(contains('[W:SOURCES]')));
+      expect(offLean, isNot(contains('get_daily_brief')));
+    });
+
+    test('the lean rules without the brief defer only the old sections', () {
+      final offRules = assistantPromptRulesFor(dailyBrief: false);
+      final leanOff = AreaSpecs.leanRules(offRules);
+      for (final h in PortyAreas.deferredRuleSectionsFor(dailyBrief: false)) {
+        expect(leanOff, isNot(contains('\n$h\n')), reason: h);
+      }
+      expect(
+        PortyAreas.deferredRuleSectionsFor(dailyBrief: false),
+        isNot(contains('SOURCES ([W:SOURCES]) — compare_sources')),
       );
     });
   });

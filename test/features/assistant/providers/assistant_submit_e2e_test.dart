@@ -29,6 +29,7 @@ import 'package:portfolio_assistant/features/assistant/providers/assistant_provi
 import 'package:portfolio_assistant/features/assistant/services/assistant_deps.dart';
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/states/assistant_state.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/genui_core/tool_calling/turn_activity.dart';
 import 'package:portfolio_assistant/features/investor_profile/providers/investor_profile_provider.dart';
 import 'package:portfolio_assistant/features/subscription/providers/revenue_cat_provider.dart';
@@ -200,6 +201,7 @@ class _Harness {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    DailyBriefStatus? briefStatus,
     this.nudge,
     this.taste,
   }) : subscriptionRepo = _FakeSubscriptionRepository(tier, used: used),
@@ -246,6 +248,25 @@ class _Harness {
                 ),
             createData: () => fakeDataSources(quotes: quotes),
             streamingEnabled: streaming ? () async => true : null,
+            leanPromptEnabled:
+                variant == PromptVariant.lean ? () async => true : null,
+            createLeanService:
+                () => AssistantOpenAiService(
+                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
+                  model: 'gpt-4.1-mini',
+                  httpClient: api.client,
+                  variant: PromptVariant.lean,
+                ),
+            dailyBriefStatus:
+                briefStatus == null ? null : () async => briefStatus,
+            createDailyBriefService:
+                (v) => AssistantOpenAiService(
+                  proxy: AiProxyConfig.fixed(Uri.parse('https://proxy.test'), 'jwt-test'),
+                  model: 'gpt-4.1-mini',
+                  httpClient: api.client,
+                  variant: v,
+                  dailyBrief: true,
+                ),
           ),
         ),
       ],
@@ -305,6 +326,7 @@ void main() {
     int used = 0,
     bool streaming = false,
     PromptVariant variant = PromptVariant.classic,
+    DailyBriefStatus? briefStatus,
     _Nudge? nudge,
     FakeMarketTasteRepository? taste,
   }) {
@@ -314,6 +336,7 @@ void main() {
       used: used,
       streaming: streaming,
       variant: variant,
+      briefStatus: briefStatus,
       nudge: nudge,
       taste: taste,
     );
@@ -346,6 +369,98 @@ void main() {
     // La consulta la descuenta el proxy al responder, no la app.
     expect(h.subscriptionRepo.consumed, isEmpty);
     expect(h.quotes.priceCalls, isEmpty);
+  });
+
+  group('daily brief switch', () {
+    // Qué le llega al modelo: las tools de la request y el prompt de sistema.
+    ({List<String> tools, String system}) sent(_Harness h) {
+      final request = h.api.requests.first;
+      return (
+        tools: [
+          for (final t in request['tools'] as List)
+            '${(t as Map)['function']['name']}',
+        ],
+        system: _textOf((request['messages'] as List).first as Map),
+      );
+    }
+
+    test('off (or unknown): no brief tools, the pre-brief prompt', () async {
+      for (final status in [
+        null,
+        DailyBriefStatus.off,
+        DailyBriefStatus.unreachable,
+      ]) {
+        final h = harness(
+          SubscriptionTier.gold,
+          [_answer('ok')],
+          briefStatus: status,
+        );
+        await h.notifier.bootstrap();
+        await h.notifier.submitMessage('¿Qué dice cada medio de NVDA?');
+
+        final request = sent(h);
+        expect(request.tools, isNot(contains('compare_sources')));
+        expect(request.tools, isNot(contains('get_daily_brief')));
+        expect(request.tools.last, 'search_web');
+        expect(request.system, isNot(contains('QaSourceComparison')));
+        expect(request.system, isNot(contains('[W:SOURCES]')));
+        expect(request.system, isNot(contains('get_daily_brief')));
+      }
+    });
+
+    test('on: both tools at the end and the brief rules and card in the '
+        'prompt', () async {
+      final h = harness(
+        SubscriptionTier.gold,
+        [_answer('ok')],
+        briefStatus: const DailyBriefStatus(enabled: true),
+      );
+      await h.notifier.bootstrap();
+      await h.notifier.submitMessage('¿Qué dice cada medio de NVDA?');
+
+      final request = sent(h);
+      expect(request.tools.sublist(request.tools.length - 2), [
+        'get_daily_brief',
+        'compare_sources',
+      ]);
+      expect(request.system, contains('QaSourceComparison'));
+      expect(request.system, contains('[W:SOURCES]'));
+    });
+
+    test('on without the compare piece: only get_daily_brief', () async {
+      final h = harness(
+        SubscriptionTier.gold,
+        [_answer('ok')],
+        briefStatus: const DailyBriefStatus(
+          enabled: true,
+          pieces: {'compare': false},
+        ),
+      );
+      await h.notifier.bootstrap();
+      await h.notifier.submitMessage('hola');
+
+      final tools = sent(h).tools;
+      expect(tools, contains('get_daily_brief'));
+      expect(tools, isNot(contains('compare_sources')));
+    });
+
+    test('on with the lean prompt: the lean brief prompt', () async {
+      final h = harness(
+        SubscriptionTier.gold,
+        [_answer('ok')],
+        variant: PromptVariant.lean,
+        briefStatus: const DailyBriefStatus(enabled: true),
+      );
+      await h.notifier.bootstrap();
+      await h.notifier.submitMessage('hola');
+
+      final request = sent(h);
+      expect(request.tools, contains('compare_sources'));
+      expect(request.system, contains('[W:SOURCES]'));
+      // La sección y la card viajan con el resultado de la tool (area_spec).
+      expect(request.system, isNot(contains('SOURCES ([W:SOURCES])')));
+      expect(request.system, isNot(contains('"QaSourceComparison":')));
+    });
   });
 
   group('streaming (app_config.porty_streaming)', () {

@@ -186,6 +186,12 @@ class CompareSourcesTool implements SlowDataTool {
           onTimeout: () => const {'status': 'failed', 'reason': 'timeout'},
         );
 
+    // Interruptor apagado en el servidor: no hubo búsqueda, así que no cuenta
+    // para el tope por turno y `get_news` (la guía de abajo) puede responder.
+    if (fetched['status'] == 'failed' && fetched['reason'] == disabledReason) {
+      if (ctx.newsContextCalls > 0) ctx.newsContextCalls--;
+    }
+
     // `as_of` es de ahora; cuándo se hizo la comparación (puede venir de la
     // caché del servidor) va aparte.
     final result = <String, Object?>{

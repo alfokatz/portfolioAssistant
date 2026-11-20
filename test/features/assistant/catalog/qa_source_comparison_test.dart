@@ -60,7 +60,7 @@ final _compare = ToolCallRecord(
 );
 
 Future<void> _pump(WidgetTester tester, List<ToolCallRecord> calls) async {
-  final catalog = AssistantCatalog.build();
+  final catalog = AssistantCatalog.build(dailyBrief: true);
   final item = catalog.items.firstWhere((i) => i.name == 'QaSourceComparison');
   await tester.binding.setSurfaceSize(const Size(375, 2000));
   await tester.pumpWidget(

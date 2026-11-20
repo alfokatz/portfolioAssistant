@@ -153,6 +153,35 @@ void main() {
       expect(r[AnswerGuide.key], contains('get_news'));
     });
 
+    test('interruptor apagado: no gasta la búsqueda del turno, así que '
+        'get_news puede responder', () async {
+      final w = _world(
+        SubscriptionTier.gold,
+        response: const EdgeResponse(403, {
+          'error': {'type': 'disabled'},
+        }),
+      );
+      expect((await _run(w.ctx, {'ticker': 'AAPL'}))['reason'], 'disabled');
+      // `get_news` rechaza con `turn_limit` cuando ya hubo una búsqueda.
+      expect(w.ctx.newsContextCalls, 0);
+      // Otra vez compare_sources: llega al servidor, no es `turn_limit`.
+      final again = await _run(w.ctx, {'ticker': 'NVDA'});
+      expect(again['reason'], 'disabled');
+      expect(w.edge.calls, hasLength(2));
+    });
+
+    test('otra falla (timeout, red) sí cuenta como búsqueda del turno',
+        () async {
+      final w = _world(
+        SubscriptionTier.gold,
+        response: const EdgeResponse(500, {
+          'error': {'type': 'upstream'},
+        }),
+      );
+      expect((await _run(w.ctx, {'ticker': 'AAPL'}))['status'], 'failed');
+      expect(w.ctx.newsContextCalls, 1);
+    });
+
     test('insufficient_sources y empty: sin card, ofrece los titulares',
         () async {
       final w = _world(

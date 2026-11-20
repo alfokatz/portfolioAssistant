@@ -72,9 +72,9 @@ abstract final class AssistantAnswerReview {
           evidence.calls,
           pinnedContext: evidence.pinnedContext,
         ))
-        'you attribute something to "$outlet" but no news result of this '
-            'conversation lists that outlet: name only outlets that appear in '
-            'get_news / compare_sources, or drop the attribution',
+          'you attribute something to "$outlet" but no news result of this '
+              'conversation lists that outlet: name only outlets that appear '
+              'in get_news / compare_sources, or drop the attribution',
     ];
     for (final c in components) {
       if (c['component'] != 'QaCompanyAnalysis') continue;

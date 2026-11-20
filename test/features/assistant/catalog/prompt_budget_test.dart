@@ -47,8 +47,33 @@ const _budgets = {
   'tools': (tokens: 7070, charsPerToken: 4.19),
 };
 
+// Presupuestos de antes del brief diario: con el interruptor apagado el
+// prefijo es el de entonces (no puede crecer para todos por una función que
+// no ven). Los de `_budgets` valen con el brief prendido.
+const _baseBudgets = {
+  'rules': (tokens: 9650, charsPerToken: 3.78),
+  'schemas': (tokens: 9600, charsPerToken: 4.17),
+  'genui': (tokens: 1250, charsPerToken: 4.59),
+  'tools': (tokens: 6880, charsPerToken: 4.19),
+};
+
 void main() {
+  // Con el interruptor del brief diario prendido: el prefijo más grande.
   final blocks = promptBlocks();
+  final baseBlocks = promptBlocks(dailyBrief: false);
+
+  for (final MapEntry(key: name, value: budget) in _baseBudgets.entries) {
+    test('$name fits its pre daily brief budget with the switch off', () {
+      final estimate = (baseBlocks[name]!.length / budget.charsPerToken).round();
+      expect(
+        estimate,
+        lessThanOrEqualTo(budget.tokens),
+        reason:
+            '$name ≈ $estimate tokens (presupuesto ${budget.tokens}). Con el '
+            'interruptor del brief apagado el prefijo no puede crecer.',
+      );
+    });
+  }
 
   for (final MapEntry(key: name, value: budget) in _budgets.entries) {
     test('$name fits its token budget', () {

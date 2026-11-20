@@ -23,6 +23,7 @@ import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_st
 import 'package:portfolio_assistant/features/assistant/data/web/source_compare_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
+import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/user_memory.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
@@ -147,6 +148,7 @@ class AssistantToolContext {
     this.loadWeeklyReport,
     this.loadDailyBrief,
     this.turnId,
+    this.dailyBriefStatus = DailyBriefStatus.off,
     this.userMemories = const [],
     this.saveMemory,
     this.deleteMemory,
@@ -249,6 +251,18 @@ class AssistantToolContext {
   /// El brief diario de hoy tal como lo ve el usuario, sin `v` ni `audio`
   /// (`null` si todavía no está); la función es `null` fuera de la app.
   final Future<Map<String, Object?>?> Function()? loadDailyBrief;
+
+  /// El interruptor del brief diario (`daily_brief_status`) y sus piezas, tal
+  /// como estaban al abrir la conversación (el prompt se arma con lo mismo).
+  /// Apagado (el default), `get_daily_brief` y `compare_sources` no se
+  /// registran y el chat queda como antes del brief (spec 2026-11-20 §1, §6).
+  final DailyBriefStatus dailyBriefStatus;
+
+  /// `get_daily_brief` existe: interruptor y pieza `brief` prendidos.
+  bool get hasDailyBriefTool => dailyBriefStatus.piece('brief');
+
+  /// `compare_sources` existe: interruptor y pieza `compare` prendidos.
+  bool get hasCompareSourcesTool => dailyBriefStatus.piece('compare');
 
   /// El id del turno en curso (`x-porty-turn-id` de las funciones que cuentan
   /// búsquedas por turno); `null` fuera de la app.

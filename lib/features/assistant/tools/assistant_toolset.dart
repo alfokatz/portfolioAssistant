@@ -48,7 +48,10 @@ class ChatPaywall {
 
 /// Las tools de datos del asistente, en un orden fijo: la lista completa
 /// viaja en cada request (el plan se aplica al ejecutar, no ocultando
-/// tools), así el prefijo que cachea OpenAI no cambia entre turnos.
+/// tools), así el prefijo que cachea OpenAI no cambia entre turnos. La única
+/// excepción es el interruptor del brief diario (ver
+/// `AssistantToolContext.dailyBriefStatus`), que no cambia durante una
+/// conversación.
 abstract final class AssistantToolset {
   static List<DataTool> build(AssistantToolContext ctx) => [
     GetQuoteTool(ctx),
@@ -71,9 +74,12 @@ abstract final class AssistantToolset {
     ...ReportTools.build(ctx),
     ...MemoryTools.build(ctx),
     SearchWebTool(ctx),
-    // Brief diario (2026-11-20): siempre al final, el orden es del caché.
-    GetDailyBriefTool(ctx),
-    CompareSourcesTool(ctx),
+    // Brief diario (2026-11-20): al final, el orden es del caché. Solo con el
+    // interruptor y la pieza prendidos: apagado, la lista es la de antes del
+    // brief (el estado se fija al abrir la conversación, igual que el
+    // prompt, así no cambia entre turnos).
+    if (ctx.hasDailyBriefTool) GetDailyBriefTool(ctx),
+    if (ctx.hasCompareSourcesTool) CompareSourcesTool(ctx),
   ];
 }
 
