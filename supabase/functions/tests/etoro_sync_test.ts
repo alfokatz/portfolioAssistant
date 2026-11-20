@@ -121,11 +121,19 @@ class MemoryStore implements EtoroStore {
     for (const i of items) this.instruments.set(i.instrumentId, i);
     return Promise.resolve();
   }
-  manualOpenTickers(u: string) {
-    return Promise.resolve((this.positions.get(u) ?? []).filter((r) => r.source === "manual").map((r) => r.ticker));
+  manualOpenTickers(u: string, excludeIds: string[] = []) {
+    return Promise.resolve(
+      (this.positions.get(u) ?? [])
+        .filter((r) => r.source === "manual" && !excludeIds.includes(r.id as string))
+        .map((r) => r.ticker),
+    );
   }
   applySync(u: string, d: ApplySync) {
-    const manual = (this.positions.get(u) ?? []).filter((r) => r.source === "manual");
+    // Como etoro_apply_sync: las copias manuales de lo que llega se reemplazan.
+    const replaced = new Set([...d.open.map((r) => r.id), ...d.closed.map((r) => r.openId)]);
+    const manual = (this.positions.get(u) ?? []).filter((r) => r.source === "manual" && !replaced.has(r.id as string));
+    const closedIds = new Set(d.closed.map((r) => r.id));
+    this.closed.set(u, (this.closed.get(u) ?? []).filter((c) => !(c.source === "manual" && closedIds.has(c.id as string))));
     this.positions.set(u, [
       ...manual,
       ...d.open.map((r) => ({ id: r.id, ticker: r.ticker, quantity: r.quantity, purchase_price: r.purchasePrice, broker_price: r.brokerPrice, source: "etoro" as const, external_id: r.externalId })),
@@ -687,6 +695,30 @@ Deno.test("desconectar conservando: revoca en eToro, borra tokens y las importad
   assert(store.positions.get("u1")!.every((x) => x.source === "manual"));
   assertEquals(store.positions.get("u1")!.length, 3);
   assertEquals(store.connections.get("u1")!.status, "disconnected");
+});
+
+Deno.test("reconectar después de conservar: lo de eToro reemplaza las copias manuales, sin duplicados", async () => {
+  const { store, fake, deps } = setup();
+  // Una manual cargada a mano (id aleatorio): no se toca.
+  store.positions.set("u1", [{ id: "m1", ticker: "MSFT", quantity: 2, source: "manual" }]);
+  await connect(store, fake, deps);
+  const closedBefore = store.closed.get("u1")!.length;
+  const r = await handle(post("/disconnect", "u1", { keepAsManual: true }), deps, () => store);
+  assertEquals(r.status, 200);
+  assertEquals(store.positions.get("u1")!.filter((x) => x.source === "manual").length, 4);
+
+  deps.nowRef.t += syncConfig.minIntervalMs + 1;
+  const again = await connect(store, fake, deps);
+  assertEquals(new URL(again.headers.get("location") ?? again.url).searchParams.get("status"), "ok");
+  const rows = store.positions.get("u1")!;
+  assertEquals(rows.filter((x) => x.source === "manual").map((x) => x.id), ["m1"]);
+  assertEquals(rows.filter((x) => x.source === "etoro").map((x) => x.external_id), ["11", "12", "13"]);
+  // Las copias manuales no figuran como posibles duplicados.
+  assertEquals(store.connections.get("u1")!.lastResult!.possibleDuplicates, []);
+  // Las cerradas tampoco quedan dobles.
+  const closed = store.closed.get("u1")!;
+  assertEquals(closed.length, closedBefore);
+  assert(closed.every((x) => x.source === "etoro"));
 });
 
 Deno.test("desconectar borrando: solo se van las importadas", async () => {
