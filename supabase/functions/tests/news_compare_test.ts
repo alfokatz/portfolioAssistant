@@ -136,6 +136,21 @@ Deno.test("news-compare: gating por plan, sin llamar a OpenAI", async () => {
   assertEquals(f.calls.length, 0);
 });
 
+Deno.test("news-compare: un Free con informe semanal en curso o cortesía de un ticker no compara (403)", async () => {
+  const free = await createUser("free");
+  const f = fakeFetch(() => good());
+  const weekStart = new Date(Date.now() - ((new Date().getUTCDay() + 6) % 7) * 86400_000).toISOString().slice(0, 10);
+  await db.from("weekly_reports").insert({ user_id: free.id, week_start: weekStart, status: "generating" });
+  await withNewsProvider("v2", () =>
+    withBrief([free.id], async () => {
+      for (const body of [{ ticker: "TSLA" }, { topic_id: "fed_rates" }]) {
+        const r = await handle(req(free.jwt, body), deps(f.fetch, env));
+        assertEquals([r.status, (await r.json()).error.type], [403, "plan_required"]);
+      }
+    }));
+  assertEquals(f.calls.length, 0);
+});
+
 Deno.test("news-compare: Premium compara un ticker en cartera; un miss gasta 3 unidades y el hit no gasta nada", async () => {
   const u = await createUser("premium");
   await addPosition(u.id, "NVDA");

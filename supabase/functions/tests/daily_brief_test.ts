@@ -53,6 +53,10 @@ Deno.test("daily-brief: 401, parámetros inválidos y 403 con el interruptor apa
   assertEquals((await handle(get(u.jwt, `scope=nope&day=${today()}`), d)).status, 400);
   assertEquals((await handle(get(u.jwt, `scope=feed&day=ayer`), d)).status, 400);
   assertEquals((await handle(get(u.jwt, `scope=feed&day=2020-01-01`), d)).status, 400);
+  // La ventana es ayer..mañana (UTC), igual que `_daily_brief_valid_day`.
+  const inDays = (n: number) => new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
+  assertEquals((await handle(get(u.jwt, `scope=feed&day=${inDays(2)}`), d)).status, 400);
+  assertEquals((await handle(get(u.jwt, `scope=feed&day=${inDays(-2)}`), d)).status, 400);
   assertEquals((await handle(get(u.jwt, `scope=topic&day=${today()}`), d)).status, 400);
   const off = await handle(get(u.jwt, `scope=feed&day=${today()}`), d);
   assertEquals(off.status, 403);
@@ -243,6 +247,29 @@ Deno.test("digests: un solo generador por clave y servido desde la caché", asyn
   assertEquals(data?.length, 1);
   // Sin clave de OpenAI no genera ni lanza.
   assertEquals(await generateAndCache(deps(f.fetch), { ...spec, topicId: "oil_energy" }, allow), null);
+});
+
+Deno.test("digests: una generación fallida se cachea 30 min y no se redispara al vencer el arriendo", async () => {
+  const key = "digest:topic:oil_energy:en";
+  await db.from("data_source_cache").delete().like("cache_key", "digest%:topic:oil_energy:en:%");
+  await db.from("upstream_rate_gate").delete().eq("source", key);
+  const f = fakeFetch(() => new Response("boom", { status: 500 }));
+  const d = deps(f.fetch, { OPENAI_API_KEY: "sk-server" });
+  const allow = new Map([["reuters.com", "Reuters"]]);
+  const spec = { kind: "topic" as const, topicId: "oil_energy", query: "oil", lang: "en" as const };
+  assertEquals(await generateAndCache(d, spec, allow), null);
+  assertEquals(f.calls.length, 1);
+  // Vence el arriendo (90 s): igual no vuelve a buscar mientras dure el fallo.
+  await db.from("upstream_rate_gate").delete().eq("source", key);
+  assertEquals(await generateAndCache(d, spec, allow), null);
+  assertEquals(await digestFor(d, spec, allow), null);
+  assertEquals(f.calls.length, 1, "el fallo cacheado frena el reintento");
+  // Pasado el TTL del fallo, reintenta.
+  await db.from("data_source_cache").update({ fetched_at: new Date(Date.now() - 31 * 60_000).toISOString() })
+    .eq("cache_key", `digestfail:${keyOf(spec, Date.now())}`);
+  await db.from("upstream_rate_gate").delete().eq("source", key);
+  await generateAndCache(d, spec, allow);
+  assertEquals(f.calls.length, 2);
 });
 
 // -- ai-chat: purpose daily_brief ---------------------------------------------

@@ -217,6 +217,10 @@ class Store implements JobsStore {
   holdingWeights() {
     return Promise.resolve(this.weights);
   }
+  cronOn: boolean | undefined = undefined;
+  dailyBriefCronOn() {
+    return Promise.resolve(this.cronOn !== false);
+  }
   dailyBriefInputs(ids: string[]) {
     this.asked.push(ids);
     if (this.inputsError) return Promise.reject(new Error("rpc missing"));
@@ -291,6 +295,17 @@ Deno.test("corrida de las 8: con todo apagado no cambia nada para nadie (solo mo
   store.enqueued.length = 0;
   store.inputs = [input({ push_piece: false })];
   assertEquals((await runDailyJobs(deps, [8])).queued, { morning_brief: 1 });
+});
+
+Deno.test("corrida de las 8: con el interruptor apagado para todos no se llama a daily_brief_push_inputs", async () => {
+  const { deps, store } = setup();
+  store.cronOn = false;
+  store.users.set(8, [user()]);
+  store.inputs = [input()];
+  store.weights = new Map([["u1", new Map([["NVDA", 62], ["AAPL", 38]])]]);
+  const summary = await runDailyJobs(deps, [8]);
+  assertEquals(store.asked.length, 0);
+  assertEquals(summary.queued, { morning_brief: 1 });
 });
 
 Deno.test("corrida de las 8: sábado y domingo no hay brief ni morning_brief para quien lo tiene prendido", async () => {
