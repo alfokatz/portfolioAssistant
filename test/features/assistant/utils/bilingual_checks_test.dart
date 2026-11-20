@@ -4,6 +4,7 @@ import 'package:portfolio_assistant/features/assistant/data/invest/sector_displa
 import 'package:portfolio_assistant/features/assistant/services/assistant_openai_service.dart';
 import 'package:portfolio_assistant/features/assistant/tools/portfolio_tools.dart';
 import 'package:portfolio_assistant/features/assistant/utils/analysis_prose_check.dart';
+import 'package:portfolio_assistant/features/assistant/utils/assistant_grounding_check.dart';
 import 'package:portfolio_assistant/features/assistant/utils/period_labels.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_answer_tone.dart';
 import 'package:portfolio_assistant/features/weekly_report/domain/weekly_report_draft.dart';
@@ -147,6 +148,23 @@ void main() {
         'Tecnología',
       );
       expect(SectorDisplayName.localize('Crypto', language: 'en'), 'Crypto');
+    });
+  });
+
+  group('outlets named in the prose', () {
+    List<String> unlisted(String text) =>
+        AssistantGroundingCheck.unlistedOutlets([
+          {'component': 'QaAnswerText', 'text': text},
+        ], const []);
+
+    test('según X / according to X are checked in both languages', () {
+      expect(unlisted('Según Bloomberg, la acción cae.'), ['Bloomberg']);
+      expect(unlisted('According to Bloomberg, the stock fell.'), [
+        'Bloomberg',
+      ]);
+      expect(unlisted('Bloomberg informa que cae.'), ['Bloomberg']);
+      expect(unlisted('Bloomberg says it fell.'), ['Bloomberg']);
+      expect(unlisted('Según Porty y según tu cartera, poco.'), isEmpty);
     });
   });
 
