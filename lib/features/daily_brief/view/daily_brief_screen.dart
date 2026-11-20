@@ -378,6 +378,11 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: AppDimens.sp4),
+        Text(
+          'news_ai_notice_short'.tr(),
+          style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+        ),
         if (date != null) ...[
           const SizedBox(height: AppDimens.sp4),
           Text(
@@ -636,7 +641,7 @@ class _Footer extends ConsumerWidget {
             style: tt.bodySmall?.copyWith(color: colors.textSecondary),
           ),
           Text(
-            'daily_brief_footer_disclaimer'.tr(),
+            'news_ai_notice'.tr(),
             style: tt.bodySmall?.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: AppDimens.sp16),

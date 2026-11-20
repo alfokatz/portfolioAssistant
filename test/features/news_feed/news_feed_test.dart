@@ -145,6 +145,22 @@ void main() {
       const v = NewsVideo(videoId: 'a b', title: 't', channel: 'c', url: 'u');
       expect(v.embeddable, isFalse);
     });
+
+    test('video embeddable follows the server flag when present', () {
+      Map<String, Object?> raw(Object? flag) => {
+        'video_id': 'abcdefghijk',
+        'title': 't',
+        'channel': 'c',
+        'url': 'https://youtu.be/abcdefghijk',
+        'embeddable': ?flag,
+      };
+      expect(NewsVideo.tryParse(raw(false))!.embeddable, isFalse);
+      expect(NewsVideo.tryParse(raw(true))!.embeddable, isTrue);
+      // Bundle viejo: sin el campo, manda el formato del id.
+      expect(NewsVideo.tryParse(raw(null))!.embeddable, isTrue);
+      // Campo con tipo raro: se ignora.
+      expect(NewsVideo.tryParse(raw('no'))!.embeddable, isTrue);
+    });
   });
 
   group('NewsScopeNotifier', () {

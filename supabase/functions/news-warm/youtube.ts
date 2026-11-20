@@ -19,6 +19,9 @@ import { isRecommendation } from "../_shared/recommendation.ts";
 
 export const youtubeConfig = {
   url: "https://www.googleapis.com/youtube/v3/playlistItems",
+  videosUrl: "https://www.googleapis.com/youtube/v3/videos",
+  /// Ids por `videos.list` (1 unidad por lote; el máximo de la API es 50).
+  statusBatch: 50,
   maxResults: 10,
   /// Canales por corrida (30 canales × 48 lecturas = 1.440 unidades de las
   /// 10.000 diarias).
@@ -34,6 +37,9 @@ export type VideoChannel = {
   uploads_playlist_id: string;
   lang: "es" | "en";
   region: string;
+  /// Canal de noticias generales: un video sin tema se descarta (no es "de
+  /// mercado"). Compliance H3.
+  require_topic?: boolean;
 };
 
 export type TopicKeywords = { id: string; keywords: string[] };
@@ -49,6 +55,8 @@ export type VideoRow = {
   topic_ids: string[];
   region: string;
   fetched_at: string;
+  /// `status.embeddable`; lo completa `applyVideoStatus`.
+  embeddable?: boolean;
 };
 
 const videoIdPattern = /^[A-Za-z0-9_-]{11}$/;
@@ -83,7 +91,8 @@ export function assignTopics(title: string, topics: TopicKeywords[]): string[] {
 }
 
 /// De los videos de un canal, las filas a guardar: recientes, sin consejo ni
-/// órdenes escondidas en el título, con sus temas.
+/// órdenes escondidas en el título, con sus temas. En canales `require_topic`
+/// también se descartan los que no matchean ningún tema.
 export function videoRows(
   channel: VideoChannel,
   videos: PlaylistVideo[],
@@ -95,7 +104,8 @@ export function videoRows(
     .filter((v) => {
       const age = (nowMs - Date.parse(v.published_at)) / 3600_000;
       return age <= youtubeConfig.maxAgeHours && age >= -0.1 && !isRecommendation(v.title) &&
-        !looksLikeInstructions(v.title);
+        !looksLikeInstructions(v.title) &&
+        !(channel.require_topic && assignTopics(v.title, topics).length === 0);
     })
     .map((v) => ({
       video_id: v.video_id,
@@ -107,6 +117,68 @@ export function videoRows(
       region: channel.region,
       fetched_at: fetchedAt,
     }));
+}
+
+export type VideoStatus = { embeddable: boolean };
+
+/// `videos.list?part=status` → solo los públicos, con su `embeddable`. Un id que
+/// no vuelve (borrado) o con otro `privacyStatus` no entra al mapa.
+export function parseVideoStatuses(body: unknown): Map<string, VideoStatus> {
+  const out = new Map<string, VideoStatus>();
+  const items = (body as { items?: unknown[] })?.items;
+  if (!Array.isArray(items)) return out;
+  for (const it of items as Record<string, unknown>[]) {
+    const status = (it.status ?? {}) as Record<string, unknown>;
+    if (typeof it.id === "string" && status.privacyStatus === "public") {
+      out.set(it.id, { embeddable: status.embeddable === true });
+    }
+  }
+  return out;
+}
+
+export type StatusResult =
+  | { ok: true; statuses: Map<string, VideoStatus> }
+  | { ok: false; quota: boolean; statuses: Map<string, VideoStatus> };
+
+/// Estado de los videos en lotes de 50 ids (1 unidad de cuota por lote). Nunca
+/// lanza ni deja la clave en un mensaje. Ante un error devuelve lo que alcanzó
+/// a leer: lo que no tiene estado verificado no se guarda.
+export async function fetchVideoStatuses(
+  deps: Pick<Deps, "fetch">,
+  apiKey: string,
+  ids: string[],
+): Promise<StatusResult> {
+  const statuses = new Map<string, VideoStatus>();
+  const unique = [...new Set(ids)];
+  for (let i = 0; i < unique.length; i += youtubeConfig.statusBatch) {
+    const url = new URL(youtubeConfig.videosUrl);
+    url.searchParams.set("part", "status");
+    url.searchParams.set("id", unique.slice(i, i + youtubeConfig.statusBatch).join(","));
+    url.searchParams.set("key", apiKey);
+    try {
+      const res = await deps.fetch(url.toString(), { signal: AbortSignal.timeout(youtubeConfig.timeoutMs) });
+      if (!res.ok) {
+        const text = await res.text();
+        const quota = res.status === 403 && /quotaExceeded|rateLimitExceeded/.test(text);
+        console.error("[news-warm] youtube status", res.status, quota ? "quota" : "");
+        if (quota) return { ok: false, quota: true, statuses };
+        continue;
+      }
+      for (const [id, st] of parseVideoStatuses(await res.json())) statuses.set(id, st);
+    } catch (e) {
+      console.error("[news-warm] youtube status fetch", e instanceof Error ? e.name : "error");
+    }
+  }
+  return { ok: true, statuses };
+}
+
+/// Filas con estado verificado: descarta las que no son públicas (o sin
+/// respuesta) y completa `embeddable`.
+export function applyVideoStatus(rows: VideoRow[], statuses: Map<string, VideoStatus>): VideoRow[] {
+  return rows.flatMap((r) => {
+    const st = statuses.get(r.video_id);
+    return st ? [{ ...r, embeddable: st.embeddable }] : [];
+  });
 }
 
 export type PlaylistResult =

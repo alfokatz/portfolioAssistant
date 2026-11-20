@@ -109,7 +109,7 @@ void main() {
           find.text('Subió 4,1 % el día que presentó resultados.'),
           findsOneWidget,
         );
-        expect(find.text('daily_brief_footer_disclaimer'), findsOneWidget);
+        expect(find.text('news_ai_notice'), findsOneWidget);
       });
     }
 

@@ -77,6 +77,7 @@ class WidgetItemsSelection {
 /// Ver docs/specs/home-widget-tech.md Am.4.2.
 abstract final class WidgetItemsSelector {
   static const topHoldings = 5;
+
   /// Tope por defecto de ítems (con aviso, uno menos). La v2 pide 7.
   static const maxItems = 4;
   static const maxItemsV2 = 7;
@@ -94,7 +95,21 @@ abstract final class WidgetItemsSelector {
     RegExp(r'time to (buy|sell)', caseSensitive: false),
     RegExp(r'must[- ](buy|sell)', caseSensitive: false),
     RegExp(r'best .* to (buy|sell)', caseSensitive: false),
-    RegExp(r'comprá|vendé|aprovechá', caseSensitive: false),
+    RegExp(r'top stock picks|stock picks|price target', caseSensitive: false),
+    RegExp(r'stocks to buy|buy now|should you buy', caseSensitive: false),
+    RegExp(
+      r'predicción de precio|qué comprar|dónde invertir',
+      caseSensitive: false,
+    ),
+    RegExp(r'comprá|vendé|invertí|aprovechá', caseSensitive: false),
+    // Imperativo al comienzo del titular ("Compra YPF antes de..."), no
+    // "Apple compra una startup" ni el sustantivo "Compra de acciones".
+    RegExp(
+      r'^\W*(compra|compre|vende|venda|invierte|invierta|aprovecha)'
+      r'(?![\p{L}])(?!\s+(de|del)\b)',
+      caseSensitive: false,
+      unicode: true,
+    ),
   ];
 
   static bool isRecommendation(String headline) =>
@@ -200,7 +215,10 @@ abstract final class WidgetItemsSelector {
     );
     final limit = teaser != null ? cap - 1 : cap;
     final items =
-        <SelectedWidgetItem>[...earningsItems, ...newsItems].take(limit).toList();
+        <SelectedWidgetItem>[
+          ...earningsItems,
+          ...newsItems,
+        ].take(limit).toList();
 
     return WidgetItemsSelection(
       items: items,

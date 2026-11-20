@@ -283,7 +283,7 @@ async function build(
 /// URL del IFrame Player de YouTube (la app puede usarla tal cual en un
 /// WebView o tomar `video_id` para el plugin del reproductor).
 export const embedUrl = (videoId: string) =>
-  `https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1`;
+  `https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0`;
 
 /// Región con más peso en la cartera (sufijo de la bolsa); `us` si no hay.
 export function primaryRegionOf(ent: Pick<Entitlement, "held">): string {
@@ -380,15 +380,17 @@ async function videosFor(
 ): Promise<Video[]> {
   const since = new Date(nowMs - config.videoWindowHours * 3600_000).toISOString();
   const { data, error } = await db.from("news_videos")
-    .select("video_id, channel_id, title, published_at, lang, topic_ids, channel:video_channel_allowlist(name, outlet_domain, enabled)")
+    .select("video_id, channel_id, title, published_at, lang, topic_ids, embeddable, channel:video_channel_allowlist(name, outlet_domain, enabled, require_topic)")
     .gte("published_at", since).order("published_at", { ascending: false }).limit(60);
   if (error || !data) return [];
   type Row = {
     video_id: string; channel_id: string; title: string; published_at: string; lang: string; topic_ids: string[];
-    channel: { name: string; outlet_domain: string | null; enabled: boolean } | null;
+    embeddable: boolean;
+    channel: { name: string; outlet_domain: string | null; enabled: boolean; require_topic: boolean } | null;
   };
   return (data as unknown as Row[])
-    .filter((v) => v.channel?.enabled && !isRecommendation(v.title) &&
+    // Canal de noticias generales (`require_topic`): sin tema no es "de mercado".
+    .filter((v) => v.channel?.enabled && !isRecommendation(v.title) && !(v.channel.require_topic && v.topic_ids.length === 0) &&
       (marketOnly ? v.topic_ids.length === 0 : v.topic_ids.some((t) => topicIds.includes(t))))
     // Preferidos primero; después los del idioma del usuario; después los más nuevos.
     .sort((a, b) =>
@@ -407,5 +409,6 @@ async function videosFor(
       embed_url: embedUrl(v.video_id),
       channel_id: v.channel_id,
       lang: v.lang === "en" ? "en" : "es",
+      embeddable: v.embeddable === true,
     }));
 }

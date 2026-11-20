@@ -210,7 +210,7 @@ Deno.test("daily-brief market: los videos traen video_id, embed_url y canal para
     assertEquals(r.status, 200);
     const body = await r.json();
     const v = body.videos.find((x: { video_id: string }) => x.video_id === "warmvid0009");
-    assertEquals(v.embed_url, "https://www.youtube.com/embed/warmvid0009?playsinline=1&rel=0&modestbranding=1");
+    assertEquals(v.embed_url, "https://www.youtube.com/embed/warmvid0009?playsinline=1&rel=0");
     assertEquals([v.channel_id, v.channel, v.lang, v.topic_id], [channelId, "Canal Warm", "es", null]);
     assertEquals(v.url, "https://www.youtube.com/watch?v=warmvid0009");
     assertEquals(body.attribution, { videos: "YouTube" });

@@ -63,13 +63,10 @@ void main() {
         const WidgetHolding(ticker: 'ZZZ', marketValue: 200),
         const WidgetHolding(ticker: 'ZERO', marketValue: 0),
       ]);
-      expect([for (final h in top) h.ticker], [
-        'AAA',
-        'BBB',
-        'CCC',
-        'DDD',
-        'EEE',
-      ]);
+      expect(
+        [for (final h in top) h.ticker],
+        ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
+      );
     });
 
     test('news outside the top 5 or about crypto is ignored', () {
@@ -160,6 +157,20 @@ void main() {
       'Comprá AAA antes de que suba',
       'Aprovechá la baja',
       'Vendé todo',
+      'Top stock picks for 2027',
+      'Analysts raise price target on AAA',
+      'Stock picks for the week',
+      'Predicción de precio de AAA para 2027',
+      'Qué comprar este mes',
+      'Dónde invertir tus ahorros',
+      'Compra AAA antes de que suba',
+      'Compre acciones hoy',
+      'Vende AAA ya',
+      'Venda sus bonos',
+      'Invierte en AAA',
+      'Invertí en AAA',
+      'Invierta ahora',
+      'Aprovecha la baja',
     ]) {
       test('drops "$headline"', () {
         expect(WidgetItemsSelector.isRecommendation(headline), isTrue);
@@ -171,6 +182,9 @@ void main() {
       'Analyst upgrades NVDA to Buy',
       'AAA presenta resultados del trimestre',
       'Microsoft compra una empresa de videojuegos',
+      'Apple compra una startup',
+      'Compra de acciones propias por parte de AAA',
+      'Inversiones de AAA crecen en el trimestre',
     ]) {
       test('keeps "$headline"', () {
         expect(WidgetItemsSelector.isRecommendation(headline), isFalse);
@@ -185,7 +199,10 @@ void main() {
           _news('AAA', 'AAA abre una planta', age: const Duration(hours: 3)),
         ],
       );
-      expect((s.items.single as SelectedNews).news.headline, 'AAA abre una planta');
+      expect(
+        (s.items.single as SelectedNews).news.headline,
+        'AAA abre una planta',
+      );
     });
   });
 

@@ -157,6 +157,7 @@ class NewsVideo {
     this.topicId,
     this.publishedAt,
     this.thumbnail,
+    this.serverEmbeddable,
   });
 
   final String videoId;
@@ -167,10 +168,15 @@ class NewsVideo {
   final DateTime? publishedAt;
   final String? thumbnail;
 
+  /// Lo que dice el servidor (`embeddable`); `null` si el bundle es viejo y
+  /// no trae el campo.
+  final bool? serverEmbeddable;
+
   static final _id = RegExp(r'^[A-Za-z0-9_-]{11}$');
 
-  /// El id sirve para el reproductor embebido (11 caracteres de YouTube).
-  bool get embeddable => _id.hasMatch(videoId);
+  /// Se muestra el reproductor solo si el id tiene forma de YouTube (11
+  /// caracteres) y el servidor no dijo `false`. Sin el campo, solo el id.
+  bool get embeddable => serverEmbeddable != false && _id.hasMatch(videoId);
 
   static NewsVideo? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -189,6 +195,8 @@ class NewsVideo {
       topicId: raw['topic_id'] is String ? raw['topic_id'] as String : null,
       publishedAt: DateTime.tryParse('${raw['published_at']}'),
       thumbnail: thumb is String && thumb.startsWith('https://') ? thumb : null,
+      serverEmbeddable:
+          raw['embeddable'] is bool ? raw['embeddable'] as bool : null,
     );
   }
 }

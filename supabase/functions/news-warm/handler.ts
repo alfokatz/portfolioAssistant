@@ -239,7 +239,7 @@ export async function warmVideos(deps: WarmDeps): Promise<VideosSummary> {
   if (!apiKey) return { status: "no_key", channels: 0, stored: 0 };
 
   const [chans, topicsRes] = await Promise.all([
-    deps.db.from("video_channel_allowlist").select("channel_id, uploads_playlist_id, lang, region").eq("enabled", true),
+    deps.db.from("video_channel_allowlist").select("channel_id, uploads_playlist_id, lang, region, require_topic").eq("enabled", true),
     deps.db.from("news_topics").select("id, keywords").eq("enabled", true),
   ]);
   if (chans.error) throw new Error(`channels: ${chans.error.message}`);
@@ -264,11 +264,18 @@ export async function warmVideos(deps: WarmDeps): Promise<VideosSummary> {
   };
   await Promise.all(Array.from({ length: Math.min(youtubeConfig.concurrency, channels.length) }, worker));
 
-  for (let i = 0; i < rows.length; i += warmConfig.videoUpsertChunk) {
-    const { error } = await deps.db.from("news_videos").upsert(rows.slice(i, i + warmConfig.videoUpsertChunk), { onConflict: "video_id" });
+  // Estado de cada video (público y embebible) en lotes de 50 ids. Sin estado
+  // verificado no se guarda (cumple compliance H4); con la cuota agotada se
+  // guarda lo que alcanzó a verificarse.
+  const st = rows.length > 0 ? await fetchVideoStatuses(deps, apiKey, rows.map((r) => r.video_id)) : null;
+  if (st && !st.ok && st.quota) quota = true;
+  const verified = st ? applyVideoStatus(rows, st.statuses) : [];
+
+  for (let i = 0; i < verified.length; i += warmConfig.videoUpsertChunk) {
+    const { error } = await deps.db.from("news_videos").upsert(verified.slice(i, i + warmConfig.videoUpsertChunk), { onConflict: "video_id" });
     if (error) throw new Error(`news_videos upsert: ${error.message}`);
   }
-  return { status: quota ? "quota" : "ok", channels: channels.length, stored: rows.length };
+  return { status: quota ? "quota" : "ok", channels: channels.length, stored: verified.length };
 }
 
 // ---------------------------------------------------------------------------

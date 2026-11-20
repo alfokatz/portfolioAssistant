@@ -67,7 +67,7 @@ class NewsSectionTitle extends StatelessWidget {
   );
 }
 
-/// "Información, no una recomendación." al pie.
+/// Aviso de IA y "no es una recomendación" al pie.
 class NewsDisclaimer extends StatelessWidget {
   const NewsDisclaimer({super.key});
 
@@ -75,7 +75,7 @@ class NewsDisclaimer extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: AppDimens.sp24),
     child: Text(
-      'market_today_footer'.tr(),
+      'news_ai_notice'.tr(),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: context.customColors.textSecondary,
       ),

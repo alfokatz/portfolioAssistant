@@ -128,6 +128,11 @@ class _Loaded extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          'news_ai_notice_short'.tr(),
+          style: tt.bodySmall?.copyWith(color: colors.textSecondary),
+        ),
+        const SizedBox(height: AppDimens.sp16),
         if (empty && bundle.videos.isEmpty)
           NewsMessage(
             messageKey: 'market_empty',

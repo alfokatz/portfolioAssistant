@@ -116,11 +116,14 @@ export type Video = {
   topic_id: string | null;
   url: string;
   thumbnail: string;
-  /// `https://www.youtube.com/embed/<id>?playsinline=1&rel=0&modestbranding=1`.
+  /// `https://www.youtube.com/embed/<id>?playsinline=1&rel=0`.
   embed_url?: string;
   /// Id del canal (`UC...`), para atribuir.
   channel_id?: string;
   lang?: Lang;
+  /// `status.embeddable` de YouTube. Con `false` (o ausente) la app no arma el
+  /// reproductor: abre `url` afuera.
+  embeddable?: boolean;
 };
 
 export type SourceRef = {

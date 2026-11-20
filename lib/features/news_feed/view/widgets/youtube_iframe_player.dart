@@ -52,7 +52,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
       params: YoutubePlayerParams(
         origin: YoutubeIframePlayer.origin,
         showControls: true,
-        showFullscreenButton: false,
+        showFullscreenButton: true,
         interfaceLanguage: widget.language,
         captionLanguage: widget.language,
         strictRelatedVideos: true,
