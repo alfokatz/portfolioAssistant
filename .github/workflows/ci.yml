@@ -123,7 +123,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versión fija: con `latest` el paso consulta la API de GitHub y
+          # falla con "rate limit exceeded". Subirla a mano, en un PR aparte.
+          version: 3.2.0
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -211,7 +213,9 @@ jobs:
           cache: true
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versión fija: con `latest` el paso consulta la API de GitHub y
+          # falla con "rate limit exceeded". Subirla a mano, en un PR aparte.
+          version: 3.2.0
       - name: Dependencias
         run: |
           flutter pub get
