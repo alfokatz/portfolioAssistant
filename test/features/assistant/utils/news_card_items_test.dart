@@ -60,6 +60,9 @@ void main() {
         },
       ],
       'context': _noHeadlines.result['context'],
+      // Fijo: sin él se usa la fecha de hoy y el titular de 2026-11-12 deja
+      // de ser "reciente" (7 días) a medida que pasa el tiempo.
+      'as_of': '2026-11-14T13:05:00Z',
     });
     expect(withHeadlines.map((n) => n.headline), [
       'Nvidia ceo jensen huang resigns',

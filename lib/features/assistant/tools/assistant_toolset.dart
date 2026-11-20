@@ -71,6 +71,9 @@ abstract final class AssistantToolset {
     ...ReportTools.build(ctx),
     ...MemoryTools.build(ctx),
     SearchWebTool(ctx),
+    // Brief diario (2026-11-20): siempre al final, el orden es del caché.
+    GetDailyBriefTool(ctx),
+    CompareSourcesTool(ctx),
   ];
 }
 

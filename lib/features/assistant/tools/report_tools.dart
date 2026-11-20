@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/genui_core/tool_calling/data_tool.d
 /// viene). Solo lectura: el informe lo arma la app (ver `weekly_report`).
 abstract final class ReportTools {
   static const getWeeklyReport = 'get_weekly_report';
+  static const getDailyBrief = GetDailyBriefTool.toolName;
 
   static List<DataTool> build(AssistantToolContext ctx) => [
     GetWeeklyReportTool(ctx),
@@ -58,6 +59,65 @@ class GetWeeklyReportTool implements DataTool {
         'status': 'ok',
         'report': report,
       }, ReportGuides.ok);
+    } catch (_) {
+      return {'status': 'failed', 'reason': 'unavailable'};
+    }
+  }
+}
+
+/// El brief diario de hoy desde el chat ("Preguntale a Porty" del pie del
+/// brief): lo mismo que el usuario ve en la Home (números del día, lo que más
+/// pesó, noticias de lo suyo, mercado). Solo lectura: el brief lo arma la app
+/// (ver `daily_brief`) y esta tool no genera nada ni llama a un modelo. Sin
+/// card propia: la respuesta es `QaAnswerText`.
+class GetDailyBriefTool implements DataTool {
+  GetDailyBriefTool(this.ctx);
+
+  final AssistantToolContext ctx;
+
+  static const toolName = 'get_daily_brief';
+
+  @override
+  String get name => toolName;
+
+  @override
+  String get description =>
+      "Today's daily brief as shown on Home (day numbers, what moved it, "
+      'news, market). status: ok | not_ready.';
+
+  @override
+  Map<String, Object?> get parameters => const {
+    'type': 'object',
+    'properties': {},
+    'additionalProperties': false,
+  };
+
+  static const okGuide =
+      'QaAnswerText only (no card): 1-3 sentences answering what they asked '
+      'from THIS brief; every number comes from it, never recalculate; no '
+      'cause the brief does not state; no advice.';
+
+  static const notReadyGuide =
+      "QaAnswerText: today's brief isn't ready yet; it shows up on their "
+      'Home when it is. Offer what you can answer now from the portfolio.';
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> args) async {
+    final load = ctx.loadDailyBrief;
+    if (load == null) return {'status': 'failed', 'reason': 'unavailable'};
+    try {
+      final brief = await load();
+      if (brief == null) {
+        return AnswerGuide.attach({
+          'status': 'not_ready',
+          'as_of': ctx.asOf,
+        }, notReadyGuide);
+      }
+      return AnswerGuide.attach({
+        'status': 'ok',
+        'brief': brief,
+        'as_of': ctx.asOf,
+      }, okGuide);
     } catch (_) {
       return {'status': 'failed', 'reason': 'unavailable'};
     }

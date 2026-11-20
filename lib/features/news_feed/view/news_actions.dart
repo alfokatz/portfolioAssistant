@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/plan_matrix.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
@@ -34,22 +35,35 @@ abstract final class NewsActions {
     ref.read(dailyBriefUrlLauncherProvider)(uri).catchError((_) => false);
   }
 
-  /// "¿Cómo me afecta?": abre el chat con la pregunta de plantilla.
-  ///
-  /// Hoy viaja solo la pregunta; cuando el chat sume `PortyScreen.newsItem`
-  /// y `PortyScreenContext.news`, se pasa [title] y compañía acá (único
-  /// lugar).
+  /// "¿Cómo me afecta?": abre el chat con la pregunta de plantilla y la
+  /// noticia como contexto (`screen_context.news`): el titular, su medio y,
+  /// si se conocen, el link, la fecha, el ticker o el id del tema.
   static void askAffects(
     BuildContext context,
     WidgetRef ref, {
     required String title,
     required String from,
+    String? source,
+    String? url,
+    DateTime? publishedAt,
+    String? ticker,
+    String? topicId,
   }) {
     ref.read(productEventsProvider).log(ProductEvent.newsHowAffectsTapped, {
       'from': from,
     });
     GotoAssistant(
       initialQuestion: 'news_ask_affects'.tr(namedArgs: {'title': title}),
+      screen: PortyScreenContext.newsItem(
+        PortyNewsItem(
+          title: title,
+          source: source,
+          url: url,
+          publishedAt: publishedAt,
+          ticker: ticker,
+          topicId: topicId,
+        ),
+      ),
     ).navigate(context: context);
   }
 
@@ -68,7 +82,8 @@ abstract final class NewsActions {
   }
 
   /// "Qué dice cada medio": con plan, abre el chat con la pregunta de
-  /// plantilla; sin plan, el paywall (sin nombrar ningún ticker).
+  /// plantilla y el sujeto como contexto; sin plan, el paywall (sin nombrar
+  /// ningún ticker).
   static void compare(
     BuildContext context,
     WidgetRef ref, {
@@ -76,6 +91,8 @@ abstract final class NewsActions {
     required NewsCompareSubject kind,
     required String from,
     bool held = true,
+    String? topicId,
+    String? url,
   }) {
     final allowed = canCompare(ref, kind: kind, held: held);
     ref.read(productEventsProvider).log(ProductEvent.newsCompareTapped, {
@@ -95,8 +112,18 @@ abstract final class NewsActions {
       );
       return;
     }
+    // El chat llama a `compare_sources` con el ticker, o con `topic_id` si es
+    // un tema (el modelo lo toma de `screen_context.news`).
     GotoAssistant(
       initialQuestion: 'news_ask_compare'.tr(namedArgs: {'subject': subject}),
+      screen: PortyScreenContext.newsItem(
+        PortyNewsItem(
+          title: subject,
+          url: url,
+          ticker: kind == NewsCompareSubject.ticker ? subject : null,
+          topicId: kind == NewsCompareSubject.topic ? topicId : null,
+        ),
+      ),
     ).navigate(context: context);
   }
 

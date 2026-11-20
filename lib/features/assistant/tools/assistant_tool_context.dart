@@ -20,6 +20,7 @@ import 'package:portfolio_assistant/features/assistant/data/market/news_fetcher.
 import 'package:portfolio_assistant/features/assistant/data/market/news_provider.dart';
 import 'package:portfolio_assistant/features/assistant/data/market/sec_market_fetchers.dart';
 import 'package:portfolio_assistant/features/assistant/data/plan/savings_plan_store.dart';
+import 'package:portfolio_assistant/features/assistant/data/web/source_compare_fetcher.dart';
 import 'package:portfolio_assistant/features/assistant/data/web/web_search_client.dart';
 import 'package:portfolio_assistant/features/assistant/tools/answer_guide.dart';
 import 'package:portfolio_assistant/features/goals/domain/user_goal.dart';
@@ -41,10 +42,12 @@ class AssistantDataSources {
     YahooCompanyProfileClient? profileClient,
     DividendFetcher? dividends,
     WebSearchClient? webSearch,
+    SourceCompareFetcher? sourceCompare,
     NewsProvider? newsProvider,
     NewsProviderConfig? newsProviderConfig,
   }) : _tickerResolver = tickerResolver,
        _webSearch = webSearch,
+       _sourceCompare = sourceCompare,
        _dividends = dividends,
        _earnings = earnings,
        _fundamentals = fundamentals,
@@ -72,6 +75,7 @@ class AssistantDataSources {
   YahooCompanyProfileClient? _profileClient;
   DividendFetcher? _dividends;
   WebSearchClient? _webSearch;
+  SourceCompareFetcher? _sourceCompare;
 
   /// Planes de ahorro de la conversación (ver [SavingsPlanStore]).
   final plans = SavingsPlanStore();
@@ -110,6 +114,10 @@ class AssistantDataSources {
       _profileClient ??= YahooCompanyProfileClient();
   DividendFetcher get dividends => _dividends ??= DividendFetcher();
   WebSearchClient get webSearch => _webSearch ??= WebSearchClient();
+
+  /// "Qué dice cada medio" (`news-compare`, ver `compare_sources`).
+  SourceCompareFetcher get sourceCompare =>
+      _sourceCompare ??= SourceCompareFetcher();
 }
 
 /// Lo que las tools necesitan saber del usuario en ESTE turno. El plan se
@@ -137,6 +145,8 @@ class AssistantToolContext {
     this.userQuestion,
     this.recentTopics = const [],
     this.loadWeeklyReport,
+    this.loadDailyBrief,
+    this.turnId,
     this.userMemories = const [],
     this.saveMemory,
     this.deleteMemory,
@@ -235,6 +245,14 @@ class AssistantToolContext {
   /// El informe semanal de esta semana tal como lo ve el usuario (`null`
   /// si todavía no está); la función es `null` fuera de la app.
   final Future<Map<String, Object?>?> Function()? loadWeeklyReport;
+
+  /// El brief diario de hoy tal como lo ve el usuario, sin `v` ni `audio`
+  /// (`null` si todavía no está); la función es `null` fuera de la app.
+  final Future<Map<String, Object?>?> Function()? loadDailyBrief;
+
+  /// El id del turno en curso (`x-porty-turn-id` de las funciones que cuentan
+  /// búsquedas por turno); `null` fuera de la app.
+  final String? Function()? turnId;
 
   /// Lo que Porty sabe del usuario al empezar el turno (más recientes
   /// primero): va en `user_memory` del brief, con la referencia de

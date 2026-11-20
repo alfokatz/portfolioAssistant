@@ -144,6 +144,7 @@ abstract final class PortyAreas {
         'get_news',
         'get_etf_holdings',
         'get_dividends',
+        'compare_sources',
       },
       widgets: {
         'QaEarningsCalendar',
@@ -151,8 +152,11 @@ abstract final class PortyAreas {
         'QaCompanyAnalysis',
         'QaEtfHoldings',
         'QaNewsSummary',
+        'QaSourceComparison',
       },
-      budgetTokens: 1060,
+      // 2026-11-20: 1060 → 1150 por compare_sources (su definición, ~90
+      // tokens medidos; la card y su regla viajan diferidas).
+      budgetTokens: 1150,
       deferred: [
         DeferredSpec(
           tool: 'get_earnings',
@@ -175,6 +179,13 @@ abstract final class PortyAreas {
           tool: 'get_news',
           ruleSections: ['NEWS ([W:NEWS]) — get_news'],
           widgets: ['QaNewsSummary'],
+        ),
+        // "Qué dice cada medio": la card y su regla solo hacen falta con
+        // los datos de la comparación.
+        DeferredSpec(
+          tool: 'compare_sources',
+          ruleSections: ['SOURCES ([W:SOURCES]) — compare_sources'],
+          widgets: ['QaSourceComparison'],
         ),
       ],
     ),
@@ -250,9 +261,11 @@ abstract final class PortyAreas {
     ),
     PortyAreaSpec(
       area: PortyArea.report,
-      tools: {'get_weekly_report'},
+      tools: {'get_weekly_report', 'get_daily_brief'},
       widgets: {'QaWeeklyReport'},
-      budgetTokens: 150,
+      // 2026-11-20: 150 → 180 por get_daily_brief (solo su definición: la
+      // respuesta es QaAnswerText y su guía viaja en el resultado).
+      budgetTokens: 180,
     ),
     PortyAreaSpec(
       area: PortyArea.web,

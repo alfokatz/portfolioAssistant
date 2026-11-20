@@ -854,6 +854,9 @@ void main() {
       'remember_about_user',
       'forget_about_user',
       'search_web',
+      // Brief diario (2026-11-20): siempre al final.
+      'get_daily_brief',
+      'compare_sources',
     ]);
   });
 
