@@ -9,6 +9,7 @@ import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart
 import 'package:portfolio_assistant/domain/entities/position.dart';
 import 'package:portfolio_assistant/domain/entities/subscription_tier.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_generator.dart';
 import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_numbers_loader.dart';
 import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_repository.dart';
 import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief.dart';
@@ -578,9 +579,9 @@ class UnavailableDailyBriefWriter implements DailyBriefWriter {
       );
 }
 
-/// Se reemplaza con el adaptador sobre `DailyBriefGenerator` (chat).
+/// Porty escribe la prosa con `DailyBriefGenerator` (chat).
 final dailyBriefWriterProvider = Provider<DailyBriefWriter>(
-  (ref) => const UnavailableDailyBriefWriter(),
+  (ref) => DailyBriefGenerator(),
 );
 
 final dailyBriefNumbersLoaderProvider = Provider<DailyBriefNumbersLoader>(
