@@ -8,7 +8,7 @@ export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-porty-turn-id, " +
-    "x-porty-purpose, x-porty-report-week, x-region",
+    "x-porty-purpose, x-porty-report-week, x-porty-brief-day, x-region",
 };
 
 export function json(

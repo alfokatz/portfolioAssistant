@@ -25,7 +25,6 @@ export const errorTypes = {
   invalid_scope: 400,
   invalid_day: 400,
   invalid_topic: 400,
-  invalid_lang: 400,
   disabled: 403,
   rate_limited: 429,
 } as const;

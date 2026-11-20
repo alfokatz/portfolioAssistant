@@ -8,6 +8,12 @@
 
 import type { Deps } from "./common.ts";
 import { sleep } from "./common.ts";
+import { readCache, writeCache } from "./data_cache.ts";
+import { isRecommendation } from "./recommendation.ts";
+import { looksLikeInstructions } from "./news_attribution.ts";
+import { normalizeTicker } from "./sec.ts";
+import { resolveCik } from "./sec_data.ts";
+import { fetchQuotes } from "../market-watch/quotes.ts";
 
 export const gdeltConfig = {
   url: "https://api.gdeltproject.org/api/v2/doc/doc",
@@ -79,12 +85,12 @@ export const gdeltDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").slice
 export function gdeltUrl(
   names: string[],
   domains: string[],
-  opts: { from?: Date; to?: Date } = {},
+  opts: { from?: Date; to?: Date; domains?: string[] } = {},
 ): string {
   const terms = names.map((n) => (n.includes(" ") ? `"${n}"` : n));
   const nameClause = terms.length > 1 ? `(${terms.join(" OR ")})` : terms[0];
-  const inQuery = gdeltConfig.queryDomains
-    .filter((q) => domains.some((d) => d === q || d.endsWith(`.${q}`)))
+  const inQuery = (opts.domains ??
+    gdeltConfig.queryDomains.filter((q) => domains.some((d) => d === q || d.endsWith(`.${q}`))))
     .slice(0, gdeltConfig.maxDomainsPerQuery);
   const domainClause = inQuery.length > 0
     ? ` (${inQuery.map((d) => `domain:${d}`).join(" OR ")})`
@@ -229,4 +235,148 @@ export async function gdeltFetch(
 export async function newsAllowlist(deps: Pick<Deps, "db">): Promise<Map<string, string>> {
   const { data } = await deps.db.from("news_source_allowlist").select("domain, name").eq("enabled", true);
   return new Map((data ?? []).map((r: { domain: string; name: string }) => [r.domain, r.name]));
+}
+
+// ---------------------------------------------------------------------------
+// Titulares por ticker y por día (brief diario, spec §3.5)
+// ---------------------------------------------------------------------------
+
+export type AllowRow = { domain: string; name: string; region: string; gdelt_priority: number | null };
+
+/// Allowlist con región y prioridad (columnas de 20261121100000). Solo la usa
+/// el brief: `newsAllowlist` sigue leyendo (domain, name).
+export async function newsAllowlistMeta(deps: Pick<Deps, "db">): Promise<AllowRow[]> {
+  const { data } = await deps.db.from("news_source_allowlist")
+    .select("domain, name, region, gdelt_priority").eq("enabled", true);
+  return (data ?? []) as AllowRow[];
+}
+
+/// Región de noticias de un símbolo según el sufijo de su bolsa (sin sufijo =
+/// EE. UU.; `-USD` cripto = global). No es una lista de tickers.
+export function regionOfSymbol(symbol: string): string {
+  const s = symbol.toUpperCase();
+  if (/-(USD|USDT|EUR)$/.test(s)) return "global";
+  const suffix = /\.([A-Z]{1,3})$/.exec(s)?.[1];
+  if (!suffix || ["A", "B", "C"].includes(suffix)) return "us";
+  if (["BA", "SA", "MX", "SN", "LM", "CO"].includes(suffix)) return "latam";
+  if (["T", "HK", "SS", "SZ", "NS", "BO", "KS", "KQ", "SI", "AX", "TW"].includes(suffix)) return "asia";
+  if (["TO", "V", "NE"].includes(suffix)) return "us";
+  return "eu";
+}
+
+/// Hasta 8 dominios por `gdelt_priority` de las regiones del lote (más los
+/// globales), en orden de prioridad.
+export function domainsForRegions(rows: AllowRow[], regions: string[]): string[] {
+  const want = new Set([...regions, "global"]);
+  return rows
+    .filter((r) => r.gdelt_priority !== null && want.has(r.region))
+    .sort((a, b) => a.gdelt_priority! - b.gdelt_priority!)
+    .slice(0, gdeltConfig.maxDomainsPerQuery)
+    .map((r) => r.domain);
+}
+
+export type TickerHeadlines = { name: string | null; items: Headline[]; as_of: string };
+
+export const tickerKey = (symbol: string, day: string) => `gdelt:t:${symbol}:${day}`;
+
+/// 30 min hasta las 12 UTC y 2 h después.
+export const tickerTtlSeconds = (nowMs: number) => (new Date(nowMs).getUTCHours() < 12 ? 30 * 60 : 2 * 3600);
+
+/// Nombre con el que la prensa nombra al símbolo: el de la SEC o, sin CIK, el
+/// de Yahoo (`longName`/`shortName`). null si no hay.
+async function pressNameOf(
+  deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
+  symbol: string,
+): Promise<string | null> {
+  try {
+    const row = await resolveCik(deps, normalizeTicker(symbol));
+    if (row) return pressName(row.title);
+  } catch { /* sigue con Yahoo */ }
+  try {
+    const q = (await fetchQuotes(deps, [symbol])).get(symbol);
+    const n = q?.longName ?? q?.shortName;
+    return n ? pressName(n) : null;
+  } catch {
+    return null;
+  }
+}
+
+/// Titulares recientes por símbolo, de la caché por ticker y por día; lo que
+/// falta se pide a GDELT en lotes de hasta 10 nombres. Nunca lanza: si el
+/// limitador global no da turno en 7 s devuelve lo que haya.
+export async function headlinesByTicker(
+  deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
+  symbols: string[],
+  day: string,
+  opts: { maxBatches?: number; allow?: Map<string, string>; rows?: AllowRow[] } = {},
+): Promise<{ byTicker: Record<string, Headline[]>; unnamed: string[]; fetched: number; pending: string[] }> {
+  const wanted = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  const byTicker: Record<string, Headline[]> = {};
+  const entries = new Map<string, TickerHeadlines>();
+  const ttl = tickerTtlSeconds(deps.now());
+  const missing: string[] = [];
+  await Promise.all(wanted.map(async (sym) => {
+    const hit = await readCache<TickerHeadlines>(deps, tickerKey(sym, day)).catch(() => null);
+    if (hit) entries.set(sym, hit.body);
+    if (!hit || hit.ageSeconds >= ttl) missing.push(sym);
+  }));
+  const unnamed: string[] = [];
+  const pending: string[] = [];
+  let fetched = 0;
+  try {
+    if (missing.length > 0) {
+      const rows = opts.rows ?? await newsAllowlistMeta(deps);
+      const allow = opts.allow ?? new Map(rows.map((r) => [r.domain, r.name]));
+      const batches: string[][] = [];
+      for (let i = 0; i < missing.length; i += 10) batches.push(missing.slice(i, i + 10));
+      const limit = opts.maxBatches ?? batches.length;
+      for (const [bi, batch] of batches.entries()) {
+        if (bi >= limit) {
+          pending.push(...batch);
+          continue;
+        }
+        const names: Record<string, string> = {};
+        await Promise.all(batch.map(async (sym) => {
+          const prev = entries.get(sym);
+          const n = prev?.name ?? await pressNameOf(deps, sym);
+          if (n) names[sym] = n;
+          else unnamed.push(sym);
+        }));
+        const asOf = new Date(deps.now()).toISOString();
+        for (const sym of batch) {
+          if (!names[sym]) {
+            const e = { name: null, items: [], as_of: asOf };
+            entries.set(sym, e);
+            await writeCache(deps, tickerKey(sym, day), e);
+          }
+        }
+        if (Object.keys(names).length === 0) continue;
+        const url = gdeltUrl(Object.values(names), [...allow.keys()], {
+          domains: domainsForRegions(rows, [...new Set(Object.keys(names).map(regionOfSymbol))]),
+        });
+        let articles: Headline[];
+        try {
+          articles = parseArticles(await gdeltFetch(deps, url), allow);
+        } catch (e) {
+          console.error("[headlinesByTicker]", String(e));
+          pending.push(...Object.keys(names));
+          break;
+        }
+        fetched++;
+        const assigned = assignByName(articles, names);
+        for (const sym of Object.keys(names)) {
+          const items = (assigned[sym] ?? [])
+            .filter((h) => !isRecommendation(h.title) && !looksLikeInstructions(h.title))
+            .slice(0, 12);
+          const e = { name: names[sym], items, as_of: asOf };
+          entries.set(sym, e);
+          await writeCache(deps, tickerKey(sym, day), e);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[headlinesByTicker]", String(e));
+  }
+  for (const sym of wanted) byTicker[sym] = entries.get(sym)?.items ?? [];
+  return { byTicker, unnamed, fetched, pending };
 }
