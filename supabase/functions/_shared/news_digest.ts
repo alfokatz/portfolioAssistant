@@ -262,11 +262,18 @@ export async function generateDigest(
     console.error("[news-digest] fetch", String(e));
     return null;
   }
-  if (!upstream.ok) {
-    console.error("[news-digest] upstream", upstream.status, (await upstream.text()).slice(0, 200));
+  let out: ReturnType<typeof readResponse>;
+  try {
+    if (!upstream.ok) {
+      console.error("[news-digest] upstream", upstream.status, (await upstream.text()).slice(0, 200));
+      return null;
+    }
+    // Un cuerpo cortado o inválido también es un fallo (se cachea como tal).
+    out = readResponse(await upstream.json());
+  } catch (e) {
+    console.error("[news-digest] body", String(e));
     return null;
   }
-  const out = readResponse(await upstream.json());
   const cost = costUsd(ctx.model, out);
   if (out.text === "") {
     console.error("[news-digest] no text", out.status, out.outputTokens);

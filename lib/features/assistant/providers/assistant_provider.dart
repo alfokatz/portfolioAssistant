@@ -371,8 +371,11 @@ class AssistantProvider extends StateNotifier<AssistantState> {
       }
     }
 
-    _leanPrompt = await _leanPromptForConversation();
-    _dailyBriefStatus = await _dailyBriefStatusForConversation();
+    // En paralelo: la lectura del interruptor del brief no suma espera.
+    final leanF = _leanPromptForConversation();
+    final briefStatusF = _dailyBriefStatusForConversation();
+    _leanPrompt = await leanF;
+    _dailyBriefStatus = await briefStatusF;
     // Para ofrecer retomar la última charla en el chat vacío.
     unawaited(ref.read(portyTopicsProvider.notifier).ensureLoaded());
     _ensureService();
@@ -502,9 +505,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
   void _ensureService() {
     if (_service != null) return;
     final deps = ref.read(assistantDepsProvider);
-    final createBrief = _dailyBriefStatus.enabled
-        ? deps.createDailyBriefService
-        : null;
+    final createBrief =
+        _dailyBriefStatus.enabled ? deps.createDailyBriefService : null;
     final variant = _leanPrompt ? PromptVariant.lean : PromptVariant.classic;
     final service =
         createBrief?.call(variant) ??

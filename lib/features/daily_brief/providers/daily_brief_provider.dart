@@ -111,6 +111,10 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
   int _inProgressRetries = 0;
   String? _settledDay;
   String? _disabledDay;
+
+  /// Hasta cuándo no se vuelve a preguntar después de una falla de red.
+  DateTime? _unreachableUntil;
+  static const _unreachableBackoff = Duration(minutes: 1);
   String? _loadedFor;
   int _epoch = 0;
   List<PortfolioHistoryPoint> _history = const [];
@@ -140,6 +144,10 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
       return Future.value();
     }
     if (_disabledDay == day) return Future.value();
+    final waitUntil = _unreachableUntil;
+    if (waitUntil != null && _clock().isBefore(waitUntil)) {
+      return Future.value();
+    }
     return _inFlight ??= _load(
       day,
       _epoch,
@@ -150,6 +158,7 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
   Future<void> retry() {
     _settledDay = null;
     _disabledDay = null;
+    _unreachableUntil = null;
     _inProgressRetries = 0;
     return ensureFor(_history, _lots);
   }
@@ -163,7 +172,20 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
       state = DailyBriefState(
         phase: DailyBriefPhase.ready,
         brief: cached,
-        status: const DailyBriefStatus(enabled: true),
+        // Sin piezas hasta que llegue el estado real: nada de entradas
+        // (feed, comparar) que el servidor pueda tener apagadas.
+        status: const DailyBriefStatus(
+          enabled: true,
+          pieces: {
+            'push': false,
+            'feed': false,
+            'topics': false,
+            'sources': false,
+            'market': false,
+            'compare': false,
+            'videos': false,
+          },
+        ),
       );
     }
   }
@@ -177,6 +199,7 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
     _inProgressRetries = 0;
     _settledDay = null;
     _disabledDay = null;
+    _unreachableUntil = null;
     state = const DailyBriefState();
     _hydrate();
   }
@@ -194,9 +217,11 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
     if (_stale(epoch)) return;
     if (!status.reachable) {
       // Falla transitoria (red, servidor): se deja lo que había, sin cerrar
-      // el día ni borrar la caché; la próxima carga vuelve a preguntar.
+      // el día ni borrar la caché; se vuelve a preguntar en un rato.
+      _unreachableUntil = _clock().add(_unreachableBackoff);
       return;
     }
+    _unreachableUntil = null;
     if (!status.enabled) {
       // Apagado: nada nuevo en la Home. No se vuelve a preguntar hoy.
       _disabledDay = day;
@@ -286,7 +311,11 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
     required DailyBriefStatus status,
     required bool save,
   }) async {
-    final numbers = await _numbers.load(history: _history, lots: _lots);
+    final numbers = await _numbers.load(
+      history: _history,
+      lots: _lots,
+      now: _clock(),
+    );
     if (_stale(epoch)) return;
     if (numbers.isEmpty) {
       state = DailyBriefState(status: status);
@@ -340,7 +369,7 @@ class DailyBriefController extends StateNotifier<DailyBriefState> {
     );
     final lang = _language();
     final results = await Future.wait<Object?>([
-      _numbers.load(history: _history, lots: _lots),
+      _numbers.load(history: _history, lots: _lots, now: _clock()),
       _store
           .bundle('brief', day: day, lang: lang)
           .then<Object?>(DailyBriefBundle.parse)

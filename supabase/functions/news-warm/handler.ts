@@ -52,8 +52,9 @@ export const warmConfig = {
   /// Pulso y temas: desde las 6:30 locales de cada región, 45 minutos.
   digests: { fromMin: 6 * 60 + 30, toMin: 7 * 60 + 15 },
   digestConcurrency: 4,
-  /// No se arranca un digest nuevo pasado esto (la función corta a los ~55 s).
-  digestStartBudgetMs: 30_000,
+  /// No se arranca un digest nuevo pasado esto: con el timeout del digest
+  /// (40 s) el último termina antes de que la función corte (~55 s).
+  digestStartBudgetMs: 10_000,
   /// Videos: en las corridas de los minutos 0 y 30 (el cron es cada 15).
   videosEveryMinutes: 30,
   videoUpsertChunk: 200,

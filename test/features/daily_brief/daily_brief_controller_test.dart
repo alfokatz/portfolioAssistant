@@ -65,9 +65,13 @@ void main() {
       expect(c.state.phase, DailyBriefPhase.hidden);
       expect(store.claimCalls, 0);
 
-      // Vuelve la red: la próxima carga pregunta de nuevo y el brief aparece.
-      store.statusResult = const DailyBriefStatus(enabled: true);
+      // Con backoff: un rebuild inmediato de la Home no vuelve a preguntar.
       await c.ensureFor(history(), lots);
+      expect(store.statusCalls, 1);
+
+      // Vuelve la red: al reintentar pregunta de nuevo y el brief aparece.
+      store.statusResult = const DailyBriefStatus(enabled: true);
+      await c.retry();
       expect(store.statusCalls, 2);
       expect(c.state.phase, DailyBriefPhase.ready);
     });
