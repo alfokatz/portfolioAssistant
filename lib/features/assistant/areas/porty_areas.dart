@@ -58,11 +58,17 @@ class DeferredSpec {
     required this.tool,
     this.ruleSections = const [],
     this.widgets = const [],
+    this.dailyBrief = false,
   });
 
   final String tool;
   final List<String> ruleSections;
   final List<String> widgets;
+
+  /// Existe solo con el interruptor del brief diario prendido: apagado, ni
+  /// la tool ni sus reglas ni su card están en el prompt (ver
+  /// [PortyAreas.dailyBriefTools]).
+  final bool dailyBrief;
 }
 
 class PortyAreaSpec {
@@ -92,6 +98,10 @@ class PortyAreaSpec {
   final List<DeferredSpec> deferred;
 
   Set<String> get deferredWidgets => {for (final d in deferred) ...d.widgets};
+
+  /// Lo diferido que existe con el interruptor [dailyBrief] en ese estado.
+  Iterable<DeferredSpec> deferredFor({required bool dailyBrief}) =>
+      deferred.where((d) => dailyBrief || !d.dailyBrief);
 }
 
 abstract final class PortyAreas {
@@ -186,6 +196,7 @@ abstract final class PortyAreas {
           tool: 'compare_sources',
           ruleSections: ['SOURCES ([W:SOURCES]) — compare_sources'],
           widgets: ['QaSourceComparison'],
+          dailyBrief: true,
         ),
       ],
     ),
@@ -291,14 +302,32 @@ abstract final class PortyAreas {
     return null;
   }
 
-  /// Todos los widgets que el prompt lean saca del esquema fijo.
-  static Set<String> get deferredWidgets => {
-    for (final spec in all) ...spec.deferredWidgets,
+  /// Las tools que solo existen con el interruptor `daily_brief` prendido
+  /// (cada una, además, con su pieza: `compare_sources` con `compare`,
+  /// `get_daily_brief` con `brief`). Apagado, la lista de tools es la de
+  /// antes del brief.
+  static const dailyBriefTools = {'get_daily_brief', 'compare_sources'};
+
+  /// Los widgets que solo existen con el interruptor prendido.
+  static const dailyBriefWidgets = {'QaSourceComparison'};
+
+  /// Todos los widgets que el prompt lean saca del esquema fijo (con el
+  /// brief diario prendido).
+  static Set<String> get deferredWidgets => deferredWidgetsFor(dailyBrief: true);
+
+  /// Todas las secciones de reglas que el prompt lean saca del prefijo (con
+  /// el brief diario prendido).
+  static List<String> get deferredRuleSections =>
+      deferredRuleSectionsFor(dailyBrief: true);
+
+  static Set<String> deferredWidgetsFor({required bool dailyBrief}) => {
+    for (final spec in all)
+      for (final d in spec.deferredFor(dailyBrief: dailyBrief)) ...d.widgets,
   };
 
-  /// Todas las secciones de reglas que el prompt lean saca del prefijo.
-  static List<String> get deferredRuleSections => [
+  static List<String> deferredRuleSectionsFor({required bool dailyBrief}) => [
     for (final spec in all)
-      for (final d in spec.deferred) ...d.ruleSections,
+      for (final d in spec.deferredFor(dailyBrief: dailyBrief))
+        ...d.ruleSections,
   ];
 }

@@ -20,9 +20,15 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     required super.systemPrompt,
     required super.catalog,
     this.variant = PromptVariant.classic,
+    this.dailyBrief = false,
   }) : super(
          postProcess: AssistantAnswerReview.postProcess,
-         answerCheck: AssistantAnswerReview.check,
+         answerCheck:
+             (raw, evidence) => AssistantAnswerReview.check(
+               raw,
+               evidence,
+               outletAttribution: dailyBrief,
+             ),
        );
 
   factory AssistantOpenAiService({
@@ -30,27 +36,37 @@ class AssistantOpenAiService extends OpenAIGenUiService {
     String? model,
     http.Client? httpClient,
     PromptVariant variant = PromptVariant.classic,
+    bool dailyBrief = false,
   }) {
     return AssistantOpenAiService._(
       proxy: proxy,
       model: model,
       httpClient: httpClient,
-      systemPrompt: systemPromptFor(AssistantCatalog.build(variant: variant)),
+      systemPrompt: systemPromptFor(
+        AssistantCatalog.build(variant: variant, dailyBrief: dailyBrief),
+      ),
       // Para mostrar, siempre el catálogo completo: un widget diferido
       // llega descripto en su `area_spec`, y los que agrega la app
       // (QaBrokerLink) no van en el prompt.
-      catalog: AssistantCatalog.build(forDisplay: true),
+      catalog: AssistantCatalog.build(forDisplay: true, dailyBrief: dailyBrief),
       variant: variant,
+      dailyBrief: dailyBrief,
     );
   }
 
   /// Con qué prompt corre esta conversación (ver [PromptVariant]).
   final PromptVariant variant;
 
-  /// Los esquemas de los widgets, como los describe el prompt clásico (de
-  /// ahí salen los de `area_spec`).
+  /// El interruptor del brief diario estaba prendido al abrir la
+  /// conversación: el prompt trae sus reglas y su card, y la lista de tools
+  /// sus dos tools. Apagado, nada de eso (como antes del brief).
+  final bool dailyBrief;
+
+  /// Los esquemas de los widgets, como los describe el prompt clásico con el
+  /// brief prendido (de ahí salen los de `area_spec`; son los mismos
+  /// esquemas con el brief apagado, más el de `QaSourceComparison`).
   static final Map<String, Object?> _widgetSchemas = AreaSpecs.widgetSchemas(
-    systemPromptFor(AssistantCatalog.build()),
+    systemPromptFor(AssistantCatalog.build(dailyBrief: true)),
   );
 
   /// Con el prompt lean: el `area_spec` de cada tool que difiere algo.
@@ -58,7 +74,7 @@ class AssistantOpenAiService extends OpenAIGenUiService {
       variant == PromptVariant.lean
           ? (record) => AreaSpecs.extraFor(
             record,
-            rules: assistantPromptRules,
+            rules: assistantPromptRulesFor(dailyBrief: dailyBrief),
             schemas: _widgetSchemas,
           )
           : null;
