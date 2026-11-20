@@ -86,6 +86,7 @@ import 'package:portfolio_assistant/presentation/flows/home/providers/home_provi
 import 'package:portfolio_assistant/features/porty_memory/providers/porty_topics_provider.dart';
 import 'package:portfolio_assistant/features/porty_memory/domain/porty_topic.dart';
 import 'package:portfolio_assistant/features/assistant/utils/porty_topics_extractor.dart';
+import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_chat_loader.dart';
 
 /// Un solo chat con Porty. Cada mensaje es un turno de tool calling: el
 /// modelo decide qué datos pedir (ver `AssistantToolset`), el plan del
@@ -630,6 +631,8 @@ class AssistantProvider extends StateNotifier<AssistantState> {
           return left < 0 ? 0 : left;
         }(),
         loadWeeklyReport: _weeklyReportForTool,
+        loadDailyBrief: ref.read(dailyBriefChatLoaderProvider),
+        turnId: () => service.log.currentTurn?.id,
         userMemories: await memoriesF,
         saveMemory: _saveMemory,
         deleteMemory: (id) => ref.read(userMemoryProvider.notifier).remove(id),

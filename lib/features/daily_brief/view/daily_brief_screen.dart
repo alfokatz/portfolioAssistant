@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/models/porty_screen_context.dart';
 import 'package:portfolio_assistant/features/assistant/nav/assistant_nav.dart';
 import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
@@ -78,13 +79,22 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     GotoAssistant(initialQuestion: question).navigate(context: context);
   }
 
-  void _askAffects(String title) {
+  void _askAffects(String title, {BriefSource? source, String? ticker}) {
     ref.read(productEventsProvider).log(ProductEvent.newsHowAffectsTapped, {
       'from': 'brief',
     });
     GotoAssistant(
       initialQuestion: 'daily_brief_ask_affects'.tr(
         namedArgs: {'title': title},
+      ),
+      screen: PortyScreenContext.newsItem(
+        PortyNewsItem(
+          title: title,
+          source: source?.source,
+          url: source?.url,
+          publishedAt: source?.publishedAt,
+          ticker: ticker,
+        ),
       ),
     ).navigate(context: context);
   }
@@ -180,7 +190,8 @@ class _Body extends StatelessWidget {
   final DailyBrief brief;
   final bool feedAvailable;
   final void Function(String kind, BriefSource? source) onRead;
-  final void Function(String title) onAskAffects;
+  final void Function(String title, {BriefSource? source, String? ticker})
+  onAskAffects;
   final VoidCallback onAskPorty;
   final VoidCallback onTeaser;
   final VoidCallback onSeeAll;
@@ -220,7 +231,12 @@ class _Body extends StatelessWidget {
                   ),
           onRead: () => onRead(kind, source),
           askLabel: 'daily_brief_how_affects'.tr(),
-          onAsk: () => onAskAffects(source?.title ?? line.text),
+          onAsk:
+              () => onAskAffects(
+                source?.title ?? line.text,
+                source: source,
+                ticker: line.ticker,
+              ),
         ),
       );
     }

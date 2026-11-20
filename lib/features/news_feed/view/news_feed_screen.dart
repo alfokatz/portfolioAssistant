@@ -213,6 +213,7 @@ class _MineTab extends ConsumerWidget {
                           kind: NewsCompareSubject.ticker,
                           from: 'feed',
                           held: !bundle.mine[i].watch,
+                          url: bundle.mine[i].url,
                         ),
               ),
             ],

@@ -189,6 +189,7 @@ class _Content extends ConsumerWidget {
                     subject: title,
                     kind: NewsCompareSubject.topic,
                     from: 'topic',
+                    topicId: digest?.topicId ?? topicId,
                   ),
             ),
           ),
@@ -231,6 +232,10 @@ class _Content extends ConsumerWidget {
                           ref,
                           title: line.text,
                           from: 'topic',
+                          source: source?.source,
+                          url: source?.url,
+                          publishedAt: source?.publishedAt,
+                          topicId: digest?.topicId ?? topicId,
                         ),
                   ),
                 );
