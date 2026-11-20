@@ -12,11 +12,13 @@ el brief del día reservado (`claim_daily_brief` → `claimed`), porque el proxy
 por defecto, para que el brief sea `full`; elige hoy si es día hábil UTC, si no ayer o mañana).
 
 ```bash
-# 1) Stack local y proxy (key de OpenAI de DEV en .env.local)
+# TERMINAL 1 (queda ocupada: `functions serve` no termina)
 supabase start
-supabase functions serve --env-file supabase/functions/.env.local   # en otra terminal
+supabase migration up      # si el stack ya estaba levantado: aplica las migraciones nuevas
+supabase functions serve --env-file supabase/functions/.env.local   # key de OpenAI de DEV
 
-# 2) Variables
+# TERMINAL 2: todo lo que sigue
+# 2) Variables (chequeá que las tres queden cargadas antes de seguir)
 eval "$(cd supabase && supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY|ANON_KEY)=' | sed 's/^/export /')"
 
 # 3) Usuarios: N (por defecto 20; el test tiene 19 casos) y plan opcional (premium | gold | free)
