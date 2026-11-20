@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es" data-resolution="portrait">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<!-- Video "Tu mañana en dos líneas" v2 (15,8 s, 60 fps). Hecho con la skill porty-video (HyperFrames). Raíz: escenas, letra chica de compliance y efectos. Texto en la banda 168–1330 px. -->
+<script src="assets/vendor/gsap.min.js"></script>
+<style>
+@font-face{font-family:PJS;font-weight:500;src:url(assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+@font-face{font-family:PJS;font-weight:700;src:url(assets/fonts/PlusJakartaSans-Bold.ttf)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#FBFBFA}
+#root{position:relative;width:1080px;height:1920px;font-family:PJS;color:#2F3437;font-feature-settings:"tnum"}
+#bg{position:absolute;inset:0;background:#FBFBFA}
+.disc{position:absolute;left:60px;width:840px;top:1214px;font-size:28px;line-height:1.36;color:#5F5E5B;font-weight:500;z-index:30}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="15.8" data-width="1080" data-height="1920" data-fps="60">
+  <div id="bg"></div>
+  <!-- Piso cálido: Porty y el teléfono se apoyan acá; llena la mitad de abajo sin texto. -->
+  <div id="floor" style="position:absolute;left:0;right:0;top:1470px;bottom:0;background:#F3EDE6"></div>
+  <div id="morning" data-composition-id="morning" data-composition-src="compositions/morning.html" data-start="0" data-duration="11.8" data-track-index="1" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
+  <div id="outro" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="11.6" data-duration="4.2" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:1"></div>
+
+  <!-- Efectos: Pixabay Content License (assets/sfx/CREDITS.md). Pico del sonido un cuadro después de su imagen. -->
+  <audio id="sfx-0" class="clip" src="assets/sfx/notification.mp3" data-start="2.838" data-track-index="20" data-volume="0.6"></audio>
+  <audio id="sfx-1" class="clip" src="assets/sfx/click-soft.mp3" data-start="5.624" data-track-index="21" data-volume="0.95"></audio>
+  <audio id="sfx-2" class="clip" src="assets/sfx/whoosh.mp3" data-start="6.005" data-track-index="22" data-volume="0.6"></audio>
+  <audio id="sfx-3" class="clip" src="assets/sfx/pop.mp3" data-start="6.347" data-track-index="23" data-volume="0.4"></audio>
+  <audio id="sfx-4" class="clip" src="assets/sfx/whoosh.mp3" data-start="11.455" data-track-index="24" data-volume="0.4"></audio>
+  <audio id="sfx-5" class="clip" src="assets/sfx/pop.mp3" data-start="12.937" data-track-index="25" data-volume="0.7"></audio>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+
+tl.to({}, {duration:.01}, 15.79);
+window.__timelines["main"] = tl;
+tl.seek(0);
+</script>
+</body>
+</html>

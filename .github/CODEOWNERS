@@ -1,0 +1,11 @@
+# Controles que juzgan los cambios: un cambio no puede modificarlos sin la
+# aprobación del dueño. Para que se aplique, activá en GitHub → Settings →
+# Branches → regla de `main` → "Require review from Code Owners".
+/REVIEW.md            @alfokatz
+/CLAUDE.md            @alfokatz
+/.claude/hooks/       @alfokatz
+/.claude/settings.json @alfokatz
+/.claude/agents/      @alfokatz
+/.github/             @alfokatz
+/test/security/       @alfokatz
+/test/branding/       @alfokatz

@@ -1,0 +1,85 @@
+{
+  "_doc": "Anuncios armados con capturas reales (ads-out/screens). Titulares de porty-ads-sunra-rompts.md, ajustados a lo que muestra cada pantalla. underline: el tramo de una línea que lleva el subrayado a mano. offset: px de la captura (de 2622) que se scrollean para mostrar la parte que importa.",
+  "screens_dir": "../../ads-out/screens",
+  "output_dir": "../../ads-out/final",
+  "ads": {
+    "ad01": {
+      "slug": "ad01_por_que_bajo",
+      "lines": ["Tu cartera bajó.", "¿Por qué?"],
+      "underline": "¿Por qué?",
+      "sub": "Porty te lo explica en criollo.",
+      "screen": "ad01_chat_por_que_bajo.png"
+    },
+    "ad02": {
+      "slug": "ad02_calma",
+      "lines": ["Abrí. Mirá cómo vas.", "Cerrá."],
+      "underline": "cómo vas.",
+      "sub": "Tu cartera de un vistazo, sin ruido.",
+      "screen": "ad02_inicio_cartera.png"
+    },
+    "ad03": {
+      "slug": "ad03_sin_jerga",
+      "lines": ["Preguntale lo que", "no te animás a preguntar."],
+      "underline": "no te animás",
+      "sub": "Porty te lo explica con tu propia cartera.",
+      "screen": "chat_que_es_un_etf.png"
+    },
+    "ad04": {
+      "slug": "ad04_confianza",
+      "kind": "statement",
+      "lines": ["No te dice", "qué comprar."],
+      "underline": "qué comprar.",
+      "sub": "Te ayuda a entender lo que ya tenés.",
+      "sticker": "¡Comprá ya!"
+    },
+    "ad05": {
+      "slug": "ad05_metas",
+      "lines": ["¿Vas en camino", "a tu meta?"],
+      "underline": "en camino",
+      "sub": "Contale qué querés lograr. Porty arma el plan.",
+      "screen": "chat_meta_viaje.png"
+    },
+    "ad06": {
+      "slug": "ad06_etoro",
+      "lines": ["Tu cartera de eToro,", "sin cargar nada."],
+      "underline": "sin cargar nada.",
+      "sub": "Conectá tu cuenta. Solo lectura.",
+      "screen": "app/broker_etoro_conectado.png"
+    },
+    "ad07": {
+      "slug": "ad07_concentracion",
+      "lines": ["¿Estás muy", "concentrado?"],
+      "underline": "concentrado?",
+      "sub": "Porty te marca lo que no se ve a simple vista.",
+      "screen": "ad07_diagnostico_concentracion.png"
+    },
+    "ad09": {
+      "slug": "ad09_registrar",
+      "lines": ["Registrá tus compras", "contándoselas."],
+      "underline": "contándoselas.",
+      "sub": "Escribile o hablale a Porty. Vos confirmás.",
+      "screen": "chat_compra.png"
+    },
+    "ad10": {
+      "slug": "ad10_avisos",
+      "lines": ["Porty te avisa", "solo cuando importa."],
+      "underline": "solo cuando importa.",
+      "sub": "Tus metas, tu plan y tus alertas, sin ruido.",
+      "screen": "app/porty_te_marca_cosas.png"
+    },
+    "ad11": {
+      "slug": "ad11_jubilacion",
+      "lines": ["¿Cuánto necesitás", "para jubilarte?"],
+      "underline": "jubilarte?",
+      "sub": "Porty hace la cuenta con tu cartera real.",
+      "screen": "chat_jubilacion.png"
+    },
+    "ad12": {
+      "slug": "ad12_etf_por_dentro",
+      "lines": ["¿Qué hay adentro", "de tus ETFs?"],
+      "underline": "adentro",
+      "sub": "Porty te lo abre y te lo explica, sin jerga.",
+      "screen": "chat_etf_qqq.png"
+    }
+  }
+}

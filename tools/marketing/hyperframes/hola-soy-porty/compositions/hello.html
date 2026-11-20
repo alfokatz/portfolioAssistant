@@ -1,0 +1,186 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .hl-t{position:absolute;left:60px;top:330px;width:880px;font-weight:700;font-size:76px;line-height:1.1;letter-spacing:-1.9px;color:#2F3437}
+  .hl-t em{font-style:normal;color:#C27443}
+  .hl-t .w{display:inline-block}
+  #hl-c1{font-size:108px;letter-spacing:-3.2px}
+  #hl-pwrap{position:absolute;left:270px;top:930px;width:540px;height:540px;transform-origin:0 0}
+  #hl-shadow{position:absolute;left:18%;right:18%;bottom:-2%;height:7%;border-radius:50%;background:rgba(80,55,35,.16)}
+  #hl-porty{width:100%;height:100%;transform-origin:50% 90%}
+  #hl-porty svg{width:100%;height:100%;overflow:visible}
+  .cd{position:absolute;top:660px;width:290px;height:214px;background:#fff;border:2px solid #ECEBE8;border-radius:28px;padding:22px 18px;
+    box-shadow:0 10px 30px rgba(40,30,20,.06);opacity:0}
+  .cd small{display:block;font-size:28px;font-weight:600;color:#5F5E5B}
+  .cd b{display:block;font-size:48px;font-weight:700;letter-spacing:-1px;margin-top:6px}
+  .ex{display:inline-block;font-size:28px;font-weight:600;letter-spacing:-.3px;color:#5F5E5B;background:#F1F0EE;border-radius:12px;padding:4px 10px;margin-top:12px;white-space:nowrap}
+  .hdr{display:flex;justify-content:space-between;align-items:center}
+  .hdr .ex{margin-top:0}
+  .note{position:absolute;left:60px;width:860px;font-size:28px;font-weight:500;color:#5F5E5B;opacity:0}
+  .big{position:absolute;left:110px;top:640px;width:800px;background:#fff;border:2px solid #ECEBE8;border-radius:34px;padding:30px 34px;
+    box-shadow:0 14px 40px rgba(40,30,20,.08);opacity:0}
+  #hl-total small{display:block;font-size:30px;font-weight:600;color:#5F5E5B}
+  #hl-total b{display:block;font-size:84px;font-weight:700;letter-spacing:-2.4px;margin-top:6px}
+  #hl-total .src{display:flex;gap:10px;margin-top:14px}
+  #hl-total .src span{font-size:28px;font-weight:600;color:#5F5E5B;background:#F1F0EE;border-radius:12px;padding:6px 14px}
+  #hl-diag b{display:block;font-size:40px;font-weight:700;letter-spacing:-.8px;line-height:1.2}
+  #hl-diag p{font-size:30px;font-weight:500;color:#5F5E5B;margin-top:10px;line-height:1.3}
+  #hl-diag .track{position:relative;height:26px;border-radius:13px;background:#F1F0EE;margin-top:24px}
+  #hl-diag .fill{position:absolute;left:0;top:0;bottom:0;width:52%;border-radius:13px;background:#D98E5D;transform-origin:left center}
+  .bub{position:absolute;font-size:36px;line-height:1.32;border-radius:32px;padding:24px 30px;font-weight:500;opacity:0}
+  #hl-q{right:110px;top:560px;background:#2F3437;color:#fff;font-weight:600}
+  #hl-dots{left:110px;top:690px;background:#fff;border:2px solid #ECEBE8;display:flex;gap:12px}
+  #hl-dots i{width:16px;height:16px;border-radius:50%;background:#B9B6B1;display:block}
+  #hl-a{left:110px;top:690px;width:780px;background:#fff;border:2px solid #ECEBE8}
+  #hl-a .w{display:inline-block}
+  #hl-conc{position:absolute;left:110px;top:850px;width:800px;background:#fff;border:2px solid #ECEBE8;border-radius:34px;padding:28px 30px;
+    box-shadow:0 14px 40px rgba(40,30,20,.08);opacity:0}
+  #hl-conc .hd{display:flex;align-items:center;gap:16px}
+  #hl-conc .ic{width:64px;height:64px;border-radius:50%;background:#F8EDE5;display:flex;align-items:center;justify-content:center;flex:none}
+  #hl-conc .ic svg{width:34px;height:34px}
+  #hl-conc .hd b{font-size:32px;font-weight:700;letter-spacing:-.5px;flex:1}
+  #hl-conc .body{display:flex;align-items:center;gap:30px;margin-top:18px}
+  #hl-donut{position:relative;width:260px;height:260px;flex:none}
+  #hl-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+  #hl-donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  #hl-donut .ctr b{font-size:50px;font-weight:700;letter-spacing:-1.4px}
+  #hl-donut .ctr span{font-size:28px;font-weight:500;color:#5F5E5B}
+  .lg{flex:1}
+  .lg .row{margin-bottom:14px}
+  .lg .row .l{display:flex;align-items:center;gap:12px;font-size:30px;font-weight:600}
+  .lg .row .l i{width:16px;height:16px;border-radius:50%;flex:none}
+  .lg .row .l span{margin-left:auto;font-weight:600;color:#2F3437}
+  .lg .row .tr{height:10px;border-radius:5px;background:#F1F0EE;margin-top:8px;overflow:hidden}
+  .lg .row .tr u{display:block;height:100%;border-radius:5px;transform-origin:left center}
+</style>
+<div id="root" data-composition-id="hello" data-width="1080" data-height="1920">
+  <!-- Cuadro 0 = miniatura: Porty y el saludo ya están en pantalla. -->
+  <h2 id="hl-c1" class="hl-t"><span class="w">Hola,</span> <span class="w">soy</span> <em class="w">Porty.</em></h2>
+  <h2 id="hl-c2" class="hl-t">Tu asistente personal <em>de inversiones.</em></h2>
+  <h2 id="hl-c3" class="hl-t"><span class="w">Traés</span> <span class="w">tu</span> <em class="w">cartera…</em></h2>
+  <h2 id="hl-c4" class="hl-t"><span class="w">…la</span> <em class="w">analizo…</em></h2>
+  <h2 id="hl-c5" class="hl-t"><span class="w">…y</span> <span class="w">te</span> <span class="w">explico</span> <em class="w">cómo</em> <em class="w">viene.</em></h2>
+
+  <!-- Tres lugares genéricos (nunca logos) que se juntan en uno. -->
+  <div id="hl-k1" class="cd" style="left:60px"><small>Bróker</small><b>$4.120</b><span class="ex">Datos de ejemplo</span></div>
+  <div id="hl-k2" class="cd" style="left:365px"><small>Otro bróker</small><b>$5.300</b><span class="ex">Datos de ejemplo</span></div>
+  <div id="hl-k3" class="cd" style="left:670px"><small>Otra app</small><b>$3.010</b><span class="ex">Datos de ejemplo</span></div>
+  <div id="hl-total" class="big"><div class="hdr"><small>Tu cartera</small><span class="ex">Datos de ejemplo</span></div><b id="hl-sum">$12.430</b>
+    <div class="src"><span>Bróker</span><span>Otro bróker</span><span>Otra app</span></div></div>
+  <div id="hl-diag" class="big"><div class="hdr" style="margin-bottom:14px"><span style="font-size:28px;font-weight:600;color:#5F5E5B">Miré tu cartera</span><span class="ex">Datos de ejemplo</span></div><b>Tecnología es el 52% de tu cartera</b><p>Contando lo que hay adentro de tus ETFs.</p>
+    <div class="track"><div class="fill"></div></div></div>
+  <div id="hl-q" class="bub">¿Cómo está repartida mi cartera?</div>
+  <div id="hl-dots" class="bub"><i></i><i></i><i></i></div>
+  <div id="hl-a" class="bub"><span class="w">Poco</span> <span class="w">más</span> <span class="w">de</span> <span class="w">la</span> <span class="w">mitad</span> <span class="w">está</span> <span class="w">en</span> <b class="w">tecnología,</b> <span class="w">contando</span> <span class="w">lo</span> <span class="w">que</span> <span class="w">hay</span> <span class="w">adentro</span> <span class="w">de</span> <span class="w">tus</span> <span class="w">ETFs.</span></div>
+
+  <div id="hl-conc">
+    <div class="hd"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#D98E5D" stroke-width="2.4"/><path d="M12 4v8h8" fill="none" stroke="#D98E5D" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+      <b>Concentración por sector</b><span class="ex">Datos de ejemplo</span></div>
+    <div class="body">
+      <div id="hl-donut"><svg viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#F1F0EE" stroke-width="13"/>
+        <circle class="seg" data-pct="52" data-off="0"  cx="60" cy="60" r="46" fill="none" stroke="#D98E5D" stroke-width="13"/>
+        <circle class="seg" data-pct="14" data-off="52" cx="60" cy="60" r="46" fill="none" stroke="#2F3437" stroke-width="13"/>
+        <circle class="seg" data-pct="12" data-off="66" cx="60" cy="60" r="46" fill="none" stroke="#7C9F7E" stroke-width="13"/>
+        <circle class="seg" data-pct="22" data-off="78" cx="60" cy="60" r="46" fill="none" stroke="#C9B79C" stroke-width="13"/>
+      </svg><div class="ctr"><b id="hl-dpct">0%</b><span>Tecnología</span></div></div>
+      <div class="lg">
+        <div class="row"><div class="l"><i style="background:#D98E5D"></i>Tecnología<span class="pv" data-to="52">0%</span></div><div class="tr"><u style="width:52%;background:#D98E5D"></u></div></div>
+        <div class="row"><div class="l"><i style="background:#2F3437"></i>Salud<span class="pv" data-to="14">0%</span></div><div class="tr"><u style="width:14%;background:#2F3437"></u></div></div>
+        <div class="row"><div class="l"><i style="background:#7C9F7E"></i>Finanzas<span class="pv" data-to="12">0%</span></div><div class="tr"><u style="width:12%;background:#7C9F7E"></u></div></div>
+        <div class="row" style="margin-bottom:0"><div class="l"><i style="background:#C9B79C"></i>Otros<span class="pv" data-to="22">0%</span></div><div class="tr"><u style="width:22%;background:#C9B79C"></u></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="hl-pwrap"><div id="hl-shadow"></div><div id="hl-porty">
+    <svg viewBox="-3 -6 70 70">
+      <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+      <g id="hl-eyes"><ellipse id="hl-el" cx="28" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/><ellipse id="hl-er" cx="40" cy="30" rx="3.6" ry="3.6" fill="#2F3437"/></g>
+      <path id="hl-mouth" d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+  </div></div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  const blurIn = (sel, t) => tl.fromTo(sel, {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, t);
+  const blurOut = (sel, t) => tl.to(sel, {opacity:0, filter:"blur(8px)", duration:.15, stagger:.025, ease:"power2.in"}, t);
+
+  // 1 · Hola: salto con anticipación, aterriza aplastado y guiña un ojo.
+  tl.to("#hl-porty", {scaleX:1.1, scaleY:.9, duration:.12, ease:"power2.in"}, .1)
+    .to("#hl-porty", {y:-70, scaleX:.94, scaleY:1.08, duration:.24, ease:"power2.out"}, .22)
+    .to("#hl-porty", {y:0, scaleX:1, scaleY:1, duration:.2, ease:"power2.in"}, .46)
+    .to("#hl-porty", {scaleX:1.14, scaleY:.86, duration:.08, ease:"power2.out"}, .66)
+    .to("#hl-porty", {scaleX:1, scaleY:1, duration:.36, ease:"back.out(2.4)"}, .74)
+    .to("#hl-er", {attr:{ry:.5}, duration:.08, ease:"power1.in"}, 1.05)
+    .to("#hl-er", {attr:{ry:3.6}, duration:.1, ease:"power1.out"}, 1.4);
+  // Respira mientras se presenta.
+  tl.to("#hl-porty svg", {y:-6, duration:.55, ease:"sine.inOut", yoyo:true, repeat:5}, 1.2);
+  blurOut("#hl-c1 .w", 1.85);
+
+  // 2 · Asistente personal de inversiones: la línea entra desenfocada; Porty asiente.
+  tl.fromTo("#hl-c2", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 2.0)
+    .to("#hl-c2", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 3.85)
+    .fromTo("#hl-eyes", {x:0, y:0}, {x:-1, y:-1.6, duration:.25, ease:"power2.inOut"}, 2.1)
+    .to("#hl-porty", {rotation:-7, duration:.22, ease:"power2.inOut"}, 2.7)
+    .to("#hl-porty", {rotation:0, duration:.35, ease:"back.out(2)"}, 2.92);
+
+  // Porty se corre a la esquina para dejar lugar (sigue mirando lo que pasa).
+  tl.to("#hl-pwrap", {x:-210, y:324, scale:.4, duration:.6, ease:"power3.inOut"}, 3.8)
+    .to("#hl-eyes", {x:1.6, y:-1.4, duration:.25, ease:"power2.inOut"}, 4.2)
+    .to("#hl-porty svg", {y:-6, duration:.6, ease:"sine.inOut", yoyo:true, repeat:19}, 4.55)
+    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 8.8)
+    .to(["#hl-el","#hl-er"], {attr:{ry:.5}, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 12.9);
+
+  // 3 · Traés tu cartera: tres lugares que se juntan en uno.
+  blurIn("#hl-c3 .w", 4.0);
+  tl.fromTo("#hl-k1", {opacity:0, x:-380}, {opacity:1, x:0, duration:.6, ease:"expo.out"}, 4.15)
+    .fromTo("#hl-k2", {opacity:0, y:260}, {opacity:1, y:0, duration:.6, ease:"expo.out"}, 4.27)
+    .fromTo("#hl-k3", {opacity:0, x:380}, {opacity:1, x:0, duration:.6, ease:"expo.out"}, 4.39)
+    .to("#hl-k1", {x:305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .to("#hl-k2", {y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .to("#hl-k3", {x:-305, y:40, scale:.8, opacity:0, duration:.5, ease:"power3.inOut"}, 5.75)
+    .fromTo("#hl-total", {opacity:0, scale:.88}, {opacity:1, scale:1, duration:.55, ease:"back.out(1.6)"}, 6.25);
+  const sEl = document.getElementById("hl-sum"), s = {v:0};
+  tl.fromTo(s, {v:0}, {v:12430, duration:.7, ease:"power2.out", onUpdate:() => { sEl.textContent = "$" + Math.round(s.v).toLocaleString("es-AR"); }}, 6.25);
+  blurOut("#hl-c3 .w", 7.4);
+
+  // 4 · La analizo: la tarjeta se vuelve el hallazgo del diagnóstico.
+  tl.fromTo("#hl-c4 .w", {opacity:0}, {opacity:1, duration:.01, stagger:.1}, 7.6)
+    .fromTo("#hl-c4 span.w", {color:"#D2D0CC"}, {color:"#2F3437", duration:.14, ease:"none"}, 7.6)
+    .fromTo("#hl-c4 em.w", {color:"#EBD3C2"}, {color:"#C27443", duration:.14, ease:"none"}, 7.7)
+    .to("#hl-total", {opacity:0, y:-20, duration:.3, ease:"power2.in"}, 7.7)
+    .fromTo("#hl-diag", {opacity:0, y:30}, {opacity:1, y:0, duration:.5, ease:"expo.out"}, 7.9)
+    .fromTo("#hl-diag .fill", {scaleX:0}, {scaleX:1, duration:.9, ease:"power2.inOut"}, 8.15);
+  blurOut("#hl-c4 .w", 10.55);
+
+  // 5 · Y te explico cómo viene: pregunta, "escribiendo…" y respuesta palabra por palabra.
+  blurIn("#hl-c5 .w", 10.75);
+  tl.to("#hl-diag", {opacity:0, y:-24, duration:.3, ease:"power2.in"}, 10.6)
+    .fromTo("#hl-q", {opacity:0, y:24}, {opacity:1, y:0, duration:.45, ease:"expo.out"}, 10.85)
+    .fromTo("#hl-dots", {opacity:0, y:16}, {opacity:1, y:0, duration:.3, ease:"expo.out"}, 11.15);
+  document.querySelectorAll("#hl-dots i").forEach((d, i) => tl.fromTo(d, {y:0}, {y:-9, duration:.15, ease:"sine.inOut", yoyo:true, repeat:1}, 11.25 + i * .1));
+  tl.to("#hl-dots", {opacity:0, duration:.12, ease:"power1.in"}, 11.6)
+    .fromTo("#hl-a", {opacity:0, y:18}, {opacity:1, y:0, duration:.4, ease:"expo.out"}, 11.65)
+    .fromTo("#hl-a .w", {opacity:0, filter:"blur(4px)"}, {opacity:1, filter:"blur(0px)", duration:.14, stagger:.065, ease:"power2.out"}, 11.7);
+  tl.fromTo("#hl-a b", {color:"#2F3437"}, {color:"#A95F33", duration:.35, ease:"power2.out"}, 12.95)
+    .to("#hl-a", {scale:1.02, duration:.45, ease:"sine.inOut", yoyo:true, repeat:1}, 13.3);
+// La respuesta trae su tarjeta: la dona se dibuja, la lista crece y los porcentajes cuentan.
+const C = 2 * Math.PI * 46;
+tl.fromTo("#hl-conc", {opacity:0, y:40}, {opacity:1, y:0, duration:.55, ease:"expo.out"}, 12.35);
+document.querySelectorAll("#hl-conc .seg").forEach((s, i) => {
+  const pct = +s.dataset.pct, off = +s.dataset.off;
+  s.setAttribute("stroke-dashoffset", String(-C * off / 100));
+  tl.fromTo(s, {attr:{"stroke-dasharray": `0 ${C}`}}, {attr:{"stroke-dasharray": `${C * pct / 100 - 1.2} ${C}`}, duration:.55, ease:"power2.inOut"}, 12.7 + i * .16);
+});
+document.querySelectorAll("#hl-conc .tr u").forEach((u, i) => tl.fromTo(u, {scaleX:0}, {scaleX:1, duration:.6, ease:"power2.inOut"}, 12.8 + i * .14));
+document.querySelectorAll("#hl-conc .pv").forEach((el, i) => { const o = {v:0}; tl.fromTo(o, {v:0}, {v:+el.dataset.to, duration:.6, ease:"power2.inOut", onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 12.8 + i * .14); });
+const dEl = document.getElementById("hl-dpct"), dO = {v:0};
+tl.fromTo(dO, {v:0}, {v:52, duration:.7, ease:"power2.inOut", onUpdate:() => { dEl.textContent = Math.round(dO.v) + "%"; }}, 12.7);
+tl.to("#hl-conc .lg .row:first-child", {scale:1.03, transformOrigin:"0% 50%", duration:.4, ease:"sine.inOut", yoyo:true, repeat:1}, 13.9);
+blurOut("#hl-c5 .w", 16.0);
+  // Salida hacia el cierre.
+  tl.to(["#hl-q","#hl-a","#hl-conc"], {opacity:0, y:-30, duration:.3, ease:"power2.in", stagger:.05}, 16.05)
+    .to("#hl-pwrap", {y:900, duration:.4, ease:"power3.in"}, 16.05);
+  window.__timelines["hello"] = tl;
+</script>
+</template>

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!--
+  Video "Esto es Porty" (motion design, 1080x1920). Animación determinística:
+  window.render(t) dibuja el cuadro del segundo t. La captura cuadro por cuadro
+  la hace tools/marketing/video/render_ad.mjs. Recursos: capturas reales de la
+  app (screenshot tests) en ./assets y el avatar de assets/porty-avatar.
+  Colores y tipografía: DESIGN.md.
+-->
+<style>
+@font-face{font-family:PJS;font-weight:400;src:url(../../../assets/fonts/PlusJakartaSans-Regular.ttf)}
+@font-face{font-family:PJS;font-weight:500;src:url(../../../assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(../../../assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+@font-face{font-family:PJS;font-weight:700;src:url(../../../assets/fonts/PlusJakartaSans-Bold.ttf)}
+:root{--canvas:#FBFBFA;--ink:#2F3437;--muted:#787774;--accent:#D98E5D;--line:#E6E4E0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--canvas)}
+body{font-family:PJS;color:var(--ink);font-feature-settings:"tnum"}
+#stage{position:absolute;inset:0;perspective:2200px;overflow:hidden}
+.abs{position:absolute;will-change:transform,opacity}
+.glow{border-radius:50%;filter:blur(140px)}
+/* Halo terracota de la app (como el encabezado del diagnóstico): difuminado y
+   leve, nunca una mancha sólida. */
+/* Titulares cinéticos */
+.headline{position:absolute;left:90px;right:90px;top:250px;font-weight:700;font-size:92px;
+  line-height:1.04;letter-spacing:-2.2px}
+.headline .w{display:inline-block;margin-right:.24em;opacity:0}
+.headline .a{color:var(--accent)}
+/* Chips del hook */
+.chip{display:flex;align-items:center;gap:16px;padding:22px 34px;border-radius:999px;background:#fff;
+  border:1px solid var(--line);font-size:38px;font-weight:600;box-shadow:0 18px 50px rgba(47,52,55,.08)}
+.chip i{width:22px;height:22px;border-radius:50%;display:block}
+/* iPhone */
+#phone{left:50%;top:50%;width:520px;height:1092px;margin:-546px 0 0 -260px;transform-style:preserve-3d}
+.body{position:absolute;inset:0;border-radius:84px;background:#1d1d1f;
+  box-shadow:0 60px 140px rgba(47,52,55,.28),0 10px 30px rgba(47,52,55,.18),inset 0 0 0 3px #3a3a3c}
+.screen{position:absolute;left:16px;top:16px;right:16px;bottom:16px;border-radius:70px;overflow:hidden;background:var(--canvas)}
+.screen img.full{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.island{position:absolute;left:50%;top:30px;width:150px;height:44px;margin-left:-75px;border-radius:30px;background:#000;z-index:5}
+/* Chat dentro del teléfono */
+#chat{position:absolute;inset:0;background:var(--canvas);padding:120px 26px 0}
+.bubble{margin-left:auto;max-width:380px;background:var(--ink);color:#fff;font-size:27px;font-weight:500;
+  line-height:1.3;padding:20px 26px;border-radius:30px 30px 8px 30px;min-height:76px}
+.porty-row{display:flex;align-items:center;gap:14px;margin-top:34px}
+.porty-row img{width:58px;height:58px}
+.dots{display:flex;gap:9px}
+.dots span{width:13px;height:13px;border-radius:50%;background:var(--muted);display:block}
+#chatCard{width:100%;margin-top:22px;border-radius:26px}
+/* Cards flotantes */
+.card{width:620px;border-radius:40px;box-shadow:0 40px 100px rgba(47,52,55,.18),0 8px 24px rgba(47,52,55,.08)}
+/* Cierre */
+#end{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#endAvatar{width:430px;height:430px}
+#word{font-size:150px;font-weight:700;letter-spacing:-4px;margin-top:40px}
+#tag{font-size:46px;color:var(--muted);font-weight:500;margin-top:18px;text-align:center;line-height:1.3}
+#cta{margin-top:70px;background:var(--ink);color:#fff;font-size:46px;font-weight:600;padding:34px 70px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="abs glow" id="b1" style="width:1500px;height:900px;background:#F2C9AD;left:-210px;top:-520px;opacity:.75"></div>
+  <div class="abs glow" id="b2" style="width:900px;height:700px;background:#F6DCC9;left:420px;top:-260px;opacity:.55"></div>
+
+  <div class="headline" id="h1"><span class="w">Tu</span><span class="w">plata</span><span class="w">está</span><span class="w">en</span><span class="w a">varios</span><span class="w a">lados.</span></div>
+  <div class="headline" id="h2"><span class="w">Juntala</span><span class="w">en</span><span class="w a">Porty.</span></div>
+  <div class="headline" id="h3"><span class="w">Entendela</span><span class="w">de</span><span class="w">un</span><span class="w a">vistazo.</span></div>
+  <div class="headline" id="h4"><span class="w">Porty</span><span class="w">te</span><span class="w">cuenta</span><span class="w a">lo</span><span class="w a">que</span><span class="w a">vio.</span></div>
+  <div class="headline" id="h5"><span class="w">Le</span><span class="w">preguntás</span><span class="w">y</span><span class="w">te</span><span class="w a">explica.</span></div>
+
+  <div class="abs chip" id="c0"><i style="background:#D98E5D"></i>Bróker</div>
+  <div class="abs chip" id="c1"><i style="background:#2F3437"></i>Exchange</div>
+  <div class="abs chip" id="c2"><i style="background:#7A9E7E"></i>Cripto</div>
+  <div class="abs chip" id="c3"><i style="background:#C8B79A"></i>Planilla</div>
+  <div class="abs chip" id="c4"><i style="background:#6E8FB2"></i>Otra app</div>
+
+  <div class="abs" id="phone">
+    <div class="body"></div>
+    <div class="screen">
+      <img class="full" id="sTraer" src="assets/screen_traer.png">
+      <img class="full" id="sDiag" src="assets/screen_diagnosis.png">
+      <div id="chat">
+        <div class="bubble" id="bubble"></div>
+        <div class="porty-row" id="portyRow">
+          <img id="chatAvatar" src="../../../assets/porty-avatar/states/porty_thinking.svg">
+          <div class="dots" id="dots"><span></span><span></span><span></span></div>
+        </div>
+        <img id="chatCard" src="assets/card_weekly.png">
+      </div>
+      <div class="island"></div>
+    </div>
+  </div>
+
+  <img class="abs card" id="k1" src="assets/card_portfolio.png">
+  <img class="abs card" id="k2" src="assets/card_concentration.png" style="width:560px">
+
+  <div id="end">
+    <img id="endAvatar" src="../../../assets/porty-avatar/states/porty_idle.svg">
+    <div id="word">Porty</div>
+    <div id="tag">Tu asistente para entender tu cartera.</div>
+    <div id="cta">Descargala gratis</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const outCubic = (p) => 1 - Math.pow(1 - p, 3);
+const inOutCubic = (p) => (p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const inCubic = (p) => p * p * p;
+const outBack = (p, s = 1.6) => 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2);
+// Resorte amortiguado (0→1) para los "pop" de cards y avatar.
+const spring = (p, k = 9, d = 5) => (p <= 0 ? 0 : 1 - Math.exp(-d * p) * Math.cos(k * p));
+const set = (el, s) => { for (const k in s) el.style[k] = s[k]; };
+
+// Palabras del titular: entran escalonadas y salen juntas.
+function headline(id, t, tin, tout) {
+  const el = $(id);
+  const words = el.querySelectorAll('.w');
+  const out = seg(t, tout, tout + .35);
+  el.style.opacity = t < tin - .01 || t > tout + .36 ? 0 : 1;
+  words.forEach((w, i) => {
+    const p = outCubic(seg(t, tin + i * .085, tin + i * .085 + .45));
+    set(w, {
+      opacity: p * (1 - out),
+      transform: `translateY(${lerp(70, 0, p) - out * 40}px)`,
+      filter: `blur(${(1 - p) * 10 + out * 8}px)`,
+    });
+  });
+}
+
+const chipHome = [
+  [120, 820, -8], [600, 760, 6], [210, 1130, 4], [640, 1080, -5], [380, 1390, 3],
+];
+
+window.render = function (t) {
+  // Fondo: el halo respira y se desplaza muy lento; en el cierre baja un poco
+  // para envolver al avatar.
+  const settle = inOutCubic(seg(t, 18.6, 20.0));
+  set($('b1'), { transform: `translate(${Math.sin(t * .35) * 60}px,${Math.cos(t * .3) * 30 + settle * 420}px) scale(${1 + Math.sin(t * .5) * .04})` });
+  set($('b2'), { transform: `translate(${Math.cos(t * .3) * -70}px,${Math.sin(t * .28) * 40 + settle * 520}px)` });
+
+  // Titulares (tiempos sincronizados con la locución, ver vo_script.md).
+  headline('h1', t, 0.25, 2.55);
+  headline('h2', t, 3.05, 4.85);
+  headline('h3', t, 5.35, 9.15);
+  headline('h4', t, 9.75, 14.1);
+  headline('h5', t, 14.6, 18.25);
+
+  // Chips: entran flotando, se dispersan y a los 2.6 s convergen al teléfono.
+  chipHome.forEach(([x, y, r], i) => {
+    const pin = outBack(seg(t, .15 + i * .12, .75 + i * .12));
+    const conv = inOutCubic(seg(t, 2.55 + i * .05, 3.35 + i * .05));
+    const fx = Math.sin(t * 1.3 + i) * 10, fy = Math.cos(t * 1.1 + i * 2) * 12;
+    const cx = 540 - 110, cy = 1150;
+    set($('c' + i), {
+      left: lerp(x + fx, cx, conv) + 'px', top: lerp(y + fy, cy, conv) + 'px',
+      opacity: clamp(pin) * (1 - seg(t, 3.15 + i * .05, 3.4 + i * .05)),
+      transform: `scale(${lerp(pin, .35, conv)}) rotate(${lerp(r, 0, conv)}deg)`,
+    });
+  });
+
+  // Teléfono.
+  const enter = seg(t, 2.85, 4.1);
+  const pe = spring(enter, 8, 5.5);
+  let ry = lerp(-38, 0, outCubic(enter)), rx = lerp(18, 0, outCubic(enter));
+  let tx = 0, ty = lerp(380, 200, pe), sc = lerp(.55, 1, pe);
+  // S3: giro 3/4 y retroceso para que salgan las cards.
+  const turn = inOutCubic(seg(t, 5.0, 5.9)), back = inOutCubic(seg(t, 9.2, 10.0));
+  ry += (-22 * turn) * (1 - back); rx += (6 * turn) * (1 - back);
+  tx += (150 * turn) * (1 - back); ty += (120 * turn) * (1 - back); sc *= 1 - .12 * turn * (1 - back);
+  // S4–S5: deriva suave; S6: sale hacia abajo.
+  ry += Math.sin(t * .8) * 2.5 * seg(t, 10, 11);
+  const exit = inCubic(seg(t, 18.15, 18.8));
+  ty += exit * 1500; ry += exit * 18;
+  set($('phone'), {
+    opacity: t < 2.85 ? 0 : 1,
+    transform: `translate3d(${tx}px,${ty}px,0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${sc})`,
+  });
+
+  // Pantallas: "Traé tu cartera" → diagnóstico (empuje lateral) → chat.
+  const toDiag = inOutCubic(seg(t, 9.6, 10.25));
+  const toChat = inOutCubic(seg(t, 14.3, 14.95));
+  set($('sTraer'), { transform: `translateX(${-toDiag * 100}%)` });
+  set($('sDiag'), { transform: `translateX(${(1 - toDiag) * 100 - toChat * 100}%)` });
+  // Scroll lento del diagnóstico mientras se lee.
+  set($('chat'), { transform: `translateX(${(1 - toChat) * 100}%)` });
+
+  // Chat: tipeo, Porty piensa, aparece el informe.
+  const q = '¿Cómo me fue esta semana?';
+  const typed = Math.floor(q.length * seg(t, 15.0, 16.1));
+  $('bubble').textContent = q.slice(0, typed) + (t > 15 && t < 16.3 && Math.floor(t * 4) % 2 ? '|' : '');
+  set($('bubble'), { opacity: seg(t, 14.95, 15.1) });
+  const think = seg(t, 16.25, 16.4), answered = t > 17.0;
+  set($('portyRow'), { opacity: think });
+  $('chatAvatar').src = answered
+    ? '../../../assets/porty-avatar/states/porty_answered.svg'
+    : '../../../assets/porty-avatar/states/porty_thinking.svg';
+  [...$('dots').children].forEach((d, i) => {
+    set(d, { opacity: answered ? 0 : .35 + .65 * Math.abs(Math.sin(t * 6 - i * .7)) });
+  });
+  const cc = spring(seg(t, 17.0, 17.9), 9, 6);
+  set($('chatCard'), { opacity: clamp(cc * 2), transform: `translateY(${(1 - cc) * 60}px) scale(${lerp(.92, 1, cc)})` });
+
+  // Cards que salen del teléfono en S3.
+  const k1 = spring(seg(t, 6.0, 7.1), 8, 5), k2 = spring(seg(t, 6.6, 7.7), 8, 5);
+  const kOut = inCubic(seg(t, 8.9, 9.5));
+  set($('k1'), {
+    left: lerp(380, 70, k1) + 'px', top: lerp(1000, 640, k1) - kOut * 200 + 'px',
+    opacity: clamp(k1 * 3) * (1 - kOut),
+    transform: `perspective(1600px) rotateY(${lerp(-25, 10, k1)}deg) rotateZ(${lerp(-6, -3, k1)}deg) scale(${lerp(.4, 1, k1)})`,
+  });
+  set($('k2'), {
+    left: lerp(380, 440, k2) + 'px', top: lerp(1100, 1220, k2) + kOut * 200 + 'px',
+    opacity: clamp(k2 * 3) * (1 - kOut),
+    transform: `perspective(1600px) rotateY(${lerp(25, -12, k2)}deg) rotateZ(${lerp(5, 3, k2)}deg) scale(${lerp(.4, 1, k2)})`,
+  });
+
+  // Cierre.
+  const ea = seg(t, 18.9, 19.9);
+  const av = spring(ea, 10, 4.5);
+  const squash = 1 + Math.sin(ea * 14) * .06 * (1 - ea);
+  set($('end'), { opacity: t > 18.85 ? 1 : 0 });
+  set($('endAvatar'), {
+    transform: `translateY(${(1 - av) * 500}px) scale(${av * squash}, ${av / squash})`,
+  });
+  // Parpadeo del avatar.
+  const blink = t > 20.6 && t < 20.72;
+  $('endAvatar').style.filter = blink ? 'brightness(.98)' : 'none';
+  const w = outCubic(seg(t, 19.5, 20.1)), tg = outCubic(seg(t, 19.8, 20.4)), ct = spring(seg(t, 20.25, 21.15), 10, 6);
+  set($('word'), { opacity: w, transform: `translateY(${(1 - w) * 50}px)` });
+  set($('tag'), { opacity: tg, transform: `translateY(${(1 - tg) * 40}px)` });
+  set($('cta'), { opacity: clamp(ct * 2), transform: `scale(${lerp(.7, 1, ct)})` });
+};
+window.DURATION = 22;
+window.render(0);
+</script>
+</body>
+</html>

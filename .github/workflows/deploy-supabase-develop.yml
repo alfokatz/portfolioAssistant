@@ -1,0 +1,52 @@
+# Deploy a la rama `develop` de Supabase.
+# - Edge functions: desde CUALQUIER rama menos main, al pushear cambios en
+#   supabase/ (así se prueba el chat de una rama de trabajo contra develop
+#   antes de mergear). El último push gana: la base es una sola.
+# - Migraciones: solo desde la rama git `develop`. Desde otras ramas se
+#   muestra la vista previa sin aplicar (una migración aplicada desde una
+#   rama que después cambia dejaría el historial de develop distinto a git).
+# No pide aprobación: develop es para probar. Producción sigue en
+# deploy-supabase.yml (rama main, con aprobación).
+# Runbook: docs/runbooks/ci-cd.md
+name: Deploy Supabase (develop)
+
+on:
+  push:
+    branches-ignore: [main]
+    paths: ["supabase/**", ".github/workflows/deploy-supabase-develop.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-supabase-develop
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy a Supabase develop (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: development
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DEV_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_DEV_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Compatibilidad de config con la CLI actual
+        run: sed -i 's/^\[inbucket\]$/[local_smtp]/' supabase/config.toml
+      - name: Vincular la rama develop
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Migraciones pendientes (vista previa)
+        run: supabase db push --remote --dry-run --password "$SUPABASE_DB_PASSWORD"
+      - name: Aplicar migraciones (solo desde la rama develop)
+        if: github.ref == 'refs/heads/develop'
+        run: supabase db push --remote --yes --password "$SUPABASE_DB_PASSWORD"
+      - name: Aviso de migraciones sin aplicar
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          echo "::notice::Rama ${{ github.ref_name }} - las migraciones de la vista previa NO se aplicaron. Se aplican al mergear a develop."
+      - name: Desplegar edge functions
+        run: supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --yes

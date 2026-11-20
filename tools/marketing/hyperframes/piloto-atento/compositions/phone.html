@@ -1,0 +1,170 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  .ph-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:66px;line-height:1.1;letter-spacing:-1.8px;color:#2F3437}
+  .ph-title em{font-style:normal;color:#C27443}
+  .ph-title .w{display:inline-block}
+
+  /* Teléfono: el borde de abajo se funde con el fondo antes de los disclaimers. */
+  #ph-wrap{position:absolute;left:210px;top:440px;width:660px;height:740px;
+    -webkit-mask-image:linear-gradient(180deg,#000 88%,transparent 100%);mask-image:linear-gradient(180deg,#000 88%,transparent 100%)}
+  #ph-body{width:100%;height:100%;border-radius:68px 68px 0 0;background:#171614;padding:18px 18px 0}
+  #ph-screen{position:relative;width:624px;height:722px;border-radius:50px 50px 0 0;overflow:hidden;background:#FBFBFA}
+
+  #ph-lock{position:absolute;inset:0;background:linear-gradient(180deg,#2B2622 0%,#3A302A 45%,#4A3B31 70%,#2B2622 100%);background-size:100% 220%}
+  #ph-date{position:absolute;left:0;right:0;top:70px;text-align:center;color:rgba(244,239,233,.75);font-weight:500;font-size:26px}
+  #ph-clock{position:absolute;left:0;right:0;top:96px;text-align:center;color:#F4EFE9;font-weight:600;font-size:124px;letter-spacing:-4px}
+  #ph-notif{position:absolute;left:18px;top:300px;width:588px;background:rgba(251,251,250,.96);border-radius:34px;padding:22px;
+    display:flex;gap:20px;align-items:flex-start}
+  #ph-icon{width:64px;height:64px;flex:none;border-radius:18px;background:#F8EDE5;display:flex;align-items:center;justify-content:center}
+  #ph-icon svg{width:50px;height:50px;overflow:visible}
+  #ph-ntext{flex:1;min-width:0}
+  .n-meta{display:flex;justify-content:space-between;font-size:22px;color:#6B6A67;font-weight:600;letter-spacing:.3px;margin-bottom:4px}
+  .n-t{font-size:34px;font-weight:700;letter-spacing:-.4px;color:#2F3437}
+  .n-b{font-size:30px;font-weight:500;color:#55595C;margin-top:2px}
+
+  /* Chat: nace del rectángulo de la notificación (la notificación se vuelve la pantalla). */
+  #ph-chat{position:absolute;inset:0;background:#FBFBFA}
+  #ph-head{position:absolute;left:0;right:0;top:0;height:96px;display:flex;align-items:center;gap:14px;padding:0 26px;border-bottom:2px solid #ECEBE8;background:#FBFBFA;z-index:2}
+  #ph-head svg{width:46px;height:46px;overflow:visible}
+  #ph-head span{font-size:30px;font-weight:700}
+  #ph-msgs{position:absolute;left:0;right:0;top:118px}
+  .bub{position:absolute;font-size:34px;line-height:1.34;border-radius:30px;padding:20px 26px;font-weight:500}
+  #ph-q{right:20px;top:0;background:#2F3437;color:#fff;font-weight:600}
+  #ph-dots{left:20px;top:96px;background:#fff;border:2px solid #ECEBE8;display:flex;gap:10px;padding:24px 26px}
+  #ph-dots i{width:14px;height:14px;border-radius:50%;background:#B9B6B1;display:block}
+  #ph-a{left:20px;top:96px;width:560px;background:#fff;border:2px solid #ECEBE8}
+  #ph-a .w{display:inline-block}
+  #ph-a .tec{font-weight:700;color:#2F3437}
+    #ph-card{position:absolute;left:20px;width:584px;top:290px;padding:22px 24px !important;background:#fff;border:2px solid #ECEBE8;border-radius:30px;padding:26px}
+  #ph-card h3{font-size:30px;font-weight:700;letter-spacing:-.3px}
+    .bar{display:flex;gap:5px;height:24px;margin:20px 0 18px}
+  .bar span{display:block;height:100%;border-radius:7px;transform-origin:left center}
+  .legend{display:grid;grid-template-columns:1fr 1fr;row-gap:10px;font-size:28px;font-weight:500}
+  .legend i{display:inline-block;width:15px;height:15px;border-radius:50%;margin-right:10px;vertical-align:1px}
+  .legend .p{color:#6B6A67}
+  #ph-flag{margin-top:18px;display:inline-block;background:#F8EDE5;color:#8A4F2B;font-weight:600;font-size:28px;border-radius:14px;padding:10px 18px}
+</style>
+<div id="root" data-composition-id="phone" data-width="1080" data-height="1920">
+
+  <h2 id="ph-t2" class="ph-title"><span class="w">Si</span> <span class="w">tu</span> <span class="w">cartera</span> <span class="w">se</span> <span class="w">mueve</span> <span class="w">fuerte,</span> <em class="w">Porty</em> <em class="w">te</em> <em class="w">avisa.</em></h2>
+  <h2 id="ph-t3" class="ph-title"><span class="w">Y</span> <span class="w">te</span> <span class="w">explica</span> <span class="w">qué</span> <span class="w">pasó,</span> <em class="w">en</em> <em class="w">simple.</em></h2>
+  <h2 id="ph-t4" class="ph-title">Y te muestra cómo está <em>repartida tu plata.</em></h2>
+
+  <div id="ph-wrap"><div id="ph-cam"><div id="ph-body"><div id="ph-screen">
+
+    <div id="ph-lock">
+      <div id="ph-date" data-layout-ignore>martes 10 de diciembre</div>
+      <div id="ph-clock">10:42</div>
+      <div id="ph-notif">
+        <div id="ph-icon"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg></div>
+        <div id="ph-ntext">
+          <div class="n-meta" data-layout-ignore><span>PORTY</span><span>ahora</span></div>
+          <div class="n-t">Tu cartera baja 1.8% hoy</div>
+          <div class="n-b">Lo que más pesa: …</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ph-chat">
+      <div id="ph-head"><svg viewBox="-3 -6 70 70"><path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/><path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/></svg><span>Porty</span></div>
+      <div id="ph-msgs">
+        <div id="ph-q" class="bub">¿Por qué bajó hoy?</div>
+        <div id="ph-dots" class="bub"><i></i><i></i><i></i></div>
+        <div id="ph-a" class="bub"><span class="w">Bajó</span> <span class="w">sobre</span> <span class="w">todo</span> <span class="w tec">tecnología:</span> <span class="w">casi</span> <span class="w">la</span> <span class="w">mitad</span> <span class="w">de</span> <span class="w">tu</span> <span class="w">cartera.</span></div>
+        <div id="ph-card" data-hold="dato para mirar de un vistazo; el mensaje lo lleva el titular">
+          <h3>Cómo está repartida</h3>
+          <div class="bar">
+            <span style="width:46%;background:#D98E5D"></span><span style="width:30%;background:#2F3437"></span>
+            <span style="width:15%;background:#7C9F7E"></span><span style="width:9%;background:#C9B79C"></span>
+          </div>
+          <div class="legend">
+            <div><i style="background:#D98E5D"></i>Tecnología <span class="p" data-to="46">0%</span></div>
+            <div><i style="background:#2F3437"></i>ETFs amplios <span class="p" data-to="30">0%</span></div>
+            <div><i style="background:#7C9F7E"></i>Bonos <span class="p" data-to="15">0%</span></div>
+            <div><i style="background:#C9B79C"></i>Otros <span class="p" data-to="9">0%</span></div>
+          </div>
+          <div id="ph-flag">Una sola posición pesa más del 30%</div>
+        </div>
+      </div>
+    </div>
+
+  </div></div></div></div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  const W = (sel) => document.querySelectorAll(sel);
+
+  // Teléfono: llega lento (cola larga) y queda quieto; lo que se mueve es la interfaz.
+  tl.fromTo("#ph-wrap", {y:900}, {y:0, duration:.85, ease:"expo.out"}, 0);
+
+  // Cámara: deriva vertical lenta y continua mientras el teléfono está en cuadro (ningún cuadro queda igual).
+  tl.fromTo("#ph-cam", {y:0}, {y:30, duration:11.0, ease:"none"}, .5);
+  // La pantalla bloqueada: la luz del fondo se corre despacio (el mundo detrás se mueve).
+  tl.fromTo("#ph-lock", {backgroundPosition:"0% 0%"}, {backgroundPosition:"0% 100%", duration:3.4, ease:"none"}, .4);
+  // El ícono (Porty) parpadea mientras la notificación espera.
+  tl.to("#ph-icon svg", {scaleY:.9, duration:.08, yoyo:true, repeat:1, ease:"power1.inOut"}, 2.2);
+
+  // Titular 2: palabra por palabra con desenfoque.
+  tl.fromTo("#ph-t2 .w", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.13, stagger:.067, ease:"power2.out"}, .45)
+    .to("#ph-t2 .w", {opacity:0, filter:"blur(8px)", duration:.15, stagger:.025, ease:"power2.in"}, 3.85);
+
+  // Porty llega al ícono (match con la escena anterior) y la notificación crece desde él.
+  tl.fromTo("#ph-notif", {opacity:0}, {opacity:1, duration:.01}, .68)
+    .fromTo("#ph-notif", {clipPath:"inset(0px 480px 0px 0px round 34px)"}, {clipPath:"inset(0px 0px 0px 0px round 34px)", duration:.42, ease:"power3.out"}, .78)
+    .fromTo("#ph-icon", {scale:1.18}, {scale:1, duration:.32, ease:"back.out(2)"}, .7)
+    .fromTo("#ph-ntext", {opacity:0, filter:"blur(6px)"}, {opacity:1, filter:"blur(0px)", duration:.16, ease:"power2.out"}, .98);
+
+  // Toque: la notificación se hunde y vuelve (sin anillos de click).
+  tl.to("#ph-notif", {scale:.965, duration:.11, ease:"power2.in"}, 3.4)
+    .to("#ph-notif", {scale:1, duration:.2, ease:"power2.out"}, 3.51);
+
+  // La notificación se vuelve la pantalla del chat (objeto que se vuelve el mundo).
+  tl.fromTo("#ph-chat", {clipPath:"inset(300px 18px 260px 18px round 34px)", opacity:0},
+                        {clipPath:"inset(0px 0px 0px 0px round 0px)", opacity:1, duration:.65, ease:"power2.inOut"}, 3.62)
+    .to("#ph-lock", {filter:"blur(15px)", opacity:0, duration:.3, ease:"power2.in"}, 3.68);
+
+  // Titular 3: de gris a tinta, palabra por palabra, sin moverse.
+  tl.fromTo("#ph-t3 .w", {opacity:0}, {opacity:1, duration:.01, stagger:.085}, 4.25)
+    .fromTo("#ph-t3 span.w", {color:"#D2D0CC"}, {color:"#2F3437", duration:.12, stagger:.085, ease:"none"}, 4.25)
+    .fromTo("#ph-t3 em.w", {color:"#EBD3C2"}, {color:"#C27443", duration:.12, stagger:.085, ease:"none"}, 4.25 + .085*5)
+    .to("#ph-t3 .w", {opacity:0, filter:"blur(8px)", duration:.15, stagger:.025, ease:"power2.in"}, 7.25);
+
+  // Chat: pregunta, "escribiendo…", respuesta palabra por palabra.
+  tl.fromTo("#ph-q", {opacity:0, y:24}, {opacity:1, y:0, duration:.45, ease:"expo.out"}, 4.45)
+    .fromTo("#ph-dots", {opacity:0, y:16}, {opacity:1, y:0, duration:.3, ease:"expo.out"}, 4.85);
+  W("#ph-dots i").forEach((d, i) => {
+    tl.fromTo(d, {y:0}, {y:-8, duration:.16, ease:"sine.inOut", yoyo:true, repeat:3}, 4.95 + i * .1);
+  });
+  tl.to("#ph-dots", {opacity:0, duration:.12, ease:"power1.in"}, 5.5)
+    .fromTo("#ph-a", {opacity:0, y:18}, {opacity:1, y:0, duration:.4, ease:"expo.out"}, 5.55)
+    .fromTo("#ph-a .w", {opacity:0, filter:"blur(4px)"}, {opacity:1, filter:"blur(0px)", duration:.14, stagger:.08, ease:"power2.out"}, 5.6)
+  // La parte de tecnología se marca mientras se lee.
+    .fromTo("#ph-a .tec", {color:"#2F3437"}, {color:"#A95F33", duration:.3, ease:"power2.out"}, 6.9);
+
+  // Titular 4: la línea entera entra desenfocada.
+  tl.fromTo("#ph-t4", {opacity:0, filter:"blur(8px)"}, {opacity:1, filter:"blur(0px)", duration:.2, ease:"power2.out"}, 7.45)
+    .to("#ph-t4", {opacity:0, filter:"blur(8px)", duration:.18, ease:"power2.in"}, 11.45);
+
+  // La conversación sigue: sube y llega la tarjeta de composición como mensaje de Porty.
+  tl.fromTo("#ph-msgs", {y:0}, {y:-96, duration:.6, ease:"power2.inOut"}, 7.25)
+    .to("#ph-q", {opacity:0, duration:.3, ease:"power2.in"}, 7.25)
+    .fromTo("#ph-card", {opacity:0, y:90}, {opacity:1, y:0, duration:.7, ease:"expo.out"}, 7.35)
+    .fromTo("#ph-card .bar span", {scaleX:0}, {scaleX:1, duration:.75, stagger:.14, ease:"power2.inOut"}, 7.9);
+  W("#ph-card .p").forEach((el, i) => {
+    const o = {v:0}, to = +el.dataset.to;
+    tl.fromTo(o, {v:0}, {v:to, duration:.75, ease:"power2.inOut", onUpdate:() => { el.textContent = Math.round(o.v) + "%"; }}, 7.9 + i * .14);
+  });
+  tl.fromTo("#ph-flag", {opacity:0, y:14}, {opacity:1, y:0, duration:.45, ease:"expo.out"}, 8.95)
+    .fromTo("#ph-flag", {scale:.96}, {scale:1, duration:.35, ease:"back.out(2)"}, 8.95);
+
+  // La interfaz marca la concentración: los otros tramos se atenúan y vuelven.
+  W("#ph-card .bar span").forEach((s, i) => { if (i > 0) tl.to(s, {opacity:.35, duration:.4, ease:"power2.inOut", yoyo:true, repeat:1, repeatDelay:.6}, 9.75); });
+  W("#ph-card .legend > div").forEach((r, i) => { if (i > 0) tl.to(r, {opacity:.45, duration:.4, ease:"power2.inOut", yoyo:true, repeat:1, repeatDelay:.6}, 9.75); });
+
+  // Salida: el teléfono acelera hacia abajo.
+  tl.to("#ph-wrap", {y:980, duration:.5, ease:"power3.in"}, 11.55);
+
+  window.__timelines["phone"] = tl;
+</script>
+</template>

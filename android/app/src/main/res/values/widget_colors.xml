@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Paleta del widget: mismos valores que PortfolioColors (claro) -->
+<resources>
+    <color name="porty_widget_bg">#FBFBFA</color>
+    <color name="porty_widget_inset">#F4F4F2</color>
+    <color name="porty_widget_primary">#2F3437</color>
+    <color name="porty_widget_secondary">#787774</color>
+    <color name="porty_widget_profit">#346538</color>
+    <color name="porty_widget_loss">#9F2F2D</color>
+    <color name="porty_widget_hairline">#33787774</color>
+    <!-- Terracota #D98E5D al 18 %: texto primary sobre el chip ~10:1 (>= 4.5:1) -->
+    <color name="porty_widget_question_bg">#2ED98E5D</color>
+</resources>

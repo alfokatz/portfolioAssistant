@@ -1,0 +1,38 @@
+# Memoria de porty-architect
+
+- Interruptores de producto: fila en `app_config` con formato `PortyRolloutFlag` (`{"percent","users"}`); en la app se leen desde `lib/features/subscription/config/conversion_flags.dart` (flutter-dev) importando `PortyRolloutFlag` de assistant/data sin editarlo.
+- Eventos de producto: siempre `product_events` vía `ProductEvents.log` (enum `ProductEvent`); nunca tablas de eventos nuevas. Tests con fake que extiende `ProductEvents` (ver `first_portfolio_watcher_test.dart`).
+- Todo paywall pasa `source` obligatorio (`PaywallSource` en `lib/features/subscription/config/paywall_source.dart`); cada paywall nuevo suma su constante.
+- Cambiar la firma de algo que usa el chat: fases A (agregar opcional) → assistant-dev migra → C (volver obligatorio), para no romper la compilación entre dueños.
+- El tier lo calcula el webhook de RevenueCat por entitlements: productos nuevos (anuales, promos) no requieren tocar `planFrom`.
+- Datos de RevenueCat: `subscription_events` (solo service role, sin evento crudo por PII en `subscriber_attributes`).
+- Traducciones son solo de flutter-dev: si assistant-dev necesita textos, la spec lista las claves y flutter-dev las agrega primero.
+- Avisos de la app en el chat (cuota, límites) van fuera del catálogo, estilo `AssistantQuietNotice`: no tocan prompt ni allowlist.
+- Límites por plan nuevos van como campo de `PlanSpec` (capacidad), nunca `if (tier == ...)`.
+- Limpieza al borrar un usuario: trigger `before delete on auth.users` (`_account_purge_before_delete`); toda tabla nueva con datos del usuario lleva FK `on delete cascade` y, si guarda algo fuera de FK (Vault, text user_id, arrays en app_config), se suma al trigger; la guardia de catálogo de `account_deletion_db_test.sql` falla si no.
+- `positions`/`closed_positions` son pre-CLI: su esquema en prod no es el de las migraciones; cualquier supuesto sobre FKs o constraints ahí necesita auditoría de solo lectura en prod.
+- RevenueCat `GET /v1/subscribers/{id}` crea el cliente si no existe: nunca llamarlo para un uid que puede estar borrado.
+- Vault: borrar la fila puntero no borra el secreto; siempre `*_delete` o el trigger de borrado de cuenta.
+- Features que necesitan datos de RevenueCat sin tocar `lib/features/subscription/` leen `Purchases` desde su propia carpeta con costura inyectable y usan `revenueCatServiceProvider` solo para leer.
+- Inventarios de tablas: buscar también `drop table` en migraciones posteriores; el test de catálogo manda sobre la lista de la spec.
+- Interruptores que decide el servidor: `public._rollout_on(key, uid)` (migración 20261103110000, FNV-1a igual a `PortyRolloutFlag.bucket`); si el servidor decide, la app no lee el flag.
+- Cupos de regalo (degustaciones, cortesías): contador en servidor, tabla con PK idempotente (por turno o semana) + RPC `consume_*`/`*_status`, límite en `plan_limits` espejado en `PlanSpec`; patrón `weekly_free_analysis`.
+- Hash del allowlist = solo system prompt + catálogo: descripciones y resultados de tools (`AnswerGuide`) no lo cambian; teasers nuevos fuera del catálogo para no desplegar `ai-chat`.
+- `claim_weekly_report` vigente es la de 20261002130000 (con `disabled`): redefinirla copiando ese cuerpo.
+- Tope de posiciones Free vive solo en la app (sin trigger en migraciones); cupos "una vez" que deben sobrevivir reinstalación → tabla PK user_id + RPC claim idempotente por import_id.
+- Topes de costo nuevos sobre RPC booleanas ya desplegadas: redefinir la booleana llamando a la nueva jsonb, así el db push protege antes del deploy de functions.
+- Cohortes de flags: `app_config_history` (trigger, sin `users`) en vez de prop `flags` en eventos.
+- Noticias para Premium solo con news_provider v2 (Google News RSS sin uso comercial); servidor valida con `news_data_allowed` (Gold o Premium + ticker en positions).
+- Trabajo en segundo plano nunca usa la sesión de Supabase (rotación de refresh token entre isolates puede cerrar sesión): caché privado + Yahoo directo (sin JWT).
+- La Home no muestra variación del día (solo la del rango): toda feature que diga "igual que la Home" para el día necesita `PortfolioDayMove` y decisión de PO.
+- Links externos a la app (widget, futuros): esquema propio distinto de `porty://` (auth de supabase_flutter), deep linking de Flutter apagado, navegar por nombre desde un listener tipo `PushOpenListener`.
+- Código nativo (ios/, android/) sin dueño propio: segunda instancia de porty-flutter-dev con archivos disjuntos; targets/capabilities de Xcode y App Groups los crea el usuario a mano.
+- Noticias/resultados fuera del chat (widget, etc.): solo camino v2 (`headlines` GDELT + `sec`); Finnhub prohibido por licencia; fechas de resultados siempre "estimadas".
+- iOS extensiones/widgets: sin nombre de plan ni paywall (Apple 4.4); el aviso abre la app y el paywall va adentro. Android sí puede.
+- Conteos de contenido pago para avisos a quien no paga: siempre en servidor (modo count_only por tenencia), nunca bajar el contenido al cliente.
+- Snapshot de widget: crecer con campos opcionales en el mismo `v`; extensión y app van en el mismo binario.
+- Snapshot del widget: rediseños que cambian layout van en bloque opcional (`v2`) con `v` fijo; el bloque v1 se degrada a algo seguro para un nativo viejo y el nativo nuevo trata "sin bloque" como legado sin tickers.
+- Widget: orden/prioridad/histéresis en Dart; cambios por hora como `segments[{from, prio,...}]`; el nativo solo filtra, reordena estable y avanza un cursor propio (`porty_widget_cursor`, reset por `feed_rev`).
+- Interacción del widget sin abrir la app: AppIntent iOS 17+ / broadcast explícito al provider en Android; nunca los callbacks de `home_widget` que levantan Dart.
+- Preguntas/acciones desde el widget viajan como plantilla cerrada + `ref` a caché privada (nunca texto, ticker ni nombre de meta en la URL).
+- Selectores nativos con lógica: implementación de referencia en Dart que genera `feed_cases.json`; Kotlin con test JVM (junit + org.json) y Swift puro Foundation chequeado con `swiftc` fuera del target.

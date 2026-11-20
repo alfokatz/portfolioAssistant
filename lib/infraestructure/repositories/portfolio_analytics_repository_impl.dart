@@ -1,0 +1,233 @@
+import 'package:dartz/dartz.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/config/networking/error/http_error.dart';
+import 'package:portfolio_assistant/domain/entities/benchmark_point.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_history_point.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_snapshot.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
+import 'package:portfolio_assistant/domain/entities/position.dart';
+import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
+import 'package:portfolio_assistant/domain/entities/price_candle.dart';
+import 'package:portfolio_assistant/domain/repositories/portfolio_analytics_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/position_repository.dart';
+import 'package:portfolio_assistant/domain/repositories/quote_repository.dart';
+import 'package:portfolio_assistant/domain/utils/bounded_concurrency.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
+import 'package:portfolio_assistant/domain/utils/portfolio_series_builder.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/position_repository_impl.dart';
+import 'package:portfolio_assistant/infraestructure/repositories/quote_repository_impl.dart';
+
+const _sp500Ticker = '^GSPC';
+
+class PortfolioAnalyticsRepositoryImpl implements PortfolioAnalyticsRepository {
+  final PositionRepository positionRepository;
+  final QuoteRepository quoteRepository;
+
+  PortfolioAnalyticsRepositoryImpl({
+    required this.positionRepository,
+    required this.quoteRepository,
+  });
+
+  Future<Either<HttpError, List<PositionValuation>>> _loadValuations() async {
+    final positionsResult = await positionRepository.getPositions();
+    return positionsResult.fold(
+      Left.new,
+      (positions) async {
+        if (positions.isEmpty) {
+          return const Right([]);
+        }
+        // Sin cotización, todo el ticker se valúa con el precio de eToro si
+        // alguno de sus lotes lo trae (también los manuales del mismo
+        // ticker); si no, cada lote a su precio de compra.
+        final brokerPrices = <String, double>{
+          for (final p in positions)
+            if (p.brokerPrice != null)
+              PortfolioCalculator.normalizeTicker(p.ticker): p.brokerPrice!,
+        };
+        // Una cotización por ticker (no por lote), varias a la vez.
+        final tickers = {for (final p in positions) p.ticker}.toList();
+        final quotes = await mapWithConcurrency(
+          tickers,
+          quoteRepository.getCurrentPrice,
+        );
+        final priceByTicker = {
+          for (var i = 0; i < tickers.length; i++) tickers[i]: quotes[i],
+        };
+        final valuations = <PositionValuation>[
+          for (final position in positions)
+            PortfolioCalculator.valuate(
+              position: position,
+              currentPrice: priceByTicker[position.ticker]!.fold(
+                (_) =>
+                    brokerPrices[PortfolioCalculator.normalizeTicker(
+                      position.ticker,
+                    )] ??
+                    position.purchasePrice,
+                (p) => p,
+              ),
+            ),
+        ];
+        return Right(valuations);
+      },
+    );
+  }
+
+  @override
+  Future<Either<HttpError, PortfolioSnapshot>> buildSnapshot() async {
+    final summaryResult = await getSummary();
+    return summaryResult.fold(
+      Left.new,
+      (summary) {
+        final total = summary.totalValue;
+        final positions = summary.valuations.map((v) {
+          final weight = total > 0 ? v.marketValue / total : 0.0;
+          return PortfolioSnapshotPosition(
+            ticker: v.position.ticker,
+            quantity: v.position.quantity,
+            purchasePrice: v.position.purchasePrice,
+            currentPrice: v.currentPrice,
+            marketValue: v.marketValue,
+            weight: weight,
+            pnlPercent: v.pnlPercent,
+            pnlAbsolute: v.pnlAbsolute,
+          );
+        }).toList();
+
+        return Right(
+          PortfolioSnapshot(
+            totalValue: summary.totalValue,
+            totalPnlPercent: summary.totalPnlPercent,
+            totalPnlAbsolute: summary.totalPnlAbsolute,
+            asOf: DateTime.now(),
+            positions: positions,
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Future<Either<HttpError, List<BenchmarkPoint>>> getBenchmarkComparison() async {
+    try {
+      final positionsResult = await positionRepository.getPositions();
+      return await positionsResult.fold(
+        Left.new,
+        (positions) async {
+          if (positions.isEmpty) return const Right([]);
+
+          final startDate = PortfolioSeriesBuilder.seriesStart(positions);
+
+          // El S&P se baja junto con la cartera, no después.
+          final spFuture = quoteRepository.getHistoricalDaily(_sp500Ticker);
+          final portfolioHistory = await _buildPortfolioSeries(positions);
+          final spResult = await spFuture;
+          return spResult.fold(
+            Left.new,
+            (spCandles) {
+              final spFiltered = spCandles
+                  .where((c) => !c.date.isBefore(startDate))
+                  .toList();
+              if (portfolioHistory.isEmpty || spFiltered.isEmpty) {
+                return const Right([]);
+              }
+
+              final portfolioByDay = {
+                for (final p in portfolioHistory)
+                  _dayKey(p.date): p.totalValue,
+              };
+              final spByDay = {
+                for (final c in spFiltered) _dayKey(c.date): c.close,
+              };
+
+              final commonDays = portfolioByDay.keys
+                  .where(spByDay.containsKey)
+                  .toList()
+                ..sort();
+
+              if (commonDays.isEmpty) return const Right([]);
+
+              final firstDay = commonDays.first;
+              final basePortfolio = portfolioByDay[firstDay]!;
+              final baseSp = spByDay[firstDay]!;
+
+              final points = commonDays.map((day) {
+                final date = DateTime.parse(day);
+                final pVal = portfolioByDay[day]!;
+                final spVal = spByDay[day]!;
+                return BenchmarkPoint(
+                  date: date,
+                  portfolioNormalized:
+                      basePortfolio > 0 ? (pVal / basePortfolio) * 100 : 100,
+                  sp500Normalized:
+                      baseSp > 0 ? (spVal / baseSp) * 100 : 100,
+                );
+              }).toList();
+
+              return Right(points);
+            },
+          );
+        },
+      );
+    } catch (e) {
+      return Left(
+        HttpError(code: 'analytics_error', message: e.toString()),
+      );
+    }
+  }
+
+  @override
+  Future<Either<HttpError, List<PortfolioHistoryPoint>>>
+      getPortfolioHistory() async {
+    try {
+      final positionsResult = await positionRepository.getPositions();
+      return await positionsResult.fold(
+        Left.new,
+        (positions) async {
+          if (positions.isEmpty) return const Right([]);
+          final series = await _buildPortfolioSeries(positions);
+          return Right(series);
+        },
+      );
+    } catch (e) {
+      return Left(
+        HttpError(code: 'analytics_error', message: e.toString()),
+      );
+    }
+  }
+
+  Future<List<PortfolioHistoryPoint>> _buildPortfolioSeries(
+    List<Position> positions,
+  ) async {
+    final tickers = {for (final p in positions) p.ticker}.toList();
+    final results = await mapWithConcurrency(
+      tickers,
+      quoteRepository.getHistoricalDaily,
+    );
+    final histories = <String, List<PriceCandle>>{
+      for (var i = 0; i < tickers.length; i++)
+        tickers[i]: results[i].fold((_) => <PriceCandle>[], (c) => c),
+    };
+
+    return PortfolioSeriesBuilder.build(positions, histories);
+  }
+
+  String _dayKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  @override
+  Future<Either<HttpError, PortfolioSummary>> getSummary() async {
+    final valuationsResult = await _loadValuations();
+    return valuationsResult.fold(
+      Left.new,
+      (valuations) => Right(PortfolioCalculator.summarize(valuations)),
+    );
+  }
+}
+
+final portfolioAnalyticsRepositoryProvider =
+    Provider<PortfolioAnalyticsRepository>(
+  (ref) => PortfolioAnalyticsRepositoryImpl(
+    positionRepository: ref.watch(positionRepositoryProvider),
+    quoteRepository: ref.watch(quoteRepositoryProvider),
+  ),
+);

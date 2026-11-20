@@ -1,0 +1,10 @@
+{
+  "name": "porty-diversificado",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npx --yes hyperframes@0.9.33 check",
+    "snapshot": "npx --yes hyperframes@0.9.33 snapshot --review",
+    "render": "npx --yes hyperframes@0.9.33 render --fps 60 -o ../../../../docs/marketing/social/piezas/2026-11-12/diversificado.mp4"
+  }
+}

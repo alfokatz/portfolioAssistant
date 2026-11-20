@@ -1,0 +1,48 @@
+<template>
+<style>
+  #root{position:absolute;inset:0}
+  #intro-title{position:absolute;left:60px;top:270px;width:900px;font-weight:700;font-size:84px;line-height:1.08;letter-spacing:-2.4px;color:#2F3437}
+  #intro-title em{font-style:normal;color:#C27443}
+  #intro-title .w{display:inline-block}
+  #intro-porty{position:absolute;left:90px;top:600px;width:260px;height:260px;transform-origin:50% 54%}
+  #intro-porty svg{width:100%;height:100%;overflow:visible}
+</style>
+<div id="root" data-composition-id="intro" data-width="1080" data-height="1920">
+  <!-- El gancho ya está en el cuadro 0 (es la miniatura). -->
+  <h1 id="intro-title"><span class="w">No</span> <span class="w">hace</span> <span class="w">falta</span> <span class="w">mirar</span> <span class="w">el</span> <span class="w">mercado</span> <em class="w">todo</em> <em class="w">el</em> <em class="w">día.</em></h1>
+  <div id="intro-porty">
+    <svg viewBox="-3 -6 70 70">
+      <g id="intro-body">
+        <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+        <g id="intro-eyes" style="transform-origin:34px 30px"><circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/></g>
+        <path d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+</div>
+<script>
+  const tl = gsap.timeline({ paused: true });
+  // Porty entra: anticipación (estirado), sube, aterriza aplastándose y se acomoda.
+  tl.fromTo("#intro-porty", {y:120, opacity:0, scaleX:.9, scaleY:1.12}, {y:0, opacity:1, scaleX:1, scaleY:1, duration:.6, ease:"power3.out"}, .04)
+    .to("#intro-porty", {scaleX:1.12, scaleY:.88, duration:.09, ease:"power2.out"}, .6)
+    .to("#intro-porty", {scaleX:1, scaleY:1, duration:.38, ease:"back.out(2.2)"}, .69)
+  // Mira el titular, parpadea; después escucha algo y mira hacia abajo a la derecha (donde llega el teléfono).
+    .fromTo("#intro-eyes", {x:0, y:0}, {x:-1.2, y:-1.8, duration:.35, ease:"power2.inOut"}, 1.05)
+    .to("#intro-eyes", {scaleY:.1, duration:.07, ease:"power1.in"}, 1.75)
+    .to("#intro-eyes", {scaleY:1, duration:.09, ease:"power1.out"}, 1.82)
+    .to("#intro-eyes", {x:1.6, y:1.8, duration:.25, ease:"power2.inOut"}, 2.3)
+  // Vida mientras espera: respira (cuerpo) desfasado de los ojos.
+  tl.fromTo("#intro-body", {y:0}, {y:-3, duration:.42, ease:"sine.inOut", yoyo:true, repeat:3}, 1.15)
+    .to("#intro-eyes", {scaleY:.1, duration:.06, ease:"power1.in", yoyo:true, repeat:1}, 2.1);
+  tl
+  // Anticipación del salto y viaje hasta el ícono de la notificación (se convierte en él).
+    .to("#intro-porty", {scaleX:1.14, scaleY:.84, y:10, duration:.22, ease:"power2.in"}, 2.55)
+    .to("#intro-porty", {x:80, y:72, scaleX:.193, scaleY:.193, duration:.55, ease:"power3.inOut"}, 2.85)
+    .fromTo("#intro-porty", {filter:"blur(0px)"}, {filter:"blur(5px)", duration:.27, ease:"power2.in"}, 2.85)
+    .to("#intro-porty", {filter:"blur(0px)", duration:.28, ease:"power2.out"}, 3.12)
+    .to("#intro-porty", {opacity:0, duration:.05}, 3.38);
+  // El titular se va palabra por palabra con desenfoque.
+  tl.fromTo("#intro-title .w", {opacity:1, filter:"blur(0px)"}, {opacity:0, filter:"blur(8px)", duration:.18, stagger:.03, ease:"power2.in"}, 2.72);
+  window.__timelines["intro"] = tl;
+</script>
+</template>

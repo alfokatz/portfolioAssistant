@@ -1,0 +1,184 @@
+import 'package:flutter/material.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/kit/qa_tokens.dart';
+import 'package:genui/genui.dart';
+import 'package:portfolio_assistant/features/assistant/catalog/widgets/reveal_step.dart';
+import 'package:portfolio_assistant/features/assistant/services/porty_haptics_service.dart';
+
+/// Renderiza la surface GenUI que arma Porty como respuesta.
+///
+/// Sin chrome de burbuja propio: la surface ya es una `Column` de widgets
+/// del catálogo (`qaAnswerText` sin card + tarjetas con `QaCardShell`), y
+/// envolverla en una burbuja duplicaba el borde/fondo — quedaba una card
+/// blanca dentro de otra card blanca. El texto plano respira en el fondo de
+/// la pantalla y las cards marcan su propio borde, como una respuesta de
+/// "lenguaje plano" en vez de un bloque de chat encerrado.
+///
+/// Aparece con un fade + slide-up sutil al montarse: reemplaza la espera
+/// (Porty pensando al lado, ver `AssistantScreen`) y ese salto merece una
+/// transición, no un swap instantáneo.
+class PortfolioQaAssistantSurface extends StatefulWidget {
+  const PortfolioQaAssistantSurface({
+    super.key,
+    required this.surfaceId,
+    required this.surfaceContext,
+    this.onFullyRevealed,
+    this.startFullyRevealed = false,
+  });
+
+  final String surfaceId;
+  final SurfaceContext surfaceContext;
+
+  /// Se llama una sola vez, cuando el último widget de la surface (texto +
+  /// cards + chart, lo que haya) termina su propia animación de entrada —
+  /// ver [SurfaceRevealController.isFullyRevealed]. Quien escucha (la
+  /// pantalla de chat) lo usa para saber exactamente cuándo dejar de
+  /// perseguir el fondo del scroll, en vez de adivinarlo.
+  final VoidCallback? onFullyRevealed;
+
+  /// `true` si esta surface ya terminó su reveal completo en un montaje
+  /// anterior (ver `PortfolioQaMessage.hasRevealed`) — típicamente porque el
+  /// mensaje scrolleó fuera del viewport del `ListView` de la pantalla de
+  /// chat y volvió a entrar, remontando este widget desde cero. En ese caso
+  /// no hay que volver a tipear/animar nada: todo el subárbol se renderiza
+  /// en su estado final de una, igual que con `disableAnimations` a nivel
+  /// sistema (mismo mecanismo — ver `build`).
+  final bool startFullyRevealed;
+
+  @override
+  State<PortfolioQaAssistantSurface> createState() =>
+      _PortfolioQaAssistantSurfaceState();
+}
+
+class _PortfolioQaAssistantSurfaceState
+    extends State<PortfolioQaAssistantSurface>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _entrance;
+  late final SurfaceRevealController _revealController;
+  bool _started = false;
+  bool _reportedFullyRevealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _entrance = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `MediaQuery.disableAnimationsOf` depends on an inherited widget, which
+    // can't be read from `initState`; `didChangeDependencies` is the earliest
+    // safe place, gated so the entrance/reveal controller only get set up
+    // once.
+    if (_started) return;
+    _started = true;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = disableAnimations || widget.startFullyRevealed;
+    // Haptics solo para un mensaje nuevo: reconstruir una surface ya vista
+    // (scroll, volver a la pantalla) no vibra. Con reduce motion no hay
+    // entradas que acompañar, pero sí el cierre de "respuesta lista".
+    _revealController = SurfaceRevealController(
+      reduceMotion: reduceMotion,
+      haptics: PortyHapticsService.maybeOf(context),
+      hapticsMode:
+          widget.startFullyRevealed
+              ? RevealHaptics.none
+              : disableAnimations
+              ? RevealHaptics.closeOnly
+              : RevealHaptics.full,
+    );
+    _revealController.addListener(_handleRevealChanged);
+    if (reduceMotion) {
+      _controller.value = 1;
+      // Con todo desbloqueado de entrada, `SurfaceRevealController` nunca
+      // notifica (no hay `advance` que lo dispare), así que el aviso de
+      // "surface revelada" se da acá, después del primer frame (nunca
+      // durante el build: quien escucha muta estado de Riverpod). Sin esto,
+      // con reduce motion el mensaje no se marcaba revelado y el footer de
+      // avisos (disclaimer, perfil) no aparecía nunca.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _reportedFullyRevealed) return;
+        _reportedFullyRevealed = true;
+        widget.onFullyRevealed?.call();
+      });
+    } else {
+      _controller.forward();
+    }
+  }
+
+  void _handleRevealChanged() {
+    if (_reportedFullyRevealed || !_revealController.isFullyRevealed) return;
+    _reportedFullyRevealed = true;
+    widget.onFullyRevealed?.call();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _revealController.removeListener(_handleRevealChanged);
+    _revealController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // SIEMPRE envuelve en `MediaQuery` — nunca condicionalmente. `Surface`
+    // (acá abajo) es la raíz del árbol renderizado por GenUI: si esta
+    // posición pasara de "sin envolver" a "envuelta en MediaQuery" (o
+    // viceversa) entre builds, ese cambio de TIPO en el slot hijo de
+    // `SurfaceRevealScope` hace que Flutter DESMONTE y VUELVA A MONTAR todo
+    // `Surface` desde cero — perdiendo el estado de reveal ya calculado y
+    // arriesgando exactamente el peor momento para eso: `startFullyRevealed`
+    // pasa a `true` en el mismo instante en que termina un reveal
+    // (`onFullyRevealed` → `notifier.markRevealed` → rebuild). Manteniendo
+    // el tipo (`MediaQuery`) fijo, Flutter solo actualiza `data` in place.
+    //
+    // Reusa el mismo interruptor que ya respetan `TypewriterText`,
+    // `TwoStageReveal`, `_DefaultFadeStep` y `QaProjectionChart` para
+    // accesibilidad (`MediaQuery.disableAnimationsOf`): con esto en `true`
+    // cada uno de ellos salta directo a su estado final en vez de animar,
+    // sin que este widget tenga que conocer a cada uno.
+    // Tema de las cards del catálogo (ver `QaColors`): se fija acá, antes
+    // de construir la surface, y la key incluye el brillo para que un cambio
+    // de tema reconstruya las cards (sus estilos se resuelven al construir).
+    final brightness = Theme.of(context).brightness;
+    QaColors.resolve(brightness);
+    final surface = MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        disableAnimations:
+            widget.startFullyRevealed ||
+            MediaQuery.disableAnimationsOf(context),
+      ),
+      child: Surface(
+        key: ValueKey('${widget.surfaceId}/${brightness.name}'),
+        surfaceContext: widget.surfaceContext,
+      ),
+    );
+    return FadeTransition(
+      opacity: _entrance,
+      child: AnimatedBuilder(
+        animation: _entrance,
+        builder:
+            (context, child) => Transform.translate(
+              offset: Offset(0, (1 - _entrance.value) * 8),
+              child: child,
+            ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SurfaceRevealScope(
+            controller: _revealController,
+            child: surface,
+          ),
+        ),
+      ),
+    );
+  }
+}

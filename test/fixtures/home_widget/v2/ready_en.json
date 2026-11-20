@@ -1,0 +1,273 @@
+{
+  "v": 1,
+  "state": "ready",
+  "lang": "en",
+  "written_at": 1793977200000,
+  "data_as_of": 1793977080000,
+  "stale_at": 1794020400000,
+  "period": "today",
+  "amounts_hidden": true,
+  "currency": "USD",
+  "change_pct_text": "-0.8%",
+  "direction": "down",
+  "phrase": "Your portfolio is down today.",
+  "phrase_stale": "Data is out of date. Open Porty to refresh it.",
+  "a11y_value": "Your portfolio is down 0.8% today",
+  "labels": {
+    "period_today": "Today",
+    "period_last_close": "Last close",
+    "stale_date": "as of Nov 6",
+    "updated_now": "Updated just now",
+    "updated_min": "Updated {n} min ago",
+    "updated_h": "Updated {n} h ago",
+    "updated_d": "Updated {n} d ago",
+    "hidden_amount": "••••",
+    "hidden_a11y": "Amounts hidden"
+  },
+  "v2": {
+    "positions_hidden": false,
+    "mood": "concerned",
+    "plan_until": null,
+    "chart": {
+      "kind": "intraday",
+      "points": [
+        0.12,
+        0.1,
+        0.25,
+        0.41,
+        0.38,
+        0.52,
+        0.47,
+        0.66,
+        0.61,
+        0.77,
+        0.88,
+        1.0
+      ],
+      "baseline": 0.18
+    },
+    "feed_rev": "1d3b93f9",
+    "feed": [
+      {
+        "id": "58ef8307",
+        "kind": "earnings",
+        "icon": "calendar",
+        "tag": "ZETA",
+        "paid": true,
+        "expires_at": 1794106799000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 1,
+            "short": "ZETA · earnings tomorrow (estimated)",
+            "title": "ZETA · estimated earnings date: tomorrow",
+            "meta": "Earnings · estimated date"
+          },
+          {
+            "from": 1794020400000,
+            "prio": 1,
+            "short": "ZETA · earnings today (estimated)",
+            "title": "ZETA · estimated earnings date: today",
+            "meta": "Earnings · estimated date"
+          }
+        ],
+        "a11y": "ZETA · estimated earnings date: Sat, Nov 7",
+        "open": {
+          "target": "earnings",
+          "id": "58ef8307"
+        },
+        "q": {
+          "ref": "120084dc",
+          "t": "earnings_last",
+          "src": "novelty",
+          "text": "What did ZETA report last time?"
+        }
+      },
+      {
+        "id": "7ba64e6b",
+        "kind": "news",
+        "icon": "news",
+        "tag": "ACME",
+        "paid": true,
+        "published_at": 1793966400000,
+        "expires_at": 1794139200000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 1,
+            "short": "ACME · news today",
+            "title": "ACME presenta una nueva línea de productos",
+            "meta": "News · {age}"
+          },
+          {
+            "from": 1794020400000,
+            "prio": 3,
+            "short": "ACME · news yesterday",
+            "title": "ACME presenta una nueva línea de productos",
+            "meta": "News · {age}"
+          }
+        ],
+        "a11y": "News on ACME, Fuente Ejemplo, {age}: ACME presenta una nueva línea de productos",
+        "open": {
+          "target": "news",
+          "id": "7ba64e6b"
+        },
+        "q": {
+          "ref": "d6c58bee",
+          "t": "news_what",
+          "src": "novelty",
+          "text": "What happened with ACME?"
+        }
+      },
+      {
+        "id": "3af4d35a",
+        "kind": "insight",
+        "icon": "pie",
+        "tag": "NOVA",
+        "expires_at": 1794063600000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 2,
+            "short": "NOVA is 31% of your portfolio",
+            "title": "NOVA is 31% of your portfolio",
+            "meta": "Porty noticed"
+          }
+        ],
+        "a11y": "Porty noticed: NOVA is 31% of your portfolio",
+        "open": {
+          "target": "home"
+        },
+        "q": {
+          "ref": "db65fb0d",
+          "t": "biggest",
+          "src": "novelty",
+          "text": "How much does my portfolio depend on NOVA?"
+        }
+      },
+      {
+        "id": "5365ceb7",
+        "kind": "insight",
+        "icon": "pie",
+        "tag": "GLOBX",
+        "expires_at": 1794063600000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 2,
+            "short": "GLOBX is close to your alert",
+            "title": "GLOBX is close to your alert",
+            "meta": "Porty noticed"
+          }
+        ],
+        "a11y": "Porty noticed: GLOBX is close to your alert",
+        "open": {
+          "target": "home"
+        },
+        "q": {
+          "ref": "78d5a4df",
+          "t": "alert_week",
+          "src": "novelty",
+          "text": "How is GLOBX doing this week?"
+        }
+      },
+      {
+        "id": "76972ea1",
+        "kind": "news",
+        "icon": "news",
+        "tag": "GLOBX",
+        "paid": true,
+        "published_at": 1793869200000,
+        "expires_at": 1794042000000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 3,
+            "short": "GLOBX · news yesterday",
+            "title": "GLOBX abre una planta en otro país",
+            "meta": "News · {age}"
+          }
+        ],
+        "a11y": "News on GLOBX, Fuente Ejemplo, {age}: GLOBX abre una planta en otro país",
+        "open": {
+          "target": "news",
+          "id": "76972ea1"
+        },
+        "q": {
+          "ref": "1f5ac1ac",
+          "t": "news_what",
+          "src": "novelty",
+          "text": "What happened with GLOBX?"
+        }
+      },
+      {
+        "id": "bffb9ac1",
+        "kind": "mover",
+        "icon": "chart",
+        "tag": "ORBT",
+        "expires_at": 1794020400000,
+        "segments": [
+          {
+            "from": 1793977200000,
+            "prio": 3,
+            "short": "ORBT -3.2% today",
+            "title": "ORBT -3.2% today",
+            "meta": "Today's biggest move"
+          }
+        ],
+        "a11y": "Biggest move today: ORBT, down 3.2%",
+        "open": {
+          "target": "home"
+        },
+        "q": {
+          "ref": "21222482",
+          "t": "mover_today",
+          "src": "novelty",
+          "text": "How did ORBT do in my portfolio today?"
+        }
+      }
+    ],
+    "questions": {
+      "fallback": {
+        "ref": "db65fb0d",
+        "t": "biggest",
+        "src": "biggest",
+        "text": "How much does my portfolio depend on NOVA?"
+      },
+      "large": [
+        {
+          "ref": "120084dc",
+          "t": "earnings_last",
+          "src": "novelty",
+          "text": "What did ZETA report last time?"
+        },
+        {
+          "ref": "db65fb0d",
+          "t": "biggest",
+          "src": "biggest",
+          "text": "How much does my portfolio depend on NOVA?"
+        }
+      ]
+    },
+    "labels": {
+      "your_portfolio": "your portfolio",
+      "age_now": "just now",
+      "age_min": "{n}m ago",
+      "age_h": "{n}h ago",
+      "age_yesterday": "yesterday",
+      "age_d": "{n} d ago",
+      "header_one": "One thing caught my eye today",
+      "header_other": "{n} things caught my eye today",
+      "header_none": "Your portfolio",
+      "list_title": "Today",
+      "next": "Next",
+      "next_a11y": "Next update",
+      "hidden_count_one": "1 update on your portfolio",
+      "hidden_count_other": "{n} updates on your portfolio",
+      "no_news": "No updates on your portfolio for now",
+      "redacted": "Unlock your iPhone to see the news",
+      "chart_a11y_intraday": "Chart of your portfolio today",
+      "chart_a11y_days": "Chart of your portfolio over the last days"
+    }
+  }
+}

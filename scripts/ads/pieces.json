@@ -1,0 +1,112 @@
+{
+  "style": "Editorial advertising piece for Porty, a calm app that explains your investment portfolio in plain words. Art direction: quiet and premium, like a Notion or Linear ad: generous empty space, clear hierarchy, at most three elements. Flat warm ivory background #FBFBFA. Text in charcoal #2F3437, secondary text in warm gray #787774, one single accent color: terracotta #D98E5D. Typography: one geometric sans-serif like Plus Jakarta Sans, bold headlines with slightly tight letter-spacing, regular weight for body text. Cards: white #FFFFFF, hairline light-gray border, 16px rounded corners, no shadow or a barely visible one. Deep green #346538 and deep red #9F2F2D only on numbers. Hand-drawn terracotta accents (underline, arrow, sparkle, strike) used sparingly, thin and confident. Render all visible text exactly as written between quotes, in correct Spanish spelling with every accent and inverted question mark, and add no other text, logos, UI chrome or watermarks. Avoid: coins, dollar signs, rockets, rising arrows or charts, bulls, gold bars, banknotes, neon, gradients, glossy 3D, heavy drop shadows, comic or script lettering, photos of people.",
+
+  "porty": "The attached reference image is Porty, the brand mascot. Reproduce Porty exactly as in the reference: the same soft, slightly irregular terracotta #D98E5D pebble shape in flat color, the same two small round charcoal eyes and the same short, thick, gently curved charcoal smile, at the same positions on the pebble. No body, no arms, no hands, no legs, no outline, no shading, no highlights, no extra facial features. Do not redesign or stylize it. Ignore the plain background of the reference.",
+
+  "images": {
+    "feed-traductor": {
+      "aspect_ratio": "4:5",
+      "refs": ["porty-idle"],
+      "idea": "Traducción: la jerga del bróker entra arriba, sale en criollo abajo.",
+      "copy": [
+        "Lo mismo, pero en criollo.",
+        "NVDA −3,4% · P/E 52 · beta 1,7",
+        "Bajaste porque NVDA cayó después de su reporte. El resto de tu cartera, tranquila.",
+        "Porty"
+      ],
+      "prompt": "Instagram feed ad, vertical 4:5. Concept: translating cryptic market jargon into plain words. Top: large bold charcoal headline on two lines, exactly \"Lo mismo, pero en criollo.\" with a thin hand-drawn terracotta underline under \"en criollo\". Middle left: a small white card tilted about -3 degrees, holding dense, small gray text that looks cryptic, exactly \"NVDA −3,4% · P/E 52 · beta 1,7\". A thin hand-drawn terracotta arrow curves from that card down to a second, larger, perfectly straight white card at the lower right, containing charcoal text exactly \"Bajaste porque NVDA cayó después de su reporte. El resto de tu cartera, tranquila.\" Porty, small, sits just above the top-left corner of the second card, as if it had just said it. Tiny gray footer at the bottom left, exactly \"Porty\"."
+    },
+
+    "feed-pregunta": {
+      "aspect_ratio": "4:5",
+      "refs": ["porty-idle"],
+      "idea": "La pregunta de todo día rojo, gigante; Porty asoma desde abajo.",
+      "copy": [
+        "¿Por qué bajé hoy?",
+        "Preguntale a Porty. Te lo explica en criollo."
+      ],
+      "prompt": "Instagram feed ad, vertical 4:5. Concept: the question every investor asks on a red day. A huge bold charcoal headline fills the upper half, left-aligned, exactly \"¿Por qué bajé hoy?\", with one small hand-drawn terracotta four-point sparkle next to the closing question mark. Bottom right: Porty, large, partially cropped by the bottom edge of the frame so that only its upper two thirds are visible, with both eyes and the smile fully visible, peeking up at the headline. Bottom left, aligned with the headline margin: one line of gray text exactly \"Preguntale a Porty. Te lo explica en criollo.\" Nothing else."
+    },
+
+    "feed-terracota": {
+      "aspect_ratio": "4:5",
+      "refs": ["porty-idle"],
+      "idea": "Pieza de alto impacto sobre terracota lleno: una pregunta real y una respuesta con dato.",
+      "copy": [
+        "Menos gráficos. Más explicaciones.",
+        "¿Estoy muy metido en tecnología?",
+        "Sí: el 62% de tu cartera está en tecnología. Te muestro qué pesa más.",
+        "Porty · tu cartera, en criollo"
+      ],
+      "prompt": "Instagram feed ad, vertical 4:5, high-impact variant: the entire background is flat solid terracotta #D98E5D instead of ivory. Top: bold headline in ivory #FBFBFA, exactly \"Menos gráficos. Más explicaciones.\" Center: one white card with 16px rounded corners showing a short chat: a light gray rounded user bubble aligned right, exactly \"¿Estoy muy metido en tecnología?\", and below it, aligned left, a small Porty on the white card next to charcoal text exactly \"Sí: el 62% de tu cartera está en tecnología. Te muestro qué pesa más.\" with \"62%\" in bold. Bottom: small ivory footer exactly \"Porty · tu cartera, en criollo\"."
+    },
+
+    "story-pensando": {
+      "aspect_ratio": "9:16",
+      "refs": ["porty-thinking"],
+      "idea": "Las preguntas que da vergüenza hacerle a un asesor, como sugerencias de chat.",
+      "copy": [
+        "Preguntale lo que no te animás a preguntar.",
+        "¿Qué es un CEDEAR?",
+        "¿Por qué se movió mi cartera?",
+        "¿Estoy muy concentrado?"
+      ],
+      "prompt": "Instagram story ad, vertical 9:16. Keep the top 14% and the bottom 20% free of text for the story interface. Upper area: bold charcoal headline on three lines, exactly \"Preguntale lo que no te animás a preguntar.\" Center: Porty at medium size, eyes looking up and to the right, with its small terracotta four-point sparkle above it as in the reference, thinking. Below Porty: three white pill-shaped chips with hairline borders, stacked and slightly staggered left and right like chat suggestions, each with charcoal text exactly \"¿Qué es un CEDEAR?\", \"¿Por qué se movió mi cartera?\" and \"¿Estoy muy concentrado?\"."
+    },
+
+    "story-domingo": {
+      "aspect_ratio": "9:16",
+      "refs": ["porty-idle"],
+      "idea": "El chequeo del domingo: un día que bajó, contado con calma.",
+      "copy": [
+        "Domingo, 10:14",
+        "Dos minutos y seguís con tu día.",
+        "Tu semana",
+        "−0,6%",
+        "Bajó un poco por tus acciones de tecnología. Nada fuera de lo normal.",
+        "Porty"
+      ],
+      "prompt": "Instagram story ad, vertical 9:16. Keep the top 14% and the bottom 20% free of text for the story interface. Concept: the calm weekend check-in. Upper area: small gray text exactly \"Domingo, 10:14\" and under it a bold charcoal headline exactly \"Dos minutos y seguís con tu día.\" Middle: one white card containing a small gray label exactly \"Tu semana\", a large bold number exactly \"−0,6%\" in deep red #9F2F2D, and a charcoal line exactly \"Bajó un poco por tus acciones de tecnología. Nada fuera de lo normal.\" Porty, small and relaxed, rests on the top-right corner of the card. Tiny gray footer exactly \"Porty\" just above the bottom safe zone."
+    },
+
+    "story-ruido": {
+      "aspect_ratio": "9:16",
+      "refs": ["porty-idle"],
+      "idea": "Ruido contra calma: la jerga tachada arriba, Porty y una sola frase abajo.",
+      "copy": [
+        "RSI",
+        "velas",
+        "soporte",
+        "beta",
+        "drawdown",
+        "Sin jerga. Tu cartera, en criollo."
+      ],
+      "prompt": "Instagram story ad, vertical 9:16. Keep the top 14% and the bottom 20% free of text for the story interface. Concept: noise versus calm. Upper part: five market-jargon words scattered loosely in small gray text at slightly different angles, each crossed out with a single hand-drawn terracotta strike line, exactly \"RSI\", \"velas\", \"soporte\", \"beta\" and \"drawdown\". Lots of empty ivory space below them. Lower part, calm and centered: Porty at medium size and, under it, a bold charcoal headline exactly \"Sin jerga. Tu cartera, en criollo.\""
+    }
+  },
+
+  "video_style": "Calm, minimal brand animation for a vertical 9:16 mobile ad. Locked-off static camera: no zoom, no pan, no cuts. Slow, gentle easing; nothing fast or bouncy. Keep every text element, card and the background exactly as in the first frame: no text changes, no new text, no morphing. Porty, the flat terracotta pebble mascot, is a limbless pebble: only its eyes, its smile and the pebble's outline may move. Nothing ever sticks out of the pebble: no arms, no hands, no waving, no legs, no body. No particles, no confetti, no money imagery, no music cues on screen.",
+
+  "video_negative": "arms, hands, fingers, waving, limbs, legs, feet, body, extra strokes or lines outside the pebble, text changes, new text, morphing letters, camera movement, zoom, particles, confetti, 3D, shading",
+
+  "videos": {
+    "video-saludo": {
+      "start_frame": "ref:porty-idle-story",
+      "duration": 8,
+      "idea": "Porty solo, saludando con un parpadeo. El texto final («Tu cartera, en criollo.») se agrega al editar.",
+      "prompt": "Porty sits centered on a plain ivory background. It slowly blinks twice, then the whole pebble softly squashes and stretches once as if breathing, and a small terracotta four-point sparkle fades in above its upper right, twinkles once and fades out. It ends back at rest, smiling."
+    },
+    "video-pensando": {
+      "start_frame": "piece:story-pensando",
+      "duration": 8,
+      "idea": "Anima la story de las preguntas: solo se mueve Porty.",
+      "prompt": "Only Porty moves. It blinks, glances from one question chip to the next as if reading them, and the small sparkle above it pulses gently twice. The headline and the three chips stay perfectly still and legible."
+    },
+    "video-domingo": {
+      "start_frame": "piece:story-domingo",
+      "duration": 10,
+      "idea": "Anima la story del domingo; con Veo se recorta a 8 s, con Kling llega a 10 s.",
+      "prompt": "Only Porty moves. It blinks slowly, the pebble rocks once gently on the corner of the card and settles. The card, its number and its text stay perfectly still and legible."
+    }
+  }
+}

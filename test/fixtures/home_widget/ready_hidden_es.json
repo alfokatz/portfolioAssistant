@@ -1,0 +1,37 @@
+{
+  "v": 1,
+  "state": "ready",
+  "lang": "es",
+  "written_at": 1793891100000,
+  "data_as_of": 1793890800000,
+  "stale_at": 1793934000000,
+  "period": "today",
+  "amounts_hidden": true,
+  "currency": "USD",
+  "change_pct_text": "+1.0%",
+  "direction": "up",
+  "phrase": "Tu cartera sube hoy.",
+  "phrase_stale": "Datos desactualizados. Abrí Porty para actualizarlos.",
+  "a11y_value": "Montos ocultos",
+  "labels": {
+    "period_today": "Hoy",
+    "period_last_close": "Último cierre",
+    "stale_date": "al 5 nov",
+    "updated_now": "Actualizado recién",
+    "updated_min": "Actualizado hace {n} min",
+    "updated_h": "Actualizado hace {n} h",
+    "updated_d": "Actualizado hace {n} d",
+    "hidden_amount": "••••",
+    "hidden_a11y": "Montos ocultos"
+  },
+  "questions": [
+    {
+      "id": "today",
+      "text": "¿Cómo viene mi cartera hoy?"
+    },
+    {
+      "id": "top_mover",
+      "text": "¿Qué fue lo que más se movió?"
+    }
+  ]
+}

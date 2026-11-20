@@ -1,0 +1,42 @@
+[
+  {
+    "id": "insight",
+    "component": "PortfolioInsightCard",
+    "title": "Tu portfolio esta semana",
+    "body": "AMZN y DUOL movieron tu balance. El sector tech fue el principal impulsor.",
+    "pillar": "performance",
+    "icon": "trend"
+  },
+  {
+    "id": "highlight",
+    "component": "NewsHighlightCard",
+    "headline": "Amazon shares fell 1.2% on Friday",
+    "summary": "Amazon cerró la semana con una leve caída tras datos de volumen por debajo del promedio.",
+    "source": "MarketBeat",
+    "publishedAt": "ayer",
+    "sentiment": "negative",
+    "relevance": "Afecta tu posición en AMZN (23% de tu portfolio)",
+    "ticker": "AMZN",
+    "url": "https://example.com/amzn-week"
+  },
+  {
+    "id": "feed",
+    "component": "NewsFeedCard",
+    "title": "Otras noticias relevantes",
+    "items": [
+      {
+        "headline": "Duolingo insiders file multiple sales",
+        "source": "Investing.com",
+        "publishedAt": "hace 3 días",
+        "sentiment": "negative",
+        "ticker": "DUOL",
+        "url": "https://example.com/duol-insiders"
+      }
+    ]
+  },
+  {
+    "id": "root",
+    "component": "Column",
+    "children": ["insight", "highlight", "feed"]
+  }
+]

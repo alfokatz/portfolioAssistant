@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "775617595869",
+    "project_id": "porty-assistant-d628f",
+    "storage_bucket": "porty-assistant-d628f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775617595869:android:b25a554b4fe13cb6594e34",
+        "android_client_info": {
+          "package_name": "com.portyassistant.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD96Wwn3IvKK4HTm0TPuJFefTLzbVxi3KA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775617595869:android:f6847281da7a910d594e34",
+        "android_client_info": {
+          "package_name": "com.portyassistant.app.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD96Wwn3IvKK4HTm0TPuJFefTLzbVxi3KA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775617595869:android:e3a857b5703fb414594e34",
+        "android_client_info": {
+          "package_name": "com.portyassistant.app.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD96Wwn3IvKK4HTm0TPuJFefTLzbVxi3KA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

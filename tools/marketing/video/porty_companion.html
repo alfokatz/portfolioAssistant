@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!--
+  Porty como personaje dentro de las escenas live action ("Porty te acompaña").
+  Fondo transparente: render_companion.mjs captura cuadro por cuadro y
+  compose_live.sh lo superpone sobre cada plano. window.render(scene, t).
+  El avatar es el SVG de assets/porty-avatar (cara por defecto), con parpadeo
+  y boca animados; las burbujas usan la voz y los datos de la cuenta demo.
+-->
+<style>
+@font-face{font-family:PJS;font-weight:500;src:url(../../../assets/fonts/PlusJakartaSans-Medium.ttf)}
+@font-face{font-family:PJS;font-weight:600;src:url(../../../assets/fonts/PlusJakartaSans-SemiBold.ttf)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;background:transparent;overflow:hidden}
+.abs{position:absolute;will-change:transform,opacity}
+#shadow{border-radius:50%;background:rgba(40,28,20,.38);filter:blur(14px)}
+#porty{transform-origin:50% 100%}
+#porty svg{width:100%;height:100%;overflow:visible}
+#bubble{display:inline-block;max-width:100%;background:#fff;border-radius:40px;padding:30px 38px;font-family:PJS;font-weight:600;
+  font-size:46px;line-height:1.22;letter-spacing:-.6px;color:#2F3437;
+  box-shadow:0 24px 60px rgba(20,14,10,.22),0 4px 14px rgba(20,14,10,.12);transform-origin:12% 100%}
+#bubble .muted{display:block;font-weight:500;font-size:32px;color:#787774;margin-top:8px;letter-spacing:0}
+#bubble .num{color:#D98E5D}
+#tail{width:44px;height:44px;background:#fff;transform:rotate(45deg);border-radius:6px}
+.dots{display:flex;gap:14px;padding:6px 4px}
+.dots span{width:20px;height:20px;border-radius:50%;background:#B9B6B1;display:block}
+</style>
+</head>
+<body>
+<div class="abs" id="shadow"></div>
+<div class="abs" id="porty">
+  <svg viewBox="-3 -6 70 70">
+    <path d="M33 7C47 7 57 17 57 32C57 47 47 57 31 57C16 57 7 48 7 34C7 18 18 7 33 7Z" fill="#D98E5D"/>
+    <g id="eyes" style="transform-origin:34px 30px">
+      <circle cx="28" cy="30" r="3.6" fill="#2F3437"/><circle cx="40" cy="30" r="3.6" fill="#2F3437"/>
+    </g>
+    <path id="mouth" d="M29.6 40Q33.6 43 38.6 38.6" fill="none" stroke="#2F3437" stroke-width="3.2" stroke-linecap="round"/>
+  </svg>
+</div>
+<div class="abs" id="bubbleWrap"><div id="bubble"></div><div class="abs" id="tail"></div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const outCubic = (p) => 1 - Math.pow(1 - p, 3);
+const spring = (p, k = 10, d = 5) => (p <= 0 ? 0 : 1 - Math.exp(-d * p) * Math.cos(k * p));
+
+// Escenas: posición del personaje (sentado sobre una superficie de la toma),
+// tamaño, burbuja y tiempos. Coordenadas en el cuadro de 1080x1920.
+const SCENES = {
+  cocina: { x: 14, y: 1330, size: 205, bx: 14, by: 0, bw: 600,
+    text: 'Buen día. Ya miré tu cartera.', sub: 'Viene bien esta semana.', pop: .25, say: .7 },
+  colectivo: { x: 70, y: 1090, size: 200, bx: 50, by: 760, bw: 660, flip: false,
+    text: 'Tenés tu plata en <span class="num">3 apps</span>.', sub: 'La junto acá.', pop: .1, say: .45 },
+  sillon: { x: 24, y: 1440, size: 200, bx: 24, by: 0, bw: 520,
+    text: 'Esta semana <span class="num">NVDA</span> subió <span class="num">6%</span> por sus resultados.', sub: '¿Te cuento el resto?', pop: .15, say: .55 },
+  pulgar: { x: 120, y: 520, size: 190, bx: 100, by: 250, bw: 470,
+    thinking: true, pop: .05, say: .3 },
+};
+
+window.render = function (name, t) {
+  const s = SCENES[name];
+  // Entrada con resorte y aplastamiento, después flota apenas.
+  const p = spring(seg(t, s.pop, s.pop + 1.0), 11, 5.5);
+  const squash = 1 + Math.sin(seg(t, s.pop, s.pop + .9) * Math.PI * 3) * .08 * (1 - seg(t, s.pop, s.pop + .9));
+  const bob = Math.sin((t - s.pop) * 2.4) * 6 * seg(t, s.pop + .8, s.pop + 1.3);
+  const sz = s.size;
+  Object.assign($('porty').style, {
+    left: s.x + 'px', top: s.y - sz + 'px', width: sz + 'px', height: sz + 'px',
+    opacity: clamp(p * 4),
+    transform: `translateY(${(1 - p) * 140 + bob}px) scale(${p * (2 - squash)}, ${p * squash})`,
+  });
+  Object.assign($('shadow').style, {
+    left: s.x + sz * .14 + 'px', top: s.y - sz * .07 + 'px', width: sz * .72 + 'px', height: sz * .16 + 'px',
+    opacity: clamp(p) * .9, transform: `scaleX(${.7 + .3 * p - bob / 200})`,
+  });
+  // Parpadeo (cerca del segundo 1,6 de cada escena) y mirada hacia la persona.
+  const tb = (t - s.pop - 1.4) % 2.6;
+  const blink = tb > 0 && tb < .14 ? .1 : 1;
+  $('eyes').style.transform = `translateX(${Math.sin(t * .9) * .8}px) scaleY(${blink})`;
+
+  // Burbuja.
+  const b = spring(seg(t, s.say, s.say + .7), 12, 6);
+  const wrap = $('bubbleWrap'), bub = $('bubble'), tail = $('tail');
+  if (s.thinking) {
+    const answered = t > s.say + 1.0;
+    bub.innerHTML = answered
+      ? 'Preguntame lo que quieras.'
+      : '<div class="dots"><span></span><span></span><span></span></div>';
+    if (!answered) [...bub.querySelectorAll('.dots span')].forEach((d, i) => {
+      d.style.opacity = .35 + .65 * Math.abs(Math.sin(t * 6 - i * .7));
+    });
+    $('mouth').setAttribute('d', answered ? 'M29.6 40Q33.6 43 38.6 38.6' : 'M30.5 40.6L37.5 40.6');
+  } else {
+    bub.innerHTML = `${s.text}${s.sub ? `<span class="muted">${s.sub}</span>` : ''}`;
+    // Boca que "habla" mientras aparece la burbuja.
+    const talk = t > s.say && t < s.say + .9 ? Math.abs(Math.sin((t - s.say) * 16)) : 0;
+    $('mouth').setAttribute('d', `M29.6 40Q33.6 ${43 + talk * 3.5} 38.6 38.6`);
+  }
+  // La burbuja va arriba del personaje (con aire), según su alto real.
+  wrap.style.width = s.bw + 'px';
+  wrap.style.left = s.bx + 'px';
+  const bhNow = bub.offsetHeight;
+  wrap.style.top = s.y - sz - bhNow - 46 + 'px';
+  Object.assign(bub.style, {
+    opacity: clamp(b * 3), transform: `translateY(${(1 - b) * 40}px) scale(${.6 + .4 * b})`,
+  });
+  // Cola de la burbuja apuntando al personaje.
+  const bh = bub.offsetHeight;
+  Object.assign(tail.style, {
+    left: s.x - s.bx + sz * .42 + 'px', top: bh - 26 + 'px', opacity: clamp(b * 3),
+  });
+};
+</script>
+</body>
+</html>

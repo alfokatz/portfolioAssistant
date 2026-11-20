@@ -1,0 +1,106 @@
+{
+  "_doc": "Prompts copiados de porty-ads-sunra-rompts.md (secciones 4 a 6). Ver ajustes en _ajustes.",
+  "_ajustes": [
+    "Ojos: el doc dice ovalados; los SVG oficiales usan círculos, así que el bloque de estilo dice round.",
+    "Referencias: se manda solo lo que pide cada anuncio y se renumera \"reference N\" si la numeración salta (anuncios 3 y 9)."
+  ],
+  "output_dir": "../../ads-out",
+  "default_image_model": "google/gemini-nano-banana-2.1/image-editing",
+  "style": "Calm editorial advertising piece for a mobile investing app, in the spirit of Notion or Linear: lots of air, clear hierarchy, maximum 3 main elements. Flat warm ivory background #FBFBFA. Text color charcoal #2F3437, secondary text warm gray #787774. A single accent color: terracotta #D98E5D. Profit green #346538 and loss red #9F2F2D only on numbers. Typography: Plus Jakarta Sans style geometric sans-serif, bold headlines with slightly negative letter-spacing (no inflated letters, no comic or script fonts). White #FFFFFF cards with a very thin 8% gray border and ~16px radius, no heavy shadows, no gradients, no glossy 3D. Small hand-drawn details (underline, sparkle) in terracotta, used sparingly. Mascot \"Porty\": use the attached reference images EXACTLY as the mascot: a slightly irregular soft terracotta pebble with no body, no arms and no hands, two dark charcoal round eyes and a thick rounded gentle curved smile. Do NOT redraw, restyle, symmetrize or deform it; only scale or crop it. All text in Rioplatense Spanish with correct spelling and every accent. Render ONLY the quoted text, no extra words, no logos. Forbidden: coins, dollar-sign symbols, rockets, charts that only go up, gold bars, bulls, cash, neon, gradients, stock photos.",
+  "formats": {
+    "feed": {
+      "aspect_ratio": "4:5",
+      "line": "Format: Instagram feed 4:5."
+    },
+    "story": {
+      "aspect_ratio": "9:16",
+      "line": "Format: vertical story 9:16 with the top 13% and bottom 18% free of key content."
+    }
+  },
+  "images": {
+    "ad01": {
+      "slug": "ad01_por_que_bajo",
+      "idea": "Por qué bajó",
+      "refs": [
+        "ref-idle",
+        "ref-concerned"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar (reference 1) next to the word \"Porty\" in bold. Centered headline, two lines: \"Tu cartera bajó.\" / \"¿Por qué?\" with a thin hand-drawn terracotta underline under \"¿Por qué?\". Below it a small gray line: \"Porty te lo explica en criollo.\" Below, a modern smartphone mockup with thin frame and realistic tall proportions (about 1:2.1), cropped by the bottom edge of the image. On its ivory screen, a chat: a light gray user bubble aligned right with \"¿Por qué bajé hoy?\"; below it a reply in a white card with hairline border: \"Bajaste 1,2% sobre todo por NVDA, que cayó tras su reporte. El resto está estable.\" where \"NVDA\" is inside a small rounded pill and \"1,2%\" is in deep red #9F2F2D. A small Porty avatar (reference 2, concerned mood) sits next to the reply. Under the reply, two small white suggestion chips: \"¿Y el resto de mi cartera?\" and \"¿Qué pasó con NVDA?\". Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad02": {
+      "slug": "ad02_calma",
+      "idea": "Calma",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar (reference 1) and \"Porty\". Centered headline: \"Abrí. Mirá cómo vas. Cerrá.\" with a thin hand-drawn terracotta underline under \"cómo vas.\" Below, gray line: \"Tu cartera de un vistazo, sin ruido.\" Then a tall modern smartphone mockup (about 1:2.1), thin frame, cropped by the bottom edge. On its screen: gray label \"Tu cartera\"; big bold number \"US$ 12.480\"; below it \"−0,4% hoy\" in red and \"+1,3% este mes\" in green; a thin charcoal line sparkline that goes up and down (not only up) ending in a small terracotta dot; a row with a small Porty avatar (reference 1) and a white card saying \"Día tranquilo. Nada raro en tu cartera.\"; a gray section label \"Posiciones\" followed by two editorial rows with hairline separators: \"NVDA\" (subtitle \"Nvidia\") with \"−1,2%\" in red, and \"VOO\" (subtitle \"ETF · S&P 500\") with \"+0,4%\" in green. Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad03": {
+      "slug": "ad03_sin_jerga",
+      "idea": "Sin jerga",
+      "refs": [
+        "ref-idle",
+        "ref-thinking"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered bold headline in two lines: \"Preguntale lo que\" / \"no te animás a preguntar.\" with a thin hand-drawn terracotta underline under \"no te animás\". Below, three white pill-shaped question chips stacked and left-aligned, the first with a terracotta outline: \"¿Qué es un ETF?\", \"¿Qué es un dividendo?\", \"¿Por qué cae el mercado?\". Below them, a small Porty avatar (reference 1) next to a white card with the answer: \"Un ETF es una canasta de acciones que comprás de una sola vez. Por ejemplo, el SPY sigue a las 500 empresas más grandes de EE. UU.\" At the bottom, a large Porty (reference 2, with the four-point sparkle) partly cropped by the bottom edge, with its full face visible. No phone mockup in this piece."
+    },
+    "ad04": {
+      "slug": "ad04_confianza",
+      "idea": "Confianza",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Very large bold centered headline in two lines: \"No te dice\" / \"qué comprar.\" with a thick hand-drawn terracotta underline under \"qué comprar.\" Below, gray line: \"Te ayuda a entender lo que ya tenés.\" In the middle, a tilted pill-shaped sticker with gray text \"¡Comprá ya!\" crossed out by a terracotta strike line (the text must remain readable). At the bottom, a large smiling Porty (reference 1), centered and partly cropped by the bottom edge, face fully visible."
+    },
+    "ad05": {
+      "slug": "ad05_metas",
+      "idea": "Metas",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"¿Vas en camino\" / \"a tu meta?\" with a thin hand-drawn terracotta underline under \"en camino\". Gray line: \"Contale qué querés lograr. Porty arma el plan.\" Then a tall modern smartphone mockup (about 1:2.1) cropped by the bottom edge. On its screen: a small Porty avatar (reference 1) beside a white card \"Japón va en camino. El fondo de emergencia viene un poco atrasado.\"; then two goal rows with hairline separators: \"Viaje a Japón\" with \"60 %\" on the right, small gray line \"US$ 2.400 de US$ 4.000 · abril 2027\" and a thin charcoal progress bar filled 60%; \"Fondo de emergencia\" with \"35 %\", gray line \"US$ 1.050 de US$ 3.000 · atrasada\" and a progress bar filled 35%; then a small line \"Entre todas: US$ 3.450 de US$ 7.000\". Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad06": {
+      "slug": "ad06_etoro",
+      "idea": "Conectá tu cuenta",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"Tu cartera de eToro,\" / \"sin cargar nada.\" with a thin hand-drawn terracotta underline under \"sin cargar nada.\" Gray line: \"Conectá tu cuenta. Solo lectura.\" Then a tall modern smartphone mockup (about 1:2.1) cropped by the bottom edge. On its screen: bold title \"Conectá tu cuenta de eToro\"; gray paragraph \"Porty trae tus posiciones y las mantiene al día, así no tenés que cargarlas a mano.\"; a full-width charcoal button with ivory text \"Conectar eToro\"; small gray text \"Solo lectura\"; below, a white card with a terracotta circle containing a white check mark, bold \"12 posiciones importadas\" and gray \"Se actualizan solas.\" Do NOT draw any eToro logo, only the word in text. Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad07": {
+      "slug": "ad07_concentracion",
+      "idea": "Concentración",
+      "refs": [
+        "ref-idle",
+        "ref-concerned"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"¿Estás muy\" / \"concentrado?\" with a thin hand-drawn terracotta underline under \"concentrado?\" Gray line: \"Porty te avisa cuando un sector pesa demasiado.\" Then a tall modern smartphone mockup (about 1:2.1) cropped by the bottom edge. On its screen: gray label \"Tu cartera por sector\"; four horizontal bar rows with the name on the left and the percentage on the right: \"Tecnología\" \"62 %\" with a terracotta bar, \"Finanzas\" \"18 %\", \"Salud\" \"12 %\", \"Consumo\" \"8 %\" with light gray bars (bars proportional to the numbers); below, a small Porty avatar (reference 2, concerned) beside a white card with bold \"Tecnología pesa 62 % de tu cartera.\" followed by regular \"Porty te lo marca cuando un sector supera el 40 %.\" Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad08": {
+      "slug": "ad08_perfil_ideas",
+      "idea": "Ideas según tu perfil",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"Diversificá según\" / \"tu perfil.\" with a thin hand-drawn terracotta underline under \"tu perfil.\" Gray line: \"Porty te muestra ideas que le faltan a tu cartera.\" Then a tall modern smartphone mockup (about 1:2.1) cropped by the bottom edge. On its screen: gray label \"Tu perfil de inversor\" and three small white pills in one row: \"Moderado\", \"Largo plazo\", \"Crecimiento\"; a small Porty avatar (reference 1) beside a white card \"Tus 6 posiciones son 100 % de EE. UU. Mirá qué le falta.\"; two white idea cards: first bold \"ETF de acciones internacionales\", gray \"Suma empresas de otros países.\", and a small pill with a terracotta dot \"Buen encaje\"; second bold \"ETF de bonos\", gray \"Suma estabilidad a tu cartera.\", pill \"Encaje medio\". Tiny gray caption: \"Ejemplo ilustrativo. Información educativa, no es asesoramiento financiero.\" Do not write any specific ticker symbols."
+    },
+    "ad09": {
+      "slug": "ad09_registrar_hablando",
+      "idea": "Registrá tus compras hablando",
+      "refs": [
+        "ref-idle",
+        "ref-answered"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"Registrá tus compras\" / \"hablando.\" with a thin hand-drawn terracotta underline under \"hablando.\" Gray line: \"Contale a Porty. Vos confirmás.\" Then a tall modern smartphone mockup (about 1:2.1) cropped by the bottom edge. On its screen: a light gray user bubble aligned right \"Compré 5 VOO hoy\"; a small Porty avatar (reference 2, answered) beside a white card \"Listo, lo preparé. ¿Lo confirmás?\"; below, a white card with three rows (label gray on the left, value bold on the right): \"Operación\" \"Compra\", \"Activo\" \"VOO\", \"Cantidad\" \"5\"; then a full-width charcoal button \"Confirmar\" and a gray text button \"Cancelar\". Tiny gray caption: \"Ejemplo ilustrativo\"."
+    },
+    "ad10": {
+      "slug": "ad10_avisos",
+      "idea": "Avisos",
+      "refs": [
+        "ref-idle"
+      ],
+      "prompt": "Brand lockup at the top: small Porty avatar and \"Porty\". Centered headline in two lines: \"Porty te avisa\" / \"solo cuando importa.\" with a thin hand-drawn terracotta underline under \"solo cuando importa.\" Gray line: \"Nunca más de 3 avisos automáticos por día.\" Then three stacked white push-notification cards with hairline borders and large radius, each with a small rounded app icon holding the Porty avatar (reference 1), a tiny gray header and a bold title and a gray body: \"Porty · ahora\" / \"NVDA bajó de US$ 150\" / \"Tu alerta de precio se activó.\"; \"Porty · 9:00\" / \"AAPL presenta resultados mañana\" / \"Después del cierre.\"; \"Porty · sábado\" / \"Tu semana está lista\" / \"Mirá cómo te fue y qué viene.\" Tiny gray caption: \"Ejemplo ilustrativo\". At the bottom, a large smiling Porty (reference 1) partly cropped by the bottom edge, face fully visible."
+    }
+  }
+}
