@@ -6,6 +6,7 @@
 
 import { assert, assertEquals, assertMatch, assertStringIncludes } from "jsr:@std/assert@1";
 import { decide, runDispatch } from "../notify-dispatch/dispatch.ts";
+import { isKind, kinds } from "../notify-dispatch/kinds.ts";
 import { classify, type FcmMessage, FcmSender } from "../notify-dispatch/fcm.ts";
 import { handle } from "../notify-dispatch/handler.ts";
 import { localDate, quietEndsAt } from "../notify-dispatch/quiet.ts";
@@ -212,6 +213,8 @@ Deno.test("plantillas: ningún texto da consejos ni usa tono de casino", () => {
     ["allocation_drift", { items: [{ symbol: "VOO", current_pct: 62, target_pct: 50 }] }],
     ["watchlist_move", { symbol: "AMZN", change_pct: -6.1, since_added_pct: -12 }],
     ["earnings_tomorrow", { symbols: ["NVDA"], items: [{ symbol: "NVDA", weight_pct: 18, eps_estimate: 0.85, hour: "amc" }] }],
+    ["daily_brief", { day: "2026-12-02", moved: true, news_tickers: 2, signals: 1, earnings: 2 }],
+    ["daily_brief", {}],
   ];
   for (const locale of ["es", "en"] as const) {
     for (const [kind, data] of samples) {
@@ -414,4 +417,76 @@ Deno.test("plantillas: recordatorio de aporte", () => {
   });
   assertEquals(bare.title, "Time for this month's contribution");
   assertEquals(bare.body, "Tap to plan it with Porty.");
+});
+
+// ── brief diario (spec §3.7) ────────────────────────────────────────────────
+
+Deno.test("daily_brief: plantilla sin IA ni montos, porcentajes ni tickers; ruta al brief del día", () => {
+  const data = { day: "2026-12-02", moved: true, news_tickers: 2, signals: 0, earnings: 0 };
+  const es = render("daily_brief", data, { locale: "es", showAmounts: true });
+  assertEquals(es.title, "Tu brief de hoy está listo");
+  assertEquals(es.body, "Tu cartera se movió más que de costumbre. Hay 2 noticias de lo tuyo.");
+  assertEquals(es.route, "daily_brief");
+  assertEquals(es.routeArgs, { day: "2026-12-02" });
+  const en = render("daily_brief", data, { locale: "en", showAmounts: true });
+  assertEquals(en.title, "Your daily brief is ready");
+  assertEquals(en.body, "Your portfolio moved more than usual. There are 2 news stories about your holdings.");
+
+  // Singulares, señales y resultados (Gold).
+  assertEquals(
+    render("daily_brief", { day: "2026-12-02", news_tickers: 1, signals: 1, earnings: 1 }, { locale: "es", showAmounts: false }).body,
+    "Hay 1 noticia de lo tuyo. Porty marcó algo en tu cartera. Salió un resultado de lo tuyo.",
+  );
+  assertEquals(
+    render("daily_brief", { day: "2026-12-02", earnings: 3 }, { locale: "en", showAmounts: false }).body,
+    "Earnings are out for 3 of your holdings.",
+  );
+
+  // Aunque el outbox traiga tickers, montos o porcentajes, la plantilla no los muestra.
+  const leaky = render("daily_brief", {
+    day: "2026-12-02", moved: true, news_tickers: 1, symbol: "NVDA", change_pct: 4.2, amount: 1234, signal_keys: ["0a1b2c3d"],
+  }, { locale: "en", showAmounts: true });
+  assert(!/NVDA|4\.2|1234|\$|%|0a1b2c3d/.test(`${leaky.title} ${leaky.body}`));
+
+  // Fila vacía (productor viejo): la invitación sola.
+  assertEquals(render("daily_brief", {}, { locale: "es", showAmounts: false }).body, "Tocá para ver cómo viene tu cartera.");
+});
+
+Deno.test("daily_brief: kind automático gratis, con la preferencia morning_brief, silencio diferido y canal reports", () => {
+  assertEquals(kinds.daily_brief, {
+    pref: "morning_brief",
+    category: "automatic",
+    minTier: "free",
+    quiet: "defer",
+    maxAgeMinutes: 360,
+    androidChannel: "reports",
+    interruption: "active",
+  });
+  assert(isKind("daily_brief"));
+  // Mismo horario y preferencia que el morning_brief al que reemplaza.
+  assertEquals(kinds.daily_brief.pref, kinds.morning_brief.pref);
+  assertEquals(kinds.daily_brief.maxAgeMinutes, kinds.morning_brief.maxAgeMinutes);
+});
+
+Deno.test("daily_brief: se apaga con la preferencia morning_brief, respeta el silencio y el tope de 3", () => {
+  const on: PushConfig = { enabled: true, allowUsers: [], kinds: {} };
+  const row = (at: number): OutboxRow => ({
+    id: 1, user_id: "u1", kind: "daily_brief", dedupe_key: "daily_brief:2026-10-13", data: {},
+    created_at: new Date(at).toISOString(), attempts: 1,
+  });
+  const s = new MemoryDispatchStore(() => noonBA);
+  s.user("free", { tier: "free" });
+  assertEquals(decide(row(noonBA), ctxOf(s, "free"), on, noonBA), { action: "send" }, "Free también lo recibe");
+  s.user("off", {}, { morning_brief: false });
+  assertEquals(decide(row(noonBA), ctxOf(s, "off"), on, noonBA), { action: "skip", reason: "user_disabled_kind" });
+  // Tope de 3 automáticas en 24 h: no sale (el brief sigue en la Home).
+  s.user("cap", { automaticLast24h: 3 });
+  assertEquals(decide(row(noonBA), ctxOf(s, "cap"), on, noonBA), { action: "skip", reason: "daily_cap" });
+  // Silencio: se corre al terminar (la mañana siguiente sigue valiendo).
+  s.user("quiet");
+  const night = Date.parse("2026-10-14T10:30:00Z"); // 7:30 en Buenos Aires: todavía silencio
+  const d = decide(row(night), ctxOf(s, "quiet"), on, night);
+  assertEquals(d.action, "defer");
+  // Pasadas 6 h, ya no se manda.
+  assertEquals(decide(row(noonBA - 7 * 3600_000), ctxOf(s, "quiet"), on, noonBA), { action: "skip", reason: "stale" });
 });
