@@ -4,6 +4,14 @@
 
 **Pedido del usuario:** "un Lisa pero para noticias de finanzas". Es una **funcionalidad clave que refuerza el centro del producto** (Porty como asistente integral de finanzas e inversiones), no un pivot a app de noticias.
 
+
+> **Actualización del usuario (20/11, pisa lo que contradiga abajo):**
+> 1. **Alcance COMPLETO, no por capas.** Se construye toda la visión de §16 como una sola feature: brief diario, feed de noticias de lo tuyo, "¿Cómo me afecta?", seguir temas, **elegir medios preferidos**, **tendencias del mercado en general**, comparar fuentes y **videos**. Lo que §16 marca como "Afuera" ahora entra (con las salvaguardas de diseño de la spec: tendencias explicadas con calma, sin "top gainers" estilo casino; videos solo de fuentes con embebido permitido).
+> 2. **Producto global, no argentino.** Porty se lanza para todo el mundo. Temas, fuentes y macro tienen que ser internacionales por defecto (Fed, BCE, inflación, tasas, petróleo, cripto, resultados, índices principales) y adaptarse al mercado de la cartera del usuario; lo argentino (BCRA, dólar, CER, riesgo país) queda como opción más, no como eje. La allowlist de medios y la medición de cobertura tienen que ser globales.
+> 3. **Free:** números + 1 hecho de mercado + aviso sin ticker al plan siguiente, y las altas nuevas tienen los primeros 7 días hábiles con el brief completo. **Aprobado.**
+> 4. **Push:** prendido por defecto, reemplaza al `morning_brief`. **Aprobado.**
+> 5. **Audio:** la v1 es solo texto; el audio se evalúa después. **Aprobado.**
+
 ---
 
 ## 1. Problema y para quién
