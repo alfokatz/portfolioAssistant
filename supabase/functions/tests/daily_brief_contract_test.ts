@@ -2,12 +2,12 @@
 // `daily-brief/contract.ts` (flutter y assistant arrancan contra ellos). Puro.
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { errorTypes, scopes } from "../daily-brief/contract.ts";
+import { errorTypes, newsStatuses, scopes } from "../daily-brief/contract.ts";
 
 const dir = new URL("../../../test/fixtures/daily_brief/", import.meta.url);
 const read = (name: string) => JSON.parse(Deno.readTextFileSync(new URL(name, dir)));
 
-const bundles = ["bundle_brief_full", "bundle_brief_numbers", "bundle_feed_premium", "bundle_feed_free", "bundle_market", "bundle_topic"];
+const bundles = ["bundle_brief_full", "bundle_brief_numbers", "bundle_feed_premium", "bundle_feed_free", "bundle_market", "bundle_topic", "bundle_feed_unavailable", "bundle_feed_empty"];
 
 function assertBundle(b: Record<string, unknown>, name: string) {
   assertEquals(b.status, "ok", name);
@@ -35,8 +35,17 @@ function assertBundle(b: Record<string, unknown>, name: string) {
   } else {
     assertEquals(b.locked, null, name);
   }
-  for (const m of b.mine as { id: string; kind: string; url: string; source: string; domain: string }[]) {
+  for (const m of b.mine as { id: string; kind: string; url: string; source: string; domain: string; image_url?: string }[]) {
     assert(["held", "watch"].includes(m.kind) && m.url.startsWith("https://") && m.source && m.domain, `${name}: titular`);
+    assert(m.image_url === undefined || m.image_url.startsWith("https://"), `${name}: image_url`);
+  }
+  // Estado de `mine` (opcional): "unavailable"/"empty" solo con la lista vacía.
+  const status = b.mine_status as string | undefined;
+  assert(status === undefined || (newsStatuses as readonly string[]).includes(status), `${name}: mine_status`);
+  if (status === "ok") assert((b.mine as unknown[]).length > 0, `${name}: ok sin titulares`);
+  if (status === "empty" || status === "unavailable") assertEquals(b.mine, [], name);
+  for (const s of Object.values(sources) as { image_url?: string }[]) {
+    assert(s.image_url === undefined || s.image_url.startsWith("https://"), `${name}: image_url de fuente`);
   }
   for (const v of b.videos as { video_id: string; url: string; thumbnail: string }[]) {
     assert(v.url === `https://www.youtube.com/watch?v=${v.video_id}` && v.thumbnail.startsWith("https://i.ytimg.com/"));

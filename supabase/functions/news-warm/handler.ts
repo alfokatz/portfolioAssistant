@@ -4,9 +4,13 @@
 //
 // Tres trabajos, independientes (si uno falla, los otros siguen):
 //
-// 1. Titulares: en los husos donde son entre las 6:00 y las 7:45, los 200
-//    símbolos más tenidos (`daily_brief_warm_symbols`) pasan por
-//    `headlinesByTicker`: hasta 6 lotes de GDELT por corrida (unos 35 s).
+// 1. Titulares: en los husos donde son entre las 6:00 y las 22:00 (antes solo
+//    hasta las 7:45: pasado eso la caché por ticker vencía a los 30 min y el
+//    pedido del usuario pegaba GDELT en vivo), los 200 símbolos más tenidos
+//    (`daily_brief_warm_symbols`) pasan por `headlinesByTicker`: hasta 6 lotes
+//    de GDELT por corrida (unos 35 s) y hasta 20 símbolos por los respaldos
+//    (Finnhub/Yahoo) si GDELT falla. Solo se pide lo vencido: las corridas
+//    repetidas no cuestan.
 // 2. Pulso y temas: a las 6:30 de cada región (us: America/New_York, eu:
 //    Europe/Madrid, latam: America/Argentina/Buenos_Aires, asia: Asia/Tokyo),
 //    durante 45 minutos (3 corridas: las repetidas no cuestan, la clave ya
@@ -47,8 +51,10 @@ import {
 export type WarmDeps = Pick<Deps, "db" | "fetch" | "env" | "now" | "background">;
 
 export const warmConfig = {
-  /// Titulares: husos entre 6:00 y 7:45 locales (minutos del día).
-  headlines: { fromMin: 6 * 60, toMin: 7 * 60 + 45 },
+  /// Titulares: husos entre 6:00 y 22:00 locales (minutos del día).
+  headlines: { fromMin: 6 * 60, toMin: 22 * 60 },
+  /// Símbolos que pueden pasar por Finnhub/Yahoo en una corrida.
+  headlineFallbackCap: 20,
   maxHeadlineBatches: 6,
   symbolsPerGroup: 200,
   /// Pulso y temas: desde las 6:30 locales de cada región, 45 minutos.
@@ -93,10 +99,10 @@ async function readPieces(deps: Pick<Deps, "db">): Promise<Pieces> {
 // 1. Titulares
 // ---------------------------------------------------------------------------
 
-export type HeadlinesSummary = { zones: number; symbols: number; fetched: number; pending: number };
+export type HeadlinesSummary = { zones: number; symbols: number; fetched: number; pending: number; fallback: number };
 
 export async function warmHeadlines(deps: WarmDeps): Promise<HeadlinesSummary> {
-  const summary: HeadlinesSummary = { zones: 0, symbols: 0, fetched: 0, pending: 0 };
+  const summary: HeadlinesSummary = { zones: 0, symbols: 0, fetched: 0, pending: 0, fallback: 0 };
   const { data, error } = await deps.db.rpc("daily_brief_warm_zones", {
     p_from_min: warmConfig.headlines.fromMin,
     p_to_min: warmConfig.headlines.toMin,
@@ -118,8 +124,11 @@ export async function warmHeadlines(deps: WarmDeps): Promise<HeadlinesSummary> {
     const symbols = ((sym.data ?? []) as { symbol: string }[]).map((r) => r.symbol);
     if (symbols.length === 0) continue;
     summary.symbols += symbols.length;
-    const res = await headlinesByTicker(deps, symbols, day, { maxBatches: batches });
+    const res = await headlinesByTicker(deps, symbols, day, {
+      maxBatches: batches, fallbackCap: warmConfig.headlineFallbackCap,
+    });
     summary.fetched += res.fetched;
+    summary.fallback += res.fallback;
     summary.pending += res.pending.length;
     batches -= Math.max(res.fetched, 1);
   }

@@ -7,6 +7,7 @@
     { "id": "h2", "ticker": "NVDA", "kind": "held", "title": "Nvidia shares rise after quarterly results top estimates", "source": "CNBC", "domain": "cnbc.com", "url": "https://www.cnbc.com/2026/12/01/nvidia-shares-rise-after-results.html", "published_at": "2026-12-01T22:05:00Z", "lang": "en", "preferred": false },
     { "id": "h3", "ticker": "AAPL", "kind": "held", "title": "Apple presenta una nueva línea de productos para el año próximo", "source": "AP", "domain": "apnews.com", "url": "https://apnews.com/article/apple-new-products-2026", "published_at": "2026-12-01T16:20:00Z", "lang": "es", "preferred": false }
   ],
+  "mine_status": "ok",
   "locked": null,
   "earnings": [],
   "topics": [],

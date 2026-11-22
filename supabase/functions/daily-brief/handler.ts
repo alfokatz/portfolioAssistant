@@ -34,6 +34,7 @@ import {
   remapSources,
 } from "../_shared/news_digest.ts";
 import { looksLikeInstructions } from "../_shared/news_attribution.ts";
+import { safeImageUrl } from "../_shared/news_fallback.ts";
 import { isRecommendation } from "../_shared/recommendation.ts";
 import { fetchQuotes } from "../market-watch/quotes.ts";
 import { earningsFor } from "./earnings.ts";
@@ -179,7 +180,7 @@ async function build(
     const watch = ent.tier === "gold"
       ? ent.watchlist.filter((s) => !heldSymbols.includes(s)).slice(0, isBrief ? config.briefWatchTickers : 10)
       : [];
-    const { byTicker } = await headlinesByTicker(deps, [...held, ...watch], day, { allow, rows });
+    const { byTicker, status } = await headlinesByTicker(deps, [...held, ...watch], day, { allow, rows });
     let n = 0;
     const add = (symbols: string[], kind: "held" | "watch") => {
       for (const sym of symbols) {
@@ -187,12 +188,19 @@ async function build(
           out.mine.push({
             id: `h${++n}`, ticker: sym, kind, title: h.title, source: h.source, domain: h.domain,
             url: h.url, published_at: h.published_at, lang: h.language, preferred: h.preferred,
+            ...imageOf(h),
           } satisfies NewsItem);
         }
       }
     };
     add(held, "held");
     add(watch, "watch");
+    // Con notas = ok; sin notas y alguna consulta fallida (sin dato cacheado) =
+    // unavailable ("no se pudo consultar"); si todas respondieron = empty.
+    const asked = [...held, ...watch];
+    out.mine_status = out.mine.length > 0
+      ? "ok"
+      : asked.some((s) => status[s.toUpperCase()] === "failed") ? "unavailable" : "empty";
   } else if (scope === "feed") {
     out.locked = { mine_tickers_48h: await lockedCount(deps, heldSymbols, day, mute) };
   }
@@ -268,7 +276,21 @@ async function build(
     });
   }
 
-  if (scope === "topic") out.topic_news = await topicNews(deps, topicById.get(topicId!)!, day, rows, prefer, mute);
+  if (scope === "topic") {
+    const tn = await topicNews(deps, topicById.get(topicId!)!, day, rows, prefer, mute);
+    out.topic_news = tn.items;
+    out.topic_news_status = tn.items.length > 0 ? "ok" : tn.failed ? "unavailable" : "empty";
+  }
+
+  // Imagen de las fuentes citadas por los digests: solo si la misma nota
+  // (misma URL) viene en lo tuyo o en los titulares del tema. Los digests no
+  // traen imágenes propias (web_search de OpenAI solo cita título y link).
+  const imageByUrl = new Map<string, string>();
+  for (const it of [...out.mine, ...(out.topic_news ?? [])]) if (it.image_url) imageByUrl.set(it.url, it.image_url);
+  for (const src of Object.values(out.sources)) {
+    const img = imageByUrl.get(src.url);
+    if (img) src.image_url = img;
+  }
 
   if (scope === "market") {
     out.market = await marketBlock(deps, ent, lang, allow, prefer, mute, out.sources, costs);
@@ -351,9 +373,10 @@ async function marketBlock(
 async function topicNews(
   deps: Deps, t: TopicRow, day: string, rows: Awaited<ReturnType<typeof newsAllowlistMeta>>,
   prefer: Set<string>, mute: Set<string>,
-): Promise<TopicNewsItem[]> {
+): Promise<{ items: TopicNewsItem[]; failed: boolean }> {
   const key = `gdelt:topic:${t.id}:${day}`;
   let items: Headline[] = [];
+  let failed = false;
   const hit = await readCache<{ items: Headline[] }>(deps, key).catch(() => null);
   if (hit && hit.ageSeconds < tickerTtlSeconds(deps.now())) items = hit.body.items;
   else {
@@ -364,14 +387,25 @@ async function topicNews(
       await writeCache(deps, key, { items });
     } catch (e) {
       console.error("[daily-brief] topic news", String(e));
+      // Sirve lo último cacheado (aunque vencido); sin nada, "no se pudo consultar".
       items = hit?.body.items ?? [];
+      failed = !hit;
     }
   }
-  return pickNews(items, deps.now(), prefer, mute, 6).map((h, i) => ({
-    id: `n${i + 1}`, title: h.title, source: h.source, domain: h.domain, url: h.url,
-    published_at: h.published_at, lang: h.language, preferred: h.preferred,
-  }));
+  return {
+    failed,
+    items: pickNews(items, deps.now(), prefer, mute, 6).map((h, i) => ({
+      id: `n${i + 1}`, title: h.title, source: h.source, domain: h.domain, url: h.url,
+      published_at: h.published_at, lang: h.language, preferred: h.preferred, ...imageOf(h),
+    })),
+  };
 }
+
+/// `image_url` solo si es una URL https válida (nada viejo o raro de la caché).
+const imageOf = (h: { image_url?: string | null }): { image_url?: string } => {
+  const u = safeImageUrl(h.image_url);
+  return u ? { image_url: u } : {};
+};
 
 /// Videos de canales de la allowlist (últimas 48 h): de los temas dados o, con
 /// [marketOnly], los generales (sin tema). Hasta 3, preferidos primero.

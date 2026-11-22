@@ -15,8 +15,9 @@
       "as_of": "2026-12-02T06:35:00Z"
     }
   ],
+  "topic_news_status": "ok",
   "topic_news": [
-    { "id": "n1", "title": "Fed holds rates steady and signals patience", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/", "published_at": "2026-12-01T19:00:00Z", "lang": "en", "preferred": true },
+    { "id": "n1", "title": "Fed holds rates steady and signals patience", "source": "Reuters", "domain": "reuters.com", "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/", "published_at": "2026-12-01T19:00:00Z", "lang": "en", "preferred": true, "image_url": "https://static.reuters.com/resources/fed.jpg" },
     { "id": "n2", "title": "La Fed mantiene las tasas y los mercados miran a la primavera", "source": "Infobae", "domain": "infobae.com", "url": "https://www.infobae.com/economia/2026/12/01/la-fed-mantiene-las-tasas/", "published_at": "2026-12-01T20:10:00Z", "lang": "es", "preferred": false }
   ],
   "market": { "instruments": [], "pulse": [] },

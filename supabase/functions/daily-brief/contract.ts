@@ -54,6 +54,9 @@ export type NewsItem = {
   lang: Lang | null;
   /// El usuario prefirió este medio (va primero dentro de cada ticker).
   preferred: boolean;
+  /// URL https de la imagen de la nota (opcional: falta si la fuente no la
+  /// trae). Solo la URL: el servidor no descarga ni guarda imágenes.
+  image_url?: string;
 };
 
 /// Free: en lugar de `mine`, solo cuántos tickers de su cartera tienen
@@ -132,6 +135,8 @@ export type SourceRef = {
   domain: string;
   url: string;
   published_at?: string;
+  /// Imagen de la nota, si el mismo link vino en `mine` o `topic_news`.
+  image_url?: string;
 };
 
 export type BundleResponse = {
@@ -151,7 +156,18 @@ export type BundleResponse = {
   asset_classes?: string[];
   /// Solo `scope=topic`: titulares de la allowlist que nombran al tema.
   topic_news?: TopicNewsItem[];
+  topic_news_status?: NewsStatus;
+  /// Solo `scope=brief|feed` con la variante completa (Premium/Gold): por qué
+  /// `mine` está como está. Ausente en Free (`locked`) y en versiones viejas.
+  mine_status?: NewsStatus;
 };
+
+/// `ok` = hay titulares; `empty` = se consultó y no hay nada en 48 h ("no
+/// encontramos noticias tuyas"); `unavailable` = no se pudo consultar y no hay
+/// dato cacheado (la app muestra "no pudimos traer las noticias" con reintento).
+/// Cuando hay dato cacheado vencido, se sirve con `ok`.
+export const newsStatuses = ["ok", "empty", "unavailable"] as const;
+export type NewsStatus = (typeof newsStatuses)[number];
 
 export type TopicNewsItem = {
   id: string;
@@ -162,6 +178,7 @@ export type TopicNewsItem = {
   published_at: string;
   lang: Lang | null;
   preferred: boolean;
+  image_url?: string;
 };
 
 export type ErrorBody = { error: { type: ErrorType | string; message: string } };

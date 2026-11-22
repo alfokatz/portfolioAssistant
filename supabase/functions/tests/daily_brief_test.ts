@@ -8,7 +8,7 @@ import { handle } from "../daily-brief/handler.ts";
 import { handle as chat } from "../ai-chat/handler.ts";
 import { sha256Hex } from "../_shared/common.ts";
 import { writeCache } from "../_shared/data_cache.ts";
-import { gdeltUrl, headlinesByTicker, tickerKey } from "../_shared/gdelt.ts";
+import { gdeltBreakerKey, gdeltUrl, headlinesByTicker, tickerKey } from "../_shared/gdelt.ts";
 import { digestFor, generateAndCache, keyOf } from "../_shared/news_digest.ts";
 import { addPosition, createUser, db, deps, fakeFetch } from "./helpers.ts";
 
@@ -209,6 +209,8 @@ Deno.test("headlinesByTicker: lote único, filtros, caché por ticker y nunca la
   const r2 = await headlinesByTicker(down, ["NVDA"], day2);
   assertEquals(r2.byTicker.NVDA, []);
   assert(r2.pending.includes("NVDA"));
+  // La falla abrió el cortacircuitos de GDELT (90 s): no arrastrarlo a otros tests.
+  await db.from("data_source_cache").delete().eq("cache_key", gdeltBreakerKey);
 });
 
 Deno.test("gdeltUrl: sin domains usa la lista de siempre; con domains, esos", () => {
