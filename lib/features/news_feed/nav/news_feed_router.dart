@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:portfolio_assistant/features/news_feed/view/news_feed_screen.dart';
 
-/// `/news`, con `extra: {tab, source}` (`tab`: `mine` | `topics` | `market`;
-/// `source`: `brief` | `home` | `push`). Sin extra, abre "Lo tuyo" desde la
-/// Home.
+/// `/news`: la pestaña Noticias, rama del shell (solo se ve con `daily_brief` y
+/// su pieza `feed` prendidos). Va con `goNamed`, no `pushNamed`. `extra:
+/// {tab, source}` (`tab`: `mine` | `topics` | `market` | `videos`; `source`:
+/// `brief` | `home` | `push`) solo se lee al crear la pestaña. Sin extra, abre
+/// "Para vos".
 class NewsFeedRouter {
   static const String routeName = 'NewsFeed';
   static const String path = '/news';

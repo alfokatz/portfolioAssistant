@@ -201,19 +201,14 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.text('news_prefs_topics_title'), findsOneWidget);
         expect(find.text('Fed y tasas'), findsOneWidget);
-        expect(find.text('news_prefs_default_badge'), findsWidgets);
         expect(find.text('Reuters'), findsOneWidget);
         expect(find.text('Fed'), findsNothing);
       });
     }
 
-    testWidgets('switch follows a topic', (tester) async {
+    testWidgets('tapping a topic block follows it', (tester) async {
       final store = await pump(tester);
-      final row = find.ancestor(
-        of: find.text('Cripto'),
-        matching: find.byType(MergeSemantics),
-      );
-      await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+      await tester.tap(find.text('Cripto'));
       await tester.pump();
       expect(store.writes, ['topic:crypto:true']);
     });

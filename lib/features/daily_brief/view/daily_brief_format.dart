@@ -93,7 +93,7 @@ abstract final class DailyBriefFormat {
   }
 
   static final _figure = RegExp(
-    r'[+\-\u2212]?(?:US\$|\$)?\s?\d[\d.,]*(?:\s?%|\s?(?:pb|bps|M|B|mil)\b)?',
+    r'[+\-\u2212]?(?:(?:US\$|\$)\s?)?\d[\d.,]*(?:\s?%|\s?(?:pb|bps|M|B|mil)\b)?',
   );
 
   /// Pone en negrita los números del texto de Porty (el dato clave de cada

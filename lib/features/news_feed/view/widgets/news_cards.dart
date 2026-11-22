@@ -115,6 +115,7 @@ class NewsPill extends StatelessWidget {
         child: SizedBox(
           height: AppDimens.touchTarget,
           child: Center(
+            widthFactor: 1,
             child: DecoratedBox(
               decoration: ShapeDecoration(
                 color: filled ? colors.textPrimary : colors.surfaceCard,

@@ -18,7 +18,11 @@ import 'package:portfolio_assistant/features/news_feed/view/widgets/news_video_s
 import 'package:portfolio_assistant/features/news_preferences/data/news_preferences_repository.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
 import 'package:portfolio_assistant/features/subscription/config/paywall_source.dart';
+import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_numbers_loader.dart';
 
 import '../daily_brief/fakes/daily_brief_fakes.dart';
 import '../news_preferences/fakes/news_preferences_fakes.dart';
@@ -69,10 +73,25 @@ Future<PaywallHarness> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final h = PaywallHarness(tier: tier);
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         ...h.overrides,
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        // El brief (la entrada de "Lo tuyo" y el chip del tema) lee este
+        // controlador: uno de mentira, sin Supabase.
+        dailyBriefControllerProvider.overrideWith(
+          (ref) => DailyBriefController(
+            store: store,
+            numbers: DailyBriefNumbersLoader(quotes: FakeQuotes()),
+            writer: FakeDailyBriefWriter(),
+            userId: () => 'u',
+            clock: briefNow,
+            language: () => 'es',
+          ),
+        ),
         dailyBriefRepositoryProvider.overrideWithValue(store),
         newsPreferencesStoreProvider.overrideWithValue(
           FakeNewsPreferencesStore(),
@@ -126,6 +145,42 @@ void main() {
       expect(b.instruments.map((i) => i.symbol).toList().indexOf('^TNX'), 4);
       expect(b.instruments[4].pct, isNull);
       expect(b.pulse, hasLength(2));
+    });
+
+    test('image_url is optional and only https', () {
+      final ok = NewsArticle.tryParse({
+        'id': 'a',
+        'title': 't',
+        'source': 's',
+        'url': 'https://x.com/a',
+        'image_url': 'https://img.x.com/a.jpg',
+      });
+      expect(ok!.imageUrl, 'https://img.x.com/a.jpg');
+      for (final bad in ['http://img.x.com/a.jpg', '', 'javascript:1', 3]) {
+        final a = NewsArticle.tryParse({
+          'id': 'a',
+          'title': 't',
+          'source': 's',
+          'url': 'https://x.com/a',
+          'image_url': bad,
+        });
+        expect(a!.imageUrl, isNull, reason: '$bad');
+      }
+    });
+
+    test('mine_status distinguishes empty from unavailable', () {
+      expect(
+        NewsBundle.parse(bundleFixture('bundle_feed_unavailable')).mineStatus,
+        NewsListStatus.unavailable,
+      );
+      expect(
+        NewsBundle.parse(bundleFixture('bundle_feed_empty')).mineStatus,
+        NewsListStatus.empty,
+      );
+      expect(
+        NewsBundle.parse(bundleFixture('bundle_feed_free')).mineStatus,
+        isNull,
+      );
     });
 
     test('topic scope parses topic_news without ticker', () {
@@ -197,8 +252,10 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(find.textContaining('NVDA · Reuters'), findsOneWidget);
-        expect(find.text('news_feed_compare'), findsNWidgets(2));
+        // El medio y la nota principal con su acción; el resto, compacto.
+        expect(find.text('Reuters'), findsWidgets);
+        expect(find.text('news_feed_how_affects'), findsOneWidget);
+        expect(find.text('news_feed_compare'), findsOneWidget);
         expect(find.text('news_feed_locked'), findsNothing);
         expect(
           h.events.logged.map((e) => e.$1),
@@ -233,7 +290,11 @@ void main() {
         'feed': bundleFixture('bundle_feed_premium'),
       });
       await _pump(tester, store, const NewsFeedScreen(), launched: launched);
-      await tester.tap(find.text('news_feed_read_on').first);
+      await tester.tap(
+        find.text(
+          'Nvidia supera las previsiones de ingresos y sube en el after hours',
+        ),
+      );
       await tester.pump();
       expect(launched.single.host, 'www.reuters.com');
     });
@@ -262,7 +323,37 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Reuters'), findsWidgets);
-      expect(find.text('news_video_section'), findsOneWidget);
+      // Los videos tienen su propia pestaña, no cuelgan de Temas.
+      expect(find.text('news_video_section'), findsNothing);
+    });
+
+    testWidgets('videos tab lists the videos with a play badge', (
+      tester,
+    ) async {
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_premium'),
+      });
+      await _pump(tester, store, const NewsFeedScreen(tab: 'videos'));
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    });
+
+    testWidgets('mine unavailable says so and retries, empty says empty', (
+      tester,
+    ) async {
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_unavailable'),
+      });
+      await _pump(tester, store, const NewsFeedScreen());
+      expect(find.text('news_feed_unavailable_mine'), findsOneWidget);
+      expect(find.text('news_feed_empty_mine'), findsNothing);
+      expect(find.text('retry'), findsOneWidget);
+    });
+
+    testWidgets('mine empty (no news in 48 h) is not an error', (tester) async {
+      final store = _ScopedStore({'feed': bundleFixture('bundle_feed_empty')});
+      await _pump(tester, store, const NewsFeedScreen());
+      expect(find.text('news_feed_empty_mine'), findsOneWidget);
+      expect(find.text('news_feed_unavailable_mine'), findsNothing);
     });
 
     testWidgets('pieces off hide the topics and market tabs', (tester) async {

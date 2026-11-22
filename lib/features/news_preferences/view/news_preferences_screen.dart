@@ -7,6 +7,7 @@ import 'package:portfolio_assistant/features/news_feed/view/widgets/news_states.
 import 'package:portfolio_assistant/features/news_preferences/data/news_preferences_repository.dart';
 import 'package:portfolio_assistant/features/news_preferences/domain/news_preferences.dart';
 import 'package:portfolio_assistant/features/news_preferences/providers/news_preferences_provider.dart';
+import 'package:portfolio_assistant/features/news_preferences/view/widgets/topic_grid.dart';
 import 'package:portfolio_assistant/presentation/base/alert/alert_provider.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
@@ -122,13 +123,21 @@ class _NewsPreferencesScreenState extends ConsumerState<NewsPreferencesScreen> {
                       title: 'news_prefs_topics_title'.tr(),
                       hint: 'news_prefs_topics_hint'.tr(),
                     ),
-                    for (final topic in state.topics)
-                      _TopicRow(
-                        label: topic.label(language),
-                        isDefault: state.isDefault(topic),
-                        followed: state.isFollowed(topic),
-                        onChanged: (v) => _toggleTopic(topic, v),
-                      ),
+                    TopicGrid(
+                      items: [
+                        for (final topic in state.topics)
+                          (
+                            id: topic.id,
+                            label: topic.label(language),
+                            followed: state.isFollowed(topic),
+                          ),
+                      ],
+                      onToggle:
+                          (id, followed) => _toggleTopic(
+                            state.topics.firstWhere((t) => t.id == id),
+                            followed,
+                          ),
+                    ),
                   ],
                   if (showTopics && showSources) newsBlockGap,
                   if (showSources) ...[
@@ -186,57 +195,6 @@ class _SectionIntro extends StatelessWidget {
         ),
         const SizedBox(height: AppDimens.sp8),
       ],
-    );
-  }
-}
-
-class _TopicRow extends StatelessWidget {
-  const _TopicRow({
-    required this.label,
-    required this.isDefault,
-    required this.followed,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool isDefault;
-  final bool followed;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.customColors;
-    final tt = Theme.of(context).textTheme;
-    return MergeSemantics(
-      child: InkWell(
-        onTap: () => onChanged(!followed),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: tt.bodyLarge?.copyWith(color: colors.textPrimary),
-                    ),
-                    if (isDefault)
-                      Text(
-                        'news_prefs_default_badge'.tr(),
-                        style: tt.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Switch(value: followed, onChanged: onChanged),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

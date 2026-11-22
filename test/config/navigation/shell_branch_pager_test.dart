@@ -38,7 +38,7 @@ class _TabState extends State<_Tab> {
 
 late StatefulNavigationShell _shell;
 
-GoRouter _router() => GoRouter(
+GoRouter _router({Set<int> hidden = const {}}) => GoRouter(
   initialLocation: '/a',
   routes: [
     StatefulShellRoute(
@@ -50,22 +50,24 @@ GoRouter _router() => GoRouter(
           (context, shell, children) => ShellBranchPager(
             currentIndex: shell.currentIndex,
             onPageSwiped: shell.goBranch,
+            hiddenBranches: hidden,
             children: children,
           ),
       branches: [
         for (final name in ['a', 'b', 'c'])
           StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/$name', builder: (_, __) => _Tab(name)),
-            ],
+            routes: [GoRoute(path: '/$name', builder: (_, __) => _Tab(name))],
           ),
       ],
     ),
   ],
 );
 
-Future<GoRouter> _pump(WidgetTester tester) async {
-  final router = _router();
+Future<GoRouter> _pump(
+  WidgetTester tester, {
+  Set<int> hidden = const {},
+}) async {
+  final router = _router(hidden: hidden);
   addTearDown(router.dispose);
   await tester.pumpWidget(MaterialApp.router(routerConfig: router));
   await tester.pumpAndSettle();
@@ -168,13 +170,17 @@ void main() {
                   path: '/a',
                   builder:
                       (_, __) => const Scaffold(
-                        body: Center(child: SizedBox(width: 200, child: TextField())),
+                        body: Center(
+                          child: SizedBox(width: 200, child: TextField()),
+                        ),
                       ),
                 ),
               ],
             ),
             StatefulShellBranch(
-              routes: [GoRoute(path: '/b', builder: (_, __) => const _Tab('b'))],
+              routes: [
+                GoRoute(path: '/b', builder: (_, __) => const _Tab('b')),
+              ],
             ),
           ],
         ),
@@ -194,5 +200,17 @@ void main() {
 
     expect(find.text('b'), findsOneWidget);
     expect(field.focusNode.hasFocus, isFalse);
+  });
+
+  testWidgets('a hidden branch is skipped when swiping (Noticias apagado)', (
+    tester,
+  ) async {
+    // La rama del medio no es una página: deslizar de a a c salta la b.
+    final router = await _pump(tester, hidden: {1});
+    expect(find.text('b'), findsNothing);
+    await tester.drag(find.text('a'), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    expect(_location(router), '/c');
+    expect(find.text('c'), findsOneWidget);
   });
 }

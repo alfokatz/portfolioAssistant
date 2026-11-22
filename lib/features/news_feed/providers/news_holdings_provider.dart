@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/domain/entities/portfolio_summary.dart';
 import 'package:portfolio_assistant/domain/utils/portfolio_calculator.dart';
 import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
@@ -8,7 +9,14 @@ import 'package:portfolio_assistant/presentation/flows/home/providers/home_provi
 /// las posiciones); vacío sin cartera o con valor cero. Es lo que dice el
 /// chip "Tenés NVDA · 18 % de tu cartera".
 final newsHoldingWeightsProvider = Provider<Map<String, double>>((ref) {
-  final summary = ref.watch(homeProvider.select((s) => s.summary));
+  PortfolioSummary? summary;
+  try {
+    summary = ref.watch(homeProvider.select((s) => s.summary));
+  } catch (_) {
+    // Sin cartera disponible (sesión cerrándose): sin pesos, el chip dice
+    // solo "Tenés NVDA".
+    return const {};
+  }
   if (summary == null) return const {};
   final values = <String, double>{};
   var total = 0.0;

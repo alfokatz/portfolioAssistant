@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_numbers_loader.dart';
 import 'package:portfolio_assistant/features/daily_brief/domain/daily_brief_claim.dart';
 import 'package:portfolio_assistant/features/daily_brief/nav/daily_brief_router.dart';
 import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
-import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_home_row.dart';
+import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_today_card.dart';
 import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_screen.dart';
 import 'package:portfolio_assistant/features/daily_brief/view/widgets/daily_brief_feedback.dart';
 import 'package:portfolio_assistant/features/product_events/data/product_events.dart';
@@ -80,40 +81,44 @@ Future<PaywallHarness> _pumpScreen(
 void main() {
   group('DailyBriefScreen (Premium, full)', () {
     for (final brightness in Brightness.values) {
-      testWidgets('renders every section in ${brightness.name}', (
-        tester,
-      ) async {
+      testWidgets('renders the chapters in ${brightness.name}', (tester) async {
         final controller = _controller(_premiumStore());
         await controller.ensureFor(history(), lots);
         await _pumpScreen(tester, controller, brightness: brightness);
 
         expect(tester.takeException(), isNull);
-        expect(find.text('daily_brief_title'), findsOneWidget);
+        // Porty y el titular con el % del día.
+        expect(find.text('brief_porty_intro'), findsOneWidget);
         expect(
-          find.text(
+          find.textContaining(
             AppNumberFormat.percent(controller.state.brief!.numbers.pct),
+            findRichText: true,
           ),
           findsWidgets,
         );
-        expect(find.text('NVDA'), findsOneWidget);
-        expect(find.text('AAPL'), findsOneWidget);
-        expect(find.text('daily_brief_section_weighed'), findsOneWidget);
-        expect(find.text('daily_brief_section_held'), findsOneWidget);
-        expect(find.text('daily_brief_section_market'), findsOneWidget);
-        // Sin watchlist ni resultados ni aviso de plan.
-        expect(find.text('daily_brief_section_watch'), findsNothing);
-        expect(find.text('daily_brief_section_earnings'), findsNothing);
-        expect(find.text('daily_brief_teaser_premium'), findsNothing);
-        // Lo que escribió Porty.
+        // Capítulo 1: lo tuyo, con el ticker y lo que escribió Porty.
+        expect(find.textContaining('brief_chapter_count'), findsOneWidget);
+        expect(find.text('NVDA'), findsWidgets);
         expect(
-          find.text('Subió 4,1 % el día que presentó resultados.'),
+          find.textContaining(
+            'el día que presentó resultados',
+            findRichText: true,
+          ),
           findsOneWidget,
         );
         expect(find.text('news_ai_notice'), findsOneWidget);
+        // Sin watchlist ni aviso de plan; "Sigue" lleva al de mercado.
+        expect(find.text('daily_brief_teaser_premium'), findsNothing);
+        await tester.tap(
+          find.textContaining('brief_next_label', findRichText: true),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('daily_brief_see_all'), findsNothing);
+        expect(find.text('daily_brief_ask_porty'), findsOneWidget);
       });
     }
 
-    testWidgets('every news line shows its outlet and opens its link', (
+    testWidgets('every news line shows its outlet citation and opens it', (
       tester,
     ) async {
       final controller = _controller(_premiumStore());
@@ -121,19 +126,27 @@ void main() {
       final launched = <Uri>[];
       await _pumpScreen(tester, controller, launched: launched);
 
-      // El medio de cada titular está en la línea chica (el "por qué" de NVDA
-      // va bajo su fila, sin repetir el ticker).
-      expect(find.textContaining('Reuters · '), findsWidgets);
-      expect(find.textContaining('AAPL · AP'), findsOneWidget);
-
-      final read = find.text('daily_brief_read_on').first;
-      await tester.ensureVisible(read);
-      await tester.tap(read);
+      // La cita del medio va al lado de la frase ("Reuters 1").
+      final cite = find.textContaining('Reuters', findRichText: true).first;
+      await tester.ensureVisible(cite);
+      await tester.tap(cite);
       await tester.pump();
       expect(
         launched.single.toString(),
         startsWith('https://www.reuters.com/'),
       );
+    });
+
+    testWidgets('the progress bar jumps to a chapter', (tester) async {
+      final controller = _controller(_premiumStore());
+      await controller.ensureFor(history(), lots);
+      await _pumpScreen(tester, controller);
+      expect(find.text('1'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(RegExp('brief_chapter_go')).last);
+      await tester.pump(const Duration(milliseconds: 500));
+      // El número del capítulo en el encabezado pasa de 1 a 2.
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsNothing);
     });
 
     testWidgets('courtesy brief says which day it is', (tester) async {
@@ -181,11 +194,18 @@ void main() {
           await _pumpScreen(tester, controller, brightness: brightness);
 
           expect(tester.takeException(), isNull);
-          expect(find.text('daily_brief_section_held'), findsNothing);
-          expect(find.text('daily_brief_section_market'), findsOneWidget);
+          // Sin titulares de la cartera: solo los números de lo tuyo y, en
+          // el último capítulo, el hecho de mercado con su medio y el aviso.
+          expect(find.text('daily_brief_how_affects'), findsNothing);
+          await tester.tap(
+            find.textContaining('brief_next_label', findRichText: true),
+          );
+          await tester.pump(const Duration(milliseconds: 500));
           expect(find.text('daily_brief_teaser_premium'), findsOneWidget);
-          // El hecho de mercado lleva medio y link.
-          expect(find.textContaining('Reuters'), findsWidgets);
+          expect(
+            find.textContaining('Reuters', findRichText: true),
+            findsWidgets,
+          );
         },
       );
     }
@@ -197,6 +217,10 @@ void main() {
       await controller.ensureFor(history(), lots);
       final h = await _pumpScreen(tester, controller);
 
+      await tester.tap(
+        find.textContaining('brief_next_label', findRichText: true),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.ensureVisible(find.text('daily_brief_teaser_premium'));
       await tester.tap(find.text('daily_brief_teaser_premium'));
       await tester.pump();
@@ -273,7 +297,7 @@ void main() {
     });
   });
 
-  group('DailyBriefHomeRow', () {
+  group('DailyBriefTodayCard', () {
     Future<void> pumpHome(
       WidgetTester tester,
       DailyBriefController controller, {
@@ -290,8 +314,7 @@ void main() {
                 (_, _) => Scaffold(
                   body: Column(
                     children: [
-                      DailyBriefHomeRow(history: history(), lots: lots),
-                      DailyBriefFeedEntry(onOpen: () {}),
+                      DailyBriefTodayCard(history: history(), lots: lots),
                     ],
                   ),
                 ),
@@ -322,37 +345,51 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     }
 
-    testWidgets('switch off: nothing is drawn and the feed entry is hidden', (
-      tester,
-    ) async {
+    testWidgets('switch off: nothing is drawn', (tester) async {
       final store = FakeDailyBriefStore(statusResult: DailyBriefStatus.off);
       await pumpHome(tester, _controller(store), feedAvailable: true);
-      expect(find.text('daily_brief_home_title'), findsNothing);
-      expect(find.text('daily_brief_feed_entry_title'), findsNothing);
+      expect(find.text('today_card_cta'), findsNothing);
       expect(store.claimCalls, 0);
     });
 
-    testWidgets('on: shows the close and opens the brief from home', (
+    testWidgets('on: Porty, the top notes and the button open the brief', (
       tester,
     ) async {
       final controller = _controller(_premiumStore());
       await pumpHome(tester, controller);
-      expect(find.text('daily_brief_home_title'), findsOneWidget);
-      expect(find.text('daily_brief_home_summary'), findsOneWidget);
-      // La entrada al feed no está hasta que exista la pantalla.
-      expect(find.text('daily_brief_feed_entry_title'), findsNothing);
+      expect(find.byType(PortyAvatar), findsOneWidget);
+      expect(find.text('today_card_cta'), findsOneWidget);
+      // Hasta dos notas, con ticker y medio.
+      expect(find.text('NVDA'), findsOneWidget);
+      expect(find.textContaining('Reuters'), findsWidgets);
+      expect(
+        find.textContaining('today_card_phrase', findRichText: true),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('daily_brief_home_title'));
+      await tester.tap(find.text('today_card_cta'));
       await tester.pumpAndSettle();
       expect(find.text('screen:home'), findsOneWidget);
     });
 
-    testWidgets('on with the feed ready: the secondary entry shows', (
+    testWidgets('free plan without notes: Porty says how it closed', (
       tester,
     ) async {
+      final controller = _controller(FakeDailyBriefStore());
+      await pumpHome(tester, controller);
+      expect(
+        find.textContaining('today_card_phrase_none', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('today_card_cta'), findsOneWidget);
+    });
+
+    test('TodayNote lists each news once, why-lines first', () async {
       final controller = _controller(_premiumStore());
-      await pumpHome(tester, controller, feedAvailable: true);
-      expect(find.text('daily_brief_feed_entry_title'), findsOneWidget);
+      await controller.ensureFor(history(), lots);
+      final notes = TodayNote.allOf(controller.state.brief!);
+      expect(notes, isNotEmpty);
+      expect(notes.map((n) => n.title).toSet().length, notes.length);
     });
   });
 }
