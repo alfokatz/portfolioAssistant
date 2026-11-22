@@ -294,6 +294,17 @@ class _MineTab extends ConsumerWidget {
           );
         }
         if (bundle.mine.isEmpty) {
+          // "No se pudo consultar" no es "no hubo noticias": Porty lo dice
+          // con tono suave y deja reintentar.
+          if (bundle.mineStatus == NewsListStatus.unavailable) {
+            return NewsMessage(
+              messageKey: 'mine_unavailable',
+              failed: true,
+              text: 'news_feed_unavailable_mine'.tr(),
+              actionLabel: 'retry'.tr(),
+              onAction: () => ref.read(newsFeedProvider.notifier).load(),
+            );
+          }
           return NewsMessage(
             messageKey: 'mine_empty',
             text: 'news_feed_empty_mine'.tr(),

@@ -206,12 +206,30 @@ class NewsVideo {
   }
 }
 
+/// Por qué una lista de notas está vacía (`mine_status`, `topic_news_status`):
+/// `empty` = no hubo noticias; `unavailable` = no se pudo consultar ahora.
+/// `null` si el servidor no lo dice (Free, bundle viejo).
+enum NewsListStatus {
+  ok,
+  empty,
+  unavailable;
+
+  static NewsListStatus? parse(Object? raw) => switch (raw) {
+    'ok' => NewsListStatus.ok,
+    'empty' => NewsListStatus.empty,
+    'unavailable' => NewsListStatus.unavailable,
+    _ => null,
+  };
+}
+
 /// La respuesta de `daily-brief` para `feed`, `topic` y `market` (§3.5).
 /// Tolerante: un bloque que falta o viene roto llega vacío.
 class NewsBundle {
   const NewsBundle({
     this.tier = 'free',
     this.mine = const [],
+    this.mineStatus,
+    this.topicNewsStatus,
     this.lockedCount,
     this.topics = const [],
     this.topicNews = const [],
@@ -228,6 +246,12 @@ class NewsBundle {
 
   /// Titulares de la cartera (y, en Gold, de la watchlist).
   final List<NewsArticle> mine;
+
+  /// Por qué [mine] está vacía (solo Premium/Gold).
+  final NewsListStatus? mineStatus;
+
+  /// Lo mismo para [topicNews] (scope `topic`).
+  final NewsListStatus? topicNewsStatus;
 
   /// Free: cuántos tickers de su cartera tienen noticias en 48 h. Sin
   /// tickers. `null` si el plan sí ve [mine].
@@ -256,6 +280,8 @@ class NewsBundle {
               ? plan['tier'] as String
               : 'free',
       mine: list(body['mine'], NewsArticle.tryParse),
+      mineStatus: NewsListStatus.parse(body['mine_status']),
+      topicNewsStatus: NewsListStatus.parse(body['topic_news_status']),
       lockedCount: count is num ? count.toInt() : null,
       topics: list(body['topics'], NewsTopicDigest.tryParse),
       topicNews: list(body['topic_news'], NewsArticle.tryParse),

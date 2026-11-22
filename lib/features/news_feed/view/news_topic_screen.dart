@@ -172,7 +172,16 @@ class _Content extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (follow != null) follow!,
-        if (empty)
+        if (empty && bundle.topicNewsStatus == NewsListStatus.unavailable)
+          NewsMessage(
+            messageKey: 'topic_unavailable',
+            failed: true,
+            text: 'news_topic_unavailable'.tr(),
+            actionLabel: 'retry'.tr(),
+            onAction:
+                () => ref.read(newsTopicProvider(topicId).notifier).load(),
+          )
+        else if (empty)
           NewsMessage(
             messageKey: 'topic_empty',
             text: 'news_topic_screen_empty'.tr(),
