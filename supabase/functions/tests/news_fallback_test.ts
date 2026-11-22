@@ -322,6 +322,30 @@ Deno.test("daily-brief feed: mine_status ok con image_url, empty si se consultó
   }
 });
 
+Deno.test("daily-brief feed: pieces.images = false saca las fotos sin desplegar", async () => {
+  await setup();
+  try {
+    const u = await createUser("premium");
+    const sym = rnd();
+    await addPosition(u.id, sym);
+    await withBrief([u.id], async () => {
+      const { data } = await db.from("app_config").select("value").eq("key", "daily_brief").single();
+      const value = data!.value as { pieces?: Record<string, boolean> };
+      await db.from("app_config").update({ value: { ...value, pieces: { ...(value.pieces ?? {}), images: false } } })
+        .eq("key", "daily_brief");
+      await db.from("data_source_cache").delete().eq("cache_key", gdeltBreakerKey);
+      const f = router({ gdelt: () => Response.json({}), finnhub: (s) => Response.json(finnhubRows(s)), yahoo: () => Response.json({ news: [] }) });
+      const d = deps(f.fetch, env);
+      const b = await (await handle(get(u.jwt, `scope=feed&lang=es&day=${today()}`), d)).json();
+      await d.settle();
+      assertEquals(b.mine.length, 1);
+      assertEquals(b.mine[0].image_url, undefined);
+    });
+  } finally {
+    await cleanup();
+  }
+});
+
 Deno.test("daily-brief feed: Free no recibe mine_status ni imágenes (solo el conteo)", async () => {
   const u = await createUser("free");
   await addPosition(u.id, rnd());

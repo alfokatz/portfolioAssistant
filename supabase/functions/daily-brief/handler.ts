@@ -291,6 +291,14 @@ async function build(
     const img = imageByUrl.get(src.url);
     if (img) src.image_url = img;
   }
+  // Interruptor de las fotos (compliance 22/11): `pieces.images = false` en
+  // app_config.daily_brief las saca de todo sin publicar ni desplegar.
+  const imagesOn = (await deps.db.rpc("_daily_brief_piece", { p_key: "images" })).data !== false;
+  if (!imagesOn) {
+    for (const it of [...out.mine, ...(out.topic_news ?? []), ...Object.values(out.sources)]) {
+      delete (it as { image_url?: string }).image_url;
+    }
+  }
 
   if (scope === "market") {
     out.market = await marketBlock(deps, ent, lang, allow, prefer, mute, out.sources, costs);

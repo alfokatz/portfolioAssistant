@@ -12,7 +12,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 ///   pedido ([cacheWidth]), no a la resolución original.
 ///
 /// Con [width] y [height] es una miniatura; con [height] y sin [width], ocupa
-/// todo el ancho (la nota grande) y puede llevar [credit] ("Foto: Reuters")
+/// todo el ancho (la nota grande) y puede llevar [credit] ("Imagen de la nota de Reuters")
 /// sobre la imagen.
 class NewsPhoto extends StatefulWidget {
   const NewsPhoto({
@@ -29,7 +29,7 @@ class NewsPhoto extends StatefulWidget {
   final double? width;
   final double? height;
 
-  /// "Foto: Reuters", en un chip abajo a la izquierda (solo la grande).
+  /// "Imagen de la nota de Reuters", en un chip abajo a la izquierda (solo la grande).
   final String? credit;
   final double radius;
 

@@ -2715,7 +2715,7 @@
   "news_why_held": "You own {ticker}",
   "news_why_held_pct": "You own {ticker} · {pct} of your portfolio",
   "news_why_watch": "You follow: {ticker}",
-  "news_photo_credit": "Photo: {source}",
+  "news_photo_credit": "Image from {source}'s article",
   "news_today": "today",
   "news_porty_mine": "I put what touches your portfolio first.",
   "news_porty_topics": "Here are the topics you follow, summarized.",

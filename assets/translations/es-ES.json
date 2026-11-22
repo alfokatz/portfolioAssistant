@@ -2715,7 +2715,7 @@
   "news_why_held": "Tenés {ticker}",
   "news_why_held_pct": "Tenés {ticker} · {pct} de tu cartera",
   "news_why_watch": "Lo seguís: {ticker}",
-  "news_photo_credit": "Foto: {source}",
+  "news_photo_credit": "Imagen de la nota de {source}",
   "news_today": "hoy",
   "news_porty_mine": "Ordené primero lo que toca tu cartera.",
   "news_porty_topics": "Acá van los temas que seguís, resumidos.",

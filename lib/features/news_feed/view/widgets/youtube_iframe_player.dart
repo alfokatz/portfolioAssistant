@@ -31,6 +31,15 @@ class YoutubeIframePlayer extends StatefulWidget {
   /// (`https://com.portyassistant.app`).
   static const origin = 'https://www.youtube.com';
 
+  /// Si un error de carga del WebView significa que el video no se puede
+  /// ver. Solo el documento principal: en iOS el WebView reporta como
+  /// errores los recursos secundarios del reproductor (publicidad, métricas)
+  /// y los pedidos cancelados (-999), y tratarlos como falla mandaba todos
+  /// los videos a "Ver en YouTube". Los errores del video en sí (no
+  /// embebible, borrado) llegan por el estado del reproductor.
+  static bool isFatalLoadError(YoutubeWebResourceError error) =>
+      error.isForMainFrame == true && error.errorCode != -999;
+
   @override
   State<YoutubeIframePlayer> createState() => _YoutubeIframePlayerState();
 }
@@ -57,7 +66,9 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
         captionLanguage: widget.language,
         strictRelatedVideos: true,
       ),
-      onWebResourceError: (_) => _fail(),
+      onWebResourceError: (error) {
+        if (YoutubeIframePlayer.isFatalLoadError(error)) _fail();
+      },
     );
     _controller.cueVideoById(videoId: widget.videoId);
     _controller.listen((value) {
