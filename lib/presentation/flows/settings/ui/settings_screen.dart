@@ -51,7 +51,10 @@ import 'package:url_launcher/url_launcher.dart';
 const _appVersion = '1.0.0';
 
 class SettingsScreen extends StatefulHookConsumerWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.pushed = false});
+
+  /// Apilada (sin barra de pestañas): lleva botón de volver.
+  final bool pushed;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -260,6 +263,20 @@ class _SettingsScreenState extends BaseStatefulWidget<SettingsScreen> {
             AppDimens.sp32 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
+            if (widget.pushed)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  key: const Key('settings_back'),
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  constraints: const BoxConstraints(
+                    minWidth: AppDimens.touchTarget,
+                    minHeight: AppDimens.touchTarget,
+                  ),
+                  icon: const BackButtonIcon(),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(0, 4, 0, AppDimens.sp20),
               child: Semantics(

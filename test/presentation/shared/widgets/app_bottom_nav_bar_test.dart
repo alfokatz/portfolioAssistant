@@ -1,6 +1,6 @@
 // La barra de pestañas: con el interruptor `daily_brief` apagado son las
-// cuatro de siempre (mismos rótulos, mismo orden); prendido, cinco con
-// Noticias y Perfil, y el punto de "hay algo nuevo".
+// cuatro de siempre (mismos rótulos, mismo orden); prendido, cuatro con
+// Noticias y sin Ajustes (va en el botón de la Home), y el punto de "hay algo nuevo".
 // Correr: flutter test test/presentation/shared/widgets/app_bottom_nav_bar_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,7 +73,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'switch on: five tabs with Porty in the middle (${brightness.name})',
+      'switch on: four tabs, Porty between News and Goals, no settings (${brightness.name})',
       (tester) async {
         final taps = await _pump(
           tester,
@@ -81,18 +81,14 @@ void main() {
           badge: true,
           brightness: brightness,
         );
-        final order = [
-          'nav_home',
-          'nav_news',
-          'nav_assistant',
-          'nav_goals',
-          'nav_profile',
-        ];
+        final order = ['nav_home', 'nav_news', 'nav_assistant', 'nav_goals'];
         final xs = [for (final k in order) tester.getCenter(find.text(k)).dx];
         expect(xs, [...xs]..sort());
-        // Porty (el 3.º de 5) queda en el centro de la pantalla.
-        expect(xs[2], closeTo(300, 1));
+        // Porty es la 3.ª de 4: entre Noticias y Metas.
+        expect(xs[2], greaterThan(xs[1]));
+        expect(xs[2], lessThan(xs[3]));
         expect(find.text('nav_settings'), findsNothing);
+        expect(find.text('nav_profile'), findsNothing);
         expect(find.byKey(const Key('nav_news_badge')), findsOneWidget);
         await tester.tap(find.text('nav_news'));
         expect(taps, [AppNavDestination.news]);

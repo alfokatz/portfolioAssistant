@@ -24,7 +24,6 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/loader_timing.dart';
 import 'package:portfolio_assistant/presentation/shared/loading/porty_loader.dart';
-import 'package:portfolio_assistant/presentation/shared/widgets/news_headline_row.dart';
 
 /// Un tema: lo que pasó (resumen con medio y link), los titulares de la
 /// allowlist que lo nombran y los videos de medios sobre el tema.
@@ -233,6 +232,28 @@ class _Content extends ConsumerWidget {
                         .tr(),
                 onTap: onToggleFollow,
               ),
+            // Secundario con borde, como "Leer en" de Para vos.
+            if (canCompare && !empty)
+              OutlinedButton(
+                onPressed:
+                    () => NewsActions.compare(
+                      context,
+                      ref,
+                      subject: title,
+                      kind: NewsCompareSubject.topic,
+                      from: 'topic',
+                      topicId: digest?.topicId ?? topicId,
+                    ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, AppDimens.touchTarget),
+                  foregroundColor: colors.textPrimary,
+                  side: BorderSide(color: colors.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+                  ),
+                ),
+                child: Text('news_feed_compare'.tr()),
+              ),
           ],
         ),
         const SizedBox(height: AppDimens.sp8),
@@ -255,22 +276,6 @@ class _Content extends ConsumerWidget {
           NewsMessage(
             messageKey: 'topic_empty',
             text: 'news_topic_screen_empty'.tr(),
-          ),
-        if (canCompare && !empty)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: NewsHeadlineActions(
-              compareLabel: 'news_feed_compare'.tr(),
-              onCompare:
-                  () => NewsActions.compare(
-                    context,
-                    ref,
-                    subject: title,
-                    kind: NewsCompareSubject.topic,
-                    from: 'topic',
-                    topicId: digest?.topicId ?? topicId,
-                  ),
-            ),
           ),
         if (lines.isNotEmpty) ...[
           const SizedBox(height: AppDimens.sp16),

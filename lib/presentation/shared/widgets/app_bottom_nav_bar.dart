@@ -6,10 +6,12 @@ import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar
 
 /// En el orden de las ramas del shell (`app_router`) y de la barra.
 ///
-/// Con el brief y el feed prendidos (`daily_brief` + pieza `feed`) son cinco
-/// pestañas: Inicio · Noticias · Porty (al centro, cerca del pulgar) · Metas ·
-/// Perfil. Con el interruptor apagado, [news] no se dibuja y la barra queda
-/// como siempre: Inicio · Porty · Metas · Ajustes.
+/// Con el brief y el feed prendidos (`daily_brief` + pieza `feed`) son cuatro
+/// pestañas: Inicio · Noticias · Porty · Metas. Es el orden de las ramas, y
+/// deja a Porty tercero, entre Noticias y Metas, en el centro de la mano.
+/// Perfil/Ajustes sale de la barra: es el botón redondo de la Home y una ruta
+/// push (la rama [settings] queda oculta). Con el interruptor apagado, [news]
+/// no se dibuja y la barra queda como siempre: Inicio · Porty · Metas · Ajustes.
 enum AppNavDestination { home, news, assistant, goals, settings }
 
 /// Floating pill nav bar used to move between the app's main sections.
@@ -85,20 +87,15 @@ class AppBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               for (final item in _items)
-                if (showNews || item.destination != AppNavDestination.news)
+                if (showNews
+                    ? item.destination != AppNavDestination.settings
+                    : item.destination != AppNavDestination.news)
                   _NavItem(
                     badge:
                         newsBadge && item.destination == AppNavDestination.news,
                     icon: item.icon,
                     porty: item.porty,
-                    // Con la barra de cinco, la última se llama "Perfil".
-                    label:
-                        (showNews &&
-                                    item.destination ==
-                                        AppNavDestination.settings
-                                ? 'nav_profile'
-                                : item.labelKey)
-                            .tr(),
+                    label: item.labelKey.tr(),
                     selected: current == item.destination,
                     onTap: () => onSelect(item.destination),
                     colors: colors,

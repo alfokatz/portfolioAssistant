@@ -1,5 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/entities/position_valuation.dart';
 import 'package:portfolio_assistant/features/porty_inbox/view/porty_inbox_section.dart';
@@ -155,6 +158,11 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
     final header = HomeAppBar(
       firstName: ref.watch(homeFirstNameProvider),
       onOpenPorty: notifier.openAssistant,
+      // Con Noticias prendida, Ajustes no está en la barra: va acá.
+      onOpenProfile:
+          ref.watch(newsFeedAvailableProvider)
+              ? () => context.pushNamed(SettingsRouter.pushedRouteName)
+              : null,
     );
 
     final content = RefreshIndicator(

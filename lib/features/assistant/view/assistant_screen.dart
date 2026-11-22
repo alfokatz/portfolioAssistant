@@ -1293,7 +1293,7 @@ class _AssistantScreenState extends BaseStatefulWidget<AssistantScreen>
                             ? context.pushNamed(
                               NotificationsRouter.settingsRouteName,
                             )
-                            : context.goNamed(SettingsRouter.settingsRouteName),
+                            : SettingsRouter.open(context),
                 onOpenMemory:
                     () => context.pushNamed(PortyMemoryRouter.routeName),
                 onOpenBroker:

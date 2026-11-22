@@ -22,9 +22,11 @@ import 'package:portfolio_assistant/features/subscription/ui/subscription_paywal
 import 'package:portfolio_assistant/presentation/base/core/base_screen.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
+import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 
 /// Shell around the tabbed sections (Home, News, Assistant, Goals, Settings).
+/// Con Noticias prendida, Settings es una rama oculta (va por push).
 ///
 /// Each branch keeps its own [Navigator] alive inside the swipeable
 /// [ShellBranchPager] that app_router.dart gives the `StatefulShellRoute` —
@@ -75,6 +77,15 @@ class AppShell extends ConsumerWidget with BaseScreen {
     // las cuatro de siempre.
     final showNews = ref.watch(newsFeedAvailableProvider);
     final newsBadge = ref.watch(newsBadgeProvider);
+    if (showNews && current == AppNavDestination.settings) {
+      // Cualquiera que haga `goNamed(Settings)` (el chat, un evento) cae en la
+      // rama oculta: se vuelve a Inicio y Ajustes se abre apilada.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        navigationShell.goBranch(AppNavDestination.home.index);
+        context.pushNamed(SettingsRouter.pushedRouteName);
+      });
+    }
     if (showNews && current == AppNavDestination.news) {
       // Estar en Noticias es verlas: el punto se apaga.
       final marker = ref.read(newsLatestMarkerProvider);

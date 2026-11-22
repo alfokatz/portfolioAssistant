@@ -38,8 +38,8 @@ import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_rou
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
 
 /// El pager del shell. Con el interruptor `daily_brief` (y su pieza `feed`)
-/// apagado la rama de Noticias no existe para el usuario: ni pestaña ni
-/// deslizamiento, la app queda con las cuatro de siempre.
+/// apagado la rama de Noticias no existe para el usuario (la app queda con las
+/// cuatro de siempre); prendido, la oculta es la de Ajustes (va por push).
 class _ShellPager extends ConsumerWidget {
   const _ShellPager({
     required this.currentIndex,
@@ -57,7 +57,12 @@ class _ShellPager extends ConsumerWidget {
     return ShellBranchPager(
       currentIndex: currentIndex,
       onPageSwiped: onPageSwiped,
-      hiddenBranches: {if (!showNews) AppNavDestination.news.index},
+      hiddenBranches: {
+        if (showNews)
+          AppNavDestination.settings.index
+        else
+          AppNavDestination.news.index,
+      },
       children: children,
     );
   }
@@ -159,6 +164,9 @@ class AppRouter {
             StatefulShellBranch(routes: [SettingsRouter.getRoute()]),
           ],
         ),
+        // Ajustes como pantalla aparte: con Noticias prendida la rama del
+        // shell queda oculta y se abre desde el botón de perfil de la Home.
+        SettingsRouter.getPushedRoute(),
         ...PositionRouter.getRoutes(),
         InvestorProfileRouter.getRoute(),
         PortyMemoryRouter.getRoute(),

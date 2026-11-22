@@ -15,6 +15,7 @@ class HomeAppBar extends StatelessWidget {
     super.key,
     required this.firstName,
     this.onOpenPorty,
+    this.onOpenProfile,
     this.now,
   });
 
@@ -23,6 +24,11 @@ class HomeAppBar extends StatelessWidget {
 
   /// `null` deja a Porty sin interacción (skeleton).
   final VoidCallback? onOpenPorty;
+
+  /// Con Noticias prendida Ajustes sale de la barra de pestañas: un botón
+  /// redondo (la inicial o una persona) a la derecha de Porty. `null` lo
+  /// oculta (la barra de siempre ya lleva Ajustes).
+  final VoidCallback? onOpenProfile;
 
   static const avatarSize = 44.0;
 
@@ -115,6 +121,43 @@ class HomeAppBar extends StatelessWidget {
                       },
             ),
           ),
+          if (onOpenProfile != null) ...[
+            const SizedBox(width: AppDimens.sp8),
+            Semantics(
+              button: true,
+              label: 'home_open_profile'.tr(),
+              excludeSemantics: true,
+              child: InkResponse(
+                key: const Key('home_profile_button'),
+                onTap: onOpenProfile,
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: avatarSize,
+                  height: avatarSize,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colors.surfaceCard,
+                    border: Border.all(color: colors.border),
+                  ),
+                  child:
+                      name == null
+                          ? Icon(
+                            Icons.person_outline_rounded,
+                            size: AppDimens.iconMd,
+                            color: colors.textPrimary,
+                          )
+                          : Text(
+                            name.characters.first.toUpperCase(),
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
