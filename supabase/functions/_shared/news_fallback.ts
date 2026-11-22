@@ -17,6 +17,13 @@ import type { Deps } from "./common.ts";
 import type { Headline } from "./gdelt.ts";
 import { getSession, yahooSessionConfig } from "./yahoo_session.ts";
 
+/// Finnhub free y Yahoo no permiten uso comercial (compliance 22/11,
+/// docs/legal/reviews/2026-11-22-noticias-fotos-y-fuentes.md; runbook
+/// news-sources-v2). Quedan apagados salvo que el secreto
+/// NEWS_FALLBACK_LICENSED=1 confirme una licencia escrita.
+export const fallbackLicensed = (env: (k: string) => string | undefined) =>
+  env("NEWS_FALLBACK_LICENSED") === "1";
+
 export const fallbackConfig = {
   finnhubUrl: "https://finnhub.io/api/v1/company-news",
   yahooSearchUrl: "https://query2.finance.yahoo.com/v1/finance/search",

@@ -128,7 +128,7 @@ function router(s: Sources) {
     return new Response("nope", { status: 404 });
   });
 }
-const env = { FINNHUB_API_KEY: "test-key" };
+const env: Record<string, string> = { FINNHUB_API_KEY: "test-key", NEWS_FALLBACK_LICENSED: "1" };
 const count = (f: ReturnType<typeof fakeFetch>, part: string) => f.calls.filter((c) => c.url.includes(part)).length;
 
 Deno.test("cobertura con GDELT 429: Finnhub cubre EE. UU./CEDEAR y Yahoo cubre .BA y cripto", async () => {
@@ -162,6 +162,23 @@ Deno.test("cobertura con GDELT 429: Finnhub cubre EE. UU./CEDEAR y Yahoo cubre .
     const again = await headlinesByTicker(deps(f.fetch, env), all, day);
     assertEquals(f.calls.length, calls);
     assertEquals(again.byTicker.AAPL.length, 1);
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("sin licencia (NEWS_FALLBACK_LICENSED ausente): nunca se llama a Finnhub ni a Yahoo", async () => {
+  await setup();
+  try {
+    const f = router({
+      gdelt: () => new Response("slow down", { status: 429 }),
+      finnhub: (s) => Response.json(finnhubRows(s)),
+      yahoo: (s) => Response.json(yahooRows(s)),
+    });
+    const r = await headlinesByTicker(deps(f.fetch, { FINNHUB_API_KEY: "test-key" }), all, randomDay());
+    assertEquals(count(f, "finnhub.io"), 0);
+    assertEquals(count(f, "v1/finance/search"), 0);
+    assertEquals(r.fallback, 0);
   } finally {
     await cleanup();
   }

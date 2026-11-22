@@ -12,7 +12,7 @@ import { sleep } from "./common.ts";
 import { readCache, writeCache } from "./data_cache.ts";
 import { isRecommendation } from "./recommendation.ts";
 import { looksLikeInstructions } from "./news_attribution.ts";
-import { dedupeHeadlines, finnhubNews, isUsPlainSymbol, safeImageUrl, yahooNews } from "./news_fallback.ts";
+import { dedupeHeadlines, fallbackLicensed, finnhubNews, isUsPlainSymbol, safeImageUrl, yahooNews } from "./news_fallback.ts";
 import { normalizeTicker } from "./sec.ts";
 import { resolveCik } from "./sec_data.ts";
 import { fetchQuotes } from "../market-watch/quotes.ts";
@@ -428,7 +428,9 @@ export async function headlinesByTicker(
 
       // Respaldos: sin nada de las últimas 48 h (GDELT falló, vacío o sin nombre).
       const needs = attempted.filter((s) => !hasFresh(entries.get(s)?.items ?? [], deps.now()) || !answered.has(s));
-      const capped = needs.slice(0, opts.fallbackCap ?? fallbackSymbolCap);
+      const capped = fallbackLicensed(deps.env)
+        ? needs.slice(0, opts.fallbackCap ?? fallbackSymbolCap)
+        : [];
       const down = { finnhub: false, yahoo: false };
       let next = 0;
       const worker = async () => {
