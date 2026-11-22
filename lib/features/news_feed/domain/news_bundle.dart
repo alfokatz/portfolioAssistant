@@ -13,6 +13,7 @@ class NewsArticle {
     this.watch = false,
     this.publishedAt,
     this.preferred = false,
+    this.imageUrl,
   });
 
   final String id;
@@ -26,6 +27,9 @@ class NewsArticle {
   final String url;
   final DateTime? publishedAt;
   final bool preferred;
+
+  /// Foto de la nota (`image_url`, https), si el servidor la trae.
+  final String? imageUrl;
 
   static NewsArticle? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -45,6 +49,7 @@ class NewsArticle {
       watch: raw['kind'] == 'watch',
       publishedAt: DateTime.tryParse('${raw['published_at']}'),
       preferred: raw['preferred'] == true,
+      imageUrl: parseImageUrl(raw['image_url']),
     );
   }
 }

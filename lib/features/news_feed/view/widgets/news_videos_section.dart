@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:portfolio_assistant/features/news_feed/domain/news_bundle.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/news_image.dart';
 
 /// "Videos": canales oficiales de medios. Sin reproducción automática ni
 /// contadores. Sin videos, no se dibuja nada (ni el título).
@@ -44,14 +45,16 @@ class NewsVideosSection extends StatelessWidget {
   }
 }
 
-/// Miniatura 16:9 a la izquierda, título y "Video de YouTube · canal".
+/// Canal y duración/atribución a la izquierda, título y, a la derecha, la
+/// miniatura con el play bien visible (sobre una base tinta: sin miniatura,
+/// o si no carga, queda un cuadro oscuro con el play, nunca un hueco gris).
 class NewsVideoTile extends StatelessWidget {
   const NewsVideoTile({super.key, required this.video, required this.onTap});
 
   final NewsVideo video;
   final VoidCallback onTap;
 
-  static const _thumbWidth = 124.0;
+  static const thumb = 84.0;
 
   @override
   Widget build(BuildContext context) {
@@ -67,67 +70,81 @@ class NewsVideoTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppDimens.sp8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: _thumbWidth,
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppDimens.touchTarget),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppDimens.sp12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        attribution,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppDimens.sp6),
+                      Text(
+                        video.title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppDimens.sp12),
+                ExcludeSemantics(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ColoredBox(color: colors.inset),
-                        if (video.thumbnail != null)
-                          Image.network(
-                            video.thumbnail!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    child: SizedBox(
+                      width: thumb,
+                      height: thumb,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ColoredBox(color: colors.inverse),
+                          NewsPhoto(
+                            url: video.thumbnail,
+                            width: thumb,
+                            height: thumb,
+                            radius: 0,
                           ),
-                        Center(
-                          child: Icon(
-                            Icons.play_circle_outline_rounded,
-                            size: 32,
-                            color: colors.textPrimary,
+                          Center(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colors.onInverse,
+                              ),
+                              child: SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 22,
+                                  color: colors.inverse,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppDimens.sp12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      video.title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimens.sp4),
-                    Text(
-                      attribution,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodySmall?.copyWith(
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

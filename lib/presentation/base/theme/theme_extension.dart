@@ -29,6 +29,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.track,
     required this.chip,
     required this.onChip,
+    required this.inverse,
+    required this.onInverse,
+    required this.onInverseMuted,
+    required this.inverseLine,
     required this.haloStrength,
     required this.glowScale,
   });
@@ -72,6 +76,19 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color chip;
   final Color onChip;
 
+  /// Superficie destacada y oscura ("Hoy en tu cartera"): tinta en claro,
+  /// un escalón sobre la card en oscuro (no hay blanco sobre grafito).
+  final Color inverse;
+
+  /// Texto principal sobre [inverse].
+  final Color onInverse;
+
+  /// Texto secundario sobre [inverse] (medio, antigüedad).
+  final Color onInverseMuted;
+
+  /// Divisor dentro de [inverse].
+  final Color inverseLine;
+
   /// Cuánto del acento tiñe el halo superior de `AppBackgroundGradient`
   /// (0–1). En oscuro es 0: cualquier lavado terracota sobre el grafito se
   /// veía como una mancha marrón.
@@ -108,6 +125,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
     track: Color(0x0F000000),
     chip: Color(0x1FD98E5D), // accentBlue @ 12%
     onChip: PortfolioColors.accentBlue,
+    inverse: PortfolioColors.textPrimary,
+    onInverse: PortfolioColors.background,
+    onInverseMuted: PortfolioColors.benchmarkSp500,
+    inverseLine: Color(0xFF4A5054),
     haloStrength: 0.32,
     glowScale: 1,
   );
@@ -137,6 +158,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
     track: PortfolioColorsDark.track,
     chip: PortfolioColorsDark.surfaceElevated,
     onChip: PortfolioColorsDark.textSecondary,
+    inverse: PortfolioColorsDark.surfaceElevated,
+    onInverse: PortfolioColorsDark.textPrimary,
+    onInverseMuted: PortfolioColorsDark.textSecondary,
+    inverseLine: PortfolioColorsDark.border,
     haloStrength: 0,
     glowScale: 0.35,
   );
@@ -166,6 +191,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? track,
     Color? chip,
     Color? onChip,
+    Color? inverse,
+    Color? onInverse,
+    Color? onInverseMuted,
+    Color? inverseLine,
     double? haloStrength,
     double? glowScale,
   }) {
@@ -193,6 +222,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
       track: track ?? this.track,
       chip: chip ?? this.chip,
       onChip: onChip ?? this.onChip,
+      inverse: inverse ?? this.inverse,
+      onInverse: onInverse ?? this.onInverse,
+      onInverseMuted: onInverseMuted ?? this.onInverseMuted,
+      inverseLine: inverseLine ?? this.inverseLine,
       haloStrength: haloStrength ?? this.haloStrength,
       glowScale: glowScale ?? this.glowScale,
     );
@@ -225,6 +258,10 @@ class CustomColors extends ThemeExtension<CustomColors> {
       track: Color.lerp(track, other.track, t)!,
       chip: Color.lerp(chip, other.chip, t)!,
       onChip: Color.lerp(onChip, other.onChip, t)!,
+      inverse: Color.lerp(inverse, other.inverse, t)!,
+      onInverse: Color.lerp(onInverse, other.onInverse, t)!,
+      onInverseMuted: Color.lerp(onInverseMuted, other.onInverseMuted, t)!,
+      inverseLine: Color.lerp(inverseLine, other.inverseLine, t)!,
       haloStrength: lerpDouble(haloStrength, other.haloStrength, t)!,
       glowScale: lerpDouble(glowScale, other.glowScale, t)!,
     );

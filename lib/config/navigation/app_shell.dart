@@ -6,7 +6,9 @@ import 'package:portfolio_assistant/features/snaptrade/view/widgets/snaptrade_au
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/domain/subscription/subscription_policy.dart';
+import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_auto_sync.dart';
+import 'package:portfolio_assistant/features/news_feed/providers/news_seen_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/home_widget_sync_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/providers/widget_prompt_provider.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_launch_listener.dart';
@@ -22,7 +24,7 @@ import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart
 import 'package:portfolio_assistant/presentation/flows/home/providers/home_provider.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 
-/// Shell around the three tabbed sections (Home, Assistant, Settings).
+/// Shell around the tabbed sections (Home, News, Assistant, Goals, Settings).
 ///
 /// Each branch keeps its own [Navigator] alive inside the swipeable
 /// [ShellBranchPager] that app_router.dart gives the `StatefulShellRoute` —
@@ -69,6 +71,19 @@ class AppShell extends ConsumerWidget with BaseScreen {
     final colors = context.customColors;
     final current = AppNavDestination.values[navigationShell.currentIndex];
     final isHome = current == AppNavDestination.home;
+    // Noticias: detrás de `daily_brief` + `feed`. Apagado, la barra queda con
+    // las cuatro de siempre.
+    final showNews = ref.watch(newsFeedAvailableProvider);
+    final newsBadge = ref.watch(newsBadgeProvider);
+    if (showNews && current == AppNavDestination.news) {
+      // Estar en Noticias es verlas: el punto se apaga.
+      final marker = ref.read(newsLatestMarkerProvider);
+      if (marker != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(newsSeenProvider.notifier).markSeen(marker);
+        });
+      }
+    }
 
     return Scaffold(
       extendBody: true,
@@ -92,6 +107,8 @@ class AppShell extends ConsumerWidget with BaseScreen {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: AppBottomNavBar(
         current: current,
+        showNews: showNews,
+        newsBadge: newsBadge && current != AppNavDestination.news,
         onSelect: (destination) {
           final index = AppNavDestination.values.indexOf(destination);
           navigationShell.goBranch(

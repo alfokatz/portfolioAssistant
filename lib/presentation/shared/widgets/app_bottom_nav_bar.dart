@@ -4,10 +4,13 @@ import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/features/assistant/view/widgets/porty_avatar.dart';
 
-/// En el orden de las ramas del shell (app_router.dart).
-/// En el orden de la barra (y de las ramas del shell en `app_router`):
-/// Porty segundo, cerca del pulgar; Metas, que se arman con Porty, después.
-enum AppNavDestination { home, assistant, goals, settings }
+/// En el orden de las ramas del shell (`app_router`) y de la barra.
+///
+/// Con el brief y el feed prendidos (`daily_brief` + pieza `feed`) son cinco
+/// pestañas: Inicio · Noticias · Porty (al centro, cerca del pulgar) · Metas ·
+/// Perfil. Con el interruptor apagado, [news] no se dibuja y la barra queda
+/// como siempre: Inicio · Porty · Metas · Ajustes.
+enum AppNavDestination { home, news, assistant, goals, settings }
 
 /// Floating pill nav bar used to move between the app's main sections.
 class AppBottomNavBar extends StatelessWidget {
@@ -15,10 +18,18 @@ class AppBottomNavBar extends StatelessWidget {
     super.key,
     required this.current,
     required this.onSelect,
+    this.showNews = false,
+    this.newsBadge = false,
   });
 
   final AppNavDestination current;
   final ValueChanged<AppNavDestination> onSelect;
+
+  /// La pestaña Noticias (detrás del interruptor `daily_brief`).
+  final bool showNews;
+
+  /// Punto de "hay algo nuevo" en Noticias (brief o notas sin ver).
+  final bool newsBadge;
 
   static const _items = [
     (
@@ -26,6 +37,12 @@ class AppBottomNavBar extends StatelessWidget {
       icon: Icons.home_rounded,
       porty: false,
       labelKey: 'nav_home',
+    ),
+    (
+      destination: AppNavDestination.news,
+      icon: Icons.article_outlined,
+      porty: false,
+      labelKey: 'nav_news',
     ),
     (
       destination: AppNavDestination.assistant,
@@ -68,18 +85,74 @@ class AppBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               for (final item in _items)
-                _NavItem(
-                  icon: item.icon,
-                  porty: item.porty,
-                  label: item.labelKey.tr(),
-                  selected: current == item.destination,
-                  onTap: () => onSelect(item.destination),
-                  colors: colors,
-                ),
+                if (showNews || item.destination != AppNavDestination.news)
+                  _NavItem(
+                    badge:
+                        newsBadge && item.destination == AppNavDestination.news,
+                    icon: item.icon,
+                    porty: item.porty,
+                    // Con la barra de cinco, la última se llama "Perfil".
+                    label:
+                        (showNews &&
+                                    item.destination ==
+                                        AppNavDestination.settings
+                                ? 'nav_profile'
+                                : item.labelKey)
+                            .tr(),
+                    selected: current == item.destination,
+                    onTap: () => onSelect(item.destination),
+                    colors: colors,
+                  ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El ícono de una pestaña con, si hace falta, el punto terracota de "hay algo
+/// nuevo" (8 px, con un aro del color de la barra para despegarlo del ícono).
+class _BadgedIcon extends StatelessWidget {
+  const _BadgedIcon({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.badge,
+    required this.badgeColor,
+    required this.ring,
+  });
+
+  final IconData icon;
+  final Color color;
+  final bool badge;
+  final Color badgeColor;
+  final Color ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final glyph = Icon(icon, size: AppDimens.iconMd, color: color);
+    if (!badge) return glyph;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        glyph,
+        Positioned(
+          top: 1,
+          right: -3,
+          child: Container(
+            key: const Key('nav_news_badge'),
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: badgeColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: ring, width: 1.5),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -92,8 +165,10 @@ class _NavItem extends StatefulWidget {
     required this.selected,
     required this.onTap,
     required this.colors,
+    this.badge = false,
   });
 
+  final bool badge;
   final IconData? icon;
   final bool porty;
   final String label;
@@ -124,58 +199,68 @@ class _NavItemState extends State<_NavItem> {
             : widget.colors.textSecondary;
 
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.86 : 1,
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Misma altura para todos: los labels quedan alineados.
-              SizedBox(
-                height: _portySize,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder:
-                      (child, animation) => ScaleTransition(
-                        scale: animation,
-                        child: FadeTransition(opacity: animation, child: child),
-                      ),
-                  child:
-                      widget.porty
-                          ? PortyAvatar(
-                            key: ValueKey(widget.selected),
-                            size: _portySize,
-                            palette: PortyAvatarPalette(
-                              body: color,
-                              features: widget.colors.surfaceCard,
-                            ),
-                          )
-                          : Icon(
-                            widget.icon,
-                            key: ValueKey(widget.selected),
-                            size: AppDimens.iconMd,
-                            color: color,
+      child: Semantics(
+        selected: widget.selected,
+        // "Noticias, hay novedades": el punto no se lee solo.
+        value: widget.badge ? 'nav_news_new'.tr() : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.86 : 1,
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Misma altura para todos: los labels quedan alineados.
+                SizedBox(
+                  height: _portySize,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder:
+                        (child, animation) => ScaleTransition(
+                          scale: animation,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
                           ),
+                        ),
+                    child:
+                        widget.porty
+                            ? PortyAvatar(
+                              key: ValueKey(widget.selected),
+                              size: _portySize,
+                              palette: PortyAvatarPalette(
+                                body: color,
+                                features: widget.colors.surfaceCard,
+                              ),
+                            )
+                            : _BadgedIcon(
+                              key: ValueKey(widget.selected),
+                              icon: widget.icon!,
+                              color: color,
+                              badge: widget.badge,
+                              badgeColor: widget.colors.accentWarm,
+                              ring: widget.colors.surfaceCard,
+                            ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 180),
-                style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                  color: color,
-                  fontWeight:
-                      widget.selected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 3),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 180),
+                  style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                    color: color,
+                    fontWeight:
+                        widget.selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  child: Text(widget.label),
                 ),
-                child: Text(widget.label),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

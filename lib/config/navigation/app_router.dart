@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/navigation/app_shell.dart';
+import 'package:portfolio_assistant/features/daily_brief/providers/daily_brief_provider.dart';
+import 'package:portfolio_assistant/presentation/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:portfolio_assistant/config/navigation/shell_branch_pager.dart';
 import 'package:portfolio_assistant/config/navigation/go_router_refresh.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
@@ -33,6 +36,32 @@ import 'package:portfolio_assistant/presentation/flows/onboarding/nav/onboarding
 import 'package:portfolio_assistant/presentation/flows/position/nav/position_router.dart';
 import 'package:portfolio_assistant/presentation/flows/settings/nav/settings_router.dart';
 import 'package:portfolio_assistant/infraestructure/managers/preferences_manager_impl.dart';
+
+/// El pager del shell. Con el interruptor `daily_brief` (y su pieza `feed`)
+/// apagado la rama de Noticias no existe para el usuario: ni pestaña ni
+/// deslizamiento, la app queda con las cuatro de siempre.
+class _ShellPager extends ConsumerWidget {
+  const _ShellPager({
+    required this.currentIndex,
+    required this.onPageSwiped,
+    required this.children,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onPageSwiped;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showNews = ref.watch(newsFeedAvailableProvider);
+    return ShellBranchPager(
+      currentIndex: currentIndex,
+      onPageSwiped: onPageSwiped,
+      hiddenBranches: {if (!showNews) AppNavDestination.news.index},
+      children: children,
+    );
+  }
+}
 
 class AppRouter {
   final Ref ref;
@@ -115,13 +144,16 @@ class AppRouter {
               ),
           // Las pestañas se pasan deslizando el dedo, como en Instagram.
           navigatorContainerBuilder:
-              (context, navigationShell, children) => ShellBranchPager(
+              (context, navigationShell, children) => _ShellPager(
                 currentIndex: navigationShell.currentIndex,
                 onPageSwiped: navigationShell.goBranch,
                 children: children,
               ),
+          // El orden es el de `AppNavDestination`. Noticias es la segunda
+          // rama pero solo se ve con `daily_brief` + `feed` prendidos.
           branches: [
             StatefulShellBranch(routes: [HomeRouter.getRoute()]),
+            StatefulShellBranch(routes: [NewsFeedRouter.getRoute()]),
             StatefulShellBranch(routes: [AssistantRouter.getRoute()]),
             StatefulShellBranch(routes: [GoalsRouter.getRoute()]),
             StatefulShellBranch(routes: [SettingsRouter.getRoute()]),
@@ -142,7 +174,6 @@ class AppRouter {
         ConnectBrokerRouter.getRoute(),
         WeeklyReportRouter.getRoute(),
         DailyBriefRouter.getRoute(),
-        NewsFeedRouter.getRoute(),
         MarketTodayRouter.getRoute(),
         NewsTopicRouter.getRoute(),
         NewsPreferencesRouter.getRoute(),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 
 /// Contenedor de las pestañas del shell: se pasa de una a otra deslizando el
@@ -20,11 +21,19 @@ class ShellBranchPager extends StatefulWidget {
     required this.currentIndex,
     required this.onPageSwiped,
     required this.children,
+    this.hiddenBranches = const {},
   });
 
+  /// El índice de la **rama** (no de la página).
   final int currentIndex;
+
+  /// Recibe el índice de la rama a la que se llegó deslizando.
   final ValueChanged<int> onPageSwiped;
   final List<Widget> children;
+
+  /// Ramas que no se muestran (Noticias con el interruptor `daily_brief`
+  /// apagado): no son una página ni se llega a ellas deslizando.
+  final Set<int> hiddenBranches;
 
   @override
   State<ShellBranchPager> createState() => _ShellBranchPagerState();
@@ -33,7 +42,7 @@ class ShellBranchPager extends StatefulWidget {
 class _ShellBranchPagerState extends State<ShellBranchPager>
     with SingleTickerProviderStateMixin {
   late final PageController _pages = PageController(
-    initialPage: widget.currentIndex,
+    initialPage: _pageOf(widget.currentIndex),
   );
   late final AnimationController _dropIn = AnimationController(
     vsync: this,
@@ -48,8 +57,20 @@ class _ShellBranchPagerState extends State<ShellBranchPager>
     curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
   );
 
+  /// Las ramas que sí se ven, en orden: la página `i` es la rama
+  /// `_visible[i]`.
+  List<int> get _visible => [
+    for (var i = 0; i < widget.children.length; i++)
+      if (!widget.hiddenBranches.contains(i)) i,
+  ];
+
+  int _pageOf(int branch) {
+    final page = _visible.indexOf(branch);
+    return page < 0 ? 0 : page;
+  }
+
   /// La página en la que está (o hacia la que va) el PageView.
-  late int _page = widget.currentIndex;
+  late int _page = _pageOf(widget.currentIndex);
   bool _started = false;
 
   static const _dropDistance = 32.0;
@@ -69,11 +90,15 @@ class _ShellBranchPagerState extends State<ShellBranchPager>
     super.didUpdateWidget(oldWidget);
     // Si el índice nuevo es el de la página actual, vino del deslizamiento.
     // Si no, fue un toque en la barra (o una navegación desde código).
-    final target = widget.currentIndex;
-    if (target == _page) return;
+    final target = _pageOf(widget.currentIndex);
+    final hiddenChanged =
+        !setEquals(oldWidget.hiddenBranches, widget.hiddenBranches);
+    if (target == _page && !hiddenChanged) return;
     _page = target;
     if (_pages.hasClients) _pages.jumpToPage(target);
-    _playDropIn();
+    // Aparece o desaparece una pestaña: la actual sigue siendo la misma, no
+    // hay entrada nueva.
+    if (!hiddenChanged) _playDropIn();
   }
 
   void _playDropIn() {
@@ -89,7 +114,7 @@ class _ShellBranchPagerState extends State<ShellBranchPager>
     setState(() => _page = index);
     // El teclado del chat no sigue abierto sobre otra pestaña.
     FocusManager.instance.primaryFocus?.unfocus();
-    widget.onPageSwiped(index);
+    widget.onPageSwiped(_visible[index]);
   }
 
   @override
@@ -101,15 +126,16 @@ class _ShellBranchPagerState extends State<ShellBranchPager>
 
   @override
   Widget build(BuildContext context) {
+    final visible = _visible;
     final pager = PageView(
       controller: _pages,
       physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
       onPageChanged: _onPageChanged,
       children: [
-        for (var i = 0; i < widget.children.length; i++)
+        for (var p = 0; p < visible.length; p++)
           // Las animaciones de la pestaña que no se ve quedan quietas, como
           // con el IndexedStack de antes.
-          TickerMode(enabled: i == _page, child: widget.children[i]),
+          TickerMode(enabled: p == _page, child: widget.children[visible[p]]),
       ],
     );
     return AnimatedBuilder(

@@ -1,3 +1,12 @@
+/// La foto de una nota (`image_url`, opcional): solo https. Cualquier otra
+/// cosa (http, vacío, sin host, tipo raro) es "sin foto".
+String? parseImageUrl(Object? raw) {
+  if (raw is! String) return null;
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  return raw.trim();
+}
+
 /// Un titular que llegó del servidor (`daily-brief`, §3.5): título, medio y
 /// link. La app nunca copia texto del artículo.
 class BriefHeadline {
@@ -11,6 +20,7 @@ class BriefHeadline {
     required this.url,
     this.publishedAt,
     this.preferred = false,
+    this.imageUrl,
   });
 
   final String id;
@@ -24,6 +34,9 @@ class BriefHeadline {
   final String url;
   final DateTime? publishedAt;
   final bool preferred;
+
+  /// Foto de la nota (https), si el servidor la trae.
+  final String? imageUrl;
 
   static BriefHeadline? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -44,6 +57,7 @@ class BriefHeadline {
       url: url,
       publishedAt: DateTime.tryParse('${raw['published_at']}'),
       preferred: raw['preferred'] == true,
+      imageUrl: parseImageUrl(raw['image_url']),
     );
   }
 
@@ -140,6 +154,7 @@ class BriefSource {
     required this.domain,
     required this.url,
     this.publishedAt,
+    this.imageUrl,
   });
 
   final String title;
@@ -147,6 +162,9 @@ class BriefSource {
   final String domain;
   final String url;
   final DateTime? publishedAt;
+
+  /// Foto de la nota (https), si el servidor la trae.
+  final String? imageUrl;
 
   static BriefSource? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -160,6 +178,7 @@ class BriefSource {
       domain: raw['domain'] is String ? raw['domain'] as String : '',
       url: url,
       publishedAt: DateTime.tryParse('${raw['published_at']}'),
+      imageUrl: parseImageUrl(raw['image_url']),
     );
   }
 
@@ -170,6 +189,7 @@ class BriefSource {
     'url': url,
     if (publishedAt != null)
       'published_at': publishedAt!.toUtc().toIso8601String(),
+    if (imageUrl != null) 'image_url': imageUrl,
   };
 }
 

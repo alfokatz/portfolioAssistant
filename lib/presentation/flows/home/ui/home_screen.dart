@@ -13,9 +13,7 @@ import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_extras_car
 import 'package:portfolio_assistant/features/etoro/view/widgets/etoro_home_widgets.dart';
 import 'package:portfolio_assistant/features/subscription/providers/subscription_provider.dart';
 import 'package:portfolio_assistant/features/portfolio_diagnosis/view/widgets/diagnosis_revisit_card.dart';
-import 'package:go_router/go_router.dart';
-import 'package:portfolio_assistant/features/news_feed/nav/news_feed_router.dart';
-import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_home_row.dart';
+import 'package:portfolio_assistant/features/daily_brief/view/daily_brief_today_card.dart';
 import 'package:portfolio_assistant/features/weekly_report/view/weekly_report_card.dart';
 import 'package:portfolio_assistant/presentation/base/core/base_stateful_widget.dart';
 import 'package:portfolio_assistant/presentation/base/theme/app_dimens.dart';
@@ -221,6 +219,14 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: AppDimens.sectionGap),
+                  // "Hoy en tu cartera" (detrás de `app_config.daily_brief`):
+                  // Porty, las dos notas principales y el brief. Con el
+                  // interruptor apagado, o sin brief hoy, no ocupa lugar.
+                  // Trae su propio espacio inferior.
+                  DailyBriefTodayCard(
+                    history: state.history,
+                    lots: [for (final lot in summary.lots) lot.position],
+                  ),
                   // Hasta que vea su primer diagnóstico: "Miré tu
                   // cartera". Trae su propio espacio inferior.
                   const DiagnosisEntryCard(),
@@ -239,20 +245,6 @@ class _HomeScreenState extends BaseStatefulWidget<HomeScreen> {
                     WeeklyReportCard(
                       lots: [for (final lot in summary.lots) lot.position],
                     ),
-                  ),
-                  // Brief diario (detrás de `app_config.daily_brief`): con el
-                  // interruptor apagado no ocupa lugar. Trae su propio
-                  // espacio inferior.
-                  DailyBriefHomeRow(
-                    history: state.history,
-                    lots: [for (final lot in summary.lots) lot.position],
-                  ),
-                  DailyBriefFeedEntry(
-                    onOpen:
-                        () => context.pushNamed(
-                          NewsFeedRouter.routeName,
-                          extra: NewsFeedRouter.args(),
-                        ),
                   ),
                   _enter(
                     2,

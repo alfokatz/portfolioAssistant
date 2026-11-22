@@ -209,6 +209,7 @@ class DailyBrief {
         domain: h.domain,
         url: h.url,
         publishedAt: h.publishedAt,
+        imageUrl: h.imageUrl,
       );
     }
     for (final m in market) {
