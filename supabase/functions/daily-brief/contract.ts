@@ -57,6 +57,13 @@ export type NewsItem = {
   /// URL https de la imagen de la nota (opcional: falta si la fuente no la
   /// trae). Solo la URL: el servidor no descarga ni guarda imágenes.
   image_url?: string;
+  /// `filing` = presentación de la SEC (capa 3): `source` "SEC", `domain`
+  /// "sec.gov", `url` al documento, sin `image_url`, `title` ya en el idioma
+  /// pedido ("Presentó resultados trimestrales (8-K)"). Ausente = nota de un
+  /// medio. Versiones viejas de la app la tratan como una nota más.
+  source_kind?: "filing";
+  /// Formulario de la presentación ("8-K", "10-Q"...); solo con `source_kind`.
+  filing_form?: string;
 };
 
 /// Free: en lugar de `mine`, solo cuántos tickers de su cartera tienen
@@ -159,7 +166,13 @@ export type BundleResponse = {
   topic_news_status?: NewsStatus;
   /// Solo `scope=brief|feed` con la variante completa (Premium/Gold): por qué
   /// `mine` está como está. Ausente en Free (`locked`) y en versiones viejas.
-  mine_status?: NewsStatus;
+  mine_status?: MineStatus;
+  /// Solo `scope=brief|feed` Premium/Gold: hay una búsqueda web en curso para
+  /// estos tickers del usuario (capa 4, bajo demanda). La app muestra a Porty
+  /// "pensando" y vuelve a pedir el mismo scope pasados `retry_after_s`
+  /// segundos (máx. 4 veces); cuando termina, las notas aparecen en `mine`.
+  /// Ausente si no hay ninguna.
+  searching?: { tickers: string[]; retry_after_s: number };
 };
 
 /// `ok` = hay titulares; `empty` = se consultó y no hay nada en 48 h ("no
@@ -168,6 +181,11 @@ export type BundleResponse = {
 /// Cuando hay dato cacheado vencido, se sirve con `ok`.
 export const newsStatuses = ["ok", "empty", "unavailable"] as const;
 export type NewsStatus = (typeof newsStatuses)[number];
+
+/// `mine_status` suma `searching`: `mine` vacío y una búsqueda en curso (ver
+/// `BundleResponse.searching`). Apps viejas lo leen como "sin estado".
+export const mineStatuses = [...newsStatuses, "searching"] as const;
+export type MineStatus = (typeof mineStatuses)[number];
 
 export type TopicNewsItem = {
   id: string;

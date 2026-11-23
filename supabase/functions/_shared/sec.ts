@@ -109,6 +109,9 @@ export type Filing = {
   primary_document: string;
   url: string;
   index_url: string;
+  /// Cuándo la SEC la aceptó (ISO, `acceptanceDateTime`). Ausente en lo que ya
+  /// estaba en caché: ahí se usa `filed`.
+  accepted?: string;
 };
 
 export type CompanyInfo = {
@@ -152,6 +155,11 @@ export function parseCompany(json: any, cik: string): CompanyInfo {
   };
 }
 
+const isoOrNull = (v: unknown): string | null => {
+  const t = typeof v === "string" ? Date.parse(v) : NaN;
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+};
+
 /// Las presentaciones más recientes primero, solo las formas relevantes.
 // deno-lint-ignore no-explicit-any
 export function parseFilings(json: any, cik: string, limit = 60): Filing[] {
@@ -173,6 +181,7 @@ export function parseFilings(json: any, cik: string, limit = 60): Filing[] {
       primary_document: doc,
       url: `${archiveDir(cik, accession)}/${doc}`,
       index_url: filingIndexUrl(cik, accession),
+      ...(isoOrNull(r.acceptanceDateTime?.[i]) ? { accepted: isoOrNull(r.acceptanceDateTime[i])! } : {}),
     });
   }
   return out;

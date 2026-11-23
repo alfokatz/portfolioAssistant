@@ -7,7 +7,10 @@
 // 1. Titulares: en los husos donde son entre las 6:00 y las 22:00 (antes solo
 //    hasta las 7:45: pasado eso la caché por ticker vencía a los 30 min y el
 //    pedido del usuario pegaba GDELT en vivo), los 200 símbolos más tenidos
-//    (`daily_brief_warm_symbols`) pasan por `headlinesByTicker`: hasta 6 lotes
+//    de usuarios ACTIVOS (`daily_brief_warm_symbols_active`: `app_opened` en
+//    los últimos 7 días) pasan por `headlinesByTicker` (capas gratis: subyacente
+//    de CEDEAR/símbolos locales, GDELT por nombre y SEC; NUNCA la búsqueda web
+//    por ticker, que es solo bajo demanda): hasta 6 lotes
 //    de GDELT por corrida (unos 35 s) y hasta 20 símbolos por los respaldos
 //    (Finnhub/Yahoo) si GDELT falla. Solo se pide lo vencido: las corridas
 //    repetidas no cuestan.
@@ -57,6 +60,8 @@ export const warmConfig = {
   headlineFallbackCap: 20,
   maxHeadlineBatches: 6,
   symbolsPerGroup: 200,
+  /// Precarga solo de usuarios que abrieron la app en estos días.
+  activeDays: 7,
   /// Pulso y temas: desde las 6:30 locales de cada región, 45 minutos.
   digests: { fromMin: 6 * 60 + 30, toMin: 7 * 60 + 15 },
   digestConcurrency: 4,
@@ -117,8 +122,9 @@ export async function warmHeadlines(deps: WarmDeps): Promise<HeadlinesSummary> {
   let batches = warmConfig.maxHeadlineBatches;
   for (const [day, timezones] of byDate) {
     if (batches <= 0) break;
-    const sym = await deps.db.rpc("daily_brief_warm_symbols", {
-      p_timezones: timezones, p_limit: warmConfig.symbolsPerGroup,
+    // Solo usuarios activos (abrieron la app en los últimos 7 días).
+    const sym = await deps.db.rpc("daily_brief_warm_symbols_active", {
+      p_timezones: timezones, p_limit: warmConfig.symbolsPerGroup, p_active_days: warmConfig.activeDays,
     });
     if (sym.error) throw new Error(`warm_symbols: ${sym.error.message}`);
     const symbols = ((sym.data ?? []) as { symbol: string }[]).map((r) => r.symbol);

@@ -15,6 +15,8 @@ import { looksLikeInstructions } from "./news_attribution.ts";
 import { dedupeHeadlines, fallbackLicensed, finnhubNews, isUsPlainSymbol, safeImageUrl, yahooNews } from "./news_fallback.ts";
 import { normalizeTicker } from "./sec.ts";
 import { resolveCik } from "./sec_data.ts";
+import { secHeadlines } from "./sec_news.ts";
+import { resolveUnderlyings } from "./ticker_map.ts";
 import { fetchQuotes } from "../market-watch/quotes.ts";
 
 export const gdeltConfig = {
@@ -57,6 +59,10 @@ export type Headline = {
   language: "es" | "en" | null;
   /// URL https de la imagen de la nota (opcional; notas viejas en caché no la traen).
   image_url?: string | null;
+  /// `filing` = presentación de la SEC (capa 3): sin imagen, `domain` sec.gov y
+  /// el título en español por defecto (`localizedFilingTitle` lo traduce).
+  source_kind?: "filing";
+  filing?: { form: string; kind: string };
 };
 
 /// "NVIDIA CORP" → "NVIDIA"; "Apple Inc." → "Apple": el nombre con el que
@@ -341,25 +347,74 @@ async function pressNameOf(
 
 const keepable = (h: Headline) => !isRecommendation(h.title) && !looksLikeInstructions(h.title);
 
-/// Titulares recientes por símbolo, de la caché por ticker y por día; lo que
-/// falta se pide a GDELT en lotes de hasta 10 nombres y, si GDELT falla, tiene
-/// límite de pedidos o no trae nada de las últimas 48 h, a Finnhub (EE. UU.) y
-/// Yahoo. Nunca lanza. Si ninguna fuente responde sirve lo último cacheado
-/// (también el del día anterior) y `status[sym]` dice `failed` solo cuando no
-/// hay nada Y no se pudo consultar (distinto de "se consultó y no hay").
-export async function headlinesByTicker(
-  deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
-  symbols: string[],
-  day: string,
-  opts: { maxBatches?: number; allow?: Map<string, string>; rows?: AllowRow[]; fallbackCap?: number } = {},
-): Promise<{
+export type HeadlinesOpts = {
+  maxBatches?: number;
+  allow?: Map<string, string>;
+  rows?: AllowRow[];
+  fallbackCap?: number;
+  /// Regiones de la consulta a GDELT por símbolo (por defecto la de su sufijo).
+  regions?: Record<string, string[]>;
+  /// Capa 3 (SEC): tope de símbolos y de tiempo por llamada.
+  secCap?: number;
+  secBudgetMs?: number;
+};
+export type HeadlinesResult = {
   byTicker: Record<string, Headline[]>;
   unnamed: string[];
   fetched: number;
   pending: string[];
   status: Record<string, "ok" | "failed">;
   fallback: number;
-}> {
+  sec: number;
+};
+
+/// Tope de símbolos por llamada que pasan por la SEC (capa 3) y tiempo máximo:
+/// `companyFilings` cachea 1 h, así que las corridas repetidas no cuestan.
+export const secLayerCap = 60;
+export const secLayerBudgetMs = 12_000;
+
+/// Titulares por símbolo con las capas gratis: el símbolo se reemplaza por su
+/// subyacente de EE. UU. (CEDEAR y ADR: `ticker_map.ts`), así AAPL y AAPL.BA
+/// comparten caché y consulta; después GDELT por nombre de empresa y la SEC.
+/// El resultado vuelve indexado por los símbolos PEDIDOS (`underlying` dice cuál
+/// se buscó). Nunca lanza.
+export async function headlinesByTicker(
+  deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
+  symbols: string[],
+  day: string,
+  opts: HeadlinesOpts = {},
+): Promise<HeadlinesResult & { underlying: Record<string, string> }> {
+  const wanted = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  const map = await resolveUnderlyings(deps, wanted).catch(() => new Map());
+  const effective = (s: string): string => map.get(s)?.underlying ?? s;
+  const eff = [...new Set(wanted.map(effective))];
+  const r = await headlinesCore(deps, eff, day, opts);
+  const byTicker: Record<string, Headline[]> = {};
+  const status: Record<string, "ok" | "failed"> = {};
+  const underlying: Record<string, string> = {};
+  for (const s of wanted) {
+    byTicker[s] = r.byTicker[effective(s)] ?? [];
+    status[s] = r.status[effective(s)] ?? "failed";
+    underlying[s] = effective(s);
+  }
+  const pick = (list: string[]) => wanted.filter((s) => list.includes(effective(s)));
+  return { ...r, byTicker, status, underlying, unnamed: pick(r.unnamed), pending: pick(r.pending) };
+}
+
+/// Titulares recientes por símbolo, de la caché por ticker y por día; lo que
+/// falta se pide a GDELT en lotes de hasta 10 nombres, después a la SEC
+/// (presentaciones de las últimas 72 h) y, si GDELT falla, tiene
+/// límite de pedidos o no trae nada de las últimas 48 h, a Finnhub (EE. UU.) y
+/// Yahoo (apagados salvo NEWS_FALLBACK_LICENSED). Nunca lanza. Si ninguna fuente
+/// responde sirve lo último cacheado (también el del día anterior) y
+/// `status[sym]` dice `failed` solo cuando no hay nada Y no se pudo consultar
+/// (distinto de "se consultó y no hay").
+async function headlinesCore(
+  deps: Pick<Deps, "db" | "fetch" | "env" | "now" | "background">,
+  symbols: string[],
+  day: string,
+  opts: HeadlinesOpts = {},
+): Promise<HeadlinesResult> {
   const wanted = [...new Set(symbols.map((s) => s.toUpperCase()))];
   const byTicker: Record<string, Headline[]> = {};
   const entries = new Map<string, TickerHeadlines>();
@@ -376,6 +431,7 @@ export async function headlinesByTicker(
   const attempted: string[] = [];
   let fetched = 0;
   let fallback = 0;
+  let secDone = 0;
   try {
     if (missing.length > 0) {
       const rows = opts.rows ?? await newsAllowlistMeta(deps);
@@ -405,7 +461,9 @@ export async function headlinesByTicker(
           continue;
         }
         const url = gdeltUrl(Object.values(batchNames), [...allow.keys()], {
-          domains: domainsForRegions(rows, [...new Set(Object.keys(batchNames).map(regionOfSymbol))]),
+          domains: domainsForRegions(rows, [
+            ...new Set(Object.keys(batchNames).flatMap((s) => opts.regions?.[s] ?? [regionOfSymbol(s)])),
+          ]),
         });
         let articles: Headline[];
         try {
@@ -424,6 +482,33 @@ export async function headlinesByTicker(
           entries.set(sym, { name: batchNames[sym], items, as_of: asOf, status: "ok" });
           answered.add(sym);
         }
+      }
+
+      // Capa 3: presentaciones de la SEC (solo emisores de EE. UU.; el resto se
+      // salta sin pedir nada). Cuenta como "respondió" solo si trajo algo: una
+      // SEC sin novedades no dice nada de la prensa.
+      {
+        const secDeadline = deps.now() + (opts.secBudgetMs ?? secLayerBudgetMs);
+        const secSyms = attempted.slice(0, opts.secCap ?? secLayerCap);
+        let nextSec = 0;
+        const secWorker = async () => {
+          while (nextSec < secSyms.length && deps.now() < secDeadline) {
+            const sym = secSyms[nextSec++];
+            const r = await secHeadlines(deps, sym);
+            if (r.status !== "ok") continue;
+            secDone++;
+            if (r.items.length === 0) continue;
+            const prev = entries.get(sym);
+            entries.set(sym, {
+              name: names[sym] ?? prev?.name ?? null,
+              items: dedupeHeadlines([...(prev?.items ?? []), ...r.items]).slice(0, 12),
+              as_of: asOf,
+              status: "ok",
+            });
+            answered.add(sym);
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(3, secSyms.length) }, secWorker));
       }
 
       // Respaldos: sin nada de las últimas 48 h (GDELT falló, vacío o sin nombre).
@@ -497,5 +582,5 @@ export async function headlinesByTicker(
     // Sin entrada (lote que no se pidió, p. ej. tope de news-warm) o fallida y vacía = no se pudo consultar.
     status[sym] = e && !(e.status === "failed" && e.items.length === 0) ? "ok" : "failed";
   }
-  return { byTicker, unnamed, fetched, pending, status, fallback };
+  return { byTicker, unnamed, fetched, pending, status, fallback, sec: secDone };
 }

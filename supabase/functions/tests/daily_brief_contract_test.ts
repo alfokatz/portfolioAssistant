@@ -2,12 +2,12 @@
 // `daily-brief/contract.ts` (flutter y assistant arrancan contra ellos). Puro.
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { errorTypes, newsStatuses, scopes } from "../daily-brief/contract.ts";
+import { errorTypes, mineStatuses, scopes } from "../daily-brief/contract.ts";
 
 const dir = new URL("../../../test/fixtures/daily_brief/", import.meta.url);
 const read = (name: string) => JSON.parse(Deno.readTextFileSync(new URL(name, dir)));
 
-const bundles = ["bundle_brief_full", "bundle_brief_numbers", "bundle_feed_premium", "bundle_feed_free", "bundle_market", "bundle_topic", "bundle_feed_unavailable", "bundle_feed_empty"];
+const bundles = ["bundle_brief_full", "bundle_brief_numbers", "bundle_feed_premium", "bundle_feed_free", "bundle_market", "bundle_topic", "bundle_feed_unavailable", "bundle_feed_empty", "bundle_feed_searching", "bundle_feed_sec"];
 
 function assertBundle(b: Record<string, unknown>, name: string) {
   assertEquals(b.status, "ok", name);
@@ -41,9 +41,19 @@ function assertBundle(b: Record<string, unknown>, name: string) {
   }
   // Estado de `mine` (opcional): "unavailable"/"empty" solo con la lista vacía.
   const status = b.mine_status as string | undefined;
-  assert(status === undefined || (newsStatuses as readonly string[]).includes(status), `${name}: mine_status`);
+  assert(status === undefined || (mineStatuses as readonly string[]).includes(status), `${name}: mine_status`);
   if (status === "ok") assert((b.mine as unknown[]).length > 0, `${name}: ok sin titulares`);
-  if (status === "empty" || status === "unavailable") assertEquals(b.mine, [], name);
+  if (status === "empty" || status === "unavailable" || status === "searching") assertEquals(b.mine, [], name);
+  // `searching`: mine vacío y tickers a la espera; solo ahí (o con notas de otros tickers).
+  const searching = b.searching as { tickers: string[]; retry_after_s: number } | undefined;
+  if (status === "searching") assert(searching && searching.tickers.length > 0 && searching.retry_after_s > 0, `${name}: searching`);
+  // Presentaciones de la SEC: sin imagen, con link a sec.gov y el formulario.
+  for (const m of b.mine as { source_kind?: string; domain: string; source: string; url: string; filing_form?: string; image_url?: string }[]) {
+    if (m.source_kind === "filing") {
+      assertEquals([m.source, m.domain], ["SEC", "sec.gov"], name);
+      assert(m.url.startsWith("https://www.sec.gov/") && m.filing_form && m.image_url === undefined, `${name}: filing`);
+    }
+  }
   for (const s of Object.values(sources) as { image_url?: string }[]) {
     assert(s.image_url === undefined || s.image_url.startsWith("https://"), `${name}: image_url de fuente`);
   }

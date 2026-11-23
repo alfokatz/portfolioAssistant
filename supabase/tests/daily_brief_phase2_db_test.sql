@@ -46,7 +46,8 @@ $$;
 do $$
 begin
   perform pg_temp.check_true('costos por defecto: 1 franja por día',
-    (select value = '{"pulse_slots_per_day": 1, "topic_slots_per_day": 1, "max_digests_per_run": 24}'::jsonb
+    -- `@>`: 20261126100000 le suma las claves de la capa 4 (ticker_search_*).
+    (select value @> '{"pulse_slots_per_day": 1, "topic_slots_per_day": 1, "max_digests_per_run": 24}'::jsonb
        from public.app_config where key = 'daily_brief_costs'));
 end $$;
 

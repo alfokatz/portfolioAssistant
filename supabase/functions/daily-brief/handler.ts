@@ -35,6 +35,9 @@ import {
 } from "../_shared/news_digest.ts";
 import { looksLikeInstructions } from "../_shared/news_attribution.ts";
 import { safeImageUrl } from "../_shared/news_fallback.ts";
+import { localizedFilingTitle, secNewsConfig } from "../_shared/sec_news.ts";
+import { resolveUnderlyings } from "../_shared/ticker_map.ts";
+import { loadTickerSearchCosts, tickerSearchConfig, tickerSearchLayer } from "../_shared/ticker_search.ts";
 import { isRecommendation } from "../_shared/recommendation.ts";
 import { fetchQuotes } from "../market-watch/quotes.ts";
 import { earningsFor } from "./earnings.ts";
@@ -136,7 +139,8 @@ export function pickNews(
   return list
     .filter((h) =>
       !mute.has(h.domain) && !isRecommendation(h.title) && !looksLikeInstructions(h.title) &&
-      hoursAgo(h.published_at, nowMs) <= config.newsWindowHours && Date.parse(h.published_at) <= nowMs + 5 * 60_000
+      // Las presentaciones de la SEC valen 72 h (un 8-K del viernes se ve el lunes).
+      hoursAgo(h.published_at, nowMs) <= (h.source_kind === "filing" ? secNewsConfig.windowHours : config.newsWindowHours) && Date.parse(h.published_at) <= nowMs + 5 * 60_000
     )
     .map((h) => ({ ...h, preferred: prefer.has(h.domain) }))
     .sort((a, b) => Number(b.preferred) - Number(a.preferred) || b.published_at.localeCompare(a.published_at))
@@ -146,7 +150,11 @@ export function pickNews(
 /// Conteo de tickers con titular en 48 h, mirando SOLO la caché (Free: nunca se
 /// consulta GDELT por usuario).
 async function lockedCount(deps: Deps, symbols: string[], day: string, mute: Set<string>): Promise<number> {
-  const lists = await Promise.all(symbols.map((s) => readCache<{ items: Headline[] }>(deps, tickerKey(s, day)).catch(() => null)));
+  // La caché es por subyacente (AAPL.BA comparte la de AAPL).
+  const map = await resolveUnderlyings(deps, symbols).catch(() => new Map());
+  const lists = await Promise.all(symbols.map((s) =>
+    readCache<{ items: Headline[] }>(deps, tickerKey(map.get(s.toUpperCase())?.underlying ?? s, day)).catch(() => null)
+  ));
   return lists.filter((c) => c && pickNews(c.body.items ?? [], deps.now(), new Set(), mute, 1).length > 0).length;
 }
 
@@ -180,15 +188,35 @@ async function build(
     const watch = ent.tier === "gold"
       ? ent.watchlist.filter((s) => !heldSymbols.includes(s)).slice(0, isBrief ? config.briefWatchTickers : 10)
       : [];
-    const { byTicker, status } = await headlinesByTicker(deps, [...held, ...watch], day, { allow, rows });
+    const { byTicker, status, underlying } = await headlinesByTicker(deps, [...held, ...watch], day, { allow, rows });
+
+    // Capa 4 (búsqueda web por ticker, bajo demanda): solo Premium/Gold de
+    // pago, nunca la cortesía ni Free. Ver `_shared/ticker_search.ts`.
+    let searching: string[] = [];
+    if (ent.tier !== "free" && !ent.courtesy) {
+      const asked4 = [...held, ...watch].map((s) => s.toUpperCase());
+      const names: Record<string, string | null> = {};
+      await Promise.all([...new Set(asked4.map((s) => underlying[s] ?? s))].map(async (u) => {
+        names[u] = (await readCache<{ name: string | null }>(deps, tickerKey(u, day)).catch(() => null))?.body.name ?? null;
+      }));
+      const layer = await tickerSearchLayer(deps, {
+        symbols: asked4.map((s) => ({ user: s, underlying: underlying[s] ?? s })),
+        byTicker, status, names, day, allow, costs: await loadTickerSearchCosts(deps),
+      });
+      for (const [sym, items] of Object.entries(layer.extra)) byTicker[sym] = [...(byTicker[sym] ?? []), ...items];
+      searching = layer.searching;
+      if (Object.keys(layer.outcomes).length > 0) {
+        console.log(JSON.stringify({ fn: "daily-brief", event: "ticker_search", outcomes: layer.outcomes }));
+      }
+    }
     let n = 0;
     const add = (symbols: string[], kind: "held" | "watch") => {
       for (const sym of symbols) {
         for (const h of pickNews(byTicker[sym] ?? [], nowMs, prefer, mute, isBrief ? config.briefPerTicker : config.feedPerTicker)) {
           out.mine.push({
-            id: `h${++n}`, ticker: sym, kind, title: h.title, source: h.source, domain: h.domain,
-            url: h.url, published_at: h.published_at, lang: h.language, preferred: h.preferred,
-            ...imageOf(h),
+            id: `h${++n}`, ticker: sym, kind, title: localizedFilingTitle(h, lang), source: h.source, domain: h.domain,
+            url: h.url, published_at: h.published_at, lang: h.filing ? lang : h.language, preferred: h.preferred,
+            ...(h.filing ? { source_kind: "filing" as const, filing_form: h.filing.form } : imageOf(h)),
           } satisfies NewsItem);
         }
       }
@@ -200,7 +228,12 @@ async function build(
     const asked = [...held, ...watch];
     out.mine_status = out.mine.length > 0
       ? "ok"
+      : searching.length > 0
+      ? "searching"
       : asked.some((s) => status[s.toUpperCase()] === "failed") ? "unavailable" : "empty";
+    if (searching.length > 0) {
+      out.searching = { tickers: [...new Set(searching)], retry_after_s: tickerSearchConfig.retryAfterSeconds };
+    }
   } else if (scope === "feed") {
     out.locked = { mine_tickers_48h: await lockedCount(deps, heldSymbols, day, mute) };
   }

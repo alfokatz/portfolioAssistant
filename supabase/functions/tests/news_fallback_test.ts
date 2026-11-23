@@ -150,8 +150,10 @@ Deno.test("cobertura con GDELT 429: Finnhub cubre EE. UU./CEDEAR y Yahoo cubre .
     assertEquals(r.byTicker.AAPL[0].domain, "reuters.com");
     assertEquals(r.byTicker["BTC-USD"][0].domain, "finance.yahoo.com");
     assertEquals(count(f, "finnhub.io"), usSymbols.length);
-    assertEquals(count(f, "v1/finance/search"), 2);
-    assertEquals(r.fallback, all.length);
+    // El CEDEAR (.BA) se busca como su subyacente de EE. UU.: lo cubre Finnhub;
+    // a Yahoo solo va lo que no tiene subyacente (cripto).
+    assertEquals(count(f, "v1/finance/search"), 1);
+    assertEquals(r.fallback, all.length - 1);
     assertEquals(r.fetched, 0);
     // El cortacircuitos quedó abierto: otro pedido no espera el turno de GDELT.
     const gdeltCalls = count(f, "gdeltproject");

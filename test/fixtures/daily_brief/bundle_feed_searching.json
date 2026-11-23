@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": {
+    "tier": "premium",
+    "variant": "full",
+    "courtesy": false
+  },
+  "mine": [],
+  "mine_status": "searching",
+  "locked": null,
+  "earnings": [],
+  "topics": [],
+  "market": {
+    "instruments": [],
+    "pulse": []
+  },
+  "videos": [],
+  "sources": {},
+  "attribution": {
+    "videos": "YouTube"
+  },
+  "searching": {
+    "tickers": [
+      "GGAL.BA"
+    ],
+    "retry_after_s": 10
+  }
+}

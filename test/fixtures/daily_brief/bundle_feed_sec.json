@@ -1,0 +1,115 @@
+{
+  "status": "ok",
+  "as_of": "2026-12-02T08:01:00Z",
+  "plan": {
+    "tier": "premium",
+    "variant": "full",
+    "courtesy": false
+  },
+  "mine": [
+    {
+      "id": "h1",
+      "ticker": "NVDA",
+      "kind": "held",
+      "title": "Nvidia supera las previsiones de ingresos y sube en el after hours",
+      "source": "Reuters",
+      "domain": "reuters.com",
+      "url": "https://www.reuters.com/technology/nvidia-beats-revenue-forecasts-2026-12-01/",
+      "published_at": "2026-12-01T21:40:00Z",
+      "lang": "es",
+      "preferred": true,
+      "image_url": "https://static.reuters.com/resources/nvidia-chip.jpg"
+    },
+    {
+      "id": "h3",
+      "ticker": "AAPL",
+      "kind": "held",
+      "title": "Apple presenta una nueva línea de productos para el año próximo",
+      "source": "AP",
+      "domain": "apnews.com",
+      "url": "https://apnews.com/article/apple-new-products-2026",
+      "published_at": "2026-12-01T16:20:00Z",
+      "lang": "es",
+      "preferred": false
+    },
+    {
+      "id": "h99",
+      "ticker": "AAPL",
+      "kind": "held",
+      "title": "Presentó resultados trimestrales (8-K)",
+      "source": "SEC",
+      "domain": "sec.gov",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/aapl-8k.htm",
+      "published_at": "2026-11-22T21:05:12.000Z",
+      "lang": "es",
+      "preferred": false,
+      "source_kind": "filing",
+      "filing_form": "8-K"
+    }
+  ],
+  "mine_status": "ok",
+  "locked": null,
+  "earnings": [],
+  "topics": [
+    {
+      "topic_id": "fed_rates",
+      "label": "Fed y tasas",
+      "status": "ok",
+      "summary": [
+        {
+          "text": "La Reserva Federal mantuvo las tasas sin cambios.",
+          "source_ids": [
+            "c1"
+          ]
+        },
+        {
+          "text": "El mercado descuenta un recorte recién en el segundo trimestre.",
+          "source_ids": [
+            "c2"
+          ]
+        }
+      ],
+      "as_of": "2026-12-02T06:35:00Z"
+    },
+    {
+      "topic_id": "inflation",
+      "label": "Inflación",
+      "status": "empty",
+      "summary": [],
+      "as_of": null
+    }
+  ],
+  "market": {
+    "instruments": [],
+    "pulse": []
+  },
+  "videos": [
+    {
+      "video_id": "dQw4w9WgXcQ",
+      "title": "Qué pasó hoy en los mercados",
+      "channel": "Reuters",
+      "published_at": "2026-12-02T01:00:00Z",
+      "topic_id": "fed_rates",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg"
+    }
+  ],
+  "sources": {
+    "c1": {
+      "title": "Fed holds rates steady",
+      "source": "Reuters",
+      "domain": "reuters.com",
+      "url": "https://www.reuters.com/markets/us/fed-holds-rates-steady-2026-12-01/",
+      "image_url": "https://static.reuters.com/resources/fed.jpg"
+    },
+    "c2": {
+      "title": "Markets price in a spring cut",
+      "source": "AP",
+      "domain": "apnews.com",
+      "url": "https://apnews.com/article/fed-rate-cut-expectations-2026"
+    }
+  },
+  "attribution": {
+    "videos": "YouTube"
+  }
+}
