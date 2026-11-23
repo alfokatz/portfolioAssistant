@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/features/home_widget/view/widget_news_sheet.dart';
 import 'package:portfolio_assistant/features/news_feed/domain/news_bundle.dart';
 import 'package:portfolio_assistant/features/news_feed/view/news_actions.dart';
+import 'package:portfolio_assistant/features/news_feed/view/widgets/news_cards.dart';
 import 'package:portfolio_assistant/presentation/base/theme/theme_extension.dart';
 import 'package:portfolio_assistant/presentation/shared/widgets/news_headline_row.dart';
 
@@ -40,11 +41,18 @@ class NewsArticleRow extends ConsumerWidget {
     return NewsHeadlineRow(
       meta: meta,
       title: article.title,
-      detail: article.preferred ? 'news_feed_preferred'.tr() : null,
+      detail:
+          article.isFiling
+              ? (article.filingForm == null
+                  ? 'news_filing_chip'.tr()
+                  : 'news_filing_chip_form'.tr(
+                    namedArgs: {'form': article.filingForm!},
+                  ))
+              : article.preferred
+              ? 'news_feed_preferred'.tr()
+              : null,
       actions: NewsHeadlineActions(
-        readLabel: 'news_feed_read_on'.tr(
-          namedArgs: {'source': article.source},
-        ),
+        readLabel: newsReadLabel(article),
         onRead:
             () => NewsActions.read(
               ref,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:portfolio_assistant/config/supabase/supabase_auth_service.dart';
 import 'package:portfolio_assistant/features/daily_brief/data/daily_brief_repository.dart';
@@ -10,10 +12,20 @@ enum NewsLoadPhase { loading, loaded, failed, disabled }
 /// Estado de un bloque de noticias: mientras recarga conserva lo que ya
 /// tenía ([bundle]) para no parpadear.
 class NewsScopeState {
-  const NewsScopeState({this.phase = NewsLoadPhase.loading, this.bundle});
+  const NewsScopeState({
+    this.phase = NewsLoadPhase.loading,
+    this.bundle,
+    this.searchGaveUp = false,
+  });
 
   final NewsLoadPhase phase;
   final NewsBundle? bundle;
+
+  /// Se agotaron los reintentos con el servidor todavía buscando.
+  final bool searchGaveUp;
+
+  /// Porty sigue buscando noticias (y la app sigue preguntando).
+  bool get searching => (bundle?.isSearching ?? false) && !searchGaveUp;
 
   bool get loaded => phase == NewsLoadPhase.loaded || bundle != null;
   bool get failed => phase == NewsLoadPhase.failed && bundle == null;
@@ -29,14 +41,50 @@ class NewsScopeNotifier extends StateNotifier<NewsScopeState> {
 
   final Future<NewsBundle> Function() _load;
   var _epoch = 0;
+  var _retries = 0;
+  Timer? _retryTimer;
 
-  Future<void> load() async {
+  /// Pide de nuevo el mismo scope (a mano: reintentar, volver a la pantalla).
+  Future<void> load() {
+    _retries = 0;
+    return _fetch();
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Si el servidor dice `searching`, vuelve a pedir cada `retry_after_s`,
+  /// hasta [NewsSearching.maxRetries] veces. Se corta al llegar resultado, al
+  /// fallar o al salir de la pantalla (el provider es autoDispose).
+  void _scheduleRetry(NewsBundle bundle) {
+    final searching = bundle.searching;
+    if (searching == null) return;
+    if (_retries >= NewsSearching.maxRetries) {
+      state = NewsScopeState(
+        phase: NewsLoadPhase.loaded,
+        bundle: bundle,
+        searchGaveUp: true,
+      );
+      return;
+    }
+    _retries++;
+    _retryTimer = Timer(searching.retryAfter, () {
+      if (mounted) _fetch();
+    });
+  }
+
+  Future<void> _fetch() async {
+    _retryTimer?.cancel();
     final epoch = ++_epoch;
     state = NewsScopeState(phase: NewsLoadPhase.loading, bundle: state.bundle);
     try {
       final bundle = await _load();
       if (!mounted || epoch != _epoch) return;
       state = NewsScopeState(phase: NewsLoadPhase.loaded, bundle: bundle);
+      _scheduleRetry(bundle);
     } on DailyBriefDisabled {
       if (!mounted || epoch != _epoch) return;
       state = const NewsScopeState(phase: NewsLoadPhase.disabled);
@@ -58,7 +106,7 @@ final newsStatusProvider = FutureProvider<DailyBriefStatus>((ref) {
 
 /// Lo tuyo, temas y videos. Uno por sesión de usuario.
 final newsFeedProvider =
-    StateNotifierProvider<NewsScopeNotifier, NewsScopeState>((ref) {
+    StateNotifierProvider.autoDispose<NewsScopeNotifier, NewsScopeState>((ref) {
       _userId(ref);
       final repo = ref.watch(newsFeedRepositoryProvider);
       return NewsScopeNotifier(() => repo.load(NewsScope.feed));

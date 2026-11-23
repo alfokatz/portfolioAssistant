@@ -28,6 +28,59 @@ String? newsWhyText(NewsArticle article, Map<String, double> weights) {
   );
 }
 
+/// "Leer en Reuters"; en un comunicado de la SEC, "Leer en la SEC".
+String newsReadLabel(NewsArticle a) =>
+    a.isFiling
+        ? 'news_feed_read_sec'.tr()
+        : 'news_feed_read_on'.tr(namedArgs: {'source': a.source});
+
+/// "Comunicado oficial · 8-K": distingue una nota de la SEC de la prensa.
+/// Sobrio: tinte `chip`, ícono de documento y tinta, sin color nuevo.
+class FilingChip extends StatelessWidget {
+  const FilingChip({super.key, this.form});
+  final String? form;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.customColors;
+    final label =
+        form == null
+            ? 'news_filing_chip'.tr()
+            : 'news_filing_chip_form'.tr(namedArgs: {'form': form!});
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.chip,
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ExcludeSemantics(
+              child: Icon(
+                Icons.description_outlined,
+                size: 14,
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: AppDimens.sp4),
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// La línea de Porty de la pestaña Noticias: su cara chica y una frase
 /// corta que cambia con la pestaña (con fundido; sin movimiento si el
 /// sistema lo pide).
@@ -190,10 +243,7 @@ class NewsLeadCard extends StatelessWidget {
       children: [
         Semantics(
           button: true,
-          label: [
-            'news_feed_read_on'.tr(namedArgs: {'source': article.source}),
-            article.title,
-          ].join('. '),
+          label: [newsReadLabel(article), article.title].join('. '),
           excludeSemantics: true,
           child: InkWell(
             onTap: onRead,
@@ -201,7 +251,8 @@ class NewsLeadCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (NewsPhoto.usable(article.imageUrl)) ...[
+                if (!article.isFiling &&
+                    NewsPhoto.usable(article.imageUrl)) ...[
                   NewsPhoto(
                     url: article.imageUrl,
                     height: 176,
@@ -251,6 +302,10 @@ class NewsLeadCard extends StatelessWidget {
             ),
           ),
         ),
+        if (article.isFiling) ...[
+          const SizedBox(height: AppDimens.sp12),
+          FilingChip(form: article.filingForm),
+        ],
         if (why != null || (pct != null && pct.isFinite)) ...[
           const SizedBox(height: AppDimens.sp12),
           Wrap(
@@ -313,10 +368,7 @@ class NewsCompactRow extends StatelessWidget {
     final age = _meta(article);
     return Semantics(
       button: true,
-      label: [
-        'news_feed_read_on'.tr(namedArgs: {'source': article.source}),
-        article.title,
-      ].join('. '),
+      label: [newsReadLabel(article), article.title].join('. '),
       excludeSemantics: true,
       child: InkWell(
         onTap: onRead,
@@ -360,14 +412,23 @@ class NewsCompactRow extends StatelessWidget {
                           color: colors.textPrimary,
                         ),
                       ),
-                      if (why != null) ...[
+                      if (article.isFiling || why != null) ...[
                         const SizedBox(height: AppDimens.sp6),
-                        WhyChip(why!),
+                        Wrap(
+                          spacing: AppDimens.sp8,
+                          runSpacing: AppDimens.sp6,
+                          children: [
+                            if (article.isFiling)
+                              FilingChip(form: article.filingForm),
+                            if (why != null) WhyChip(why!),
+                          ],
+                        ),
                       ],
                     ],
                   ),
                 ),
-                if (NewsPhoto.usable(article.imageUrl)) ...[
+                if (!article.isFiling &&
+                    NewsPhoto.usable(article.imageUrl)) ...[
                   const SizedBox(width: AppDimens.sp12),
                   NewsPhoto(
                     url: article.imageUrl,

@@ -2,6 +2,7 @@
 // contrato, gating por plan, orden fijo, reproductor con fallback. Sin
 // traducciones cargadas `.tr()` devuelve la clave. Correr:
 // flutter test test/features/news_feed
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -218,6 +219,98 @@ void main() {
     });
   });
 
+  group('NewsBundle searching and SEC', () {
+    test('searching bundle parses status, tickers and retry', () {
+      final b = NewsBundle.parse(bundleFixture('bundle_feed_searching'));
+      expect(b.mineStatus, NewsListStatus.searching);
+      expect(b.isSearching, isTrue);
+      expect(b.searching!.tickers, ['GGAL.BA']);
+      expect(b.searching!.retryAfter, const Duration(seconds: 10));
+    });
+
+    test('missing fields keep the old behavior', () {
+      final b = NewsBundle.parse(bundleFixture('bundle_feed_empty'));
+      expect(b.searching, isNull);
+      expect(b.isSearching, isFalse);
+      expect(
+        NewsSearching.tryParse({'tickers': 3})!.retryAfter,
+        NewsSearching.defaultRetryAfter,
+      );
+    });
+
+    test('SEC filing parses kind and form; press notes are not filings', () {
+      final b = NewsBundle.parse(bundleFixture('bundle_feed_sec'));
+      final sec = b.mine.firstWhere((a) => a.source == 'SEC');
+      expect(sec.isFiling, isTrue);
+      expect(sec.filingForm, '8-K');
+      expect(sec.imageUrl, isNull);
+      expect(b.mine.where((a) => a.isFiling), hasLength(1));
+    });
+  });
+
+  group('NewsScopeNotifier searching', () {
+    NewsBundle searching() =>
+        NewsBundle.parse(bundleFixture('bundle_feed_searching'));
+    NewsBundle done() => NewsBundle.parse(bundleFixture('bundle_feed_sec'));
+
+    test('asks the same scope every retry_after_s until a result', () {
+      fakeAsync((async) {
+        var calls = 0;
+        final n = NewsScopeNotifier(
+          () async => ++calls < 3 ? searching() : done(),
+        );
+        async.flushMicrotasks();
+        expect(calls, 1);
+        expect(n.state.searching, isTrue);
+        async.elapse(const Duration(seconds: 9));
+        expect(calls, 1);
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(calls, 2);
+        async.elapse(const Duration(seconds: 10));
+        async.flushMicrotasks();
+        expect(calls, 3);
+        expect(n.state.searching, isFalse);
+        async.elapse(const Duration(minutes: 5));
+        expect(calls, 3);
+        n.dispose();
+      });
+    });
+
+    test('stops after 4 retries and gives up', () {
+      fakeAsync((async) {
+        var calls = 0;
+        final n = NewsScopeNotifier(() async {
+          calls++;
+          return searching();
+        });
+        async.flushMicrotasks();
+        for (var i = 0; i < 8; i++) {
+          async.elapse(const Duration(seconds: 10));
+          async.flushMicrotasks();
+        }
+        expect(calls, 5);
+        expect(n.state.searchGaveUp, isTrue);
+        expect(n.state.searching, isFalse);
+        n.dispose();
+      });
+    });
+
+    test('dispose cancels the pending retry', () {
+      fakeAsync((async) {
+        var calls = 0;
+        final n = NewsScopeNotifier(() async {
+          calls++;
+          return searching();
+        });
+        async.flushMicrotasks();
+        n.dispose();
+        async.elapse(const Duration(minutes: 1));
+        expect(calls, 1);
+      });
+    });
+  });
+
   group('NewsScopeNotifier', () {
     test('disabled and failed map to phases', () async {
       Future<NewsScopeState> run(Object error) async {
@@ -348,6 +441,57 @@ void main() {
       expect(find.text('news_feed_empty_mine'), findsNothing);
       expect(find.text('retry'), findsOneWidget);
     });
+
+    testWidgets('searching shows Porty thinking and then gives up to empty', (
+      tester,
+    ) async {
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_searching'),
+      });
+      await _pump(tester, store, const NewsFeedScreen());
+      expect(find.text('news_feed_searching'), findsOneWidget);
+      expect(find.text('news_feed_empty_mine'), findsNothing);
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
+      }
+      expect(store.bundleCalls.where((c) => c == 'feed'), hasLength(5));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('news_feed_empty_mine'), findsOneWidget);
+      expect(find.text('news_feed_searching'), findsNothing);
+    });
+
+    testWidgets('leaving the screen stops asking', (tester) async {
+      final store = _ScopedStore({
+        'feed': bundleFixture('bundle_feed_searching'),
+      });
+      await _pump(tester, store, const NewsFeedScreen());
+      final before = store.bundleCalls.length;
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(minutes: 1));
+      expect(store.bundleCalls.length, before);
+    });
+
+    for (final brightness in Brightness.values) {
+      testWidgets('SEC note shows chip and Read on SEC in ${brightness.name}', (
+        tester,
+      ) async {
+        final store = _ScopedStore({'feed': bundleFixture('bundle_feed_sec')});
+        await _pump(
+          tester,
+          store,
+          const NewsFeedScreen(),
+          brightness: brightness,
+        );
+        expect(find.text('news_filing_chip_form'), findsOneWidget);
+        expect(find.byIcon(Icons.description_outlined), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp('news_feed_read_sec')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('mine empty (no news in 48 h) is not an error', (tester) async {
       final store = _ScopedStore({'feed': bundleFixture('bundle_feed_empty')});

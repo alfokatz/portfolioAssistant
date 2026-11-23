@@ -14,6 +14,8 @@ class NewsArticle {
     this.publishedAt,
     this.preferred = false,
     this.imageUrl,
+    this.sourceKind,
+    this.filingForm,
   });
 
   final String id;
@@ -30,6 +32,15 @@ class NewsArticle {
 
   /// Foto de la nota (`image_url`, https), si el servidor la trae.
   final String? imageUrl;
+
+  /// `filing` para los comunicados de la SEC; `null` en una nota de prensa.
+  final String? sourceKind;
+
+  /// Tipo de formulario de la SEC ("8-K"), solo en los `filing`.
+  final String? filingForm;
+
+  /// Comunicado oficial de la SEC: sin foto, con chip y "Leer en la SEC".
+  bool get isFiling => sourceKind == 'filing';
 
   static NewsArticle? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -50,6 +61,12 @@ class NewsArticle {
       publishedAt: DateTime.tryParse('${raw['published_at']}'),
       preferred: raw['preferred'] == true,
       imageUrl: parseImageUrl(raw['image_url']),
+      sourceKind:
+          raw['source_kind'] is String ? raw['source_kind'] as String : null,
+      filingForm: switch (raw['filing_form']) {
+        final String f when f.trim().isNotEmpty => f.trim(),
+        _ => null,
+      },
     );
   }
 }
@@ -212,14 +229,49 @@ class NewsVideo {
 enum NewsListStatus {
   ok,
   empty,
-  unavailable;
+  unavailable,
+
+  /// Lista vacía pero el servidor está buscando (ver [NewsSearching]).
+  searching;
 
   static NewsListStatus? parse(Object? raw) => switch (raw) {
     'ok' => NewsListStatus.ok,
     'empty' => NewsListStatus.empty,
     'unavailable' => NewsListStatus.unavailable,
+    'searching' => NewsListStatus.searching,
     _ => null,
   };
+}
+
+/// Búsqueda en curso del lado del servidor: la app vuelve a pedir el mismo
+/// scope cada [retryAfter], hasta [maxRetries] veces.
+class NewsSearching {
+  const NewsSearching({required this.tickers, required this.retryAfter});
+
+  static const maxRetries = 4;
+  static const defaultRetryAfter = Duration(seconds: 10);
+
+  final List<String> tickers;
+  final Duration retryAfter;
+
+  static NewsSearching? tryParse(Object? raw) {
+    if (raw is! Map) return null;
+    final tickers = raw['tickers'];
+    final after = raw['retry_after_s'];
+    return NewsSearching(
+      tickers:
+          tickers is List
+              ? tickers
+                  .whereType<String>()
+                  .where((t) => t.trim().isNotEmpty)
+                  .toList()
+              : const [],
+      retryAfter:
+          after is num && after.isFinite && after > 0
+              ? Duration(milliseconds: (after * 1000).round())
+              : defaultRetryAfter,
+    );
+  }
 }
 
 /// La respuesta de `daily-brief` para `feed`, `topic` y `market` (§3.5).
@@ -238,6 +290,7 @@ class NewsBundle {
     this.videos = const [],
     this.sources = const {},
     this.asOf,
+    this.searching,
   });
 
   static const empty = NewsBundle();
@@ -265,6 +318,9 @@ class NewsBundle {
   final List<NewsVideo> videos;
   final Map<String, BriefSource> sources;
   final DateTime? asOf;
+
+  /// Hay una búsqueda en curso (puede venir con [mine] no vacía).
+  final NewsSearching? searching;
 
   static NewsBundle parse(Map<String, Object?> body) {
     final plan = body['plan'];
@@ -302,6 +358,7 @@ class NewsBundle {
                 e.key as String: s,
       },
       asOf: DateTime.tryParse('${body['as_of']}'),
+      searching: NewsSearching.tryParse(body['searching']),
     );
   }
 
@@ -313,6 +370,10 @@ class NewsBundle {
     }
     return null;
   }
+
+  /// Porty está buscando noticias ahora mismo (y todavía no hay para mostrar).
+  bool get isSearching =>
+      searching != null || mineStatus == NewsListStatus.searching;
 
   bool get isLocked => lockedCount != null;
 }

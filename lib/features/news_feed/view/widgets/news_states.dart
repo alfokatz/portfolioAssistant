@@ -16,6 +16,7 @@ class NewsMessage extends StatelessWidget {
     this.failed = false,
     this.actionLabel,
     this.onAction,
+    this.mood,
   });
 
   final String messageKey;
@@ -23,6 +24,9 @@ class NewsMessage extends StatelessWidget {
   final bool failed;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Por defecto `concerned` si [failed] y `idle` si no.
+  final PortyAvatarState? mood;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +37,9 @@ class NewsMessage extends StatelessWidget {
         children: [
           PortySays(
             messageKey: messageKey,
-            mood: failed ? PortyAvatarState.concerned : PortyAvatarState.idle,
+            mood:
+                mood ??
+                (failed ? PortyAvatarState.concerned : PortyAvatarState.idle),
             message: Text(text, style: PortySays.style(context)),
           ),
           if (actionLabel != null) ...[

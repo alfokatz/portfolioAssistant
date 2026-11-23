@@ -272,6 +272,17 @@ class _FeedBuilder extends ConsumerWidget {
   }
 }
 
+/// "Estoy buscando noticias de NVDA…" (hasta 3 tickers; después "y otras").
+String _searchingText(NewsBundle bundle) {
+  final tickers = bundle.searching?.tickers ?? const <String>[];
+  if (tickers.isEmpty) return 'news_feed_searching_generic'.tr();
+  final shown = tickers.take(3).join(', ');
+  return (tickers.length > 3
+          ? 'news_feed_searching_more'
+          : 'news_feed_searching')
+      .tr(namedArgs: {'tickers': shown});
+}
+
 class _MineTab extends ConsumerWidget {
   const _MineTab({required this.canCompare});
   final bool canCompare;
@@ -280,6 +291,7 @@ class _MineTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final weights = ref.watch(newsHoldingWeightsProvider);
     final dayMoves = ref.watch(newsHoldingDayMovesProvider);
+    final searching = ref.watch(newsFeedProvider.select((s) => s.searching));
     return _FeedBuilder(
       builder: (context, bundle) {
         if (bundle.isLocked) {
@@ -294,6 +306,15 @@ class _MineTab extends ConsumerWidget {
           );
         }
         if (bundle.mine.isEmpty) {
+          // Búsqueda en curso: Porty lo dice y la app vuelve a preguntar sola.
+          // Si se agotaron los reintentos, cae al "empty" de siempre.
+          if (searching) {
+            return NewsMessage(
+              messageKey: 'mine_searching',
+              mood: PortyAvatarState.thinking,
+              text: _searchingText(bundle),
+            );
+          }
           // "No se pudo consultar" no es "no hubo noticias": Porty lo dice
           // con tono suave y deja reintentar.
           if (bundle.mineStatus == NewsListStatus.unavailable) {
@@ -335,6 +356,14 @@ class _MineTab extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _BriefEntry(),
+            if (searching) ...[
+              NewsPortyLine(
+                messageKey: 'mine_searching',
+                mood: PortyAvatarState.thinking,
+                text: _searchingText(bundle),
+              ),
+              const SizedBox(height: AppDimens.sp16),
+            ],
             NewsLeadCard(
               article: lead,
               why: newsWhyText(lead, weights),
