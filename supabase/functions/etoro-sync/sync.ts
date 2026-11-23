@@ -167,7 +167,22 @@ export async function runSync(ctx: SyncContext): Promise<SyncOutcome> {
     }
 
     const mapped = mapPortfolio(positions, history, instruments);
-    const manual = await store.manualOpenTickers(userId);
+    const open = await Promise.all(
+      mapped.open.map(async (r) => ({ ...r, id: await stableUuid(userId, "open", r.externalId) })),
+    );
+    // `openId`: el id que tuvo como abierta. Si el usuario había conservado
+    // lo importado como manual (desconectar o importación gratis) y esa
+    // posición se cerró mientras tanto, etoro_apply_sync borra la copia.
+    const closed = await Promise.all(
+      mapped.closed.map(async (r) => ({
+        ...r,
+        id: await stableUuid(userId, "closed", r.externalId),
+        openId: await stableUuid(userId, "open", r.externalId),
+      })),
+    );
+    // Las manuales que este sync reemplaza no cuentan como posibles duplicados.
+    const replaced = [...open.map((r) => r.id), ...closed.map((r) => r.openId)];
+    const manual = await store.manualOpenTickers(userId, replaced);
     const result: SyncResult = {
       imported: mapped.open.length,
       closedImported: mapped.closed.length,
@@ -181,12 +196,8 @@ export async function runSync(ctx: SyncContext): Promise<SyncOutcome> {
     };
 
     await store.applySync(userId, {
-      open: await Promise.all(
-        mapped.open.map(async (r) => ({ ...r, id: await stableUuid(userId, "open", r.externalId) })),
-      ),
-      closed: await Promise.all(
-        mapped.closed.map(async (r) => ({ ...r, id: await stableUuid(userId, "closed", r.externalId) })),
-      ),
+      open,
+      closed,
       result,
       historyUntil: isoDate(today),
     });
